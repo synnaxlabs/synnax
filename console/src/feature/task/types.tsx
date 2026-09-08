@@ -64,6 +64,5 @@ export const parseType = (type: string): string => {
       break;
     }
   if (!isFirstWordModified) words[0] = caseconv.capitalize(words[0]);
-  for (let i = 1; i < words.length; i++) words[i] = caseconv.capitalize(words[i]);
-  return `${words.join(" ")} Task`;
+  return `${words.join(" ")} task`;
 };

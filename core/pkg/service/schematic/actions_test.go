@@ -10,6 +10,8 @@
 package schematic_test
 
 import (
+	"strconv"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,6 +34,14 @@ func edge(key, srcNode, srcParam, tgtNode, tgtParam string) schematic.Edge {
 		Source: schematic.Handle{Node: srcNode, Param: srcParam},
 		Target: schematic.Handle{Node: tgtNode, Param: tgtParam},
 	}
+}
+
+// groupCfg constructs a groupBox config listing the given members.
+func groupCfg(members ...any) msgpack.EncodedJSON {
+	if members == nil {
+		members = []any{}
+	}
+	return msgpack.EncodedJSON{"variant": "groupBox", "members": members}
 }
 
 var _ = Describe("Reducer", func() {
@@ -219,6 +229,277 @@ var _ = Describe("Reducer", func() {
 			Expect(out.Nodes).To(Equal(state.Nodes))
 			Expect(out.Configs).To(Equal(state.Configs))
 		})
+	})
+
+	Describe("RemoveNode group member cascade", func() {
+		removeNode := func(state schematic.Schematic, key string) schematic.Schematic {
+			GinkgoHelper()
+			return MustSucceed(
+				schematic.Reduce(
+					state,
+					schematic.NewRemoveNodeAction(
+						schematic.RemoveNodePayload{Key: key},
+					),
+				),
+			)
+		}
+		DescribeTable("splicing",
+			func(
+				nodes []schematic.Node,
+				configs, expected map[string]msgpack.EncodedJSON,
+				key string,
+			) {
+				out := removeNode(
+					schematic.Schematic{Nodes: nodes, Configs: configs},
+					key,
+				)
+				Expect(out.Configs).To(Equal(expected))
+			},
+			Entry("splices the removed member from its group",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2")},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n2")},
+				"n1",
+			),
+			Entry(
+				"splices the key from every group that lists it",
+				[]schematic.Node{node("g1", 0, 0), node("g2", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{
+					"g1": groupCfg("n1", "a"),
+					"g2": groupCfg("b", "n1"),
+				},
+				map[string]msgpack.EncodedJSON{
+					"g1": groupCfg("a"),
+					"g2": groupCfg("b"),
+				},
+				"n1",
+			),
+			Entry("removes duplicate member entries",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2", "n1")},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n2")},
+				"n1",
+			),
+			Entry(
+				"splices a removed group out of the outer group listing it",
+				[]schematic.Node{
+					node("outer", 0, 0),
+					node("inner", 0, 0),
+					node("m1", 0, 0),
+				},
+				map[string]msgpack.EncodedJSON{
+					"outer": groupCfg("inner", "x"),
+					"inner": groupCfg("m1"),
+				},
+				map[string]msgpack.EncodedJSON{"outer": groupCfg("x")},
+				"inner",
+			),
+			Entry("leaves a former member's config untouched when its group is removed",
+				[]schematic.Node{node("g1", 0, 0), node("m1", 0, 0)},
+				map[string]msgpack.EncodedJSON{
+					"g1": groupCfg("m1"),
+					"m1": {"label": "Pump"},
+				},
+				map[string]msgpack.EncodedJSON{"m1": {"label": "Pump"}},
+				"g1",
+			),
+			Entry("only splices the direct group in a nested chain",
+				[]schematic.Node{
+					node("outer", 0, 0),
+					node("mid", 0, 0),
+					node("inner", 0, 0),
+					node("n1", 0, 0),
+				},
+				map[string]msgpack.EncodedJSON{
+					"outer": groupCfg("mid"),
+					"mid":   groupCfg("inner"),
+					"inner": groupCfg("n1", "n2"),
+				},
+				map[string]msgpack.EncodedJSON{
+					"outer": groupCfg("mid"),
+					"mid":   groupCfg("inner"),
+					"inner": groupCfg("n2"),
+				},
+				"n1",
+			),
+			Entry("preserves other group config fields",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{
+					"g1": {
+						"variant": "groupBox",
+						"members": []any{"n1", "n2"},
+						"locked":  true,
+					},
+				},
+				map[string]msgpack.EncodedJSON{
+					"g1": {
+						"variant": "groupBox",
+						"members": []any{"n2"},
+						"locked":  true,
+					},
+				},
+				"n1",
+			),
+			Entry("leaves groups untouched when the removed node is in no group",
+				[]schematic.Node{node("g1", 0, 0), node("loose", 5, 5)},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1")},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1")},
+				"loose",
+			),
+			Entry("ignores a non-group config with a members field",
+				[]schematic.Node{node("t1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{
+					"t1": {"variant": "table", "members": []any{"n1"}},
+				},
+				map[string]msgpack.EncodedJSON{
+					"t1": {"variant": "table", "members": []any{"n1"}},
+				},
+				"n1",
+			),
+			Entry("skips a group whose members is not an array",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{
+					"g1": {"variant": "groupBox", "members": "n1"},
+				},
+				map[string]msgpack.EncodedJSON{
+					"g1": {"variant": "groupBox", "members": "n1"},
+				},
+				"n1",
+			),
+			Entry("skips a config whose variant is not a string",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{
+					"g1": {"variant": 42, "members": []any{"n1"}},
+				},
+				map[string]msgpack.EncodedJSON{
+					"g1": {"variant": 42, "members": []any{"n1"}},
+				},
+				"n1",
+			),
+			Entry("preserves non-string member entries",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg(42, "n1", nil)},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg(42, nil)},
+				"n1",
+			),
+			Entry("leaves an empty members list untouched",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg()},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg()},
+				"n1",
+			),
+			Entry("does not cascade on a no-op removal, even for a listed key",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "ghost")},
+				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "ghost")},
+				"ghost",
+			),
+			Entry("drops a self-listing group's config with the node",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]msgpack.EncodedJSON{
+					"g1": groupCfg("g1", "n1"),
+					"n1": {"label": "Pump"},
+				},
+				map[string]msgpack.EncodedJSON{"n1": {"label": "Pump"}},
+				"g1",
+			),
+		)
+		It("Should not panic when the schematic has no configs", func() {
+			out := removeNode(
+				schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}},
+				"n1",
+			)
+			Expect(out.Nodes).To(BeEmpty())
+			Expect(out.Configs).To(BeEmpty())
+		})
+		It("Should splice a membership cycle when one side is removed", func() {
+			out := removeNode(schematic.Schematic{
+				Nodes: []schematic.Node{node("g1", 0, 0), node("g2", 0, 0)},
+				Configs: map[string]msgpack.EncodedJSON{
+					"g1": groupCfg("g2"),
+					"g2": groupCfg("g1"),
+				},
+			}, "g1")
+			Expect(out.Configs).To(
+				Equal(map[string]msgpack.EncodedJSON{"g2": groupCfg()}),
+			)
+		})
+		It("Should converge to the same configs regardless of removal order", func() {
+			build := func() schematic.Schematic {
+				return schematic.Schematic{
+					Nodes: []schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+					Configs: map[string]msgpack.EncodedJSON{
+						"g1": groupCfg("n1"),
+						"n1": {"label": "Pump"},
+					},
+				}
+			}
+			a := removeNode(removeNode(build(), "n1"), "g1")
+			b := removeNode(removeNode(build(), "g1"), "n1")
+			Expect(a.Configs).To(Equal(b.Configs))
+			Expect(a.Configs).To(BeEmpty())
+			Expect(a.Nodes).To(BeEmpty())
+			Expect(b.Nodes).To(BeEmpty())
+		})
+		It("Should splice the key from a large fan of groups", func() {
+			nodes := []schematic.Node{node("n1", 0, 0)}
+			configs := make(map[string]msgpack.EncodedJSON, 50)
+			expected := make(map[string]msgpack.EncodedJSON, 50)
+			for i := range 50 {
+				key := "g" + strconv.Itoa(i)
+				nodes = append(nodes, node(key, 0, 0))
+				configs[key] = groupCfg("n1", "other")
+				expected[key] = groupCfg("other")
+			}
+			out := removeNode(schematic.Schematic{Nodes: nodes, Configs: configs}, "n1")
+			Expect(out.Configs).To(Equal(expected))
+		})
+		It("Should let a members write that lands after the removal win", func() {
+			state := removeNode(schematic.Schematic{
+				Nodes: []schematic.Node{
+					node("g1", 0, 0),
+					node("n1", 0, 0),
+					node("n2", 0, 0),
+				},
+				Configs: map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2")},
+			}, "n1")
+			out := MustSucceed(
+				schematic.Reduce(
+					state,
+					schematic.NewSetConfigAction(schematic.SetConfigPayload{
+						Key:    "g1",
+						Config: msgpack.EncodedJSON{"members": []any{"n1", "n2", "n3"}},
+					}),
+				),
+			)
+			Expect(out.Configs["g1"]).To(Equal(groupCfg("n1", "n2", "n3")))
+		})
+		It(
+			"Should keep the splice when the removal lands after a members write",
+			func() {
+				state := schematic.Schematic{
+					Nodes: []schematic.Node{
+						node("g1", 0, 0),
+						node("n1", 0, 0),
+						node("n2", 0, 0),
+					},
+					Configs: map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2")},
+				}
+				withWrite := MustSucceed(
+					schematic.Reduce(
+						state,
+						schematic.NewSetConfigAction(schematic.SetConfigPayload{
+							Key: "g1",
+							Config: msgpack.EncodedJSON{
+								"members": []any{"n1", "n2", "n3"},
+							},
+						}),
+					),
+				)
+				out := removeNode(withWrite, "n1")
+				Expect(out.Configs["g1"]).To(Equal(groupCfg("n2", "n3")))
+			},
+		)
 	})
 
 	Describe("AddEdge", func() {

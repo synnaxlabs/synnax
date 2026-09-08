@@ -28,7 +28,7 @@ export const Select = ({ className, ...rest }: SelectNotationProps): ReactElemen
   <BaseSelect.Buttons
     {...rest}
     keys={notation.NOTATIONS}
-    className={CSS(className, CSS.B("notation-select"))}
+    className={CSS.cls(className, CSS.B("notation-select"))}
   >
     <BaseSelect.Button itemKey="standard" tooltip="Standard">
       <Icon.Decimal className={ICON_CLASS} />

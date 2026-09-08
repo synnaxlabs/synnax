@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, status, task } from "@synnaxlabs/client";
+import { group, ontology, rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
@@ -261,10 +261,10 @@ describe("queries", () => {
     });
 
     it("should update task status when a command is executed", async () => {
-      const rack = await client.racks.create({
+      const testRack = await client.racks.create({
         name: "testRack",
       });
-      const testTask = await rack.createTask({
+      const testTask = await testRack.createTask({
         name: "commandTask",
         type: "pagerduty_alert",
         config: {},
@@ -277,6 +277,19 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      // A rack with no Driver goes down within seconds of its creation, and a
+      // command on a down rack shows its warning rather than a wait for an answer.
+      await act(async () => {
+        await client.statuses.set(
+          status.create<typeof rack.statusDetailsZ>({
+            key: rack.statusKey(testRack.key),
+            variant: "success",
+            message: "Driver is running",
+            details: { rack: testRack.key },
+          }),
+        );
+      });
 
       const command: task.Command = {
         key: id.create(),
@@ -1248,6 +1261,68 @@ describe("queries", () => {
       });
       expect(result.current.form.get("status").touched).toBe(false);
       expect(result.current.form.get("name").touched).toBe(false);
+    });
+
+    it("should not write the status back to the core on save", async () => {
+      const testTask = await testRack.createTask({
+        name: "statusClobberTask",
+        type: "pagerduty_alert",
+        config: { routingKey: "initial" },
+      });
+      const stale = (
+        await client.tasks.retrieve({ key: testTask.key, includeStatus: true })
+      ).status;
+
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("pagerduty_alert"),
+          config: z.object({ routingKey: z.string() }),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          key: testTask.key,
+          rack: testRack.key,
+          name: "statusClobberTask",
+          type: "pagerduty_alert",
+          config: { routingKey: "initial" },
+          status: stale,
+        },
+      });
+
+      // No query means no listener, so the form keeps the status it started with,
+      // the way a live form does while a newer status is still in flight to it.
+      const { result } = renderHook(() => useForm({ query: null }), { wrapper });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const reported: task.Status = status.create<task.StatusDetailsZodObject>({
+        key: task.statusKey(testTask.key),
+        variant: "success",
+        message: "Task started successfully",
+        details: {
+          task: testTask.key,
+          running: true,
+          cmd: "",
+          configHash: "",
+          rack: testRack.key,
+        },
+      });
+      await client.statuses.set(reported);
+
+      act(() => {
+        result.current.form.set("config.routingKey", "edited");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const saved = await client.tasks.retrieve({
+        key: testTask.key,
+        includeStatus: true,
+      });
+      expect(saved.config).toMatchObject({ routingKey: "edited" });
+      expect(saved.status?.message).toEqual("Task started successfully");
+      expect(saved.status?.details.running).toBe(true);
     });
 
     it("should not mark form as touched when task metadata updates from server listener", async () => {

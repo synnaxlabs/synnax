@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Status } from "@synnaxlabs/pluto";
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -48,6 +48,9 @@ describe("version Updater", () => {
   beforeEach(() => {
     mocks.engine = "web";
     mocks.update = null;
+    checkMock.mockImplementation(
+      async () => mocks.update as Awaited<ReturnType<typeof check>>,
+    );
   });
 
   afterEach(() => {
@@ -92,6 +95,23 @@ describe("version Updater", () => {
       );
       await waitFor(() => expect(checkMock).toHaveBeenCalled());
       expect(result.current).toBe(false);
+    });
+
+    it("should keep checking on an interval after a check fails", async () => {
+      mocks.engine = "tauri";
+      checkMock.mockRejectedValue(new Error("offline"));
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.useFakeTimers();
+      try {
+        await renderHookWithConsole(() => Version.useCheckForUpdates());
+        await vi.waitFor(() => expect(checkMock).toHaveBeenCalled());
+        const afterFirst = checkMock.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(90).milliseconds);
+        expect(checkMock.mock.calls.length).toBeGreaterThan(afterFirst);
+      } finally {
+        vi.useRealTimers();
+        errorSpy.mockRestore();
+      }
     });
 
     it("should report an update available in tauri when one is found", async () => {

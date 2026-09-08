@@ -22,7 +22,11 @@ Note: Task Configuration Dialog is excluded as it requires hardware devices.
 
 import synnax as sy
 from console.case import ConsoleCase
+from console.log import Log
+from console.plot import Plot
+from console.schematic import Schematic
 from console.schematic.value import Value
+from console.table import Table
 from x import random_name
 
 
@@ -58,25 +62,25 @@ class RenameSynchronization(ConsoleCase):
         )
 
         self.log("Setting up Line Plot with channel")
-        plot = console.project.create_plot(f"Sync Test Plot {self.suffix}")
+        plot = console.pages.create(Plot, f"Sync Test Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting up Log with channel")
-        log_page = console.project.create_log(f"Sync Test Log {self.suffix}")
+        log_page = console.pages.create(Log, f"Sync Test Log {self.suffix}")
         self._cleanup_pages.append(log_page.page_name)
         log_page.set_channel(self.data_name)
 
         self.log("Setting up Schematic with channel")
-        schematic = console.project.create_schematic(
-            f"Sync Test Schematic {self.suffix}"
+        schematic = console.pages.create(
+            Schematic, f"Sync Test Schematic {self.suffix}"
         )
         self._cleanup_pages.append(schematic.page_name)
         value_symbol = Value(label=self.data_name, channel_name=self.data_name)
         schematic.create_symbol(value_symbol)
 
         self.log("Setting up Table with channel")
-        table = console.project.create_table(f"Sync Test Table {self.suffix}")
+        table = console.pages.create(Table, f"Sync Test Table {self.suffix}")
         self._cleanup_pages.append(table.page_name)
         table.set_cell_channel(self.data_name)
 

@@ -40,7 +40,7 @@ describe("update", () => {
       const { result } = renderHook(useUpdate, { wrapper });
       expect(result.current.variant).toEqual("success");
       expect(result.current.data).toEqual(undefined);
-      expect(result.current.status.message).toEqual("Successfully updated Resource");
+      expect(result.current.status.message).toEqual("Updated Resource");
     });
 
     it("should call update function when the user calls update", async () => {

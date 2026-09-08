@@ -15,26 +15,24 @@ import { Table } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A [channel](/reference/concepts/channels) is a collection of time-ordered data in
-Synnax. Channels are commonly used to store data from sources such as sensors, but can
-also be used to store data as disparate as actuator commands, post-processed analysis
-results, or any other time-ordered data. Normally, channels are directly written to by a
-client, but [calculated channels](/reference/console/calculated-channels) can also be
-used to generate data derived from other channels.
+A [channel](/reference/concepts/channels) is a collection of time-ordered data. Channels
+store sensor readings, actuator commands, post-processed results, logs, or any other
+time-ordered data.
+
+[Calculated channels](/reference/console/calculated-channels) are computed from other
+channels.
 
 <Divider.Divider x />
 
 ## Creating Channels
 
-You can create a channel using the "Create Channel" command in the Command Palette. To
-open the palette, click on the search bar at the top and type ">". You can also open the
-palette by pressing `Ctrl+Shift+P` (Windows) / `Cmd+Shift+P` (macOS).
+Create a channel from the [Channels Toolbar](/reference/console/ui-overview#channels),
+or with the "Create Channel" command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette).
 
-<Video client:only="react" id="console/channels/create" />
+<Video client:only="react" id="console/channels/create_new" />
 
 ### Channel Creation Parameters
-
-When creating a channel, you will be prompted to fill in the following fields:
 
 <table>
   <thead>
@@ -93,24 +91,26 @@ When creating a channel, you will be prompted to fill in the following fields:
 
 ### Index vs. Data Channels
 
-Index channels are used to store timestamps for data channels. When creating a data
-channel, it must be associated with an index channel. When a data channel records a data
-point, that index channel will then store the timestamp for that data point. The
-difference between the two types of channels is explained more in the
-[channel concepts page](/reference/concepts/channels).
+Index channels store timestamps for data channels. A stored channel in Synnax **must**
+be associated with an index channel, which records the timestamp for each data point.
+
+**Virtual** channels are the exception. They are used for live streaming only, are not
+persisted to the database, and cannot be plotted or queried by time range later.
+
+The [channel concepts page](/reference/concepts/channels) covers the differences in more
+detail.
 
 <Divider.Divider x />
 
 ## Aliasing Channels
 
 Channels can be [aliased](/reference/concepts/ranges#channel-aliases) under a particular
-range. This is useful for naming a channel to something specific for that range. For
-example, a channel might represent a port on a specific data acquisition computer and be
-called "digital_input_1". However, for a certain test, the channel is used to store
-pressure readings, so the name "pressure_01" is more appropriate. To alias a channel,
-open the Channels Toolbar and right-click on the channel you want to alias.
+range. This gives a readable name to hardware channels shared between campaigns or stand
+configurations. For example, `cdaq1_mod2_0` can be `nv_110` in one range and
+`nv_facility` in another.
+
+Example: `cdaq1_mod2_0` as `nv_110` or `nv_facility`
 
 <Video client:only="react" id="console/channels/alias" />
 
-Now, the alias will be shown when the active range matches the one the channel is
-aliased for, and the normal channel name will be shown otherwise.
+The alias is only shown while its range is active, and only in your own Console.

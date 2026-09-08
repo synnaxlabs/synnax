@@ -16,10 +16,12 @@ package testutil
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -64,4 +66,57 @@ func OpenOS() xfs.FS {
 		gomega.Expect(os.RemoveAll(dir)).To(gomega.Succeed())
 	})
 	return testutil.MustSucceed(xfs.Default.Sub(dir))
+}
+
+// CopyFS copies every file and directory in srcFS into destFS, recursing into
+// sub-directories.
+func CopyFS(srcFS, destFS xfs.FS) error {
+	items, err := srcFS.List("")
+	if err != nil {
+		return err
+	}
+
+	for _, item := range items {
+		if item.IsDir() {
+			// Create directory in destination.
+			subDestFS, err := destFS.Sub(item.Name())
+			if err != nil {
+				return err
+			}
+			subSrcFS, err := srcFS.Sub(item.Name())
+			if err != nil {
+				return err
+			}
+
+			if err := CopyFS(subSrcFS, subDestFS); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Copy file from source to destination.
+		srcFile, err := srcFS.Open(item.Name(), os.O_RDONLY)
+		if err != nil {
+			return err
+		}
+		destFile, err := destFS.Open(
+			item.Name(),
+			os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		)
+		if err != nil {
+			return errors.Combine(err, srcFile.Close())
+		}
+
+		if _, err := io.Copy(destFile, srcFile); err != nil {
+			return errors.Combine(err, errors.Join(srcFile.Close(), destFile.Close()))
+		}
+
+		if err := destFile.Sync(); err != nil {
+			return errors.Combine(err, errors.Join(srcFile.Close(), destFile.Close()))
+		}
+		if err := errors.Join(srcFile.Close(), destFile.Close()); err != nil {
+			return err
+		}
+	}
+	return nil
 }

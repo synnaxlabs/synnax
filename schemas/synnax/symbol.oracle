@@ -10,12 +10,11 @@
 import "schemas/x/color"
 import "schemas/x/spatial"
 
-@ts output "client/ts/src/schematic/symbol"
 @go output "core/pkg/service/schematic/symbol"
+@ts output "client/ts/src/schematic/symbol"
 
 Key = uuid {
-    @go version 2
-    @doc value  "is a unique identifier for a schematic symbol."
+    @doc value "is a unique identifier for a schematic symbol."
 }
 
 Region struct {
@@ -35,11 +34,11 @@ Region struct {
         @doc value "is an optional fill color override for the region."
     }
 
-    @go version 2
     @doc value  """
-        is a visual styling area within a symbol state, targeting specific SVG
-        elements for dynamic coloring.
+        is a visual styling area within a symbol state, targeting specific SVG elements
+        for dynamic coloring.
     """
+    @go marshal
 }
 
 State struct {
@@ -53,10 +52,10 @@ State struct {
         @doc value "contains style regions defining visual appearance for this state."
     }
 
-    @go version 2
     @doc value  """
         is a named visual state of a symbol with regional styling configurations.
     """
+    @go marshal
 }
 
 Handle struct {
@@ -70,23 +69,25 @@ Handle struct {
         @doc value "is the direction the handle faces (top, right, bottom, left)."
     }
 
-    @go version 2
     @doc value  """
         is a connection point on a symbol for linking to other diagram elements.
     """
+    @go marshal
 }
 
 Spec struct {
     svg              string            {
-        @validate min_length 1
         @doc value           "is the SVG markup defining the symbol's visual geometry."
+        @validate min_length 1
     }
     states           State[]           {
-        @doc value "contains available visual states with regional styling configurations."
+        @doc value """
+            contains available visual states with regional styling configurations.
+        """
     }
     variant          string            {
+        @doc value           "is the symbol variant: 'static' or 'actuator'."
         @validate min_length 1
-        @doc value           "is the symbol variant or category identifier (e.g., 'sensor', 'valve')."
     }
     handles          Handle[]          {
         @doc value "contains connection points for linking to other diagram elements."
@@ -94,40 +95,39 @@ Spec struct {
     scale            float64 = 1 {
         @doc value "is the symbol scale factor."
     }
-    scale_stroke     bool = false {
-        @doc value "indicates whether stroke width scales with the symbol size."
+    stroke_scaled    bool = false {
+        @doc value "is true when stroke width scales with the symbol size."
     }
     preview_viewport spatial.Viewport? {
         @doc value "is an optional viewport configuration for symbol preview rendering."
     }
 
-    @go version 2
     @doc value  """
         is the complete symbol definition including geometry, states, handles, and
         rendering properties.
     """
+    @go marshal
 }
 
 Symbol struct {
     key  Key = create {
-        @key
         @doc value "is the unique identifier for this symbol."
+        @key
     }
     name string {
-        @validate min_length 1
         @doc value           "is a human-readable name for the symbol."
+        @validate min_length 1
     }
     data Spec   {
         @doc value "is the complete symbol specification."
     }
 
+    @create
     @doc value     """
         is a persisted schematic symbol defining reusable visual components for
         diagrams.
     """
-    @ontology type "schematic_symbol"
-    @create
-    @go marshal
-    @go version    2
     @go imex
+    @go marshal
+    @ontology type "schematic_symbol"
 }

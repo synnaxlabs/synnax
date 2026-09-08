@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { Table as PTable } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,6 +14,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/session/table";
+import { createSliceStore, inWindow } from "@/session/window/testutil";
 
 const KEY = "table-1";
 
@@ -27,9 +27,11 @@ const customState = Table.stateZ.parse({
 });
 
 const storeWith = (slice: Table.SliceState) =>
-  configureStore({
-    reducer: { [Table.SLICE_NAME]: Table.reducer },
-    preloadedState: { [Table.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Table.SLICE_NAME,
+    reducer: Table.reducer,
+    preloadedState: slice,
+    middleware: Table.MIDDLEWARE,
   });
 
 const wrapperFor = (
@@ -46,7 +48,7 @@ const wrapperFor = (
 };
 
 const createCustomStore = () =>
-  storeWith({ version: 0, tables: { [KEY]: customState } });
+  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
 describe("table selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {
@@ -160,10 +162,10 @@ describe("table selector stability under dispatch", () => {
   it("should re-point the selector when its key dependency changes", () => {
     const s = storeWith({
       version: 0,
-      tables: {
+      windows: inWindow({
         [KEY]: customState,
         "table-2": Table.stateZ.parse({ selectedCells: ["z"] }),
-      },
+      }),
     });
     const { result, rerender } = renderHook(
       ({ key }: { key: string }) => Table.useSelectSelectedCellKeys({ key }),

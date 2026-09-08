@@ -35,7 +35,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 	case AIAccelChannel:
 		w.String("ai_accel")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
@@ -90,7 +89,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 		w.String(string(v.ShuntResistorLoc))
 		w.Float64(float64(v.ExtShuntResistorVal))
 	case AIForceBridgeTableChannel:
@@ -173,7 +171,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 		w.Float64(float64(v.MicSensitivity))
 		w.Float64(float64(v.MaxSndPressLevel))
 	case AIPressureBridgeTableChannel:
@@ -237,7 +234,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 	case AIRTDChannel:
 		w.String("ai_rtd")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
@@ -269,7 +265,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 		w.String(string(v.StrainConfig))
 		w.Float64(float64(v.GageFactor))
 		w.Float64(float64(v.InitialBridgeVoltage))
@@ -278,9 +273,11 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		w.Float64(float64(v.LeadWireResistance))
 	case AITempBuiltinChannel:
 		w.String("ai_temp_builtin")
-		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
-			return err
-		}
+		w.String(v.Key)
+		w.String(v.Name)
+		w.Bool(v.Disabled)
+		w.Uint32(uint32(v.Channel))
+		w.String(v.Device)
 		w.String(string(v.Units))
 	case AIThermocoupleChannel:
 		w.String("ai_thermocouple")
@@ -383,7 +380,7 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.Units))
 		w.String(string(v.SensitivityUnits))
-		w.Bool(v.UseExcitForScaling)
+		w.Bool(v.ScaledByExcitation)
 	case AIAccelChargeChannel:
 		w.String("ai_accel_charge")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
@@ -395,11 +392,13 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.Terminal.EncodeOrc(w); err != nil {
 			return err
 		}
+		if err := v.Sensitivity.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
 		w.String(string(v.Units))
-		w.Float64(float64(v.Sensitivity))
 		w.String(string(v.SensitivityUnits))
 	case AIChargeChannel:
 		w.String("ai_charge")
@@ -430,7 +429,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 		w.String(string(v.ShuntResistorLoc))
 		w.Float64(float64(v.ExtShuntResistorVal))
 	case AIForceBridgePolynomialChannel:
@@ -466,7 +464,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 		w.Float64(float64(v.ThresholdLevel))
 		w.Float64(float64(v.Hysteresis))
 	case AIPressureBridgePolynomialChannel:
@@ -564,7 +561,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 	case AIVoltageWithExcitChannel:
 		w.String("ai_voltage_with_excit")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
@@ -582,9 +578,8 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 		w.String(string(v.BridgeConfig))
-		w.Bool(v.UseExcitForScaling)
+		w.Bool(v.ScaledByExcitation)
 	default:
 		return errors.Newf("AIChannel: nil or unknown variant %T", aic.Variant)
 	}
@@ -611,13 +606,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
 		}
 		aic.Variant = v
 	case "ai_accel":
@@ -693,13 +681,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
 		}
 		{
 			rawV, err := r.String()
@@ -831,13 +812,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
-		}
 		if v.MicSensitivity, err = r.Float64(); err != nil {
 			return err
 		}
@@ -932,13 +906,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
-		}
 		aic.Variant = v
 	case "ai_rtd":
 		var v AIRTDChannel
@@ -991,13 +958,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			v.Units = Units(rawV)
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
 			v.StrainConfig = StrainConfig(rawV)
 		}
 		if v.GageFactor, err = r.Float64(); err != nil {
@@ -1018,7 +978,23 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		aic.Variant = v
 	case "ai_temp_builtin":
 		var v AITempBuiltinChannel
-		if err := v.BaseAIChannel.DecodeOrc(r); err != nil {
+		if v.Key, err = r.String(); err != nil {
+			return err
+		}
+		if v.Name, err = r.String(); err != nil {
+			return err
+		}
+		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.Uint32()
+			if err != nil {
+				return err
+			}
+			v.Channel = channel.Key(rawV)
+		}
+		if v.Device, err = r.String(); err != nil {
 			return err
 		}
 		{
@@ -1194,7 +1170,7 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.SensitivityUnits = AccelSensitivityUnits(rawV)
 		}
-		if v.UseExcitForScaling, err = r.Bool(); err != nil {
+		if v.ScaledByExcitation, err = r.Bool(); err != nil {
 			return err
 		}
 		aic.Variant = v
@@ -1209,6 +1185,9 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.Terminal.DecodeOrc(r); err != nil {
 			return err
 		}
+		if err := v.Sensitivity.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -1219,15 +1198,12 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.Units = AccelUnits(rawV)
 		}
-		if v.Sensitivity, err = r.Float64(); err != nil {
-			return err
-		}
 		{
 			rawV, err := r.String()
 			if err != nil {
 				return err
 			}
-			v.SensitivityUnits = AccelSensitivityUnits(rawV)
+			v.SensitivityUnits = AccelChargeSensitivityUnits(rawV)
 		}
 		aic.Variant = v
 	case "ai_charge":
@@ -1265,13 +1241,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
 		}
 		{
 			rawV, err := r.String()
@@ -1329,13 +1298,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
 		}
 		if v.ThresholdLevel, err = r.Float64(); err != nil {
 			return err
@@ -1493,13 +1455,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
-		}
 		aic.Variant = v
 	case "ai_voltage_with_excit":
 		var v AIVoltageWithExcitChannel
@@ -1523,16 +1478,9 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			v.Units = Units(rawV)
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
 			v.BridgeConfig = BridgeConfig(rawV)
 		}
-		if v.UseExcitForScaling, err = r.Bool(); err != nil {
+		if v.ScaledByExcitation, err = r.Bool(); err != nil {
 			return err
 		}
 		aic.Variant = v
@@ -1556,7 +1504,6 @@ func (aoc AOChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 	case AOFuncGenChannel:
 		w.String("ao_func_gen")
 		if err := v.BaseAOChannel.EncodeOrc(w); err != nil {
@@ -1577,7 +1524,6 @@ func (aoc AOChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(string(v.Units))
 	default:
 		return errors.Newf("AOChannel: nil or unknown variant %T", aoc.Variant)
 	}
@@ -1601,13 +1547,6 @@ func (aoc *AOChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
 		}
 		aoc.Variant = v
 	case "ao_func_gen":
@@ -1642,13 +1581,6 @@ func (aoc *AOChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
 		}
 		aoc.Variant = v
 	default:
@@ -2012,8 +1944,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.Edge))
 		w.String(string(v.MeasMethod))
@@ -2037,8 +1970,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.StartingEdge))
 		w.String(string(v.MeasMethod))
@@ -2053,8 +1987,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.StartingEdge))
 		w.String(v.Terminal)
@@ -2066,8 +2001,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(v.Terminal)
 	case CITwoEdgeSepChannel:
@@ -2078,8 +2014,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.FirstEdge))
 		w.String(string(v.SecondEdge))
@@ -2093,8 +2030,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.DecodingType))
 		w.Float64(float64(v.DistPerPulse))
@@ -2108,8 +2046,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.Units))
 		w.String(string(v.DecodingType))
 		w.Float64(float64(v.PulsesPerRev))
@@ -2157,8 +2096,9 @@ func (cic CIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.CustomScale.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Float64(float64(v.MinVal))
-		w.Float64(float64(v.MaxVal))
+		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
+			return err
+		}
 		w.String(string(v.ActiveEdge))
 		w.String(v.Terminal)
 	default:
@@ -2182,10 +2122,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2253,10 +2190,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2298,10 +2232,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2330,10 +2261,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2355,10 +2283,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2397,10 +2322,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2435,10 +2357,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -2549,10 +2468,7 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.CustomScale.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.MinVal, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.MaxVal, err = r.Float64(); err != nil {
+		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
 			return err
 		}
 		{
@@ -3449,7 +3365,7 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (zi ZIndex) EncodeOrc(w *orc.Writer) error {
-	w.Bool(zi.ZIndexEnable)
+	w.Bool(zi.ZIndexEnabled)
 	w.Float64(float64(zi.ZIndexVal))
 	w.String(string(zi.ZIndexPhase))
 	w.String(zi.TerminalZ)
@@ -3459,7 +3375,7 @@ func (zi ZIndex) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (zi *ZIndex) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if zi.ZIndexEnable, err = r.Bool(); err != nil {
+	if zi.ZIndexEnabled, err = r.Bool(); err != nil {
 		return err
 	}
 	if zi.ZIndexVal, err = r.Float64(); err != nil {

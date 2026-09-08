@@ -31,7 +31,6 @@ on:
       - pnpm-workspace.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - turbo.json
       - x/go/**
       - x/ts/**
@@ -59,14 +58,19 @@ on:
       - pnpm-workspace.yaml
       - pyproject.toml
       - uv.lock
-      - uv.toml
       - turbo.json
       - x/go/**
       - x/ts/**
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   changes:
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Changes
     runs-on: ubuntu-latest
     outputs:
@@ -97,7 +101,6 @@ jobs:
               - freighter/py/**
               - pyproject.toml
               - uv.lock
-              - uv.toml
             ts:
               - *server
               - .github/actions/test-typescript/**

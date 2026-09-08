@@ -17,13 +17,11 @@ import (
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for an Arc module.
 type Key = v0.Key
-
-// Status is the status of an Arc module including execution state.
-type Status = status.Status[StatusDetails]
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode = v0.Mode
@@ -32,6 +30,12 @@ const (
 	ModeText  Mode = v0.ModeText
 	ModeGraph Mode = v0.ModeGraph
 )
+
+// StatusDetails contains Arc-specific status details for execution state.
+type StatusDetails = v0.StatusDetails
+
+// Status is the status of an Arc module including execution state.
+type Status = status.Status[StatusDetails]
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
@@ -53,5 +57,10 @@ type Arc struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = v0.StatusDetails
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
+	return v.Error()
+}

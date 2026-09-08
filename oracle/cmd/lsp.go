@@ -23,6 +23,8 @@ func newLSPCmd() *cobra.Command {
 			return lsp.New().Serve(cmd.Context(), xos.StdIO)
 		},
 	}
+	// LSP clients conventionally launch servers with --stdio; accept and
+	// discard it so cobra does not reject the flag.
 	cmd.Flags().Bool("stdio", true, "")
 	_ = cmd.Flags().MarkHidden("stdio")
 	return cmd

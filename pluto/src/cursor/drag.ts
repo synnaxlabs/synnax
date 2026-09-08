@@ -32,6 +32,13 @@ export interface UseDragProps {
   onMove?: (box: box.Box, mouseKey: Triggers.Key, e: PointerEvent) => void;
   /** Called once when the drag ends (pointer up or cancel). Not called for a click. */
   onEnd?: (box: box.Box, mouseKey: Triggers.Key, e: PointerEvent) => void;
+  /**
+   * Cancels the press's default action. WebKit otherwise anchors a text selection on
+   * the press and extends it across whatever the pointer passes over. Only for an
+   * element with nothing focusable inside it: the cancelled default also places the
+   * caret and moves focus.
+   */
+  preventDefault?: boolean;
 }
 
 export type UseDragStart = (e: ReactPointerEvent) => void;
@@ -44,14 +51,19 @@ const DRAG_THRESHOLD = 4;
  * drag. The gesture activates only after the pointer moves past {@link DRAG_THRESHOLD},
  * so a stationary press stays a click. Once active, the pointer is captured to the
  * element so moves and the terminating up/cancel are delivered even outside its bounds.
- *
  * Add {@link DRAG_CLASS} to the element so touch gestures and text selection don't
  * pre-empt the drag.
  */
-export const useDrag = ({ onMove, onStart, onEnd }: UseDragProps): UseDragStart =>
+export const useDrag = ({
+  onMove,
+  onStart,
+  onEnd,
+  preventDefault = false,
+}: UseDragProps): UseDragStart =>
   useCallback(
     (e) => {
       if (e.button !== 0 || e.isPrimary === false) return;
+      if (preventDefault) e.preventDefault();
       const el = e.currentTarget as HTMLElement;
       const { pointerId } = e;
       const start = xy.construct(e);
@@ -103,5 +115,5 @@ export const useDrag = ({ onMove, onStart, onEnd }: UseDragProps): UseDragStart 
       window.addEventListener("pointerup", handleEnd);
       window.addEventListener("pointercancel", handleEnd);
     },
-    [onMove, onStart, onEnd],
+    [onMove, onStart, onEnd, preventDefault],
   );

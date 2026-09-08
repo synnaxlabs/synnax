@@ -24,22 +24,22 @@ import (
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
 type Retrieve[D any] struct {
 	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[string, Status[D]]
+	gorp       gorp.Retrieve[Key, Status[D]]
 	search     *search.Index
 	label      *label.Service
 	searchTerm string
 }
 
-// Filter is a per-service filter that is bound to the Retrieve when passed to
-// Where. Pure filters ignore the Retrieve argument; service-bound filters read
-// from it (e.g. r.label) to evaluate. Use Match to construct one from a closure.
-type Filter[D any] func(r Retrieve[D]) gorp.Filter[string, Status[D]]
+// Filter is a per-service filter that is bound to the Retrieve when passed to Where.
+// Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
+// r.label) to evaluate. Use Match to construct one from a closure.
+type Filter[D any] func(r Retrieve[D]) gorp.Filter[Key, Status[D]]
 
 // Match wraps a closure that needs the Retrieve into a Filter.
 func Match[D any](
-	f func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error),
+	f func(gorp.Context, Retrieve[D], *Status[D]) (bool, error),
 ) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 			return f(ctx, r, s)
 		})
@@ -48,8 +48,8 @@ func Match[D any](
 
 // And returns a filter that matches when all provided filters match.
 func And[D any](fs ...Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
-		inner := make([]gorp.Filter[string, Status[D]], len(fs))
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
 		for i, f := range fs {
 			inner[i] = f(r)
 		}
@@ -59,8 +59,8 @@ func And[D any](fs ...Filter[D]) Filter[D] {
 
 // Or returns a filter that matches when any provided filter matches.
 func Or[D any](fs ...Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
-		inner := make([]gorp.Filter[string, Status[D]], len(fs))
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
 		for i, f := range fs {
 			inner[i] = f(r)
 		}
@@ -70,7 +70,7 @@ func Or[D any](fs ...Filter[D]) Filter[D] {
 
 // Not returns a filter that inverts the provided filter.
 func Not[D any](f Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[string, Status[D]] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.Not(f(r))
 	}
 }
@@ -113,16 +113,16 @@ func (r Retrieve[D]) Where(filter Filter[D]) Retrieve[D] {
 
 // MatchKeys returns a filter that restricts results to statuses whose key
 // matches any of the provided values.
-func MatchKeys[D any](keys ...string) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
-		return gorp.MatchKeys[string, Status[D]](keys...)
+func MatchKeys[D any](keys ...Key) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		return gorp.MatchKeys[Key, Status[D]](keys...)
 	}
 }
 
 // MatchKeyPrefix returns a filter for statuses whose key starts with the provided
 // prefix.
-func MatchKeyPrefix[D any](prefix string) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+func MatchKeyPrefix[D any](prefix Key) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 			return strings.HasPrefix(s.Key, prefix), nil
 		})
@@ -132,7 +132,7 @@ func MatchKeyPrefix[D any](prefix string) Filter[D] {
 // MatchNames returns a filter for statuses whose name matches any of the provided
 // values.
 func MatchNames[D any](names ...string) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 			return slices.Contains(names, s.Name), nil
 		})
@@ -141,7 +141,7 @@ func MatchNames[D any](names ...string) Filter[D] {
 
 // MatchVariants returns a filter for statuses with the given variants.
 func MatchVariants[D any](variants ...Variant) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 			return slices.Contains(variants, s.Variant), nil
 		})

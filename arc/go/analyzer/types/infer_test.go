@@ -198,8 +198,8 @@ var _ = Describe("Type Inference", func() {
 				types.KindString,
 				types.KindInvalid,
 			),
-			Entry("boolean true", "true", types.KindU8, types.KindInvalid),
-			Entry("boolean false", "false", types.KindU8, types.KindInvalid),
+			Entry("boolean true", "true", types.KindBool, types.KindInvalid),
+			Entry("boolean false", "false", types.KindBool, types.KindInvalid),
 		)
 
 		DescribeTable(
@@ -222,12 +222,29 @@ var _ = Describe("Type Inference", func() {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
 			},
-			Entry("greater than", "temp_sensor > 100", types.KindU8),
-			Entry("less than", "pressure < 50", types.KindU8),
-			Entry("equality", "temp_sensor == 0", types.KindU8),
-			Entry("inequality", "pressure != 0", types.KindU8),
-			Entry("logical and", "temp_sensor > 100 and pressure < 50", types.KindU8),
-			Entry("logical or", "temp_sensor > 100 or pressure < 50", types.KindU8),
+			Entry("greater than", "temp_sensor > 100", types.KindBool),
+			Entry("less than", "pressure < 50", types.KindBool),
+			Entry("equality", "temp_sensor == 0", types.KindBool),
+			Entry("inequality", "pressure != 0", types.KindBool),
+			Entry("logical and", "temp_sensor > 100 and pressure < 50", types.KindBool),
+			Entry("logical or", "temp_sensor > 100 or pressure < 50", types.KindBool),
+			Entry("logical not", "not (temp_sensor > 100)", types.KindBool),
+		)
+
+		DescribeTable("series-producing logical and unary expressions",
+			func(bCtx SpecContext, expr string, expectedElem types.Kind) {
+				t := inferExprType(bCtx, testResolver, expr)
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(expectedElem))
+			},
+			Entry("series and series",
+				"data_series > 100 and data_series < 200", types.KindBool),
+			Entry("series or series",
+				"data_series > 100 or data_series < 200", types.KindBool),
+			Entry("series and scalar", "(data_series > 100) and true", types.KindBool),
+			Entry("not series", "not (data_series > 100)", types.KindBool),
+			Entry("negate series", "-data_series", types.KindI64),
 		)
 
 		DescribeTable(
@@ -916,6 +933,9 @@ var _ = Describe("Type Inference", func() {
 
 			// String type
 			Entry("str", "x str := \"\"", types.KindString),
+
+			// Bool type
+			Entry("bool", "x bool := true", types.KindBool),
 		)
 
 		DescribeTable("composite types",
@@ -1016,4 +1036,27 @@ var _ = Describe("Type Inference", func() {
 			},
 		)
 	})
+})
+
+var _ = Describe("Series operand inference", func() {
+	seriesResolver := []symbol.Symbol{
+		{Name: "s", Kind: symbol.KindVariable, Type: types.Series(types.I64())},
+		{Name: "x", Kind: symbol.KindVariable, Type: types.String()},
+	}
+
+	DescribeTable("should propagate series operands through operator inference",
+		func(bCtx SpecContext, expr string, expected types.Type) {
+			Expect(inferExprType(bCtx, seriesResolver, expr)).To(Equal(expected))
+		},
+		Entry(
+			"series equality yields a bool series",
+			"s == 1",
+			types.Series(types.Bool()),
+		),
+		Entry(
+			"series inequality yields a bool series",
+			"s != 1",
+			types.Series(types.Bool()),
+		),
+	)
 })

@@ -25,7 +25,7 @@ const renderAxesTab = async () => {
     preloadedState: (key) => createPreloadedState(key),
   });
   fireEvent.click(await screen.findByText("Axes"));
-  await screen.findByText("Lower Bound");
+  await screen.findByText("Lower bound");
   return handle;
 };
 
@@ -50,7 +50,7 @@ describe("lineplot/toolbar/Axes", () => {
 
   it("marks the lower bound as manual when edited", async () => {
     const { key } = await renderAxesTab();
-    const input = getLabeledInput("Lower Bound");
+    const input = getLabeledInput("Lower bound");
     fireEvent.change(input, { target: { value: "-5" } });
     fireEvent.blur(input);
     await waitFor(async () => {
@@ -62,14 +62,14 @@ describe("lineplot/toolbar/Axes", () => {
 
   it("re-enables auto bounding when the auto button is clicked", async () => {
     const { key } = await renderAxesTab();
-    const input = getLabeledInput("Lower Bound");
+    const input = getLabeledInput("Lower bound");
     fireEvent.change(input, { target: { value: "-5" } });
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.manualBounds.lower).toBe(true);
     });
-    const autoButton = getIconButton(getInputItem("Lower Bound"), "auto");
+    const autoButton = getIconButton(getInputItem("Lower bound"), "auto");
     await waitFor(() => expect(autoButton.disabled).toBe(false));
     fireEvent.click(autoButton);
     await waitFor(async () => {
@@ -80,7 +80,7 @@ describe("lineplot/toolbar/Axes", () => {
 
   it("persists a tick spacing change to the server", async () => {
     const { key } = await renderAxesTab();
-    const input = getLabeledInput("Tick Spacing");
+    const input = getLabeledInput("Tick spacing");
     fireEvent.change(input, { target: { value: "100" } });
     fireEvent.blur(input);
     await waitFor(async () => {
@@ -91,7 +91,7 @@ describe("lineplot/toolbar/Axes", () => {
 
   it("marks the upper bound as manual when edited", async () => {
     const { key } = await renderAxesTab();
-    const input = getLabeledInput("Upper Bound");
+    const input = getLabeledInput("Upper bound");
     fireEvent.change(input, { target: { value: "50" } });
     fireEvent.blur(input);
     await waitFor(async () => {
@@ -112,8 +112,8 @@ describe("lineplot/toolbar/Axes", () => {
 
   it("shows the label direction control only for y axes", async () => {
     await renderAxesTab();
-    expect(screen.queryByText("Label Direction")).toBeNull();
+    expect(screen.queryByText("Label direction")).toBeNull();
     fireEvent.click(screen.getByText("Y1"));
-    expect(await screen.findByText("Label Direction")).toBeDefined();
+    expect(await screen.findByText("Label direction")).toBeDefined();
   });
 });

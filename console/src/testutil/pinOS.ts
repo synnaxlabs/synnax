@@ -16,18 +16,13 @@ const USER_AGENTS: Record<runtime.OS, string> = {
 };
 
 /**
- * pinOS pins navigator.userAgent so runtime.getOS() reports the given OS regardless
- * of the host platform.
- *
- * getOS caches its result on the first call and pluto modules call it while they
- * evaluate, so the pin must land before the spec's imports execute. A static import
- * of this file cannot guarantee that, which is why this module is not re-exported
- * from the @/testutil barrel. Call it from a vi.hoisted block via dynamic import:
- *
- *   vi.hoisted(async () => {
- *     const { pinOS } = await import("@/testutil/pinOS");
- *     pinOS("macOS");
- *   });
+ * pinOS pins navigator.userAgent so runtime.getOS() reports the given OS regardless of
+ * the host platform. getOS caches its result on the first call and pluto modules call
+ * it while they evaluate, so the pin must land before the spec's imports execute. A
+ * static import of this file cannot guarantee that, which is why this module is not
+ * re-exported from the @/testutil barrel. Call it from a vi.hoisted block via dynamic
+ * import: vi.hoisted(async () => { const { pinOS } = await import("@/testutil/pinOS");
+ * pinOS("macOS"); });
  */
 export const pinOS = (os: runtime.OS): void => {
   Object.defineProperty(window.navigator, "userAgent", {

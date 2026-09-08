@@ -11,56 +11,15 @@ package ir
 
 import "github.com/samber/lo"
 
-// Predicate constructors for edge queries.
-func sourceEquals(handle Handle) func(Edge) bool {
-	return func(e Edge) bool { return e.Source == handle }
-}
-
-func targetEquals(handle Handle) func(Edge) bool {
-	return func(e Edge) bool { return e.Target == handle }
-}
-
-func targetNodeEquals(nodeKey string) func(Edge, int) bool {
-	return func(e Edge, _ int) bool { return e.Target.Node == nodeKey }
-}
-
-func sourceNodeEquals(nodeKey string) func(Edge, int) bool {
-	return func(e Edge, _ int) bool { return e.Source.Node == nodeKey }
-}
-
-// GetBySource returns the edge with the given source handle. Panics if not found.
-func (e Edges) GetBySource(handle Handle) Edge { return e.get(sourceEquals(handle)) }
-
-// GetByTarget returns the edge with the given target handle. Panics if not found.
-func (e Edges) GetByTarget(handle Handle) Edge { return e.get(targetEquals(handle)) }
-
-func (e Edges) find(f func(Edge) bool) (Edge, bool) { return lo.Find(e, f) }
-
-func (e Edges) get(f func(Edge) bool) Edge { return lo.Must(e.find(f)) }
-
-func (e Edges) filter(f func(e Edge, _ int) bool) []Edge { return lo.Filter(e, f) }
-
-// FindBySource searches for an edge with the given source handle.
-func (e Edges) FindBySource(handle Handle) (Edge, bool) {
-	return e.find(sourceEquals(handle))
-}
-
 // FindByTarget searches for an edge with the given target handle.
 func (e Edges) FindByTarget(handle Handle) (Edge, bool) {
-	return e.find(targetEquals(handle))
+	return lo.Find(e, func(edge Edge) bool { return edge.Target == handle })
 }
 
 // GetInputs returns all edges targeting the given node.
 func (e Edges) GetInputs(nodeKey string) []Edge {
-	return e.filter(targetNodeEquals(nodeKey))
-}
-
-// GetOutputs returns all edges sourced from the given node.
-func (e Edges) GetOutputs(nodeKey string) []Edge {
-	return e.filter(sourceNodeEquals(nodeKey))
-}
-
-// GetByKind returns all edges with the specified kind.
-func (e Edges) GetByKind(kind EdgeKind) Edges {
-	return lo.Filter(e, func(edge Edge, _ int) bool { return edge.Kind == kind })
+	return lo.Filter(
+		e,
+		func(edge Edge, _ int) bool { return edge.Target.Node == nodeKey },
+	)
 }

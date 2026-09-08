@@ -83,24 +83,24 @@ class RangesVerify(ConsoleCase):
 
     def test_range_in_explorer(self) -> None:
         self.log("Testing: Ranges visible in console explorer")
-        self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(PARENT_NAME), (
+        self.console.ranges.explorer.open()
+        assert self.console.ranges.explorer.exists(PARENT_NAME), (
             f"Parent '{PARENT_NAME}' not found in explorer"
         )
         for name, _, _ in CHILDREN:
-            assert self.console.ranges.exists_in_explorer(name), (
+            assert self.console.ranges.explorer.exists(name), (
                 f"Child '{name}' not found in explorer"
             )
 
     def test_range_overview(self) -> None:
         self.log("Testing: Range overview shows metadata and children")
-        self.console.ranges.open_explorer()
-        self.console.ranges.open_overview_from_explorer(CHILDREN[0][0])
-        self.console.ranges.wait_for_overview(CHILDREN[0][0])
-        self.console.ranges.navigate_to_parent(PARENT_NAME)
-        self.console.ranges.wait_for_overview(PARENT_NAME)
+        self.console.ranges.explorer.open()
+        self.console.ranges.overview.open(CHILDREN[0][0])
+        self.console.ranges.overview.wait_for(CHILDREN[0][0])
+        self.console.ranges.overview.navigate_to_parent(PARENT_NAME)
+        self.console.ranges.overview.wait_for(PARENT_NAME)
 
         for name, _, _ in CHILDREN:
-            assert self.console.ranges.child_range_exists(name), (
+            assert self.console.ranges.overview.child_range_exists(name), (
                 f"Child '{name}' not visible in overview"
             )

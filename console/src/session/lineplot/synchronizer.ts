@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, remove, type StoreState } from "@/session/lineplot/slice";
+import {
+  type Action,
+  remove,
+  SLICE_NAME,
+  type StoreState,
+} from "@/session/lineplot/slice";
 import { Synchronizer } from "@/session/synchronizer";
+import { Window } from "@/session/window";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
   Synchronizer.createRemover<StoreState, Action>({
     name: "remove deleted line plots",
     domain: (client) => client.lineplots,
-    selectKeys: (state: StoreState) => Object.keys(state.line.plots),
+    selectKeys: (state: StoreState) => Window.documentKeys(state[SLICE_NAME]),
     remove: (keys) => remove({ keys }),
   }),
 ];

@@ -25,19 +25,26 @@ import {
   type ParamAnalysisResult,
 } from "@/util/retrieve";
 
+/** One or many channels, named by key or by name. */
 export type PrimitiveParams = Key | Name | Key[] | Name[];
 
+/** Zod schema for {@link Params}, resolving every form to a key array. */
 export const paramsZ = z.union([
   zod.toArray(keyZ),
   zod.toArray(nameZ),
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
+/** Anything that names one or many channels. */
 export type Params = PrimitiveParams | Payload | Payload[];
 
 const CHAR_REGEX = /[a-zA-Z0-9_]/;
 
 const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
+/**
+ * Rewrites a channel name into a valid identifier, replacing every other character with
+ * an underscore and prefixing a leading digit.
+ */
 export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
   if (name === "") return changeEmptyToUnderscore ? "_" : "";
   if (name.match(VALID_NAME_PATTERN)) return name;
@@ -51,8 +58,13 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   return result;
 };
 
+/** @returns the key of the status that reports on the given channel. */
 export const statusKey = (channel: Key): string => idToString(ontologyID(channel));
 
+/**
+ * Resolves channel params into a normalized array, reporting whether the caller named
+ * one channel or many, and whether by key or by name.
+ */
 export const analyzeParams = (
   channels: Params,
 ): ParamAnalysisResult<Key | Name, { number: "keys"; string: "names" }> => {

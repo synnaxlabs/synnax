@@ -39,11 +39,9 @@ func bigGraphArc(nodes int) arc.Arc {
 		g.Inputs[key] = msgpack.EncodedJSON{"type": "on", "channel": i}
 		if i > 0 {
 			g.Edges = append(g.Edges, graph.Edge{
-				Key: fmt.Sprintf("e%d", i),
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: fmt.Sprintf("node_%d", i-1), Param: "out"},
-					Target: ir.Handle{Node: key, Param: "in"},
-				},
+				Key:    fmt.Sprintf("e%d", i),
+				Source: ir.Handle{Node: fmt.Sprintf("node_%d", i-1), Param: "out"},
+				Target: ir.Handle{Node: key, Param: "in"},
 			})
 		}
 	}

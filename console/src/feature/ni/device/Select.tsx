@@ -24,7 +24,7 @@ export const Select = (props: SelectProps) => {
     <Device.Select
       {...props}
       onConfigure={(deviceKey) => configure({ deviceKey })}
-      emptyContent="No NI devices connected."
+      emptyContent="No NI devices connected"
       make={MAKE}
       icon={<Icon.Logo.NI />}
     />

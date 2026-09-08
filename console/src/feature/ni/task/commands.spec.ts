@@ -27,11 +27,11 @@ describe("NI.Task Commands", () => {
     });
     await openCommandPalette("NI");
     for (const name of [
-      "Create an NI Analog Read Task",
-      "Create an NI Analog Write Task",
-      "Create an NI Counter Read Task",
-      "Create an NI Digital Write Task",
-      "Create an NI Digital Read Task",
+      "Create NI analog read task",
+      "Create NI analog write task",
+      "Create NI counter read task",
+      "Create NI digital write task",
+      "Create NI digital read task",
     ])
       await waitFor(() => expect(document.body.textContent).toContain(name));
   });
@@ -47,7 +47,7 @@ describe("NI.Task Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Analog Read");
-    await selectCommand("Create an NI Analog Read Task");
+    await selectCommand("Create NI analog read task");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);

@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Log } from "@/platform/log";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
@@ -96,8 +97,8 @@ describe("log useCreate", () => {
       });
       await waitFor(() =>
         expect(
-          Session.Log.selectSliceState(harness.store.getState()).logs,
-        ).toHaveProperty(key),
+          documentIn(Session.Log.selectSliceState(harness.store.getState()), key),
+        ).toBeDefined(),
       );
     });
 

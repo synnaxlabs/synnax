@@ -16,7 +16,7 @@ import {
   ontology,
   project,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -24,6 +24,7 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/feature/channel";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
+import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
 import {
   findTreeRow,
@@ -32,6 +33,7 @@ import {
 } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
+  assertDefined,
   awaitTextEditingElement,
   commitTextEdit,
   resolveFocusedTab,
@@ -39,6 +41,7 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = Channel.TREE_ITEMS.channel;
 
@@ -114,7 +117,7 @@ describe("channel/ontology", () => {
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.type).toBe("lineplot");
       const plot = await client.lineplots.retrieve(tab.resource.key);
-      expect(plot.name).toBe("Line Plot");
+      expect(plot.name).toBe("Line plot");
       expect(plot.channels.y1).toContain(ch.key);
     });
 
@@ -216,6 +219,29 @@ describe("channel/ontology", () => {
       });
     });
 
+    it("renames the real channel name while an alias is shown", async () => {
+      const ch = await createChannel();
+      const root = await createChannelGroup(ch);
+      const rng = await createTestRange(client);
+      const { store } = await renderChannelTree(root);
+      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+      const alias = uniqueName("alias");
+      await client.ranges.setAlias(rng.key, ch.key, alias);
+      await screen.findByText(alias);
+      await openTreeRowContextMenu(alias);
+      fireEvent.click(await screen.findByText("Rename"));
+      // The row shows the alias, but the edit targets the channel's real name.
+      const editor = await awaitTextEditingElement();
+      expect(editor.innerText).toBe(ch.name);
+      const renamed = uniqueName("renamed");
+      commitTextEdit(editor, renamed);
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(ch.key)).name).toBe(renamed),
+      );
+      // The alias comes back once the edit closes.
+      expect(await screen.findByText(alias)).toBeTruthy();
+    });
+
     it("sets and removes an alias under the active range", async () => {
       const ch = await createChannel();
       const root = await createChannelGroup(ch);
@@ -250,5 +276,44 @@ describe("channel/ontology", () => {
       fireEvent.click(await screen.findByText("Edit calculation"));
       expect(await screen.findByDisplayValue(calc.name)).toBeTruthy();
     });
+
+    it("withholds rename and aliasing from an internal channel", async () => {
+      const ch = await createChannel();
+      const rng = await createTestRange(client);
+      assertDefined(Item.ContextMenu);
+      const { store } = await renderTreeContextMenu(Item.ContextMenu, {
+        client,
+        resources: [
+          createResource(channelClient.ontologyID(ch.key), ch.name, {
+            ...ch.payload,
+            internal: true,
+          }),
+        ],
+      });
+      store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+      // Delete shares the update permission the rename item needs, so its presence
+      // proves the gate resolved before the absences below are read.
+      expect(await screen.findByText("Delete")).toBeTruthy();
+      expect(screen.queryByText("Rename")).toBeNull();
+      expect(screen.queryByText(/Set alias under/)).toBeNull();
+    });
+  });
+});
+
+describe("permission to write the channel", () => {
+  it("should withhold rename, grouping, aliasing, and delete from a viewer", async () => {
+    const ch = await createChannel();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [
+        createResource(channelClient.ontologyID(ch.key), ch.name, { ...ch.payload }),
+      ],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Group selection")).toBeNull();
+    expect(screen.queryByText("Set Alias")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

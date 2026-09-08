@@ -41,7 +41,7 @@
       "patterns": [
         {
           "name": "keyword.control.oracle",
-          "match": "\\b(struct|field|domain|enum|import)\\b"
+          "match": "\\b(struct|enum|union|import|extends|map|action)\\b"
         }
       ]
     },

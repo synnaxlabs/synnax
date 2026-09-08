@@ -11,6 +11,7 @@ import { arc, query } from "@synnaxlabs/client";
 import { Arc, Icon } from "@synnaxlabs/pluto";
 
 import { Editor } from "@/feature/arc/editor/Editor";
+import { Toolbar } from "@/feature/arc/editor/toolbar/Toolbar";
 import { Panel } from "@/platform/panel";
 
 export * from "@/feature/arc/editor/Editor";
@@ -18,6 +19,7 @@ export * from "@/feature/arc/editor/toolbar/Toolbar";
 
 const TAB: Panel.Tab = {
   Content: Editor,
+  Toolbar,
   Icon: Icon.Arc,
   Name: Panel.createEditableTabName(Arc, <Icon.Arc />),
   restore: async ({ client, resource }) => {

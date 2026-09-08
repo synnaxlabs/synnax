@@ -18,9 +18,9 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testdata"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )

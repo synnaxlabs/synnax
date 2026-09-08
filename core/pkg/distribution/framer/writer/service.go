@@ -193,12 +193,12 @@ func (c Config) toStorage() ts.WriterConfig {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	validate.NotEmptySlice(v, "keys", c.Keys)
-	validate.NotEmptyString(v, "control_subject.key", c.ControlSubject.Key)
-	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
-	validate.NotNil(v, "sync", c.Sync)
-	validate.NotNil(v, "err_on_unauthorized", c.ErrOnUnauthorized)
-	validate.NotNil(v, "auto_index", c.AutoIndex)
+	v.NotEmptySlice("keys", c.Keys)
+	v.NotEmptyString("control_subject.key", c.ControlSubject.Key)
+	v.NotNil("enable_auto_commit", c.EnableAutoCommit)
+	v.NotNil("sync", c.Sync)
+	v.NotNil("err_on_unauthorized", c.ErrOnUnauthorized)
+	v.NotNil("auto_index", c.AutoIndex)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -268,10 +268,10 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	validate.NotNil(v, "transport", cfg.Transport)
-	validate.NotNil(v, "free_writes", cfg.FreeWrites)
-	validate.NotNil(v, "host_resolver", cfg.HostResolver)
-	validate.NotNil(v, "ts", cfg.TS)
+	v.NotNil("transport", cfg.Transport)
+	v.NotNil("free_writes", cfg.FreeWrites)
+	v.NotNil("host_resolver", cfg.HostResolver)
+	v.NotNil("ts", cfg.TS)
 	return v.Error()
 }
 
@@ -415,15 +415,11 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		}
 	}
 
-	plumber.SetSegment(pipe, sequencerAddr, &sequencer{})
-	plumber.SetSegment(
-		pipe,
-		synchronizerAddr,
-		newSynchronizer(
-			len(batch.Peers)+lo.Ternary(hasGateway, 1, 0)+lo.Ternary(hasFree, 1, 0),
-			s.cfg.Instrumentation,
-		),
-	)
+	pipe.SetSegment(sequencerAddr, &sequencer{})
+	pipe.SetSegment(synchronizerAddr, newSynchronizer(
+		len(batch.Peers)+lo.Ternary(hasGateway, 1, 0)+lo.Ternary(hasFree, 1, 0),
+		s.cfg.Instrumentation,
+	))
 
 	switchTargets := make([]address.Address, 0, 3)
 	var peerSenders map[address.Address]freighter.StreamSenderCloser[Request]
@@ -439,10 +435,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			return nil, err
 		}
 		peerSenders = senders
-		plumber.SetSink(pipe, peerSenderAddr, sender)
+		pipe.SetSink(peerSenderAddr, sender)
 		receiverAddresses = _receiverAddresses
 		for i, receiver := range receivers {
-			plumber.SetSource(pipe, _receiverAddresses[i], receiver)
+			pipe.SetSource(_receiverAddresses[i], receiver)
 		}
 	}
 
@@ -455,7 +451,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 			// their channels; close them so that control is released.
 			return nil, s.closePeerClients(peerSenders, err)
 		}
-		plumber.SetSegment(pipe, gatewayWriterAddr, w)
+		pipe.SetSegment(gatewayWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
@@ -463,14 +459,13 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		routeSequencerTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
 		w := s.newFree(cfg.Mode, *cfg.Sync, freeIndexes, cfg.ControlSubject.Group)
-		plumber.SetSegment(pipe, freeWriterAddr, w)
+		pipe.SetSegment(freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
 
 	if len(switchTargets) > 1 {
 		routeSequencerTo = peerGatewaySwitchAddr
-		plumber.SetSegment(
-			pipe,
+		pipe.SetSegment(
 			peerGatewaySwitchAddr,
 			newPeerGatewayFreeSwitch(hostKey, hasPeer, hasGateway, hasFree),
 		)
@@ -482,7 +477,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		}.MustRoute(pipe)
 	}
 
-	plumber.MustConnect[Request](pipe, sequencerAddr, routeSequencerTo, 30)
+	pipe.MustConnect[Request](sequencerAddr, routeSequencerTo, 30)
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,

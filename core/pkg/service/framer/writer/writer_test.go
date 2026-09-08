@@ -39,7 +39,7 @@ var _ = Describe("Writer", func() {
 	) (channel.Channel, channel.Channel) {
 		idxCh := channel.Channel{
 			Name:     UniqueChannelName(),
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 			IsIndex:  true,
 		}
 		Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
@@ -234,7 +234,7 @@ var _ = Describe("Writer", func() {
 				idxCh := channel.Channel{
 					Name:        UniqueChannelName(),
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				}

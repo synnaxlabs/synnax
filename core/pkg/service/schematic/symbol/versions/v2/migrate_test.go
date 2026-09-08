@@ -87,7 +87,7 @@ var _ = Describe("Migration", func() {
 			Expect(got.Data.SVG).To(Equal("<svg>x</svg>"))
 			Expect(got.Data.Variant).To(Equal("valve"))
 			Expect(got.Data.Scale).To(Equal(2.0))
-			Expect(got.Data.ScaleStroke).To(BeTrue())
+			Expect(got.Data.StrokeScaled).To(BeTrue())
 			Expect(got.Data.States).To(HaveLen(1))
 			Expect(got.Data.States[0].Key).To(Equal("on"))
 			Expect(got.Data.States[0].Regions).To(HaveLen(1))
@@ -140,7 +140,7 @@ var _ = Describe("SpecFromConsole", func() {
 		Expect(out.SVG).To(Equal("<svg/>"))
 		Expect(out.Variant).To(Equal("valve"))
 		Expect(out.Scale).To(Equal(2.0))
-		Expect(out.ScaleStroke).To(BeTrue())
+		Expect(out.StrokeScaled).To(BeTrue())
 		Expect(out.PreviewViewport).To(HaveValue(Equal(spatial.Viewport{Zoom: 3})))
 		Expect(out.States).To(Equal([]v2.State{{
 			Key:  "base",

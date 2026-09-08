@@ -60,6 +60,31 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(props(t.Cells["c1"])).To(HaveKeyWithValue("fooBar", 3.0))
 	})
 
+	// The fixtures below are tables a shipped Console exported.
+	It("Should lift a Console export whose rows sit at the top level", func(
+		ctx SpecContext,
+	) {
+		t := decode(ctx, "testdata/import_console_v0_dataless.json")
+		Expect(t.Rows).ToNot(BeEmpty())
+		Expect(t.Columns).ToNot(BeEmpty())
+	})
+
+	It("Should lift a Console export whose state sits under data", func(
+		ctx SpecContext,
+	) {
+		// The Console briefly wrote the whole table state twice: once at the top
+		// level and once nested under `data`. The top level wins.
+		t := decode(ctx, "testdata/import_console_v0_data.json")
+		Expect(t.Rows).To(HaveLen(1))
+		Expect(t.Rows[0].Size).To(Equal(36.0))
+		Expect(t.Rows[0].Cells).To(Equal([]string{
+			"C0sVTFh81T3", "QghGMReXEch", "qp8JeDfJs10",
+		}))
+		Expect(t.Columns).To(HaveLen(3))
+		Expect(t.Cells).To(HaveLen(3))
+		Expect(t.Cells["C0sVTFh81T3"].Variant).To(Equal("text"))
+	})
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v1.json").Key).To(Equal(uuid.Nil))
 	})

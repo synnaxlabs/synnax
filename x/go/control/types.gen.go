@@ -34,8 +34,8 @@ type Subject struct {
 	Key string `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the subject.
 	Name string `json:"name" msgpack:"name"`
-	// Group optional identifier shared by subjects from the same logical group (e.g.)
-	// all writers from the same Driver rack.
+	// Group is an optional identifier shared by subjects from the same logical group
+	// (e.g., all writers from the same Driver rack).
 	Group uint32 `json:"group" msgpack:"group"`
 }
 
@@ -51,9 +51,7 @@ type State[R any] struct {
 }
 
 // Transfer represents a transfer of control over a resource. It is represented as a
-// transition from one state to another over the same resource. A transfer between
-// resources that are different will result in a panic when any transfer methods are
-// called.
+// transition from one state to another over the same resource.
 //
 // If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
 // resource is uncontrolled after the transfer.
@@ -61,9 +59,9 @@ type State[R any] struct {
 // If both From and To are nil, no transfer occurred. If both From and To are not nil,
 // and From.Subject != To.Subject, a transfer occurred.
 type Transfer[R comparable] struct {
-	// From the previous authority holder. Null on initial acquire.
+	// From is the previous authority holder. Null on initial acquire.
 	From *State[R] `json:"from,omitempty" msgpack:"from,omitempty"`
-	// To the new authority holder. Null on release.
+	// To is the new authority holder. Null on release.
 	To *State[R] `json:"to,omitempty" msgpack:"to,omitempty"`
 }
 

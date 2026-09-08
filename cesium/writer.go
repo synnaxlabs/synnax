@@ -65,7 +65,8 @@ func (w *Writer) Commit() (telem.TimeStamp, error) {
 	return res.End, err
 }
 
-// SetAuthority is synchronous
+// SetAuthority is synchronous. Naming a data channel also moves its written index to
+// the max across that index's data channels, unless the index is named explicitly.
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
 	_, err := w.exec(
 		WriterRequest{Config: cfg, Command: WriterCommandSetAuthority},

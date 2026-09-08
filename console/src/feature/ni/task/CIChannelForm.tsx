@@ -15,20 +15,82 @@ import { PortField } from "@/feature/ni/device/PortField";
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
 import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
+import { selectData } from "@/feature/ni/task/selectData";
 import {
+  type CIAngularPositionUnits,
   type CIAngularVelocityUnits,
   type CIChannelType,
   type CICountDirection,
   type CIDecodingType,
   type CIEdge,
   type CIFreqUnits,
+  type CILinearPositionUnits,
   type CILinearVelocityUnits,
   type CIMeasMethod,
   type CIPeriodUnits,
   type CIPulseWidthUnits,
   type CISemiPeriodUnits,
+  type CITimeUnits,
   type CITwoEdgeSepUnits,
 } from "@/feature/ni/task/types";
+
+const CI_FREQ_UNITS_NAMES = {
+  Hz: "Hz",
+  Ticks: "Ticks",
+} as const satisfies Record<CIFreqUnits, string>;
+
+const CI_TIME_UNITS_NAMES = {
+  Seconds: "Seconds",
+  Ticks: "Ticks",
+} as const satisfies Record<CITimeUnits, string>;
+
+const CI_EDGE_NAMES = {
+  Rising: "Rising",
+  Falling: "Falling",
+} as const satisfies Record<CIEdge, string>;
+
+const CI_COUNT_DIRECTION_NAMES = {
+  CountUp: "Count up",
+  CountDown: "Count down",
+  ExternallyControlled: "Externally controlled",
+} as const satisfies Record<CICountDirection, string>;
+
+const CI_MEAS_METHOD_NAMES = {
+  LowFreq1Ctr: "One counter (low frequency)",
+  HighFreq2Ctr: "Two counters (high frequency)",
+  LargeRng2Ctr: "Two counters (large range)",
+  DynamicAvg: "Dynamic averaging",
+} as const satisfies Record<CIMeasMethod, string>;
+
+const CI_DECODING_TYPE_NAMES = {
+  X1: "X1",
+  X2: "X2",
+  X4: "X4",
+  TwoPulse: "Two pulse",
+} as const satisfies Record<CIDecodingType, string>;
+
+const CI_LINEAR_VELOCITY_UNITS_NAMES = {
+  "m/s": "m/s",
+  "in/s": "in/s",
+} as const satisfies Record<CILinearVelocityUnits, string>;
+
+const CI_ANGULAR_VELOCITY_UNITS_NAMES = {
+  RPM: "RPM",
+  "Radians/s": "Radians/s",
+  "Degrees/s": "Degrees/s",
+} as const satisfies Record<CIAngularVelocityUnits, string>;
+
+const CI_LINEAR_POSITION_UNITS_NAMES = {
+  Meters: "Meters",
+  Inches: "Inches",
+  Ticks: "Ticks",
+} as const satisfies Record<CILinearPositionUnits, string>;
+
+const CI_ANGULAR_POSITION_UNITS_NAMES = {
+  Degrees: "Degrees",
+  Radians: "Radians",
+  Ticks: "Ticks",
+} as const satisfies Record<CIAngularPositionUnits, string>;
 
 interface FormProps {
   prefix: string;
@@ -38,11 +100,8 @@ const UnitsField = Form.buildSelectField<CIFreqUnits, record.KeyedNamed<CIFreqUn
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
-    data: [
-      { key: "Hz", name: "Hz" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    resourceName: "units",
+    data: selectData(CI_FREQ_UNITS_NAMES),
   },
 });
 
@@ -53,11 +112,8 @@ const PeriodUnitsField = Form.buildSelectField<
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    resourceName: "units",
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -66,13 +122,10 @@ const PulseWidthUnitsField = Form.buildSelectField<
   record.KeyedNamed<CIPulseWidthUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    resourceName: "scaled units",
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -81,13 +134,10 @@ const SemiPeriodUnitsField = Form.buildSelectField<
   record.KeyedNamed<CISemiPeriodUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    resourceName: "scaled units",
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
@@ -96,49 +146,37 @@ const TwoEdgeSepUnitsField = Form.buildSelectField<
   record.KeyedNamed<CITwoEdgeSepUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
-    data: [
-      { key: "Seconds", name: "Seconds" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    resourceName: "scaled units",
+    data: selectData(CI_TIME_UNITS_NAMES),
   },
 });
 
 const EdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldKey: "edge",
-  fieldProps: { label: "Starting Edge" },
+  fieldProps: { label: "Starting edge" },
   inputProps: {
-    resourceName: "Starting Edge",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    resourceName: "starting edge",
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
 const StartingEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldKey: "startingEdge",
-  fieldProps: { label: "Starting Edge" },
+  fieldProps: { label: "Starting edge" },
   inputProps: {
-    resourceName: "Starting Edge",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    resourceName: "starting edge",
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
 const ActiveEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>({
   fieldKey: "activeEdge",
-  fieldProps: { label: "Active Edge" },
+  fieldProps: { label: "Active edge" },
   inputProps: {
-    resourceName: "Active Edge",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    resourceName: "active edge",
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
@@ -147,20 +185,16 @@ const CountDirectionField = Form.buildSelectField<
   record.KeyedNamed<CICountDirection>
 >({
   fieldKey: "countDirection",
-  fieldProps: { label: "Count Direction" },
+  fieldProps: { label: "Count direction" },
   inputProps: {
-    resourceName: "Count Direction",
-    data: [
-      { key: "CountUp", name: "Count Up" },
-      { key: "CountDown", name: "Count Down" },
-      { key: "ExternallyControlled", name: "Externally Controlled" },
-    ],
+    resourceName: "count direction",
+    data: selectData(CI_COUNT_DIRECTION_NAMES),
   },
 });
 
 const InitialCountField = Form.buildNumericField({
   fieldKey: "initialCount",
-  fieldProps: { label: "Initial Count" },
+  fieldProps: { label: "Initial count" },
   inputProps: {},
 });
 
@@ -169,21 +203,16 @@ const MeasMethodField = Form.buildSelectField<
   record.KeyedNamed<CIMeasMethod>
 >({
   fieldKey: "measMethod",
-  fieldProps: { label: "Measurement Method" },
+  fieldProps: { label: "Measurement method" },
   inputProps: {
-    resourceName: "Measurement Method",
-    data: [
-      { key: "LowFreq1Ctr", name: "One Counter (Low Frequency)" },
-      { key: "HighFreq2Ctr", name: "Two Counters (High Frequency)" },
-      { key: "LargeRng2Ctr", name: "Two Counters (Large Range)" },
-      { key: "DynamicAvg", name: "Dynamic Averaging" },
-    ],
+    resourceName: "measurement method",
+    data: selectData(CI_MEAS_METHOD_NAMES),
   },
 });
 
 const MeasTimeField = Form.buildNumericField({
   fieldKey: "measTime",
-  fieldProps: { label: "Measurement Time (s)" },
+  fieldProps: { label: "Measurement time (s)" },
   inputProps: {},
 });
 
@@ -214,9 +243,9 @@ const COUNTER_TERMINALS = [
 
 const TerminalField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminal",
-  fieldProps: { label: "Input Terminal" },
+  fieldProps: { label: "Input terminal" },
   inputProps: {
-    resourceName: "Input Terminal",
+    resourceName: "input terminal",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -226,11 +255,8 @@ const FirstEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>(
   fieldKey: "firstEdge",
   fieldProps: { label: "Edge 1" },
   inputProps: {
-    resourceName: "Edge 1",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
+    resourceName: "edge 1",
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
@@ -238,39 +264,16 @@ const SecondEdgeField = Form.buildSelectField<CIEdge, record.KeyedNamed<CIEdge>>
   fieldKey: "secondEdge",
   fieldProps: { label: "Edge 2" },
   inputProps: {
-    resourceName: "Edge 2",
-    data: [
-      { key: "Rising", name: "Rising" },
-      { key: "Falling", name: "Falling" },
-    ],
-  },
-});
-
-const _FirstTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
-  fieldKey: "firstTerminal",
-  fieldProps: { label: "First Terminal" },
-  inputProps: {
-    resourceName: "First Terminal",
-    allowNone: true,
-    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
-  },
-});
-
-const _SecondTerminalField = Form.buildSelectField<string, record.KeyedNamed>({
-  fieldKey: "secondTerminal",
-  fieldProps: { label: "Second Terminal" },
-  inputProps: {
-    resourceName: "Second Terminal",
-    allowNone: true,
-    data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
+    resourceName: "edge 2",
+    data: selectData(CI_EDGE_NAMES),
   },
 });
 
 const TerminalAField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalA",
-  fieldProps: { label: "Input Terminal A" },
+  fieldProps: { label: "Input terminal A" },
   inputProps: {
-    resourceName: "Input Terminal A",
+    resourceName: "input terminal A",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -278,9 +281,9 @@ const TerminalAField = Form.buildSelectField<string, record.KeyedNamed>({
 
 const TerminalBField = Form.buildSelectField<string, record.KeyedNamed>({
   fieldKey: "terminalB",
-  fieldProps: { label: "Input Terminal B" },
+  fieldProps: { label: "Input terminal B" },
   inputProps: {
-    resourceName: "Input Terminal B",
+    resourceName: "input terminal B",
     allowNone: true,
     data: COUNTER_TERMINALS.map((t) => ({ key: t, name: t })),
   },
@@ -291,15 +294,10 @@ const DecodingTypeField = Form.buildSelectField<
   record.KeyedNamed<CIDecodingType>
 >({
   fieldKey: "decodingType",
-  fieldProps: { label: "Decoding Type" },
+  fieldProps: { label: "Decoding type" },
   inputProps: {
-    resourceName: "Decoding Type",
-    data: [
-      { key: "X1", name: "X1" },
-      { key: "X2", name: "X2" },
-      { key: "X4", name: "X4" },
-      { key: "TwoPulse", name: "Two Pulse" },
-    ],
+    resourceName: "decoding type",
+    data: selectData(CI_DECODING_TYPE_NAMES),
   },
 });
 
@@ -308,13 +306,10 @@ const LinearVelocityUnitsField = Form.buildSelectField<
   record.KeyedNamed<CILinearVelocityUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
-    data: [
-      { key: "m/s", name: "m/s" },
-      { key: "in/s", name: "in/s" },
-    ],
+    resourceName: "scaled units",
+    data: selectData(CI_LINEAR_VELOCITY_UNITS_NAMES),
   },
 });
 
@@ -323,14 +318,10 @@ const AngularVelocityUnitsField = Form.buildSelectField<
   record.KeyedNamed<CIAngularVelocityUnits>
 >({
   fieldKey: "units",
-  fieldProps: { label: "Scaled Units" },
+  fieldProps: { label: "Scaled units" },
   inputProps: {
-    resourceName: "Scaled Units",
-    data: [
-      { key: "RPM", name: "RPM" },
-      { key: "Radians/s", name: "Radians/s" },
-      { key: "Degrees/s", name: "Degrees/s" },
-    ],
+    resourceName: "scaled units",
+    data: selectData(CI_ANGULAR_VELOCITY_UNITS_NAMES),
   },
 });
 
@@ -348,18 +339,18 @@ const PulsesPerRevField = Form.buildNumericField({
 
 const InitialPosField = Form.buildNumericField({
   fieldKey: "initialPos",
-  fieldProps: { label: "Initial Position" },
+  fieldProps: { label: "Initial position" },
   inputProps: {},
 });
 
 const InitialAngleField = Form.buildNumericField({
   fieldKey: "initialAngle",
-  fieldProps: { label: "Initial Angle" },
+  fieldProps: { label: "Initial angle" },
   inputProps: {},
 });
 
-const ZIndexEnableField: FC<{ path: string; grow?: boolean }> = ({ path }) => (
-  <Form.SwitchField path={`${path}.zIndexEnable`} label="Z Index Enable" />
+const ZIndexEnabledField: FC<{ path: string; grow?: boolean }> = ({ path }) => (
+  <Form.SwitchField path={`${path}.zIndexEnabled`} label="Z index enable" />
 );
 
 const ZIndexValField: FC<{ path: string; grow?: boolean; disabled?: boolean }> = ({
@@ -378,17 +369,18 @@ const ZIndexPhaseField: FC<{ path: string; grow?: boolean; disabled?: boolean }>
   disabled,
 }) => (
   <Form.Field<string> path={`${path}.zIndexPhase`} label="Phase">
-    {({ value, onChange }) => (
+    {({ value, onChange, preview }) => (
       <Select.Static
         value={value}
         onChange={(v: string) => onChange(v)}
+        preview={preview}
         disabled={disabled}
-        resourceName="Phase"
+        resourceName="phase"
         data={[
-          { key: "AHighBHigh", name: "A High B High" },
-          { key: "AHighBLow", name: "A High B Low" },
-          { key: "ALowBHigh", name: "A Low B High" },
-          { key: "ALowBLow", name: "A Low B Low" },
+          { key: "AHighBHigh", name: "A high B high" },
+          { key: "AHighBLow", name: "A high B low" },
+          { key: "ALowBHigh", name: "A low B high" },
+          { key: "ALowBLow", name: "A low B low" },
         ]}
       />
     )}
@@ -399,14 +391,15 @@ const TerminalZField: FC<{ path: string; grow?: boolean; disabled?: boolean }> =
   path,
   disabled,
 }) => (
-  <Form.Field<string> path={`${path}.terminalZ`} label="Input Terminal Z">
-    {({ value, onChange }) => (
+  <Form.Field<string> path={`${path}.terminalZ`} label="Input terminal Z">
+    {({ value, onChange, preview }) => (
       <Select.Static
         value={value}
         onChange={(v: string | null) => onChange(v ?? "")}
+        preview={preview}
         allowNone
         disabled={disabled}
-        resourceName="Input Terminal Z"
+        resourceName="input terminal Z"
         data={COUNTER_TERMINALS.map((t) => ({ key: t, name: t }))}
       />
     )}
@@ -414,34 +407,26 @@ const TerminalZField: FC<{ path: string; grow?: boolean; disabled?: boolean }> =
 );
 
 const LinearPositionUnitsField = Form.buildSelectField<
-  string,
-  record.KeyedNamed<string>
+  CILinearPositionUnits,
+  record.KeyedNamed<CILinearPositionUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
-    data: [
-      { key: "Meters", name: "Meters" },
-      { key: "Inches", name: "Inches" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    resourceName: "units",
+    data: selectData(CI_LINEAR_POSITION_UNITS_NAMES),
   },
 });
 
 const AngularPositionUnitsField = Form.buildSelectField<
-  string,
-  record.KeyedNamed<string>
+  CIAngularPositionUnits,
+  record.KeyedNamed<CIAngularPositionUnits>
 >({
   fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
-    resourceName: "Units",
-    data: [
-      { key: "Degrees", name: "Degrees" },
-      { key: "Radians", name: "Radians" },
-      { key: "Ticks", name: "Ticks" },
-    ],
+    resourceName: "units",
+    data: selectData(CI_ANGULAR_POSITION_UNITS_NAMES),
   },
 });
 
@@ -456,10 +441,10 @@ const useMeasMethodVisibility = (prefix: string) => {
 };
 
 const useZIndexFieldsDisabled = (prefix: string) => {
-  const zIndexEnable = Form.useFieldValue<boolean>(`${prefix}.zIndexEnable`, {
+  const zIndexEnabled = Form.useFieldValue<boolean>(`${prefix}.zIndexEnabled`, {
     optional: true,
   });
-  return !zIndexEnable;
+  return !zIndexEnabled;
 };
 
 const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
@@ -626,7 +611,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
         </Flex.Box>
         <Divider.Divider x padded="bottom" />
         <Flex.Box x>
-          <ZIndexEnableField path={prefix} grow />
+          <ZIndexEnabledField path={prefix} grow />
           <ZIndexValField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <ZIndexPhaseField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <TerminalZField path={prefix} grow disabled={zIndexFieldsDisabled} />
@@ -653,7 +638,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
         </Flex.Box>
         <Divider.Divider x padded="bottom" />
         <Flex.Box x>
-          <ZIndexEnableField path={prefix} grow />
+          <ZIndexEnabledField path={prefix} grow />
           <ZIndexValField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <ZIndexPhaseField path={prefix} grow disabled={zIndexFieldsDisabled} />
           <TerminalZField path={prefix} grow disabled={zIndexFieldsDisabled} />

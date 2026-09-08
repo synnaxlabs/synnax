@@ -10,9 +10,15 @@
 package v0
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
+
+// Version is the portable schema version of the Panel shape this package defines. A
+// panel has no single-resource file form, so it is hand-written rather than generated
+// from a @go imex marker.
+const Version imex.Version = 0
 
 var _ gorp.Entry[Key] = Panel{}
 

@@ -203,7 +203,6 @@ export class Text {
     }
   }
 
-  // findRun returns the run containing id and the character's offset within it.
   private findRun(id: ID): [Element, number] | null {
     const runs = this.index.get(id.replica);
     if (runs == null) return null;
@@ -221,7 +220,6 @@ export class Text {
     return null;
   }
 
-  // indexInsert records a new run in the replica index, keeping runs counter-ordered.
   private indexInsert(e: Element): void {
     let runs = this.index.get(e.id.replica);
     if (runs == null) {
@@ -262,7 +260,6 @@ export class Text {
     return tail;
   }
 
-  // charAt returns the run and character offset of the live character at index.
   private charAt(index: number): [Element, number] | null {
     if (index < 0 || index >= this.live) return null;
     this.rebuild();

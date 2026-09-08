@@ -277,7 +277,6 @@ describe("list", () => {
         expect(result.current.data).toEqual([1, 3]);
       });
 
-      // Append more items
       act(() => {
         result.current.retrieve({}, { signal: controller.signal, mode: "append" });
       });
@@ -321,7 +320,6 @@ describe("list", () => {
         description: string; // Not used for sorting
       }
 
-      // Mock data that will be updated
       let mockItem2 = { key: 2, name: "Item 2", priority: 2, description: "Original" };
 
       const { result } = renderHook(
@@ -353,7 +351,6 @@ describe("list", () => {
 
       const initialDataRef = result.current.data;
 
-      // Update the item with same priority (no position change)
       mockItem2 = { key: 2, name: "Item 2", priority: 2, description: "Updated" };
 
       act(() => {
@@ -366,7 +363,6 @@ describe("list", () => {
         expect(result.current.data).toEqual([1, 2, 3]);
       });
 
-      // Now update with different priority (position should change)
       mockItem2 = { key: 2, name: "Item 2", priority: 4, description: "Updated" };
 
       act(() => {
@@ -420,7 +416,6 @@ describe("list", () => {
             retrieve: async () => [{ key: 1 }, { key: 2 }],
             retrieveByKey: async ({ key }) => ({ key }),
           })();
-          // Test various zero values
           const zeroValue = getItem(0);
           const nullValue = getItem(null as unknown as number);
           const undefinedValue = getItem(undefined as unknown as number);
@@ -454,7 +449,6 @@ describe("list", () => {
             retrieve: async () => [{ key: "key1" }, { key: "key2" }],
             retrieveByKey: async ({ key }) => ({ key }),
           })();
-          // Test various zero values for string keys
           const emptyStringValue = getItem("");
           const nullValue = getItem(null as unknown as string);
           const undefinedValue = getItem(undefined as unknown as string);
@@ -486,7 +480,6 @@ describe("list", () => {
             retrieve: async () => [{ key: 1 }, { key: 2 }, { key: 3 }],
             retrieveByKey: async ({ key }) => ({ key }),
           })();
-          // Test array with mixed valid and zero values
           const mixedArray = getItem([1, 0, 2, null as unknown as number, 3]);
           const allZeroArray = getItem([
             0,
@@ -503,9 +496,7 @@ describe("list", () => {
       });
 
       await waitFor(() => {
-        // Should filter out zero values and return only valid items
         expect(result.current.mixedArray).toEqual([{ key: 1 }, { key: 2 }, { key: 3 }]);
-        // All zero values should result in empty array
         expect(result.current.allZeroArray).toEqual([]);
       });
     });
@@ -936,10 +927,8 @@ describe("list", () => {
         { wrapper },
       );
 
-      // Initially should have cached data
       expect(result.current.data).toEqual([1, 2]);
 
-      // Retrieve fresh data
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
@@ -959,12 +948,10 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            // No getCached provided
           })(),
         { wrapper },
       );
 
-      // Should start with empty data
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
 
@@ -1001,7 +988,6 @@ describe("list", () => {
         { wrapper },
       );
 
-      // Should apply sort to cached data
       expect(result.current.data).toEqual([1, 2, 3]);
     });
 

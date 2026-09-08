@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Access, Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -55,7 +55,8 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
-  if (keys.length !== 1) return null;
+  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  if (keys.length !== 1 || !canRename) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
   if (cmdChannel == null) return null;
@@ -85,7 +86,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "OPC UA Write Task", type: WRITE_TYPE, config: cfg };
+  return { name: "OPC UA write task", type: WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
@@ -167,7 +168,7 @@ export const useCreateWrite = Task.createUseCreate({
 
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  title: "OPC UA Write Task",
+  title: "OPC UA write task",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useCreateWrite,
 });

@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { device, type Synnax, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -99,8 +102,12 @@ describe("wrapForm", () => {
       taskKey: tsk.key,
     });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
-    expect(findNameInput()).toBeTruthy();
-    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeTruthy();
+    // The name input and the play button appear once the async update and command
+    // grants resolve; until then the form renders in preview mode.
+    await waitFor(findNameInput);
+    await waitFor(() =>
+      expect(container.querySelector(".pluto-icon--play")).toBeTruthy(),
+    );
   });
 
   it("should omit the controls when showControls is false", async () => {
@@ -112,7 +119,7 @@ describe("wrapForm", () => {
       taskKey: tsk.key,
     });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
-    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
+    expect(container.querySelector(".pluto-icon--play")).toBeNull();
   });
 
   it("should keep the controls on the driver status through an autosave", async () => {
@@ -123,7 +130,7 @@ describe("wrapForm", () => {
       client,
       taskKey: tsk.key,
     });
-    const input = findNameInput();
+    const input = await waitFor(findNameInput);
     fireEvent.change(input, { target: { value: "Renamed Test Task" } });
     fireEvent.blur(input);
     await waitFor(async () => {
@@ -171,7 +178,7 @@ describe("wrapForm", () => {
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
         deployConfigZ: schemas.config.extend({
-          device: z.string().min(1, "Must specify a device"),
+          device: z.string().min(1, "Device is required"),
         }),
         onConfigure: async (_client, config) => {
           configured = true;
@@ -184,7 +191,7 @@ describe("wrapForm", () => {
       });
       await clickDeploy(container);
       await waitFor(() =>
-        expect(screen.getByText("device-status:Must specify a device")).toBeTruthy(),
+        expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       expect(configured).toBe(false);
     });
@@ -250,6 +257,9 @@ describe("wrapForm", () => {
         { key: deviceKey, includeStatus: true },
         seen,
       );
+      // Let the one-time setup renders settle, the permission grant among them, so the
+      // count reflects only what the status change causes.
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
       const before = renders;
       await client.statuses.set({
         key: device.statusKey(deviceKey),
@@ -266,7 +276,7 @@ describe("wrapForm", () => {
     });
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should persist the configured rack and issue a start command", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });
@@ -292,6 +302,34 @@ describe("wrapForm", () => {
       const updated = await client.tasks.retrieve({ key: draft.key });
       expect(updated.name).toBe("New Test Task");
       expect(updated.rack).toBe(rack.key);
+    });
+
+    it("should start without saving for a subject who cannot update the task", async () => {
+      const client = createTestClient();
+      const operator = await createTestClientWithRole(client, "Operator");
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const deployed = await client.tasks.create({
+        ...getInitialValues({}),
+        rack: rack.key,
+      });
+      const onConfigure = vi.fn<Task.OnConfigure<(typeof schemas)["config"]>>(
+        async (_client, config) => [config, 0],
+      );
+      const Renderer = createRenderer({ onConfigure });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          as: operator,
+          taskKey: deployed.key,
+        });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, deployed.key);
+        expect(cmd.type).toBe("start");
+      } finally {
+        streamer.close();
+      }
+      expect(onConfigure).not.toHaveBeenCalled();
     });
   });
 });

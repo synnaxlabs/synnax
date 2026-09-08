@@ -17,6 +17,7 @@ package legacy
 import (
 	"maps"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -48,7 +49,30 @@ func (r Rewrite) Apply(config msgpack.EncodedJSON) msgpack.EncodedJSON {
 	if r.Post != nil {
 		r.Post(out)
 	}
+	fillKeys(map[string]any(out))
 	return out
+}
+
+// fillKeys gives every keyed list element that carries an empty key one derived from
+// its index. Released clients other than the Console left the key at its empty default,
+// which collapses every element of a list onto the first. The index is unique within
+// its own list, which is the scope a key is addressed in.
+func fillKeys(v any) {
+	switch t := v.(type) {
+	case map[string]any:
+		for _, child := range t {
+			fillKeys(child)
+		}
+	case []any:
+		for i, el := range t {
+			if child, ok := el.(map[string]any); ok {
+				if k, has := child["key"]; has && k == "" {
+					child["key"] = strconv.Itoa(i)
+				}
+			}
+			fillKeys(el)
+		}
+	}
 }
 
 // Scan converts the stored driver form of every scan config: a scan_rate field and

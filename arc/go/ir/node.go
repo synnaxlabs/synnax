@@ -13,9 +13,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/tree"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 // IsEntryNode reports whether n is an entry node: it has no incoming edges and
@@ -60,35 +58,4 @@ func (n Node) stringWithPrefix(prefix string) string {
 	}
 
 	return b.String()
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
-// field names and new lowercase msgpack tag names for backward compatibility.
-func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Node
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(n)); err != nil {
-		return err
-	}
-	if len(n.Key) == 0 {
-		var legacy struct {
-			Key      string
-			Type     string
-			Inputs   types.Params
-			Outputs  types.Params
-			Channels types.Channels
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		n.Key = legacy.Key
-		n.Type = legacy.Type
-		n.Inputs = legacy.Inputs
-		n.Outputs = legacy.Outputs
-		n.Channels = legacy.Channels
-	}
-	return nil
 }

@@ -91,14 +91,12 @@ tsk = sy.labjack.WriteTask(
     channels=[
         # Analog output (DAC0) - voltage control
         sy.labjack.AnalogWriteChannel(
-            type="analog",
             port="DAC0",
             cmd_channel=dac0_cmd.key,
             state_channel=dac0_state.key,
         ),
         # Digital output (FIO4) - binary control
         sy.labjack.DigitalWriteChannel(
-            type="digital",
             port="FIO4",
             cmd_channel=fio4_cmd.key,
             state_channel=fio4_state.key,

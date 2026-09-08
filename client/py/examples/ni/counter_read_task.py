@@ -71,7 +71,6 @@ tsk = sy.ni.CounterReadTask(
     # The list of counter channels we'd like to acquire data from.
     channels=[
         sy.ni.CIFrequencyChannel(
-            type="ci_frequency",
             # The key of the Synnax channel we're acquiring data for.
             channel=ci_0_freq.key,
             # The counter port on the device (ctr0, ctr1, etc.)
@@ -90,10 +89,8 @@ tsk = sy.ni.CounterReadTask(
             meas_time=0.001,
             # Divisor for internal timebase
             divisor=4,
-            custom_scale=sy.ni.NoneScale(type="none"),
         ),
         sy.ni.CIEdgeCountChannel(
-            type="ci_edge_count",
             # The key of the Synnax channel we're acquiring data for.
             channel=ci_1_count.key,
             # The counter port on the device

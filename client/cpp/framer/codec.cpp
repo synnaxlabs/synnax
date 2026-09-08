@@ -95,7 +95,8 @@ constexpr std::size_t bit_packed_byte_count(const std::size_t n_samples) {
 }
 
 static size_t series_wire_byte_length(const x::telem::Series &ser) {
-    if (ser.data_type() == x::telem::BOOL_T) return bit_packed_byte_count(ser.size());
+    if (ser.data_type() == x::telem::BOOLEAN_T)
+        return bit_packed_byte_count(ser.size());
     return ser.byte_size();
 }
 
@@ -258,7 +259,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                 );
         }
 
-        if (ser.data_type() == x::telem::BOOL_T) {
+        if (ser.data_type() == x::telem::BOOLEAN_T) {
             const auto packed = pack_bool_bits(ser.data(), ser.size());
             if (buf.write(
                     reinterpret_cast<const std::byte *>(packed.data()),
@@ -343,7 +344,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
         s.time_range = ref_tr;
         s.alignment = ref_alignment;
 
-        if (it->second == x::telem::BOOL_T) {
+        if (it->second == x::telem::BOOLEAN_T) {
             const size_t wire_bytes = bit_packed_byte_count(local_data_len_or_byte_cap);
             std::vector<uint8_t> packed(wire_bytes);
             reader.read(reinterpret_cast<std::byte *>(packed.data()), wire_bytes);

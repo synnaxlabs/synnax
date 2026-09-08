@@ -15,38 +15,27 @@
 #include "x/cpp/mem/local_shared.h"
 #include "x/cpp/telem/telem.h"
 
-#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::stl::constant {
-/// @brief Node that outputs a configured or var-bound value. Entry nodes fire
-/// once per activation; triggered constants fire on every run.
+/// @brief Node that outputs a configured or var-bound value.
 class Constant : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::MonoClock clock;
     x::telem::SampleValue value;
-    bool is_entry_node;
-    bool initialized = false;
 
 public:
     Constant(
         runtime::state::Node &&state,
         const x::telem::SampleValue &value,
-        const x::telem::DataType &data_type,
-        const bool is_entry_node
+        const x::telem::DataType &data_type
     ):
-        state(std::move(state)),
-        value(data_type.cast(value)),
-        is_entry_node(is_entry_node) {}
+        state(std::move(state)), value(data_type.cast(value)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        if (this->is_entry_node) {
-            if (this->initialized) return x::errors::NIL;
-            this->initialized = true;
-        }
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         // A var-bound value input emits the referenced variable's latest value;
@@ -71,7 +60,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { this->initialized = false; }
+    void reset() override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);
@@ -98,14 +87,8 @@ public:
                 )
             };
         auto data_type = cfg.node.outputs[0].type.telem();
-        const bool is_entry = ir::is_entry_node(cfg.prog, cfg.node);
         return {
-            std::make_unique<Constant>(
-                std::move(cfg.state),
-                *sample_value,
-                data_type,
-                is_entry
-            ),
+            std::make_unique<Constant>(std::move(cfg.state), *sample_value, data_type),
             x::errors::NIL
         };
     }

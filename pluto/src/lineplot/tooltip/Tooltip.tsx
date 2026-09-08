@@ -33,7 +33,6 @@ export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | nu
 
   const handleMove = useCallback(
     (e: MouseEvent): void => {
-      // select the .pluto-canvas-container element
       const canvas = document.querySelector(".pluto-canvas-container");
       if (canvas == null) return;
       const topLeft = box.topLeft(canvas);
@@ -46,10 +45,8 @@ export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | nu
 
   useEffect(() => {
     if (ref.current === null) return;
-    // Select the parent node of the tooltip
     const parent = ref.current.parentElement;
     if (parent == null) return;
-    // Bind a hover listener to the parent node
     parent.addEventListener("mousemove", handleMove);
     parent.addEventListener("mouseleave", handleLeave);
     return () => {

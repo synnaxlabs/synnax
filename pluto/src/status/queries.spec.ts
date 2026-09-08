@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, query, status } from "@synnaxlabs/client";
+import { group, NotFoundError, ontology, query, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, testutil, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -407,6 +407,35 @@ describe("Status queries", () => {
 
       await expect(client.statuses.retrieve(statusToDelete.key)).rejects.toThrow();
     });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const stat = await client.statuses.set({
+        name: "Optimistic Delete",
+        key: `optimistic-delete-${id.create()}`,
+        variant: "error",
+        message: "Will be deleted",
+        time: TimeStamp.now(),
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Status.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data as status.Key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync(stat.key);
+      });
+
+      expect(order).toEqual([`optimistic:${stat.key}`, "success"]);
+    });
   });
 
   describe("useSet", () => {
@@ -488,6 +517,71 @@ describe("Status queries", () => {
 
       const statusResource = resources.find((r) => r.id.key === "child-hook-test");
       expect(statusResource).toBeDefined();
+    });
+
+    it("should run afterOptimistic before a single set commits", async () => {
+      const key = `optimistic-set-${id.create()}`;
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Status.useSet({
+            afterOptimistic: () => {
+              order.push("optimistic");
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({
+          statuses: {
+            name: "Optimistic Set",
+            key,
+            variant: "info",
+            message: "Testing optimistic set",
+            time: TimeStamp.now(),
+          },
+        });
+      });
+
+      expect(order).toEqual(["optimistic", "success"]);
+    });
+
+    it("should run afterOptimistic before a batch set commits", async () => {
+      const keys = [
+        `optimistic-batch-${id.create()}`,
+        `optimistic-batch-${id.create()}`,
+      ];
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Status.useSet({
+            afterOptimistic: () => {
+              order.push("optimistic");
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({
+          statuses: keys.map((key, i) => ({
+            name: `Optimistic Batch ${i}`,
+            key,
+            variant: "info" as const,
+            message: "Testing optimistic batch set",
+            time: TimeStamp.now(),
+          })),
+        });
+      });
+
+      expect(order).toEqual(["optimistic", "success"]);
     });
   });
 
@@ -688,6 +782,35 @@ describe("Status queries", () => {
         expect(result.current.retrieve?.variant).toEqual("success");
         expect(result.current.retrieve?.message).toEqual("Updated message");
       });
+    });
+
+    it("should not write back a status deleted while an autosave was pending", async () => {
+      const key = uuid.create();
+      await client.statuses.set({
+        name: "Autosave Race",
+        key,
+        variant: "info",
+        message: "Original",
+        time: TimeStamp.now(),
+      });
+      const { result } = await renderHookSuspended(
+        () =>
+          Status.useForm({
+            query: { key },
+            autoSave: true,
+            // Holds the save open long enough for the delete to overtake it.
+            autoSaveDebounce: TimeSpan.milliseconds(500),
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.form.set("name", "Edited"));
+      await act(async () => await client.statuses.delete(key));
+      await testutil.expectAlways(async () => {
+        await expect(
+          async () => await client.statuses.retrieve({ keys: [key] }),
+        ).rejects.toThrow(NotFoundError);
+      }, 800);
     });
 
     it("should handle status with labels", async () => {

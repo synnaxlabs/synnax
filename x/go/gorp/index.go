@@ -146,10 +146,11 @@ func NewLookupIndex[K Key, E Entry[K], V comparable](
 	extract func(e *E) V,
 ) *LookupIndex[K, E, V] {
 	l := &LookupIndex[K, E, V]{
-		baseIndex: baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
-		extract:   extract,
-		forward:   make(map[V][]K),
-		reverse:   make(map[K]V),
+		name:         name,
+		populateDone: make(chan struct{}),
+		extract:      extract,
+		forward:      make(map[V][]K),
+		reverse:      make(map[K]V),
 	}
 	l.overlay.commitSet = func(key K, value V) {
 		l.mu.Lock()
@@ -332,7 +333,7 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			return resolved[K, E]{keys: keys, build: indexedKeyMembership[K]}, nil
+			return resolved[K, E]{keys: keys, build: indexedKeyMembership}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return slices.Contains(captured, l.extract(e)), nil
@@ -376,9 +377,10 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 	extract func(e *E) V,
 ) *SortedIndex[K, E, V] {
 	s := &SortedIndex[K, E, V]{
-		baseIndex: baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
-		extract:   extract,
-		reverse:   make(map[K]V),
+		name:         name,
+		populateDone: make(chan struct{}),
+		extract:      extract,
+		reverse:      make(map[K]V),
 	}
 	s.overlay.commitSet = func(key K, value V) {
 		s.mu.Lock()
@@ -585,7 +587,7 @@ func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 				return resolved[K, E]{}, err
 			}
 			keys, _ := s.Get(tx, captured...)
-			return resolved[K, E]{keys: keys, build: indexedKeyMembership[K]}, nil
+			return resolved[K, E]{keys: keys, build: indexedKeyMembership}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return slices.Contains(captured, s.extract(e)), nil

@@ -23,6 +23,7 @@
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
+#include "driver/http/device/device.h"
 #include "driver/http/http.h"
 #include "driver/http/processor/processor.h"
 #include "driver/http/types/types.h"
@@ -113,6 +114,17 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &frame) override;
 };
+
+/// @brief builds the static request for each read endpoint.
+/// @param conn the resolved device connection.
+/// @param endpoints the endpoints to build requests for.
+/// @returns one request per endpoint, in order. An endpoint whose method carries no
+/// request body drops the body it stores, so a value left behind by a method change
+/// never reaches the wire or sets a content type.
+[[nodiscard]] std::vector<Request> build_requests(
+    const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::ReadEndpoint> &endpoints
+);
 
 /// @brief configures an HTTP read task from a Synnax task definition.
 /// @param ctx the task context providing access to the Synnax client.

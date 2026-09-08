@@ -427,9 +427,8 @@ func New(
 					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
-					return frameWriterRequestTranslator{
-						codec: codec,
-					}, frameWriterResponseTranslator{}
+					return frameWriterRequestTranslator{codec: codec},
+						frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
 			},
@@ -454,11 +453,8 @@ func New(
 					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
-					return frameStreamerRequestTranslator{
-							codec: codec,
-						}, frameStreamerResponseTranslator{
-							codec: codec,
-						}
+					return frameStreamerRequestTranslator{codec: codec},
+						frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,
 			},

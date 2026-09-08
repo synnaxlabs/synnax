@@ -101,43 +101,4 @@ var (
 		MapFormat:        func(k, v string) string { return fmt.Sprintf("map[%s]%s", k, v) },
 		FallbackTypeName: "any",
 	}
-
-	// TSFormatterConfig is the configuration for TypeScript type formatting.
-	TSFormatterConfig = FormatterConfig{
-		QualifiedSep:     ".",
-		GenericOpen:      "<",
-		GenericClose:     ">",
-		ArrayFormat:      func(elem string) string { return elem + "[]" },
-		MapFormat:        func(k, v string) string { return fmt.Sprintf("Record<%s, %s>", k, v) },
-		FallbackTypeName: "unknown",
-	}
-
-	// PyFormatterConfig is the configuration for Python type formatting.
-	PyFormatterConfig = FormatterConfig{
-		QualifiedSep:     ".",
-		GenericOpen:      "[",
-		GenericClose:     "]",
-		ArrayFormat:      func(elem string) string { return fmt.Sprintf("list[%s]", elem) },
-		MapFormat:        func(k, v string) string { return fmt.Sprintf("dict[%s, %s]", k, v) },
-		FallbackTypeName: "Any",
-	}
-
-	// CppFormatterConfig is the configuration for C++ type formatting.
-	CppFormatterConfig = FormatterConfig{
-		QualifiedSep:     "::",
-		GenericOpen:      "<",
-		GenericClose:     ">",
-		ArrayFormat:      func(elem string) string { return fmt.Sprintf("std::vector<%s>", elem) },
-		MapFormat:        func(k, v string) string { return fmt.Sprintf("std::unordered_map<%s, %s>", k, v) },
-		FallbackTypeName: "void",
-	}
-
-	// PbFormatterConfig is the configuration for Protocol Buffers type formatting.
-	PbFormatterConfig = FormatterConfig{
-		QualifiedSep:     ".",
-		SkipGenerics:     true,                                     // Protobuf doesn't support generics
-		ArrayFormat:      func(elem string) string { return elem }, // repeated fields don't change the type
-		MapFormat:        func(k, v string) string { return fmt.Sprintf("map<%s, %s>", k, v) },
-		FallbackTypeName: "bytes",
-	}
 )

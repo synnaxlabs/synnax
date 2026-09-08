@@ -75,6 +75,7 @@ TEST(Variables, AllPrimitiveTypes) {
     vars.store_i64(0, -4);
     vars.store_f32(0, 1.1f);
     vars.store_f64(0, 2.2);
+    vars.store_bool(0, true);
     EXPECT_EQ(vars.load_u8(0, 0), 1);
     EXPECT_EQ(vars.load_u16(0, 0), 2);
     EXPECT_EQ(vars.load_u32(0, 0), 3);
@@ -85,6 +86,16 @@ TEST(Variables, AllPrimitiveTypes) {
     EXPECT_EQ(vars.load_i64(0, 0), -4);
     EXPECT_FLOAT_EQ(vars.load_f32(0, 0), 1.1f);
     EXPECT_DOUBLE_EQ(vars.load_f64(0, 0), 2.2);
+    EXPECT_EQ(vars.load_bool(0, false), true);
+}
+
+TEST(Variables, BoolLoadSeedsAndStorePersists) {
+    Variables vars;
+    vars.set_current_node_key("node1");
+    EXPECT_EQ(vars.load_bool(0, true), true);
+    EXPECT_EQ(vars.load_bool(0, false), true);
+    vars.store_bool(0, false);
+    EXPECT_EQ(vars.load_bool(0, true), false);
 }
 
 TEST(Variables, Reset) {
@@ -175,6 +186,7 @@ TEST(Variables, ClearNodeClearsEveryScalarType) {
     vars.store_i64(0, -4);
     vars.store_f32(0, 1.1f);
     vars.store_f64(0, 2.2);
+    vars.store_bool(0, true);
 
     vars.clear_node("node1");
 
@@ -188,6 +200,7 @@ TEST(Variables, ClearNodeClearsEveryScalarType) {
     EXPECT_EQ(vars.load_i64(0, 207), 207);
     EXPECT_FLOAT_EQ(vars.load_f32(0, 20.5f), 20.5f);
     EXPECT_DOUBLE_EQ(vars.load_f64(0, 21.5), 21.5);
+    EXPECT_EQ(vars.load_bool(0, false), false);
 }
 
 TEST(Variables, ClearNodeClearsEveryVarId) {

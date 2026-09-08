@@ -24,7 +24,7 @@ export const Nozzle = ({
   scale,
   ...rest
 }: NozzleProps): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("nozzle"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("nozzle"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

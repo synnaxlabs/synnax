@@ -63,7 +63,7 @@ export const MissingForm = (): ReactElement => {
       <Divider.Divider x />
       <Flex.Box y align="stretch" gap="small">
         <Text.Text level="small" color={9}>
-          Or create a new symbol in:
+          Or create a symbol in:
         </Text.Text>
         <Flex.Box x>
           <Group.SelectSingle

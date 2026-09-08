@@ -79,7 +79,7 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BaseStartConfig(KeyedConfig):
+class StartConfig(KeyedConfig):
     """Carries the configuration fields shared by every task.
 
     Attributes:
@@ -92,11 +92,11 @@ class BaseStartConfig(KeyedConfig):
         return hash(self.key)
 
 
-class BaseScanConfig(KeyedConfig):
+class ScanConfig(KeyedConfig):
     """Carries the fields shared by every scan task configuration.
 
     Attributes:
-        rate: Is the rate at which the scan runs, in hertz.
+        rate: Is the rate at which the scan runs, in Hertz.
         disabled: Is true when scanning is paused.
     """
 
@@ -110,7 +110,7 @@ class BaseScanConfig(KeyedConfig):
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
-class BasePersistConfig(BaseStartConfig):
+class PersistConfig(StartConfig):
     """Carries the configuration fields shared by tasks that write telemetry.
 
     Attributes:
@@ -141,7 +141,7 @@ class Payload(BaseModel):
             ignored on writes from clients. Compare against a status's config_hash to
             detect drift.
         internal: Is true if this is an internal system task.
-        snapshot: Indicates whether to persist this task's configuration.
+        snapshot: Is true if this task is an immutable snapshot copy of another task.
         status: Is the current execution status of the task.
     """
 
@@ -159,12 +159,12 @@ class Payload(BaseModel):
         return hash(self.key)
 
 
-class BaseReadConfig(BasePersistConfig):
+class ReadConfig(PersistConfig):
     """Carries the configuration fields shared by hardware acquisition tasks.
 
     Attributes:
-        sample_rate: Is the per-channel hardware sample rate, in hertz.
-        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
+        sample_rate: Is the per-channel hardware sample rate, in Hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
     """
 
     sample_rate: telem.Rate = telem.Rate(10)
@@ -174,7 +174,7 @@ class BaseReadConfig(BasePersistConfig):
         return hash(self.key)
 
 
-class BaseWriteConfig(BasePersistConfig):
+class WriteConfig(PersistConfig):
     """Carries the configuration fields shared by hardware control tasks.
 
     Attributes:

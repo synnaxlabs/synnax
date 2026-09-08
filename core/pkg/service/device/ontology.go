@@ -77,7 +77,7 @@ func (s *Service) SearchableFields() []string {
 // RetrieveResource allows for retrieving a device with a given key from the ontology.
 func (s *Service) RetrieveResource(
 	ctx context.Context,
-	key string,
+	key Key,
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
 	var d Device

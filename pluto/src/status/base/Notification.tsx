@@ -56,8 +56,9 @@ export const Notification = ({
   return (
     // The key remounts the card when a repeat arrives, replaying the entrance animation.
     <div
-      className={CSS(CSS.B("notification"), className)}
+      className={CSS.cls(CSS.B("notification"), className)}
       key={time.toString()}
+      role="status"
       {...rest}
     >
       <Indicator variant={variant} className={CSS.BE("notification", "indicator")}>
@@ -85,7 +86,12 @@ export const Notification = ({
               square
               textColor={10}
             />
-            <Button.Button variant="outlined" size="small" onClick={() => silence(key)}>
+            <Button.Button
+              variant="outlined"
+              size="small"
+              tooltip="Silence"
+              onClick={() => silence(key)}
+            >
               <Icon.Close />
             </Button.Button>
           </Flex.Box>

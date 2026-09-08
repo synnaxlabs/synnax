@@ -69,7 +69,6 @@ tsk = sy.labjack.ReadTask(
     channels=[
         # K-type thermocouple on AIN0 with device CJC in Celsius
         sy.labjack.ThermocoupleReadChannel(
-            type="thermocouple",
             port="AIN0",
             channel=tc0.key,
             thermocouple_type="K",
@@ -77,13 +76,10 @@ tsk = sy.labjack.ReadTask(
             cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
             units="C",  # Celsius
-            pos_chan=0,
             neg_chan=199,  # 199 = single-ended (GND)
-            scale=sy.labjack.NoneScale(type="none"),
         ),
         # K-type thermocouple on AIN2 with device CJC in Fahrenheit
         sy.labjack.ThermocoupleReadChannel(
-            type="thermocouple",
             port="AIN2",
             channel=tc1.key,
             thermocouple_type="K",
@@ -91,9 +87,7 @@ tsk = sy.labjack.ReadTask(
             cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
             units="F",  # Fahrenheit
-            pos_chan=2,
             neg_chan=199,  # 199 = single-ended (GND)
-            scale=sy.labjack.NoneScale(type="none"),
         ),
     ],
 )

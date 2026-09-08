@@ -262,22 +262,22 @@ class TestCodec:
             Spec(
                 name="Bool Single Sample",
                 channels=[1],
-                data_types=[sy.DataType.BOOL],
+                data_types=[sy.DataType.BOOLEAN],
                 frame=sy.Frame(
                     channels=[1],
-                    series=[sy.Series([True], data_type=sy.DataType.BOOL)],
+                    series=[sy.Series([True], data_type=sy.DataType.BOOLEAN)],
                 ),
             ),
             Spec(
                 name="Bool Exact Byte Boundary",
                 channels=[1],
-                data_types=[sy.DataType.BOOL],
+                data_types=[sy.DataType.BOOLEAN],
                 frame=sy.Frame(
                     channels=[1],
                     series=[
                         sy.Series(
                             [True, False, True, False, True, False, True, False],
-                            data_type=sy.DataType.BOOL,
+                            data_type=sy.DataType.BOOLEAN,
                         )
                     ],
                 ),
@@ -285,13 +285,13 @@ class TestCodec:
             Spec(
                 name="Bool One Past Byte Boundary",
                 channels=[1],
-                data_types=[sy.DataType.BOOL],
+                data_types=[sy.DataType.BOOLEAN],
                 frame=sy.Frame(
                     channels=[1],
                     series=[
                         sy.Series(
                             [True, False, True, False, True, False, True, False, True],
-                            data_type=sy.DataType.BOOL,
+                            data_type=sy.DataType.BOOLEAN,
                         )
                     ],
                 ),
@@ -299,13 +299,13 @@ class TestCodec:
             Spec(
                 name="Bool Seven Samples Partial Last Byte",
                 channels=[1],
-                data_types=[sy.DataType.BOOL],
+                data_types=[sy.DataType.BOOLEAN],
                 frame=sy.Frame(
                     channels=[1],
                     series=[
                         sy.Series(
                             [True, False, True, True, False, False, True],
-                            data_type=sy.DataType.BOOL,
+                            data_type=sy.DataType.BOOLEAN,
                         )
                     ],
                 ),
@@ -314,7 +314,7 @@ class TestCodec:
                 name="Bool Mixed With Other Types",
                 channels=[1, 2, 3],
                 data_types=[
-                    sy.DataType.BOOL,
+                    sy.DataType.BOOLEAN,
                     sy.DataType.FLOAT32,
                     sy.DataType.UINT8,
                 ],
@@ -323,7 +323,7 @@ class TestCodec:
                     series=[
                         sy.Series(
                             [True, False, True],
-                            data_type=sy.DataType.BOOL,
+                            data_type=sy.DataType.BOOLEAN,
                         ),
                         sy.Series(np.array([1.5, 2.5, 3.5], dtype=np.float32)),
                         sy.Series(np.array([7, 8, 9], dtype=np.uint8)),

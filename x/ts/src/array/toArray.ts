@@ -8,13 +8,9 @@
 // included in the file licenses/APL.txt.
 
 /**
- * Converts a value to an array, handling null and undefined values. If the input is already an array,
- * returns the same array reference. If the input is null or undefined, returns an empty array.
- * If the input is a single value, wraps it in an array.
- *
- * @template T - The type of the input value
  * @param value - The value to convert to an array
- * @returns An array containing the input value, an empty array for null/undefined, or the input array if it was already an array
+ * @returns An array containing the input value, an empty array for null/undefined, or
+ * the input array if it was already an array
  *
  * @example
  * ```ts

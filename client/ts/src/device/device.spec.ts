@@ -12,8 +12,9 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { device } from "@/device";
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -69,6 +70,68 @@ describe("Device", async () => {
     });
   });
 
+  describe("optimistic create", () => {
+    const WRITE_FAILED = new Error("write failed");
+    const fail = () => {
+      throw WRITE_FAILED;
+    };
+
+    const createNew = (): device.New => ({
+      key: id.create(),
+      rack: testRack.key,
+      location: "Dev1",
+      name: "optimistic",
+      make: "ni",
+      model: "dog",
+      properties: { cat: "dog" },
+    });
+
+    it("should cache the device before the write commits", async () => {
+      const dev = createNew();
+      let duringWrite: query.Cached<device.Device> | undefined;
+      await client.devices.create(dev, undefined, {
+        onOptimistic: () => {
+          duringWrite = client.devices.getCached(dev.key);
+        },
+      });
+      expect(expectLive(duringWrite).name).toEqual(dev.name);
+    });
+
+    it("should cache every device of a batch before the write commits", async () => {
+      const first = createNew();
+      const second = createNew();
+      let duringWrite: Array<query.Cached<device.Device> | undefined> = [];
+      await client.devices.create([first, second], undefined, {
+        onOptimistic: () => {
+          duringWrite = [first, second].map(({ key }) => client.devices.getCached(key));
+        },
+      });
+      expect(duringWrite.map((d) => expectLive(d).key)).toEqual([
+        first.key,
+        second.key,
+      ]);
+    });
+
+    it("should drop the optimistic device when the write fails", async () => {
+      const dev = createNew();
+      await expect(
+        client.devices.create(dev, undefined, { onOptimistic: fail }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect(client.devices.getCached(dev.key)).toBeUndefined();
+    });
+
+    it("should restore the previous device when the write fails", async () => {
+      const dev = createNew();
+      const created = await client.devices.create(dev);
+      await expect(
+        client.devices.create({ ...dev, name: "replacement" }, undefined, {
+          onOptimistic: fail,
+        }),
+      ).rejects.toBe(WRITE_FAILED);
+      expect(expectLive(client.devices.getCached(dev.key)).name).toEqual(created.name);
+    });
+  });
+
   it("should properly encode and decode properties", async () => {
     const properties = {
       rate: 10,
@@ -91,6 +154,55 @@ describe("Device", async () => {
   });
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = await Promise.all(
+        [id.create(), id.create()].map(
+          async (key) =>
+            await client.devices.create({
+              key,
+              rack: testRack.key,
+              location: `coalesce_${key}`,
+              name: `coalesce-${key}`,
+              make: "ni",
+              model: "dog",
+              properties: {},
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.devices.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/device/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "isolation",
+        name: "isolation",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.devices.retrieve(d.key),
+        local.devices.retrieve(`missing-${id.create()}`),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("should retrieve a device by its key", async () => {
       const d = await client.devices.create({
         key: id.create(),

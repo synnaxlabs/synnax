@@ -11,40 +11,31 @@ import { type z } from "zod";
 
 import { type Transport } from "@/transport";
 
-/**
- * Interface for an entity that receives a stream of responses.
- */
+/** Interface for an entity that receives a stream of responses. */
 export interface StreamReceiver<RS extends z.ZodType> {
   /**
    * Receives a response from the stream. It's not safe to call receive concurrently.
-   *
-   *  @returns the next response from the stream.
-   *  @throws freighter.EOF: if the server closed the stream nominally.
-   *  @throws Error: if the server closed the stream abnormally, throws the error the
-   *  server returned, or a transport error if the transport itself failed.
+   * @returns the next response from the stream.
+   * @throws freighter.EOF: if the server closed the stream nominally.
+   * @throws Error: the error the server returned when it closed the stream abnormally,
+   * or a transport error if the transport itself failed.
    */
   receive: () => Promise<z.infer<RS>>;
 
-  /**
-   * @returns true if the stream has received a response
-   */
+  /** @returns true if the stream has received a response. */
   received: () => boolean;
 }
 
-/**
- * Interface for an entity that sends a stream of requests.
- */
+/** Interface for an entity that sends a stream of requests. */
 export interface StreamSender<RQ extends z.ZodType> {
   /**
-  * Sends a request to the stream. It is not safe to call send concurrently with
-  * closeSend or send.
-
-  * @param req -  the request to send.
-  * @throws freighter.EOF: if the server closed the stream. The caller can discover the
-  * error returned by the server by calling receive().
-  * @throws freighter.StreamClosed: if the client called closeSend().
-  * @throws Error: if the transport fails.
-  */
+   * Sends a request to the stream. It is not safe to call send concurrently with
+   * closeSend or send.
+   * @throws freighter.EOF: if the server closed the stream. The caller can discover the
+   * error returned by the server by calling receive().
+   * @throws freighter.StreamClosed: if the client called closeSend().
+   * @throws Error: if the transport fails.
+   */
   send: (req: z.input<RQ> | z.infer<RQ>) => void;
 }
 
@@ -54,31 +45,24 @@ export interface StreamSender<RQ extends z.ZodType> {
  */
 export interface StreamSenderCloser<RQ extends z.ZodType> extends StreamSender<RQ> {
   /**
-  * Lets the server know no more messages will be sent. If the client attempts to call
-  * send() after calling closeSend(), a freighter.StreamClosed exception will be raised.
-  * close_send is idempotent. If the server has already closed the stream, close_send
-  * will do nothing.
-
-  * After calling close_send, the client is responsible for calling receive() to
-  * successfully receive the server's acknowledgment.
+   * Lets the server know no more messages will be sent. If the client attempts to call
+   * send() after calling closeSend(), a freighter.StreamClosed exception will be
+   * raised. close_send is idempotent. If the server has already closed the stream,
+   * close_send will do nothing. After calling close_send, the client is responsible for
+   * calling receive() to successfully receive the server's acknowledgment.
    */
   closeSend: () => void;
 }
 
-/**
- * Interface for a bidirectional stream between a client and a server.
- */
+/** Interface for a bidirectional stream between a client and a server. */
 export interface Stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
   extends StreamSenderCloser<RQ>, StreamReceiver<RS> {}
 
-/**
- * Interface for a bidirectional stream between a client and a server.
- */
+/** Interface for a bidirectional stream between a client and a server. */
 export interface StreamClient extends Transport {
   /**
    * Dials the target and returns a stream that can be used to issue requests and
    * receive responses
-   *
    * @param target - The target to dial. In some implementations, this may be an
    * endpoint path, or in others, a complete hostname or URL.
    * @param reqSchema - The schema for the request type. This is used to validate the

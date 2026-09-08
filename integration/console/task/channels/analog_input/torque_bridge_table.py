@@ -18,12 +18,12 @@ class TorqueBridgeTable(Analog):
     Torque Bridge Table channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        torque_units (str): "Newton Meters", "Inch Ounces", "Foot Pounds"
-        bridge_configuration (str): "Full Bridge", "Half Bridge", "Quarter Bridge"
+        torque_units (str): "Newton meters", "Inch ounces", "Foot pounds"
+        bridge_configuration (str): "Full bridge", "Half bridge", "Quarter bridge"
         nominal_bridge_resistance (float): Bridge resistance value
         voltage_excitation_source (str): "Internal", "External", "None"
         voltage_excitation_value (float): Excitation voltage value
-        physical_units (str): "Newton Meters", "Inch Ounces", "Foot Pounds"
+        physical_units (str): "Newton meters", "Inch ounces", "Foot pounds"
         electrical_units (str): "mV/V", "V/V"
 
     Base kwargs from Analog:
@@ -40,10 +40,10 @@ class TorqueBridgeTable(Analog):
         name: str,
         device: str,
         torque_units: (
-            Literal["Newton Meters", "Inch Ounces", "Foot Pounds"] | None
+            Literal["Newton meters", "Inch ounces", "Foot pounds"] | None
         ) = None,
         bridge_configuration: (
-            Literal["Full Bridge", "Half Bridge", "Quarter Bridge"] | None
+            Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
         ) = None,
         nominal_bridge_resistance: float | None = None,
         voltage_excitation_source: (
@@ -51,7 +51,7 @@ class TorqueBridgeTable(Analog):
         ) = None,
         voltage_excitation_value: float | None = None,
         physical_units: (
-            Literal["Newton Meters", "Inch Ounces", "Foot Pounds"] | None
+            Literal["Newton meters", "Inch ounces", "Foot pounds"] | None
         ) = None,
         electrical_units: Literal["mV/V", "V/V"] | None = None,
         **kwargs: Any,
@@ -60,14 +60,14 @@ class TorqueBridgeTable(Analog):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Torque Bridge Table",
+            chan_type="Torque bridge table",
             **kwargs,
         )
 
-        self._configure_dropdown("Torque Units", torque_units)
-        self._configure_dropdown("Bridge Configuration", bridge_configuration)
-        self._configure_input("Nominal Bridge Resistance", nominal_bridge_resistance)
-        self._configure_dropdown("Voltage Excitation Source", voltage_excitation_source)
-        self._configure_input("Voltage Excitation Value", voltage_excitation_value)
-        self._configure_dropdown("Physical Units", physical_units)
-        self._configure_dropdown("Electrical Units", electrical_units)
+        self._configure_dropdown("Torque units", torque_units)
+        self._configure_dropdown("Bridge configuration", bridge_configuration)
+        self._configure_input("Nominal bridge resistance", nominal_bridge_resistance)
+        self._configure_dropdown("Voltage excitation source", voltage_excitation_source)
+        self._configure_input("Voltage excitation value", voltage_excitation_value)
+        self._configure_dropdown("Physical units", physical_units)
+        self._configure_dropdown("Electrical units", electrical_units)

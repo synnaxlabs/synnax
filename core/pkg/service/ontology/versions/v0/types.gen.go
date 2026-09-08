@@ -54,7 +54,7 @@ func (r ResourceType) IsValid() bool {
 	}
 }
 
-// ID ID is a unique identifier for a Resource. An example:
+// ID is a unique identifier for a Resource. An example:
 //
 // userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
 //

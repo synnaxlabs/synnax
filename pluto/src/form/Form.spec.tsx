@@ -682,14 +682,11 @@ describe("Form", () => {
         result.current.set("name", "Billy Bob"); // Required field
         result.current.set("age", 3); // Below minimum
 
-        // Verify errors are present
         expect(result.current.get("name").status.variant).toBe("warning");
         expect(result.current.get("age").status.variant).toBe("error");
 
-        // Reset form
         result.current.reset();
 
-        // Verify errors are cleared
         expect(result.current.get("name").status.variant).toBe("success");
         expect(result.current.get("age").status.variant).toBe("success");
       });
@@ -748,18 +745,14 @@ describe("Form", () => {
           Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
 
-        // Change nested values
         result.current.set("nested.ssn", "999-99-9999");
         result.current.set("nested.ein", "98-7654321");
 
-        // Verify changes
         expect(result.current.get("nested.ssn").value).toBe("999-99-9999");
         expect(result.current.get("nested.ein").value).toBe("98-7654321");
 
-        // Reset form
         result.current.reset();
 
-        // Verify nested values are reset
         expect(result.current.get("nested.ssn").value).toBe("123-45-6789");
         expect(result.current.get("nested.ein").value).toBe("");
       });
@@ -769,20 +762,16 @@ describe("Form", () => {
           Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
 
-        // Modify array
         result.current.set("array", [
           { key: "key1", name: "Modified Name" },
           { key: "key2", name: "New Item" },
         ]);
 
-        // Verify changes
         expect(result.current.get("array").value).toHaveLength(2);
         expect(result.current.get("array.0.name").value).toBe("Modified Name");
 
-        // Reset form
         result.current.reset();
 
-        // Verify array is reset
         expect(result.current.get("array").value).toHaveLength(1);
         expect(result.current.get("array.0.name").value).toBe("John Doe");
         expect(result.current.get("array.0.key").value).toBe("key1");
@@ -795,14 +784,11 @@ describe("Form", () => {
           Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
 
-        // Change values
         result.current.set("name", "Jane Doe");
         result.current.set("age", 25);
 
-        // Set current state as initial
         result.current.setCurrentStateAsInitialValues();
 
-        // Values should remain the same
         expect(result.current.get("name").value).toBe("Jane Doe");
         expect(result.current.get("age").value).toBe(25);
 
@@ -810,7 +796,6 @@ describe("Form", () => {
         expect(result.current.get("name").touched).toBe(false);
         expect(result.current.get("age").touched).toBe(false);
 
-        // Now resetting should go to the new "initial" values
         result.current.set("name", "Another Name");
         result.current.reset();
         expect(result.current.get("name").value).toBe("Jane Doe"); // New initial value
@@ -827,14 +812,11 @@ describe("Form", () => {
           }),
         );
 
-        // Touch a field
         result.current.set("name", "Jane Doe");
         expect(onHasTouched).toHaveBeenLastCalledWith(true);
 
-        // Set current state as initial
         result.current.setCurrentStateAsInitialValues();
 
-        // Should call onHasTouched with false
         expect(onHasTouched).toHaveBeenLastCalledWith(false);
       });
 
@@ -843,14 +825,11 @@ describe("Form", () => {
           Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema }),
         );
 
-        // Change nested and array values
         result.current.set("nested.ssn", "999-99-9999");
         result.current.set("array.0.name", "New Array Name");
 
-        // Set current state as initial
         result.current.setCurrentStateAsInitialValues();
 
-        // Values should remain the same but not be touched
         expect(result.current.get("nested.ssn").value).toBe("999-99-9999");
         expect(result.current.get("nested.ssn").touched).toBe(false);
         expect(result.current.get("array.0.name").value).toBe("New Array Name");

@@ -9,7 +9,7 @@
 
 import "@/platform/channel/CalculatedModal.css";
 
-import { channel, status, TimeSpan } from "@synnaxlabs/client";
+import { channel, DataType, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Arc,
   Button,
@@ -34,6 +34,10 @@ import { Triggers } from "@/platform/triggers";
 export interface CalculatedModalParams {
   channelKey?: channel.Key;
 }
+
+const BOOLEAN_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
+  dataTypes: [DataType.BOOLEAN],
+};
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
@@ -113,7 +117,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                   <Form.Field<TimeSpan>
                     path="operations.0.duration"
                     label="Window"
-                    helpText="The value will be reset after this duration. If zero, the value will never be reset."
+                    helpText="Resets the value after this duration. Zero disables the reset."
                     className={CSS.BE("operations", "window")}
                   >
                     {({ value, onChange }) => (
@@ -126,14 +130,15 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                   </Form.Field>
                   <Form.Field<channel.Key>
                     path="operations.0.resetChannel"
-                    label="Reset Channel"
-                    helpText="When this channel is triggered, the calculation will be reset."
+                    label="Reset channel"
+                    helpText="Resets the calculation when this boolean channel is triggered."
                     grow
                   >
                     {({ value, onChange }) => (
                       <Channel.SelectSingle
                         value={value}
                         onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
+                        initialQuery={BOOLEAN_QUERY}
                         grow
                         allowNone
                       />
@@ -156,7 +161,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
             {isEdit && (
               <Flex.Box x align="center" gap="small">
                 <Input.Switch value={createMore} onChange={setCreateMore} />
-                <Text.Text color={9}>Create More</Text.Text>
+                <Text.Text color={9}>Create more</Text.Text>
               </Flex.Box>
             )}
             <Flex.Box x align="center">

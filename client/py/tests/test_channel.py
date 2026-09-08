@@ -124,16 +124,16 @@ class TestChannel:
         assert channel.index == channel.key
 
     def test_create_bool(self, client: sy.Synnax):
-        """Should create a channel with a BOOL data type"""
+        """Should create a channel with a BOOLEAN data type"""
         idx = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
         ch = client.channels.create(
-            name=channel_name(), data_type=sy.DataType.BOOL, index=idx.key
+            name=channel_name(), data_type=sy.DataType.BOOLEAN, index=idx.key
         )
-        assert ch.data_type == sy.DataType.BOOL
+        assert ch.data_type == sy.DataType.BOOLEAN
         res = client.channels.retrieve(ch.key)
-        assert res.data_type == sy.DataType.BOOL
+        assert res.data_type == sy.DataType.BOOLEAN
 
     def test_create_virtual(self, client: sy.Synnax):
         """Should create a virtual channel"""

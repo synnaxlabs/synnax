@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { afterAll } from "vitest";
+import { afterAll, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
 
@@ -50,3 +50,7 @@ export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
   openClients.push(client);
   return client;
 };
+
+/** Spies on the client's unary send so specs can count requests on the wire. */
+export const spyOnSend = (client: Synnax, field: "transport" = "transport") =>
+  vi.spyOn(client[field].unary, "send");

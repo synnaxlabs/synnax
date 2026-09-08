@@ -52,6 +52,12 @@ func OpenPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
 	return pool.Open(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})
 }
 
+// passthroughScheme skips gRPC's DNS resolver, which withholds every address until a
+// `_grpc_config` TXT query answers and so stalls the first RPC for the whole DNS
+// timeout. It rides on the target string because gRPC keeps the equivalent dial option
+// unexported, leaving only the process-wide resolver.SetDefaultScheme.
+const passthroughScheme = "passthrough:///"
+
 type factory struct {
 	targetPrefix address.Address
 	dialOpts     []grpc.DialOption
@@ -59,7 +65,7 @@ type factory struct {
 
 func (f *factory) Open(addr address.Address) (*ClientConn, error) {
 	c, err := grpc.NewClient(
-		path.Join(f.targetPrefix.String(), addr.String()),
+		passthroughScheme+path.Join(f.targetPrefix.String(), addr.String()),
 		f.dialOpts...,
 	)
 	if err != nil {

@@ -17,5 +17,5 @@ import { CSS } from "@/platform/css";
 export interface BarProps extends Nav.BarProps {}
 
 export const Bar = ({ className, ...rest }: BarProps): ReactElement => (
-  <Nav.Bar className={CSS(CSS.BE("nav", "bar"), className)} {...rest} />
+  <Nav.Bar className={CSS.cls(CSS.BE("nav", "bar"), className)} {...rest} />
 );

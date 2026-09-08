@@ -12,7 +12,6 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
@@ -205,6 +204,48 @@ var _ = Describe("Format String Compilation", func() {
 		)
 	})
 
+	Describe("Bool Placeholder", func() {
+		It(
+			"compiles a bool literal placeholder via strings.from_bool",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileExpression(bCtx, `f"{true}"`)
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(1),
+					OpCall, uint32(0),
+				))
+			},
+		)
+
+		It(
+			"compiles a false literal placeholder via strings.from_bool",
+			func(bCtx SpecContext) {
+				bytecode, exprType := compileExpression(bCtx, `f"{false}"`)
+				Expect(exprType).To(Equal(types.String()))
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(0),
+					OpCall, uint32(0),
+				))
+			},
+		)
+	})
+
+	Describe("Unsupported Placeholder Type", func() {
+		It("rejects a bool series placeholder", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "s",
+				Kind: symbol.KindVariable,
+				Type: types.Series(types.Bool()),
+			}))
+			expr := MustSucceed(parser.ParseExpression(`f"{s}"`))
+			Expect(expression.Compile(ctx.Child(expr))).Error().
+				To(MatchError(ContainSubstring(
+					"only numeric, string, and bool types are supported",
+				)))
+		})
+	})
+
 	Describe("Malformed Format String Body", func() {
 		It(
 			"propagates literal.FmtStrParse errors from compileRawStringLiteral",
@@ -214,7 +255,7 @@ var _ = Describe("Format String Compilation", func() {
 				// error branch in compileRawStringLiteral.
 				expr := MustSucceed(parser.ParseExpression(`f"{"`))
 				ctx := NewContext(bCtx)
-				_, err := expression.Compile(ccontext.Child(ctx, expr))
+				_, err := expression.Compile(ctx.Child(expr))
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("unmatched"))
 			},

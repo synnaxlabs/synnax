@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "client/ts/src/view"
-@py output  "client/py/synnax/view"
-@go output  "core/pkg/service/view"
 @cpp output "client/cpp/view"
+@go output  "core/pkg/service/view"
 @pb
+@py output  "client/py/synnax/view"
+@ts output  "client/ts/src/view"
 
 Key = uuid {
-    @go version 0
-    @doc value  "is a unique identifier for a saved view configuration."
+    @doc value "is a unique identifier for a saved view configuration."
 }
 
 View struct {
     key   Key = create {
-        @key
         @doc value "is the unique identifier for this view."
+        @key
     }
     name  string {
         @doc value "is a human-readable name for the view."
@@ -34,21 +33,19 @@ View struct {
     }
     query record {
         @doc value """
-            is a type-agnostic JSON object containing view-specific configuration
-            and query parameters.
+            is a type-agnostic JSON object containing view-specific configuration and
+            query parameters.
         """
     }
 
-    @go version    0
-    @doc value     """
-        is a persisted view configuration storing visualization settings and
-        query parameters for line plots, tables, schematics, and other view
-        types.
-    """
-    @ontology type "view"
     @create
-    @retrieve
-    @search
+    @doc value     """
+        is a persisted view configuration storing visualization settings and query
+        parameters for line plots, tables, schematics, and other view types.
+    """
     @go marshal
     @go migrate
+    @ontology type "view"
+    @retrieve
+    @search
 }

@@ -44,7 +44,7 @@ const renderListAndDetails = (
 describe("layouts.ListAndDetails", () => {
   it("should show an empty state and a disabled details panel when there are no channels", async () => {
     const { container } = await renderListAndDetails([]);
-    await waitFor(() => expect(screen.getByText("No channels in task.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
     expect(screen.queryByText(/details-for-/)).toBeNull();
     const copyButton = getIconButton(container, "json");
     expect(copyButton.className).toContain("pluto--disabled");

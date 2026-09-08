@@ -65,7 +65,7 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 	w.String(rc.NodeName)
 	w.String(string(rc.DataType))
 	w.Uint32(uint32(rc.Channel))
-	w.Bool(rc.UseAsIndex)
+	w.Bool(rc.IsIndex)
 	return nil
 }
 
@@ -101,7 +101,7 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		}
 		rc.Channel = channel.Key(rawV)
 	}
-	if rc.UseAsIndex, err = r.Bool(); err != nil {
+	if rc.IsIndex, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

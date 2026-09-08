@@ -265,16 +265,14 @@ export const useLanguageServer = ({
           if (signal.aborted) return;
         } catch (e) {
           onStatusRef.current(
-            status.fromException(e, "Language server connection failed"),
+            status.fromException(e, "Failed to connect to the language server"),
           );
           currentHandle = null;
           currentStream = null;
         }
         if (!(await b.wait())) {
           onStatusRef.current(
-            status.fromException(
-              new Error("Language server unreachable after repeated attempts"),
-            ),
+            status.fromException(new Error("Failed to reach the language server")),
           );
           return;
         }

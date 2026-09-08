@@ -12,7 +12,6 @@ package graph
 import (
 	"context"
 	"fmt"
-	"go/types"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -45,7 +44,7 @@ type Graph struct {
 	alamos.Instrumentation
 	db         *gorp.DB
 	svc        *channel.Service
-	status     status.Writer[types.Nil]
+	status     status.Writer
 	disconnect observe.Disconnect
 	mu         struct {
 		nodes            map[channel.Key]node
@@ -85,9 +84,9 @@ var _ config.Config[Config] = Config{}
 
 func (c Config) Validate() error {
 	v := validate.New("service.channel.calculation.graph")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "status", c.Status)
+	v.NotNil("db", c.DB)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
@@ -113,7 +112,7 @@ func Open(
 		Instrumentation: cfg.Instrumentation,
 		db:              cfg.DB,
 		svc:             cfg.Channel,
-		status:          status.NewWriter[types.Nil](cfg.Status, nil),
+		status:          cfg.Status.NewWriter(nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
@@ -303,7 +302,8 @@ func (s *Graph) handleChanges(
 	}
 	updates = append(
 		updates,
-		s.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...)
+		s.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...,
+	)
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("updating channel data types", zap.Int("count", len(updates)))

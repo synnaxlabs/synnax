@@ -51,32 +51,32 @@ describe("Select.Static", () => {
 
   it("should render a selection trigger", () => {
     const c = render(<SelectSimple />);
-    expect(c.getByText("Select a Test Item")).toBeTruthy();
+    expect(c.getByText("Select Test Item")).toBeTruthy();
   });
 
   it("should open the selection dialog when the trigger is clicked", () => {
     const c = render(<SelectSimple />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     expect(c.getByText("First Item")).toBeTruthy();
     expect(c.getByText("Second Item")).toBeTruthy();
   });
 
   it("should call onChange when an item is selected and the dialog is closed", () => {
     const c = render(<SelectSimple />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.click(c.getByText("Second Item"));
     expect(onChange).toHaveBeenCalledWith("2");
   });
 
   it("should render a search box", () => {
     const c = render(<SelectSimple />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     expect(c.getByPlaceholderText("Search Test Items...")).toBeTruthy();
   });
 
   it("should filter the list when the search box is typed into", () => {
     const c = render(<SelectSimple />);
-    fireEvent.click(c.getByText("Select a Test Item"));
+    fireEvent.click(c.getByText("Select Test Item"));
     fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
       target: { value: "Second" },
     });

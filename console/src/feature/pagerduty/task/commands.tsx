@@ -14,7 +14,7 @@ import { Task } from "@/platform/task";
 
 const CreateAlertCommand = Task.createCommand({
   key: "pagerduty_create_alert_task",
-  name: "Create a PagerDuty Alert Task",
+  name: "Create PagerDuty alert task",
   icon: <Icon.Logo.PagerDuty />,
   useOnSelect: useCreateAlert,
 });

@@ -23,8 +23,9 @@ import (
 )
 
 type fixedGate struct {
-	name   string
-	status check.Status
+	name     string
+	status   check.Status
+	findings []check.Finding
 }
 
 func (g *fixedGate) Name() string { return g.name }
@@ -35,9 +36,10 @@ func (g *fixedGate) Run(
 	_ check.Env,
 ) check.GateReport {
 	return check.GateReport{
-		Gate:    g.name,
-		Status:  g.status,
-		Elapsed: time.Millisecond,
+		Gate:     g.name,
+		Status:   g.status,
+		Findings: g.findings,
+		Elapsed:  time.Millisecond,
 	}
 }
 
@@ -76,7 +78,41 @@ var _ = Describe("Run", func() {
 		}
 		Expect(names).To(Equal([]string{"format", "analyze", "generated"}))
 	})
+
+	It("sorts findings by path, line, then message", func(ctx SpecContext) {
+		report := check.Run(ctx, &pipeline.Result{}, check.Env{}, []check.Checker{
+			&fixedGate{name: "a", status: check.StatusFail, findings: []check.Finding{
+				{Path: "b.oracle", Line: 2, Message: "z"},
+				{Path: "b.oracle", Line: 2, Message: "a"},
+				{Path: "b.oracle", Line: 1, Message: "m"},
+				{Path: "a.oracle", Line: 9, Message: "m"},
+			}},
+		}, nil)
+		got := report.Gates[0].Findings
+		Expect(got).To(Equal([]check.Finding{
+			{Path: "a.oracle", Line: 9, Message: "m"},
+			{Path: "b.oracle", Line: 1, Message: "m"},
+			{Path: "b.oracle", Line: 2, Message: "a"},
+			{Path: "b.oracle", Line: 2, Message: "z"},
+		}))
+	})
 })
+
+var _ = DescribeTable("Severity.String",
+	func(s check.Severity, want string) { Expect(s.String()).To(Equal(want)) },
+	Entry("info", check.SeverityInfo, "info"),
+	Entry("warning", check.SeverityWarning, "warning"),
+	Entry("error", check.SeverityError, "error"),
+	Entry("unknown", check.Severity(99), "unknown"),
+)
+
+var _ = DescribeTable("Status.String",
+	func(s check.Status, want string) { Expect(s.String()).To(Equal(want)) },
+	Entry("pass", check.StatusPass, "pass"),
+	Entry("fail", check.StatusFail, "fail"),
+	Entry("skipped", check.StatusSkipped, "skipped"),
+	Entry("unknown", check.Status(99), "unknown"),
+)
 
 var _ = Describe("Report.FirstExitCode", func() {
 	It("returns 0 when every gate passed", func() {
@@ -101,6 +137,21 @@ var _ = Describe("Report.FirstExitCode", func() {
 		}}
 		Expect(r.FirstExitCode()).To(Equal(1))
 	})
+
+	DescribeTable("gate-specific codes",
+		func(gate string, want int) {
+			r := &check.Report{Gates: []check.GateReport{
+				{Gate: gate, Status: check.StatusFail},
+			}}
+			Expect(r.FirstExitCode()).To(Equal(want))
+		},
+		Entry("format", "format", 10),
+		Entry("analyze", "analyze", 11),
+		Entry("generated", "generated", 12),
+		Entry("persistence", "persistence", 13),
+		Entry("cache", "cache", 14),
+		Entry("versions", "versions", 15),
+	)
 })
 
 var _ = Describe("Render", func() {
@@ -170,5 +221,38 @@ var _ = Describe("Render", func() {
 		// text-format render.
 		Expect(check.Render(&buf, r, check.Format("xml"), false)).To(Succeed())
 		Expect(strings.TrimSpace(buf.String())).NotTo(BeEmpty())
+	})
+
+	It("renders skipped gates, positions, diffs, and long durations", func() {
+		report := &check.Report{
+			Gates: []check.GateReport{
+				{Gate: "cache", Status: check.StatusSkipped},
+				{
+					Gate: "generated", Status: check.StatusFail,
+					Elapsed: 2 * time.Second,
+					Findings: []check.Finding{
+						{
+							Path: "out/x.gen.go", Line: 3, Col: 7,
+							Severity: check.SeverityWarning,
+							Message:  "wobbly",
+							Diff:     "-old\n+new\n",
+						},
+						{Severity: check.SeverityInfo, Message: "aside"},
+					},
+				},
+			},
+			TotalRun: 1, TotalFailed: 1,
+		}
+		var buf bytes.Buffer
+		Expect(check.Render(&buf, report, check.FormatText, false)).To(Succeed())
+		out := buf.String()
+		Expect(out).To(ContainSubstring("cache (skipped)"))
+		Expect(out).To(ContainSubstring("(2.0s)"))
+		Expect(out).To(ContainSubstring("out/x.gen.go:3:7"))
+		Expect(out).To(ContainSubstring("warning"))
+		Expect(out).To(ContainSubstring("-old"))
+		Expect(out).To(ContainSubstring("+new"))
+		Expect(out).To(ContainSubstring("aside"))
+		Expect(out).To(ContainSubstring("1 gate(s) failed"))
 	})
 })

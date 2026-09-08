@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -52,18 +52,14 @@ func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
 type DB struct {
 	shutdown io.Closer
 	*options
-	relay  *relay
-	closed *atomic.Bool
-	mu     struct {
+	relay *relay
+	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
+	controlUpdates observe.Observer[ControlUpdate]
+	closed         *atomic.Bool
+	mu             struct {
 		dbs struct {
 			unary   map[ChannelKey]unary.DB
 			virtual map[ChannelKey]virtual.DB
-		}
-		digests struct {
-			shutdown io.Closer
-			inlet    confluence.Inlet[WriterRequest]
-			outlet   confluence.Outlet[WriterResponse]
-			key      ChannelKey
 		}
 		sync.RWMutex
 	}
@@ -156,15 +152,9 @@ func (db *DB) Close() error {
 		return nil
 	}
 
-	// Crucial to close control digests here before closing the signal context so writes
-	// can still use the signal context to send frames to relay.
-	//
-	// This function acquires the mutex lock internally, so there's no need to lock it
-	// here.
-	err := db.closeControlDigests()
 	// Shut down without locking mutex to allow existing goroutines (e.g. GC) that
 	// require a mutex lock to exit.
-	err = errors.Join(err, db.shutdown.Close())
+	err := db.shutdown.Close()
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, u := range db.mu.dbs.unary {

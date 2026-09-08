@@ -8,19 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import {
+  AccessDeniedError,
   channel,
   type framer,
   NotFoundError,
   status as cstatus,
+  ValidationError,
 } from "@synnaxlabs/client";
 import {
   bounds,
+  breaker,
   DataType,
   type destructor,
   errors,
   MultiSeries,
   primitive,
   type Series,
+  sync,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -52,7 +56,7 @@ export interface Client {
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
   variant: "warning",
-  message: "cluster disconnected",
+  message: "Core disconnected",
 };
 
 export const streamChannelValuePropsZ = z.object({
@@ -94,13 +98,10 @@ export class StreamChannelValue
 
   cleanup(): void {
     this.generation++;
-    // Start off by stopping telemetry streaming.
     this.removeStreamHandler?.();
     // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
-    // Release the leading buffer.
     this.leadingBuffer?.release();
-    // Clear out references.
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
   }
@@ -114,6 +115,7 @@ export class StreamChannelValue
     return this.leadingBuffer.at(-1, true) as number;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -149,7 +151,7 @@ export class StreamChannelValue
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel value"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
     }
   }
 }
@@ -175,6 +177,9 @@ const fetchChannelProperties = async (
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
+// Spans within the live buffer draw immediately and skip the loading state.
+const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
+
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
   channel: z.number().or(z.string()),
@@ -183,7 +188,6 @@ const channelDataSourcePropsZ = z.object({
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 
-// ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
   implements SeriesSource
@@ -197,43 +201,58 @@ export class ChannelData
   private generation = 0;
   private channel: SelectedChannelProperties | null = null;
   private readonly onStatusChange?: status.Adder;
+  private readonly skipLoading: boolean;
 
   constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    const { channel, timeRange } = this.props;
+    this.skipLoading = channel === 0 || timeRange.span.isZero;
+    this.loading_ = true;
   }
 
   cleanup(): void {
     this.generation++;
     this.data.release();
     this.valid = false;
+    this.loading_ = false;
     this.channel = null;
+  }
+
+  loading(): boolean {
+    if (this.skipLoading || !this.loading_) return false;
+    if (!this.valid) void this.read();
+    return this.loading_;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeRange } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
-    if (timeRange.span.isZero || channel === 0) return [bounds.ZERO, this.data];
+    if (timeRange.span.isZero || channel === 0) return [bounds.INVALID, this.data];
     if (!this.valid) void this.read();
     const { channel: ch, data } = this;
-    if (ch == null) return [bounds.ZERO, this.data];
+    if (ch == null) return [bounds.INVALID, this.data];
     let b = data.bounds;
-    if (ch.dataType.equals(DataType.TIMESTAMP))
+    if (ch.dataType.equals(DataType.TIMESTAMP)) {
       b = bounds.min([b, timeRange.numericBounds]);
+      // A reversed intersection means the data lies outside the requested range.
+      if (b.lower > b.upper) b = bounds.INVALID;
+    }
     return [b, data];
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
-    if (client == null) {
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
-    }
     try {
+      if (client == null) {
+        this.onStatusChange?.(DISCONNECTED_STATUS);
+        return;
+      }
       const { timeRange, channel, useIndexOfChannel } = this.props;
       const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
@@ -245,7 +264,9 @@ export class ChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to read channel data"));
+      this.onStatusChange?.(cstatus.fromException(e, "Failed to read channel data"));
+    } finally {
+      this.declareLoaded();
     }
   }
 }
@@ -272,7 +293,11 @@ export class StreamChannelData
   private channel: SelectedChannelProperties | null = null;
   private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
+  private readonly skipLoading: boolean;
   private generation = 0;
+  private readonly breaker: breaker.Breaker;
+  private readonly retryNotifier = new sync.Notifier();
+  private lastFailure?: string;
   schema = streamChannelDataPropsZ;
 
   constructor(
@@ -280,20 +305,45 @@ export class StreamChannelData
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
+    breakerConfig?: breaker.Config,
   ) {
     super(props);
     this.client = client;
     this.now = now;
     this.onStatusChange = options?.onStatusChange;
+    const { channel, timeSpan } = this.props;
+    this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
+    this.loading_ = true;
+    this.breaker = new breaker.Breaker({
+      baseInterval: TimeSpan.seconds(1),
+      // A tall interval cap: live data flows independently of this loop, and a
+      // back-fill loses value as the window fills with live samples.
+      maxInterval: TimeSpan.seconds(30),
+      maxRetries: Infinity,
+      scale: 2,
+      jitter: 0.25,
+      // cleanup interrupts a pending backoff so a retired source's retry loop ends
+      // promptly instead of sleeping through it
+      sleepFn: async (duration) => {
+        await this.retryNotifier.wait(duration);
+      },
+      ...breakerConfig,
+    });
+  }
+
+  loading(): boolean {
+    if (this.skipLoading || !this.loading_) return false;
+    if (!this.valid) void this.read();
+    return this.loading_;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
     const { channel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.ZERO, this.data];
+    if (channel === 0) return [bounds.INVALID, this.data];
     if (!this.valid) void this.read();
     const { data, channel: ch } = this;
     const now = this.now();
-    if (ch != null && ch.dataType.isVariable) return [bounds.ZERO, this.data];
+    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, this.data];
     const filtered = data.series
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
@@ -303,38 +353,51 @@ export class StreamChannelData
     return [b, this.data];
   }
 
+  /**
+   * Never rejects. A connectivity failure retries under the breaker; a definitive
+   * rejection parks the source. Every distinct failure reaches onStatusChange.
+   */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.declareLoaded();
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
+    while (generation === this.generation)
+      try {
+        await this.attempt(generation, client);
+        this.declareLoaded();
+        this.breaker.reset();
+        this.lastFailure = undefined;
+        return;
+      } catch (e) {
+        // Declare loaded on the first failure so retries never hold loading forever.
+        this.declareLoaded();
+        // Retrying only fixes connectivity; a definitive rejection recurs on every
+        // attempt.
+        if (
+          AccessDeniedError.matches(e) ||
+          ValidationError.matches(e) ||
+          NotFoundError.matches(e)
+        )
+          return;
+        if (!(await this.breaker.wait())) return;
+      }
+  }
+
+  // One full read attempt: it opens the live stream, then runs the historical
+  // back-fill, so a stalled or failed back-fill never blocks live data. Throws the
+  // failure after posting its status.
+  private async attempt(generation: number, client: Client): Promise<void> {
+    const { channel, useIndexOfChannel, timeSpan } = this.props;
+    let fetched: SelectedChannelProperties;
     try {
-      const { channel, useIndexOfChannel, timeSpan } = this.props;
-      const fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
       this.channel = fetched;
-      const tr = this.now().spanRange(-timeSpan);
-      if (!this.channel.virtual || this.channel.isCalculated)
-        try {
-          const res = await client.feed.read(tr, this.channel.key);
-          if (generation !== this.generation) return;
-          this.pushNew(res.series);
-        } catch (e) {
-          // Certain calculated channels can fail to read because they need access to
-          // virtual channels that cannot be read from historically.
-          if (
-            e instanceof Error &&
-            (e.message.includes("cannot open iterator on virtual channel") ||
-              e.message.includes("cannot read from free channel"))
-          )
-            console.warn("failed to read calculated channel data", e);
-          else throw errors.fromUnknown(e);
-        }
-
-      this.stopStreaming?.();
       const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
@@ -343,22 +406,57 @@ export class StreamChannelData
         this.notify();
         this.gcOutOfRangeData();
       };
-      if (generation !== this.generation) return;
-      this.stopStreaming = client.feed.stream(handler, [this.channel.key]).close;
-      this.notify();
+      this.stopStreaming?.();
+      this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
     } catch (e) {
-      this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel data"));
+      this.reportFailure(e, "Failed to stream channel data");
+      throw errors.fromUnknown(e);
     }
+    if (!fetched.virtual || fetched.isCalculated)
+      try {
+        const res = await client.feed.read(
+          this.now().spanRange(-timeSpan),
+          fetched.key,
+        );
+        if (generation !== this.generation) return;
+        this.pushNew(res.series);
+      } catch (e) {
+        // Certain calculated channels can fail to read because they need access to
+        // virtual channels that cannot be read from historically.
+        if (
+          e instanceof Error &&
+          (e.message.includes("cannot open iterator on virtual channel") ||
+            e.message.includes("cannot read from free channel"))
+        )
+          console.warn("failed to read calculated channel data", e);
+        else {
+          this.reportFailure(e, "Failed to read channel data");
+          throw errors.fromUnknown(e);
+        }
+      }
+    this.notify();
   }
 
-  // feed.read returns the live leading buffer that the stream's first delivery
-  // repeats, so series already held by identity are skipped.
+  // Retries repeat at the breaker's pace, so an incident posts one status when it
+  // starts and again only when the failure changes. Success clears the memory.
+  private reportFailure(e: unknown, message: string): void {
+    const failure = cstatus.fromException(e, message);
+    const key = `${failure.message}: ${failure.description}`;
+    if (this.lastFailure === key) return;
+    this.lastFailure = key;
+    this.onStatusChange?.(failure);
+  }
+
+  // feed.read returns the live leading buffer that the stream's first delivery repeats,
+  // so series already held by identity are skipped. A late back-fill is inserted by
+  // alignment: consumers assume the array is chronological.
   private pushNew(series: Series[]): void {
     for (const s of series) {
       if (this.data.series.includes(s)) continue;
       s.acquire();
-      this.data.push(s);
+      const at = this.data.series.findIndex((held) => held.alignment > s.alignment);
+      if (at === -1) this.data.push(s);
+      else this.data.series.splice(at, 0, s);
     }
   }
 
@@ -372,10 +470,13 @@ export class StreamChannelData
 
   cleanup(): void {
     this.generation++;
+    this.retryNotifier.notify();
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.data.release();
     this.valid = false;
+    // No notify so a read settling after cleanup cannot wake stale observers.
+    this.loading_ = false;
   }
 }
 
@@ -430,6 +531,7 @@ export class StreamChannelStringValue
     return this.latest;
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
@@ -466,7 +568,7 @@ export class StreamChannelStringValue
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(
-        cstatus.fromException(e, "failed to stream channel string value"),
+        cstatus.fromException(e, "Failed to stream channel string value"),
       );
     }
   }

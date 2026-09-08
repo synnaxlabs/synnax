@@ -15,7 +15,7 @@ import { User as PlatformUser } from "@/platform/user";
 
 const RegisterCommand = Command.create({
   key: "register_user",
-  name: "Register a user",
+  name: "Register user",
   icon: <PUser.CreateIcon />,
   useOnSelect: PlatformUser.useRegisterModal,
   useVisible: () => Access.useCreateGranted(user.TYPE_ONTOLOGY_ID),

@@ -33,13 +33,12 @@ export const useMemoQuery = (<Query extends query.Params>(
   useMemoDeepEqual(q == null || normalize == null ? q : normalize(q))) as UseMemoQuery;
 
 /**
- * Fetch dedup and settled answers for queries the domain client does not
- * cache. Entries persist until the next fetch of the same query replaces
- * them; an answer the cache serves never populates `settled`. Scoped per
- * client so a settled error never outlives the client whose fetch produced
- * it, and settled errors are dropped when the connection epoch advances.
- * Capped: write through {@link setSettled}, which evicts the oldest entry
- * past the cap.
+ * Fetch dedup and settled answers for queries the domain client does not cache. Entries
+ * persist until the next fetch of the same query replaces them; an answer the cache
+ * serves never populates `settled`. Scoped per client so a settled error never outlives
+ * the client whose fetch produced it, and settled errors are dropped when the
+ * connection epoch advances. Capped: write through {@link setSettled}, which evicts the
+ * oldest entry past the cap.
  */
 export interface LocalCache<Data> {
   epoch: number;

@@ -54,7 +54,7 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 	if diags != nil && !diags.Ok() {
 		return errors.Newf("invalid placeholder %q: %s", seg.Text, diags.String())
 	}
-	t, err := Compile(context.Child(ctx, expr).WithHint(types.Type{}))
+	t, err := Compile(ctx.Child(expr).WithHint(types.Type{}))
 	if err != nil {
 		return err
 	}
@@ -69,6 +69,16 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 			)
 		}
 		return nil
+	}
+	if t.Kind == types.KindBool {
+		return ctx.Resolver.EmitFixedImportCall(
+			ctx.Context,
+			ctx.Writer,
+			ctx.WriterID,
+			ctx.Scope,
+			"strings",
+			"from_bool",
+		)
 	}
 	if t.IsNumeric() {
 		if seg.Spec != "" {
@@ -90,8 +100,9 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 		)
 	}
 	return errors.Newf(
-		"placeholder %q has type %s; only numeric and string types are supported",
-		seg.Text, t,
+		"placeholder %q has type %s; only numeric, string, and bool types are supported",
+		seg.Text,
+		t,
 	)
 }
 

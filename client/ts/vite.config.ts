@@ -25,7 +25,17 @@ export default defineConfig({
         testutil: path.resolve(".", "src/testutil/index.ts"),
       },
     },
-    rolldownOptions: { external: ["zod", "vitest", /^@vitest\//, /^node:/] },
+    rolldownOptions: {
+      external: [
+        "zod",
+        "vitest",
+        /^@vitest\//,
+        /^node:/,
+        "@synnaxlabs/alamos",
+        "@synnaxlabs/freighter",
+        "@synnaxlabs/x",
+      ],
+    },
   },
   test: {
     globals: true,

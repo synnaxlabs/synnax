@@ -110,8 +110,8 @@ describe("useCreateEmpty", () => {
 
   it("should keep the pending group when the parent's children change under it", async () => {
     const { parentID, editable } = await setup();
-    // The answer this creation triggers carries the parent's whole membership, and
-    // the cluster has never heard of the group being named.
+    // The answer this creation triggers carries the parent's whole membership, and the
+    // Core has never heard of the group being named.
     const sibling = await client.groups.create({
       parent: parentID,
       name: uniqueName("sibling"),

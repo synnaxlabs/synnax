@@ -37,7 +37,7 @@ export const useTearOffTab = (): TearOffTab => {
       handleError(async () => {
         const key = await mint(origin);
         if (key != null) openWindow(key, { position });
-      }, "Failed to open the component in a new window"),
+      }, "Failed to move the component to a new window"),
     [openWindow, mint, handleError],
   );
 };

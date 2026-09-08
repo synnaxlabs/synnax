@@ -61,7 +61,7 @@ describe("Nav Slice", () => {
     });
 
     it("should default the slice state to an empty window map", () => {
-      expect(Nav.ZERO_SLICE_STATE).toEqual({ windows: {} });
+      expect(Nav.ZERO_SLICE_STATE).toEqual({ version: 0, windows: {} });
     });
   });
 

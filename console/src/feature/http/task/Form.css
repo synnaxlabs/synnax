@@ -11,8 +11,15 @@
 
 .console-task-configure--http_read,
 .console-task-configure--http_write {
+    /* Both halves are load-bearing: the list must refuse to shrink, and the detail
+       column must be allowed to, or the list absorbs everything it will not give up. */
     .console-endpoint-list {
         width: 250px;
+        flex-shrink: 0;
+    }
+
+    .console-endpoint-details-pane {
+        min-width: 0;
     }
 
     .console-endpoint-details {
@@ -30,8 +37,31 @@
             padding: 2rem 0 0;
         }
 
-        .console-channel-list {
+        /* This pane is the only scroller. Its lists grow with their content and
+           hand the overflow up; pluto's paint containment would clip it instead. */
+        .console-channel-list,
+        .console-additional-fields {
             overflow: visible;
+            flex-shrink: 0;
+        }
+
+        /* The shared rule sizes this list beside a detail column; stacked here, its
+           225px basis becomes a height that strands the enum mapping below the fold.
+           The :not() mirrors that rule so this one outweighs it. */
+        .console-channel-list:not(:only-child) {
+            flex-basis: auto;
+        }
+
+        .console-field-list-items,
+        .console-channel-list .pluto-list__items {
+            overflow: visible;
+            contain: layout;
+            height: auto;
+        }
+
+        /* Content height alone puts the placeholder right under the header. */
+        .pluto-list__items--empty {
+            min-height: 15rem;
         }
 
         .pluto-header__actions {
@@ -69,11 +99,11 @@
         max-width: 25rem;
     }
 
-    .console-static-field-value {
-        width: 120px;
+    .console-field-data-type {
+        width: 22rem;
     }
 
-    .console-field-list-items {
-        overflow: visible;
+    .console-static-field-value {
+        width: 120px;
     }
 }

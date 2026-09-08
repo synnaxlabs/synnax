@@ -179,7 +179,15 @@ routingTable
     ;
 
 routingEntry
-    : IDENTIFIER COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
+    : routingKey COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
+    ;
+
+// TRUE and FALSE are lexer keywords but also valid routing-table keys
+// (select's outputs). Without these the IDENTIFIER-only rule rejects them (SY-4619).
+routingKey
+    : IDENTIFIER
+    | TRUE
+    | FALSE
     ;
 
 flowNode
@@ -337,6 +345,7 @@ unitSuffix
 primitiveType
     : numericType
     | STR
+    | BOOL
     ;
 
 numericType
@@ -391,18 +400,18 @@ additiveExpression
     ;
 
 multiplicativeExpression
-    : powerExpression ((STAR | SLASH | PERCENT) powerExpression)*
-    ;
-
-// ^ is right-associative and binds tighter than unary
-powerExpression
-    : unaryExpression (CARET powerExpression)?
+    : unaryExpression ((STAR | SLASH | PERCENT) unaryExpression)*
     ;
 
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
-    | postfixExpression
+    | powerExpression
+    ;
+
+// ^ binds tighter than unary minus and is right-associative: -2 ^ 2 is -(2 ^ 2).
+powerExpression
+    : postfixExpression (CARET unaryExpression)?
     ;
 
 postfixExpression
@@ -439,6 +448,7 @@ literal
     | STR_LITERAL
     | STR_LITERAL_MULTI
     | seriesLiteral
+    | booleanLiteral
     ;
 
 // Numeric literal with optional unit suffix.
@@ -451,6 +461,10 @@ numericLiteral
 
 seriesLiteral
     : LBRACKET expressionList? RBRACKET
+    ;
+
+booleanLiteral
+    : TRUE | FALSE
     ;
 
 expressionList

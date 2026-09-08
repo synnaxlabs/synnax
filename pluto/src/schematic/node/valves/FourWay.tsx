@@ -27,7 +27,7 @@ export const FourWay = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS(CSS.B("four-way-valve"), className)}
+    className={CSS.cls(CSS.B("four-way-valve"), className)}
   >
     <Handle.Rectangle
       orientation={orientation}

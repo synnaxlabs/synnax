@@ -24,7 +24,7 @@ export interface CreateOPCDeviceOptions {
   properties?: Partial<Properties>;
 }
 
-/** Creates a rack and a configured OPC UA server device on the live cluster. */
+/** Creates a rack and a configured OPC UA server device on the live Core. */
 export const createOPCDevice = async (
   client: Synnax,
   { configured = true, properties }: CreateOPCDeviceOptions = {},
@@ -37,7 +37,7 @@ export const createOPCDevice = async (
       rack: rack.key,
       location: "opc.tcp://localhost:4840",
       make: MAKE,
-      model: "OPC UA Server",
+      model: "OPC UA server",
       configured,
       properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
     },

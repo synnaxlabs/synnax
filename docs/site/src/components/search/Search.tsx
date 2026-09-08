@@ -67,7 +67,7 @@ export const Search = (): ReactElement => (
 );
 
 const ICONS: Record<string, Icon.ReactElement> = {
-  core: <Icon.Cluster />,
+  core: <Icon.Core />,
   console: <Icon.Visualize />,
   concepts: <Icon.Concepts />,
   blog: <Icon.Guide />,

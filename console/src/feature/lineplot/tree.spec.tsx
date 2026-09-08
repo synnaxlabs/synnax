@@ -14,12 +14,16 @@ import {
   ontology,
   project as clientProject,
 } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
 import { List, Text } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
+import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
+
+const roles = new RoleClients(client);
 import { Modals } from "@/platform/modals";
 import { findButton, findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
@@ -31,8 +35,10 @@ import {
 } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { createCluster, createClusterState } from "@/session/cluster/testutil";
+import { createCore, createCoreState } from "@/session/core/testutil";
+import { documentIn } from "@/session/window/testutil";
 import {
+  assertDefined,
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
@@ -43,6 +49,8 @@ import {
   uniqueName,
 } from "@/testutil";
 
+const CORE = createCore("test");
+
 const Item = LinePlot.TREE_ITEMS.lineplot;
 
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
@@ -51,14 +59,14 @@ const createLinePlot = async (): Promise<lineplot.LinePlot> =>
 interface SetupParams {
   plots: lineplot.LinePlot[];
   overrides?: Partial<Tree.BaseProps>;
-  withCluster?: boolean;
+  withCore?: boolean;
 }
 
-const renderMenu = async ({ plots, overrides, withCluster = false }: SetupParams) => {
+const renderMenu = async ({ plots, overrides, withCore = false }: SetupParams) => {
   const store = await createTestStore({
     preloadedState: {
       ...createPreloadedState(plots[0].key),
-      ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
+      ...(withCore ? createCoreState([CORE], CORE.key) : {}),
     },
   });
   const Menu = Item.ContextMenu;
@@ -124,11 +132,11 @@ describe("lineplot/ontology", () => {
         );
       });
       expect(
-        Session.LinePlot.selectSliceState(store.getState()).plots[plot.key],
+        documentIn(Session.LinePlot.selectSliceState(store.getState()), plot.key),
       ).toBeUndefined();
     });
 
-    it("renames the plot on the cluster", async () => {
+    it("renames the plot on the Core", async () => {
       const plot = await createLinePlot();
       const { itemID } = await renderMenu({ plots: [plot] });
       fireEvent.click(await screen.findByText("Rename"));
@@ -155,7 +163,7 @@ describe("lineplot/ontology", () => {
     it("copies a deep link to the clipboard", async () => {
       const writeText = stubClipboardWriteText();
       const plot = await createLinePlot();
-      await renderMenu({ plots: [plot], withCluster: true });
+      await renderMenu({ plots: [plot], withCore: true });
       fireEvent.click(await screen.findByText("Copy link"));
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       expect(writeText.mock.calls[0][0]).toContain(`lineplot/${plot.key}`);
@@ -216,5 +224,20 @@ describe("lineplot/ontology", () => {
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });
+  });
+});
+
+describe("permission to write the line plot", () => {
+  it("should withhold rename, grouping, and delete from a viewer", async () => {
+    const plot = await createLinePlot();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [createResource(clientLineplot.ontologyID(plot.key), plot.name)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Group selection")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
   });
 });

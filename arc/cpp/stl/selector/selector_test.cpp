@@ -56,7 +56,7 @@ private:
     static ir::IR build_ir() {
         types::Param source_output;
         source_output.name = ir::default_output_param;
-        source_output.type = types::Type{.kind = types::Kind::U8};
+        source_output.type = types::Type{.kind = types::Kind::Bool};
 
         ir::Node source_node;
         source_node.key = "source";
@@ -65,7 +65,7 @@ private:
 
         types::Param select_input;
         select_input.name = ir::default_output_param;
-        select_input.type = types::Type{.kind = types::Kind::U8};
+        select_input.type = types::Type{.kind = types::Kind::Bool};
 
         types::Param true_output;
         true_output.name = "true";
@@ -98,13 +98,15 @@ private:
     }
 };
 
-/// @brief Helper to write u8 data to the upstream source output.
+/// @brief Helper to write bool data to the upstream source output.
 void write_source(
     runtime::state::Node &source,
     const std::vector<uint8_t> &data,
     const std::vector<int64_t> &timestamps
 ) {
-    source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
+    source.output(
+        0
+    ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 }
@@ -387,22 +389,6 @@ TEST(SelectTest, ConsecutiveFalseValues) {
     EXPECT_EQ(false_time->at<int64_t>(0), 300);
     EXPECT_EQ(false_time->at<int64_t>(1), 400);
     EXPECT_EQ(false_time->at<int64_t>(2), 500);
-}
-
-/// @brief Test that non-one values (e.g., 2, 255) are treated as false.
-TEST(SelectTest, NonOneValuesAreFalse) {
-    TestSetup setup;
-    Select node(setup.make_select_node(), 0);
-
-    auto source = setup.make_source_node();
-    write_source(source, {2, 255, 1, 0}, {100, 200, 300, 400});
-
-    auto ctx = make_context();
-    ASSERT_NIL(node.next(ctx));
-
-    auto checker = setup.make_select_node();
-    EXPECT_EQ(checker.output(0)->size(), 1); // Only value 1
-    EXPECT_EQ(checker.output(1)->size(), 3); // Values 2, 255, 0
 }
 
 /// @brief Test that is_output_truthy delegates to state.

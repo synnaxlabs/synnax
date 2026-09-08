@@ -13,7 +13,6 @@ import { LabJack } from "@/feature/labjack";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 
 describe("getOpenPort", () => {
-  // We'll use the T4 model for our tests.
   const model: LabJack.Device.Model = LabJack.Device.T4_MODEL;
 
   it("returns the first available port for a given type when none are in use", () => {
@@ -35,7 +34,6 @@ describe("getOpenPort", () => {
     ];
     const port = getOpenPort(channels, model, [type]);
 
-    // The expected port is the second port from the AI ports list.
     const expectedPort = aiPorts[1];
     expect(port).toEqual(expectedPort);
   });

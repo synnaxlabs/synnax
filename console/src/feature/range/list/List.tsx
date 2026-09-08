@@ -51,12 +51,19 @@ const EmptyContent = () => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No ranges found."
-      action={hasCreatePermission ? "Create a range" : undefined}
+      message="No ranges found"
+      action={hasCreatePermission ? "Create range" : undefined}
       onClick={() => openCreate()}
     />
   );
 };
+
+const SEARCH_PLACEHOLDER = (
+  <>
+    <Icon.Search />
+    Search Ranges...
+  </>
+);
 
 export const List = ({
   data,
@@ -119,12 +126,7 @@ export const List = ({
               level="h5"
               variant="text"
               value={request.searchTerm ?? ""}
-              placeholder={
-                <>
-                  <Icon.Search />
-                  Search Ranges...
-                </>
-              }
+              placeholder={SEARCH_PLACEHOLDER}
               onChange={handleSearch}
             />
             {enableAddButton && <AddButton />}
@@ -180,7 +182,7 @@ const AddButton = (): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
-    <Button.Button tooltip="Create Range" onClick={() => openCreate()} variant="filled">
+    <Button.Button tooltip="Create range" onClick={() => openCreate()} variant="filled">
       <Icon.Add />
     </Button.Button>
   );

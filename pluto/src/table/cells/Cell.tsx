@@ -37,7 +37,7 @@ export const Cell = ({
       ref={ref}
       {...rest}
       style={mergedStyle}
-      className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
+      className={CSS.cls(CSS.BE("table", "cell"), CSS.selected(selected), className)}
     >
       <div className={CSS.BEM("table", "cell", "content")}>{children}</div>
     </td>

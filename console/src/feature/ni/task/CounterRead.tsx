@@ -12,7 +12,6 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import * as Device from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
@@ -110,7 +109,7 @@ const getInitialValues: Task.GetInitialValues<CounterReadSchemas> = ({
   const cfg = counterReadConfigZ.parse(config ?? {});
   if (config == null && deviceKey != null)
     cfg.channels = [{ ...createCIChannel(), device: deviceKey, key: id.create() }];
-  return { name: "NI Counter Read Task", type: COUNTER_READ_TYPE, config: cfg };
+  return { name: "NI counter read task", type: COUNTER_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
@@ -118,7 +117,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  if (devices.length === 0) throw new Error("No device selected in task configuration");
+  if (devices.length === 0) throw new Error("No device selected");
 
   const allDevices = await client.devices.retrieve({
     keys: devices,
@@ -131,10 +130,8 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
-    dev.properties = enrich(dev.model, dev.properties);
     let devModified = false;
 
-    // Initialize index for counter channels
     let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
     if (!shouldCreateIndex)
       try {
@@ -156,7 +153,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         dev.properties.counterInput.channels = {};
       }
 
-      // Create counter channels for this device
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
       for (const channel of deviceChannels) {
@@ -185,7 +181,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
             (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
         );
       }
-      // Map config channels to their Synnax channel keys
       deviceChannels.forEach((c) => {
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
@@ -194,7 +189,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
     }
   }
 
-  if (rackKey == null) throw new Error("No devices selected in task configuration");
+  if (rackKey == null) throw new Error("No devices selected");
   return [config, rackKey];
 };
 
@@ -214,7 +209,7 @@ export const useCreateCounterRead = Task.createUseCreate({
 
 export const CounterReadSelectable = Selector.createSelectable({
   type: COUNTER_READ_TYPE,
-  title: "NI Counter Read Task",
+  title: "NI counter read task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateCounterRead,
 });

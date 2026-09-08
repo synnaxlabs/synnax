@@ -34,8 +34,8 @@ var (
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("api")
-	validate.NotNil(v, "service", c.Service)
-	validate.NotNil(v, "distribution", c.Distribution)
+	v.NotNil("service", c.Service)
+	v.NotNil("distribution", c.Distribution)
 	return v.Error()
 }
 

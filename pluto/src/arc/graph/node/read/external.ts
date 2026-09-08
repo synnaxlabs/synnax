@@ -16,7 +16,7 @@ export { configZ } from "@/arc/graph/node/read/config";
 
 export const SPEC: Spec<"telem.read", Config> = {
   key: "telem.read",
-  name: "Read Channel",
+  name: "Read channel",
   Form,
   Symbol,
   Preview: Symbol,

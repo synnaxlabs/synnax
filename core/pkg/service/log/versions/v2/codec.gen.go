@@ -79,8 +79,8 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 		}
 	}
 	w.Int32(int32(lv.TimestampPrecision))
-	w.Bool(lv.HideChannelNames)
-	w.Bool(lv.HideReceiptTimestamp)
+	w.Bool(lv.ChannelNamesHidden)
+	w.Bool(lv.ReceiptTimestampHidden)
 	return nil
 }
 
@@ -114,10 +114,10 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	if lv.TimestampPrecision, err = r.Int32(); err != nil {
 		return err
 	}
-	if lv.HideChannelNames, err = r.Bool(); err != nil {
+	if lv.ChannelNamesHidden, err = r.Bool(); err != nil {
 		return err
 	}
-	if lv.HideReceiptTimestamp, err = r.Bool(); err != nil {
+	if lv.ReceiptTimestampHidden, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

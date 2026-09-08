@@ -52,7 +52,7 @@ export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
     size="small"
     rounded="small"
     variant="outlined"
-    className={CSS(CSS.BE("toolbar", "action"), className)}
+    className={CSS.cls(CSS.BE("toolbar", "action"), className)}
     {...rest}
   />
 );

@@ -23,7 +23,7 @@ export type ConnectParams = Partial<ConfigureParams>;
 
 const IDENTIFIER_MESSAGE = "Identifier must be between 2-12 characters";
 
-export const nameZ = z.string().min(1, "Name must be at least 1 character long");
+export const nameZ = z.string().min(1, "Name is required");
 
 export const identifierZ = z
   .string()
@@ -31,7 +31,7 @@ export const identifierZ = z
   .max(12, IDENTIFIER_MESSAGE)
   .regex(
     /^[a-zA-Z][a-zA-Z0-9_]*$/,
-    "Identifier must start with a letter and can only contain letters, numbers, and underscores (no spaces or dashes)",
+    "Identifier must start with a letter and contain only letters, numbers, and underscores",
   );
 
 export type Identifier = z.infer<typeof identifierZ>;

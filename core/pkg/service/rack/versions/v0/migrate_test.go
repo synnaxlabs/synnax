@@ -21,9 +21,12 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -93,7 +96,7 @@ var _ = Describe("Migration", func() {
 		runMigration(ctx)
 
 		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+		Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 			Where(status.MatchKeys[v0.StatusDetails](r.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
@@ -207,7 +210,7 @@ var _ = Describe("Status backfill", func() {
 				},
 			}
 			Expect(
-				status.NewWriter[any](statusSvc, nil).Set(ctx, &legacyStatus),
+				statusSvc.NewWriter(nil).Set(ctx, &legacyStatus),
 			).To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
@@ -224,11 +227,39 @@ var _ = Describe("Status backfill", func() {
 
 			// Verify the status is readable with the correct typed key.
 			var restoredStatus status.Status[v0.StatusDetails]
-			Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[v0.StatusDetails]().
 				Where(status.MatchKeys[v0.StatusDetails](rackKey.OntologyID().String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
+		},
+	)
+})
+
+var _ = Describe("NormalizeKeys", func() {
+	It(
+		"Should lift a Rack row stored under the pre-v0.54 key format",
+		func(ctx SpecContext) {
+			kvDB := memkv.New()
+			db := DeferClose(gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec)))
+			e := v0.Rack{Key: 1, Name: "Rack 1"}
+			legacy := SetPreV54Row(
+				ctx,
+				kvDB,
+				"Rack",
+				e.GorpKey(),
+				e,
+			)
+			table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Rack]{
+				DB:         db,
+				Migrations: []migrate.Migration{v0.NormalizeKeys},
+			}))
+			var res v0.Rack
+			Expect(table.NewRetrieve().
+				Where(gorp.MatchKeys[v0.Key, v0.Rack](e.GorpKey())).
+				Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(res).To(Equal(e))
+			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
 		},
 	)
 })

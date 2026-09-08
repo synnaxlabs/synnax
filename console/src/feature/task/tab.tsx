@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query } from "@synnaxlabs/client";
-import { Panel as PPanel, Status, Task as Base, Text } from "@synnaxlabs/pluto";
+import { Access, Panel as PPanel, Status, Task as Base, Text } from "@synnaxlabs/pluto";
 import { cloneElement } from "react";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -49,18 +49,20 @@ const Content: Panel.Content = () => {
 
 const Name: Panel.TabName = ({ allowRename = true }) => {
   const tabKey = PPanel.useTabKey();
-  const { key } = PPanel.useTabResource();
+  const resource = PPanel.useTabResource();
+  const { key } = resource;
   Base.useEnsure({ key });
   const name = Base.useName({ key });
   const { data } = Base.useResult({ key });
   const { update: rename } = Base.useRename();
+  const canRename = Access.useUpdateGranted(resource);
   return (
     <>
       {getIcon(data?.type ?? "")}
       <Text.MaybeEditable
         id={Panel.tabNameID(tabKey)}
         value={name}
-        disabled={!allowRename}
+        disabled={!allowRename || !canRename}
         onChange={(name) => rename({ key, name })}
       />
     </>

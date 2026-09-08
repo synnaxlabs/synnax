@@ -14,14 +14,8 @@ import z from "zod";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import {
-  DELETE_CHANNEL_NAME,
-  type Key,
-  keyZ,
-  ontologyID,
-  SET_CHANNEL_NAME,
-} from "@/status/payload";
-import { type New, type Status, statusZ } from "@/status/types.gen";
+import { DELETE_CHANNEL_NAME, ontologyID, SET_CHANNEL_NAME } from "@/status/payload";
+import { type Key, keyZ, type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -45,6 +39,7 @@ const retrieveRequestZ = z.object({
   includeLabels: z.boolean().optional(),
   hasLabels: label.keyZ.array().optional(),
   variants: z.string().array().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
@@ -69,7 +64,7 @@ const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
       .default(() => []),
   });
 
-export interface SetOptions {
+export interface SetOptions extends query.WriteOptions {
   parent?: ontology.ID;
 }
 
@@ -104,7 +99,7 @@ export class Client extends query.Retriever<
           value: (changed, prev) => {
             const next = { ...prev, ...changed };
             const id = ontologyID(changed.key);
-            next.labels = label.cachedLabelsOf(relationships, labels.store, id);
+            next.labels = label.cachedLabelsOf(ontologyClient.cache, labels.store, id);
             return next;
           },
         }),
@@ -185,22 +180,35 @@ export class Client extends query.Retriever<
   ): Promise<Status<DetailsSchema>>;
   async set(status: New, opts?: SetOptions): Promise<Status>;
   async set(statuses: New[], opts?: SetOptions): Promise<Status[]>;
+  async set(statuses: New | New[], opts?: SetOptions): Promise<Status | Status[]>;
   async set<DetailsSchema extends z.ZodType = z.ZodNever>(
     statuses: New<DetailsSchema> | New<DetailsSchema>[],
     opts: SetOptions & { detailsSchema?: DetailsSchema } = {},
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isMany = Array.isArray(statuses);
-    const res = await this.cfg.unary.send(
-      "/status/set",
-      {
-        statuses: array.toArray(statuses) as z.input<
-          ReturnType<typeof setReqZ<DetailsSchema>>
-        >["statuses"],
-        parent: opts.parent,
-      },
-      setReqZ(opts.detailsSchema),
-      setResZ(opts.detailsSchema),
-    );
+    // Filling the schema defaults up front gives every status a key, so the cache can
+    // hold it before the Core answers.
+    const schema = statusZ<DetailsSchema>({ details: opts.detailsSchema });
+    const normalized = array
+      .toArray(statuses)
+      .map((status) => schema.parse(status)) as Status<DetailsSchema>[];
+    const apply = () => [this.store.set(normalized)];
+    const res = await query.optimistic({
+      rollbacks: apply(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/status/set",
+          {
+            statuses: normalized as z.input<
+              ReturnType<typeof setReqZ<DetailsSchema>>
+            >["statuses"],
+            parent: opts.parent,
+          },
+          setReqZ(opts.detailsSchema),
+          setResZ(opts.detailsSchema),
+        ),
+    });
     const created = res.statuses as Status<DetailsSchema>[];
     this.store.set(created);
     return isMany ? created : created[0];
@@ -270,7 +278,7 @@ export class Client extends query.Retriever<
   /** Rebuilds a cached status with its cached labels attached. */
   private compose(cached: Status): Status {
     const labels = label.cachedLabelsOf(
-      this.cfg.ontology.cache.relationships,
+      this.cfg.ontology.cache,
       this.cfg.labels.store,
       ontologyID(cached.key),
     );
@@ -299,14 +307,19 @@ export class Client extends query.Retriever<
   /** Fetches statuses and writes their included labels through the caches. */
   private async fetchThrough(req: RetrieveRequest): Promise<Status[]> {
     const statuses = await this.execRetrieve({ ...BASE_REQUEST, ...req });
-    statuses.forEach((s) => this.writeThrough(s));
+    // One batch per table, so each table flushes once for the whole response.
+    this.store.batch(() =>
+      this.cfg.labels.store.batch(() =>
+        this.cfg.ontology.cache.relationships.batch(() =>
+          statuses.forEach((s) => this.writeThrough(s)),
+        ),
+      ),
+    );
     return statuses;
   }
 
   private async fetchSingle(key: Key): Promise<Status> {
-    const cached = this.store.get(key);
-    if (cached != null) return cached;
-    const statuses = await this.fetchThrough({ keys: [key] });
+    const statuses = await this.store.retrieve([key]);
     checkForMultipleOrNoResults("Status", key, statuses, true);
     return statuses[0];
   }
@@ -317,7 +330,7 @@ export class Client extends query.Retriever<
    */
   private ensureLabel(rel: ontology.Relationship): void {
     if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
-    void this.cfg.labels
+    this.cfg.labels
       .retrieve(rel.to.key)
       .catch((exc: unknown) =>
         this.cfg.cache.onError(
@@ -354,13 +367,12 @@ export class Client extends query.Retriever<
 
   /** Returns the keys of cached statuses labeled by the given label. */
   private statusesLabeledBy(labelKey: label.Key): Key[] {
-    return this.cfg.ontology.cache.relationships
-      .get(
+    return this.cfg.ontology.cache
+      .relationshipsTo(label.ontologyID(labelKey))
+      .filter(
         (r) =>
           r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
-          r.from.type === "status" &&
-          r.to.type === "label" &&
-          r.to.key === labelKey,
+          r.from.type === "status",
       )
       .map((r) => r.from.key);
   }

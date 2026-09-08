@@ -115,7 +115,7 @@ var _ = Describe("Relay", func() {
 				idx := channel.Channel{
 					Name:     "stamp_time",
 					IsIndex:  true,
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 				}
 				idx = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idx}))[0]
 				data := channel.Channel{

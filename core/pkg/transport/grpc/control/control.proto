@@ -1,0 +1,41 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.control;
+
+import "x/go/control/pb/control.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/control";
+
+service ControlRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+}
+
+// State is the control state of a single channel.
+message State {
+  // subject is the entity holding authority over the channel.
+  x.control.pb.Subject subject = 1;
+  // resource is the key of the controlled channel.
+  uint32 resource = 2;
+  // authority is the level of authority the subject holds over the channel.
+  uint32 authority = 3;
+}
+
+message RetrieveRequest {
+  // keys identifies the channels to read control state for. An empty set reads every
+  // controlled channel in the cluster.
+  repeated uint32 keys = 1;
+}
+
+message RetrieveResponse {
+  // states holds one entry per controlled channel.
+  repeated State states = 1;
+}

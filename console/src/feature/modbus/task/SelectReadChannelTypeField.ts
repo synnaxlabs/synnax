@@ -18,7 +18,7 @@ export interface ReadChannelTypeEntry extends record.KeyedNamed<ReadChannelType>
 const NAMES: Record<ReadChannelType, string> = {
   coil: "Coil",
   discrete_input: "Discrete",
-  holding_register: "Holding Register",
+  holding_register: "Holding register",
   input_register: "Register",
 };
 
@@ -38,7 +38,7 @@ export const SelectReadChannelTypeField = Form.buildSelectField<
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "Channel Type",
+    label: "Channel type",
     showLabel: false,
     showHelpText: false,
     hideIfNull: true,

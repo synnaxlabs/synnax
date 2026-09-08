@@ -1,0 +1,134 @@
+{
+  "version": "5.0.0",
+  "snapshot": false,
+  "nodes": [
+    {
+      "key": "NCVBmjVavN6",
+      "id": "NCVBmjVavN6",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 105, "height": 28 },
+      "position": { "x": 425, "y": 478 },
+      "selected": false,
+      "data": {}
+    },
+    {
+      "key": "cJXBL6uIOmB",
+      "id": "cJXBL6uIOmB",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 53, "height": 55 },
+      "position": { "x": 669, "y": 454 },
+      "selected": false,
+      "data": {}
+    }
+  ],
+  "edges": [],
+  "props": {
+    "NCVBmjVavN6": {
+      "key": "value",
+      "color": [250, 250, 250, 1],
+      "units": "psi",
+      "level": "h5",
+      "inlineSize": 70,
+      "label": {
+        "label": "Value",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "stalenessTimeout": 5,
+      "stalenessColor": [194, 157, 10, 1],
+      "telem": {
+        "variant": "source",
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": { "channel": 1048586 },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "stringifier": {
+              "props": { "precision": 2, "notation": "standard" },
+              "type": "stringify-number",
+              "variant": "source",
+              "valueType": "string"
+            },
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "variant": "source",
+              "valueType": "number"
+            }
+          },
+          "outlet": "stringifier"
+        },
+        "type": "source-pipeline",
+        "valueType": "string"
+      },
+      "redline": { "bounds": { "lower": 0, "upper": 1 }, "gradient": [] },
+      "tooltip": ["stream_write_data_1"]
+    },
+    "cJXBL6uIOmB": {
+      "key": "light",
+      "color": [250, 250, 250, 1],
+      "label": {
+        "label": "Light",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "source": {
+        "variant": "source",
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "segments": {
+            "valueStream": {
+              "type": "stream-channel-value",
+              "props": { "channel": 1048587 },
+              "variant": "source",
+              "valueType": "number"
+            },
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "variant": "source",
+              "valueType": "boolean"
+            }
+          },
+          "outlet": "threshold"
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean"
+      }
+    }
+  },
+  "remoteCreated": true,
+  "viewport": { "position": { "x": 37, "y": -192 }, "zoom": 1 },
+  "editable": true,
+  "control": "released",
+  "controlAcquireTrigger": 0,
+  "fitViewOnResize": false,
+  "legend": {
+    "visible": false,
+    "position": { "x": 50, "y": 50, "units": { "x": "px", "y": "px" } }
+  },
+  "key": "4f2c7bca-cea7-483a-907f-f99ab608f3c7",
+  "viewportMode": "select",
+  "authority": 1,
+  "mode": "select",
+  "toolbar": { "activeTab": "symbols", "selectedSymbolGroup": "general" }
+}

@@ -28,7 +28,7 @@ export const Breather = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS(CSS.B("breather-valve"), className)}
+    className={CSS.cls(CSS.B("breather-valve"), className)}
     enabled={enabled}
   >
     <Handle.Linear orientation={orientation} left={8.081} right={91.919} />

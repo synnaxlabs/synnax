@@ -97,6 +97,7 @@ echo ""
 echo "Updating Node packages..."
 NODE_DIRS=(
     "$ROOT_DIR/alamos/ts"
+    "$ROOT_DIR/arc/ts"
     "$ROOT_DIR/client/ts"
     "$ROOT_DIR/drift"
     "$ROOT_DIR/freighter/ts"

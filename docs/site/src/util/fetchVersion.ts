@@ -17,12 +17,16 @@ interface Release {
 const STABLE = /^synnax-v(\d+\.\d+\.\d+)$/;
 
 const resolveVersion = async (): Promise<string> => {
-  const releases = (await (await fetch(RELEASES)).json()) as Release[];
-  for (const { tag_name, draft } of releases) {
-    const match = STABLE.exec(tag_name);
-    if (!draft && match != null) return match[1];
-  }
-  throw new Error("no published Synnax release found");
+  // GitHub's CDN can pin a stale empty response to a fixed URL; a timestamp param
+  // forces a cache miss so each build sees current releases.
+  const response = await fetch(`${RELEASES}&t=${Date.now()}`);
+  const releases = (await response.json()) as Release[];
+  if (Array.isArray(releases))
+    for (const { tag_name, draft } of releases) {
+      const match = STABLE.exec(tag_name);
+      if (!draft && match != null) return match[1];
+    }
+  throw new Error("GitHub releases API outage: no published Synnax releases returned");
 };
 
 // Memoized to one API call per build; the components below render across many pages.

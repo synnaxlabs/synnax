@@ -1,0 +1,55 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/status"
+
+Key = v0.Key
+
+StatusDetails = v0.StatusDetails
+
+Status<Data? = record> = status.Status<StatusDetails<Data>>
+
+Task struct<
+    Type extends string = string,
+    Config extends record = record,
+    StatusData? = record
+> {
+    key      Key = 0 {
+        @doc value "is the composite identifier for this task."
+        @key
+    }
+    name     string              {
+        @doc value "is a human-readable name for the task."
+    }
+    type     Type                {
+        @doc value """
+            is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+            Determines which hardware integration handles the task.
+        """
+    }
+    config   Config              {
+        @doc value """
+            is task-specific configuration stored as JSON. Structure varies by task
+            type.
+        """
+    }
+    internal bool = false {
+        @doc value "is true if this is an internal system task."
+    }
+    snapshot bool = false {
+        @doc value "is true if this task is an immutable snapshot copy of another task."
+    }
+    status   Status<StatusData>? {
+        @doc value  "is the current execution status of the task."
+        @go marshal omit
+    }
+
+    @go marshal
+    @go migrate
+}

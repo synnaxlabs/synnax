@@ -350,5 +350,6 @@ func WithCodec(channelResolver codec.ChannelResolver) http.StreamServerOption {
 				LowerPerfCodec: json.Codec,
 				Codec:          codec.NewDynamic(channelResolver),
 			}
-		})
+		},
+	)
 }

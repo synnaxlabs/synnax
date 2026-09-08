@@ -53,3 +53,20 @@ cc_library(
         "//arc/cpp/stl/strings:state",
     ],
 )
+
+cc_test(
+    name = "stateful_test",
+    srcs = ["stateful_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":state",
+        ":stateful",
+        "//arc/cpp/stl/series:state",
+        "//arc/cpp/stl/strings:state",
+        "//x/cpp/telem",
+        "@googletest//:gtest_main",
+    ],
+)

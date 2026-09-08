@@ -11,15 +11,21 @@ import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import {
+  BUILT_IN,
   SLICE_NAME,
   type SliceState,
   type State,
-  type StaticState,
   type StoreState,
 } from "@/session/range/slice";
 import { Select } from "@/session/select";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+
+// The built-ins lead so they hold a stable spot at the top of every list.
+const selectAll = (state: StoreState): State[] => [
+  ...BUILT_IN,
+  ...selectSliceState(state).ranges,
+];
 
 export const useSelectSliceState = (): SliceState =>
   Select.useMemo((state: StoreState) => selectSliceState(state), []);
@@ -41,9 +47,8 @@ export const useGetSelectedKey = (): (() => string | undefined) => {
 };
 
 export const selectState = (state: StoreState, key?: string): State | undefined => {
-  const { ranges } = selectSliceState(state);
   key ??= selectSelectedKey(state);
-  return ranges.find((r) => r.key === key);
+  return selectAll(state).find((r) => r.key === key);
 };
 
 export const useSelectState = (key?: string): State | undefined =>
@@ -54,33 +59,25 @@ export const useGetState = (): ((key?: string) => State | undefined) => {
   return useCallback((key?: string) => selectState(store.getState(), key), [store]);
 };
 
-const selectStatic = (state: StoreState, key?: string): StaticState | undefined => {
-  const range = selectState(state, key);
-  if (range?.variant !== "static") return undefined;
-  return range;
-};
-
-export const useSelectStatic = (key?: string): StaticState | undefined =>
-  Select.useMemo((state: StoreState) => selectStatic(state, key), [key]);
-
 export const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
-  const { ranges } = selectSliceState(state);
-  if (keys == null) return ranges;
-  return ranges.filter((range) => keys.includes(range.key));
+  const all = selectAll(state);
+  if (keys == null) return all;
+  return all.filter((range) => keys.includes(range.key));
 };
 
 export const useSelectMultiple = (keys?: string[]): State[] =>
   Select.useMemo((state: StoreState) => selectMultiple(state, keys), [keys]);
 
 export const selectKeys = (state: StoreState): string[] =>
-  selectSliceState(state).ranges.map((r) => r.key);
+  selectAll(state).map((r) => r.key);
 
 export const useSelectKeys = (): string[] =>
   Select.useMemo((state: StoreState) => selectKeys(state), []);
 
+// Ranges covering a fixed window, which is every one the Core could hold.
 const selectStaticKeys = (state: StoreState): string[] =>
-  selectSliceState(state)
-    .ranges.filter((r) => r.variant === "static")
+  selectAll(state)
+    .filter((r) => r.variant !== "dynamic")
     .map((r) => r.key);
 
 export const useSelectStaticKeys = (): string[] =>

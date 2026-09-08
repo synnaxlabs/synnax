@@ -243,11 +243,9 @@ func New(pool *fgrpc.Pool) *Transport {
 			ServiceDesc:        &aspenv1.FeedbackService_ServiceDesc,
 		},
 		recServer: &recoveryServer{
-			recoveryServerCore: recoveryServerCore{
-				RequestTranslator:  recoveryRequestTranslator{},
-				ResponseTranslator: recoveryResponseTranslator{},
-				ServiceDesc:        &aspenv1.RecoveryService_ServiceDesc,
-			},
+			RequestTranslator:  recoveryRequestTranslator{},
+			ResponseTranslator: recoveryResponseTranslator{},
+			ServiceDesc:        &aspenv1.RecoveryService_ServiceDesc,
 		},
 		recClient: &recoveryClient{
 			Pool:               pool,

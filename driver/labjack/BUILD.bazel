@@ -57,10 +57,12 @@ cc_test(
     name = "labjack_test",
     srcs = [
         "read_task_test.cpp",
+        "write_task_test.cpp",
     ],
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack",
+        "//driver/labjack/device:mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

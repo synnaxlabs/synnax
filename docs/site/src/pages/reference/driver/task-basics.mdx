@@ -2,8 +2,10 @@
 layout: "@/layouts/Reference.astro"
 title: "Task Basics"
 description: "Learn the fundamentals of working with tasks in Synnax."
-prev: "Timing"
-prevURL: "/reference/driver/timing"
+prev: "Installation"
+prevURL: "/reference/driver/installation"
+next: "EtherCAT"
+nextURL: "/reference/driver/ethercat/get-started"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
@@ -26,7 +28,7 @@ device:
 - [Modbus](/reference/driver/modbus/connect-server)
 - [National Instruments](/reference/driver/ni/configure-device)
 - [OPC UA](/reference/driver/opc-ua/connect-server)
-- [PagerDuty](/reference/driver/pagerduty/get-started)
+- [PagerDuty](/reference/driver/pagerduty/alert-task)
 
 <Divider.Divider x />
 
@@ -44,13 +46,11 @@ purposes and switch between them as needed.
 
 ## Creating a Task
 
-The examples below apply to all hardware tasks types (analog Write, labjack read, etc.).
-
 <Tabs
   client:load
   tabs={[
     { name: "Devices Toolbar", tabKey: "tab1" },
-    { name: "Search and Command Palette", tabKey: "tab2" },
+    { name: "Command Palette", tabKey: "tab2" },
     { name: "Layout Selector", tabKey: "tab3" }
   ]}
 >
@@ -65,12 +65,8 @@ task type.
 </Fragment>
 <Fragment slot="tab2">
 
-Click on the Search and Command Palette at the top. Alternatively, you can also open
-this palette with `Ctrl+Shift+P` on Windows and `Cmd+Shift+P` on macOS.
-
-In command mode (first character in the input is `>`), type "Create". You'll see options
-for creating different task types. Select the one you need to open the task
-configuration dialog.
+Open the [Command Palette](/reference/console/ui-overview#search-and-command-palette)
+and type `Create`. Select the task type you need to open the task configuration dialog.
 
 <Video client:only="react" id="device-drivers/task/command-palette" />
 
@@ -78,7 +74,7 @@ configuration dialog.
 <Fragment slot="tab3">
 
 Click on the add icon (<Icon.Add />) in the top-right corner of the central mosaic and
-select the appropriate NI task type from the menu.
+select the task type from the menu.
 
 <Video client:only="react" id="device-drivers/task/layout-selector" />
 
@@ -89,26 +85,81 @@ select the appropriate NI task type from the menu.
 
 ## Task Lifecycle
 
-### Configuring the Task
-
-After making any changes to your task configuration, click the `Configure` button. If
-there are no errors, Synnax will enable the play button in the task form.
-
-### Starting the Task
-
-Click the play (<Icon.Play />) button to start the task. The task will begin executing
-in the background, either reading data from or writing data to your hardware.
-
-### Stopping the Task
-
-To stop a running task, click the pause button (<Icon.Pause />). The task will stop
-executing, but the configuration will remain saved.
+The task form saves every edit. Click play (<Icon.Play />) to send the configuration to
+the Driver and start the task. Click stop (<Icon.Stop />) to stop it.
 
 <Note.Note variant="info" className="compact">
-  Starting and stopping a task does not re-apply the task configuration. If you've made
-  changes to the configuration, you'll need to re-configure the task by clicking the
-  "Configure" button before those changes take effect.
+  Edits made while a task is running are saved but not applied. Click `Redeploy` to
+  apply them.
 </Note.Note>
+
+<Divider.Divider x />
+
+## Read Tasks
+
+A read task samples hardware inputs and streams the values into Synnax channels. Every
+channel in a task shares one sample rate, and a channel can be fed by only one running
+task at a time.
+
+For tasks under 50 Hz, set the stream rate equal to the sample rate. For faster tasks,
+keep the stream rate under 50 Hz. See [Timing](#timing) for how samples are timestamped.
+
+<Divider.Divider x />
+
+## Write Tasks
+
+A write task listens on command channels (`_cmd`) and writes each value to the hardware.
+Outputs that report back also get a state channel (`_state`), refreshed at the task's
+state rate. Only one running task can listen on a given command channel.
+
+Modbus, OPC UA, and HTTP write tasks have no state channels. Configure a read task on
+the same target to read the state back.
+
+<Divider.Divider x />
+
+## Timing
+
+### Hardware Timed Tasks
+
+Where the acquisition module has a sample clock, the Driver uses it and interpolates the
+time between samples. NI analog read tasks, NI digital read tasks with a timing source,
+and LabJack read tasks without thermocouple channels are hardware timed. A task sampling
+at 100 Hz and streaming at 10 Hz acquires 10 samples per read:
+
+| Sample Index | Time (s) | Notes                       |
+| ------------ | -------- | --------------------------- |
+| 0            | 0.000    | First sample of first read  |
+| 1            | 0.010    |                             |
+| 2            | 0.020    |                             |
+| 3            | 0.030    |                             |
+| 4            | 0.040    |                             |
+| 5            | 0.050    |                             |
+| 6            | 0.060    |                             |
+| 7            | 0.070    |                             |
+| 8            | 0.080    |                             |
+| 9            | 0.090    | Last sample of first read   |
+| 10           | 0.100    | First sample of second read |
+| ...          | ...      | ...                         |
+| 19           | 0.190    | Last sample of second read  |
+| 20           | 0.200    | First sample of third read  |
+
+Clock drift accumulates over time. On a non-real-time operating system acquisition loops
+run early or late, the hardware clock and the configured rate differ slightly, and
+transports skip samples under load. A skew correction algorithm periodically adjusts the
+spacing between samples so timestamps stay aligned with the host system clock and with
+software timed tasks on the same Driver. Valve commands from a digital write task, for
+example, stay lined up with the analog samples they caused.
+
+Skew correction is on by default. Disable it with `timing.correct_skew: false` in the
+Driver configuration file, `--correct-skew=false` on the command line, or
+`SYNNAX_DRIVER_CORRECT_SKEW=false` in the environment.
+
+### Software Timed Tasks
+
+Without a hardware clock, the Driver timestamps samples when it receives them, which is
+less accurate. NI digital read tasks without a timing source, NI counter read tasks,
+LabJack read tasks with thermocouple channels, Modbus read tasks, HTTP read tasks, and
+all write tasks are software timed.
 
 <Divider.Divider x />
 
@@ -128,24 +179,23 @@ executing, but the configuration will remain saved.
 
 ```python
 import synnax as sy
+from synnax import ni
 
 client = sy.Synnax()
 
-# Retrieve your task
-task = client.tasks.retrieve(name="My Analog Read Task")
+# Retrieve your task. Wrap it in the class for its integration to get the
+# start, stop, and run methods along with a parsed configuration.
+task = ni.AnalogReadTask(internal=client.tasks.retrieve(name="My Analog Read Task"))
 
-# Option 1: Use run() context manager (Recommended)
-# Automatically starts and stops the task, even if
-# an exception occurs
+# Option 1: Use the run() context manager (recommended). It starts the task on
+# entry and stops it on exit, even if an exception occurs.
 with task.run():
-    # task.start() called under the hood
     with client.open_streamer(["ai_0", "ai_1"]) as streamer:
         for i in range(100):
             frame = streamer.read()
-# task.stop() called under the hood
 
-# Option 2: Start task and leave it running
-# Task continues running even after the script exits
+# Option 2: Start the task and leave it running. The task keeps running after
+# the script exits.
 task.start()
 
 # Later, you can stop it with:
@@ -184,8 +234,8 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 #   labjack_read, labjack_write,
 #   modbus_read, modbus_write,
 #   opc_read, opc_write,
+#   http_read, http_write,
 #   pagerduty_alert,
-
 ```
 
 </Details>
@@ -195,7 +245,7 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 ```python
 import synnax as sy
-from synnax import modbus, ni, labjack, opcua
+from synnax import modbus
 
 client = sy.Synnax()
 
@@ -217,7 +267,6 @@ copied_task.config.auto_start = True
 
 # Apply the changes
 client.tasks.configure(copied_task)
-
 ```
 
 </Details>
@@ -227,16 +276,17 @@ client.tasks.configure(copied_task)
 
 ```python
 import synnax as sy
+from synnax import modbus
 
 client = sy.Synnax()
 
-# Retrieve task
-task = client.tasks.retrieve(name="My Example Task")
+# Retrieve the task and wrap it in the class for its integration.
+task = modbus.ReadTask(internal=client.tasks.retrieve(name="My Example Task"))
 
-# Stop task if running
+# Stop the task if it is running
 task.stop()
 
-# Delete task
+# Delete the task
 client.tasks.delete(task.key)
 ```
 
@@ -313,6 +363,7 @@ const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 //   labjack_read, labjack_write,
 //   modbus_read, modbus_write,
 //   opc_read, opc_write,
+//   http_read, http_write,
 //   pagerduty_alert,
 ```
 
@@ -337,15 +388,15 @@ const copiedTask = await client.tasks.copy(
 );
 
 // Modify the configuration
-const config = JSON.parse(copiedTask.config);
-config.auto_start = true;
+const config = { ...(copiedTask.config as Record<string, unknown>), autoStart: true };
 
-// Update the task (create with key updates existing task)
+// Update the task. Creating with an existing key updates that task.
 await client.tasks.create({
   key: copiedTask.key,
+  rack: copiedTask.rack,
   name: copiedTask.name,
   type: copiedTask.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 
@@ -373,54 +424,3 @@ await client.tasks.delete(task.key);
 
   </Fragment>
 </Client.Tabs>
-
-<Divider.Divider x />
-
-## Next Steps
-
-Now that you understand the basics of working with tasks, you can learn how to configure
-a specific task type:
-
-### EtherCAT
-
-- [Read Task](/reference/driver/ethercat/read-task) - Acquire data from EtherCAT devices
-- [Write Task](/reference/driver/ethercat/write-task) - Send commands to EtherCAT
-  devices
-
-### HTTP
-
-- [Read Task](/reference/driver/http/read-task) - Acquire data from HTTP servers
-- [Write Task](/reference/driver/http/write-task) - Send commands to HTTP servers
-
-### LabJack
-
-- [Read Task](/reference/driver/labjack/read-task) - Acquire data from LabJack devices
-- [Write Task](/reference/driver/labjack/write-task) - Send commands to LabJack devices
-
-### Modbus
-
-- [Read Task](/reference/driver/modbus/read-task) - Read data from Modbus servers
-- [Write Task](/reference/driver/modbus/write-task) - Write data to Modbus servers
-
-### National Instruments
-
-- [Analog Read Task](/reference/driver/ni/analog-read-task) - Acquire data from analog
-  inputs
-- [Analog Write Task](/reference/driver/ni/analog-write-task) - Send commands to analog
-  outputs
-- [Counter Read Task](/reference/driver/ni/counter-read-task) - Acquire data from
-  counter inputs
-- [Digital Read Task](/reference/driver/ni/digital-read-task) - Acquire data from
-  digital inputs
-- [Digital Write Task](/reference/driver/ni/digital-write-task) - Send commands to
-  digital outputs
-
-### OPC UA
-
-- [Read Task](/reference/driver/opc-ua/read-task) - Read data from OPC UA servers
-- [Write Task](/reference/driver/opc-ua/write-task) - Write data to OPC UA servers
-
-### PagerDuty
-
-- [Alert Task](/reference/driver/pagerduty/alert-task) - Send PagerDuty alerts when
-  statuses change

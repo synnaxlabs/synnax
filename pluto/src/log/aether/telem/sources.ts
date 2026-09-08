@@ -106,6 +106,7 @@ export class StreamMultiChannelLog
     this.notify();
   }
 
+  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
   private async read(): Promise<void> {
     this.valid = true;
     const { client } = this;
@@ -124,7 +125,6 @@ export class StreamMultiChannelLog
       );
       if (generation !== this.readGeneration) return;
 
-      // Scrub entries from channels that were removed.
       const newKeys = new Set(channels.map((ch) => ch.key));
       const removedKeys = new Set(
         [...this.channelMeta.keys()].filter((k) => !newKeys.has(k)),
@@ -132,9 +132,8 @@ export class StreamMultiChannelLog
       if (removedKeys.size > 0)
         this.entries = this.entries.filter((e) => !removedKeys.has(e.channelKey));
 
-      // When channels change mid-session, the new stream replays buffered data
-      // for ALL channels. Skip that initial batch to avoid re-displaying existing
-      // entries.
+      // When channels change mid-session, the new stream replays buffered data for ALL
+      // channels. Skip that initial batch to avoid re-displaying existing entries.
       const isRestart = this.channelMeta.size > 0;
       this.channelMeta.clear();
       for (const ch of channels)
@@ -187,13 +186,11 @@ export class StreamMultiChannelLog
             // Drain intermediate buffers (burst crossed multiple allocations).
             for (let s = 0; s < allocated.series.length - 1; s++)
               pushSamples(allocated.series[s], 0);
-            // Switch to the newest buffer.
             [chMeta.leadingBuffer, chMeta.readCursor] = [
               allocated.series[allocated.series.length - 1],
               0,
             ];
           }
-          // Read new in-place writes to the current leading buffer.
           const buf = chMeta.leadingBuffer;
           if (buf == null || buf.length <= chMeta.readCursor) continue;
           if (chMeta.skipInitialBatch) {

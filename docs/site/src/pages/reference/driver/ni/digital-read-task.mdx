@@ -8,36 +8,32 @@ next: "Digital Write Task"
 nextURL: "/reference/driver/ni/digital-write-task"
 ---
 
-import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default       | Description                                                   |
-| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
-| `device`      | string  | Yes      | -             | Device key to read from                                       |
-| `name`        | string  | Yes      | -             | Human-readable task name                                      |
-| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
-| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
-| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
-| `channels`    | array   | Yes      | -             | List of digital input channel configurations                  |
+| Parameter     | Type   | Required | Default | Description                                                   |
+| ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
+| `device`      | string | Yes      | -       | Device key to read from                                       |
+| `sample_rate` | number | No       | `10`    | Samples per second (Hz)                                       |
+| `stream_rate` | number | No       | `5`     | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `channels`    | array  | Yes      | -       | List of digital input channel configurations                  |
 
 <Divider.Divider x />
 
-## Channel Configuration
+## Channel Configuration Reference
 
-[DI Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreatedichan.html)
+[DI Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__digital__input__channels_1ga3325b4a3660e51e9d6631460bab3ed94.html)
 
 | Parameter | Type   | Required | Default | Description                               |
 | --------- | ------ | -------- | ------- | ----------------------------------------- |
@@ -49,12 +45,9 @@ For task lifecycle management, see the
 
 ## Important Rules
 
-- **Sample rates** -> All channels in a task sample at the same rate. Create separate
-  tasks for different rates.
 - **One task per module** -> Only one running task can claim a module at a time.
-- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
-  the sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
-  performance.
+- **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
+  sample rate. Above that, keep the stream rate under 50 Hz.
 
 <Divider.Divider x />
 
@@ -111,11 +104,10 @@ di_1_0 = client.channels.create(
 
 # Create and configure task
 task = ni.DigitalReadTask(
-    name="Digital Read Task",
+    name="NI Digital Read Task",
     device=digital_dev.key,
     sample_rate=sy.Rate.HZ * 100,
     stream_rate=sy.Rate.HZ * 25,
-    data_saving=True,
     channels=[
         ni.DIChannel(
             channel=di_0_0.key,
@@ -152,7 +144,7 @@ with task.run():
 
 ```python
 # Retrieve existing task
-task = client.tasks.retrieve(name="Digital Read Task")
+task = client.tasks.retrieve(name="NI Digital Read Task")
 task = ni.DigitalReadTask(internal=task)
 
 # Update task-level configuration
@@ -189,47 +181,55 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve device
-const digitalDev = await client.devices.retrieve({ name: "Mod1_Digital" });
+const [digitalDev] = await client.devices.retrieve({ names: ["Mod1_Digital"] });
 
 // Create index channel
-const diTime = await client.channels.create({
-  name: "di_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const diTime = await client.channels.create(
+  {
+    name: "di_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create data channels
-const di00 = await client.channels.create({
-  name: "di_0_0",
-  index: diTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+const di00 = await client.channels.create(
+  {
+    name: "di_0_0",
+    index: diTime.key,
+    dataType: "uint8",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const di01 = await client.channels.create({
-  name: "di_0_1",
-  index: diTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+const di01 = await client.channels.create(
+  {
+    name: "di_0_1",
+    index: diTime.key,
+    dataType: "uint8",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const di10 = await client.channels.create({
-  name: "di_1_0",
-  index: diTime.key,
-  dataType: "uint8",
-  retrieveIfNameExists: true,
-});
+const di10 = await client.channels.create(
+  {
+    name: "di_1_0",
+    index: diTime.key,
+    dataType: "uint8",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task
 const task = await client.tasks.create({
-  name: "Digital Read Task",
+  name: "NI Digital Read Task",
+  rack: digitalDev.rack,
   type: "ni_digital_read",
-  config: JSON.stringify({
+  config: {
     device: digitalDev.key,
-    sample_rate: 100,
-    stream_rate: 25,
-    data_saving: true,
+    sampleRate: 100,
+    streamRate: 25,
     channels: [
       {
         channel: di00.key,
@@ -247,11 +247,11 @@ const task = await client.tasks.create({
         line: 0,
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Read data
 const streamer = await client.openStreamer(["di_0_0", "di_0_1", "di_1_0"]);
@@ -261,7 +261,7 @@ for (let i = 0; i < 10; i++) {
 }
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await streamer.close();
 ```
 
@@ -271,15 +271,17 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
+import { ni } from "@synnaxlabs/client";
+
 // Retrieve existing task
-const task = await client.tasks.retrieve({ name: "Digital Read Task" });
+const task = await client.tasks.retrieve({ name: "NI Digital Read Task" });
 
 // Parse and update configuration
-const config = JSON.parse(task.config);
+const config = ni.digitalReadConfigZ.parse(task.config);
 
 // Update task-level configuration
-config.auto_start = true;
-config.stream_rate = 50;
+config.autoStart = true;
+config.streamRate = 50;
 
 // Update first channel configuration
 config.channels[0].port = 0;
@@ -296,9 +298,10 @@ config.channels[2].line = 1;
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 

@@ -11,6 +11,11 @@ import { type DependencyList, type EffectCallback, useEffect } from "react";
 
 import { useMemoCompare } from "@/memo";
 
+/**
+ * Runs an effect when `areEqual` reports the dependencies changed, instead of on
+ * React's reference equality. Use it for deps that are rebuilt every render but rarely
+ * change in value, such as an object or array literal.
+ */
 export const useEffectCompare = <D extends DependencyList>(
   cbk: EffectCallback,
   areEqual: (prevDeps: D, nextDeps: D) => boolean,

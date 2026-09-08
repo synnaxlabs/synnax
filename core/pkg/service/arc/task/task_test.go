@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,11 +26,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -37,7 +40,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -119,10 +121,9 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:       node.Framer,
-			Channel:      channelSvc,
-			Status:       statusSvc,
-			HostProvider: node.Cluster,
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Status:  statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
@@ -165,7 +166,9 @@ var _ = Describe("Task", Ordered, func() {
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := channelSvc.NewArcSymbolResolver(nil)
-			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
+			root := arc.NewRoot(resolver, slices.Concat(
+				arcstatus.NewSymbols(), ranges.NewSymbols(),
+			)...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
 				return svcarc.Arc{}, err
@@ -349,6 +352,26 @@ var _ = Describe("Task", Ordered, func() {
 				To(MatchError(query.ErrNotFound))
 		})
 
+		It(
+			"Should reject a zero-period interval program at configure",
+			func(ctx SpecContext) {
+				out := createVirtualCh(ctx, "zero_period", telem.Uint8T)
+				factory := newTextFactory(ctx, arc.Text{Raw: fmt.Sprintf(
+					"interval{period=0ms} -> %s\n", out.Name,
+				)})
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-zero-period",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					To(MatchError(ContainSubstring(
+						"period must be positive, got 0s",
+					)))
+			},
+		)
+
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 				Channel:    channelSvc,
@@ -366,7 +389,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(HaveOccurred())
 			var stat task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -391,7 +414,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -421,7 +444,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -454,7 +477,7 @@ var _ = Describe("Task", Ordered, func() {
 					Key:  "cmd-start",
 				})).To(Succeed())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Name).To(Equal(svcTask.Name))
@@ -477,19 +500,18 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
-						},
-						ArcKey: uuid.New(),
+						AutoStart: true,
+						ArcKey:    uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key())).
+					simpleGraph(ch.Key()),
+				).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("success"))
@@ -512,19 +534,18 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-silent-stop",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
-						},
-						ArcKey: uuid.New(),
+						AutoStart: true,
+						ArcKey:    uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key())).
+					simpleGraph(ch.Key()),
+				).
 					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t).ToNot(BeNil())
 				Expect(t.Stop(false)).To(Succeed())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Message).To(Equal("Task started successfully"))
@@ -551,7 +572,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(HaveOccurred())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -576,7 +597,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -597,16 +618,14 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-boot-auto-start-failure",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BasePersist: config.BasePersist{
-							BaseStart: config.BaseStart{AutoStart: true},
-						},
-						ArcKey: uuid.New(),
+						AutoStart: true,
+						ArcKey:    uuid.New(),
 					}),
 				}
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -631,12 +650,13 @@ var _ = Describe("Task", Ordered, func() {
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				t := MustSucceed(newGraphFactory(
-					simpleGraph(ch.Key())).
+					simpleGraph(ch.Key()),
+				).
 					ConfigureTask(ctx, svcTask, driver.NoCommand))
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -654,19 +674,18 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "test-boot-auto-start",
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
-					BasePersist: config.BasePersist{
-						BaseStart: config.BaseStart{AutoStart: true},
-					},
-					ArcKey: uuid.New(),
+					AutoStart: true,
+					ArcKey:    uuid.New(),
 				}),
 			}
 			t := MustSucceed(newGraphFactory(
-				simpleGraph(ch.Key())).
+				simpleGraph(ch.Key()),
+			).
 				ConfigureTask(ctx, svcTask, driver.NoCommand))
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
@@ -871,46 +890,46 @@ var _ = Describe("Task", Ordered, func() {
 				Nodes:  alarmNodes,
 				Inputs: alarmConfigs,
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "ge", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{
 							Node:  "constant",
 							Param: ir.DefaultOutputParam,
 						},
 						Target: ir.Handle{Node: "ge", Param: ir.RHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "ge", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{
 							Node:  "stable_for",
 							Param: ir.DefaultInputParam,
 						},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{
 							Node:  "stable_for",
 							Param: ir.DefaultOutputParam,
 						},
 						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
-					}},
+					},
 					// status_success/error fire on select outputs (edges below).
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "select", Param: "false"},
 						Target: ir.Handle{
 							Node:  "status_success",
 							Param: ir.DefaultOutputParam,
 						},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "select", Param: "true"},
 						Target: ir.Handle{
 							Node:  "status_error",
 							Param: ir.DefaultOutputParam,
 						},
-					}},
+					},
 				},
 			}
 
@@ -934,7 +953,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
 				var stat svcarc.Status
-				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).
@@ -985,7 +1004,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			byName := func(name string) svcarc.Status {
 				var stat svcarc.Status
-				Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == name, nil
 					})).
@@ -994,7 +1013,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 
 			Eventually(func(g Gomega) {
-				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == base+"_d", nil
 					})).
@@ -1005,6 +1024,776 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(byName(base + "_c").Variant).To(BeEquivalentTo("warning"))
 			Expect(byName(base + "_d").Variant).To(BeEquivalentTo("loading"))
 		})
+	})
+
+	Describe("Entry node one-shot", func() {
+		It(
+			"Should create exactly one status for an untriggered status.set in a stage",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "entry_status_trig", telem.Uint8T)
+				name := "entry_status_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import status
+
+					sequence main {
+					    stage report {
+					        status.set{key_or_name="%s", message="m", variant="info"}
+					    }
+					}
+
+					%s => main
+				`, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-entry-status-once",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+
+				oneRow := func(g Gomega) {
+					var rows []svcarc.Status
+					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+							return s.Name == name, nil
+						})).
+						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+					g.Expect(rows).To(HaveLen(1))
+				}
+				Eventually(oneRow).Should(Succeed())
+
+				// status.set upserts by name, so a re-fire keeps one row; the
+				// range spec below is the sharp duplicate detector.
+				for range 3 {
+					Expect(
+						w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRow).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should create exactly one range for an untriggered ranges.create in a stage",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "entry_range_trig", telem.Uint8T)
+				name := "entry_range_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    stage report {
+					        ranges.create{name="%s"}
+					    }
+					}
+
+					%s => main
+				`, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-entry-range-once",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+
+				// Every extra fire creates a new identically-named range, so a
+				// stable count of one proves the entry node dispatched once.
+				oneRange := func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Count(ctx, nil)).To(Equal(1))
+				}
+				Eventually(oneRange).Should(Succeed())
+
+				for range 3 {
+					Expect(
+						w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRange).Should(Succeed())
+			},
+		)
+	})
+
+	Describe("Routing entry host calls", func() {
+		It(
+			"Should fire a bare status.set routing entry once per truthy mark",
+			func(ctx SpecContext) {
+				data := createVirtualCh(ctx, "route_status_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_status_out", telem.StringT)
+				name := "press_high_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import status
+
+					%s -> select{} => {
+					    true: status.set{
+					        key_or_name="%s",
+					        message="tank pressure above limit",
+					        variant="warning"
+					    } -> %s
+					}
+				`, data.Name, name, out.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-status-bare",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{data.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+
+				oneRow := func(g Gomega) {
+					var rows []svcarc.Status
+					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+							return s.Name == name, nil
+						})).
+						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+					g.Expect(rows).To(HaveLen(1))
+				}
+				Eventually(oneRow).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 3 {
+					Expect(
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
+						),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRow).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should fire a status.set routing entry into a variable once per truthy mark",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "route_status_var_trig", telem.Uint8T)
+				data := createVirtualCh(ctx, "route_status_var_data", telem.BooleanT)
+				name := "press_high_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import status
+
+					sequence main {
+					    stage watch {
+					        v str := ""
+					        %s -> select{} => {
+					            true: status.set{
+					                key_or_name="%s",
+					                message="tank pressure above limit",
+					                variant="warning"
+					            } -> v
+					        }
+					    }
+					}
+
+					%s => main
+				`, data.Name, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-status-var",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key(), data.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+				time.Sleep(20 * time.Millisecond)
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+
+				oneRow := func(g Gomega) {
+					var rows []svcarc.Status
+					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+							return s.Name == name, nil
+						})).
+						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+					g.Expect(rows).To(HaveLen(1))
+				}
+				Eventually(oneRow).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 3 {
+					Expect(
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
+						),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRow).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should fire a status.set routing entry into a channel alias once per truthy mark",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "route_status_alias_trig", telem.Uint8T)
+				data := createVirtualCh(ctx, "route_status_alias_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_status_alias_out", telem.StringT)
+				name := "press_high_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import status
+
+					sequence main {
+					    stage watch {
+					        sink := %s
+					        %s -> select{} => {
+					            true: status.set{
+					                key_or_name="%s",
+					                message="tank pressure above limit",
+					                variant="warning"
+					            } -> sink
+					        }
+					    }
+					}
+
+					%s => main
+				`, out.Name, data.Name, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-status-alias",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key(), data.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+				time.Sleep(20 * time.Millisecond)
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+
+				oneRow := func(g Gomega) {
+					var rows []svcarc.Status
+					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
+						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
+							return s.Name == name, nil
+						})).
+						Entries(&rows).Exec(ctx, nil)).To(Succeed())
+					g.Expect(rows).To(HaveLen(1))
+				}
+				Eventually(oneRow).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 3 {
+					Expect(
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
+						),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Expect(w.Close()).To(Succeed())
+				Consistently(oneRow).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should fire a bare ranges.create routing entry once per truthy mark",
+			func(ctx SpecContext) {
+				data := createVirtualCh(ctx, "route_range_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_range_out", telem.StringT)
+				name := "overpressure_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					%s -> select{} => {
+					    true: ranges.create{name="%s"} -> %s
+					}
+				`, data.Name, name, out.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-range-bare",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{data.Key()},
+					Start: telem.Now(),
+				}))
+				rangeCount := func(want int) func(g Gomega) {
+					return func(g Gomega) {
+						g.Expect(rangerSvc.NewRetrieve().
+							Where(ranger.MatchNames(name)).
+							Count(ctx, nil)).To(Equal(want))
+					}
+				}
+
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+				Eventually(rangeCount(1)).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 2 {
+					Expect(
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
+						),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Consistently(rangeCount(1)).Should(Succeed())
+
+				// A fresh truthy mark fires the entry again: per-trigger, not
+				// per-activation.
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				Eventually(rangeCount(2)).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should fire a ranges.create routing entry into a variable once per truthy mark",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "route_range_var_trig", telem.Uint8T)
+				data := createVirtualCh(ctx, "route_range_var_data", telem.BooleanT)
+				name := "overpressure_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    stage watch {
+					        v str := ""
+					        %s -> select{} => {
+					            true: ranges.create{name="%s"} -> v
+					        }
+					    }
+					}
+
+					%s => main
+				`, data.Name, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-range-var",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key(), data.Key()},
+					Start: telem.Now(),
+				}))
+				rangeCount := func(want int) func(g Gomega) {
+					return func(g Gomega) {
+						g.Expect(rangerSvc.NewRetrieve().
+							Where(ranger.MatchNames(name)).
+							Count(ctx, nil)).To(Equal(want))
+					}
+				}
+
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+				time.Sleep(20 * time.Millisecond)
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+				Eventually(rangeCount(1)).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 2 {
+					Expect(
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
+						),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Consistently(rangeCount(1)).Should(Succeed())
+
+				// A fresh truthy mark fires the entry again: per-trigger, not
+				// per-activation.
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				Eventually(rangeCount(2)).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should fire a ranges.create routing entry into a channel alias once per truthy mark",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "route_range_alias_trig", telem.Uint8T)
+				data := createVirtualCh(ctx, "route_range_alias_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_range_alias_out", telem.StringT)
+				name := "overpressure_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    stage watch {
+					        sink := %s
+					        %s -> select{} => {
+					            true: ranges.create{name="%s"} -> sink
+					        }
+					    }
+					}
+
+					%s => main
+				`, out.Name, data.Name, name, trig.Name)}
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-range-alias",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key(), data.Key()},
+					Start: telem.Now(),
+				}))
+				rangeCount := func(want int) func(g Gomega) {
+					return func(g Gomega) {
+						g.Expect(rangerSvc.NewRetrieve().
+							Where(ranger.MatchNames(name)).
+							Count(ctx, nil)).To(Equal(want))
+					}
+				}
+
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+				time.Sleep(20 * time.Millisecond)
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+				Eventually(rangeCount(1)).Should(Succeed())
+
+				// Falsy samples pick the absent false branch: no re-fire.
+				for range 2 {
+					Expect(
+						w.Write(
+							frame.NewUnary(data.Key(), telem.NewSeriesV(false)),
+						),
+					).To(BeTrue())
+					time.Sleep(20 * time.Millisecond)
+				}
+				Consistently(rangeCount(1)).Should(Succeed())
+
+				// A fresh truthy mark fires the entry again: per-trigger, not
+				// per-activation.
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				Eventually(rangeCount(2)).Should(Succeed())
+			},
+		)
+		It(
+			"Should write the created range key to a channel sink",
+			func(ctx SpecContext) {
+				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
+				name := "overpressure_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					%s -> select{} => {
+					    true: ranges.create{name="%s"} -> %s
+					}
+				`, data.Name, name, out.Name)}
+
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{out.Key()}, 10,
+				)
+				defer closeStreamer()
+				time.Sleep(10 * time.Millisecond)
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-range-val-chan",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{data.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+
+				var rng ranger.Range
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+				}).Should(Succeed())
+				expected := rng.Key.String()
+
+				found := false
+				for !found {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(out.Key()).Series {
+						for _, v := range ser.Unmarshal[string]() {
+							found = found || v == expected
+						}
+					}
+				}
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should write the created range key to a variable sink",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
+				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
+				probe := createVirtualCh(ctx, "route_range_val_probe", telem.StringT)
+				name := "overpressure_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    stage watch {
+					        v str := ""
+					        %s -> select{} => {
+					            true: ranges.create{name="%s"} -> v
+					        }
+					        v -> %s
+					    }
+					}
+
+					%s => main
+				`, data.Name, name, probe.Name, trig.Name)}
+
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{probe.Key()}, 10,
+				)
+				defer closeStreamer()
+				time.Sleep(10 * time.Millisecond)
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-range-val-var",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key(), data.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+				time.Sleep(20 * time.Millisecond)
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+
+				var rng ranger.Range
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+				}).Should(Succeed())
+				expected := rng.Key.String()
+
+				found := false
+				for !found {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(probe.Key()).Series {
+						for _, v := range ser.Unmarshal[string]() {
+							found = found || v == expected
+						}
+					}
+				}
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should write the created range key to a channel alias sink",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
+				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
+				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
+				name := "overpressure_" + uuid.NewString()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    stage watch {
+					        sink := %s
+					        %s -> select{} => {
+					            true: ranges.create{name="%s"} -> sink
+					        }
+					    }
+					}
+
+					%s => main
+				`, out.Name, data.Name, name, trig.Name)}
+
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{out.Key()}, 10,
+				)
+				defer closeStreamer()
+				time.Sleep(10 * time.Millisecond)
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-route-range-val-alias",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key(), data.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+				time.Sleep(20 * time.Millisecond)
+				Expect(
+					w.Write(frame.NewUnary(data.Key(), telem.NewSeriesV(true))),
+				).To(BeTrue())
+
+				var rng ranger.Range
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+				}).Should(Succeed())
+				expected := rng.Key.String()
+
+				found := false
+				for !found {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(out.Key()).Series {
+						for _, v := range ser.Unmarshal[string]() {
+							found = found || v == expected
+						}
+					}
+				}
+				Expect(w.Close()).To(Succeed())
+			},
+		)
 	})
 
 	Describe("Status Reporting", func() {
@@ -1019,7 +1808,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.NewString()[:8]
-				w := status.NewWriter[any](statusSvc, nil)
+				w := statusSvc.NewWriter(nil)
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
 					Message: "first", Time: telem.Now(),
@@ -1049,13 +1838,13 @@ var _ = Describe("Task", Ordered, func() {
 					Nodes:  reportNodes,
 					Inputs: reportConfigs,
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{
 								Node:  "status_set",
 								Param: ir.DefaultOutputParam,
 							},
-						}},
+						},
 					},
 				}
 
@@ -1084,7 +1873,7 @@ var _ = Describe("Task", Ordered, func() {
 				taskKey := svcTask.OntologyID().String()
 				Eventually(func(g Gomega) {
 					var stat task.Status
-					g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](taskKey)).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
@@ -1101,7 +1890,7 @@ var _ = Describe("Task", Ordered, func() {
 			indexCh := &channel.Channel{
 				Name:     "interval_idx_" + uuid.NewString()[:8],
 				IsIndex:  true,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
@@ -1136,19 +1925,84 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Expect(fr.Frame.Get(dataCh.Key()).Len()).To(BeEquivalentTo(1))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
+				fr.Frame.Get(dataCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(42)))
 
 			Eventually(responses).Should(Receive(&fr))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
+				fr.Frame.Get(dataCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(42)))
 
 			Eventually(responses).Should(Receive(&fr))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
+				fr.Frame.Get(dataCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(42)))
 		})
+
+		It("Should stamp wall-clock index timestamps for interval -> channel flows",
+			func(ctx SpecContext) {
+				idxCh := &channel.Channel{
+					Name:     "timer_wall_idx_" + uuid.NewString()[:8],
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}
+				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				dataCh := &channel.Channel{
+					Name:       "timer_wall_data_" + uuid.NewString()[:8],
+					LocalIndex: idxCh.LocalKey,
+					DataType:   telem.Uint8T,
+				}
+				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+
+				prog := arc.Text{Raw: fmt.Sprintf(
+					"interval{period=50ms} -> %s\n", dataCh.Name,
+				)}
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{idxCh.Key(), dataCh.Key()}, 10,
+				)
+				defer closeStreamer()
+
+				wallStart := telem.Now()
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+
+				var streamed []telem.TimeStamp
+				for len(streamed) < 3 {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(idxCh.Key()).Series {
+						for i := range int(ser.Len()) {
+							streamed = append(
+								streamed, ser.ValueAt[telem.TimeStamp](i),
+							)
+						}
+					}
+				}
+				for _, ts := range streamed {
+					Expect(ts).To(BeNumerically(">=", wallStart))
+				}
+				Expect(t.Stop(true)).To(Succeed())
+
+				iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+					Keys:   []channel.Key{idxCh.Key(), dataCh.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				var persisted []telem.TimeStamp
+				Expect(iter.SeekFirst()).To(BeTrue())
+				for iter.Next(iterator.AutoSpan) {
+					for _, ser := range iter.Value().Get(idxCh.Key()).Series {
+						for i := range int(ser.Len()) {
+							persisted = append(
+								persisted, ser.ValueAt[telem.TimeStamp](i),
+							)
+						}
+					}
+				}
+				Expect(len(persisted)).To(BeNumerically(">=", 3))
+				for _, ts := range persisted {
+					Expect(ts).To(BeNumerically(">=", wallStart))
+				}
+			})
 
 		It("Should process both intervals and streaming data", func(ctx SpecContext) {
 			inputCh := createVirtualCh(ctx, "combined_input", telem.Float32T)
@@ -1220,7 +2074,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Expect(fr.Frame.Get(outputCh.Key()).Len()).To(BeEquivalentTo(1))
 			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(outputCh.Key()).Series[0], 0),
+				fr.Frame.Get(outputCh.Key()).Series[0].ValueAt[uint8](0),
 			).To(Equal(uint8(1)))
 		})
 
@@ -1262,19 +2116,13 @@ var _ = Describe("Task", Ordered, func() {
 					Eventually(responses).Should(Receive(&fr))
 					if fr.Frame.Get(output1Ch.Key()).Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](
-								fr.Frame.Get(output1Ch.Key()).Series[0],
-								0,
-							),
+							fr.Frame.Get(output1Ch.Key()).Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(1)))
 						count1++
 					}
 					if fr.Frame.Get(output2Ch.Key()).Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](
-								fr.Frame.Get(output2Ch.Key()).Series[0],
-								0,
-							),
+							fr.Frame.Get(output2Ch.Key()).Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(2)))
 						count2++
 					}
@@ -1322,7 +2170,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				var fr framer.StreamerResponse
 				Eventually(responses).Should(Receive(&fr))
-				Expect(telem.ValueAt[uint8](fr.Frame.Get(outputCh.Key()).Series[0], 0)).
+				Expect(fr.Frame.Get(outputCh.Key()).Series[0].ValueAt[uint8](0)).
 					To(Equal(uint8(42)))
 				Consistently(responses, 100*time.Millisecond).ShouldNot(Receive())
 			},
@@ -1360,13 +2208,13 @@ var _ = Describe("Task", Ordered, func() {
 					Eventually(responses).Should(Receive(&fr))
 					if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						gotConst = true
 					}
 					if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						gotExpr = true
 					}
@@ -1389,7 +2237,7 @@ var _ = Describe("Task", Ordered, func() {
 					var fr framer.StreamerResponse
 					Eventually(responses).Should(Receive(&fr))
 					if s := fr.Frame.Get(triggerOut.Key()); s.Len() > 0 {
-						Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(7)))
+						Expect(s.Series[0].ValueAt[uint8](0)).To(Equal(uint8(7)))
 						gotTrigger = true
 					}
 				}
@@ -1431,13 +2279,13 @@ var _ = Describe("Task", Ordered, func() {
 					Eventually(responses).Should(Receive(&fr))
 					if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						constCount++
 					}
 					if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
 						Expect(
-							telem.ValueAt[uint8](s.Series[0], 0),
+							s.Series[0].ValueAt[uint8](0),
 						).To(Equal(uint8(42)))
 						exprCount++
 					}
@@ -1452,552 +2300,904 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Control Authority", func() {
-		It("Should apply static authority from authority block", func(ctx SpecContext) {
-			ch := createVirtualCh(ctx, "auth_static", telem.Uint8T)
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
-					authority 100
-					func output() {
-						%s = 42
-					}
-					interval{period=50ms} -> output{}
-				`, ch.Name),
+		// Every spec runs twice: once against a virtual write channel and once
+		// against a persisted channel with its own index, since competing
+		// writers must hold the index too and authority changes must cover it.
+		type writeCh struct {
+			ch  *channel.Channel
+			idx *channel.Channel
+		}
+		keysOf := func(c writeCh) channel.Keys {
+			if c.idx == nil {
+				return channel.Keys{c.ch.Key()}
 			}
-
-			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{ch.Key()}, 2)
-			defer closeStreamer()
-
-			t := newTask(ctx, newTextFactory(ctx, prog))
-			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-
-			var fr framer.StreamerResponse
-			Eventually(responses).Should(Receive(&fr))
-
-			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-				Keys:        channel.Keys{ch.Key()},
-				Start:       telem.Now(),
-				Authorities: []control.Authority{control.Authority(200)},
-				Sync:        new(true),
-			}))
-			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(
-				w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99))),
-			).To(BeTrue())
-		})
-
-		It("Should block lower-authority competing writers", func(ctx SpecContext) {
-			ch := createVirtualCh(ctx, "auth_block", telem.Uint8T)
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
-					authority 200
-					func output() {
-						%s = 42
-					}
-					interval{period=50ms} -> output{}
-				`, ch.Name),
+			return channel.Keys{c.idx.Key(), c.ch.Key()}
+		}
+		sample := func(c writeCh, v uint8) frame.Frame {
+			if c.idx == nil {
+				return frame.NewUnary(c.ch.Key(), telem.NewSeriesV(v))
 			}
-
-			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{ch.Key()}, 2)
-			defer closeStreamer()
-
-			t := newTask(ctx, newTextFactory(ctx, prog))
-			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-
-			var fr framer.StreamerResponse
-			Eventually(responses).Should(Receive(&fr))
-
-			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-				Keys:        channel.Keys{ch.Key()},
-				Start:       telem.Now(),
-				Authorities: []control.Authority{control.Authority(100)},
-				Sync:        new(true),
-			}))
-			defer func() { Expect(w.Close()).To(Succeed()) }()
-			Expect(
-				w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99))),
-			).To(BeFalse())
-		})
-
-		It(
-			"Should default to absolute authority without authority block",
-			func(ctx SpecContext) {
-				ch := createVirtualCh(ctx, "auth_default", telem.Uint8T)
-				prog := arc.Text{
-					Raw: fmt.Sprintf(`
-					func output() {
-						%s = 42
-					}
-					interval{period=50ms} -> output{}
-				`, ch.Name),
-				}
-
-				responses, closeStreamer := openTestStreamer(
-					ctx,
-					channel.Keys{ch.Key()},
-					2,
-				)
-				defer closeStreamer()
-
-				t := newTask(ctx, newTextFactory(ctx, prog))
-				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-
-				var fr framer.StreamerResponse
-				Eventually(responses).Should(Receive(&fr))
-
-				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{ch.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(254)},
-					Sync:        new(true),
-				}))
-				defer func() { Expect(w.Close()).To(Succeed()) }()
-				Expect(
-					w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99))),
-				).To(BeFalse())
-			},
-		)
-
-		It("Should apply per-channel authority overrides", func(ctx SpecContext) {
-			ch1 := createVirtualCh(ctx, "auth_perchan_1", telem.Uint8T)
-			ch2 := createVirtualCh(ctx, "auth_perchan_2", telem.Uint8T)
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
-					authority (100 %s 200)
-					func output() {
-						%s = 1
-						%s = 2
-					}
-					interval{period=50ms} -> output{}
-				`, ch1.Name, ch1.Name, ch2.Name),
-			}
-
-			responses, closeStreamer := openTestStreamer(
-				ctx,
-				channel.Keys{ch1.Key(), ch2.Key()},
-				2,
+			return frame.NewMulti(
+				[]channel.Key{c.idx.Key(), c.ch.Key()},
+				[]telem.Series{
+					telem.NewSeriesV(telem.Now()),
+					telem.NewSeriesV(v),
+				},
 			)
-			defer closeStreamer()
-
-			t := newTask(ctx, newTextFactory(ctx, prog))
-			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-
-			var fr framer.StreamerResponse
-			Eventually(responses).Should(Receive(&fr))
-
-			wA := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-				Keys:        channel.Keys{ch1.Key()},
-				Start:       telem.Now(),
-				Authorities: []control.Authority{control.Authority(150)},
-				Sync:        new(true),
-			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
-			Expect(
-				wA.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99))),
-			).To(BeFalse())
-
-			wB := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-				Keys:        channel.Keys{ch2.Key()},
-				Start:       telem.Now(),
-				Authorities: []control.Authority{control.Authority(150)},
-				Sync:        new(true),
-			}))
-			defer func() { Expect(wB.Close()).To(Succeed()) }()
-			Expect(
-				wB.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99))),
-			).To(BeTrue())
-		})
-
-		It("Should write data with non-default authority", func(ctx SpecContext) {
-			ch := createVirtualCh(ctx, "auth_write_data", telem.Uint8T)
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
-					authority 100
-					func output() {
-						%s = 42
+		}
+		variants := []struct {
+			name   string
+			create func(ctx context.Context, prefix string) writeCh
+		}{
+			{
+				name: "virtual channels",
+				create: func(ctx context.Context, prefix string) writeCh {
+					return writeCh{ch: createVirtualCh(ctx, prefix, telem.Uint8T)}
+				},
+			},
+			{
+				name: "indexed channels",
+				create: func(ctx context.Context, prefix string) writeCh {
+					GinkgoHelper()
+					idx := &channel.Channel{
+						Name:     prefix + "_time_" + uuid.NewString()[:8],
+						IsIndex:  true,
+						DataType: telem.TimestampT,
 					}
-					interval{period=50ms} -> output{}
-				`, ch.Name),
-			}
-
-			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{ch.Key()}, 2)
-			defer closeStreamer()
-
-			t := newTask(ctx, newTextFactory(ctx, prog))
-			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-
-			var fr framer.StreamerResponse
-			Eventually(responses).Should(Receive(&fr))
-			Expect(fr.Frame.Get(ch.Key()).Len()).To(BeEquivalentTo(1))
-			Expect(
-				telem.ValueAt[uint8](fr.Frame.Get(ch.Key()).Series[0], 0),
-			).To(Equal(uint8(42)))
-		})
-
-		It(
-			"Should dynamically escalate authority via set_authority",
-			func(ctx SpecContext) {
-				dataCh := createVirtualCh(ctx, "dyn_esc_data", telem.Uint8T)
-				triggerCh := createVirtualCh(ctx, "dyn_esc_trigger", telem.Uint8T)
-				prog := arc.Text{
-					Raw: fmt.Sprintf(`
-					authority 100
-
-					func output() {
-						%s = 42
+					Expect(channelWriter.Create(ctx, idx)).To(Succeed())
+					ch := &channel.Channel{
+						Name:       prefix + "_" + uuid.NewString()[:8],
+						LocalIndex: idx.LocalKey,
+						DataType:   telem.Uint8T,
 					}
-
-					%s => seq
-
-					sequence seq {
-						stage escalated {
-							1 -> set_authority{value=200}
+					Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+					return writeCh{ch: ch, idx: idx}
+				},
+			},
+		}
+		for _, variant := range variants {
+			createWriteCh := variant.create
+			Context(variant.name, func() {
+				It(
+					"Should apply static authority from authority block",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "auth_static")
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 100
+							func output() {
+								%s = 42
+							}
+							interval{period=50ms} -> output{}
+						`, c.ch.Name),
 						}
-					}
 
-					interval{period=50ms} -> output{}
-				`, dataCh.Name, triggerCh.Name),
-				}
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
 
-				responses, closeStreamer := openTestStreamer(
-					ctx,
-					channel.Keys{dataCh.Key()},
-					2,
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+
+						w := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(200),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w.Close()).To(Succeed()) }()
+						Expect(w.Write(sample(c, 99))).To(BeTrue())
+					},
 				)
-				defer closeStreamer()
 
-				t := newTask(ctx, newTextFactory(ctx, prog))
-				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-
-				var fr framer.StreamerResponse
-				Eventually(responses).Should(Receive(&fr))
-
-				trigW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{triggerCh.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					trigW.Write(
-						frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)),
-					),
-				).To(BeTrue())
-				Expect(trigW.Close()).To(Succeed())
-
-				// Receive data frames to ensure the runtime has processed the trigger
-				Eventually(responses).Should(Receive(&fr))
-				Eventually(responses).Should(Receive(&fr))
-
-				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{dataCh.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(150)},
-					Sync:        new(true),
-				}))
-				defer func() { Expect(w.Close()).To(Succeed()) }()
-				Expect(
-					w.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99))),
-				).To(BeFalse())
-			},
-		)
-
-		It(
-			"Should dynamically de-escalate authority via set_authority",
-			func(ctx SpecContext) {
-				dataCh := createVirtualCh(ctx, "dyn_deesc_data", telem.Uint8T)
-				triggerCh := createVirtualCh(ctx, "dyn_deesc_trigger", telem.Uint8T)
-				prog := arc.Text{
-					Raw: fmt.Sprintf(`
-					authority 200
-
-					func output() {
-						%s = 42
-					}
-
-					%s => seq
-
-					sequence seq {
-						stage deescalated {
-							1 -> set_authority{value=50}
+				It(
+					"Should block lower-authority competing writers",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "auth_block")
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 200
+							func output() {
+								%s = 42
+							}
+							interval{period=50ms} -> output{}
+						`, c.ch.Name),
 						}
-					}
 
-					interval{period=50ms} -> output{}
-				`, dataCh.Name, triggerCh.Name),
-				}
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
 
-				responses, closeStreamer := openTestStreamer(
-					ctx,
-					channel.Keys{dataCh.Key()},
-					2,
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+
+						w := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(100),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w.Close()).To(Succeed()) }()
+						Expect(w.Write(sample(c, 99))).To(BeFalse())
+					},
 				)
-				defer closeStreamer()
 
-				t := newTask(ctx, newTextFactory(ctx, prog))
-				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-
-				var fr framer.StreamerResponse
-				Eventually(responses).Should(Receive(&fr))
-
-				wBefore := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{dataCh.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(100)},
-					Sync:        new(true),
-				}))
-				Expect(
-					wBefore.Write(
-						frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)),
-					),
-				).To(BeFalse())
-				Expect(wBefore.Close()).To(Succeed())
-
-				trigW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{triggerCh.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					trigW.Write(
-						frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)),
-					),
-				).To(BeTrue())
-				Expect(trigW.Close()).To(Succeed())
-
-				// Receive data frames to ensure the runtime has processed the trigger
-				Eventually(responses).Should(Receive(&fr))
-				Eventually(responses).Should(Receive(&fr))
-
-				wAfter := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{dataCh.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(100)},
-					Sync:        new(true),
-				}))
-				defer func() { Expect(wAfter.Close()).To(Succeed()) }()
-				Expect(
-					wAfter.Write(
-						frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)),
-					),
-				).To(BeTrue())
-			},
-		)
-
-		It(
-			"Should continue writing data after dynamic authority change",
-			func(ctx SpecContext) {
-				dataCh := createVirtualCh(ctx, "dyn_cont_data", telem.Uint8T)
-				triggerCh := createVirtualCh(ctx, "dyn_cont_trigger", telem.Uint8T)
-				prog := arc.Text{
-					Raw: fmt.Sprintf(`
-					authority 100
-
-					func output() {
-						%s = 42
-					}
-
-					%s => seq
-
-					sequence seq {
-						stage escalated {
-							1 -> set_authority{value=200}
+				It(
+					"Should default to absolute authority without authority block",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "auth_default")
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							func output() {
+								%s = 42
+							}
+							interval{period=50ms} -> output{}
+						`, c.ch.Name),
 						}
-					}
 
-					interval{period=50ms} -> output{}
-				`, dataCh.Name, triggerCh.Name),
-				}
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
 
-				responses, closeStreamer := openTestStreamer(
-					ctx,
-					channel.Keys{dataCh.Key()},
-					2,
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+
+						w := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(254),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w.Close()).To(Succeed()) }()
+						Expect(w.Write(sample(c, 99))).To(BeFalse())
+					},
 				)
-				defer closeStreamer()
 
-				t := newTask(ctx, newTextFactory(ctx, prog))
-				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+				It(
+					"Should apply per-channel authority overrides",
+					func(ctx SpecContext) {
+						c1 := createWriteCh(ctx, "auth_perchan_1")
+						c2 := createWriteCh(ctx, "auth_perchan_2")
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority (100 %s 200)
+							func output() {
+								%s = 1
+								%s = 2
+							}
+							interval{period=50ms} -> output{}
+						`, c1.ch.Name, c1.ch.Name, c2.ch.Name),
+						}
 
-				var fr framer.StreamerResponse
-				Eventually(responses).Should(Receive(&fr))
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c1.ch.Key(), c2.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
 
-				trigW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{triggerCh.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					trigW.Write(
-						frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](1)),
-					),
-				).To(BeTrue())
-				Expect(trigW.Close()).To(Succeed())
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
-				Eventually(responses).Should(Receive(&fr))
-				Expect(fr.Frame.Get(dataCh.Key()).Len()).To(BeEquivalentTo(1))
-				Expect(
-					telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0),
-				).To(Equal(uint8(42)))
-			},
-		)
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
 
-		It(
-			"Should release per-channel authority on both channels after bang-bang start → stop → yield",
-			func(ctx SpecContext) {
-				ch1 := createVirtualCh(ctx, "bb_ch1", telem.Uint8T)
-				ch2 := createVirtualCh(ctx, "bb_ch2", telem.Uint8T)
-				stopSignal := createVirtualCh(ctx, "bb_stop", telem.Uint8T)
-				startSignal := createVirtualCh(ctx, "bb_start", telem.Uint8T)
-				prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
+						wA := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c1),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(150),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(wA.Close()).To(Succeed()) }()
+						Expect(wA.Write(sample(c1, 99))).To(BeFalse())
 
-				responses, closeStreamer := openTestStreamer(
-					ctx,
-					channel.Keys{ch1.Key(), ch2.Key()},
-					20,
+						wB := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c2),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(150),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(wB.Close()).To(Succeed()) }()
+						Expect(wB.Write(sample(c2, 99))).To(BeTrue())
+					},
 				)
-				defer closeStreamer()
 
-				t := newTask(ctx, newTextFactory(ctx, prog))
-				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+				It(
+					"Should write data with non-default authority",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "auth_write_data")
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 100
+							func output() {
+								%s = 42
+							}
+							interval{period=50ms} -> output{}
+						`, c.ch.Name),
+						}
 
-				startW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{startSignal.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					startW.Write(
-						frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)),
-					),
-				).To(BeTrue())
-				Expect(startW.Close()).To(Succeed())
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
 
-				var fr framer.StreamerResponse
-				Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
-				clearW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{startSignal.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					clearW.Write(
-						frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](0)),
-					),
-				).To(BeTrue())
-				Expect(clearW.Close()).To(Succeed())
-				time.Sleep(100 * time.Millisecond)
-
-				stopW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{stopSignal.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					stopW.Write(
-						frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)),
-					),
-				).To(BeTrue())
-				Expect(stopW.Close()).To(Succeed())
-
-				time.Sleep(300 * time.Millisecond)
-
-				w1 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{ch1.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(1)},
-					Sync:        new(true),
-				}))
-				defer func() { Expect(w1.Close()).To(Succeed()) }()
-				Expect(
-					w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99))),
-				).To(BeTrue())
-
-				w2 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{ch2.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(1)},
-					Sync:        new(true),
-				}))
-				defer func() { Expect(w2.Close()).To(Succeed()) }()
-				Expect(
-					w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99))),
-				).To(BeTrue())
-			},
-		)
-
-		It(
-			"Should release authority on both channels when entering yield, ignoring stale virtual start signal",
-			func(ctx SpecContext) {
-				ch1 := createVirtualCh(ctx, "bb2_ch1", telem.Uint8T)
-				ch2 := createVirtualCh(ctx, "bb2_ch2", telem.Uint8T)
-				stopSignal := createVirtualCh(ctx, "bb2_stop", telem.Uint8T)
-				startSignal := createVirtualCh(ctx, "bb2_start", telem.Uint8T)
-				prog := bangBangProg(ch1, ch2, stopSignal, startSignal)
-
-				responses, closeStreamer := openTestStreamer(
-					ctx,
-					channel.Keys{ch1.Key(), ch2.Key()},
-					20,
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+						Expect(fr.Frame.Get(c.ch.Key()).Len()).To(BeEquivalentTo(1))
+						Expect(
+							fr.Frame.Get(c.ch.Key()).Series[0].ValueAt[uint8](0),
+						).To(Equal(uint8(42)))
+					},
 				)
-				defer closeStreamer()
 
-				t := newTask(ctx, newTextFactory(ctx, prog))
-				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+				It(
+					"Should dynamically escalate authority via set_authority",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "dyn_esc_data")
+						triggerCh := createVirtualCh(
+							ctx,
+							"dyn_esc_trigger",
+							telem.Uint8T,
+						)
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 100
 
-				startW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{startSignal.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					startW.Write(
-						frame.NewUnary(startSignal.Key(), telem.NewSeriesV[uint8](1)),
-					),
-				).To(BeTrue())
-				Expect(startW.Close()).To(Succeed())
+							func output() {
+								%s = 42
+							}
 
-				var fr framer.StreamerResponse
-				Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+							%s => seq
 
-				stopW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:  channel.Keys{stopSignal.Key()},
-					Start: telem.Now(),
-				}))
-				Expect(
-					stopW.Write(
-						frame.NewUnary(stopSignal.Key(), telem.NewSeriesV[uint8](1)),
-					),
-				).To(BeTrue())
-				Expect(stopW.Close()).To(Succeed())
+							sequence seq {
+								stage escalated {
+									1 -> set_authority{value=200}
+								}
+							}
 
-				time.Sleep(300 * time.Millisecond)
+							interval{period=50ms} -> output{}
+						`, c.ch.Name, triggerCh.Name),
+						}
 
-				w1 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{ch1.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(100)},
-					Sync:        new(true),
-				}))
-				defer func() { Expect(w1.Close()).To(Succeed()) }()
-				Expect(
-					w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99))),
-				).To(BeTrue())
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
 
-				w2 := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-					Keys:        channel.Keys{ch2.Key()},
-					Start:       telem.Now(),
-					Authorities: []control.Authority{control.Authority(100)},
-					Sync:        new(true),
-				}))
-				defer func() { Expect(w2.Close()).To(Succeed()) }()
-				Expect(
-					w2.Write(frame.NewUnary(ch2.Key(), telem.NewSeriesV[uint8](99))),
-				).To(BeTrue())
-			},
-		)
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+
+						trigW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{triggerCh.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							trigW.Write(frame.NewUnary(
+								triggerCh.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(trigW.Close()).To(Succeed())
+
+						// Receive data frames to ensure the runtime has processed
+						// the trigger
+						Eventually(responses).Should(Receive(&fr))
+						Eventually(responses).Should(Receive(&fr))
+
+						w := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(150),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w.Close()).To(Succeed()) }()
+						Expect(w.Write(sample(c, 99))).To(BeFalse())
+					},
+				)
+
+				It(
+					"Should dynamically de-escalate authority via set_authority",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "dyn_deesc_data")
+						triggerCh := createVirtualCh(
+							ctx,
+							"dyn_deesc_trigger",
+							telem.Uint8T,
+						)
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 200
+
+							func output() {
+								%s = 42
+							}
+
+							%s => seq
+
+							sequence seq {
+								stage deescalated {
+									1 -> set_authority{value=50}
+								}
+							}
+
+							interval{period=50ms} -> output{}
+						`, c.ch.Name, triggerCh.Name),
+						}
+
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
+
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+
+						wBefore := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(100),
+								},
+								Sync: new(true),
+							},
+						))
+						Expect(wBefore.Write(sample(c, 99))).To(BeFalse())
+						Expect(wBefore.Close()).To(Succeed())
+
+						trigW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{triggerCh.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							trigW.Write(frame.NewUnary(
+								triggerCh.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(trigW.Close()).To(Succeed())
+
+						// Receive data frames to ensure the runtime has processed
+						// the trigger
+						Eventually(responses).Should(Receive(&fr))
+						Eventually(responses).Should(Receive(&fr))
+
+						wAfter := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(100),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(wAfter.Close()).To(Succeed()) }()
+						Expect(wAfter.Write(sample(c, 99))).To(BeTrue())
+					},
+				)
+
+				It(
+					"Should escalate per-channel authority over a competing writer",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "vlv_cmd")
+						triggerCh := createVirtualCh(ctx, "vlv_esc_start", telem.Uint8T)
+
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 0
+
+							func output() {
+								%s = 1
+							}
+
+							%s => seq
+
+							sequence seq {
+								stage escalated {
+									1 -> set_authority{value=210, channel=%s}
+								}
+							}
+
+							interval{period=50ms} -> output{}
+						`, c.ch.Name, triggerCh.Name, c.ch.Name),
+						}
+
+						operator := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(1),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(operator.Close()).To(Succeed()) }()
+						Expect(operator.Write(sample(c, 0))).To(BeTrue())
+
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							50,
+						)
+						defer closeStreamer()
+
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						// The operator holds the write channel (and any index)
+						// at authority 1, so the program's authority-0 writes
+						// stay held back.
+						Consistently(
+							responses,
+							300*time.Millisecond,
+						).ShouldNot(Receive())
+
+						trigW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{triggerCh.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							trigW.Write(frame.NewUnary(
+								triggerCh.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(trigW.Close()).To(Succeed())
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+						Expect(fr.Frame.Get(c.ch.Key()).Len()).To(BeEquivalentTo(1))
+						Expect(
+							fr.Frame.Get(c.ch.Key()).Series[0].ValueAt[uint8](0),
+						).To(Equal(uint8(1)))
+
+						Expect(operator.Write(sample(c, 0))).To(BeFalse())
+					},
+				)
+
+				It(
+					"Should return control to the competing writer on per-channel de-escalation",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "vlv_cmd")
+						startCh := createVirtualCh(ctx, "vlv_rel_start", telem.Uint8T)
+						releaseCh := createVirtualCh(
+							ctx,
+							"vlv_rel_release",
+							telem.Uint8T,
+						)
+
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 0
+
+							func output() {
+								%s = 1
+							}
+
+							%s => seq
+
+							sequence seq {
+								stage escalated {
+									1 -> set_authority{value=210, channel=%s},
+									%s => released
+								}
+								stage released {
+									1 -> set_authority{value=0, channel=%s}
+								}
+							}
+
+							interval{period=50ms} -> output{}
+						`,
+								c.ch.Name,
+								startCh.Name,
+								c.ch.Name,
+								releaseCh.Name,
+								c.ch.Name,
+							),
+						}
+
+						operator := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(1),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(operator.Close()).To(Succeed()) }()
+
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							50,
+						)
+						defer closeStreamer()
+
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						startW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{startCh.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							startW.Write(frame.NewUnary(
+								startCh.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(startW.Close()).To(Succeed())
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+						Expect(operator.Write(sample(c, 0))).To(BeFalse())
+
+						releaseW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{releaseCh.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							releaseW.Write(frame.NewUnary(
+								releaseCh.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(releaseW.Close()).To(Succeed())
+
+						Eventually(func() bool {
+							return MustSucceed(operator.Write(sample(c, 0)))
+						}).Should(BeTrue())
+					},
+				)
+
+				It(
+					"Should continue writing data after dynamic authority change",
+					func(ctx SpecContext) {
+						c := createWriteCh(ctx, "dyn_cont_data")
+						triggerCh := createVirtualCh(
+							ctx,
+							"dyn_cont_trigger",
+							telem.Uint8T,
+						)
+						prog := arc.Text{
+							Raw: fmt.Sprintf(`
+							authority 100
+
+							func output() {
+								%s = 42
+							}
+
+							%s => seq
+
+							sequence seq {
+								stage escalated {
+									1 -> set_authority{value=200}
+								}
+							}
+
+							interval{period=50ms} -> output{}
+						`, c.ch.Name, triggerCh.Name),
+						}
+
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c.ch.Key()},
+							2,
+						)
+						defer closeStreamer()
+
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						var fr framer.StreamerResponse
+						Eventually(responses).Should(Receive(&fr))
+
+						trigW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{triggerCh.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							trigW.Write(frame.NewUnary(
+								triggerCh.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(trigW.Close()).To(Succeed())
+
+						Eventually(responses).Should(Receive(&fr))
+						Expect(fr.Frame.Get(c.ch.Key()).Len()).To(BeEquivalentTo(1))
+						Expect(
+							fr.Frame.Get(c.ch.Key()).Series[0].ValueAt[uint8](0),
+						).To(Equal(uint8(42)))
+					},
+				)
+
+				It(
+					"Should release per-channel authority on both channels after bang-bang start → stop → yield",
+					func(ctx SpecContext) {
+						c1 := createWriteCh(ctx, "bb_ch1")
+						c2 := createWriteCh(ctx, "bb_ch2")
+						stopSignal := createVirtualCh(ctx, "bb_stop", telem.Uint8T)
+						startSignal := createVirtualCh(ctx, "bb_start", telem.Uint8T)
+						prog := bangBangProg(c1.ch, c2.ch, stopSignal, startSignal)
+
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c1.ch.Key(), c2.ch.Key()},
+							20,
+						)
+						defer closeStreamer()
+
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						startW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{startSignal.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							startW.Write(frame.NewUnary(
+								startSignal.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(startW.Close()).To(Succeed())
+
+						var fr framer.StreamerResponse
+						Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+
+						clearW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{startSignal.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							clearW.Write(frame.NewUnary(
+								startSignal.Key(),
+								telem.NewSeriesV[uint8](0),
+							)),
+						).To(BeTrue())
+						Expect(clearW.Close()).To(Succeed())
+						time.Sleep(100 * time.Millisecond)
+
+						stopW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{stopSignal.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							stopW.Write(frame.NewUnary(
+								stopSignal.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(stopW.Close()).To(Succeed())
+
+						time.Sleep(300 * time.Millisecond)
+
+						w1 := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c1),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(1),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w1.Close()).To(Succeed()) }()
+						Expect(w1.Write(sample(c1, 99))).To(BeTrue())
+
+						w2 := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c2),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(1),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w2.Close()).To(Succeed()) }()
+						Expect(w2.Write(sample(c2, 99))).To(BeTrue())
+					},
+				)
+
+				It(
+					"Should release authority on both channels when entering yield, ignoring stale virtual start signal",
+					func(ctx SpecContext) {
+						c1 := createWriteCh(ctx, "bb2_ch1")
+						c2 := createWriteCh(ctx, "bb2_ch2")
+						stopSignal := createVirtualCh(ctx, "bb2_stop", telem.Uint8T)
+						startSignal := createVirtualCh(ctx, "bb2_start", telem.Uint8T)
+						prog := bangBangProg(c1.ch, c2.ch, stopSignal, startSignal)
+
+						responses, closeStreamer := openTestStreamer(
+							ctx,
+							channel.Keys{c1.ch.Key(), c2.ch.Key()},
+							20,
+						)
+						defer closeStreamer()
+
+						t := newTask(ctx, newTextFactory(ctx, prog))
+						Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+						defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+						startW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{startSignal.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							startW.Write(frame.NewUnary(
+								startSignal.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(startW.Close()).To(Succeed())
+
+						var fr framer.StreamerResponse
+						Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
+
+						stopW := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  channel.Keys{stopSignal.Key()},
+								Start: telem.Now(),
+							},
+						))
+						Expect(
+							stopW.Write(frame.NewUnary(
+								stopSignal.Key(),
+								telem.NewSeriesV[uint8](1),
+							)),
+						).To(BeTrue())
+						Expect(stopW.Close()).To(Succeed())
+
+						time.Sleep(300 * time.Millisecond)
+
+						w1 := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c1),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(100),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w1.Close()).To(Succeed()) }()
+						Expect(w1.Write(sample(c1, 99))).To(BeTrue())
+
+						w2 := MustSucceed(framerSvc.OpenWriter(
+							ctx,
+							framer.WriterConfig{
+								Keys:  keysOf(c2),
+								Start: telem.Now(),
+								Authorities: []control.Authority{
+									control.Authority(100),
+								},
+								Sync: new(true),
+							},
+						))
+						defer func() { Expect(w2.Close()).To(Succeed()) }()
+						Expect(w2.Write(sample(c2, 99))).To(BeTrue())
+					},
+				)
+			})
+		}
 	})
 
 	Describe("Runtime Error Handling", func() {
@@ -2043,7 +3243,7 @@ var _ = Describe("Task", Ordered, func() {
 
 				Eventually(func(g Gomega) {
 					var stat task.Status
-					g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
@@ -2072,7 +3272,7 @@ var _ = Describe("Task", Ordered, func() {
 							counter = read_val
 						}
 
-						if input and not prev {
+						if input != 0 and prev == 0 {
 							counter = counter + 1.0
 						}
 
@@ -2131,7 +3331,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(responses).Should(Receive(&fr))
 				series := fr.Frame.Get(counterCh.Key())
 				if series.Len() > 0 {
-					val := telem.ValueAt[float32](series.Series[0], -1)
+					val := series.Series[0].ValueAt[float32](-1)
 					if val >= 5.0 {
 						foundExpected = true
 					}
@@ -2187,7 +3387,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				var stat task.Status
-				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
@@ -2205,10 +3405,7 @@ var _ = Describe("Task", Ordered, func() {
 				var fr framer.StreamerResponse
 				Eventually(responses).Should(Receive(&fr))
 				if fr.Frame.Get(outputCh.Key()).Len() > 0 {
-					val := telem.ValueAt[int32](
-						fr.Frame.Get(outputCh.Key()).Series[0],
-						0,
-					)
+					val := fr.Frame.Get(outputCh.Key()).Series[0].ValueAt[int32](0)
 					if val == 5 {
 						foundValid = true
 					}
@@ -2230,7 +3427,7 @@ var _ = Describe("Task", Ordered, func() {
 				idxCh := &channel.Channel{
 					Name:     "trig_align_idx_" + suffix,
 					IsIndex:  true,
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 				}
 				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
 				p3 := &channel.Channel{

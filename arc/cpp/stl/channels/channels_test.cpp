@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/mem/local_shared.h"
@@ -585,6 +590,92 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     ASSERT_TRUE(out.contains(100));
     EXPECT_FLOAT_EQ(out.at<float>(100, 0), 7.7f);
     EXPECT_FLOAT_EQ(out.at<float>(100, 1), 8.8f);
+    ASSERT_TRUE(out.contains(101));
+    EXPECT_EQ(out.at<int64_t>(101, 0), 500);
+    EXPECT_EQ(out.at<int64_t>(101, 1), 501);
+}
+
+/// @brief a time input that does not match the data length reports an error and
+/// skips the write instead of synthesizing an index.
+TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
+    types::Param upstream_output;
+    upstream_output.name = ir::default_output_param;
+    upstream_output.type.kind = types::Kind::F32;
+
+    ir::Node upstream_node;
+    upstream_node.key = "upstream";
+    upstream_node.type = "producer";
+    upstream_node.outputs.push_back(upstream_output);
+
+    types::Param sink_input;
+    sink_input.name = ir::default_input_param;
+    sink_input.type.kind = types::Kind::F32;
+
+    types::Param sink_output;
+    sink_output.name = ir::default_output_param;
+    sink_output.type.kind = types::Kind::U8;
+
+    ir::Node sink_node;
+    sink_node.key = "sink";
+    sink_node.type = "write";
+    sink_node.inputs.push_back(sink_input);
+    sink_node.outputs.push_back(sink_output);
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = static_cast<uint32_t>(100);
+    sink_node.inputs.push_back(channel_config);
+
+    ir::Edge edge;
+    edge.source = ir::Handle("upstream", ir::default_output_param);
+    edge.target = ir::Handle("sink", ir::default_input_param);
+
+    ir::IR ir;
+    ir.nodes.push_back(upstream_node);
+    ir.nodes.push_back(sink_node);
+    ir.edges.push_back(edge);
+
+    runtime::state::Config cfg{
+        .ir = ir,
+        .channels = {{100, ::x::telem::FLOAT32_T, 101}}
+    };
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channels::Module module(nullptr, nullptr);
+    auto sink_state = ASSERT_NIL_P(s.node("sink"));
+    auto sink = ASSERT_NIL_P(
+        module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
+    );
+
+    auto upstream = ASSERT_NIL_P(s.node("upstream"));
+    upstream.output(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<float>{1.0f, 2.0f}
+    );
+    upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<int64_t>{500}
+    );
+
+    bool changed = false;
+    x::errors::Error captured;
+    runtime::node::Context ctx{
+        .elapsed = ::x::telem::SECOND,
+        .mark_changed = [&](size_t) { changed = true; },
+        .report_error = [&](const x::errors::Error &e) { captured = e; },
+    };
+    ASSERT_NIL(sink->next(ctx));
+
+    EXPECT_TRUE(static_cast<bool>(captured));
+    EXPECT_NE(
+        captured.message().find("sample count 2 does not match timestamp count 1"),
+        std::string::npos
+    );
+    EXPECT_NE(captured.message().find("channel 100"), std::string::npos);
+    EXPECT_FALSE(changed);
+
+    x::telem::Frame out;
+    s.flush_into(out);
+    EXPECT_TRUE(out.empty());
 }
 
 /// @brief reset() re-arms inputs so the sink re-runs on stage re-entry.
@@ -1315,6 +1406,87 @@ TEST(SourceRebindTest, RebindsOnResetAndAbsorbsDataBufferedOnTheNewChannel) {
     t.ingest(20, 1, 7.7f);
     ASSERT_NIL(t.source->next(ctx));
     EXPECT_TRUE(changed);
+}
+
+const std::string_view BOOL_CHANNEL_WAT = R"wat(
+(module
+  (import "channels" "read_bool" (func $read_bool (param i32) (result i32)))
+  (import "channels" "write_bool" (func $write_bool (param i32 i32)))
+
+  (func (export "read_bool") (param i32) (result i32)
+    (call $read_bool (local.get 0)))
+  (func (export "write_bool") (param i32 i32)
+    (call $write_bool (local.get 0) (local.get 1)))
+)
+)wat";
+
+struct WasmFixture {
+    std::shared_ptr<State> state;
+    std::shared_ptr<strings::State> str_state;
+    Module mod;
+    wasmtime::Engine engine;
+    wasmtime::Store store;
+    wasmtime::Linker linker;
+    wasmtime::Instance instance;
+
+    WasmFixture(const std::string &wat, const std::vector<Digest> &digests):
+        state(std::make_shared<State>(digests)),
+        str_state(std::make_shared<strings::State>()),
+        mod(state, str_state),
+        store(engine),
+        linker(engine),
+        instance(setup(wat)) {}
+
+    wasmtime::Func get(const std::string &name) {
+        return std::get<wasmtime::Func>(*instance.get(store, name));
+    }
+
+    void write_bool(int32_t channel, int32_t value) {
+        (void) this->get("write_bool")
+            .call(this->store, {wasmtime::Val(channel), wasmtime::Val(value)})
+            .unwrap();
+    }
+
+    int32_t read_bool(int32_t channel) {
+        return this->get("read_bool")
+            .call(this->store, {wasmtime::Val(channel)})
+            .unwrap()[0]
+            .i32();
+    }
+
+    void flush_and_ingest() {
+        ::x::telem::Frame frame(1);
+        this->state->flush_into(frame);
+        this->state->ingest(frame);
+    }
+
+private:
+    wasmtime::Instance setup(const std::string &wat) {
+        mod.bind_to(linker, store);
+        auto wasm_mod = wasmtime::Module::compile(engine, wat).unwrap();
+        return linker.instantiate(store, wasm_mod).unwrap();
+    }
+};
+
+TEST(BoolChannelTest, WritesAndReadsBackTrue) {
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOLEAN_T, 0}});
+    f.write_bool(4, 1);
+    f.flush_and_ingest();
+    EXPECT_EQ(f.read_bool(4), 1);
+}
+
+TEST(BoolChannelTest, WritesAndReadsBackFalse) {
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOLEAN_T, 0}});
+    f.write_bool(4, 0);
+    f.flush_and_ingest();
+    EXPECT_EQ(f.read_bool(4), 0);
+}
+
+TEST(BoolChannelTest, NormalizesNonzeroWriteToOne) {
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOLEAN_T, 0}});
+    f.write_bool(4, 42);
+    f.flush_and_ingest();
+    EXPECT_EQ(f.read_bool(4), 1);
 }
 
 }

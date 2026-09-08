@@ -141,8 +141,11 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
 class WriteSink final : public common::Sink {
     /// @brief the configuration for the sink.
     const WriteTaskConfig cfg;
-    /// @brief the API of the device we're writing to.
-    const std::shared_ptr<device::Device> dev;
+    /// @brief acquires the device on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the API of the device we're writing to. Populated on start and
+    /// released on stop.
+    std::shared_ptr<device::Device> dev;
     /// @brief the buffer of ports to use for the next write.
     std::vector<const char *> ports_buf;
     /// @brief the buffer of values to use for the next write.
@@ -152,7 +155,10 @@ class WriteSink final : public common::Sink {
     x::errors::Error curr_dev_err = x::errors::NIL;
 
 public:
-    explicit WriteSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
+    explicit WriteSink(
+        const std::shared_ptr<device::Manager> &devs,
+        WriteTaskConfig cfg
+    ):
         Sink(
             cfg.state_rate,
             cfg.state_index_keys,
@@ -161,7 +167,7 @@ public:
             cfg.data_saving_disabled
         ),
         cfg(std::move(cfg)),
-        dev(dev) {}
+        devs(devs) {}
 
     /// @brief clears the current write port and values buffer and re-reserves it
     /// to the allocated size.
@@ -172,8 +178,25 @@ public:
         this->values_buf.reserve(alloc);
     }
 
-    /// @brief starts the sink, pulling values to their initial state.
-    x::errors::Error start() override { return this->write_curr_state_to_dev(); }
+    /// @brief claims the device and pulls values to their initial state. Claiming
+    /// on every start means a device that disconnects and returns between runs
+    /// gets a fresh LJM handle on the next start.
+    x::errors::Error start() override {
+        auto [d, err] = this->devs->acquire(this->cfg.device);
+        if (err) return err;
+        this->dev = std::move(d);
+        if (const auto write_err = this->write_curr_state_to_dev()) {
+            this->dev.reset();
+            return write_err;
+        }
+        return x::errors::NIL;
+    }
+
+    /// @brief releases the claim on the device.
+    x::errors::Error stop() override {
+        this->dev.reset();
+        return x::errors::NIL;
+    }
 
     x::errors::Error write_curr_state_to_dev() {
         /// pull all values to the initial state (which is the current state).

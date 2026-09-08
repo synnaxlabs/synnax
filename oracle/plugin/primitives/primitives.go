@@ -20,7 +20,6 @@ const (
 	CategoryString
 	CategoryNumber
 	CategoryBoolean
-	CategoryTemporal
 	CategoryBinary
 )
 
@@ -53,58 +52,11 @@ var all = []Primitive{
 	{Name: "nil", Category: CategoryOther},
 }
 
-// primitivesByName is a lookup map for fast access.
-var primitivesByName = make(map[string]Primitive)
-
-func init() {
-	for _, p := range all {
-		primitivesByName[p.Name] = p
-	}
-}
-
-// All returns all registered primitives.
-func All() []Primitive {
-	return all
-}
-
-// Get returns a primitive by name, and whether it was found.
-func Get(name string) (Primitive, bool) {
-	p, ok := primitivesByName[name]
-	return p, ok
-}
-
-// IsPrimitive checks if a name is a registered primitive type.
 func IsPrimitive(name string) bool {
-	_, ok := primitivesByName[name]
-	return ok
-}
-
-// IsString returns true if the primitive is string-like.
-func IsString(name string) bool {
-	p, ok := primitivesByName[name]
-	return ok && p.Category == CategoryString
-}
-
-// IsNumber returns true if the primitive is numeric.
-func IsNumber(name string) bool {
-	p, ok := primitivesByName[name]
-	return ok && p.Category == CategoryNumber
-}
-
-// IsTemporal returns true if the primitive is time-related.
-func IsTemporal(name string) bool {
-	p, ok := primitivesByName[name]
-	return ok && p.Category == CategoryTemporal
-}
-
-// IsBoolean returns true if the primitive is boolean.
-func IsBoolean(name string) bool {
-	p, ok := primitivesByName[name]
-	return ok && p.Category == CategoryBoolean
-}
-
-// IsBinary returns true if the primitive is binary data.
-func IsBinary(name string) bool {
-	p, ok := primitivesByName[name]
-	return ok && p.Category == CategoryBinary
+	for _, p := range all {
+		if p.Name == name {
+			return true
+		}
+	}
+	return false
 }

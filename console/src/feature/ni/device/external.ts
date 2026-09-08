@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/ni/device/ContextMenuItems";
-export * from "@/feature/ni/device/enrich";
 export * from "@/feature/ni/device/PortField";
 export * from "@/feature/ni/device/Select";
 export * from "@/feature/ni/device/types";

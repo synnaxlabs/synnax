@@ -50,16 +50,17 @@ using Name = std::string;
 using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Operation defines an aggregation operation applied to channel data.
-/// Operations calculate min, max, or average values over a time duration or triggered
-/// by a reset channel.
+/// Operations calculate min, max, average, or derivative values over a time duration or
+/// triggered by a reset channel.
 struct Operation {
-    /// @brief type is the aggregation operation type: min, max, avg, or none.
+    /// @brief type is the aggregation operation type: min, max, avg, derivative, or
+    /// none.
     std::string type;
-    /// @brief reset_channel is the channel key that triggers reset of the aggregation.
-    /// If
-    /// 0, duration-based reset is used.
+    /// @brief reset_channel is the key of a channel that resets the aggregation when it
+    /// receives a sample. If 0, no reset channel is used.
     Key reset_channel = Key(0);
-    /// @brief duration is the time window for aggregation when reset_channel is 0.
+    /// @brief duration is the interval at which the aggregation resets. If 0, the
+    /// aggregation is not reset on a timer.
     ::x::telem::TimeSpan duration = ::x::telem::TimeSpan(0);
 
     static Operation parse(x::json::Parser parser);
@@ -85,13 +86,13 @@ struct Channel {
     /// internal use.
     ::synnax::node::Key leaseholder = ::synnax::node::Key(0);
     /// @brief data_type is the data type of samples stored in this channel (e.g.,
-    /// Float64,
-    /// Int32, TimeStamp).
+    /// float64,
+    /// int32, timestamp).
     ::x::telem::DataType data_type;
     /// @brief is_index is true if this is an index channel. Index channels must have
     /// int64
     /// values (TIMESTAMP data type) written in ascending order, and are most commonly
-    /// unix nanosecond timestamps.
+    /// Unix nanosecond timestamps.
     bool is_index = false;
     /// @brief index is the channel used to index this channel's values, associating
     /// each
@@ -111,9 +112,8 @@ struct Channel {
     /// channel
     /// is automatically configured as virtual.
     std::string expression = "";
-    /// @brief operations contains optional aggregation operations (min, max, avg)
-    /// applied
-    /// to channel data over time or triggered by a reset channel.
+    /// @brief operations contains optional aggregation operations (min, max, avg,
+    /// derivative) applied to channel data over time or triggered by a reset channel.
     std::vector<Operation> operations = {};
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
     /// Only

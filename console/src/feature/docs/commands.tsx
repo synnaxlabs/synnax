@@ -14,9 +14,9 @@ import { Docs } from "@/platform/docs";
 
 export const ReadCommand = Command.create({
   key: "read_the_docs",
-  name: "Read the documentation",
+  name: "Read documentation",
   icon: <Icon.QuestionMark />,
-  useOnSelect: Docs.useOpenTab,
+  useOnSelect: Docs.useOpen,
 });
 
 export const COMMANDS = [ReadCommand];

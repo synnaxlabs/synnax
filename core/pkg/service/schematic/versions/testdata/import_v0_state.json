@@ -1,0 +1,59 @@
+{
+  "key": "5b1e0e9a-2f2c-4c9a-9a7e-9a0c1d2e3f40",
+  "version": "0.0.0",
+  "editable": true,
+  "fitViewOnResize": false,
+  "snapshot": false,
+  "remoteCreated": true,
+  "viewport": {
+    "position": {
+      "x": -120,
+      "y": 40
+    },
+    "zoom": 0.85
+  },
+  "nodes": [
+    {
+      "key": "n1",
+      "position": {
+        "x": 120,
+        "y": 80
+      },
+      "zIndex": 2,
+      "selected": false
+    },
+    {
+      "key": "n2",
+      "position": {
+        "x": 420,
+        "y": 80
+      },
+      "zIndex": 1,
+      "selected": false
+    }
+  ],
+  "edges": [
+    {
+      "key": "e1",
+      "source": "n1",
+      "target": "n2",
+      "sourceHandle": "outlet",
+      "targetHandle": "inlet"
+    }
+  ],
+  "props": {
+    "n1": {
+      "key": "valve",
+      "color": "#FC3D21",
+      "label": {
+        "label": "Main Ox"
+      }
+    },
+    "n2": {
+      "key": "tank",
+      "color": "#F5C744"
+    }
+  },
+  "control": "released",
+  "controlAcquireTrigger": 0
+}

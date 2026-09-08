@@ -48,97 +48,97 @@ import { Valve } from "@/schematic/node/valves/Valve";
 const angled = createToggle({
   variant: "angledValve",
   name: "Angled",
-  label: "Angled Valve",
+  label: "Angled valve",
   Primitive: Angled,
 });
 const angledRelief = createDummyToggle({
   variant: "angledReliefValve",
-  name: "Angled Relief",
-  label: "Angled Relief Valve",
+  name: "Angled relief",
+  label: "Angled relief valve",
   Primitive: AngledRelief,
 });
 const angledSpringLoadedRelief = createDummyToggle({
   variant: "angledSpringLoadedReliefValve",
-  name: "Angled Spring Loaded Relief",
-  label: "Angled Spring Loaded Relief Valve",
+  name: "Angled spring loaded relief",
+  label: "Angled spring loaded relief valve",
   Primitive: AngledSpringLoadedRelief,
 });
 const ball = createToggle({
   variant: "ballValve",
   name: "Ball",
-  label: "Ball Valve",
+  label: "Ball valve",
   Primitive: Ball,
 });
 const breather = createDummyToggle({
   variant: "breatherValve",
   name: "Breather",
-  label: "Breather Valve",
+  label: "Breather valve",
   Primitive: Breather,
 });
 const butterflyOne = createToggle({
   variant: "butterflyValveOne",
-  name: "Butterfly (Remote)",
-  label: "Butterfly Valve (Remote)",
+  name: "Butterfly (remote)",
+  label: "Butterfly valve (remote)",
   Primitive: ButterflyOne,
 });
 const butterflyTwo = createToggle({
   variant: "butterflyValveTwo",
-  name: "Butterfly (Manual)",
-  label: "Butterfly Valve (Manual)",
+  name: "Butterfly (manual)",
+  label: "Butterfly valve (manual)",
   Primitive: ButterflyTwo,
 });
 const check = createStatic({
   variant: "checkValve",
   name: "Check",
-  label: "Check Valve",
+  label: "Check valve",
   Primitive: Check,
 });
 const checkWithArrow = createStatic({
   variant: "checkValveWithArrow",
-  name: "Check (Arrow)",
-  label: "Check Valve",
+  name: "Check (arrow)",
+  label: "Check valve",
   Primitive: CheckWithArrow,
 });
 const electricRegulator = createStatic({
   variant: "electricRegulator",
   name: "Electric",
-  label: "Electric Regulator",
+  label: "Electric regulator",
   Primitive: ElectricRegulator,
 });
 const electricRegulatorMotorized = createStatic({
   variant: "electricRegulatorMotorized",
   name: "Motorized",
-  label: "Electric Regulator Motorized",
+  label: "Electric regulator motorized",
   Primitive: ElectricRegulatorMotorized,
 });
 const fourWay = createToggle({
   variant: "fourWayValve",
-  name: "Four Way",
-  label: "Four Way Valve",
+  name: "Four way",
+  label: "Four way valve",
   Primitive: FourWay,
 });
 const gate = createToggle({
   variant: "gateValve",
   name: "Gate",
-  label: "Gate Valve",
+  label: "Gate valve",
   Primitive: Gate,
 });
 const isoCheck = createStatic({
   variant: "isoCheckValve",
-  name: "ISO Check",
-  label: "ISO Check Valve",
+  name: "ISO check",
+  label: "ISO check valve",
   Primitive: IsoCheck,
 });
 const manual = createDummyToggle({
   variant: "manualValve",
   name: "Manual",
-  label: "Manual Valve",
+  label: "Manual valve",
   Primitive: Manual,
 });
 const needle = createDummyToggle({
   variant: "needleValve",
   name: "Needle",
-  label: "Needle Valve",
+  label: "Needle valve",
   Primitive: Needle,
 });
 const regulator = createStatic({
@@ -149,13 +149,13 @@ const regulator = createStatic({
 const regulatorManual = createStatic({
   variant: "regulatorManual",
   name: "Manual",
-  label: "Manual Regulator",
+  label: "Manual regulator",
   Primitive: RegulatorManual,
 });
 const relief = createDummyToggle({
   variant: "reliefValve",
   name: "Relief",
-  label: "Relief Valve",
+  label: "Relief valve",
   Primitive: Relief,
 });
 const solenoidConfigZ = Toggle.toggleConfigZ.extend({
@@ -178,7 +178,7 @@ const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
   defaultConfig: (): SolenoidConfig => ({
     variant: "solenoidValve",
     color: color.ZERO,
-    label: Label.defaultConfig("Solenoid Valve"),
+    label: Label.defaultConfig("Solenoid valve"),
     normallyOpen: false,
     ...Primitive.ZERO_PROPS,
     ...Toggle.ZERO_TOGGLE_DEFAULTS,
@@ -187,19 +187,19 @@ const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
 };
 const springLoadedRelief = createDummyToggle({
   variant: "springLoadedReliefValve",
-  name: "Spring Loaded Relief",
-  label: "Spring Loaded Relief Valve",
+  name: "Spring loaded relief",
+  label: "Spring loaded relief valve",
   Primitive: SpringLoadedRelief,
 });
 const threeWay = createToggle({
   variant: "threeWayValve",
-  name: "Three Way",
+  name: "Three way",
   Primitive: ThreeWay,
 });
 const threeWayBall = createToggle({
   variant: "threeWayBallValve",
-  name: "Three-Way Ball",
-  label: "Three-Way Ball Valve",
+  name: "Three-way ball",
+  label: "Three-way ball valve",
   Primitive: ThreeWayBall,
 });
 const valve = createToggle({

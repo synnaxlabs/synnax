@@ -30,11 +30,11 @@ message Channel {
   // leaseholder is the node that holds the lease for this channel. Mostly for internal
   // use.
   uint32 leaseholder = 3;
-  // data_type is the data type of samples stored in this channel (e.g., Float64, Int32,
-  // TimeStamp).
+  // data_type is the data type of samples stored in this channel (e.g., float64, int32,
+  // timestamp).
   string data_type = 4;
   // is_index is true if this is an index channel. Index channels must have int64 values
-  // (TIMESTAMP data type) written in ascending order, and are most commonly unix
+  // (TIMESTAMP data type) written in ascending order, and are most commonly Unix
   // nanosecond timestamps.
   bool is_index = 5;
   // index is the channel used to index this channel's values, associating each value
@@ -50,8 +50,8 @@ message Channel {
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
   string expression = 10;
-  // operations contains optional aggregation operations (min, max, avg) applied to
-  // channel data over time or triggered by a reset channel.
+  // operations contains optional aggregation operations (min, max, avg, derivative)
+  // applied to channel data over time or triggered by a reset channel.
   repeated .service.channel.pb.Operation operations = 11;
   // concurrency sets the policy for concurrent writes to the channel's data. Only
   // virtual channels can have a policy of shared concurrency.

@@ -49,6 +49,7 @@ message RetrieveRequest {
   bool include_labels = 5;
   repeated string has_labels = 6;
   repeated string variants = 7;
+  bool ignore_not_found_error = 8;
 }
 
 message RetrieveResponse {

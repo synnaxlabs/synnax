@@ -52,7 +52,7 @@ var resolver = []symbol.Symbol{
 			Inputs: types.Params{{Name: "target", Type: types.F64()}},
 		}),
 	},
-	{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+	{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
 	{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
 	{Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 	{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
@@ -544,12 +544,12 @@ var _ = Describe("Sequence Analyzer", func() {
 			analyzeAndExpectSuccess,
 			Entry("named top-level stage", `
 				stage main {
-					1 -> start_cmd
+					true -> start_cmd
 				}
 			`),
 			Entry("anonymous top-level stage", `
 				stage {
-					1 -> start_cmd
+					true -> start_cmd
 				}
 			`),
 			Entry("top-level stage with inline routing case body", `
@@ -711,13 +711,13 @@ var _ = Describe("Sequence Analyzer", func() {
 			Entry("module-scope inline stage with multiple parallel writes", `
 				start_cmd -> stage {
 					1 -> abort_btn
-					1 -> start_cmd
+					true -> start_cmd
 				}
 			`),
 			Entry("module-scope inline sequence with multiple steps", `
 				start_cmd -> sequence {
 					1 -> abort_btn
-					1 -> start_cmd
+					true -> start_cmd
 				}
 			`),
 			Entry("inline flow target inside nested sequence", `

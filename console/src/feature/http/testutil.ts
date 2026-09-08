@@ -19,7 +19,7 @@ export interface CreateHTTPDeviceOptions {
   properties?: Partial<Properties>;
 }
 
-/** Creates a rack and a configured HTTP server device on the live cluster. */
+/** Creates a rack and a configured HTTP server device on the live Core. */
 export const createHTTPDevice = async (
   client: Synnax,
   { configured = true, properties }: CreateHTTPDeviceOptions = {},

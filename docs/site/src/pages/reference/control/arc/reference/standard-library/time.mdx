@@ -38,7 +38,6 @@ control loops, periodic sampling, and generating test data.
 />
 
 ```arc channels="tick"
-// `flow` only
 time.interval{period=1s} -> tick
 ```
 
@@ -98,7 +97,6 @@ Fires once after a fixed duration, then stops.
   output={{ type: "u8", description: "Emits `1` once the duration elapses." }}
 />
 
-```arc channels="done"
-// `flow` only
+```arc bodies="done"
 time.wait{duration=500ms} -> done
 ```

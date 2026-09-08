@@ -13,7 +13,7 @@
           "key": "fld-ts",
           "name": "fixture_http_timestamp",
           "pointer": "/data/timestamp",
-          "timestamp_format": "unix_ms"
+          "time_format": "unix_ms"
         },
         {
           "channel": 10020,

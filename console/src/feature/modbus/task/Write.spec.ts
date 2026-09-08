@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
+  createChannelReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
   reportTaskStopped,
@@ -25,7 +26,7 @@ const client = createTestClient();
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<Modbus.Task.WriteSchemas> = {
-  name: "Modbus Write Task",
+  name: "Modbus write task",
   type: Modbus.Task.WRITE_TYPE,
   config: Modbus.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -54,8 +55,8 @@ describe("Modbus.Write", () => {
     await waitFor(() => expect(screen.getAllByText("Coil")).toHaveLength(2));
 
     fireEvent.click(screen.getAllByText("Coil")[1]);
-    fireEvent.click(await screen.findByText("Holding Register"));
-    await screen.findByText("Holding Register");
+    fireEvent.click(await screen.findByText("Holding register"));
+    await screen.findByText("Holding register");
 
     const created = await deployAndAwaitTask(
       client,
@@ -160,5 +161,25 @@ describe("Modbus.Write", () => {
     fireEvent.contextMenu(screen.getByText("my_cmd_channel"));
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() => expect(screen.queryByText("my_cmd_channel")).toBeNull());
+  });
+
+  it("should withhold rename from a subject who cannot update channels", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+    });
+    const { container } = await renderTaskFormTab(Modbus.Task.Write, {
+      client,
+      taskKey: draft.key,
+      as: await createChannelReadOnlyClient(client),
+    });
+    await screen.findByText(dev.name);
+    fireEvent.click(getIconButton(container, "add"));
+    fireEvent.contextMenu(await screen.findByText("No channel"));
+    // Remove is ungated, so its presence proves the menu resolved before the
+    // absence below is read.
+    expect(await screen.findByText("Remove")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
   });
 });

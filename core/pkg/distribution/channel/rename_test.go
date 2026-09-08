@@ -30,7 +30,7 @@ var _ = Describe("Rename", Ordered, func() {
 
 	It("Should rename the storage channel for a gateway key", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-			{Name: "old-name", DataType: telem.TimeStampT, IsIndex: true},
+			{Name: "old-name", DataType: telem.TimestampT, IsIndex: true},
 		}))
 		key := out[0].Key()
 		Expect(
@@ -82,7 +82,7 @@ var _ = Describe("Rename", Ordered, func() {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 				{
 					Name:        "remote-old",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: peer.Cluster.HostKey(),
 				},
@@ -100,13 +100,13 @@ var _ = Describe("Rename", Ordered, func() {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 				{
 					Name:        "gateway-old",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: gateway.Cluster.HostKey(),
 				},
 				{
 					Name:        "peer-old",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: peer.Cluster.HostKey(),
 				},
@@ -134,13 +134,13 @@ var _ = Describe("Rename", Ordered, func() {
 				out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 					{
 						Name:        "mb-gateway-old",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: gateway.Cluster.HostKey(),
 					},
 					{
 						Name:        "mb-peer-old",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: peer.Cluster.HostKey(),
 					},

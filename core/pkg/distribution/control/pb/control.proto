@@ -1,0 +1,60 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package distribution.control.pb;
+
+import "x/go/control/pb/control.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/control/pb";
+
+// State is the control state of a single channel.
+message State {
+  // subject is the entity holding authority over the channel.
+  x.control.pb.Subject subject = 1;
+  // resource is the key of the controlled channel.
+  uint32 resource = 2;
+  // authority is the level of authority the subject holds over the channel.
+  uint32 authority = 3;
+}
+
+// RetrieveRequest asks a Core for the control state of a set of channels.
+message RetrieveRequest {
+  // keys identifies the channels to retrieve control state for. An empty set requests
+  // every channel the Core currently arbitrates.
+  repeated uint32 keys = 1;
+}
+
+// RetrieveResponse carries the control state of the requested channels.
+message RetrieveResponse {
+  // states holds one entry per controlled channel.
+  repeated State states = 1;
+}
+
+// RetrieveService reads control state from the Core that arbitrates it.
+service RetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+}
+
+// SubscribeRequest opens a subscription to a Core's control state. It carries no
+// parameters.
+message SubscribeRequest {}
+
+// SubscribeResponse carries a Core's complete control state.
+message SubscribeResponse {
+  // states holds one entry per controlled channel.
+  repeated State states = 1;
+}
+
+// SubscribeService streams a Core's complete control state on subscription and after
+// every change.
+service SubscribeService {
+  rpc Exec(stream SubscribeRequest) returns (stream SubscribeResponse) {}
+}

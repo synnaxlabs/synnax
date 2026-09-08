@@ -17,6 +17,7 @@ import (
 	goactions "github.com/synnaxlabs/oracle/plugin/go/actions"
 	goimex "github.com/synnaxlabs/oracle/plugin/go/imex"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
+	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -31,12 +32,12 @@ import (
 // against disk. Both must use the same registry, so the set lives here as a single
 // source of truth.
 //
-// The migrate plugin is intentionally excluded; it has its own command (`oracle
-// migrate`) with bespoke snapshot handling and is not part of the regular generation
-// pipeline.
+// The migrate plugin joins the registry for its chain-driven migrate.gen.go emission —
+// a pure function of adjacent version files, regenerated on every sync.
 func buildPluginRegistry() (*plugin.Registry, error) {
 	registry := plugin.NewRegistry()
 	for _, p := range []plugin.Plugin{
+		gomigrate.New(),
 		tstypes.New(tstypes.DefaultOptions()),
 		gotypes.New(gotypes.DefaultOptions()),
 		pytypes.New(pytypes.DefaultOptions()),

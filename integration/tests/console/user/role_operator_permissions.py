@@ -7,105 +7,156 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Test that Operator role has restricted permissions."""
+"""Test that Operator can actuate controls but cannot restructure or configure."""
 
 import synnax as sy
-from console.case import ConsoleCase
+from console.plot import Plot
+from console.schematic import Setpoint, Valve
+from console.schematic.schematic import Schematic
+from console.table import Table
+from tests.console.user.role_case import RoleCase
 from x import random_name
 
+F64_CHANNEL = f"operator_perm_f64_{random_name()}"
+F64_INDEX = f"operator_perm_f64_idx_{random_name()}"
+VALVE_CHANNEL = f"operator_perm_vlv_{random_name()}"
+VALVE_INDEX = f"operator_perm_vlv_idx_{random_name()}"
+SCHEMATIC_NAME = "operator_perm_schematic"
+PLOT_NAME = "operator_perm_plot"
+TABLE_NAME = "operator_perm_table"
 
-class RoleOperatorPermissions(ConsoleCase):
-    """Test that Operator role cannot access user management or create resources."""
+
+class RoleOperatorPermissions(RoleCase):
+    """Operator holds framer and range writes, and retrieve on everything else."""
+
+    role_name = "Operator"
+
+    def setup(self) -> None:
+        f64_idx = self.client.channels.create(
+            name=F64_INDEX,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name=F64_CHANNEL,
+            data_type=sy.DataType.FLOAT64,
+            index=f64_idx.key,
+            retrieve_if_name_exists=True,
+        )
+        vlv_idx = self.client.channels.create(
+            name=VALVE_INDEX,
+            is_index=True,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name=VALVE_CHANNEL,
+            data_type=sy.DataType.UINT8,
+            index=vlv_idx.key,
+            retrieve_if_name_exists=True,
+        )
+        self.subscribe([F64_CHANNEL, VALVE_CHANNEL])
+        super().setup()
 
     def run(self) -> None:
-        # Create a new user with Operator role
-        username = f"operator_{random_name()}"
-        password = "testpassword123"
-        first_name = "Operator"
-        last_name = "Test"
-        role_name = "Operator"
+        self.owner_creates_pages()
+        self.login_as_role()
+        self.assert_badge_names_role()
+        self.assert_users_toolbar_hidden()
+        self.creation_commands_are_hidden()
+        self.mosaic_is_static()
+        self.tab_menu_offers_no_writes()
+        self.visualizations_are_read_only()
+        self.operator_can_actuate()
 
-        self.log(f"Registering operator user: {username}")
+    def owner_creates_pages(self) -> None:
+        """As Owner: build the pages and leave their tabs open.
 
-        success = self.console.access.register_user(
-            username=username,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-            role_name=role_name,
+        An Operator cannot open a tab, so anything they view has to already be
+        open in a panel an Engineer or Owner built.
+        """
+        table = self.console.pages.create(Table, TABLE_NAME)
+        self._cleanup_pages.append(table.page_name)
+        plot = self.console.pages.create(Plot, PLOT_NAME)
+        self._cleanup_pages.append(plot.page_name)
+        schematic = self.console.pages.create(Schematic, SCHEMATIC_NAME)
+        self._cleanup_pages.append(schematic.page_name)
+
+        setpoint = schematic.create_symbol(
+            Setpoint(label=F64_CHANNEL, channel_name=F64_CHANNEL)
         )
-        assert success, f"Failed to register user {username}"
+        setpoint.move(delta_x=-200, delta_y=0)
 
-        # Log out and log in as the operator
-        self.log("Logging out and logging in as operator...")
-        self.console.access.logout()
-        self.console.access.login(username=username, password=password)
-
-        # Verify logged in as operator
-        user_badge = self.page.get_by_text(first_name, exact=True)
-        user_badge.wait_for(state="visible", timeout=10000)
-        self.log(f"Logged in as operator: {first_name}")
-
-        # Test 1: Users toolbar should be hidden
-        self.log("Testing: Users toolbar should be hidden for operator...")
-        self.page.keyboard.press("u")
-        sy.sleep(0.5)
-
-        # Check that no role elements are visible (users panel not shown)
-        role_elements = self.page.locator("div[id^='role:']")
-        users_visible = role_elements.count() > 0 and role_elements.first.is_visible()
-
-        if users_visible:
-            self.log("WARNING: Users toolbar is visible to operator (unexpected)")
-        else:
-            self.log("PASS: Users toolbar is hidden for operator")
-
-        # Press escape to close any open panels
-        self.console.layout.press_escape()
-        sy.sleep(0.3)
-
-        # Test 2: Try to create a project via command palette
-        self.log("Testing: Operator should not be able to create project...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
+        valve = schematic.create_symbol(
+            Valve(
+                label=VALVE_CHANNEL,
+                state_channel=VALVE_CHANNEL,
+                command_channel=VALVE_CHANNEL,
+            )
         )
-        palette_input.fill(">Create a project", timeout=2000)
-        sy.sleep(0.3)
+        valve.move(delta_x=200, delta_y=0)
 
-        # Check if command is available
-        project_cmd = self.page.get_by_text("Create a project", exact=True)
-        project_cmd_exists = project_cmd.count() > 0
+    def creation_commands_are_hidden(self) -> None:
+        for command in (
+            "Create project",
+            "Create schematic",
+            "Create line plot",
+            "Create channel",
+        ):
+            self.assert_command_hidden(command)
 
-        self.console.layout.press_escape()
-        sy.sleep(0.2)
-
-        if project_cmd_exists:
-            self.log("WARNING: Create project command exists for operator")
-        else:
-            self.log("PASS: Create project command not available for operator")
-
-        # Test 3: Try to create a schematic via command palette
-        self.log("Testing: Operator should not be able to create schematic...")
-        self.page.keyboard.press("ControlOrMeta+Shift+p")
-        sy.sleep(0.3)
-
-        palette_input = self.page.locator(
-            ".console-palette__input input[role='textbox']"
+    def mosaic_is_static(self) -> None:
+        """An Operator cannot write panels, so no structural affordance appears."""
+        self.console.layout.get_read_only_tab(SCHEMATIC_NAME).wait_for(
+            state="visible", timeout=10000
         )
-        palette_input.fill(">Create a schematic", timeout=2000)
-        sy.sleep(0.3)
+        assert not self.console.layout.tab_is_closable(SCHEMATIC_NAME), (
+            "tab offers a close button to an Operator, who cannot write the panel"
+        )
+        assert self.console.layout.mosaic_is_static(), (
+            "mosaic offers a structural write to an Operator"
+        )
 
-        schematic_cmd = self.page.get_by_text("Create a schematic", exact=True)
-        schematic_cmd_exists = schematic_cmd.count() > 0
+    def tab_menu_offers_no_writes(self) -> None:
+        """Renaming or moving a tab rewrites the panel, which an Operator cannot."""
+        for option in ("Rename", "Move to panel", "Move to new window"):
+            assert not self.console.layout.tab_menu_has_option(
+                SCHEMATIC_NAME, option
+            ), f"tab menu offers {option!r} to an Operator, who cannot write the panel"
 
-        self.console.layout.press_escape()
+    def visualizations_are_read_only(self) -> None:
+        """Editing a plot or a table is a write on it, which an Operator cannot."""
+        self.console.layout.select_tab(PLOT_NAME)
+        self.console.layout.show_visualization_toolbar()
+        assert self.console.layout.get_by_text("Axes", exact=True).count() == 0, (
+            "line plot offers its editing tabs to an Operator, who cannot write it"
+        )
+        self.console.layout.select_tab(TABLE_NAME)
+        self.console.layout.get_by_text(f"{TABLE_NAME} is not editable").wait_for(
+            state="visible", timeout=10000
+        )
+        self.console.layout.hide_visualization_toolbar()
+        self.console.layout.select_tab(SCHEMATIC_NAME)
 
-        if schematic_cmd_exists:
-            self.log("WARNING: Create schematic command exists for operator")
-        else:
-            self.log("PASS: Create schematic command not available for operator")
+    def operator_can_actuate(self) -> None:
+        """Schematic control is a framer write, which Operator holds in full."""
+        schematic = self.console.pages.bind_open(Schematic, SCHEMATIC_NAME)
 
-        self.log("Operator permissions test completed")
+        self.log("Testing: Operator sends an f64 setpoint")
+        setpoint = schematic.find_symbol(
+            Setpoint(label=F64_CHANNEL, channel_name=F64_CHANNEL)
+        )
+        setpoint.set_value(7.89)
+        self.wait_for_eq(F64_CHANNEL, 7.89)
+
+        self.log("Testing: Operator opens and closes a valve")
+        valve = schematic.find_symbol(
+            Valve(
+                label=VALVE_CHANNEL,
+                state_channel=VALVE_CHANNEL,
+                command_channel=VALVE_CHANNEL,
+            )
+        )
+        valve.press()
+        self.wait_for_eq(VALVE_CHANNEL, 1)
+        valve.press()
+        self.wait_for_eq(VALVE_CHANNEL, 0)

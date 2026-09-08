@@ -97,6 +97,9 @@ type ArcParserListener interface {
 	// EnterRoutingEntry is called when entering the routingEntry production.
 	EnterRoutingEntry(c *RoutingEntryContext)
 
+	// EnterRoutingKey is called when entering the routingKey production.
+	EnterRoutingKey(c *RoutingKeyContext)
+
 	// EnterFlowNode is called when entering the flowNode production.
 	EnterFlowNode(c *FlowNodeContext)
 
@@ -217,11 +220,11 @@ type ArcParserListener interface {
 	// EnterMultiplicativeExpression is called when entering the multiplicativeExpression production.
 	EnterMultiplicativeExpression(c *MultiplicativeExpressionContext)
 
-	// EnterPowerExpression is called when entering the powerExpression production.
-	EnterPowerExpression(c *PowerExpressionContext)
-
 	// EnterUnaryExpression is called when entering the unaryExpression production.
 	EnterUnaryExpression(c *UnaryExpressionContext)
+
+	// EnterPowerExpression is called when entering the powerExpression production.
+	EnterPowerExpression(c *PowerExpressionContext)
 
 	// EnterPostfixExpression is called when entering the postfixExpression production.
 	EnterPostfixExpression(c *PostfixExpressionContext)
@@ -246,6 +249,9 @@ type ArcParserListener interface {
 
 	// EnterSeriesLiteral is called when entering the seriesLiteral production.
 	EnterSeriesLiteral(c *SeriesLiteralContext)
+
+	// EnterBooleanLiteral is called when entering the booleanLiteral production.
+	EnterBooleanLiteral(c *BooleanLiteralContext)
 
 	// EnterExpressionList is called when entering the expressionList production.
 	EnterExpressionList(c *ExpressionListContext)
@@ -330,6 +336,9 @@ type ArcParserListener interface {
 
 	// ExitRoutingEntry is called when exiting the routingEntry production.
 	ExitRoutingEntry(c *RoutingEntryContext)
+
+	// ExitRoutingKey is called when exiting the routingKey production.
+	ExitRoutingKey(c *RoutingKeyContext)
 
 	// ExitFlowNode is called when exiting the flowNode production.
 	ExitFlowNode(c *FlowNodeContext)
@@ -451,11 +460,11 @@ type ArcParserListener interface {
 	// ExitMultiplicativeExpression is called when exiting the multiplicativeExpression production.
 	ExitMultiplicativeExpression(c *MultiplicativeExpressionContext)
 
-	// ExitPowerExpression is called when exiting the powerExpression production.
-	ExitPowerExpression(c *PowerExpressionContext)
-
 	// ExitUnaryExpression is called when exiting the unaryExpression production.
 	ExitUnaryExpression(c *UnaryExpressionContext)
+
+	// ExitPowerExpression is called when exiting the powerExpression production.
+	ExitPowerExpression(c *PowerExpressionContext)
 
 	// ExitPostfixExpression is called when exiting the postfixExpression production.
 	ExitPostfixExpression(c *PostfixExpressionContext)
@@ -480,6 +489,9 @@ type ArcParserListener interface {
 
 	// ExitSeriesLiteral is called when exiting the seriesLiteral production.
 	ExitSeriesLiteral(c *SeriesLiteralContext)
+
+	// ExitBooleanLiteral is called when exiting the booleanLiteral production.
+	ExitBooleanLiteral(c *BooleanLiteralContext)
 
 	// ExitExpressionList is called when exiting the expressionList production.
 	ExitExpressionList(c *ExpressionListContext)

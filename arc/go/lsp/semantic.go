@@ -47,6 +47,7 @@ const (
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
 	SemanticTokenTypeChannelVariable
+	SemanticTokenTypeBoolean
 )
 
 var semanticTokenTypes = []string{
@@ -73,6 +74,7 @@ var semanticTokenTypes = []string{
 	"stringRaw",
 	"stringPlaceholder",
 	"channelVariable",
+	"boolean",
 }
 
 func (s *Server) SemanticTokensFull(
@@ -102,6 +104,9 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 			tokens = append(tokens, expandStringToken(ctx, t, docIR)...)
 			continue
 		}
+		if isRoutingKey(allTokens, i) {
+			continue
+		}
 		var prevType, nextType int
 		if i > 0 {
 			prevType = allTokens[i-1].GetTokenType()
@@ -128,6 +133,23 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		tokens = appendTokenPerLine(tokens, t, *tokenType)
 	}
 	return lsp.EncodeSemanticTokens(tokens)
+}
+
+// isRoutingKey reports whether the token at i is a TRUE or FALSE naming a
+// routing-table branch (`true:`) rather than a bool literal.
+func isRoutingKey(tokens []antlr.Token, i int) bool {
+	switch tokens[i].GetTokenType() {
+	case parser.ArcLexerTRUE, parser.ArcLexerFALSE:
+	default:
+		return false
+	}
+	for j := i + 1; j < len(tokens); j++ {
+		if tokens[j].GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		return tokens[j].GetTokenType() == parser.ArcLexerCOLON
+	}
+	return false
 }
 
 // importContextIdents returns the token indexes that name modules inside an
@@ -453,6 +475,7 @@ func mapLexerTokenType(antlrType int) *uint32 {
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,
 		parser.ArcLexerF32, parser.ArcLexerF64, parser.ArcLexerSTR,
+		parser.ArcLexerBOOL,
 		parser.ArcLexerSERIES,
 		parser.ArcLexerCHAN:
 		tokenType = SemanticTokenTypeType
@@ -470,6 +493,8 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		tokenType = SemanticTokenTypeString
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
+	case parser.ArcLexerTRUE, parser.ArcLexerFALSE:
+		tokenType = SemanticTokenTypeBoolean
 	case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
 		tokenType = SemanticTokenTypeComment
 	case parser.ArcLexerIDENTIFIER:

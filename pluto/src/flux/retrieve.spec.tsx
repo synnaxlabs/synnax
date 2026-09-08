@@ -30,7 +30,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
@@ -43,6 +43,13 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 const Wrapper = createSynnaxWrapper({ client });
+
+// The client brings its change stream up in the background, and the connection epoch
+// advance that lands with it discards every settled failure a test is holding. Let the
+// advance land before the first test rather than under one.
+beforeAll(async () => {
+  await waitFor(() => expect(client.connection.status.details.epoch).toBe(1));
+});
 
 /** Mounts the real provider against a live cluster reached through `port`. */
 const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
@@ -662,6 +669,102 @@ describe("use", () => {
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
       expect(seen.length).toBeLessThan(10);
       expect(seen[seen.length - 1]).toBe(seen[0]);
+    });
+  });
+
+  describe("unreachable retry", () => {
+    interface Harness {
+      utils: ReturnType<typeof render>;
+      retrieve: ReturnType<typeof vi.fn>;
+    }
+
+    // Renders a suspending read whose fetch fails with a dead connection for its first
+    // `failures` attempts, then answers with 7.
+    const renderUnreachable = async (
+      key: string,
+      failures: number,
+      cause: () => Error = () => new DisconnectedError(),
+    ): Promise<Harness> => {
+      let attempts = 0;
+      const retrieve = vi.fn(async (): Promise<number> => {
+        attempts += 1;
+        if (attempts <= failures) throw cause();
+        return 7;
+      });
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        retryUnreachable: true,
+      });
+      const Display = (): ReactElement => {
+        const value = use({ key });
+        return <div data-testid="value">{value}</div>;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      return { utils, retrieve };
+    };
+
+    it("resolves once a retry reaches the Core", async () => {
+      vi.useFakeTimers();
+      try {
+        const { utils, retrieve } = await renderUnreachable("retry-reached", 2);
+        expect(utils.queryByText("waiting")).toBeTruthy();
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(TimeSpan.seconds(2).milliseconds);
+        });
+
+        expect(utils.queryByTestId("value")?.textContent).toBe("7");
+        expect(retrieve).toHaveBeenCalledTimes(3);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("settles the failure once the attempts run out", async () => {
+      vi.useFakeTimers();
+      try {
+        const { utils, retrieve } = await renderUnreachable("retry-exhausted", 10);
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(TimeSpan.seconds(5).milliseconds);
+        });
+
+        expect(utils.queryByTestId("error")?.textContent).toBe(
+          "Failed to retrieve Number",
+        );
+        expect(retrieve).toHaveBeenCalledTimes(4);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("settles a failure the Core answered with, without retrying", async () => {
+      const { utils, retrieve } = await renderUnreachable(
+        "retry-answered",
+        1,
+        () => new UnexpectedError("boom"),
+      );
+      await waitFor(() =>
+        expect(utils.queryByTestId("error")?.textContent).toBe(
+          "Failed to retrieve Number",
+        ),
+      );
+      expect(retrieve).toHaveBeenCalledTimes(1);
     });
   });
 

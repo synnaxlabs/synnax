@@ -45,12 +45,13 @@ export const Properties = (): ReactElement => {
           onChange={handleTitleRename}
           selectOnFocus
           resetOnBlurIfEmpty
+          onlyChangeOnBlur
         />
       </Input.Item>
-      <Input.Item label="Show Title">
+      <Input.Item label="Show title">
         <Input.Switch value={title.visible} onChange={handleTitleVisibilityChange} />
       </Input.Item>
-      <Input.Item label="Show Legend">
+      <Input.Item label="Show legend">
         <Input.Switch value={!legend.hidden} onChange={handleLegendVisibilityChange} />
       </Input.Item>
     </Flex.Box>

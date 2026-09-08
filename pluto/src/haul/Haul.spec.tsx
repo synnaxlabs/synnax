@@ -167,6 +167,11 @@ const fireDragEnd = (element: HTMLElement, screenX: number, screenY: number): vo
 
 const passthroughDrop = () => vi.fn(({ items }: Haul.OnDropProps) => items);
 
+const Watcher = ({ onResolve }: { onResolve: Haul.OnResolve }): null => {
+  Haul.useOnResolve(onResolve);
+  return null;
+};
+
 describe("Haul", () => {
   describe("re-render isolation", () => {
     it("should not re-render a useDrag consumer when the dragging state changes", () => {
@@ -544,14 +549,70 @@ describe("Haul", () => {
     });
   });
 
+  // A windowed list unmounts the row being dragged as soon as it scrolls out of the
+  // window, and `dragend` on a detached node reaches nobody.
+  describe("a source that unmounts mid-drag", () => {
+    const renderSourceAndWatcher = (onResolve: Haul.OnResolve): RenderResult =>
+      render(
+        <Haul.Provider>
+          <Source />
+          <Watcher onResolve={onResolve} />
+        </Haul.Provider>,
+      );
+
+    it("should end the drag on the next mouse move", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      const { rerender } = renderSourceAndWatcher(onResolve);
+      beginDrag();
+      rerender(
+        <Haul.Provider>
+          <Watcher onResolve={onResolve} />
+        </Haul.Provider>,
+      );
+      expect(onResolve).not.toHaveBeenCalled();
+      fireEvent.mouseMove(document, { screenX: 5, screenY: 7 });
+      expect(onResolve.mock.calls).toEqual([[false]]);
+    });
+
+    it("should pass the cursor of the terminating mouse move to an interceptor", () => {
+      const intercept = vi.fn<DragEndInterceptor>(() => null);
+      const { rerender } = render(
+        <Haul.Provider>
+          <Source />
+          <Interceptor intercept={intercept} />
+        </Haul.Provider>,
+      );
+      beginDrag();
+      rerender(
+        <Haul.Provider>
+          <Interceptor intercept={intercept} />
+        </Haul.Provider>,
+      );
+      fireEvent.mouseMove(document, { screenX: 42, screenY: 84 });
+      expect(intercept).toHaveBeenCalledTimes(1);
+      expect(intercept.mock.calls[0][1]).toEqual({ x: 42, y: 84 });
+    });
+
+    it("should report a drag whose source stayed mounted exactly once", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      renderSourceAndWatcher(onResolve);
+      beginDrag();
+      fireDragEnd(screen.getByTestId("source"), 1, 1);
+      fireEvent.mouseMove(document, { screenX: 5, screenY: 7 });
+      expect(onResolve.mock.calls).toEqual([[false]]);
+    });
+
+    it("should not report a mouse move that ends no drag", () => {
+      const onResolve = vi.fn<Haul.OnResolve>();
+      renderSourceAndWatcher(onResolve);
+      fireEvent.mouseMove(document, { screenX: 1, screenY: 1 });
+      expect(onResolve).not.toHaveBeenCalled();
+    });
+  });
+
   // A drop and a cancelled drag clear the dragging state identically, so watching that
   // state cannot tell them apart. useOnResolve is the signal that can.
   describe("useOnResolve", () => {
-    const Watcher = ({ onResolve }: { onResolve: Haul.OnResolve }): null => {
-      Haul.useOnResolve(onResolve);
-      return null;
-    };
-
     const renderWatched = (
       onResolve: Haul.OnResolve,
       extra?: ReactNode,

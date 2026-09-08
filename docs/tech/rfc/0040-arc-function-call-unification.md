@@ -69,11 +69,10 @@ mirrored to `Config` in every `ExecBoth` symbol. Replace both with a single
 
 **Collapse the two analyzer hook surfaces.** A symbol that wants to validate its
 arguments (e.g. `status.set` constraining the `variant` literal; see
-[RFC 0037 §5.0.1](0037-arc-status-updates.md#501-literal-value-constraints)) registers
-`AnalyzeCall` for the parens form AND `AnalyzeFlowConfig` for the brace form. The two
-hooks walk different AST shapes to find the same argument and run the same literal
-check. Replace both with a single `AnalyzeArguments` hook that receives a unified
-`[]Argument` view.
+[RFC 0037](0037-arc-status-updates.md) §5.0.1) registers `AnalyzeCall` for the parens
+form AND `AnalyzeFlowConfig` for the brace form. The two hooks walk different AST shapes
+to find the same argument and run the same literal check. Replace both with a single
+`AnalyzeArguments` hook that receives a unified `[]Argument` view.
 
 ## 2 Non-goals
 

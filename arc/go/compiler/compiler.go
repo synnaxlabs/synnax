@@ -195,7 +195,7 @@ func compileItem(
 	if results.IsValid() {
 		wasmResults = append(wasmResults, wasm.ConvertType(results))
 	}
-	ctx := ccontext.Child(rootCtx, body).WithScope(scope).WithNewWriter()
+	ctx := rootCtx.Child(body).WithScope(scope).WithNewWriter()
 	ctx.Outputs = outputs
 	ctx.OutputMemoryBase = outputMemoryBase
 
@@ -209,7 +209,7 @@ func compileItem(
 	}
 
 	if blockCtx, ok := body.(parser.IBlockContext); ok {
-		_, err = statement.CompileBlock(ccontext.Child(ctx, blockCtx))
+		_, err = statement.CompileBlock(ctx.Child(blockCtx))
 		if err != nil {
 			return compiledFunction{}, errors.Wrapf(
 				err,
@@ -218,7 +218,7 @@ func compileItem(
 			)
 		}
 	} else if exprCtx, ok := body.(parser.IExpressionContext); ok {
-		if err = compileExpression(ccontext.Child(ctx, exprCtx)); err != nil {
+		if err = compileExpression(ctx.Child(exprCtx)); err != nil {
 			return compiledFunction{}, errors.Wrapf(
 				err,
 				"failed to compile expression '%s'",

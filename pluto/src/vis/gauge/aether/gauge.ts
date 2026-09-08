@@ -18,7 +18,6 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-// Define gauge size presets
 export const GAUGE_SIZES = {
   small: 80,
   medium: 120,
@@ -113,7 +112,6 @@ export class Gauge
       ? i.theme.colors.visualization.palettes.default[0]
       : this.state.color;
 
-    // Pre-calculate gauge geometry
     const b = this.state.box;
     const baseRadius = box.width(b) / 2;
     const { barWidth } = this.state;
@@ -127,7 +125,6 @@ export class Gauge
     i.gaugeAngleRange = 2 * Math.PI - gapSize; // Total arc is 270 degrees
     i.gaugeEndAngle = i.gaugeStartAngle + i.gaugeAngleRange;
 
-    // Calculate label positions
     i.labelRadius = i.outerRadius + 12;
     i.labelInwardShift = 12;
     i.centerPos = box.center(b);
@@ -166,7 +163,7 @@ export class Gauge
   private requestRender(): void {
     const { requestRender } = this.internal;
     if (requestRender != null) requestRender("layout");
-    else void this.render({});
+    else this.render({});
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
@@ -175,7 +172,6 @@ export class Gauge
     const draw2d = new Draw2D(upper2d, i.theme);
     const value = i.telem.value();
 
-    // Calculate value angle (only thing that changes per render)
     const { lower, upper } = this.state.bounds;
     const valueNum = Number(value);
     const clampedValue = bounds.clamp(this.state.bounds, valueNum);
@@ -187,46 +183,45 @@ export class Gauge
       : undefined;
 
     draw2d.text({
+      align: "center",
       text: value,
       position: i.valueTextPos,
       shade: 10,
       color: staleColor,
       level: i.textLevel,
-      align: "middle",
       justify: "center",
       weight: 450,
       code: true,
       useAtlas: true,
     });
     draw2d.text({
+      align: "center",
       text: this.state.units,
       position: i.unitsTextPos,
       shade: 8,
       level: text.downLevel(i.textLevel),
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,
     });
 
-    // Add min/max labels at the gap endpoints
     draw2d.text({
+      align: "center",
       text: lower.toString(),
       position: i.minLabelPos,
       shade: 7,
       level: i.labelLevel,
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,
     });
 
     draw2d.text({
+      align: "center",
       text: upper.toString(),
       position: i.maxLabelPos,
       shade: 7,
       level: i.labelLevel,
-      align: "middle",
       justify: "center",
       code: true,
       useAtlas: true,

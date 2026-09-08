@@ -13,18 +13,11 @@ import { type ReactElement } from "react";
 
 import { Boolean, type BooleanProps } from "@/input/Boolean";
 
+/** Props for {@link Switch}. */
 export interface SwitchProps extends Omit<BooleanProps, "inputType"> {}
 
-/**
- * A controlled boolean Switch input component.
- *
- * @param props - The props for the input component. Unlisted props are passed to the
- * underlying input element.
- * @param props.value - The value of the input.
- * @param props.onChange - A function to call when the input value changes.
- * @param props.size - The size of the input: "small" | "medium" | "large".
- * @default "medium"
- */
+/** A boolean input drawn as a sliding switch. Use it for a setting that takes effect
+ * at once. */
 export const Switch = (props: SwitchProps): ReactElement => (
   <Boolean {...props} inputType="switch" />
 );

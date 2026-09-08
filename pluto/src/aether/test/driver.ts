@@ -38,11 +38,10 @@ export interface Driver {
 }
 
 /**
- * Create a {@link Driver} over a fresh worker-side aether tree using the given registry.
- *
- * The driver constructs components lazily through the registry the same way production
- * does — the caller never wires `parent` by hand, so every level runs its real
- * `afterUpdate` lifecycle and propagates context normally.
+ * Create a {@link Driver} over a fresh worker-side aether tree using the given
+ * registry. The driver constructs components lazily through the registry the same way
+ * production does — the caller never wires `parent` by hand, so every level runs its
+ * real `afterUpdate` lifecycle and propagates context normally.
  */
 export const createDriver = (
   registry: aether.ComponentRegistry,

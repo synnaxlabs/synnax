@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, query } from "@synnaxlabs/client";
-import { Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
@@ -18,22 +18,29 @@ import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
 
-const RenameItem = (): ReactElement | null => {
+// Split out because useTabResource throws on a view tab.
+const ResourceRenameItem = (): ReactElement | null => {
   const tabKey = Panel.useTabKey();
-  const isResource = Panel.useTabVariant({}) === "resource";
-  if (!isResource) return null;
+  const resource = Panel.useTabResource({});
+  const canRename = Access.useUpdateGranted(resource);
+  const isFocused = Session.Panel.useSelectIsTabFocused();
+  if (!canRename) return null;
   return (
     <CMenu.RenameItem
       onClick={() => PlatformPanel.editTabName(tabKey)}
       trigger={PlatformPanel.RENAME_TRIGGER}
-      triggerIndicator
+      triggerIndicator={isFocused}
     />
   );
 };
 
+const RenameItem = (): ReactElement | null =>
+  Panel.useTabVariant({}) === "resource" ? <ResourceRenameItem /> : null;
+
 const FocusItem = (): ReactElement => {
   const tabKey = Panel.useTabKey();
   const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
+  const isFocused = Session.Panel.useSelectIsTabFocused();
   const startOverlaying = Session.Panel.useStartOverlaying();
   const dispatch = Session.useDispatch();
   const handleFocus = useCallback(() => {
@@ -44,7 +51,7 @@ const FocusItem = (): ReactElement => {
     <Menu.Item
       itemKey="focus"
       onClick={handleFocus}
-      triggerIndicator={Panel.OVERLAY_TRIGGER}
+      triggerIndicator={isFocused && Panel.OVERLAY_TRIGGER}
     >
       {isOverlaid ? <Icon.Collapse /> : <Icon.Focus />}
       {isOverlaid ? "Exit focus" : "Focus"}
@@ -66,13 +73,21 @@ const useOrigin = (): (() => TabOrigin | undefined) => {
   }, [key, tabKey, client]);
 };
 
-const MoveToPanelItem = (): ReactElement => {
+const SplitItems = (): ReactElement | null => {
+  const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
+  if (isOverlaid) return null;
+  return <Panel.SplitTabMenuItems />;
+};
+
+const MoveToPanelItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const openPicker = useMovePicker();
+  const canEdit = Panel.useCanEdit({});
   const handleMove = useCallback(() => {
     const origin = getOrigin();
     if (origin != null) openPicker({ origin });
   }, [getOrigin, openPicker]);
+  if (!canEdit) return null;
   return (
     <Menu.Item itemKey="move-to-panel" onClick={handleMove}>
       <Icon.Panel />
@@ -81,13 +96,17 @@ const MoveToPanelItem = (): ReactElement => {
   );
 };
 
-const MoveToNewWindowItem = (): ReactElement => {
+const MoveToNewWindowItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const tearOff = useTearOffTab();
+  const canEdit = Panel.useCanEdit({});
+  const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
   const handleMove = useCallback(() => {
     const origin = getOrigin();
     if (origin != null) tearOff(origin);
   }, [getOrigin, tearOff]);
+  if (!canEdit || !canCreate) return null;
+  if (Session.Runtime.ENGINE !== "tauri") return null;
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
       <Icon.OpenInNewWindow />
@@ -96,16 +115,23 @@ const MoveToNewWindowItem = (): ReactElement => {
   );
 };
 
+// Every tab hotkey acts on the window's focused tab, so a menu open on any other tab
+// would advertise a shortcut that does something else.
+const CloseItem = (): ReactElement | null => {
+  const isFocused = Session.Panel.useSelectIsTabFocused();
+  return <Panel.CloseTabMenuItem triggerIndicator={isFocused} />;
+};
+
 export const TabMenuItems = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   if (keys.length === 0) return <CMenu.ReloadConsoleItem />;
   return (
     <>
-      <Panel.CloseTabMenuItem />
+      <CloseItem />
       <Menu.Divider />
       <RenameItem />
       <FocusItem />
       <Menu.Divider />
-      <Panel.SplitTabMenuItems />
+      <SplitItems />
       <MoveToPanelItem />
       <MoveToNewWindowItem />
       <Menu.Divider />

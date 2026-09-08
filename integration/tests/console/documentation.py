@@ -7,68 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from urllib.parse import urlparse
-
-import synnax as sy
+from console import docs as docs_client
 from console.case import ConsoleCase
 
 
 class Documentation(ConsoleCase):
-    """Test documentation feature: opening via command palette/icon, state persistence."""
+    """The Console's documentation actions hand the docs URL to the browser."""
 
     def run(self) -> None:
-        console = self.console
-        docs = console.docs
+        docs = self.console.docs
 
-        self.log("(1/3) Open documentation from command palette")
-        if docs.is_open:
-            docs.close()
-            sy.sleep(0.3)
+        self.log("(1/2) Open documentation from the command palette")
+        tab = docs.open_via_command_palette()
+        assert tab.url == docs_client.URL, f"Palette opened {tab.url}"
+        tab.close()
 
-        assert not docs.is_open
-        docs.open_via_command_palette()
-        assert docs.is_open
-
-        docs.wait_for_iframe_loaded()
-        iframe_url = docs.get_iframe_url()
-        assert "docs.synnaxlabs.com" in iframe_url
-        assert docs.has_text("Get Started"), "Expected 'Get Started' text in docs"
-        self.log("  - Opened via command palette, content verified")
-
-        docs.close()
-        sy.sleep(0.3)
-
-        self.log("(2/3) Open documentation from question mark icon")
-        docs.open_via_question_mark_icon()
-        assert docs.is_open
-
-        docs.wait_for_iframe_loaded()
-        iframe_url = docs.get_iframe_url()
-        assert "docs.synnaxlabs.com" in iframe_url
-        assert docs.has_text("Console"), "Expected 'Console' text in docs"
-        self.log("  - Opened via question mark icon, content verified")
-
-        self.log("(3/3) Close and reopen documentation in same place")
-        docs.wait_for_iframe_loaded()
-        initial_url = docs.get_iframe_url()
-
-        docs.close()
-        sy.sleep(0.5)
-        assert not docs.is_open
-
-        docs.open_via_question_mark_icon()
-        docs.wait_for_iframe_loaded()
-        reopened_url = docs.get_iframe_url()
-
-        initial_path = urlparse(initial_url).path
-        reopened_path = urlparse(reopened_url).path
-
-        self.log(f"  - Initial: {initial_path}, Reopened: {reopened_path}")
-        assert initial_path == reopened_path, (
-            f"Path not preserved: {initial_path} != {reopened_path}"
-        )
-        self.log("  - Path preserved correctly")
-
-        docs.close()
-        sy.sleep(0.3)
-        self.log("All documentation tests passed!")
+        self.log("(2/2) Open documentation from the question mark icon")
+        tab = docs.open_via_question_mark_icon()
+        assert tab.url == docs_client.URL, f"Icon opened {tab.url}"
+        tab.close()

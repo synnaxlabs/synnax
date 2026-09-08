@@ -13,29 +13,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Errors } from "@/errors";
 
 // Boundary renders Fallback on error, which kicks off a source-map resolution effect.
-// Stub stacktrace-js at the library boundary so that effect doesn't hit the network.
-vi.mock("stacktrace-js", () => ({
-  default: {
-    fromError: async () => {
-      throw new Error("no maps in test env");
-    },
-  },
+// Stub the resolveStack module so that effect doesn't hit the network.
+vi.mock("@/errors/resolveStack", () => ({
+  resolveStack: vi.fn(async (error: Error, componentStack: string | null) => ({
+    stack: error.stack ?? "",
+    componentStack,
+  })),
 }));
 
 describe("Boundary", () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
-  let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    // React logs caught errors via console.error; Fallback warns when source-map
-    // resolution fails. Silence both so the test output stays clean.
+    // React logs caught errors via console.error; silence it so the test output stays
+    // clean.
     consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
-    warnSpy.mockRestore();
   });
 
   interface ThrowingComponentProps {

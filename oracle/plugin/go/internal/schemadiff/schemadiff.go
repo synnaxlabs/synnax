@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package schemadiff compares type shapes between two resolution tables. The
-// comparison is transitive: a type whose own declaration is untouched but whose
-// referenced types changed shape counts as changed. It drives migration bump
-// detection and the define-vs-alias split in versioned type packages.
+// Package schemadiff compares type shapes between two resolution tables. The comparison
+// is transitive: a type whose own declaration is untouched but whose referenced types
+// changed shape counts as changed. It drives migration bump detection and the
+// define-vs-alias split in versioned type packages.
 package schemadiff
 
 import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
 
-// SchemasEqual returns true if two types have the same data shape. It compares
-// field names, order, types, and optionality recursively through the type graph.
+// SchemasEqual returns true if two types have the same data shape. It compares field
+// names, order, types, and optionality recursively through the type graph.
 func SchemasEqual(
 	oldType, newType resolution.Type,
 	oldTable, newTable *resolution.Table,
@@ -46,9 +45,9 @@ func typesEqual(
 		if !ok {
 			return false
 		}
-		// Omitted fields are memory-only: their types never reach the stored
-		// shape, so only persisted fields compare. A field flipping between
-		// persisted and omitted surfaces as an add/remove here.
+		// Omitted fields are memory-only: their types never reach the stored shape, so
+		// only persisted fields compare. A field flipping between persisted and omitted
+		// surfaces as an add/remove here.
 		oldFields, newFields := PersistedFields(
 			oldForm.Fields,
 		), PersistedFields(
@@ -88,14 +87,14 @@ func typesEqual(
 		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum {
 			return false
 		}
-		// Enum value adds, removes, and renames are wire-format-compatible:
-		// the underlying representation is the string (or int) itself, and old
-		// records still deserialize into the underlying type even when their
-		// stored value is no longer a named constant. The only enum delta that
-		// breaks wire format is renumbering an int enum — a name that exists in
-		// both versions assigned a different integer. Anything else is purely a
-		// source-level / application-semantic change and must not propagate
-		// through field references as a structural type change.
+		// Enum value adds, removes, and renames are wire-format-compatible: the
+		// underlying representation is the string (or int) itself, and old records
+		// still deserialize into the underlying type even when their stored value is no
+		// longer a named constant. The only enum delta that breaks wire format is
+		// renumbering an int enum — a name that exists in both versions assigned a
+		// different integer. Anything else is purely a source-level /
+		// application-semantic change and must not propagate through field references
+		// as a structural type change.
 		if oldForm.IsIntEnum {
 			newByName := make(map[string]int64, len(newForm.Values))
 			for _, v := range newForm.Values {
@@ -155,8 +154,8 @@ func typesEqual(
 	}
 }
 
-// PersistedFields returns the fields that contribute to a type's stored
-// shape: those without a @go marshal omit directive.
+// PersistedFields returns the fields that contribute to a type's stored shape: those
+// without a @go marshal omit directive.
 func PersistedFields(fields []resolution.Field) []resolution.Field {
 	out := make([]resolution.Field, 0, len(fields))
 	for _, f := range fields {
@@ -208,42 +207,30 @@ const (
 
 type TypeDiff struct {
 	QualifiedName string
-	GoPath        string
 	Kind          TypeChangeKind
-	ChangedFields []FieldDiff
-}
-
-type FieldDiffKind int
-
-const (
-	FieldKindUnchanged FieldDiffKind = iota
-	FieldKindAdded
-	FieldKindRemoved
-	FieldKindTypeChanged
-	FieldKindOptionalityChanged
-)
-
-type FieldDiff struct {
-	Name     string
-	Kind     FieldDiffKind
-	OldField *resolution.Field
-	NewField *resolution.Field
 }
 
 // SchemaDiff walks old and new entry types and produces a TypeDiff for every
-// Oracle-defined type that changed or has changed descendants.
+// Oracle-defined type that changed or has changed descendants. counterpart maps a
+// qualified name in oldTable to the name newTable files the same type under; the two
+// tables qualify types by version, so they never agree on a name.
 func SchemaDiff(
 	oldEntry, newEntry resolution.Type,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) map[string]TypeDiff {
 	result := make(map[string]TypeDiff)
-	diffWalk(oldEntry, newEntry, oldTable, newTable, result, make(set.Set[string]))
+	diffWalk(
+		oldEntry, newEntry, oldTable, newTable, counterpart, result,
+		make(set.Set[string]),
+	)
 	return result
 }
 
 func diffWalk(
 	old, new resolution.Type,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 	result map[string]TypeDiff,
 	visiting set.Set[string],
 ) TypeChangeKind {
@@ -256,20 +243,18 @@ func diffWalk(
 	visiting.Add(old.QualifiedName)
 	defer visiting.Remove(old.QualifiedName)
 
-	goPath := output.GetPath(old, "go")
-
 	switch oldForm := old.Form.(type) {
 	case resolution.AliasForm:
 		if k := diffRefWalk(
 			oldForm.Target,
 			oldTable,
 			newTable,
+			counterpart,
 			result,
 			visiting,
 		); k != TypeUnchanged {
 			result[old.QualifiedName] = TypeDiff{
 				QualifiedName: old.QualifiedName,
-				GoPath:        goPath,
 				Kind:          TypeDescendantChanged,
 			}
 			return TypeDescendantChanged
@@ -280,12 +265,12 @@ func diffWalk(
 			oldForm.Base,
 			oldTable,
 			newTable,
+			counterpart,
 			result,
 			visiting,
 		); k != TypeUnchanged {
 			result[old.QualifiedName] = TypeDiff{
 				QualifiedName: old.QualifiedName,
-				GoPath:        goPath,
 				Kind:          TypeDescendantChanged,
 			}
 			return TypeDescendantChanged
@@ -299,7 +284,6 @@ func diffWalk(
 		if !typesEqual(old, new, oldTable, newTable, make(set.Set[string])) {
 			result[old.QualifiedName] = TypeDiff{
 				QualifiedName: old.QualifiedName,
-				GoPath:        goPath,
 				Kind:          TypeChanged,
 			}
 			return TypeChanged
@@ -307,36 +291,34 @@ func diffWalk(
 		return TypeUnchanged
 	}
 
-	fieldDiffs, selfChanged := diffStructFields(
-		oldStruct,
-		newStruct,
-		oldTable,
-		newTable,
-	)
+	selfChanged := structFieldsChanged(oldStruct, newStruct, oldTable, newTable)
 
 	hasDescendantChange := false
 	for _, f := range PersistedFields(oldStruct.Fields) {
-		if diffRefWalk(f.Type, oldTable, newTable, result, visiting) != TypeUnchanged {
+		if diffRefWalk(
+			f.Type, oldTable, newTable, counterpart, result, visiting,
+		) != TypeUnchanged {
 			hasDescendantChange = true
 		}
 	}
 	for _, ext := range oldStruct.Extends {
-		if diffRefWalk(ext, oldTable, newTable, result, visiting) != TypeUnchanged {
+		if diffRefWalk(
+			ext, oldTable, newTable, counterpart, result, visiting,
+		) != TypeUnchanged {
 			hasDescendantChange = true
 		}
 	}
 
 	if selfChanged {
 		result[old.QualifiedName] = TypeDiff{
-			QualifiedName: old.QualifiedName, GoPath: goPath,
-			Kind: TypeChanged, ChangedFields: fieldDiffs,
+			QualifiedName: old.QualifiedName,
+			Kind:          TypeChanged,
 		}
 		return TypeChanged
 	}
 	if hasDescendantChange {
 		result[old.QualifiedName] = TypeDiff{
 			QualifiedName: old.QualifiedName,
-			GoPath:        goPath,
 			Kind:          TypeDescendantChanged,
 		}
 		return TypeDescendantChanged
@@ -344,93 +326,38 @@ func diffWalk(
 	return TypeUnchanged
 }
 
-func diffStructFields(
+func structFieldsChanged(
 	old, new resolution.StructForm,
 	oldTable, newTable *resolution.Table,
-) (diffs []FieldDiff, selfChanged bool) {
+) bool {
 	oldFields, newFields := PersistedFields(old.Fields), PersistedFields(new.Fields)
+	if len(oldFields) != len(newFields) {
+		return true
+	}
+	for i := range oldFields {
+		if oldFields[i].Name != newFields[i].Name {
+			return true
+		}
+	}
 	newByName := make(map[string]resolution.Field, len(newFields))
 	for _, f := range newFields {
 		newByName[f.Name] = f
 	}
-	oldByName := make(map[string]resolution.Field, len(oldFields))
-	for _, f := range oldFields {
-		oldByName[f.Name] = f
-	}
-	if len(oldFields) != len(newFields) {
-		selfChanged = true
-	} else {
-		for i := range oldFields {
-			if oldFields[i].Name != newFields[i].Name {
-				selfChanged = true
-				break
-			}
-		}
-	}
 	for _, of := range oldFields {
 		nf, exists := newByName[of.Name]
-		if !exists {
-			diffs = append(
-				diffs,
-				FieldDiff{Name: of.Name, Kind: FieldKindRemoved, OldField: &of},
-			)
-			selfChanged = true
-			continue
-		}
-		if of.Optional != nf.Optional {
-			diffs = append(
-				diffs,
-				FieldDiff{
-					Name:     of.Name,
-					Kind:     FieldKindOptionalityChanged,
-					OldField: &of,
-					NewField: &nf,
-				},
-			)
-			selfChanged = true
-			continue
-		}
-		if !refsIdentityEqual(of.Type, nf.Type, oldTable, newTable) {
-			diffs = append(
-				diffs,
-				FieldDiff{
-					Name:     of.Name,
-					Kind:     FieldKindTypeChanged,
-					OldField: &of,
-					NewField: &nf,
-				},
-			)
-			selfChanged = true
-			continue
-		}
-		if domain.GetStringFromField(of, "go", "marshal") !=
-			domain.GetStringFromField(nf, "go", "marshal") {
-			selfChanged = true
-		}
-		diffs = append(
-			diffs,
-			FieldDiff{
-				Name:     of.Name,
-				Kind:     FieldKindUnchanged,
-				OldField: &of,
-				NewField: &nf,
-			},
-		)
-	}
-	for _, nf := range newFields {
-		if _, exists := oldByName[nf.Name]; !exists {
-			diffs = append(
-				diffs,
-				FieldDiff{Name: nf.Name, Kind: FieldKindAdded, NewField: &nf},
-			)
-			selfChanged = true
+		if !exists ||
+			of.Optional != nf.Optional ||
+			!refsIdentityEqual(of.Type, nf.Type, oldTable, newTable) ||
+			domain.GetStringFromField(of, "go", "marshal") !=
+				domain.GetStringFromField(nf, "go", "marshal") {
+			return true
 		}
 	}
-	return diffs, selfChanged
+	return false
 }
 
-// refsIdentityEqual checks if two type references point to the same type by
-// qualified name (not deep structural comparison).
+// refsIdentityEqual checks if two type references point to the same type by qualified
+// name (not deep structural comparison).
 func refsIdentityEqual(
 	old, new resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
@@ -461,6 +388,7 @@ func refsIdentityEqual(
 func diffRefWalk(
 	ref resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 	result map[string]TypeDiff,
 	visiting set.Set[string],
 ) TypeChangeKind {
@@ -468,16 +396,19 @@ func diffRefWalk(
 	if !oldOk {
 		return TypeUnchanged
 	}
-	newResolved, newOk := newTable.Get(oldResolved.QualifiedName)
+	newResolved, newOk := newTable.Get(counterpart(oldResolved.QualifiedName))
 	if !newOk {
 		return TypeUnchanged
 	}
-	kind := diffWalk(oldResolved, newResolved, oldTable, newTable, result, visiting)
+	kind := diffWalk(
+		oldResolved, newResolved, oldTable, newTable, counterpart, result, visiting,
+	)
 	for _, arg := range ref.TypeArgs {
 		if argKind := diffRefWalk(
 			arg,
 			oldTable,
 			newTable,
+			counterpart,
 			result,
 			visiting,
 		); argKind != TypeUnchanged &&

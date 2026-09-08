@@ -42,13 +42,15 @@ Status: TypeAlias = status_.Status[None]
 
 class Operation(BaseModel):
     """Defines an aggregation operation applied to channel data. Operations calculate
-    min, max, or average values over a time duration or triggered by a reset channel.
+    min, max, average, or derivative values over a time duration or triggered by a reset
+    channel.
 
     Attributes:
-        type: Is the aggregation operation type: min, max, avg, or none.
-        reset_channel: Is the channel key that triggers reset of the aggregation. If 0,
-            duration-based reset is used.
-        duration: Is the time window for aggregation when reset_channel is 0.
+        type: Is the aggregation operation type: min, max, avg, derivative, or none.
+        reset_channel: Is the key of a channel that resets the aggregation when it
+            receives a sample. If 0, no reset channel is used.
+        duration: Is the interval at which the aggregation resets. If 0, the aggregation
+            is not reset on a timer.
     """
 
     type: OperationType
@@ -69,11 +71,11 @@ class Payload(BaseModel):
         name: Is the human-readable channel name.
         leaseholder: Is the node that holds the lease for this channel. Mostly for
             internal use.
-        data_type: Is the data type of samples stored in this channel (e.g., Float64,
-            Int32, TimeStamp).
+        data_type: Is the data type of samples stored in this channel (e.g., float64,
+            int32, timestamp).
         is_index: Is true if this is an index channel. Index channels must have int64
             values (TIMESTAMP data type) written in ascending order, and are most
-            commonly unix nanosecond timestamps.
+            commonly Unix nanosecond timestamps.
         index: Is the channel used to index this channel's values, associating each
             value with a timestamp.
         alias: Is an optional alternate name for the channel within a specific context.
@@ -82,8 +84,8 @@ class Payload(BaseModel):
         internal: Is true if this is a system channel hidden from normal user queries.
         expression: Is an Arc expression for calculated channels. If set, the channel is
             automatically configured as virtual.
-        operations: Contains optional aggregation operations (min, max, avg) applied to
-            channel data over time or triggered by a reset channel.
+        operations: Contains optional aggregation operations (min, max, avg, derivative)
+            applied to channel data over time or triggered by a reset channel.
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.

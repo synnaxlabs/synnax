@@ -14,11 +14,6 @@ export const NI_NAV: PageNavNode = {
   name: "National Instruments",
   children: [
     {
-      key: "/reference/driver/ni/get-started",
-      href: "/reference/driver/ni/get-started",
-      name: "Get Started",
-    },
-    {
       key: "/reference/driver/ni/configure-device",
       href: "/reference/driver/ni/configure-device",
       name: "Configure a Device",

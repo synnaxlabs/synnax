@@ -12,12 +12,11 @@ import arcGrammarRaw from "./arc.tmLanguage.json?raw";
 import arcLanguageConfigurationRaw from "./language-configuration.json?raw";
 
 /**
- * TextMate grammar for the Arc language.
- * This interface satisfies Shiki's LanguageRegistration requirements.
- *
- * The type uses index signatures for nested objects to avoid TypeScript's strict
- * type inference from JSON imports, which creates union types with optional undefined
- * values that are incompatible with Shiki's IRawCapturesMap type.
+ * TextMate grammar for the Arc language. This interface satisfies Shiki's
+ * LanguageRegistration requirements. The type uses index signatures for nested objects
+ * to avoid TypeScript's strict type inference from JSON imports, which creates union
+ * types with optional undefined values that are incompatible with Shiki's
+ * IRawCapturesMap type.
  */
 export interface Grammar {
   name: string;

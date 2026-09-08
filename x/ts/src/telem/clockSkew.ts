@@ -10,9 +10,8 @@
 import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
 
 /**
- * Calculates and tracks clock skew between two systems using a midpoint
- * synchronization algorithm. Useful for distributed systems where clock
- * synchronization is critical.
+ * Calculates and tracks clock skew between two systems using a midpoint synchronization
+ * algorithm. Useful for distributed systems where clock synchronization is critical.
  */
 export class ClockSkewCalculator {
   private readonly now: () => TimeStamp;

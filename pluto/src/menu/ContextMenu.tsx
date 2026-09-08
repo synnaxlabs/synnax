@@ -23,14 +23,9 @@ import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
+import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
-import {
-  useClickOutside,
-  useCombinedRefs,
-  useResize,
-  useSyncedRef,
-  useWindowResize,
-} from "@/hooks";
+import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
 import {
   CONTEXT_MENU_CLASS,
   CONTEXT_OPEN_ATTRIBUTE,
@@ -134,7 +129,6 @@ export const useContextMenu = (): UseContextMenuReturn => {
       let keys: string[] = [];
       if (typeof e === "object" && "preventDefault" in e) {
         e.preventDefault();
-        // Prevent parent context menus from opening.
         e.stopPropagation();
         const target = findTarget(e.target as HTMLElement);
         const selected = findSelected(target);
@@ -182,7 +176,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
     setMenuState(INITIAL_STATE);
   }, [clearTarget]);
 
-  useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
+  Dialog.useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
 
   const visibleRef = useSyncedRef(state.visible);
   const handleEscape = useCallback(
@@ -241,8 +235,9 @@ const Internal = ({
   if (!visible) return null;
   return createPortal(
     <Flex.Box
-      className={CSS(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
+      className={CSS.cls(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
       ref={ref}
+      role="menu"
       style={menuStyle}
       onClick={(e) => {
         close();

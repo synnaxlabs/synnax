@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from console.project import PageType
+from console.page import PageType
 from x import random_name
 
 
@@ -21,7 +21,7 @@ class Tombstone(ConsoleCase):
     def run(self) -> None:
         suffix = random_name()
         pages: list[tuple[PageType, str]] = [
-            ("Line Plot", f"TombPlot_{suffix}"),
+            ("Line plot", f"TombPlot_{suffix}"),
             ("Schematic", f"TombSch_{suffix}"),
             ("Log", f"TombLog_{suffix}"),
             ("Table", f"TombTable_{suffix}"),
@@ -35,11 +35,11 @@ class Tombstone(ConsoleCase):
         console = self.console
 
         self.log(f"({page_type}) Creating page")
-        console.project.create_page(page_type, page_name)
+        console.pages.create_by_type(page_type, page_name)
         self._cleanup_pages.append(page_name)
 
         self.log(f"({page_type}) Deleting while the tab is open")
-        console.project.delete_page(page_name)
+        console.pages.delete(page_name)
 
         # The tab is never closed out from under the user: it stays open and
         # renders the tombstone in place of content.
@@ -51,13 +51,13 @@ class Tombstone(ConsoleCase):
         self.log(f"({page_type}) Restoring from the tombstone")
         console.layout.restore_tombstone(page_name)
         tombstone.wait_for(state="hidden", timeout=5000)
-        assert console.project.page_exists(page_name), (
+        assert console.pages.exists(page_name), (
             f"Restored page '{page_name}' should be back in the project tree"
         )
         console.layout.close_left_toolbar()
 
         self.log(f"({page_type}) Deleting again and dismissing with Close")
-        console.project.delete_page(page_name)
+        console.pages.delete(page_name)
         console.layout.get_tombstone(page_name).wait_for(state="visible", timeout=5000)
         console.layout.close_tombstone(page_name)
         console.layout.get_tab(page_name).wait_for(state="detached", timeout=5000)

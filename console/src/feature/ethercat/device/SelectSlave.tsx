@@ -45,9 +45,9 @@ export const SelectSlave = ({
   return (
     <Device.Select
       path={path}
-      label="Slave Device"
+      label="Slave device"
       onConfigure={(deviceKey) => configure({ deviceKey })}
-      emptyContent="No EtherCAT slaves discovered."
+      emptyContent="No EtherCAT slaves discovered"
       make={MAKE}
       model={SLAVE_MODEL}
       filter={filter}

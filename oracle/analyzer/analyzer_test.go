@@ -47,24 +47,21 @@ var _ = Describe("Analyzer", func() {
 		loader = NewMockFileLoader()
 	})
 
-	Describe("File-level version", func() {
-		It(
-			"Should error when @go version is declared file-level",
-			func(ctx SpecContext) {
-				source := `
+	Describe("Retired version tag", func() {
+		It("Should reject a file-level @go version", func(ctx SpecContext) {
+			source := `
 				@go output "out"
 				@go version 0
 				Entry struct {
 					value int32
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeFalse())
-				Expect(diag.String()).To(ContainSubstring("declare it per type"))
-			},
-		)
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
+		})
 
-		It("Should accept struct-level @go version", func(ctx SpecContext) {
+		It("Should reject a struct-level @go version", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -73,57 +70,198 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
 		})
 	})
 
-	Describe("Version arguments", func() {
-		It("Should accept a pinned marker", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go version 0 pinned
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
+	Describe("Version file rules", func() {
+		analyzeAt := func(
+			ctx SpecContext, source, filePath, namespace string,
+		) *diagnostics.Files {
+			return analyzer.AnalyzeSeeded(
+				ctx, source, filePath, namespace, loader, resolution.NewTable(),
+			)
+		}
+
+		It("Should count a referenced version-file pin import as used", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/versions/spatial/v0", "XLocation = string\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/versions/spatial/v0"
+
+Insert struct {
+	side spatial.XLocation
+}
+`,
+				"schemas/x/versions/crdt/v0.oracle", "crdt")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should error on an unknown version argument", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go version 0 pined
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+		It("Should allow a versioned resource's live schema from a version file", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/telem", "TimeStamp = int64\n")
+			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/telem"
+
+Entry struct {
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should error on extra version arguments", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go version 0 pinned pinned
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		It(
+			"Should allow an unversioned resource's live schema from a version file",
+			func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/arc/program", "Program struct {\n\twasm bytes\n}\n")
+				diag := analyzeAt(ctx, `
+import "schemas/arc/program"
+
+Entry struct {
+	compiled program.Program
+}
+`,
+					"schemas/synnax/versions/arc/v0.oracle", "v0")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It("Should allow a version file to import version files", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/versions/telem/v0"
+
+Entry struct {
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should reject a live schema importing another resource's versions", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/versions/telem/v0"
+
+Entry struct {
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+			Expect(diag.String()).To(ContainSubstring(
+				"may only import its own resource's version files",
+			))
+		})
+
+		It("Should allow a live schema to import its own versions", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/synnax/versions/channel/v0", "Key = uuid\n")
+			diag := analyzeAt(ctx, `
+import "schemas/synnax/versions/channel/v0"
+
+Entry struct {
+	key channel.Key
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should reject an action declared in a version file", func(
+			ctx SpecContext,
+		) {
+			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+
+	action Rename {
+		name string
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"actions are live-owned",
+			))
+		})
+
+		It("Should accept an action declared in a live schema", func(
+			ctx SpecContext,
+		) {
+			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+
+	action Rename {
+		name string
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should accept marshal tags in a version file", func(ctx SpecContext) {
+			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+	cached string {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should accept marshal tags in a live schema", func(ctx SpecContext) {
+			// The live file carries version-owned marshal tags as emitted
+			// content; the versions gate, not the analyzer, holds them equal
+			// to chain resolution.
+			diag := analyzeAt(ctx, `
+@go output "out"
+
+Entry struct {
+	key uuid @key
+	cached string {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 	})
 
 	Describe("ImEx marker", func() {
-		It("Should accept a bare @go imex on a versioned type", func(ctx SpecContext) {
+		It("Should accept a bare @go imex", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				Entry struct {
 					value int32
-					@go version 2
 					@go imex
 				}
 			`
@@ -136,7 +274,6 @@ var _ = Describe("Analyzer", func() {
 				@go output "out"
 				Entry struct {
 					value int32
-					@go version 2
 					@go imex 2
 				}
 			`
@@ -145,26 +282,12 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
 		})
 
-		It("Should error when @go imex lacks a @go version", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go imex
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("@go imex without @go version"))
-		})
-
 		It("Should error when @go imex is declared file-level", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				@go imex
 				Entry struct {
 					value int32
-					@go version 2
 				}
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
@@ -271,6 +394,57 @@ var _ = Describe("Analyzer", func() {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
+
+		It("Should flag a stale import hiding behind a used same-name namespace", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/text", `
+				Level enum {
+					h1 = "h1"
+				}
+			`)
+			loader.Add("schemas/arc/text", `
+				Document struct { raw string }
+			`)
+			source := `
+				import "schemas/arc/text"
+				import "schemas/x/text"
+				Entry struct {
+					level text.Level
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				`unused import "schemas/arc/text"`,
+			))
+			Expect(diag.String()).ToNot(ContainSubstring(
+				`unused import "schemas/x/text"`,
+			))
+		})
+
+		It("Should accept two same-namespace imports when both are used", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/text", `
+				Level enum {
+					h1 = "h1"
+				}
+			`)
+			loader.Add("schemas/arc/text", `
+				Document struct { raw string }
+			`)
+			source := `
+				import "schemas/arc/text"
+				import "schemas/x/text"
+				Entry struct {
+					level text.Level
+					doc   text.Document
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
 	})
 
 	Describe("AnalyzeSource", func() {
@@ -292,7 +466,6 @@ var _ = Describe("Analyzer", func() {
 
 			form, ok := rangeType.Form.(resolution.StructForm)
 			Expect(ok).To(BeTrue())
-			Expect(form.HasKeyDomain).To(BeTrue())
 			Expect(form.Fields).To(HaveLen(2))
 
 			keyField, found := form.Field("key")
@@ -905,19 +1078,6 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
-		})
-	})
-
-	Describe("DeriveNamespace", func() {
-		It("Should extract namespace from file path", func() {
-			Expect(
-				analyzer.DeriveNamespace("schema/core/label.oracle"),
-			).To(Equal("label"))
-			Expect(analyzer.DeriveNamespace("schema/core/label")).To(Equal("label"))
-			Expect(
-				analyzer.DeriveNamespace("/path/to/channel.oracle"),
-			).To(Equal("channel"))
-			Expect(analyzer.DeriveNamespace("ranger")).To(Equal("ranger"))
 		})
 	})
 
@@ -1686,45 +1846,53 @@ var _ = Describe("Analyzer", func() {
 		)
 
 		It(
-			"Should use first parent's field when names conflict",
+			"Should reject parents that declare the same field",
 			func(ctx SpecContext) {
 				source := `
 				A struct { shared int32 }
 				B struct { shared string }
 				C struct extends A, B { }
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeTrue())
-
-				cType := table.MustGet("test.C")
-				allFields := resolution.UnifiedFields(cType, table)
-				Expect(allFields).To(HaveLen(1))
-				Expect(
-					allFields[0].Type.Name,
-				).To(Equal("int32"))
-				// From A (first parent)
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`struct C inherits field "shared" from both A and B`,
+				))
 			},
 		)
 
-		It("Should handle diamond inheritance", func(ctx SpecContext) {
+		It(
+			"Should accept parents that share a field the child omits",
+			func(ctx SpecContext) {
+				source := `
+				A struct { shared int32 }
+				B struct { shared string }
+				C struct extends A, B {
+					-shared
+					c bool
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				allFields := resolution.UnifiedFields(table.MustGet("test.C"), table)
+				Expect(allFields).To(HaveLen(1))
+				Expect(allFields[0].Name).To(Equal("c"))
+			},
+		)
+
+		It("Should reject diamond inheritance", func(ctx SpecContext) {
 			source := `
 				Base struct { base string }
 				Left struct extends Base { left string }
 				Right struct extends Base { right string }
 				Diamond struct extends Left, Right { }
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			dType := table.MustGet("test.Diamond")
-			allFields := resolution.UnifiedFields(dType, table)
-			// base appears once (from Left path), left, right
-			Expect(allFields).To(HaveLen(3))
-			fieldNames := make([]string, len(allFields))
-			for i, f := range allFields {
-				fieldNames[i] = f.Name
-			}
-			Expect(fieldNames).To(ContainElements("base", "left", "right"))
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				`struct Diamond inherits field "base" from both Left and Right`,
+			))
 		})
 
 		It(
@@ -1888,14 +2056,13 @@ var _ = Describe("Analyzer", func() {
 		)
 
 		It(
-			"Should flatten fields from multiple extended structs (first wins)",
+			"Should flatten fields from multiple extended structs",
 			func(ctx SpecContext) {
 				source := `
 				A struct {
 					a string
 				}
 				B struct {
-					a int32
 					b string
 				}
 
@@ -1913,7 +2080,31 @@ var _ = Describe("Analyzer", func() {
 					names[i] = f.Name
 				}
 				Expect(names).To(Equal([]string{"a", "b"}))
-				Expect(findField(action.Fields, "a").Type.Name).To(Equal("string"))
+			},
+		)
+
+		It(
+			"Should reject extended structs that declare the same field",
+			func(ctx SpecContext) {
+				source := `
+				A struct {
+					a string
+				}
+				B struct {
+					a int32
+				}
+
+				Container struct {
+					key uuid
+
+					action Combine extends A, B {}
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`action Combine inherits field "a" from both A and B`,
+				))
 			},
 		)
 
@@ -2882,7 +3073,8 @@ Mode enum {
 				Expect(viewForm.Fields[0].Name).To(Equal("type"))
 
 				fields := resolution.UnifiedVariantFields(
-					table.MustGet("panel.Tab"), form.Variants[1], table)
+					table.MustGet("panel.Tab"), form.Variants[1], table,
+				)
 				names := make([]string, len(fields))
 				for i, f := range fields {
 					names[i] = f.Name
@@ -2893,7 +3085,8 @@ Mode enum {
 				Expect(empty.Synthetic).To(BeTrue())
 				Expect(empty.Form.(resolution.StructForm).Fields).To(BeEmpty())
 				Expect(table.StructTypes()).NotTo(ContainElement(
-					HaveField("QualifiedName", "panel.TabViewPayload")))
+					HaveField("QualifiedName", "panel.TabViewPayload"),
+				))
 			},
 		)
 
@@ -3298,6 +3491,27 @@ Mode enum {
 		)
 
 		It(
+			"Should error when base structs declare the same field",
+			func(ctx SpecContext) {
+				source := `
+				Ident struct { name string }
+				Audited struct { name string }
+
+				A struct {}
+
+				Foo union on type extends Ident, Audited {
+					a A
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(
+					`union Foo inherits field "name" from both Ident and Audited`,
+				))
+			},
+		)
+
+		It(
 			"Should error when extends targets an unresolved type",
 			func(ctx SpecContext) {
 				source := `
@@ -3555,6 +3769,101 @@ Mode enum {
 				names[i] = f.Name
 			}
 			Expect(names).To(Equal([]string{"key", "createdAt", "updatedAt", "aField"}))
+		})
+
+		Describe("Variant Field Omission", func() {
+			variantFieldNames := func(
+				table *resolution.Table, union, variant string,
+			) []string {
+				GinkgoHelper()
+				typ := table.MustGet(union)
+				form := typ.Form.(resolution.UnionForm)
+				i := slices.IndexFunc(
+					form.Variants,
+					func(v resolution.UnionVariant) bool { return v.Name == variant },
+				)
+				Expect(i).To(BeNumerically(">=", 0))
+				fields := resolution.UnifiedVariantFields(typ, form.Variants[i], table)
+				names := make([]string, len(fields))
+				for i, f := range fields {
+					names[i] = f.Name
+				}
+				return names
+			}
+
+			It("Should let a variant omit a union base field", func(ctx SpecContext) {
+				source := `
+					Base struct {
+						name string
+						port uint8
+					}
+
+					Chan union on type extends Base {
+						wired { gain float32 }
+						builtin {
+							-port
+							units string
+						}
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				Expect(variantFieldNames(table, "test.Chan", "wired")).
+					To(Equal([]string{"name", "port", "gain"}))
+				Expect(variantFieldNames(table, "test.Chan", "builtin")).
+					To(Equal([]string{"name", "units"}))
+			})
+
+			It("Should let a variant omit its own base field", func(ctx SpecContext) {
+				source := `
+					Mixin struct {
+						min float32
+						max float32
+					}
+
+					Chan union on type {
+						a extends Mixin {
+							-max
+						}
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				Expect(variantFieldNames(table, "test.Chan", "a")).
+					To(Equal([]string{"min"}))
+			})
+
+			It("Should error on omitting an uninherited field", func(ctx SpecContext) {
+				source := `
+					Base struct { name string }
+
+					Chan union on type extends Base {
+						a {
+							-port
+						}
+					}
+				`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					`union Chan variant "a": cannot omit field "port", which the variant does not inherit`,
+				))
+			})
+
+			It("Should error when omitting the discriminator", func(ctx SpecContext) {
+				source := `
+					Chan union on type {
+						a {
+							-type
+						}
+					}
+				`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					`union Chan variant "a": cannot omit the discriminator field "type", which is owned by the union`,
+				))
+			})
 		})
 
 		It(

@@ -71,7 +71,6 @@ class GrandFinale(SimulatorCase):
                 device=modbus_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
-                data_saving=True,
                 channels=ModbusReadInputRegister.create_channels(self.client),
             ),
             modbus.ReadTask(
@@ -79,7 +78,6 @@ class GrandFinale(SimulatorCase):
                 device=modbus_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
-                data_saving=True,
                 channels=ModbusReadCoil.create_channels(self.client),
             ),
             opcua.ReadTask(
@@ -87,7 +85,6 @@ class GrandFinale(SimulatorCase):
                 device=opcua_device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
-                data_saving=True,
                 array_mode=False,
                 channels=OPCUAReadFloat.create_channels(self.client),
             ),
@@ -135,7 +132,6 @@ class GrandFinale(SimulatorCase):
                     device=devices["E101Mod1"].key,
                     sample_rate=NIAnalogReadHS.SAMPLE_RATE,
                     stream_rate=NIAnalogReadHS.STREAM_RATE,
-                    data_saving=True,
                     channels=NIAnalogReadHS.create_channels(self.client, devices),
                 ),
                 sy.ni.AnalogReadTask(
@@ -143,7 +139,6 @@ class GrandFinale(SimulatorCase):
                     device="cross-device",
                     sample_rate=NIReadTemperature.SAMPLE_RATE,
                     stream_rate=NIReadTemperature.STREAM_RATE,
-                    data_saving=True,
                     channels=NIReadTemperature.create_channels(self.client, devices),
                 ),
                 sy.ni.DigitalReadTask(
@@ -151,7 +146,6 @@ class GrandFinale(SimulatorCase):
                     device=devices["E102Mod3"].key,
                     sample_rate=NIDigitalRead.SAMPLE_RATE,
                     stream_rate=NIDigitalRead.STREAM_RATE,
-                    data_saving=True,
                     channels=NIDigitalRead.create_channels(self.client, devices),
                 ),
                 sy.ni.CounterReadTask(
@@ -159,7 +153,6 @@ class GrandFinale(SimulatorCase):
                     device=devices["USB-6289"].key,
                     sample_rate=NICounterReadFrequency.SAMPLE_RATE,
                     stream_rate=NICounterReadFrequency.STREAM_RATE,
-                    data_saving=True,
                     channels=NICounterReadFrequency.create_channels(
                         self.client, devices
                     ),

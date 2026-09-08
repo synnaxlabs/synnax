@@ -27,7 +27,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
     std::unique_ptr<common::Source> s;
-    if (cfg.array_size > 1)
+    if (cfg.array_mode)
         s = std::make_unique<ArrayReadTaskSource>(pool, std::move(cfg));
     else
         s = std::make_unique<UnaryReadTaskSource>(pool, std::move(cfg));

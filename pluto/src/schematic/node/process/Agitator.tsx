@@ -23,7 +23,7 @@ export const Agitator = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle.Button {...rest} className={CSS(CSS.B("agitator"))}>
+  <Toggle.Button {...rest} className={CSS.cls(CSS.B("agitator"))}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="top"

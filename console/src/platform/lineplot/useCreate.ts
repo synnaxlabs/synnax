@@ -32,7 +32,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   return useCallback(
     (params = {}) =>
       update({
-        name: "Line Plot",
+        name: "Line plot",
         ranges: { x1: [getSelectedRange() ?? Session.Range.RECENT_KEY] },
         ...params,
         project: project ?? getActiveProject(),

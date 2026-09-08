@@ -12,7 +12,6 @@ package program_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	program "github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/types"
@@ -27,9 +26,7 @@ var _ = Describe("Program", func() {
 
 		It("Should return false for a program with WASM", func() {
 			m := program.Program{
-				Output: compiler.Output{
-					WASM: []byte{0x00, 0x61, 0x73, 0x6d},
-				},
+				WASM: []byte{0x00, 0x61, 0x73, 0x6d},
 			}
 			Expect(m.IsZero()).To(BeFalse())
 		})
@@ -45,9 +42,7 @@ var _ = Describe("Program", func() {
 
 		It("Should include WASM size and hash when bytecode is present", func() {
 			m := program.Program{
-				Output: compiler.Output{
-					WASM: []byte{0x00, 0x61, 0x73, 0x6d},
-				},
+				WASM: []byte{0x00, 0x61, 0x73, 0x6d},
 			}
 			s := m.String()
 			Expect(s).To(ContainSubstring("WASM: 4 bytes (sha256:"))
@@ -55,15 +50,13 @@ var _ = Describe("Program", func() {
 
 		It("Should include IR content when nodes are present", func() {
 			m := program.Program{
-				IR: ir.IR{
-					Nodes: ir.Nodes{{
-						Key:  "node1",
-						Type: "add",
-						Inputs: types.Params{
-							{Name: "a", Type: types.I64()},
-						},
-					}},
-				},
+				Nodes: ir.Nodes{{
+					Key:  "node1",
+					Type: "add",
+					Inputs: types.Params{
+						{Name: "a", Type: types.I64()},
+					},
+				}},
 			}
 			s := m.String()
 			Expect(s).To(ContainSubstring("Arc Program"))

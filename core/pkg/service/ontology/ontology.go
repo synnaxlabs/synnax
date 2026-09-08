@@ -60,7 +60,7 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ontology")
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -112,7 +112,8 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 			Instrumentation: cfg.Instrumentation,
 			Indexes:         o.relIndexes.all(),
 			Migrations:      versions.RelationshipMigrations,
-		}); !ok(err, o.relationshipTable) {
+		},
+	); !ok(err, o.relationshipTable) {
 		return nil, err
 	}
 

@@ -74,6 +74,8 @@ export interface ContextValue {
   onFileDrop?: (props: OnFileDropProps) => void;
   /** onResize is the Frame-level resize handler invoked by {@link Split} parts. */
   onResize?: (splitKey: number, size: number) => void;
+  /** disabled turns every structural gesture off across the frame. */
+  disabled?: boolean;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -92,6 +94,12 @@ export interface FrameProps extends Omit<Flex.BoxProps, "onDrop" | "onResize"> {
   onFileDrop?: (props: OnFileDropProps) => void;
   /** onResize is called when a {@link Split} handle drag ends with the new ratio. */
   onResize?: (splitKey: number, size: number) => void;
+  /**
+   * Rejects every drop and removes every resize handle in the frame, for a viewer who
+   * cannot persist a new layout. The parts a consumer renders itself (close and add
+   * buttons, tab dragging) are its own to suppress.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -107,15 +115,16 @@ export const Frame = ({
   className,
   children,
   empty = true,
+  disabled,
   ...rest
 }: FrameProps): ReactElement => {
   const ctx = useMemo<ContextValue>(
-    () => ({ onDrop, onCreate, onFileDrop, onResize }),
-    [onDrop, onCreate, onFileDrop, onResize],
+    () => ({ onDrop, onCreate, onFileDrop, onResize, disabled }),
+    [onDrop, onCreate, onFileDrop, onResize, disabled],
   );
   return (
     <Context value={ctx}>
-      <Flex.Box empty={empty} className={CSS(CSS.B("mosaic"), className)} {...rest}>
+      <Flex.Box empty={empty} className={CSS.cls(CSS.B("mosaic"), className)} {...rest}>
         {children}
       </Flex.Box>
     </Context>

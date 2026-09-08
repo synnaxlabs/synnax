@@ -53,6 +53,7 @@ import { Range } from "@/platform/range";
 import { Session } from "@/session";
 
 const CLEAR_OVERSCAN: xy.XY = { x: 5, y: 5 };
+const VIEWPORT_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
@@ -94,15 +95,20 @@ const RangeAnnotationContextMenu = ({
 interface ContextMenuContentProps {
   csvLines: DownloadLine[];
   linePlotRef: RefObject<Base.FrameRef | null>;
+  editable: boolean;
 }
 
 const ContextMenuContent = ({
   csvLines,
   linePlotRef,
+  editable,
 }: ContextMenuContentProps): ReactElement => {
   const name = Base.useName({});
+  const { undo, canUndo } = Base.useUndo({});
+  const { redo, canRedo } = Base.useRedo({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
+  const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
   const getTimeRange = useCallback(async (): Promise<TimeRange> => {
@@ -125,6 +131,17 @@ const ContextMenuContent = ({
     }, "Failed to download region as CSV");
   return (
     <ContextMenu.Menu>
+      {editable && (
+        <>
+          <Menu.UndoRedoItems
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
+          <Menu.Divider />
+        </>
+      )}
       {!box.areaIsZero(selection) && (
         <>
           <Menu.CopyItem
@@ -155,9 +172,11 @@ const ContextMenuContent = ({
             <Icon.TypeScript /> Copy TypeScript time range
           </Menu.CopyItem>
           <Menu.Divider />
-          <Menu.Item itemKey="range" onClick={handleCreateRange}>
-            <Ranger.CreateIcon /> Create range from selection
-          </Menu.Item>
+          {hasRangeCreatePermission && (
+            <Menu.Item itemKey="range" onClick={handleCreateRange}>
+              <Ranger.CreateIcon /> Create range from selection
+            </Menu.Item>
+          )}
           <Menu.Divider />
           <Menu.Item itemKey="download" onClick={handleDownloadCSV}>
             <Icon.CSV /> Download region as CSV
@@ -181,7 +200,7 @@ const Internal = (): ReactElement => {
     () => unique.unique([...ranges.x1, ...ranges.x2]),
     [ranges.x1, ranges.x2],
   );
-  const resolved = Session.Range.useSelectMultiple(rangeKeys);
+  const resolved = Range.useResolveMultiple(rangeKeys);
   const resolvedRanges = useMemo(() => {
     const m = new Map<string, Base.ResolvedRange>();
     for (const r of resolved)
@@ -191,8 +210,21 @@ const Internal = (): ReactElement => {
           ? { variant: "dynamic", span: new TimeSpan(r.span) }
           : { variant: "static", timeRange: new TimeRange(r.timeRange) },
       );
+    const { custom } = ranges;
+    if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
+      m.set(
+        Range.CUSTOM_KEY,
+        custom.variant === "dynamic"
+          ? { variant: "dynamic", span: new TimeSpan(custom.span) }
+          : {
+              variant: "static",
+              // BigInt, not the constructor: TimeStamp parses a bare string as a
+              // date-time, not a decimal int64.
+              timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
+            },
+      );
     return m;
-  }, [resolved]);
+  }, [resolved, ranges.custom, rangeKeys]);
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);
@@ -238,7 +270,7 @@ const Internal = (): ReactElement => {
           }),
         );
     },
-    TimeSpan.milliseconds(100),
+    VIEWPORT_DEBOUNCE,
     [dispatch, key],
   );
 
@@ -276,12 +308,18 @@ const Internal = (): ReactElement => {
   );
 
   const menuRenderProp = useCallback(
-    () => <ContextMenuContent csvLines={csvLines} linePlotRef={linePlotRef} />,
-    [csvLines],
+    () => (
+      <ContextMenuContent
+        csvLines={csvLines}
+        linePlotRef={linePlotRef}
+        editable={hasUpdatePermission}
+      />
+    ),
+    [csvLines, hasUpdatePermission],
   );
 
   return (
-    <div className={CSS(CSS.BE("line-plot", "container"), menuProps.className)}>
+    <div className={CSS.cls(CSS.BE("line-plot", "container"), menuProps.className)}>
       <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Base.LinePlot
           ref={linePlotRef}

@@ -16,7 +16,10 @@ import { ontology } from "@/ontology";
  * The serialized wire formats a resource can be imported from or exported to. Today
  * only "JSON" is supported.
  */
-export type Encoding = "JSON";
+export const encodingZ = z.enum(["JSON"]);
+
+/** The serialized wire format of an imported or exported resource. */
+export type Encoding = z.infer<typeof encodingZ>;
 
 /**
  * Options shared by import and export. Carries the wire format of the resource and is
@@ -26,6 +29,9 @@ export interface Options {
   /** The serialized format of the resource. */
   encoding: Encoding;
 }
+
+/** The standard options for a JSON import or export. */
+export const JSON_OPTIONS: Options = { encoding: "JSON" };
 
 /** The wire shape of the per-import request params. Both fields are required. */
 const importParamsZ = z.object({
@@ -55,11 +61,10 @@ export interface ImportOptions extends Options {
  * opaque to the client: nothing is parsed or transformed on the way through, so the
  * wire format is exactly the file's contents.
  *
- * Each call moves exactly one resource. When source is a ReadableStream or Blob, the
- * client streams the payload without buffering it in its own memory; an ArrayBufferView
- * or string is sent as-is (already in memory). Exports always stream back without
- * buffering. The cluster, however, currently materializes each payload server-side, so
- * a single import or export is bounded by the server's available memory.
+ * Each call moves exactly one resource. When source is a Blob, the client never holds
+ * the payload in its own memory; bytes are sent as-is (already in memory). Exports
+ * always stream back without buffering. The Core, however, currently materializes each
+ * payload, so a single import or export is bounded by its available memory.
  *
  * The client is environment-agnostic — the byte streams are standard Web Streams that
  * work in browsers, Node 18+, and Tauri webviews. Callers bridge the filesystem with
@@ -70,7 +75,7 @@ export interface ImportOptions extends Options {
  * - Browser: `import(fileInput.files[0], opts)` and pipe the export into a
  *   showSaveFilePicker writable (or buffer it with `new Response(stream).blob()`).
  * - Tauri/Console: read the picked file into a Blob to import, and hand the export
- *   stream to the Console's downloadStream helper.
+ *   stream to the Console's download hook.
  */
 export interface ClientConfig {
   file: FileTransport;
@@ -86,10 +91,9 @@ export class Client {
   /**
    * Imports a resource from the given serialized source and returns its new ontology
    * ID.
-   *
-   * @param source - the serialized resource (e.g. a file's contents). A ReadableStream
-   * or Blob is streamed to the Core without buffering it in client memory; an
-   * ArrayBufferView or string is sent as-is.
+   * @param source - the serialized resource (e.g. a file's contents). A Blob is sent
+   * from wherever the engine holds it, so a file never enters client memory; bytes are
+   * sent as-is.
    * @param options - the import options, including the wire format of source, the
    * source file's name (used to name the resource when the file carries no name), and
    * the parent resource to create the resource under.
@@ -112,8 +116,6 @@ export class Client {
    * wherever it likes — a file on disk, a browser download, or an in-memory buffer via
    * `new Response(stream).json()` — without the client ever buffering the whole
    * payload.
-   *
-   * @param id - the ontology id of the resource to export.
    * @param options - the export options, including the desired wire format.
    * @returns the serialized resource as a stream of bytes.
    */

@@ -73,6 +73,11 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"mVoltsPerG", DAQmx_Val_mVoltsPerG},
     {"Coulombs", DAQmx_Val_Coulombs},
     {"PicoCoulombs", DAQmx_Val_PicoCoulombs},
+    {"PicoCoulombsPerG", DAQmx_Val_PicoCoulombsPerG},
+    {"PicoCoulombsPerMetersPerSecondSquared",
+     DAQmx_Val_PicoCoulombsPerMetersPerSecondSquared},
+    {"PicoCoulombsPerInchesPerSecondSquared",
+     DAQmx_Val_PicoCoulombsPerInchesPerSecondSquared},
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
 

@@ -18,6 +18,11 @@
 namespace driver::common {
 class MockSink final : public Sink, public pipeline::mock::Sink {
 public:
+    /// @brief number of times start() was called.
+    size_t start_count = 0;
+    /// @brief number of times stop() was called.
+    size_t stop_count = 0;
+
     MockSink(
         const x::telem::Rate state_rate,
         const std::set<synnax::channel::Key> &state_indexes,
@@ -35,6 +40,16 @@ public:
             data_saving_disabled
         ),
         driver::pipeline::mock::Sink(writes, errors) {}
+
+    x::errors::Error start() override {
+        this->start_count++;
+        return x::errors::NIL;
+    }
+
+    x::errors::Error stop() override {
+        this->stop_count++;
+        return x::errors::NIL;
+    }
 
     x::errors::Error write(x::telem::Frame &frame) override {
         auto err = pipeline::mock::Sink::write(frame);
@@ -283,6 +298,55 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     // The live sink was not closed and reopened.
     EXPECT_EQ(mock_streamer_factory->streamer_opens.load(std::memory_order_acquire), 1);
     ASSERT_TRUE(write_task.stop("stop_cmd", true));
+}
+
+/// @brief a task whose sink has no state channels never starts the state pipeline.
+/// Stopping it must still release the sink, and must release it exactly once, so a
+/// sink that claims hardware on start does not hold it while the task is stopped.
+TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
+    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        cmd_reads
+    );
+    auto sink = std::make_unique<MockSink>(
+        x::telem::Rate(0),
+        std::set<synnax::channel::Key>{},
+        std::vector<synnax::channel::Channel>{},
+        std::vector<synnax::channel::Key>{1},
+        false,
+        std::make_shared<std::vector<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    auto *raw_sink = sink.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        mock_writer_factory,
+        mock_streamer_factory
+    );
+
+    ASSERT_TRUE(write_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(raw_sink->start_count, 1);
+    EXPECT_EQ(raw_sink->stop_count, 0);
+
+    ASSERT_TRUE(write_task.stop("stop_cmd", true));
+    EXPECT_EQ(raw_sink->stop_count, 1);
+
+    ASSERT_FALSE(write_task.stop("stop_cmd_2", true));
+    EXPECT_EQ(raw_sink->stop_count, 1);
+
+    ASSERT_TRUE(write_task.start("start_cmd_2"));
+    EXPECT_EQ(raw_sink->start_count, 2);
+    ASSERT_TRUE(write_task.stop("stop_cmd_3", true));
+    EXPECT_EQ(raw_sink->stop_count, 2);
 }
 
 /// @brief it should parse a device key from the config.

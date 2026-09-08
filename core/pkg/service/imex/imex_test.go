@@ -27,6 +27,21 @@ type wirePayload struct {
 	Bar  string `json:"bar,omitempty"`
 }
 
+// bodyExported is a resource whose portable body differs from its stored shape.
+type bodyExported struct {
+	Secret string `json:"secret"`
+}
+
+// portableBody is the shape bodyExported serializes as.
+type portableBody struct {
+	Name  string `json:"name"`
+	Shape string `json:"shape"`
+}
+
+func (bodyExported) ExportBody() any {
+	return portableBody{Name: "portable", Shape: "portable"}
+}
+
 var _ = Describe("ImEx", func() {
 	Describe("Envelope", func() {
 		Describe("UnmarshalJSON", func() {
@@ -39,7 +54,7 @@ var _ = Describe("ImEx", func() {
 					Expect(env.Version).To(Equal(imex.Version(54)))
 					Expect(env.Type).To(Equal("log"))
 					Expect(env.Name).To(Equal("n"))
-					p := MustSucceed(imex.Decode[wirePayload](ctx, env))
+					p := MustSucceed(env.Decode[wirePayload](ctx))
 					Expect(p.Foo).To(Equal(1))
 					Expect(p.Name).To(Equal("n"))
 				},
@@ -166,7 +181,7 @@ var _ = Describe("ImEx", func() {
 					type tsPayload struct {
 						TS int64 `json:"ts"`
 					}
-					p := MustSucceed(imex.Decode[tsPayload](ctx, env))
+					p := MustSucceed(env.Decode[tsPayload](ctx))
 					Expect(p.TS).To(Equal(big))
 				},
 			)
@@ -177,9 +192,9 @@ var _ = Describe("ImEx", func() {
 				"Should emit the body built by Encode, with headers at the top level",
 				func() {
 					env := imex.Envelope{Version: 54, Type: "log"}
-					Expect(imex.Encode(
-						&env, wirePayload{Name: "n", Foo: 1, Bar: "x"},
-					)).To(Succeed())
+					Expect(
+						env.Encode(wirePayload{Name: "n", Foo: 1, Bar: "x"}),
+					).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any
 					Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -188,6 +203,20 @@ var _ = Describe("ImEx", func() {
 					Expect(round["name"]).To(Equal("n"))
 					Expect(round["foo"]).To(BeNumerically("==", 1))
 					Expect(round["bar"]).To(Equal("x"))
+				},
+			)
+
+			It(
+				"Should emit markup literally, leaving escaping to the encoder",
+				func() {
+					env := imex.Envelope{Version: 1, Type: "log"}
+					Expect(
+						env.Encode(wirePayload{Name: "n", Bar: `<svg id="a"/>`}),
+					).To(Succeed())
+					Expect(string(MustSucceed(env.MarshalJSON()))).
+						To(ContainSubstring(`"<svg id=\"a\"/>"`))
+					Expect(string(MustSucceed(json.Marshal(env)))).
+						To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
 				},
 			)
 
@@ -212,7 +241,7 @@ var _ = Describe("ImEx", func() {
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				p := MustSucceed(imex.Decode[wirePayload](ctx, env))
+				p := MustSucceed(env.Decode[wirePayload](ctx))
 				Expect(p.Name).To(Equal("n"))
 				Expect(p.Foo).To(Equal(42))
 				Expect(p.Bar).To(Equal("x"))
@@ -225,7 +254,7 @@ var _ = Describe("ImEx", func() {
 					// Decode must return a descriptive error rather than panicking on a
 					// nil-interface dispatch.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-					Expect(imex.Decode[wirePayload](ctx, env)).Error().
+					Expect(env.Decode[wirePayload](ctx)).Error().
 						To(MatchError(ContainSubstring("no codec bound")))
 				},
 			)
@@ -236,7 +265,7 @@ var _ = Describe("ImEx", func() {
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				Expect(imex.Decode[wirePayload](ctx, env)).Error().To(
+				Expect(env.Decode[wirePayload](ctx)).Error().To(
 					MatchError(ContainSubstring("decode envelope body")),
 				)
 			})
@@ -245,7 +274,7 @@ var _ = Describe("ImEx", func() {
 		Describe("Encode", func() {
 			It("Should stamp the headers and surface them on the envelope", func() {
 				env := imex.Envelope{Version: 7, Type: "log"}
-				Expect(imex.Encode(&env, wirePayload{Name: "n", Foo: 1})).To(Succeed())
+				Expect(env.Encode(wirePayload{Name: "n", Foo: 1})).To(Succeed())
 				Expect(env.Version).To(Equal(imex.Version(7)))
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("n"))
@@ -256,7 +285,7 @@ var _ = Describe("ImEx", func() {
 				// type-specific config) passes an already-reduced map instead of a
 				// struct; the map's fields sit flat at the top level, not nested.
 				env := imex.Envelope{Version: 3, Type: "task", Name: "n"}
-				Expect(imex.Encode(&env, map[string]any{
+				Expect(env.Encode(map[string]any{
 					"sample_rate": 25,
 					"channels":    []any{"a", "b"},
 				})).To(Succeed())
@@ -272,12 +301,24 @@ var _ = Describe("ImEx", func() {
 
 			It("Should let a map body's type and name override the headers", func() {
 				env := imex.Envelope{Version: 1, Type: "env_type", Name: "env_name"}
-				Expect(imex.Encode(&env, map[string]any{
+				Expect(env.Encode(map[string]any{
 					"type": "map_type",
 					"name": "map_name",
 				})).To(Succeed())
 				Expect(env.Type).To(Equal("map_type"))
 				Expect(env.Name).To(Equal("map_name"))
+			})
+
+			It("Should reduce a BodyExporter through its ExportBody", func() {
+				env := imex.Envelope{Version: 2, Type: "arc"}
+				Expect(env.Encode(bodyExported{Secret: "hidden"})).
+					To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("secret"))
+				Expect(round["name"]).To(Equal("portable"))
+				Expect(round["shape"]).To(Equal("portable"))
 			})
 
 			It("Should drop a top-level key field from the encoded body", func() {
@@ -287,9 +328,9 @@ var _ = Describe("ImEx", func() {
 					Foo  int    `json:"foo"`
 				}
 				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(imex.Encode(
-					&env, keyed{Key: "should-be-dropped", Name: "n", Foo: 1},
-				)).To(Succeed())
+				Expect(
+					env.Encode(keyed{Key: "should-be-dropped", Name: "n", Foo: 1}),
+				).To(Succeed())
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -301,9 +342,11 @@ var _ = Describe("ImEx", func() {
 			It(
 				"Should fail when neither the envelope nor the data carries a type",
 				func() {
-					Expect(imex.Encode(
-						&imex.Envelope{Version: 1}, wirePayload{Name: "n", Foo: 1},
-					)).To(SatisfyAll(
+					Expect(
+						(&imex.Envelope{Version: 1}).Encode(
+							wirePayload{Name: "n", Foo: 1},
+						),
+					).To(SatisfyAll(
 						MatchError(ContainSubstring("type must be a non-empty string")),
 						MatchError(ContainSubstring("validation error")),
 					))
@@ -318,9 +361,7 @@ var _ = Describe("ImEx", func() {
 						Type string `json:"type"`
 					}
 					env := imex.Envelope{Version: 1}
-					Expect(imex.Encode(
-						&env, payload{Name: "n", Type: "log"},
-					)).To(Succeed())
+					Expect(env.Encode(payload{Name: "n", Type: "log"})).To(Succeed())
 					Expect(env.Type).To(Equal("log"))
 				},
 			)
@@ -333,9 +374,9 @@ var _ = Describe("ImEx", func() {
 						Type string `json:"type"`
 					}
 					env := imex.Envelope{Version: 1, Type: "env_type", Name: "env_name"}
-					Expect(imex.Encode(
-						&env, payload{Name: "data_name", Type: "data_type"},
-					)).To(Succeed())
+					Expect(
+						env.Encode(payload{Name: "data_name", Type: "data_type"}),
+					).To(Succeed())
 					Expect(env.Type).To(Equal("data_type"))
 					Expect(env.Name).To(Equal("data_name"))
 					b := MustSucceed(json.Marshal(env))
@@ -351,10 +392,11 @@ var _ = Describe("ImEx", func() {
 					Name string `json:"name"`
 					Type int    `json:"type"`
 				}
-				Expect(imex.Encode(
-					&imex.Envelope{Version: 1, Type: "log"},
-					payload{Name: "n", Type: 5},
-				)).To(SatisfyAll(
+				Expect(
+					(&imex.Envelope{Version: 1, Type: "log"}).Encode(
+						payload{Name: "n", Type: 5},
+					),
+				).To(SatisfyAll(
 					MatchError(ContainSubstring("type must be a string")),
 					MatchError(ContainSubstring("validation error")),
 				))
@@ -364,25 +406,28 @@ var _ = Describe("ImEx", func() {
 				type missingName struct {
 					Foo int `json:"foo"`
 				}
-				Expect(imex.Encode(
-					&imex.Envelope{Version: 1, Type: "log"}, missingName{Foo: 1},
-				)).To(MatchError(ContainSubstring("name")))
+				Expect(
+					(&imex.Envelope{Version: 1, Type: "log"}).Encode(
+						missingName{Foo: 1},
+					),
+				).To(MatchError(ContainSubstring("name")))
 			})
 
 			It("Should fail when the top-level name field is the wrong type", func() {
 				type badName struct {
 					Name int `json:"name"`
 				}
-				Expect(imex.Encode(
-					&imex.Envelope{Version: 1, Type: "log"}, badName{Name: 5},
-				)).To(MatchError(ContainSubstring("name")))
+				Expect(
+					(&imex.Envelope{Version: 1, Type: "log"}).Encode(badName{Name: 5}),
+				).To(MatchError(ContainSubstring("name")))
 			})
 
 			It("Should fail when the top-level name field is empty", func() {
-				Expect(imex.Encode(
-					&imex.Envelope{Version: 1, Type: "log"},
-					wirePayload{Name: "", Foo: 1},
-				)).To(SatisfyAll(
+				Expect(
+					(&imex.Envelope{Version: 1, Type: "log"}).Encode(
+						wirePayload{Name: "", Foo: 1},
+					),
+				).To(SatisfyAll(
 					MatchError(ContainSubstring("name")),
 					MatchError(ContainSubstring("validation error")),
 				))
@@ -396,9 +441,9 @@ var _ = Describe("ImEx", func() {
 						Type string `json:"type"`
 					}
 					env := imex.Envelope{Version: 1, Type: "env_type", Name: "env_name"}
-					Expect(imex.Encode(
-						&env, payload{Name: "", Type: "data_type"},
-					)).To(MatchError(ContainSubstring("name must be a non-empty string")))
+					Expect(
+						env.Encode(payload{Name: "", Type: "data_type"}),
+					).To(MatchError(ContainSubstring("name must be a non-empty string")))
 					Expect(env.Type).To(Equal("env_type"))
 					Expect(env.Name).To(Equal("env_name"))
 				},
@@ -412,9 +457,9 @@ var _ = Describe("ImEx", func() {
 						Type string `json:"type"`
 					}
 					env := imex.Envelope{Version: 1, Type: "env_type", Name: "env_name"}
-					Expect(imex.Encode(
-						&env, payload{Name: "data_name", Type: ""},
-					)).To(MatchError(ContainSubstring("type must be a non-empty string")))
+					Expect(
+						env.Encode(payload{Name: "data_name", Type: ""}),
+					).To(MatchError(ContainSubstring("type must be a non-empty string")))
 					Expect(env.Type).To(Equal("env_type"))
 					Expect(env.Name).To(Equal("env_name"))
 				},
@@ -427,10 +472,11 @@ var _ = Describe("ImEx", func() {
 						Name string `json:"-"`
 						Foo  int    `json:"foo"`
 					}
-					Expect(imex.Encode(
-						&imex.Envelope{Version: 1, Type: "log"},
-						hidden{Name: "n", Foo: 1},
-					)).To(MatchError(ContainSubstring("name")))
+					Expect(
+						(&imex.Envelope{Version: 1, Type: "log"}).Encode(
+							hidden{Name: "n", Foo: 1},
+						),
+					).To(MatchError(ContainSubstring("name")))
 				},
 			)
 
@@ -442,9 +488,7 @@ var _ = Describe("ImEx", func() {
 						FieldOne string `json:"field_one"`
 					}
 					env := imex.Envelope{Version: 1, Type: "log"}
-					Expect(imex.Encode(
-						&env, payload{Name: "n", FieldOne: "v"},
-					)).To(Succeed())
+					Expect(env.Encode(payload{Name: "n", FieldOne: "v"})).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any
 					Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -459,7 +503,7 @@ var _ = Describe("ImEx", func() {
 					Foo  int    `json:"foo,omitempty"`
 				}
 				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(imex.Encode(&env, payload{Name: "n", Foo: 1})).To(Succeed())
+				Expect(env.Encode(payload{Name: "n", Foo: 1})).To(Succeed())
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -473,9 +517,7 @@ var _ = Describe("ImEx", func() {
 					Hidden string `json:"-"`
 				}
 				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(imex.Encode(
-					&env, payload{Name: "n", Hidden: "secret"},
-				)).To(Succeed())
+				Expect(env.Encode(payload{Name: "n", Hidden: "secret"})).To(Succeed())
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -489,9 +531,7 @@ var _ = Describe("ImEx", func() {
 					Untagged string
 				}
 				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(imex.Encode(
-					&env, payload{Name: "n", Untagged: "v"},
-				)).To(Succeed())
+				Expect(env.Encode(payload{Name: "n", Untagged: "v"})).To(Succeed())
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -506,9 +546,7 @@ var _ = Describe("ImEx", func() {
 					EmptyName string `json:",omitempty"`
 				}
 				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(imex.Encode(
-					&env, payload{Name: "n", EmptyName: "v"},
-				)).To(Succeed())
+				Expect(env.Encode(payload{Name: "n", EmptyName: "v"})).To(Succeed())
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -516,10 +554,11 @@ var _ = Describe("ImEx", func() {
 			})
 
 			It("Should reject a pointer to the resource", func() {
-				Expect(imex.Encode(
-					&imex.Envelope{Version: 1, Type: "log"},
-					&wirePayload{Name: "n", Foo: 1},
-				)).To(MatchError(ContainSubstring("expected struct")))
+				Expect(
+					(&imex.Envelope{Version: 1, Type: "log"}).Encode(
+						&wirePayload{Name: "n", Foo: 1},
+					),
+				).To(MatchError(ContainSubstring("expected struct")))
 			})
 
 			It(
@@ -535,15 +574,12 @@ var _ = Describe("ImEx", func() {
 						Labels   map[string]string `json:"labels"`
 					}
 					env := imex.Envelope{Version: 1, Type: "log"}
-					Expect(imex.Encode(
-						&env,
-						payload{
-							Name:     "n",
-							Inner:    inner{A: 1},
-							Channels: []int{1, 2, 3},
-							Labels:   map[string]string{"k": "v"},
-						},
-					)).To(Succeed())
+					Expect(env.Encode(payload{
+						Name:     "n",
+						Inner:    inner{A: 1},
+						Channels: []int{1, 2, 3},
+						Labels:   map[string]string{"k": "v"},
+					})).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any
 					Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -567,9 +603,9 @@ var _ = Describe("ImEx", func() {
 						Foo int `json:"foo"`
 					}
 					env := imex.Envelope{Version: 1}
-					Expect(imex.Encode(
-						&env, payload{base: base{Name: "n", Type: "log"}, Foo: 1},
-					)).To(Succeed())
+					Expect(
+						env.Encode(payload{Name: "n", Type: "log", Foo: 1}),
+					).To(Succeed())
 					Expect(env.Type).To(Equal("log"))
 					Expect(env.Name).To(Equal("n"))
 					b := MustSucceed(json.Marshal(env))
@@ -594,9 +630,11 @@ var _ = Describe("ImEx", func() {
 						Foo int `json:"foo"`
 					}
 					env := imex.Envelope{Version: 1}
-					Expect(imex.Encode(
-						&env, payload{Base: &Base{Name: "n", Type: "log"}, Foo: 1},
-					)).To(Succeed())
+					Expect(
+						env.Encode(
+							payload{Base: &Base{Name: "n", Type: "log"}, Foo: 1},
+						),
+					).To(Succeed())
 					Expect(env.Type).To(Equal("log"))
 					Expect(env.Name).To(Equal("n"))
 					b := MustSucceed(json.Marshal(env))
@@ -618,9 +656,9 @@ var _ = Describe("ImEx", func() {
 					Type string `json:"type"`
 				}
 				env := imex.Envelope{Version: 1}
-				Expect(imex.Encode(
-					&env, payload{Base: nil, Name: "n", Type: "log"},
-				)).To(Succeed())
+				Expect(
+					env.Encode(payload{Base: nil, Name: "n", Type: "log"}),
+				).To(Succeed())
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("n"))
 				b := MustSucceed(json.Marshal(env))
@@ -645,10 +683,9 @@ var _ = Describe("ImEx", func() {
 						Foo int `json:"foo"`
 					}
 					env := imex.Envelope{Version: 1}
-					Expect(imex.Encode(
-						&env,
-						payload{mid: mid{deep: deep{Name: "n"}, Type: "log"}, Foo: 1},
-					)).To(Succeed())
+					Expect(
+						env.Encode(payload{Name: "n", Type: "log", Foo: 1}),
+					).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any
 					Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -669,9 +706,11 @@ var _ = Describe("ImEx", func() {
 						Name string `json:"name"`
 					}
 					env := imex.Envelope{Version: 1, Type: "log"}
-					Expect(imex.Encode(
-						&env, payload{base: base{Name: "embedded"}, Name: "outer"},
-					)).To(Succeed())
+					Expect(
+						env.Encode(
+							payload{base: base{Name: "embedded"}, Name: "outer"},
+						),
+					).To(Succeed())
 					Expect(env.Name).To(Equal("outer"))
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any
@@ -691,9 +730,7 @@ var _ = Describe("ImEx", func() {
 						Name    string `json:"name"`
 					}
 					env := imex.Envelope{Version: 1, Type: "log"}
-					Expect(imex.Encode(
-						&env, payload{Wrapped: Wrapped{Inner: "v"}, Name: "n"},
-					)).To(Succeed())
+					Expect(env.Encode(payload{Inner: "v", Name: "n"})).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var round map[string]any
 					Expect(json.Unmarshal(b, &round)).To(Succeed())
@@ -719,14 +756,14 @@ var _ = Describe("ImEx", func() {
 						RemoteCreated: true,
 					}
 					env := imex.Envelope{Version: 7, Type: "log"}
-					Expect(imex.Encode(&env, src)).To(Succeed())
+					Expect(env.Encode(src)).To(Succeed())
 					b := MustSucceed(json.Marshal(env))
 					var roundEnv imex.Envelope
 					Expect(json.Unmarshal(b, &roundEnv)).To(Succeed())
 					Expect(roundEnv.Version).To(Equal(imex.Version(7)))
 					Expect(roundEnv.Type).To(Equal("log"))
 					Expect(roundEnv.Name).To(Equal("n"))
-					Expect(imex.Decode[payload](ctx, roundEnv)).To(Equal(src))
+					Expect(roundEnv.Decode[payload](ctx)).To(Equal(src))
 				},
 			)
 		})

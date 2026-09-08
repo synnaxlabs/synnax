@@ -15,7 +15,7 @@ import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
 } from "@/platform/task/ChannelList";
-import { useIsSnapshot } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
 
 interface HeaderProps {
@@ -23,18 +23,18 @@ interface HeaderProps {
 }
 
 const Header = ({ onAdd }: HeaderProps) => {
-  const isSnapshot = useIsSnapshot();
+  const isPreview = useIsPreview();
   return (
     <PHeader.Header>
       <PHeader.Title weight={500} color={10}>
         Channels
       </PHeader.Title>
-      {!isSnapshot && (
+      {!isPreview && (
         <PHeader.Actions>
           <Button.Button
             onClick={onAdd}
             variant="filled"
-            tooltip="Add Channel"
+            tooltip="Add channel"
             size="small"
           >
             <Icon.Add />
@@ -48,12 +48,12 @@ const Header = ({ onAdd }: HeaderProps) => {
 interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ onAdd }: EmptyContentProps) => {
-  const isSnapshot = useIsSnapshot();
+  const isPreview = useIsPreview();
   return (
     <Empty.Action
-      message="No channels in task."
-      action="Add a channel"
-      onClick={isSnapshot ? undefined : onAdd}
+      message="No channels in task"
+      action={isPreview ? undefined : "Add channel"}
+      onClick={onAdd}
     />
   );
 };

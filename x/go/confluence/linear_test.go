@@ -22,9 +22,10 @@ var _ = Describe("Linear", func() {
 	It("Should transform values from inlet to outlet", func() {
 		i := NewStream[int](1)
 		o := NewStream[int](1)
-		s := LinearTransform[int, int]{}
-		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
-			return i * i, true, nil
+		s := LinearTransform[int, int]{
+			Transform: func(_ context.Context, i int) (int, bool, error) {
+				return i * i, true, nil
+			},
 		}
 		s.InFrom(i)
 		s.OutTo(o)
@@ -37,9 +38,10 @@ var _ = Describe("Linear", func() {
 	It("Should not send a value if the transform returns false", func() {
 		i := NewStream[int](1)
 		o := NewStream[int](1)
-		s := LinearTransform[int, int]{}
-		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
-			return 0, false, nil
+		s := LinearTransform[int, int]{
+			Transform: func(context.Context, int) (int, bool, error) {
+				return 0, false, nil
+			},
 		}
 		s.InFrom(i)
 		s.OutTo(o)

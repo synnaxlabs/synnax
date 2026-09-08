@@ -9,6 +9,7 @@
 
 import { type status } from "@synnaxlabs/client";
 
+/** The theme color each status variant paints with. */
 export const VARIANT_COLORS: Record<status.Variant, string> = {
   info: "var(--pluto-text-color)",
   error: "var(--pluto-error-z)",

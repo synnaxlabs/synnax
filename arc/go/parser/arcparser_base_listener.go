@@ -191,6 +191,12 @@ func (s *BaseArcParserListener) EnterRoutingEntry(ctx *RoutingEntryContext) {}
 // ExitRoutingEntry is called when production routingEntry is exited.
 func (s *BaseArcParserListener) ExitRoutingEntry(ctx *RoutingEntryContext) {}
 
+// EnterRoutingKey is called when production routingKey is entered.
+func (s *BaseArcParserListener) EnterRoutingKey(ctx *RoutingKeyContext) {}
+
+// ExitRoutingKey is called when production routingKey is exited.
+func (s *BaseArcParserListener) ExitRoutingKey(ctx *RoutingKeyContext) {}
+
 // EnterFlowNode is called when production flowNode is entered.
 func (s *BaseArcParserListener) EnterFlowNode(ctx *FlowNodeContext) {}
 
@@ -431,17 +437,17 @@ func (s *BaseArcParserListener) EnterMultiplicativeExpression(ctx *Multiplicativ
 // ExitMultiplicativeExpression is called when production multiplicativeExpression is exited.
 func (s *BaseArcParserListener) ExitMultiplicativeExpression(ctx *MultiplicativeExpressionContext) {}
 
-// EnterPowerExpression is called when production powerExpression is entered.
-func (s *BaseArcParserListener) EnterPowerExpression(ctx *PowerExpressionContext) {}
-
-// ExitPowerExpression is called when production powerExpression is exited.
-func (s *BaseArcParserListener) ExitPowerExpression(ctx *PowerExpressionContext) {}
-
 // EnterUnaryExpression is called when production unaryExpression is entered.
 func (s *BaseArcParserListener) EnterUnaryExpression(ctx *UnaryExpressionContext) {}
 
 // ExitUnaryExpression is called when production unaryExpression is exited.
 func (s *BaseArcParserListener) ExitUnaryExpression(ctx *UnaryExpressionContext) {}
+
+// EnterPowerExpression is called when production powerExpression is entered.
+func (s *BaseArcParserListener) EnterPowerExpression(ctx *PowerExpressionContext) {}
+
+// ExitPowerExpression is called when production powerExpression is exited.
+func (s *BaseArcParserListener) ExitPowerExpression(ctx *PowerExpressionContext) {}
 
 // EnterPostfixExpression is called when production postfixExpression is entered.
 func (s *BaseArcParserListener) EnterPostfixExpression(ctx *PostfixExpressionContext) {}
@@ -490,6 +496,12 @@ func (s *BaseArcParserListener) EnterSeriesLiteral(ctx *SeriesLiteralContext) {}
 
 // ExitSeriesLiteral is called when production seriesLiteral is exited.
 func (s *BaseArcParserListener) ExitSeriesLiteral(ctx *SeriesLiteralContext) {}
+
+// EnterBooleanLiteral is called when production booleanLiteral is entered.
+func (s *BaseArcParserListener) EnterBooleanLiteral(ctx *BooleanLiteralContext) {}
+
+// ExitBooleanLiteral is called when production booleanLiteral is exited.
+func (s *BaseArcParserListener) ExitBooleanLiteral(ctx *BooleanLiteralContext) {}
 
 // EnterExpressionList is called when production expressionList is entered.
 func (s *BaseArcParserListener) EnterExpressionList(ctx *ExpressionListContext) {}

@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "client/ts/src/user"
-@py output "client/py/synnax/user"
 @go output "core/pkg/service/user"
+@py output "client/py/synnax/user"
+@ts output "client/ts/src/user"
 
 Key = uuid {
-    @go version 0
-    @doc value  "is a unique identifier for a user, represented as a UUID."
+    @doc value "is a unique identifier for a user, represented as a UUID."
 }
 
 User struct {
@@ -23,9 +22,9 @@ User struct {
     }
     username   string {
         @doc value         "is the unique login name for the user."
-        @validate required
         @filter
         @index lookup
+        @validate required
     }
     first_name string {
         @doc value "is the user's first name."
@@ -35,21 +34,20 @@ User struct {
     }
     root_user  bool = false {
         @doc value """
-            is true if this is a root/admin user with full system access. Root
-            users cannot be deleted.
+            is true if this is a root/admin user with full system access. Root users
+            cannot be deleted.
         """
         @filter
     }
 
-    @go version    0
     @doc value     """
-        is an account entity representing a person accessing the Synnax system.
-        Users can have roles assigned for permission management.
+        is an account entity representing a person accessing the Synnax system. Users
+        can have roles assigned for permission management.
     """
-    @ontology type "user"
-    @retrieve
     @go marshal
     @go migrate
+    @ontology type "user"
+    @retrieve
 }
 
 New struct extends User {
@@ -62,9 +60,9 @@ New struct extends User {
     first_name?
     last_name?
 
+    @cpp omit
     @doc value    "contains parameters for creating a new user."
-    @ts use_input
     @go omit
     @py omit
-    @cpp omit
+    @ts use_input
 }

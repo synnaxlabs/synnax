@@ -126,6 +126,15 @@ describe("derived", () => {
     });
   });
 
+  it("keeps no derived corpse when a rolled-back source set is undone", () => {
+    const tables = newTables();
+    bindAll(tables);
+    const rollback = tables.tasks.set(task("t1", "one"));
+    rollback();
+    expect(tables.composed.get("t1")).toBeUndefined();
+    expect(tables.composed.status("t1")).toEqual("unknown");
+  });
+
   it("flushes a bulk source write into the derived table as one batch", () => {
     const tables = newTables();
     bindAll(tables);

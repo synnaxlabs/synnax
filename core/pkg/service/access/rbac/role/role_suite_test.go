@@ -32,13 +32,14 @@ var (
 	svc       *role.Service
 	policySvc *policy.Service
 	userSvc   *user.Service
+	searchIdx *search.Index
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
+	searchIdx = MustOpen(search.OpenIndex())
 	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -61,6 +62,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    g,
 		Search:   searchIdx,
 	}))
+	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })
 
 func TestRole(t *testing.T) {

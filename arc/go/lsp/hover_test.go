@@ -143,10 +143,10 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 11}, // l|en
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
+				Position: protocol.Position{Line: 0, Character: 11},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -159,10 +159,8 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 5},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 0, Character: 5},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -177,12 +175,12 @@ var _ = Describe("Hover", func() {
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position: protocol.Position{
-							Line:      2,
-							Character: 20,
-						}, // control.set_a|uthority
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
+					},
+					Position: protocol.Position{
+						Line:      2,
+						Character: 20,
 					},
 				}))
 
@@ -199,10 +197,8 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 2, Character: 16},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 2, Character: 16},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -215,15 +211,15 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 11},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 0, Character: 11},
 			}))
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### select"))
-			Expect(HoverContents(hover)).To(ContainSubstring("Routes input values"))
+			Expect(HoverContents(hover)).To(
+				ContainSubstring("Triggers the 'true' or 'false' routing entry"),
+			)
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
@@ -231,15 +227,13 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 2, Character: 18},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 2, Character: 18},
 			}))
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### stable.for"))
-			Expect(HoverContents(hover)).To(ContainSubstring("remained stable"))
+			Expect(HoverContents(hover)).To(ContainSubstring("stays stable"))
 		})
 
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
@@ -247,10 +241,10 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 3, Character: 17}, // n|ow
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
+				Position: protocol.Position{Line: 3, Character: 17},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -265,10 +259,10 @@ var _ = Describe("Hover", func() {
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 0, Character: 6}, // n|ow
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
 					},
+					Position: protocol.Position{Line: 0, Character: 6},
 				}))
 
 				Expect(hover).ToNot(BeNil())
@@ -282,12 +276,12 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      2,
-						Character: 7,
-					}, // time.i|nterval
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      2,
+					Character: 7,
 				},
 			}))
 
@@ -303,12 +297,12 @@ var _ = Describe("Hover", func() {
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position: protocol.Position{
-							Line:      0,
-							Character: 2,
-						}, // i|nterval
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
+					},
+					Position: protocol.Position{
+						Line:      0,
+						Character: 2,
 					},
 				}))
 
@@ -323,12 +317,12 @@ var _ = Describe("Hover", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      2,
-						Character: 7,
-					}, // time.w|ait
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      2,
+					Character: 7,
 				},
 			}))
 
@@ -344,10 +338,10 @@ var _ = Describe("Hover", func() {
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 0, Character: 2}, // w|ait
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
 					},
+					Position: protocol.Position{Line: 0, Character: 2},
 				}))
 
 				Expect(hover).ToNot(BeNil())
@@ -370,12 +364,12 @@ func main() {
 
 			// Hover over 'add' in the function call
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      5,
-						Character: 15,
-					}, // add|(1, 2)
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      5,
+					Character: 15,
 				},
 			}))
 
@@ -399,10 +393,10 @@ func main() {
 
 			// Hover over 'max' in the function declaration
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 6}, // func m|ax
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
+				Position: protocol.Position{Line: 0, Character: 6},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -424,12 +418,12 @@ func main() {
 
 			// Hover over 'threshold' in the function declaration
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      0,
-						Character: 8,
-					}, // func t|hreshold
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      0,
+					Character: 8,
 				},
 			}))
 
@@ -450,10 +444,10 @@ func main() {
 
 			// Hover over 'x' in the expression
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 2, Character: 9}, // x| + 10
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
+				Position: protocol.Position{Line: 2, Character: 9},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -473,12 +467,12 @@ func main() {
 
 			// Hover over 'count' on line 2
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      2,
-						Character: 5,
-					}, // count| = count + 1
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      2,
+					Character: 5,
 				},
 			}))
 
@@ -504,10 +498,10 @@ func main() {
 				OpenArcDocument(server, ctx, uri, "cpu := sensorData\n")
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 0, Character: 1}, // c|pu
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
 					},
+					Position: protocol.Position{Line: 0, Character: 1},
 				}))
 
 				Expect(hover).ToNot(BeNil())
@@ -528,10 +522,10 @@ func main() {
 			OpenArcDocument(server, ctx, uri, "rate := sensorData + 1.0\n")
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 1}, // r|ate
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
+				Position: protocol.Position{Line: 0, Character: 1},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -548,10 +542,10 @@ func main() {
 
 			// Hover over 'x' parameter in function body
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 11}, // x| * y
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
+				Position: protocol.Position{Line: 1, Character: 11},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -569,12 +563,12 @@ func main() {
 
 			// Hover over 'main' sequence name
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      0,
-						Character: 10,
-					}, // sequence m|ain
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      0,
+					Character: 10,
 				},
 			}))
 
@@ -594,10 +588,8 @@ func main() {
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 1, Character: 11},
-					},
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 11},
 				}))
 
 				Expect(hover).ToNot(BeNil())
@@ -614,10 +606,8 @@ func add(x i32, y i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 6},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 1, Character: 6},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -636,10 +626,8 @@ func max(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 6},
-				},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 1, Character: 6},
 			}))
 
 			Expect(hover).ToNot(BeNil())
@@ -660,10 +648,8 @@ func threshold(value f64) u8 {
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 2, Character: 6},
-					},
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 2, Character: 6},
 				}))
 
 				Expect(hover).ToNot(BeNil())
@@ -688,10 +674,8 @@ func add(a i32, b i32) i32 {
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 5, Character: 6},
-					},
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 5, Character: 6},
 				}))
 
 				Expect(hover).ToNot(BeNil())
@@ -977,7 +961,7 @@ func add(a i32, b i32) i32 {
 			Entry("star *", "x * y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("slash /", "x / y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("percent %", "x % y", uint32(lsp.SemanticTokenTypeOperator)),
-			Entry("caret ^", "x ^ y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("power ^", "x ^ y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("eq ==", "x == y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("neq !=", "x != y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("lt <", "x < y", uint32(lsp.SemanticTokenTypeOperator)),

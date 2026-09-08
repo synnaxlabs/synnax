@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
+import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement } from "react";
 
 const TABS = [
@@ -31,7 +32,7 @@ export const PackageManagerTabs = (props: PackageManagerTabsProps): ReactElement
         {tabs.map(({ tabKey, name, icon }) => (
           <Tabs.Tab key={tabKey} itemKey={tabKey}>
             {icon}
-            {name}
+            <Text.Text>{name}</Text.Text>
           </Tabs.Tab>
         ))}
       </Tabs.Selector>

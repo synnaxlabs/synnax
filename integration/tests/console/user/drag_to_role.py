@@ -27,14 +27,13 @@ class UserDragToRole(ConsoleCase):
 
         self.log(f"Registering user: {username} with role: {initial_role}")
 
-        success = self.console.access.register_user(
+        self.console.access.register_user(
             username=username,
             password=password,
             first_name=first_name,
             last_name=last_name,
             role_name=initial_role,
         )
-        assert success, f"Failed to register user {username}"
 
         # Verify user is under initial role
         self.console.access.expand_role(initial_role)

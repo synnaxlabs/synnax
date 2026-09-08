@@ -15,13 +15,13 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// generatedLangs are the language domains whose omission rules the analyzer
-// validates. pb is excluded: proto messages reference schema types by name
-// only, so omission there never dangles.
+// generatedLangs are the language domains whose omission rules the analyzer validates.
+// pb is excluded: proto messages reference schema types by name only, so omission there
+// never dangles.
 var generatedLangs = []string{"go", "ts", "py", "cpp"}
 
-// validateDomainOmits enforces cross-language omission consistency over the
-// resolved table:
+// validateDomainOmits enforces cross-language omission consistency over the resolved
+// table:
 //
 //  1. A type that generates in a language must not reference a type omitted in
 //     that language (@lang omit means the type does not exist there). Fields
@@ -86,8 +86,8 @@ func validateOmitRefs(
 	}
 }
 
-// fieldEscapesLang reports whether the field's own domain removes or replaces
-// it in the language: an omit expression or a type override.
+// fieldEscapesLang reports whether the field's own domain removes or replaces it in the
+// language: an omit expression or a type override.
 func fieldEscapesLang(f resolution.Field, lang string) bool {
 	dom, ok := f.Domains[lang]
 	if !ok {
@@ -101,55 +101,37 @@ func fieldEscapesLang(f resolution.Field, lang string) bool {
 	return false
 }
 
-// validateFileVersion errors when @go version is declared file-level.
-// Versioned-ness is a per-type property (it tracks persistence), so the
-// declaration must sit on each type it applies to.
-func validateFileVersion(c *analysisCtx) {
-	dom, ok := c.fileDomains["go"]
-	if !ok {
-		return
+// validateNoVersionTag errors on any @go version declaration: the tag is
+// retired. Membership in the resource's current version file marks a type
+// versioned; the versions directory is the sole authority.
+func validateNoVersionTag(c *analysisCtx, types []resolution.Type) {
+	if dom, ok := c.fileDomains["go"]; ok {
+		if _, has := dom.Expressions.Find("version"); has {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares the retired @go version tag; membership in the "+
+					"current version file marks a type versioned",
+				c.namespace,
+			))
+		}
 	}
-	if _, has := dom.Expressions.Find("version"); has {
-		d := diagnostics.Errorf(nil,
-			"%s declares @go version file-level; declare it per type instead",
-			c.namespace,
-		)
-		c.report(d)
-	}
-}
-
-// validateVersionArgs errors on malformed @go version declarations: the first
-// value must be an integer, and the only allowed extra argument is a single
-// `pinned` marker.
-func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 	for _, t := range types {
 		dom, ok := t.Domains["go"]
 		if !ok {
 			continue
 		}
-		expr, ok := dom.Expressions.Find("version")
-		if !ok {
-			continue
+		if _, has := dom.Expressions.Find("version"); has {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares the retired @go version tag; membership in the "+
+					"current version file marks a type versioned",
+				t.QualifiedName,
+			))
 		}
-		valid := len(expr.Values) >= 1 && len(expr.Values) <= 2 &&
-			expr.Values[0].Kind == resolution.ValueKindInt
-		if valid && len(expr.Values) == 2 {
-			valid = expr.Values[1].IdentValue == "pinned"
-		}
-		if valid {
-			continue
-		}
-		d := diagnostics.Errorf(
-			nil,
-			"%s has a malformed @go version; expected `version <int>` or `version <int> pinned`",
-			t.QualifiedName,
-		)
-		c.report(d)
 	}
 }
 
-// validateImex errors on malformed @go imex declarations: the marker is per-type, takes
-// no arguments, and requires a @go version on the same type.
+// validateImex errors on malformed @go imex declarations: the marker is per-type and
+// takes no arguments. The Go imex plugin rejects a marked type whose version chain
+// leaves it unversioned.
 func validateImex(c *analysisCtx, types []resolution.Type) {
 	if dom, ok := c.fileDomains["go"]; ok {
 		if _, has := dom.Expressions.Find("imex"); has {
@@ -166,30 +148,20 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 			continue
 		}
 		expr, ok := dom.Expressions.Find("imex")
-		if !ok {
+		if !ok || len(expr.Values) == 0 {
 			continue
 		}
-		if len(expr.Values) > 0 {
-			c.report(diagnostics.Errorf(nil,
-				"%s has a malformed @go imex; the marker takes no arguments",
-				t.QualifiedName,
-			))
-		}
-		if _, versioned := dom.Expressions.Find("version"); !versioned {
-			c.report(diagnostics.Errorf(nil,
-				"%s declares @go imex without @go version", t.QualifiedName,
-			))
-		}
+		c.report(diagnostics.Errorf(nil,
+			"%s has a malformed @go imex; the marker takes no arguments",
+			t.QualifiedName,
+		))
 	}
 }
 
-// validateDeadOutputs errors when a file declares a language output that
-// nothing uses: every type omits the language and none is hand-written.
-func validateDeadOutputs(
-	c *analysisCtx,
-	types []resolution.Type,
-) {
-	hasActions := false
+// validateDeadOutputs errors when a file declares a language output that nothing uses:
+// every type omits the language and none is hand-written.
+func validateDeadOutputs(c *analysisCtx, types []resolution.Type) {
+	var hasActions bool
 	for _, t := range types {
 		if sf, ok := t.Form.(resolution.StructForm); ok && len(sf.Actions) > 0 {
 			hasActions = true
@@ -206,7 +178,7 @@ func validateDeadOutputs(
 		if hasActions && (lang == "go" || lang == "ts") {
 			continue
 		}
-		alive := false
+		var alive bool
 		for _, t := range types {
 			if omit.IsType(t, lang) {
 				continue

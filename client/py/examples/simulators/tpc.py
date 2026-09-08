@@ -47,6 +47,33 @@ from examples.control.tpc.common import (
 )
 from examples.simulators.simdaq import SimDAQ
 
+INITIAL_DAQ_STATE: dict[str, float] = {
+    OX_VENT_CMD: 0,
+    OX_TPC_CMD: 0,
+    OX_MPV_CMD: 0,
+    OX_PRESS_CMD: 0,
+    FUEL_VENT_CMD: 0,
+    FUEL_TPC_CMD: 0,
+    FUEL_MPV_CMD: 0,
+    FUEL_PRESS_CMD: 0,
+    PRESS_ISO_CMD: 0,
+    GAS_BOOSTER_ISO_CMD: 0,
+    OX_TC_1: -190,
+    OX_TC_2: -190,
+    OX_PT_1: 1.75,
+    OX_PT_2: 1,
+    FUEL_TC_1: -190,
+    FUEL_TC_2: -190,
+    FUEL_PT_1: 2.25,
+    FUEL_PT_2: 3.25,
+    PRES_TC_1: -190,
+    PRES_TC_2: -190,
+    PRESS_PT_1: 0,
+    PRESS_PT_2: 1.3,
+    SUPPLY_PT: 4000,
+    PNEUMATICS_PT: 300,
+}
+
 
 class TPCSimDAQ(SimDAQ):
     """Simulates multi-system rocket engine with OX/FUEL tanks."""
@@ -89,11 +116,13 @@ class TPCSimDAQ(SimDAQ):
         )
 
         now = sy.TimeStamp.now()
+        # Sensors start at the simulation's real initial values: a 0.0 seed would
+        # write a spurious spike that pollutes plot auto-bounds.
         initial_state: dict[str, list] = {DAQ_TIME: [now]}
         for state_ch in VALVES.values():
             initial_state[state_ch] = [0]
         for sensor in SENSORS:
-            initial_state[sensor] = [0.0]
+            initial_state[sensor] = [INITIAL_DAQ_STATE[sensor]]
         client.write(now, initial_state)
         self.log("Channels created successfully")
 
@@ -102,32 +131,7 @@ class TPCSimDAQ(SimDAQ):
         loop = sy.Loop(sy.Rate.HZ * 50, precise=False)
         loop_count = 0
 
-        daq_state = {
-            OX_VENT_CMD: 0,
-            OX_TPC_CMD: 0,
-            OX_MPV_CMD: 0,
-            OX_PRESS_CMD: 0,
-            FUEL_VENT_CMD: 0,
-            FUEL_TPC_CMD: 0,
-            FUEL_MPV_CMD: 0,
-            FUEL_PRESS_CMD: 0,
-            PRESS_ISO_CMD: 0,
-            GAS_BOOSTER_ISO_CMD: 0,
-            OX_TC_1: -190,
-            OX_TC_2: -190,
-            OX_PT_1: 1.75,
-            OX_PT_2: 1,
-            FUEL_TC_1: -190,
-            FUEL_TC_2: -190,
-            FUEL_PT_1: 2.25,
-            FUEL_PT_2: 3.25,
-            PRES_TC_1: -190,
-            PRES_TC_2: -190,
-            PRESS_PT_1: 0,
-            PRESS_PT_2: 1.3,
-            SUPPLY_PT: 4000,
-            PNEUMATICS_PT: 300,
-        }
+        daq_state = dict(INITIAL_DAQ_STATE)
 
         ox_mpv_last_open = None
         fuel_mpv_last_open = None

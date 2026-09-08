@@ -25,17 +25,18 @@ export enum Kind {
   f32 = 9,
   f64 = 10,
   string = 11,
-  chan = 14,
-  series = 15,
-  variable = 16,
-  numeric_constant = 17,
-  integer_constant = 18,
-  float_constant = 19,
-  exact_integer_float_constant = 20,
-  function = 21,
-  sequence = 22,
-  stage = 23,
-  var_ref = 24,
+  chan = 12,
+  series = 13,
+  variable = 14,
+  numeric_constant = 15,
+  integer_constant = 16,
+  float_constant = 17,
+  exact_integer_float_constant = 18,
+  function = 19,
+  sequence = 20,
+  stage = 21,
+  var_ref = 22,
+  bool = 23,
 }
 export const kindZ = z.enum(Kind);
 
@@ -59,10 +60,7 @@ export const channelsZ = z.object({
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
 
-/**
- * Dimensions contains physical dimension exponents for dimensional analysis (SI base
- * quantities).
- */
+/** Dimensions contains dimension exponents for dimensional analysis. */
 export const dimensionsZ = z.object({
   /** length is the length dimension exponent (meters). */
   length: zod.int8,
@@ -70,13 +68,13 @@ export const dimensionsZ = z.object({
   mass: zod.int8,
   /** time is the time dimension exponent (seconds). */
   time: zod.int8,
-  /** current is the electric current dimension exponent (amperes). */
+  /** current is the electric current dimension exponent (Amperes). */
   current: zod.int8,
-  /** temperature is the temperature dimension exponent (kelvin). */
+  /** temperature is the temperature dimension exponent (Kelvin). */
   temperature: zod.int8,
   /** angle is the angle dimension exponent (radians). */
   angle: zod.int8,
-  /** count is the count dimension exponent (dimensionless quantity). */
+  /** count is the count dimension exponent. */
   count: zod.int8,
   /** data is the data size dimension exponent (bytes). */
   data: zod.int8,

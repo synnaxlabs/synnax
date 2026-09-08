@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -37,22 +36,22 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Alert{
-				Key:                  "test_1",
-				Status:               "test_2",
-				TreatErrorAsCritical: true,
-				Component:            "test_4",
-				Group:                "test_5",
-				Class:                "test_6",
-				Disabled:             true,
+				Key:            "test_1",
+				Status:         "test_2",
+				ErrorsCritical: true,
+				Component:      "test_4",
+				Group:          "test_5",
+				Class:          "test_6",
+				Disabled:       true,
 			}),
 			Entry("zero values", v1.Alert{
-				Key:                  "",
-				Status:               "",
-				TreatErrorAsCritical: false,
-				Component:            "",
-				Group:                "",
-				Class:                "",
-				Disabled:             false,
+				Key:            "",
+				Status:         "",
+				ErrorsCritical: false,
+				Component:      "",
+				Group:          "",
+				Class:          "",
+				Disabled:       false,
 			}),
 		)
 	})
@@ -68,33 +67,30 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.TaskConfig{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
-				},
+				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:  false,
 				RoutingKey: "test_3",
 				Alerts: []v1.Alert{
 					{
-						Key:                  "test_5",
-						Status:               "test_6",
-						TreatErrorAsCritical: true,
-						Component:            "test_8",
-						Group:                "test_9",
-						Class:                "test_10",
-						Disabled:             true,
+						Key:            "test_5",
+						Status:         "test_6",
+						ErrorsCritical: true,
+						Component:      "test_8",
+						Group:          "test_9",
+						Class:          "test_10",
+						Disabled:       true,
 					},
 				},
 			}),
 			Entry("zero values", v1.TaskConfig{
-				BaseStart:  config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
+				Key:        uuid.Nil,
+				AutoStart:  false,
 				RoutingKey: "",
 				Alerts:     nil,
 			}),
 			Entry("empty collections", v1.TaskConfig{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
-				},
+				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:  false,
 				RoutingKey: "test_3",
 				Alerts:     []v1.Alert{},
 			}),
@@ -104,13 +100,13 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeAlert(b *testing.B) {
 	seed := v1.Alert{
-		Key:                  "test_1",
-		Status:               "test_2",
-		TreatErrorAsCritical: true,
-		Component:            "test_4",
-		Group:                "test_5",
-		Class:                "test_6",
-		Disabled:             true,
+		Key:            "test_1",
+		Status:         "test_2",
+		ErrorsCritical: true,
+		Component:      "test_4",
+		Group:          "test_5",
+		Class:          "test_6",
+		Disabled:       true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -129,20 +125,18 @@ func BenchmarkEncodeDecodeAlert(b *testing.B) {
 
 func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 	seed := v1.TaskConfig{
-		BaseStart: config.BaseStart{
-			Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart: false,
-		},
+		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:  false,
 		RoutingKey: "test_3",
 		Alerts: []v1.Alert{
 			{
-				Key:                  "test_5",
-				Status:               "test_6",
-				TreatErrorAsCritical: true,
-				Component:            "test_8",
-				Group:                "test_9",
-				Class:                "test_10",
-				Disabled:             true,
+				Key:            "test_5",
+				Status:         "test_6",
+				ErrorsCritical: true,
+				Component:      "test_8",
+				Group:          "test_9",
+				Class:          "test_10",
+				Disabled:       true,
 			},
 		},
 	}
@@ -164,13 +158,13 @@ func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 func FuzzDecodeAlert(f *testing.F) {
 	{
 		seed := v1.Alert{
-			Key:                  "test_1",
-			Status:               "test_2",
-			TreatErrorAsCritical: true,
-			Component:            "test_4",
-			Group:                "test_5",
-			Class:                "test_6",
-			Disabled:             true,
+			Key:            "test_1",
+			Status:         "test_2",
+			ErrorsCritical: true,
+			Component:      "test_4",
+			Group:          "test_5",
+			Class:          "test_6",
+			Disabled:       true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -180,13 +174,13 @@ func FuzzDecodeAlert(f *testing.F) {
 	}
 	{
 		seed := v1.Alert{
-			Key:                  "",
-			Status:               "",
-			TreatErrorAsCritical: false,
-			Component:            "",
-			Group:                "",
-			Class:                "",
-			Disabled:             false,
+			Key:            "",
+			Status:         "",
+			ErrorsCritical: false,
+			Component:      "",
+			Group:          "",
+			Class:          "",
+			Disabled:       false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -219,20 +213,18 @@ func FuzzDecodeAlert(f *testing.F) {
 func FuzzDecodeTaskConfig(f *testing.F) {
 	{
 		seed := v1.TaskConfig{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
-			},
+			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:  false,
 			RoutingKey: "test_3",
 			Alerts: []v1.Alert{
 				{
-					Key:                  "test_5",
-					Status:               "test_6",
-					TreatErrorAsCritical: true,
-					Component:            "test_8",
-					Group:                "test_9",
-					Class:                "test_10",
-					Disabled:             true,
+					Key:            "test_5",
+					Status:         "test_6",
+					ErrorsCritical: true,
+					Component:      "test_8",
+					Group:          "test_9",
+					Class:          "test_10",
+					Disabled:       true,
 				},
 			},
 		}
@@ -244,7 +236,8 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			BaseStart:  config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
+			Key:        uuid.Nil,
+			AutoStart:  false,
 			RoutingKey: "",
 			Alerts:     nil,
 		}
@@ -256,10 +249,8 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
-			},
+			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:  false,
 			RoutingKey: "test_3",
 			Alerts:     []v1.Alert{},
 		}

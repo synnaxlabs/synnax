@@ -37,8 +37,8 @@ class SemiPeriod(Counter):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Semi Period",
+            chan_type="Semi period",
             **kwargs,
         )
 
-        self._configure_dropdown("Scaled Units", units)
+        self._configure_dropdown("Scaled units", units)

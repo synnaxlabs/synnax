@@ -57,14 +57,8 @@ export const copy = (b: Box, root?: location.Corner): Box => ({
 });
 
 /**
- * Box represents a general box in 2D space. It typically represents a bounding box
- * for a DOM element, but can also represent a box in clip space or decimal space.
- *
- * It's important to note that the behavior of a Box varies depending on its coordinate
- * system.Make sure you're aware of which coordinate system you're using.
- *
- * Many of the properties and methods on a Box access the same semantic value. The
- * different accessors are there for ease of use and semantics.
+ * Constructs a box in 2D space, typically a DOM bounding box but also usable for clip
+ * or decimal space. Behavior depends on the coordinate system the box is rooted in.
  */
 export const construct = (
   first: number | DOMRect | xy.XY | Box | { getBoundingClientRect: () => DOMRect },
@@ -150,12 +144,8 @@ export const resize: Resize = (
 };
 
 /**
- * Checks if a box contains a point or another box.
- *
- * @param container - The container box to check against.
- * @param value - The point or box to check if it is contained in the container.
- * @param inclusive - Whether the edges of the box are inclusive or exclusive.
- * @returns true if the box inclusively contains the point or box and false otherwise.
+ * @returns true if container holds the given point or box. `inclusive` decides whether
+ * the container's edges count.
  */
 export const contains = (
   container: Crude,
@@ -180,35 +170,25 @@ export const contains = (
   );
 };
 
-/**
- * @returns true if the given box is semantically equal to this box and false otherwise.
- */
+/** @returns true if the two boxes describe the same region. */
 export const equals = (a: Box, b: Box): boolean =>
   xy.equals(a.one, b.one) &&
   xy.equals(a.two, b.two) &&
   location.xyEquals(a.root, b.root);
 
-/**
- * @returns the dimensions of the box. Note that these dimensions are guaranteed to
- * be positive. To get the signed dimensions, use the `signedDims` property.
- */
+/** @returns the box's always-positive dimensions. See {@link signedDims} for signed. */
 export const dims = (b: Box): dimensions.Dimensions => ({
   width: width(b),
   height: height(b),
 });
 
-/**
- * @returns the dimensions of the box. Note that these dimensions may be negative.
- * To get the unsigned dimensions, use the `dims` property.
- */
+/** @returns the box's possibly-negative dimensions. See {@link dims} for unsigned. */
 export const signedDims = (b: Box): dimensions.Signed => ({
   signedWidth: signedWidth(b),
   signedHeight: signedHeight(b),
 });
 
-/**
- * @returns the css representation of the box.
- */
+/** @returns the box as CSS top/left/width/height. */
 export const css = (b: Box): CSS => ({
   top: top(b),
   left: left(b),
@@ -240,10 +220,10 @@ export const xyLoc = (b: Crude, l: location.XY): xy.XY => {
  * side of the box i.e. the x coordinate of the left side, the y coordinate of the
  * top side, etc.
  */
-export const loc = (b: Crude, loc: location.Location): number => {
+export const loc = (b: Crude, loc: location.Outer): number => {
   const b_ = construct(b);
   const f = location.xyCouple(b_.root).includes(loc) ? Math.min : Math.max;
-  return location.X_LOCATIONS.includes(loc as location.X)
+  return location.direction(loc) === "x"
     ? f(b_.one.x, b_.two.x)
     : f(b_.one.y, b_.two.y);
 };
@@ -341,19 +321,14 @@ export const yBounds = (b: Crude): bounds.Bounds => {
 
 export const reRoot = (b: Box, corner: location.Corner): Box => copy(b, corner);
 
-export const edgePoints = (b: Crude, loc: location.Location): [xy.XY, xy.XY] => {
+export const edgePoints = (b: Crude, loc: location.Outer): [xy.XY, xy.XY] => {
   const b_ = construct(b);
-  const x = location.X_LOCATIONS.includes(loc as location.X)
-    ? "x"
-    : location.Y_LOCATIONS.includes(loc as location.Y)
-      ? "y"
-      : null;
-  if (x === null) throw new Error(`Invalid location: ${loc}`);
+  const dir = location.direction(loc);
   const f = loc === "top" || loc === "left" ? Math.min : Math.max;
   const one = { ...b_.one };
   const two = { ...b_.two };
-  one[x] = f(b_.one[x], b_.two[x]);
-  two[x] = f(b_.one[x], b_.two[x]);
+  one[dir] = f(b_.one[dir], b_.two[dir]);
+  two[dir] = f(b_.one[dir], b_.two[dir]);
   return [one, two];
 };
 
@@ -372,7 +347,6 @@ export const positionInCenter = (target_: Crude, bound_: Crude): Box => {
   return construct({ x: x_, y: y_ }, dims(target));
 };
 
-/** */
 export const isBox = (value: unknown): value is Box => {
   if (typeof value !== "object" || value == null) return false;
   return "one" in value && "two" in value && "root" in value;
@@ -417,7 +391,6 @@ export const intersection = (a: Box, b: Box): Box => {
   return construct({ x, y }, { x: x2, y: y2 }, undefined, undefined, a.root);
 };
 
-/** @returns the area of the box. */
 export const area = (b: Box): number => width(b) * height(b);
 
 /**

@@ -9,7 +9,7 @@
 
 import "@/feature/project/Avatar.css";
 
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -42,8 +42,8 @@ export interface AvatarProps {
 
 export const Avatar = ({ name }: AvatarProps): ReactElement => {
   const hue = hueOf(name);
-  const style = useMemo(
-    () => ({ "--console-avatar-hue": hue }) as CSSProperties,
+  const style = useMemo<CSS.VarProperties>(
+    () => ({ "--console-avatar-hue": hue }),
     [hue],
   );
   return (

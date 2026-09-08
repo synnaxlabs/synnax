@@ -10,8 +10,6 @@
 package variable
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -52,7 +50,7 @@ func NewHost() *Host { return &Host{} }
 
 // Create dispatches on shape: a value-carrying first input makes a register;
 // an edge-fed one an exprRead deref.
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (*Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
 	}
@@ -72,7 +70,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 // stampNow overwrites ts with a single sample of now, reusing its buffer.
 func stampNow(ts *telem.Series, now telem.TimeStamp) {
 	ts.Resize(1)
-	telem.SetValueAt(*ts, 0, now)
+	ts.SetValueAt(0, now)
 }
 
 // register holds what its variable is mapped to: a value, a channel key, or a

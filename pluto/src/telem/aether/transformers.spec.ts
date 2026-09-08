@@ -191,6 +191,38 @@ describe("SeriesDownsampler", () => {
       expect(result2.series[0].at(1)).toBe(3.5);
     });
 
+    // A rolling source inserts a late back-fill in front of its live series, so the
+    // positional cache sees a new head and must rebuild instead of throwing.
+    it("should rebuild the cache when a series is inserted at the front", () => {
+      const downsampler = new SeriesDownsampler({
+        mode: "average",
+        windowSize: 2,
+      });
+
+      const live = new Series({
+        key: "live",
+        data: new Float32Array([10, 20, 30, 40]),
+        dataType: DataType.FLOAT32,
+        timeRange: new TimeRange(4n, 8n),
+        alignment: 4n,
+      });
+      downsampler.transform(new MultiSeries([live]));
+
+      const backfill = new Series({
+        key: "backfill",
+        data: new Float32Array([1, 2, 3, 4]),
+        dataType: DataType.FLOAT32,
+        timeRange: new TimeRange(0n, 4n),
+        alignment: 0n,
+      });
+      const result = downsampler.transform(new MultiSeries([backfill, live]));
+      expect(result.series).toHaveLength(2);
+      expect(result.series[0].at(0)).toBe(1.5);
+      expect(result.series[0].at(1)).toBe(3.5);
+      expect(result.series[1].at(0)).toBe(15);
+      expect(result.series[1].at(1)).toBe(35);
+    });
+
     it("should evict old series from cache", () => {
       const downsampler = new SeriesDownsampler({
         mode: "average",

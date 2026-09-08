@@ -44,7 +44,8 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 						return entry{}, err
 					}
 					return req, nil
-				})
+				},
+			)
 			Expect(handler(ctx, entry{ID: "unary-commit", Data: "v"})).
 				To(Equal(entry{ID: "unary-commit", Data: "v"}))
 			var got entry
@@ -68,7 +69,8 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 						return entry{}, err
 					}
 					return entry{}, errBoom
-				})
+				},
+			)
 			Expect(handler(ctx, entry{ID: "unary-rollback", Data: "v"})).
 				Error().To(MatchError(errBoom))
 			Expect(xgorp.NewRetrieve[string, entry]().
@@ -83,7 +85,8 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 			db,
 			func(context.Context, xgorp.Tx, entry) (entry, error) {
 				return entry{ID: "leaked", Data: "leaked"}, errBoom
-			})
+			},
+		)
 		Expect(handler(ctx, entry{})).Error().To(MatchError(errBoom))
 	})
 
@@ -92,7 +95,8 @@ var _ = Describe("CreateWriteUnaryHandler", func() {
 			db,
 			func(_ context.Context, _ xgorp.Tx, req entry) (entry, error) {
 				return req, nil
-			})
+			},
+		)
 		Expect(handler(ctx, entry{ID: "unary-propagate", Data: "data"})).
 			To(Equal(entry{ID: "unary-propagate", Data: "data"}))
 	})

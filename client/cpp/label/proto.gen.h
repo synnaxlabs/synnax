@@ -15,8 +15,7 @@
 
 #include "client/cpp/label/json.gen.h"
 #include "client/cpp/label/types.gen.h"
-#include "x/cpp/color/json.gen.h"
-#include "x/cpp/color/proto.gen.h"
+#include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
 

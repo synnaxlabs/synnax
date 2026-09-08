@@ -20,8 +20,8 @@ import (
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -129,7 +129,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							ctx,
 							domain.WriterConfig{
 								Start: 10 * telem.SecondTS,
-							}))
+							},
+						))
 						Expect(w.Write([]byte{1, 2, 3, 4, 5, 6})).To(Equal(6))
 						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 						Expect(w.Close()).To(Succeed())

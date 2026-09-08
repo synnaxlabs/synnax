@@ -26,16 +26,14 @@ export interface WriteOptions<T = void> {
 }
 
 /**
- * Plain-data shape used to address a record in the cache query system. Queries
- * are hashed by {@link hash} to produce stable cache keys, so they must be
- * primitives, arrays of queries, plain string-keyed objects of queries, or
- * class instances implementing {@link primitive.Hashable}. Maps, Sets, Dates,
- * and non-Hashable class instances are rejected at compile time because their
- * fields don't recursively reduce to {@link Params}.
- *
- * Consumer query types must be declared with `type` aliases, not `interface`,
- * because TypeScript interfaces lack an implicit string index signature and
- * fail the `{ readonly [k: string]: Params }` branch.
+ * Plain-data shape used to address a record in the cache query system. Queries are
+ * hashed by {@link hash} to produce stable cache keys, so they must be primitives,
+ * arrays of queries, plain string-keyed objects of queries, or class instances
+ * implementing {@link primitive.Hashable}. Maps, Sets, Dates, and non-Hashable class
+ * instances are rejected at compile time because their fields don't recursively reduce
+ * to {@link Params}. Consumer query types must be declared with `type` aliases, not
+ * `interface`, because TypeScript interfaces lack an implicit string index signature
+ * and fail the `{ readonly [k: string]: Params }` branch.
  */
 export type Params =
   | string

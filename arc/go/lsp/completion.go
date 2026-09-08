@@ -125,6 +125,25 @@ var completions = []completionInfo{
 		Category: categoryType,
 	},
 	{
+		Label:    parser.LiteralBOOL,
+		Detail:   "Boolean type",
+		Doc:      "true or false",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: categoryType,
+	},
+	{
+		Label:    parser.LiteralTRUE,
+		Detail:   "Boolean true",
+		Kind:     protocol.CompletionItemKindConstant,
+		Category: categoryValue,
+	},
+	{
+		Label:    parser.LiteralFALSE,
+		Detail:   "Boolean false",
+		Kind:     protocol.CompletionItemKindConstant,
+		Category: categoryValue,
+	},
+	{
 		Label:    "timestamp",
 		Detail:   "Timestamp type",
 		Kind:     protocol.CompletionItemKindClass,

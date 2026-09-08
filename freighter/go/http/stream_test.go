@@ -55,7 +55,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
 		}))
-		server = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
+		server = router.NewStreamServer[test.Request, test.Response]("/")
 		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
 			fhttp.StreamClientConfig{Codec: json.Codec},
 		))
@@ -121,10 +121,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 					StreamWriteDeadline: test.WriteDeadline,
 				}))
-				ownServer := fhttp.NewStreamServer[test.Request, test.Response](
-					router,
-					"/",
-				)
+				ownServer := router.NewStreamServer[test.Request, test.Response]("/")
 				serving := make(chan struct{})
 				ownServer.BindHandler(func(
 					_ context.Context,

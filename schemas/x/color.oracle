@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "x/ts/src/color"
-@py output  "x/py/x/color"
-@go output  "x/go/color"
 @cpp output "x/cpp/color"
+@go output  "x/go/color"
 @pb
+@py output  "x/py/x/color"
+@ts output  "x/ts/src/color"
 
 Color struct {
     r uint8   {
@@ -27,8 +27,10 @@ Color struct {
         @doc value "is the alpha component (0-1)."
     }
 
-    @go version 0
-    @doc value  "is an RGBA color with RGB as 0-255 and alpha as 0-1."
-    @ts hand
+    @cpp hand
+    @cpp include "x/cpp/color/color.h"
+    @doc value   "is an RGBA color with RGB as 0-255 and alpha as 0-1."
+    @go marshal
     @py hand
+    @ts hand
 }

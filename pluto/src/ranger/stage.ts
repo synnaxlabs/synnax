@@ -40,8 +40,8 @@ export const STAGE_ICONS: Record<Stage, Icon.FC> = {
 };
 
 export const STAGE_NAMES: Record<Stage, string> = {
-  to_do: "To Do",
-  in_progress: "In Progress",
+  to_do: "To do",
+  in_progress: "In progress",
   completed: "Completed",
 };
 

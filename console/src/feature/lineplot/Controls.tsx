@@ -72,13 +72,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
-    <Vis.Controls
-      className={CSS(
-        annotationsVisible &&
-          hasAnnotations &&
-          CSS.BM("controls", "annotations-visible"),
-      )}
-    >
+    <Vis.Controls>
       <Flex.Box x gap="small">
         <Viewport.SelectMode
           value={mode}
@@ -92,7 +86,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
           tooltip={
             <Text.Text level="small" color={11}>
               Reset zoom
-              <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
+              <Triggers.Text trigger={triggers.modes.zoomReset[0]} el="span" />
             </Text.Text>
           }
           size="small"
@@ -133,7 +127,7 @@ export const Controls = memo(({ hasAnnotations }: ControlsProps): ReactElement =
           onChange={handleHoldChange}
           tooltipLocation={location.BOTTOM_LEFT}
           size="small"
-          className={CSS(hold && Vis.CONTROLS_PINNED_CLASS)}
+          className={CSS.cls(hold && Vis.CONTROLS_PINNED_CLASS)}
           tooltip={
             <Text.Text level="small" color={11}>
               {`${hold ? "Resume" : "Pause"} live plotting`}

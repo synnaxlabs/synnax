@@ -26,9 +26,10 @@ from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.task.types_gen import Key, Payload, Status, ontology_id
+from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from x.lists import check_for_none, normalize, override
+from x.timing import Timer
 
 
 class _CreateRequest(BaseModel):
@@ -182,21 +183,16 @@ class Task:
         :return: The unique key assigned to the command.
         """
         w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
-        key = str(uuid4())
-        w.write(
-            _TASK_CMD_CHANNEL,
-            [
-                {
-                    "task": str(self.key),
-                    "type": type_,
-                    "key": key,
-                    "config_hash": self.config_hash,
-                    "args": args,
-                }
-            ],
+        cmd = Command(
+            task=self.key,
+            type=type_,
+            key=str(uuid4()),
+            config_hash=self.config_hash,
+            args=args or {},
         )
+        w.write(_TASK_CMD_CHANNEL, [cmd.model_dump(mode="json")])
         w.close()
-        return str(key)
+        return cmd.key
 
     def execute_command_sync(
         self,
@@ -212,10 +208,15 @@ class Task:
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
         """
+        span = TimeSpan.from_seconds(timeout)
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
+            timer = Timer()
             while True:
-                frame = s.read(TimeSpan.from_seconds(timeout).seconds)
+                # The channel carries every status in the cluster, so the wait is a
+                # deadline: a frame answering some other command must not renew it.
+                remaining = span - timer.elapsed()
+                frame = s.read(remaining) if remaining > TimeSpan.ZERO else None
                 if frame is None:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
@@ -441,6 +442,8 @@ class Client:
         key: Key | str | None = None,
         name: str | None = None,
         type: str | None = None,
+        *,
+        include_status: bool = False,
     ) -> Task: ...
 
     @overload
@@ -452,6 +455,8 @@ class Client:
         names: list[str] | None = None,
         keys: list[Key | str] | None = None,
         types: list[str] | None = None,
+        *,
+        include_status: bool = False,
     ) -> list[Task]: ...
 
     def retrieve(
@@ -462,7 +467,14 @@ class Client:
         names: list[str] | None = None,
         keys: list[Key | str] | None = None,
         types: list[str] | None = None,
+        *,
+        include_status: bool = False,
     ) -> list[Task] | Task:
+        """Retrieves tasks matching the given filters.
+
+        :param include_status: Whether to populate each task's status. Tasks come
+            back with a null status when false.
+        """
         is_single = check_for_none(names, keys, types)
         res = self._client.send(
             "/task/retrieve",
@@ -470,6 +482,7 @@ class Client:
                 keys=override(key, keys),
                 names=override(name, names),
                 types=override(type, types),
+                include_status=include_status,
             ),
             _RetrieveResponse,
         )
@@ -488,7 +501,21 @@ class Client:
         return sug[0] if is_single else sug
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
-        return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]
+        return [
+            Task(
+                key=t.key,
+                rack=t.rack,
+                name=t.name,
+                type=t.type,
+                config=t.config,
+                config_hash=t.config_hash,
+                internal=t.internal,
+                snapshot=t.snapshot,
+                status=t.status,
+                _frame_client=self._frame_client,
+            )
+            for t in tasks
+        ]
 
     def list(self, rack: int | None = None) -> list[Task]:
         """Lists all tasks on a rack. If no rack is specified, lists all tasks on the

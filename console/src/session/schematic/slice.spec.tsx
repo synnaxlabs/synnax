@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { color } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -16,14 +16,23 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/session/schematic";
+import {
+  createSliceStore,
+  documentIn,
+  DRIFT_STATE,
+  inWindow,
+} from "@/session/window/testutil";
 
 const storeWith = (slice: Schematic.SliceState) =>
-  configureStore({
-    reducer: { [Schematic.SLICE_NAME]: Schematic.reducer },
-    preloadedState: { [Schematic.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Schematic.SLICE_NAME,
+    reducer: Schematic.reducer,
+    preloadedState: slice,
+    middleware: Schematic.MIDDLEWARE,
   });
 
 const KEY = "schematic-1";
+const AUX_WINDOW = "aux-window";
 
 describe("Schematic Slice", () => {
   let store: ReturnType<typeof storeWith>;
@@ -44,7 +53,21 @@ describe("Schematic Slice", () => {
     return result.current({ key });
   };
 
-  const schematics = () => store.getState()[Schematic.SLICE_NAME].schematics;
+  const schematics = () =>
+    store.getState()[Schematic.SLICE_NAME].windows[MAIN_WINDOW] ?? {};
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(Schematic.create({ key: KEY }));
+    store.dispatch(Schematic.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      Schematic.setEditable({ key: KEY, editable: false, windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[Schematic.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.editable).toBe(false);
+    expect(documentIn(slice, KEY)?.editable).toBe(true);
+  });
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
@@ -252,7 +275,7 @@ describe("Schematic Slice", () => {
       expect(parsed.legend.visible).toBe(true);
       expect(parsed.toolbar.selectedTab).toBe("symbols");
       expect(parsed.viewport.zoom).toBe(1);
-      expect(parsed.editable).toBe(false);
+      expect(parsed.editable).toBe(true);
       expect(parsed.fitViewOnResize).toBe(false);
       expect(parsed.selected).toEqual([]);
     });
@@ -262,6 +285,13 @@ describe("Schematic Slice", () => {
     it("should reset the control status to released", () => {
       const state = Schematic.stateZ.parse({ control: { status: "acquired" } });
       expect(Schematic.purgeState(state).control.status).toBe("released");
+    });
+
+    // A selection is the state of an edit in progress, so it does not outlive the
+    // session that made it.
+    it("should clear the selection", () => {
+      const state = Schematic.stateZ.parse({ selected: ["a", "b"] });
+      expect(Schematic.purgeState(state).selected).toEqual([]);
     });
 
     it("should leave other fields untouched", () => {
@@ -275,20 +305,22 @@ describe("Schematic Slice", () => {
 
   describe("purgeSliceState", () => {
     it("should release control on every schematic in the slice", () => {
-      const state = {
+      const state: Schematic.StoreState = {
+        ...DRIFT_STATE,
         [Schematic.SLICE_NAME]: {
-          schematics: {
+          version: 0,
+          windows: inWindow({
             "schematic-1": Schematic.stateZ.parse({ control: { status: "acquired" } }),
             "schematic-2": Schematic.stateZ.parse({ control: { status: "acquired" } }),
-          },
+          }),
         },
       };
       const purged = Schematic.purgeSliceState(state);
       expect(
-        purged[Schematic.SLICE_NAME].schematics["schematic-1"].control.status,
+        documentIn(purged[Schematic.SLICE_NAME], "schematic-1")?.control.status,
       ).toBe("released");
       expect(
-        purged[Schematic.SLICE_NAME].schematics["schematic-2"].control.status,
+        documentIn(purged[Schematic.SLICE_NAME], "schematic-2")?.control.status,
       ).toBe("released");
     });
   });

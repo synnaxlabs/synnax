@@ -103,6 +103,17 @@ setup_binaries() {
 
 # Main execution
 main() {
+    # Self-hosted runners keep $HOME across jobs: skip when this attempt's binaries
+    # are already in place (a re-run keeps the run id but can rebuild them).
+    local run_key="${REF_RUN_ID:-}-${GITHUB_RUN_ATTEMPT:-}"
+    if [ -n "${REF_RUN_ID:-}" ] \
+        && [ -f "$HOME/synnax-binaries/.run-id" ] \
+        && [ "$(cat "$HOME/synnax-binaries/.run-id")" = "$run_key" ] \
+        && [ -f "$HOME/synnax-binaries/synnax" ]; then
+        echo "Binaries for run $REF_RUN_ID already present, skipping download"
+        exit 0
+    fi
+
     # Clean up any existing binaries
     if [ -d "./binaries" ]; then
         echo "Cleaning existing binaries directory..."
@@ -131,6 +142,8 @@ main() {
     fi
 
     setup_binaries
+
+    echo "$run_key" > "$HOME/synnax-binaries/.run-id"
 
     echo "✅ $os_name artifacts setup completed successfully"
 }

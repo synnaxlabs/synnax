@@ -87,7 +87,7 @@ var _ = Describe("Writer", func() {
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 			}
 			idxCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
@@ -124,7 +124,7 @@ var _ = Describe("Writer", func() {
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[string](iter.Value().SeriesAt(0)),
+				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"hello", "world", "foo"}))
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
@@ -158,7 +158,7 @@ var _ = Describe("Writer", func() {
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[string](iter.Value().SeriesAt(0)),
+				iter.Value().SeriesAt(0).Unmarshal[string](),
 			).To(Equal([]string{"a", "b", "c"}))
 		})
 	})
@@ -382,7 +382,7 @@ var _ = Describe("Writer", func() {
 				idx := channel.Channel{
 					Name:        "auto_index_time",
 					IsIndex:     true,
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					Leaseholder: peer,
 				}
 				idx = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{idx}))[0]
@@ -401,10 +401,10 @@ var _ = Describe("Writer", func() {
 					AutoIndex: new(true),
 					Start:     1 * telem.SecondTS,
 				}))
-				Expect((w.Write(frame.NewUnary(
+				Expect(w.Write(frame.NewUnary(
 					data.Key(),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
-				)))).To(BeTrue())
+				))).To(BeTrue())
 				MustSucceed(w.Commit())
 				Expect(w.Close()).To(Succeed())
 				after := telem.Now()
@@ -415,7 +415,7 @@ var _ = Describe("Writer", func() {
 				}))
 				Expect(iter.SeekFirst()).To(BeTrue())
 				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
-				ts := telem.UnmarshalSeries[telem.TimeStamp](iter.Value().SeriesAt(0))
+				ts := iter.Value().SeriesAt(0).Unmarshal[telem.TimeStamp]()
 				Expect(iter.Close()).To(Succeed())
 
 				Expect(ts).To(HaveLen(3))
@@ -436,7 +436,7 @@ var _ = Describe("Writer", func() {
 					idxCh = channel.Channel{
 						Name:        "free_time",
 						IsIndex:     true,
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						Leaseholder: node.KeyFree,
 						Virtual:     true,
 					}

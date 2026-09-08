@@ -1,0 +1,39 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-connection-target {
+    flex-wrap: wrap;
+
+    & > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+/* .pluto-icon pins icons to 1em, so the status dot is sized here instead of
+   via the size prop. */
+.console-connection-target > .pluto-icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+.console-connection-target__status {
+    flex-shrink: 0;
+    display: inline-grid;
+    justify-items: start;
+
+    & > * {
+        grid-area: 1 / 1;
+    }
+
+    & > .console--ghost {
+        visibility: hidden;
+    }
+}

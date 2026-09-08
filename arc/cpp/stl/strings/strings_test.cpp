@@ -39,6 +39,7 @@ const std::string_view STR_WAT = R"wat(
   (import "strings" "from_u64" (func $from_u64 (param i64) (result i32)))
   (import "strings" "from_f32" (func $from_f32 (param f32) (result i32)))
   (import "strings" "from_f64" (func $from_f64 (param f64) (result i32)))
+  (import "strings" "from_bool" (func $from_bool (param i32) (result i32)))
   (import "strings" "format_i32" (func $format_i32 (param i32 i32 i32) (result i32)))
   (import "strings" "format_u32" (func $format_u32 (param i32 i32 i32) (result i32)))
   (import "strings" "format_i64" (func $format_i64 (param i64 i32 i32) (result i32)))
@@ -73,6 +74,8 @@ const std::string_view STR_WAT = R"wat(
     (call $from_f32 (local.get 0)))
   (func (export "call_from_f64") (param f64) (result i32)
     (call $from_f64 (local.get 0)))
+  (func (export "call_from_bool") (param i32) (result i32)
+    (call $from_bool (local.get 0)))
   (func (export "call_format_i32") (param i32 i32 i32) (result i32)
     (call $format_i32 (local.get 0) (local.get 1) (local.get 2)))
   (func (export "call_format_u32") (param i32 i32 i32) (result i32)
@@ -296,6 +299,13 @@ TEST(StrModule, FromF64FormatsShortestRoundTrip) {
         "0.1234567890123456"
     );
     EXPECT_EQ(call_from<double>(f, "call_from_f64", std::copysign(0.0, -1.0)), "-0");
+}
+
+TEST(StrModule, FromBoolFormatsTrueFalse) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_bool", 1), "true");
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_bool", 0), "false");
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_bool", 42), "true");
 }
 
 TEST(StrModule, FromF64HandlesNaNAndInfinityWithGoCapitalization) {

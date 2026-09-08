@@ -44,6 +44,30 @@ func compileExpression(bCtx context.Context, source string) ([]byte, types.Type)
 	return compileWithCtx(NewContext(bCtx), source)
 }
 
+// expectCompileError compiles source in a scope holding series "s" (i64), "b"
+// (bool), and "f" (f64), asserting the compile fails with a message containing substr.
+func expectCompileError(bCtx SpecContext, source, substr string) {
+	ctx := NewContext(bCtx)
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "s",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.I64()),
+	}))
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "b",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.Bool()),
+	}))
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "f",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.F64()),
+	}))
+	expr := MustSucceed(parser.ParseExpression(source))
+	Expect(expression.Compile(ctx.Child(expr))).Error().
+		To(MatchError(ContainSubstring(substr)))
+}
+
 func compileWithCtx(
 	ctx ccontext.Context[antlr.ParserRuleContext],
 	source string,
@@ -56,9 +80,7 @@ func compileWithCtx(
 		)
 		exprType = MustSucceedWithOffset[types.Type](
 			2,
-		)(
-			expression.Compile(ccontext.Child(ctx, expr)),
-		)
+		)(expression.Compile(ctx.Child(expr)))
 	)
 	return FinalizeContext(ctx), exprType
 }
@@ -80,9 +102,7 @@ func compileWithCtxAndHint(
 	}
 	exprType := MustSucceedWithOffset[types.Type](
 		2,
-	)(
-		expression.Compile(ccontext.Child(ctx, expr)),
-	)
+	)(expression.Compile(ctx.Child(expr)))
 	return FinalizeContext(ctx), exprType
 }
 
@@ -130,7 +150,7 @@ func compileWithAnalyzer(
 		analyzerCtx.TypeMap,
 		resolve.NewResolver(),
 	)
-	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
+	exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
 
@@ -223,7 +243,7 @@ func expectSeriesLiteralWithHint(
 		analyzerCtx.TypeMap,
 		resolve.NewResolver(),
 	)
-	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
+	exprType := MustSucceed(expression.Compile(compilerCtx.Child(parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))
 }

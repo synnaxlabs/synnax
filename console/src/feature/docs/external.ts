@@ -9,5 +9,3 @@
 
 export * from "@/feature/docs/commands";
 export * from "@/platform/docs/external";
-export * from "@/session/docs/selectors";
-export * from "@/session/docs/slice";

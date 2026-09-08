@@ -30,8 +30,6 @@ export interface Creator {
 }
 
 /**
- * Creates a tuple containing a context and hook to use the context.
- *
  * @param params.displayName - The display name of the context.
  * @param params.defaultValue - The default value of the context.
  * @param params.providerName - The name of the provider where the context is used.

@@ -21,9 +21,8 @@ export class Transport {
   readonly url: url.URL;
   readonly unary: UnaryClient;
   /**
-   * The unary client without the breaker's retry wrapper, for callers that
-   * own their retry policy (the connection checker). Shares middleware with
-   * {@link unary}.
+   * The unary client without the breaker's retry wrapper, for callers that own their
+   * retry policy (the connection checker). Shares middleware with {@link unary}.
    */
   readonly unaryNoRetry: UnaryClient;
   readonly file: FileTransport;

@@ -127,6 +127,76 @@ var _ = Describe("Service", func() {
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
+		It("Should keep a deliberate zero on a grouped default", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.AnalogRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "ai_voltage",
+					"min_val": -10,
+					"max_val": 0,
+					"custom_scale": map[string]any{
+						"type":       "map",
+						"scaled_min": -5,
+						"scaled_max": 0,
+					},
+				}},
+			})).To(Succeed())
+			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", -10))
+			Expect(ch["max_val"]).To(BeNumerically("==", 0))
+			scale := ch["custom_scale"].(map[string]any)
+			Expect(scale["scaled_min"]).To(BeNumerically("==", -5))
+			Expect(scale["scaled_max"]).To(BeNumerically("==", 0))
+			// The untouched pre-scaled pair is all zero, so its group still fills.
+			Expect(scale["pre_scaled_max"]).To(BeNumerically("==", 1))
+		})
+
+		It("Should fill a grouped default when every member is zero", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.AnalogRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ai_voltage"}},
+			})).To(Succeed())
+			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", 0))
+			Expect(ch["max_val"]).To(BeNumerically("==", 1))
+		})
+
+		It("Should keep a deliberate zero on a counter channel range", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.CounterRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":    "ci_velocity_linear",
+					"min_val": -10,
+					"max_val": 0,
+				}},
+			})).To(Succeed())
+			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", -10))
+			Expect(ch["max_val"]).To(BeNumerically("==", 0))
+		})
+
+		It("Should fill a counter channel range when both bounds are zero", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.CounterRead.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ci_frequency"}},
+			})).To(Succeed())
+			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			ch := data["channels"].([]any)[0].(map[string]any)
+			Expect(ch["min_val"]).To(BeNumerically("==", 2))
+			Expect(ch["max_val"]).To(BeNumerically("==", 100))
+		})
+
 		It(
 			"Should return the analog read validation error for an invalid channel",
 			func(
@@ -134,10 +204,10 @@ var _ = Describe("Service", func() {
 			) {
 				Expect(svc.AnalogRead.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
-						"type":  "ai_voltage",
-						"units": "BOGUS",
+						"type":            "ai_voltage",
+						"terminal_config": "BOGUS",
 					}},
-				})).To(MatchError(ContainSubstring("invalid units: BOGUS")))
+				})).To(MatchError(ContainSubstring("invalid terminal_config: BOGUS")))
 			},
 		)
 
@@ -148,10 +218,27 @@ var _ = Describe("Service", func() {
 			) {
 				Expect(svc.AnalogWrite.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
-						"type":  "ao_voltage",
-						"units": "BOGUS",
+						"type": "ao_voltage",
+						"custom_scale": map[string]any{
+							"type":             "linear",
+							"pre_scaled_units": "BOGUS",
+						},
 					}},
-				})).To(MatchError(ContainSubstring("invalid units: BOGUS")))
+				})).To(MatchError(ContainSubstring("invalid pre_scaled_units: BOGUS")))
+			},
+		)
+
+		It(
+			"Should reject a voltage-mode sensitivity unit on a charge accelerometer",
+			func(ctx SpecContext) {
+				Expect(svc.AnalogRead.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":              "ai_accel_charge",
+						"sensitivity_units": "mVoltsPerG",
+					}},
+				})).To(MatchError(
+					ContainSubstring("invalid sensitivity_units: mVoltsPerG"),
+				))
 			},
 		)
 

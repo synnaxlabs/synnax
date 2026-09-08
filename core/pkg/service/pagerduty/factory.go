@@ -49,8 +49,8 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate validates the factory configuration.
 func (c FactoryConfig) Validate() error {
 	v := validate.New("pagerduty.factory")
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "sender", c.Sender)
+	v.NotNil("status", c.Status)
+	v.NotNil("sender", c.Sender)
 	return v.Error()
 }
 
@@ -75,7 +75,7 @@ func (f *factory) ConfigureTask(
 	if t.Type != AlertTaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
-	var cfg AlertTaskConfig
+	var cfg TaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		if cmdKey == driver.NoCommand {
 			f.cfg.L.Warn("failed to configure task",
@@ -87,7 +87,7 @@ func (f *factory) ConfigureTask(
 		}
 		return nil, err
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := validateConfig(cfg); err != nil {
 		if cmdKey == driver.NoCommand && !cfg.AutoStart {
 			f.cfg.L.Warn("failed to configure task",
 				zap.Stringer("task", t),
@@ -131,7 +131,7 @@ func (f *factory) setConfigStatus(
 		Time:    telem.Now(),
 		Details: details,
 	}
-	if err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
+	if err := f.cfg.Status.NewWriter(nil).
 		Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status",

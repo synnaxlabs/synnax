@@ -44,7 +44,7 @@ const setup = async (tabScope: string = TAB) => {
 };
 
 const focusTab = (store: TestStore, tabKey: string): void =>
-  void act(() => {
+  act(() => {
     store.dispatch(
       Panel.internalSelectTab({ key: PANEL, tabKey, otherTabKeys: [tabKey] }),
     );

@@ -173,7 +173,7 @@ func newChannelSet() []channel.Channel {
 		{
 			Name:     "test1",
 			IsIndex:  true,
-			DataType: telem.TimeStampT,
+			DataType: telem.TimestampT,
 		},
 	}
 }
@@ -217,10 +217,10 @@ func mixedScenario(ctx context.Context) scenario {
 		{
 			Name:        "mixed_gateway",
 			IsIndex:     true,
-			DataType:    telem.TimeStampT,
+			DataType:    telem.TimestampT,
 			Leaseholder: 1,
 		},
-		{Name: "mixed_peer", IsIndex: true, DataType: telem.TimeStampT, Leaseholder: 2},
+		{Name: "mixed_peer", IsIndex: true, DataType: telem.TimestampT, Leaseholder: 2},
 	}
 	builder := mock.OpenCluster(ctx, 2)
 	dist := builder.Nodes[1]

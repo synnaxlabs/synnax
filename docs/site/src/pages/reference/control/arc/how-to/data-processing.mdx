@@ -94,7 +94,7 @@ Expressions can include comparisons:
 pressure > 500 -> pressure_high
 ```
 
-Now `pressure_high` outputs 1 when pressure exceeds 500, 0 otherwise.
+Now `pressure_high` outputs `true` when pressure exceeds 500, `false` otherwise.
 
 You can combine channels:
 
@@ -181,36 +181,23 @@ that, `prev` retains whatever was assigned to it.
 
 ## Running Calculations
 
-Accumulators track totals or counts over time:
+Track running statistics with
+[`math.avg`](/reference/control/arc/reference/standard-library/math#avg) and
+[`math.max`](/reference/control/arc/reference/standard-library/math#max), which emit the
+updated statistic on each input:
+
+```arc channels="temperature, temperature_avg, temperature_max"
+temperature -> math.avg{} -> temperature_avg
+temperature -> math.max{} -> temperature_max
+```
+
+Both accumulate over every sample by default. Set `duration` or `count` to control the
+window:
 
 ```arc channels="temperature, temperature_avg"
-func running_avg(value f64) f64 {
-    total $= 0.0
-    count $= 0
-    total = total + value
-    count = count + 1
-    return total / f64(count)
-}
-
-temperature -> running_avg{} -> temperature_avg
+temperature -> math.avg{duration=5s} -> temperature_avg
+temperature -> math.avg{count=20} -> temperature_avg
 ```
-
-Each execution adds to `total` and increments `count`. The average includes all values
-seen so far.
-
-For a running maximum:
-
-```arc
-func running_max(value f64) f64 {
-    max $= value
-    if value > max {
-        max = value
-    }
-    return max
-}
-```
-
-Initializing `max $= value` means the first reading becomes the initial maximum.
 
 <Divider.Divider x />
 
@@ -240,25 +227,21 @@ The `alpha` parameter controls responsiveness:
 
 When a function needs multiple sensor values, pass the channels as input parameters:
 
-```arc channels="p1, p2"
+```arc channels="inlet_pressure, outlet_pressure, delta_p"
 func pressure_diff{inlet chan f64, outlet chan f64} () f64 {
     p1 := inlet
     p2 := outlet
     return p1 - p2
 }
+
+time.interval{period=5s} -> pressure_diff{
+    inlet = inlet_pressure,
+    outlet = outlet_pressure
+} -> delta_p
 ```
 
-Inside the function, `inlet` and `outlet` read the latest value from those channels.
-
-But what triggers this function? It has no trigger to receive flow data. Use
-`time.interval` to run it on a schedule:
-
-```arc channels="inlet_pressure, outlet_pressure, delta_p"
-time.interval{period=50ms} -> pressure_diff{inlet=inlet_pressure, outlet=outlet_pressure} -> delta_p
-```
-
-Every 50ms, Arc runs `pressure_diff`, which reads both pressure channels and outputs the
-difference.
+Inside the function, `inlet` and `outlet` read the latest values from those channels.
+The function has no flow input, so `time.interval` triggers it on a schedule.
 
 <Divider.Divider x />
 
@@ -293,12 +276,9 @@ Good when:
 Inside a function body, reading a channel returns its latest value immediately:
 
 ```arc
-func check_limits{sensor chan f64, limit f64} () u8 {
+func check_limits{sensor chan f64, limit f64} () bool {
     value := sensor // reads latest value, doesn't block
-    if value > limit {
-        return 1
-    }
-    return 0
+    return value > limit
 }
 ```
 
@@ -348,22 +328,27 @@ func categorize(value f64) i64 {
 When you have redundant sensors, use voting to reject outliers. A median of three
 readings ignores a single faulty sensor:
 
-```arc channels="pressure_1, pressure_2, pressure_3, pressure_voted, va, vb, vc"
-func median3{a chan f64, b chan f64, c chan f64} () f64 {
-    va := a
-    vb := b
-    vc := c
+```arc channels="pressure_1, pressure_2, pressure_3, pressure_voted"
+func median3{sensor_a chan f64, sensor_b chan f64, sensor_c chan f64} () f64 {
+    a := sensor_a
+    b := sensor_b
+    c := sensor_c
+
     // Find the middle value
-    if (va >= vb and va <= vc) or (va >= vc and va <= vb) {
-        return va
+    if (a >= b and a <= c) or (a >= c and a <= b) {
+        return a
     }
-    if (vb >= va and vb <= vc) or (vb >= vc and vb <= va) {
-        return vb
+    if (b >= a and b <= c) or (b >= c and b <= a) {
+        return b
     }
-    return vc
+    return c
 }
 
-time.interval{period=50ms} -> median3{a=pressure_1, b=pressure_2, c=pressure_3} -> pressure_voted
+time.interval{period=50ms} -> median3{
+    sensor_a = pressure_1,
+    sensor_b = pressure_2,
+    sensor_c = pressure_3
+} -> pressure_voted
 ```
 
 If one sensor fails and reads 0 while the others read 500, the median is 500. The faulty
@@ -373,28 +358,14 @@ reading is ignored.
 
 ## Rate of Change
 
-Detecting how fast a value is changing requires tracking the previous value and dividing
-by time:
+[`math.derivative`](/reference/control/arc/reference/standard-library/math#derivative)
+computes how fast a value is changing from the samples' actual timestamps:
 
 ```arc channels="pressure, pressure_rate"
-func rate{dt_ms f64} (value f64) f64 {
-    prev $= value
-    d := value - prev
-    prev = value
-    dt_s := dt_ms / 1000.0
-    return d / dt_s
-}
-
-pressure -> rate{dt_ms=50.0} -> pressure_rate
+pressure -> math.derivative{} -> pressure_rate
 ```
 
-The `dt_ms` input parameter is the expected time between samples in milliseconds. The
-output is in units per second (e.g., psi/second if pressure is in psi).
-
-<Note.Note variant="info">
-  The `dt_ms` parameter should match your actual sample rate. If the sensor updates
-  every 50ms, use `dt_ms=50.0`. Mismatched timing gives incorrect rate values.
-</Note.Note>
+The output is in units per second (e.g., psi/second if pressure is in psi).
 
 <Divider.Divider x />
 
@@ -414,7 +385,8 @@ pressure -> fmt_pressure{} -> pressure_status
 
 Each time `pressure` updates, `pressure_status` receives a string like
 `"Pressure: 523.70 psi"`. Format specs are validated against the placeholder type at
-compile time, so a `.2f` against an integer is caught before the program runs.
+compile time, so a `.2f` against an integer is caught before the program runs. A `bool`
+placeholder renders as `true` or `false`.
 
 Format strings are useful for writing diagnostic outputs:
 
@@ -437,6 +409,8 @@ Here's a complete pipeline that reads a pressure sensor, converts units, smooths
 signal, computes rate of change, and outputs everything:
 
 ```arc channels="pressure_raw, pressure_psi, pressure_smooth, pressure_rate, pressure_high"
+import math
+
 // Unit conversion: voltage to psi
 func volts_to_psi{v_min f64, v_max f64, p_max f64} (v f64) f64 {
     ratio := (v - v_min) / (v_max - v_min)
@@ -448,17 +422,12 @@ func ema{alpha f64} (value f64) f64 {
     avg = alpha * value + (1.0 - alpha) * avg
     return avg
 }
-// Rate of change
-func rate{dt_ms f64} (value f64) f64 {
-    prev $= value
-    d := value - prev
-    prev = value
-    return d / (dt_ms / 1000.0)
-}
+
 // Pipeline: raw voltage -> psi -> smoothed -> rate
 pressure_raw -> volts_to_psi{v_min=0.5, v_max=4.5, p_max=1000.0} -> pressure_psi
 pressure_psi -> ema{alpha=0.3} -> pressure_smooth
-pressure_smooth -> rate{dt_ms=50.0} -> pressure_rate
+pressure_smooth -> math.derivative{} -> pressure_rate
+
 // Also output a high-pressure flag
 pressure_smooth > 800 -> pressure_high
 ```
@@ -467,7 +436,7 @@ Each stage feeds the next. When `pressure_raw` updates:
 
 1. `volts_to_psi` converts to psi
 2. `ema` smooths the result
-3. `rate` computes how fast the smoothed value is changing
-4. The comparison outputs 1 if pressure exceeds 800
+3. `math.derivative` computes how fast the smoothed value is changing
+4. The comparison outputs `true` if pressure exceeds 800
 
 The raw value flows through the entire pipeline automatically.

@@ -25,7 +25,7 @@ export const Pulse = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-Pulse"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-Pulse"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}

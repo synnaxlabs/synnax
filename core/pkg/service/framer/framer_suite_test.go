@@ -76,10 +76,9 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 		Status:       statusSvc,
 	}))
 	return framer.ServiceConfig{
-		Framer:       n.Framer,
-		Channel:      channelSvc,
-		Status:       statusSvc,
-		HostProvider: n.Cluster,
+		Framer:  n.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
 	}
 }
 

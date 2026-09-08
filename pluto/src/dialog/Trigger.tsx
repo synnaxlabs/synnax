@@ -17,10 +17,15 @@ import { CSS } from "@/css";
 import { useContext } from "@/dialog/Frame";
 import { type Icon } from "@/icon";
 
+/** Props for {@link Trigger}. */
 export interface TriggerProps extends Button.ButtonProps {
   hideCaret?: boolean;
 }
 
+/**
+ * The button that opens and closes the enclosing {@link Frame}, carrying a caret that
+ * turns with the dialog.
+ */
 export const Trigger = ({
   onClick,
   className,
@@ -39,7 +44,7 @@ export const Trigger = ({
     );
   return (
     <Button.Button
-      className={CSS(CSS.BE("dialog", "trigger"), className)}
+      className={CSS.cls(CSS.BE("dialog", "trigger"), className)}
       onClick={(e) => {
         onClick?.(e);
         toggle();

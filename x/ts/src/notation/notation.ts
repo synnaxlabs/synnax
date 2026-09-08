@@ -62,13 +62,12 @@ export const stringifyNumber = (
   if (notation === "scientific") exp = Math.floor(Math.log10(Math.abs(value)));
   else exp = Math.floor(Math.log10(Math.abs(value)) / 3) * 3;
   let mantissa = value / 10 ** exp;
-  // After rounding via toFixed, the mantissa may have crossed the canonical upper
-  // bound (>= 10 for scientific, >= 1000 for engineering). Predict the rounded
-  // magnitude with Math.round — for non-negative values it matches toFixed's
-  // half-away-from-zero semantics, and we're already taking Math.abs — so we avoid
-  // having to parseFloat the formatted string back into a number. Bump the exponent
-  // if needed so e.g. 9.999 at precision 1 in scientific becomes "1.0ᴇ1" rather
-  // than "10.0ᴇ0".
+  // After rounding via toFixed, the mantissa may have crossed the canonical upper bound
+  // (>= 10 for scientific, >= 1000 for engineering). Predict the rounded magnitude with
+  // Math.round — for non-negative values it matches toFixed's half-away-from-zero
+  // semantics, and we're already taking Math.abs — so we avoid having to parseFloat the
+  // formatted string back into a number. Bump the exponent if needed so e.g. 9.999 at
+  // precision 1 in scientific becomes "1.0ᴇ1" rather than "10.0ᴇ0".
   const upperBound = notation === "scientific" ? 10 : 1000;
   const factor = 10 ** precision;
   if (Math.round(Math.abs(mantissa) * factor) / factor >= upperBound) {

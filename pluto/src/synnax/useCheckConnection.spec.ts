@@ -34,11 +34,7 @@ describe("useCheckConnection", () => {
 
   it("should resolve an error status against a dead port", async () => {
     const { result } = renderHook(() =>
-      Synnax.useCheckConnection({
-        host: TEST_CLIENT_PARAMS.host,
-        port: 9999,
-        retry: { maxRetries: 0 },
-      }),
+      Synnax.useCheckConnection({ host: TEST_CLIENT_PARAMS.host, port: 9999 }),
     );
     await waitFor(() => expect(result.current?.variant).toEqual("error"));
   });
@@ -75,7 +71,7 @@ describe("useCheckConnection", () => {
     );
     await waitFor(() => expect(result.current?.variant).toEqual("success"));
     rerender({
-      params: { host: TEST_CLIENT_PARAMS.host, port: 9999, retry: { maxRetries: 0 } },
+      params: { host: TEST_CLIENT_PARAMS.host, port: 9999 },
     });
     await waitFor(() => expect(result.current?.variant).toEqual("error"));
   });

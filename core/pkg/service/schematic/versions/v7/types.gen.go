@@ -15,7 +15,6 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -31,6 +30,8 @@ type Node struct {
 	// render above lower values. Set by the user via send-to-back / bring-to-front
 	// actions.
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`
+	// Measured is the rendered size of the node, captured by the Console.
+	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
@@ -60,7 +61,7 @@ type Schematic struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the schematic.
 	Name string `json:"name" msgpack:"name"`
-	// Snapshot indicates whether this schematic represents a saved snapshot state.
+	// Snapshot is true if this schematic is an immutable snapshot copy.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
 	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
@@ -70,12 +71,4 @@ type Schematic struct {
 	// of each value is determined by the element's variant; the wire format
 	// intentionally stores it as an opaque record.
 	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (s Schematic) Validate() error {
-	v := validate.New("Schematic")
-	validate.NotEmptyString(v, "name", s.Name)
-	return v.Error()
 }

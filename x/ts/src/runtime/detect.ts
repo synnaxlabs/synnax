@@ -12,7 +12,6 @@ export type Runtime = "browser" | "node" | "webworker";
 
 /**
  * Does best effort detection of the runtime environment.
- *
  * @returns The runtime environment.
  */
 export const detect = (): Runtime => {

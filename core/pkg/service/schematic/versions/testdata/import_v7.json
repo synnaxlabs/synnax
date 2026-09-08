@@ -4,7 +4,14 @@
   "key": "11111111-2222-3333-4444-555555555555",
   "name": "Server Typed",
   "snapshot": true,
-  "nodes": [{ "key": "n1", "position": { "x": 1, "y": 2 }, "z_index": 4 }],
+  "nodes": [
+    {
+      "key": "n1",
+      "position": { "x": 1, "y": 2 },
+      "z_index": 4,
+      "measured": { "width": 80, "height": 40 }
+    }
+  ],
   "edges": [
     {
       "key": "e1",

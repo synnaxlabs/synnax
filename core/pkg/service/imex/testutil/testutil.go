@@ -12,11 +12,15 @@ package testutil
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -38,4 +42,32 @@ func WireRoundTrip(env imex.Envelope) imex.Envelope {
 	var out imex.Envelope
 	gomega.Expect(json.Unmarshal(b, &out)).To(gomega.Succeed())
 	return out
+}
+
+// LoadBundle reads the bundle directory rooted at dir into the zip.Files an import
+// takes, keyed by slash-separated path from the root. Every regular file in the tree is
+// a member, directories included; an empty directory contributes nothing, matching what
+// an archive carries.
+func LoadBundle(dir string) zip.Files {
+	ginkgo.GinkgoHelper()
+	files := zip.Files{}
+	gomega.Expect(filepath.WalkDir(
+		dir,
+		func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			rel, err := filepath.Rel(dir, path)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			files[strings.ReplaceAll(rel, string(filepath.Separator), "/")] = data
+			return nil
+		},
+	)).To(gomega.Succeed())
+	return files
 }

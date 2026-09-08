@@ -155,12 +155,10 @@ var _ = Describe("Control", func() {
 					count := 0
 					cfg.OpenResource = func() (testResource, error) {
 						count++
-						return testResource{
-								value: 11,
-							}, errors.Wrapf(
-								validate.ErrValidation,
-								"could not great gate",
-							)
+						return testResource{value: 11}, errors.Wrapf(
+							validate.ErrValidation,
+							"could not great gate",
+						)
 					}
 					g, t, err := c.OpenGate(cfg)
 					Expect(err).To(MatchError(validate.ErrValidation))
@@ -1070,6 +1068,28 @@ var _ = Describe("Control", func() {
 				Expect(
 					lead.Subject,
 				).To(Equal(xcontrol.Subject{Key: "test", Name: "test"}))
+			})
+
+			It("Should not race with concurrent gate open and release", func() {
+				var wg sync.WaitGroup
+				wg.Add(2)
+				go func() {
+					defer wg.Done()
+					defer GinkgoRecover()
+					for i := range 50 {
+						cfg, _ := baseConfig(i)
+						cfg.Subject.Key = fmt.Sprintf("subject-%d", i)
+						g, _ := MustSucceed2(c.OpenGate(cfg))
+						g.Release()
+					}
+				}()
+				go func() {
+					defer wg.Done()
+					for range 500 {
+						c.LeadingState()
+					}
+				}()
+				wg.Wait()
 			})
 		})
 	})

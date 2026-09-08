@@ -25,7 +25,9 @@ import { Frame } from "@/framer/frame";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 import { type Streamer, streamerConfigZ } from "@/framer/streamer";
 import {
+  createSeverableProxy,
   createTestClient,
+  FAST_RETRY,
   newIndexedPair,
   newVirtualBoolChannel,
   newVirtualChannel,
@@ -275,13 +277,11 @@ describe("Streamer", () => {
         });
         try {
           const startTime = Date.now();
-          // Write data rapidly
           for (let i = 0; i < 10; i++) {
             await writer.write(ch.key, new Float64Array([i]));
             await sleep.sleep(TimeSpan.milliseconds(5));
           }
 
-          // Read frames - should be throttled
           const receivedFrames: Frame[] = [];
           const timeout = Date.now() + 500;
           while (Date.now() < timeout)
@@ -340,7 +340,6 @@ describe("Streamer", () => {
         try {
           await writer.write(ch.key, new Float64Array([1, 2, 3, 4, 5, 6]));
           const d = await streamer.read();
-          // Should be downsampled to [1, 3, 5] and throttled
           expect(Array.from(d.get(ch.key))).toEqual([1, 3, 5]);
         } finally {
           await writer.close();
@@ -351,14 +350,12 @@ describe("Streamer", () => {
 
     describe("calculations", () => {
       test("basic calculated channel streaming", async () => {
-        // Create a timestamp index channel
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
-        // Create source channels with the timestamp index
         const [channelA, channelB] = await client.channels.create([
           {
             name: id.create(),
@@ -372,7 +369,6 @@ describe("Streamer", () => {
           },
         ]);
 
-        // Create calculated channel that adds the two source channels
         const calcChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
@@ -380,11 +376,9 @@ describe("Streamer", () => {
           expression: `return ${channelA.name} + ${channelB.name}`,
         });
 
-        // Set up streamer to listen for calculated results
         const streamer = await client.openStreamer(calcChannel.key);
         await sleep.sleep(TimeSpan.milliseconds(10));
 
-        // Write test data
         const startTime = TimeStamp.now();
         const writer = await client.openWriter({
           start: startTime,
@@ -399,10 +393,8 @@ describe("Streamer", () => {
             [channelB.key]: new Float64Array([2.5]),
           });
 
-          // Read from streamer
           const frame = await streamer.read();
 
-          // Verify calculated results
           const calcData = Array.from(frame.get(calcChannel.key));
           expect(calcData).toEqual([5.0]);
         } finally {
@@ -412,21 +404,18 @@ describe("Streamer", () => {
       });
 
       test("calculated channel with constant", async () => {
-        // Create an index channel for timestamps
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
-        // Create base channel with index
         const baseChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
           index: timeChannel.key,
         });
 
-        // Create calculated channel that adds 5
         const calcChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
@@ -465,21 +454,18 @@ describe("Streamer", () => {
       });
 
       test("calculated channel with multiple operations", async () => {
-        // Create timestamp channel
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
-        // Create source channels
         const names = [id.create(), id.create()];
         const [channelA, channelB] = await client.channels.create([
           { name: names[0], dataType: DataType.FLOAT64, index: timeChannel.key },
           { name: names[1], dataType: DataType.FLOAT64, index: timeChannel.key },
         ]);
 
-        // Create calculated channel with multiple operations
         const calcChannel = await client.channels.create({
           name: id.create(),
           dataType: DataType.FLOAT64,
@@ -612,6 +598,148 @@ describe("Streamer", () => {
       return this;
     }
   }
+
+  // Pins silent-death detection on /frame/stream: the Core emits keep-alive responses
+  // on request, and the client fails a silent read with Unreachable instead of hanging
+  // forever, which the hardened streamer turns into a reconnect.
+  describe("keep alive", () => {
+    // The Core's minimum accepted cadence, so the specs pin the fastest detection a
+    // client can actually get.
+    const KEEP_ALIVE = TimeSpan.seconds(2);
+    // KEEP_ALIVE_DEADLINE_FACTOR x KEEP_ALIVE: how long a read may stay silent once
+    // armed.
+    const DEADLINE = TimeSpan.seconds(6);
+    // One keep-alive interval plus slack, so the client has seen one and armed.
+    const ARMED = TimeSpan.milliseconds(2500);
+    // Covers a full deadline trip plus the reconnect that follows it.
+    const POLL = { timeout: DEADLINE.milliseconds * 2 };
+
+    const write = async (ch: channel.Channel, values: number[]): Promise<void> => {
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: ch.key,
+      });
+      try {
+        await writer.write(ch.key, new Float64Array(values));
+      } finally {
+        await writer.close();
+      }
+    };
+
+    it("should keep keep-alives out of the frames a streamer serves", async () => {
+      const ch = await newVirtualChannel(client);
+      const streamer = await client.openStreamer({
+        channels: ch.key,
+        keepAlive: KEEP_ALIVE,
+      });
+      try {
+        // Let several keep-alives queue up so the read has to skip past them.
+        await sleep.sleep(KEEP_ALIVE.mult(2.5));
+        await write(ch, [1, 2, 3]);
+        const frame = await streamer.read();
+        expect(Array.from(frame.get(ch.key))).toEqual([1, 2, 3]);
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("should reject an interval below the Core's minimum", async () => {
+      const ch = await newVirtualChannel(client);
+      await expect(
+        client.openStreamer({ channels: ch.key, keepAlive: TimeSpan.seconds(1) }),
+      ).rejects.toThrow("keep_alive: must be greater than or equal to 2s");
+    });
+
+    it("should reject a silent read with Unreachable after the deadline", async () => {
+      const proxy = await createSeverableProxy();
+      try {
+        const proxied = createTestClient({ port: proxy.port });
+        const ch = await newVirtualChannel(client);
+        const streamer = await proxied.openStreamer({
+          channels: ch.key,
+          keepAlive: KEEP_ALIVE,
+        });
+        // Receive at least one keep-alive so the deadline is armed.
+        await sleep.sleep(ARMED);
+        expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+        const started = performance.now();
+        await expect(streamer.read()).rejects.toSatisfy(
+          (exc) =>
+            Unreachable.matches(exc) &&
+            exc.message === `streamer received no response for ${DEADLINE.toString()}`,
+        );
+        // The deadline must actually elapse: an instant rejection would mean the
+        // deadline armed wrong, not that silence was detected.
+        expect(performance.now() - started).toBeGreaterThanOrEqual(
+          DEADLINE.milliseconds - 50,
+        );
+        streamer.close();
+      } finally {
+        await proxy.close();
+      }
+    }, 30_000);
+
+    it("should reconnect and resume streaming after a silent death", async () => {
+      const proxy = await createSeverableProxy();
+      try {
+        const proxied = createTestClient({ port: proxy.port });
+        const ch = await newVirtualChannel(client);
+        const onDrop = vi.fn();
+        const onReopen = vi.fn();
+        const hardened = await HardenedStreamer.open(
+          async (cfg) => await proxied.openStreamer(cfg),
+          { channels: ch.key, keepAlive: KEEP_ALIVE },
+          FAST_RETRY,
+          onReopen,
+          onDrop,
+        );
+        try {
+          await write(ch, [1]);
+          expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
+          await sleep.sleep(ARMED);
+          expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+          // The proxy still forwards new connections, so the deadline trip inside this
+          // read reconnects and the read stays pending for the next frame.
+          const pending = hardened.read();
+          await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
+          expect(Unreachable.matches(onDrop.mock.calls[0][0])).toBe(true);
+          await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
+          await write(ch, [2]);
+          expect(Array.from((await pending).get(ch.key))).toEqual([2]);
+        } finally {
+          hardened.close();
+        }
+      } finally {
+        await proxy.close();
+      }
+    }, 30_000);
+
+    it("should leave a silent read pending when keep-alive is disabled", async () => {
+      const proxy = await createSeverableProxy();
+      try {
+        const proxied = createTestClient({ port: proxy.port });
+        const ch = await newVirtualChannel(client);
+        const streamer = await proxied.openStreamer({
+          channels: ch.key,
+          keepAlive: TimeSpan.ZERO,
+        });
+        await sleep.sleep(TimeSpan.milliseconds(250));
+        expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+        // Without keep-alives the deadline never arms, which is also how a client
+        // behaves against a Core that predates them: the read hangs, as before.
+        const pending = streamer.read();
+        pending.catch(() => {});
+        const result = await Promise.race([
+          pending.then(() => "settled"),
+          sleep.sleep(TimeSpan.seconds(1)).then(() => "pending"),
+        ]);
+        expect(result).toEqual("pending");
+        streamer.close();
+      } finally {
+        await proxy.close();
+      }
+    });
+  });
 
   describe("hardened", () => {
     it("should correctly call the underlying streamer methods", async () => {
@@ -963,6 +1091,77 @@ describe("Streamer", () => {
 
       await hardened.update([2, 3]);
       expect(openerMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not leak a stream when an update races a reconnect", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const streamer2 = new MockStreamer();
+      streamer2.read = async () => await new Promise<never>(() => {});
+      const pendingOpens: ((s: Streamer) => void)[] = [];
+      let opens = 0;
+      const onDrop = vi.fn();
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((resolve) => pendingOpens.push(resolve));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+        undefined,
+        onDrop,
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // Age the stream past stableAfter so the reconnect skips the backoff sleep.
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      void hardened.read().catch(() => {});
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]);
+      await sleep.sleep(TimeSpan.milliseconds(20));
+      expect(opens).toBe(2);
+      pendingOpens[0](streamer2);
+      await updateP;
+      expect(streamer2.updateMock).toHaveBeenCalledWith([1, 2]);
+      expect(opens).toBe(2);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      hardened.close();
+      expect(streamer1.closeMock).toHaveBeenCalled();
+      expect(streamer2.closeMock).toHaveBeenCalled();
+    });
+
+    it("should reject every joiner when a shared reconnect fails", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      const pendingOpens: ((e: Error) => void)[] = [];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          return await new Promise<Streamer>((_, reject) => pendingOpens.push(reject));
+        },
+        { channels: [1] },
+        { maxInterval: TimeSpan.milliseconds(5), jitter: 0 },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      const readP = hardened.read().catch((e: unknown) => e);
+      await expect.poll(() => opens).toBe(2);
+      const updateP = hardened.update([1, 2]).catch((e: unknown) => e);
+      const denied = new AccessDeniedError("no permission to stream");
+      pendingOpens[0](denied);
+      expect(await readP).toBe(denied);
+      expect(await updateP).toBe(denied);
+      hardened.close();
     });
   });
 

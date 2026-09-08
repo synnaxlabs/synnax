@@ -11,7 +11,7 @@
       "name": "fixture_opc_pressure",
       "node_id": "NS=2;S=fixture.node.pressure",
       "node_name": "FixturePressureNode",
-      "use_as_index": false
+      "is_index": false
     },
     {
       "channel": 6020,
@@ -21,7 +21,7 @@
       "name": "fixture_opc_timestamp",
       "node_id": "NS=2;S=fixture.node.timestamp",
       "node_name": "FixtureTimestampNode",
-      "use_as_index": true
+      "is_index": true
     }
   ],
   "data_saving_disabled": true,

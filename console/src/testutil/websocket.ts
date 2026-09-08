@@ -15,13 +15,13 @@ import { WebSocket } from "ws";
 // the "open" event it builds a bare `new Event(...)` resolved against jsdom's replaced
 // global `Event`, which the native base then rejects ("the 'event' argument must be an
 // instance of Event"). This breaks every test that opens a real WebSocket against a
-// live cluster, and cannot be reconciled at the global level because jsdom's DOM nodes
+// live Core, and cannot be reconciled at the global level because jsdom's DOM nodes
 // need that same jsdom `Event`.
 //
 // The `ws` package implements its own event handling with plain event objects rather
 // than the native `EventTarget`/`Event` pair, so it is immune to the realm mismatch.
 // Swapping it in for the global `WebSocket` in tests lets freighter's WebSocket client
-// talk to a live cluster while leaving jsdom's DOM untouched.
+// talk to a live Core while leaving jsdom's DOM untouched.
 //
 // This is a permanent global assignment, not `vi.stubGlobal` — a stub reverts to the
 // crashing native WebSocket at every file boundary, and a connection whose handshake is

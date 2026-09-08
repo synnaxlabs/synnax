@@ -112,7 +112,10 @@ class Checker:
 
     def stop(self) -> None:
         self._stop_event.set()
-        self._thread.join()
+        # A GC-triggered finalizer can run stop() on the polling thread itself, and
+        # a thread cannot join itself.
+        if threading.current_thread() is not self._thread:
+            self._thread.join()
 
     def check(self) -> State:
         with self._lock:

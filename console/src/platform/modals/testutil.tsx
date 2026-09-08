@@ -42,7 +42,7 @@ import {
 // stack needs a Redux Provider even though modals themselves live in a separate store.
 const store = configureStore({
   reducer: Session.reducer,
-  preloadedState: deep.copy(Session.ZERO_STATE),
+  preloadedState: deep.freeze(deep.copy(Session.ZERO_STATE)),
 });
 
 const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildren> => {
@@ -59,9 +59,9 @@ const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildr
 };
 
 /**
- * The provider stack every modal spec renders within: the proven Pluto-rendering
- * Synnax wrapper (with a null client, since modals never touch the cluster), a Redux
- * Provider backing the error Boundary, and the per-window modal store Provider.
+ * The provider stack every modal spec renders within: the proven Pluto-rendering Synnax
+ * wrapper (with a null client, since modals never touch the Core), a Redux Provider
+ * backing the error Boundary, and the per-window modal store Provider.
  */
 export const Wrapper = createWrapper();
 
@@ -113,7 +113,7 @@ export const closeOf = (
     .close;
 
 export interface RenderModalOpenerOptions {
-  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -121,18 +121,21 @@ export interface RenderModalOpenerOptions {
   additionalRegistry?: aether.ComponentRegistry;
 }
 
-export interface ModalOpenerHandle<R> extends RenderResult {
+export interface ModalOpenerHandle<R> {
   store: TestStore;
+  /** The DOM root modals portal into. */
+  baseElement: HTMLElement;
   /** The value returned by the most recent opener invocation. */
   result: () => R | undefined;
   /** Invokes the opener again (e.g. after the modal was closed). */
   reopen: () => void;
+  unmount: () => void;
 }
 
 /**
- * Renders a modal-opener hook inside the full console provider stack with a mounted
- * {@link Modals.Stack}, invokes the opener with args, and returns the render result,
- * backing store, and the opener's return value (a promise for prompt-style hooks).
+ * Mounts a modal-opener hook inside the full console provider stack with a live
+ * {@link Modals.Stack}, invokes the opener with args, and returns the backing store
+ * plus the opener's return value (a promise for prompt-style hooks).
  */
 export const renderModalOpener = async <Args extends unknown[], R>(
   useOpen: () => (...args: Args) => R,
@@ -140,33 +143,39 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   options: RenderModalOpenerOptions = {},
 ): Promise<ModalOpenerHandle<R>> => {
   const { client = null, preloadedState, store, additionalRegistry } = options;
-  const { wrapper, store: resolvedStore } = await createConsoleWrapper({
+  const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     preloadedState,
     store,
     additionalRegistry,
   });
-  const box: { current?: R } = {};
-  const Harness = (): ReactElement => {
-    const open = useOpen();
-    return <button onClick={() => (box.current = open(...args))}>open modal</button>;
-  };
-  Harness.displayName = "ModalOpenerHarness";
-  const rendered = render(
-    <Triggers.Provider>
-      <Harness />
-      <Modals.Stack />
-    </Triggers.Provider>,
-    { wrapper },
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Triggers.Provider>
+        {children}
+        <Modals.Stack />
+      </Triggers.Provider>
+    </Console>
   );
-  const reopen = () =>
-    fireEvent.click(screen.getByRole("button", { name: "open modal" }));
-  // Modal content that suspends is discarded when it does so inside a synchronous act
-  // scope, so the opening click needs an awaited one.
+  const { result, unmount } = renderHook(useOpen, { wrapper });
+  const box: { current?: R } = {};
+  const reopen = () => {
+    act(() => {
+      box.current = result.current(...args);
+    });
+  };
+  // Modal content that suspends is discarded when it opens inside a synchronous act
+  // scope, so the first open needs an awaited one.
   await act(async () => {
-    reopen();
+    box.current = result.current(...args);
   });
-  return { ...rendered, store: resolvedStore, result: () => box.current, reopen };
+  return {
+    store: resolvedStore,
+    baseElement: document.body,
+    result: () => box.current,
+    reopen,
+    unmount,
+  };
 };
 
 export interface OpenModalOptions<P> {
@@ -176,9 +185,9 @@ export interface OpenModalOptions<P> {
 
 /**
  * Opens the given modal-opener hook inside the full console provider stack with a
- * mounted modal stack, and returns the render result plus the console store. Pass a real
- * client to exercise the enabled/save path, or omit it (null) to exercise the no-cluster
- * branch.
+ * mounted modal stack, and returns the render result plus the console store. Pass a
+ * real client to exercise the enabled/save path, or omit it (null) to exercise the
+ * no-Core branch.
  */
 export const openModal = async <P,>(
   useOpen: () => Modals.Opener<P>,
@@ -187,6 +196,18 @@ export const openModal = async <P,>(
   await renderModalOpener(useOpen as () => (params?: P) => void, [params], {
     client,
   });
+
+/**
+ * Presses the Ctrl+Enter save shortcut through the triggers provider. The provider
+ * identifies keys by KeyboardEvent.code and treats a modifier as a held key rather than
+ * an event flag, and a button's trigger fires on release.
+ */
+export const pressSaveTrigger = (): void => {
+  fireEvent.keyDown(window, { key: "Control", code: "ControlLeft" });
+  fireEvent.keyDown(window, { code: "Enter" });
+  fireEvent.keyUp(window, { code: "Enter" });
+  fireEvent.keyUp(window, { key: "Control", code: "ControlLeft" });
+};
 
 /**
  * Finds the rendered button whose subtree contains the given text. Pluto buttons nest
@@ -216,14 +237,11 @@ export const findLastButton = (text: string): HTMLButtonElement => {
   return btn;
 };
 
-/**
- * Finds the icon-only dismiss button a modal Header renders (the only button in the
- * document whose subtree contains no text).
- */
+/** Finds the icon-only dismiss button a modal Header renders. */
 export const findDismissButton = (): HTMLButtonElement => {
   const btn = screen
     .getAllByRole("button")
-    .find((b) => (b.textContent ?? "").trim() === "");
+    .find((b) => b.getAttribute("aria-label") === "Close");
   if (btn == null) throw new Error("modal dismiss button not found");
   return btn as HTMLButtonElement;
 };

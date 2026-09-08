@@ -23,6 +23,9 @@ import {
   setNodePosition,
 } from "@/schematic/actions.gen";
 
+// Must match the pluto groupBox symbol's config variant.
+const GROUP_BOX_VARIANT = "groupBox";
+
 const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.schematic);
@@ -83,16 +86,24 @@ const handlers: Handlers = {
       oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
-    return {
-      inverse: [
-        setNode(
-          oldConfig != null
-            ? { node: oldNode, config: oldConfig }
-            : { node: oldNode, config: undefined },
-        ),
-      ],
-      targets: [payload.key],
-    };
+    const inverse: Action[] = [
+      setNode(
+        oldConfig != null
+          ? { node: oldNode, config: oldConfig }
+          : { node: oldNode, config: undefined },
+      ),
+    ];
+    const targets = [payload.key];
+    for (const [key, config] of Object.entries(state.configs)) {
+      if (config?.variant !== GROUP_BOX_VARIANT) continue;
+      const members = config.members;
+      if (!Array.isArray(members) || !members.includes(payload.key)) continue;
+      const oldMembers = actions.snapshotDraft(members);
+      config.members = members.filter((m) => m !== payload.key);
+      inverse.push(setConfig({ key, config: { members: oldMembers } }));
+      targets.push(key);
+    }
+    return { inverse, targets };
   },
   addEdge: (state, payload) => {
     if (state.edges.some((e) => e.key === payload.edge.key))
@@ -114,12 +125,11 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  // The inverse of SetConfig is imperfect for keys the action newly
-  // introduces: SetConfig only merges, so it cannot remove keys that did not
-  // previously exist. The inverse here restores values for keys that DID
-  // exist before the merge; keys added by the action remain on undo as
-  // phantom fields. A future ReplaceConfig action can close the gap by
-  // enabling wholesale replacement.
+  // The inverse of SetConfig is imperfect for keys the action newly introduces:
+  // SetConfig only merges, so it cannot remove keys that did not previously exist. The
+  // inverse here restores values for keys that DID exist before the merge; keys added
+  // by the action remain on undo as phantom fields. A future ReplaceConfig action can
+  // close the gap by enabling wholesale replacement.
   setConfig: (state, payload) => {
     const existingRaw = state.configs[payload.key];
     if (existingRaw != null) {
@@ -157,11 +167,10 @@ export const createOf = (action: Action) =>
 
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";
-  // A drag dispatches a stream of `set_node_position` per frame, plus
-  // `set_config` companions synthesized by augmentWithEdgeSegments for any
-  // affected edges. Both shapes are part of one user gesture and must coalesce
-  // together; classify them all as "move" so the per-kind coalesce window
-  // collapses them into a single undoable.
+  // A drag dispatches a stream of `set_node_position` per frame, plus `set_config`
+  // companions synthesized by augmentWithEdgeSegments for any affected edges. Both
+  // shapes are part of one user gesture and must coalesce together; classify them all
+  // as "move" so the per-kind coalesce window collapses them into a single undoable.
   const hasMove = actions.some((a) => a.type === "set_node_position");
   const onlyMoveOrSegment = actions.every(
     (a) => a.type === "set_node_position" || a.type === "set_config",

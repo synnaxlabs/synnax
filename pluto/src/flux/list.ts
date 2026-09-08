@@ -38,15 +38,18 @@ import { Synnax } from "@/synnax";
 // Bound at module scope: hooks bind `query` to the caller's params object.
 const { Deleted, isLive } = query;
 
+/** Reads one entry, or many at once, out of a list query's results. */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (key: K): E | undefined;
   (keys: K[]): E[];
 }
 
+/** Options for a list retrieval. Append for paging, replace for a new search. */
 export interface AsyncListOptions extends query.FetchOptions {
   mode?: "append" | "replace";
 }
 
+/** Return value for a list hook. Spread it into a {@link List.Frame}. */
 export type UseListReturn<
   Query extends query.Params,
   K extends record.Key,
@@ -410,11 +413,10 @@ export const createList =
       ((key?: Key | Key[]) => {
         if (Array.isArray(key))
           return key.map((k) => getItem(k)).filter((v) => v != null);
-        // Zero-value keys that are not null or undefined are common as
-        // initialized fields in various data structures ("", 0, etc.).
-        // A 'zero-value' is never valid as a key in Synnax, and a simple
-        // null check would result in excessive server refetches for
-        // keys we already know are invalid, so we do a full check
+        // Zero-value keys that are not null or undefined are common as initialized
+        // fields in various data structures ("", 0, etc.). A 'zero-value' is never
+        // valid as a key in Synnax, and a simple null check would result in excessive
+        // server refetches for keys we already know are invalid, so we do a full check
         // for a zero-value instead.
         if (primitive.isZero(key)) return undefined;
         const res = dataRef.current.get(key);

@@ -14,7 +14,7 @@
 #include <string>
 
 #include "client/cpp/label/types.gen.h"
-#include "x/cpp/color/json.gen.h"
+#include "x/cpp/color/color.h"
 #include "x/cpp/json/json.h"
 
 namespace synnax::label {

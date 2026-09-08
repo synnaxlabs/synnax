@@ -150,7 +150,7 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Scale:           26.5,
-				ScaleStroke:     true,
+				StrokeScaled:    true,
 				PreviewViewport: new(spatial.Viewport{Zoom: 29.5, Position: spatial.XY{X: 31.5, Y: 32.5}}),
 			}),
 			Entry("zero values", v2.Spec{
@@ -159,7 +159,7 @@ var _ = Describe("Codec", func() {
 				Variant:         "",
 				Handles:         nil,
 				Scale:           0,
-				ScaleStroke:     false,
+				StrokeScaled:    false,
 				PreviewViewport: nil,
 			}),
 			Entry("empty collections", v2.Spec{
@@ -168,7 +168,7 @@ var _ = Describe("Codec", func() {
 				Variant:         "test_3",
 				Handles:         []v2.Handle{},
 				Scale:           5.5,
-				ScaleStroke:     false,
+				StrokeScaled:    false,
 				PreviewViewport: new(spatial.Viewport{Zoom: 8.5, Position: spatial.XY{X: 10.5, Y: 11.5}}),
 			}),
 		)
@@ -259,7 +259,7 @@ var _ = Describe("Codec", func() {
 						},
 					},
 					Scale:           21.5,
-					ScaleStroke:     false,
+					StrokeScaled:    false,
 					PreviewViewport: new(spatial.Viewport{Zoom: 24.5, Position: spatial.XY{X: 26.5, Y: 27.5}}),
 				},
 			}),
@@ -272,7 +272,7 @@ var _ = Describe("Codec", func() {
 					Variant:         "",
 					Handles:         nil,
 					Scale:           0,
-					ScaleStroke:     false,
+					StrokeScaled:    false,
 					PreviewViewport: nil,
 				},
 			}),
@@ -371,7 +371,7 @@ func BenchmarkEncodeDecodeSpec(b *testing.B) {
 			},
 		},
 		Scale:           26.5,
-		ScaleStroke:     true,
+		StrokeScaled:    true,
 		PreviewViewport: new(spatial.Viewport{Zoom: 29.5, Position: spatial.XY{X: 31.5, Y: 32.5}}),
 	}
 	w := orc.NewWriter(0)
@@ -458,7 +458,7 @@ func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 				},
 			},
 			Scale:           21.5,
-			ScaleStroke:     false,
+			StrokeScaled:    false,
 			PreviewViewport: new(spatial.Viewport{Zoom: 24.5, Position: spatial.XY{X: 26.5, Y: 27.5}}),
 		},
 	}
@@ -647,7 +647,7 @@ func FuzzDecodeSpec(f *testing.F) {
 				},
 			},
 			Scale:           26.5,
-			ScaleStroke:     true,
+			StrokeScaled:    true,
 			PreviewViewport: new(spatial.Viewport{Zoom: 29.5, Position: spatial.XY{X: 31.5, Y: 32.5}}),
 		}
 		w := orc.NewWriter(0)
@@ -663,7 +663,7 @@ func FuzzDecodeSpec(f *testing.F) {
 			Variant:         "",
 			Handles:         nil,
 			Scale:           0,
-			ScaleStroke:     false,
+			StrokeScaled:    false,
 			PreviewViewport: nil,
 		}
 		w := orc.NewWriter(0)
@@ -679,7 +679,7 @@ func FuzzDecodeSpec(f *testing.F) {
 			Variant:         "test_3",
 			Handles:         []v2.Handle{},
 			Scale:           5.5,
-			ScaleStroke:     false,
+			StrokeScaled:    false,
 			PreviewViewport: new(spatial.Viewport{Zoom: 8.5, Position: spatial.XY{X: 10.5, Y: 11.5}}),
 		}
 		w := orc.NewWriter(0)
@@ -818,7 +818,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 					},
 				},
 				Scale:           21.5,
-				ScaleStroke:     false,
+				StrokeScaled:    false,
 				PreviewViewport: new(spatial.Viewport{Zoom: 24.5, Position: spatial.XY{X: 26.5, Y: 27.5}}),
 			},
 		}
@@ -838,7 +838,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 				Variant:         "",
 				Handles:         nil,
 				Scale:           0,
-				ScaleStroke:     false,
+				StrokeScaled:    false,
 				PreviewViewport: nil,
 			},
 		}

@@ -17,7 +17,7 @@ import { renderPalette } from "@/feature/command/testutil";
 const command = (
   key: string,
   name: string,
-  opts: Partial<Pick<Command.CreateParams, "useVisible" | "sortOrder">> = {},
+  opts: Partial<Pick<Command.CreateParams, "useVisible">> = {},
 ): Command.Command =>
   Command.create({
     key,
@@ -48,18 +48,15 @@ describe("Command.List", () => {
     await waitFor(() => expect(screen.getByText("No commands found")).toBeTruthy());
   });
 
-  it("should order commands by sortOrder ahead of their name", async () => {
+  it("should order commands by name", async () => {
     const { openCommandPalette } = await renderPalette({
-      commands: [
-        command("z", "Zeta", { sortOrder: 1 }),
-        command("a", "Alpha", { sortOrder: 2 }),
-      ],
+      commands: [command("z", "Zeta"), command("a", "Alpha")],
     });
     await openCommandPalette();
-    const zeta = await screen.findByText("Zeta");
-    const alpha = screen.getByText("Alpha");
+    const alpha = await screen.findByText("Alpha");
+    const zeta = screen.getByText("Zeta");
     expect(
-      zeta.compareDocumentPosition(alpha) & Node.DOCUMENT_POSITION_FOLLOWING,
+      alpha.compareDocumentPosition(zeta) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 });

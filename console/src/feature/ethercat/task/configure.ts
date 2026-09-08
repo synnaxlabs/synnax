@@ -47,7 +47,7 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
       `All slaves must be on the same network. Found: ${networks.join(", ")}`,
     );
   if (networks.length === 0 || !networks[0])
-    throw new Error("No valid network found for selected slaves");
+    throw new Error("No network found for the selected slaves");
 
   const channelsBySlaveKey = new Map<string, C[]>();
   for (const ch of channels) {

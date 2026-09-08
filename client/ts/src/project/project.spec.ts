@@ -11,6 +11,9 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
+import { group } from "@/group";
+import { log } from "@/log";
+import { ontologyID } from "@/project/types.gen";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -120,6 +123,127 @@ describe("Project", () => {
       expect(Object.keys(layout)).toContain("snake_case_key");
       expect(Object.keys(layout)).not.toContain("camel_case_key");
       expect(Object.keys(layout)).not.toContain("pascal_case_key");
+    });
+  });
+  describe("export", () => {
+    // Zip entry names are stored uncompressed, so the raw archive names the bundle's
+    // files without the spec needing a zip reader.
+    const download = async (key: string): Promise<string> => {
+      const stream = await client.projects.export(key, { encoding: "JSON" });
+      return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+    };
+
+    test("export documents and panels as a zip bundle", async () => {
+      const proj = await client.projects.create({ name: `export-${id.create()}` });
+      const l = await client.logs.create(proj.key, { name: "Metrics Log" });
+      await client.panels.create({
+        key: uuid.create(),
+        name: "Controls",
+        parent: ontologyID(proj.key),
+        root: {
+          variant: "leaf",
+          tabs: [
+            {
+              key: uuid.create(),
+              variant: "resource",
+              resource: log.ontologyID(l.key),
+            },
+          ],
+        },
+      });
+      const archive = await download(proj.key);
+      expect(archive.startsWith("PK")).toBe(true);
+      expect(archive).toContain("manifest.json");
+      expect(archive).toContain("Metrics Log.json");
+      expect(archive).toContain("Controls.json");
+    });
+
+    test("grouped members export into directories", async () => {
+      const proj = await client.projects.create({ name: `export-${id.create()}` });
+      const g = await client.groups.create({
+        parent: ontologyID(proj.key),
+        name: "Propulsion",
+      });
+      const l = await client.logs.create(proj.key, { name: "Pressure" });
+      await client.ontology.moveChildren(
+        ontologyID(proj.key),
+        group.ontologyID(g.key),
+        log.ontologyID(l.key),
+      );
+      const archive = await download(proj.key);
+      expect(archive).toContain("Propulsion/Pressure.json");
+    });
+
+    test("suffixes the second of two members taking one file name", async () => {
+      const proj = await client.projects.create({ name: `export-${id.create()}` });
+      await client.logs.create(proj.key, { name: "Pressure" });
+      await client.logs.create(proj.key, { name: "pressure" });
+      const archive = await download(proj.key);
+      expect(archive).toContain("Pressure.json");
+      expect(archive).toContain("pressure (1).json");
+    });
+  });
+  describe("import", () => {
+    test("imports an exported bundle back as a fresh project", async () => {
+      const src = await client.projects.create({ name: `import-${id.create()}` });
+      const l = await client.logs.create(src.key, { name: "Metrics" });
+      await client.panels.create({
+        key: uuid.create(),
+        name: "Controls",
+        parent: ontologyID(src.key),
+        root: {
+          variant: "leaf",
+          tabs: [
+            {
+              key: uuid.create(),
+              variant: "resource",
+              resource: log.ontologyID(l.key),
+            },
+          ],
+        },
+      });
+      const stream = await client.projects.export(src.key, { encoding: "JSON" });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.projects.import(bundle, {
+        fileName: `${src.name}.zip`,
+      });
+      expect(imported.key).not.toEqual(src.key);
+      expect(imported.name).toEqual(src.name);
+      const children = await client.ontology.retrieveChildren(ontologyID(imported.key));
+      expect(children.map(({ name }) => name).sort()).toEqual(["Controls", "Metrics"]);
+    });
+
+    test("recreates group directories as groups", async () => {
+      const src = await client.projects.create({ name: `import-${id.create()}` });
+      const g = await client.groups.create({
+        parent: ontologyID(src.key),
+        name: "Propulsion",
+      });
+      const l = await client.logs.create(src.key, { name: "Pressure" });
+      await client.ontology.moveChildren(
+        ontologyID(src.key),
+        group.ontologyID(g.key),
+        log.ontologyID(l.key),
+      );
+      const stream = await client.projects.export(src.key, { encoding: "JSON" });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.projects.import(bundle, {
+        fileName: `${src.name}.zip`,
+      });
+      const children = await client.ontology.retrieveChildren(ontologyID(imported.key));
+      expect(children).toHaveLength(1);
+      expect(children[0].name).toEqual("Propulsion");
+      const grandChildren = await client.ontology.retrieveChildren(children[0].id);
+      expect(grandChildren.map(({ name }) => name)).toEqual(["Pressure"]);
+    });
+
+    test("rejects a bundle without a manifest", async () => {
+      // The 22-byte end-of-central-directory record alone: a valid, empty archive.
+      const emptyArchive = new Uint8Array(22);
+      emptyArchive.set([0x50, 0x4b, 0x05, 0x06]);
+      await expect(
+        client.projects.import(emptyArchive, { fileName: "Empty.zip" }),
+      ).rejects.toThrow("bundle holds no manifest.json");
     });
   });
 });

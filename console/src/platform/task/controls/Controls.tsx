@@ -11,6 +11,7 @@ import { status } from "@synnaxlabs/client";
 import { type Flex, Form } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
+import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useKey } from "@/platform/task/useKey";
@@ -29,6 +30,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
+  const canControl = Framer.useCanCommand();
 
   const handleDeploy = useCallback(() => {
     if (key == null) return;
@@ -44,7 +46,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
       status={taskStatus}
       running={taskStatus.details.running}
       drifted={drifted}
-      snapshot={isSnapshot}
+      hideActions={isSnapshot || !canControl}
       startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
       onDeploy={handleDeploy}
       onStop={handleStop}

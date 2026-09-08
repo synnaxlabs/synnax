@@ -115,13 +115,11 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -223,13 +221,11 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -383,13 +379,11 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -451,13 +445,11 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -534,13 +526,11 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );
@@ -625,13 +615,11 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
         reads
     );
 
-    auto dev = ASSERT_NIL_P(devs->acquire(cfg->conn));
-
     auto wt = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(*cfg)),
+        std::make_unique<WriteTaskSink>(devs, std::move(*cfg)),
         nullptr,
         mock_streamer_factory
     );

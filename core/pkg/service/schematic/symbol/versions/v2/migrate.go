@@ -23,9 +23,17 @@ import (
 // Migration lifts stored symbols out of the untyped v0 shape into the typed v2 shape.
 var Migration = gorp.NewEntryMigration("v2_typed_symbol", migrateSymbol)
 
-func migrateSymbol(_ context.Context, old v0.Symbol) (Symbol, error) {
-	out := Symbol{Key: old.Key, Name: old.Name}
+func migrateSymbol(ctx context.Context, old v0.Symbol) (Symbol, error) {
+	out, err := autoMigrateSymbol(ctx, old)
+	if err != nil {
+		return Symbol{}, err
+	}
 	if len(old.Data) > 0 {
+		// v0 blobs spell the stroke flag for the act rather than the state.
+		if v, ok := old.Data["scale_stroke"]; ok {
+			delete(old.Data, "scale_stroke")
+			old.Data["stroke_scaled"] = v
+		}
 		b, err := msgpack.Marshal(old.Data)
 		if err != nil {
 			return Symbol{}, errors.Wrap(err, "encode v0 symbol data")
@@ -45,7 +53,7 @@ func SpecFromConsole(spec legacy.Spec) Spec {
 		SVG:             spec.SVG,
 		Variant:         spec.Variant,
 		Scale:           spec.Scale,
-		ScaleStroke:     spec.ScaleStroke,
+		StrokeScaled:    spec.ScaleStroke,
 		PreviewViewport: spec.PreviewViewport,
 		States: lo.Map(spec.States, func(s legacy.State, _ int) State {
 			return State{

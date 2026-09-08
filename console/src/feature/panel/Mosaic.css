@@ -29,7 +29,7 @@
         opacity: 0.4;
     }
 
-    /* Collapses Empty.Action's 100% x 100% growing box to a single row under the
+    /* Collapses Empty.Action's 100% x 100% growing box to a compact block under the
        watermark. The .pluto--center repeat outweighs the rule it overrides. */
     .console-mosaic__empty-action.pluto--center {
         width: auto;
@@ -77,8 +77,10 @@
 /* Focus mode reads as a lamp over the pane, matching the exit chip. */
 .console-mosaic.pluto-panel-mosaic--overlaid {
     border-color: var(--pluto-gray-l11-35);
+
     --edge: inset 0 0 0 var(--pluto-border-width) var(--pluto-gray-l11-20);
     --glow: inset 0 0 18px var(--pluto-gray-l11-15);
+
     box-shadow: var(--edge), var(--glow);
     transition:
         border-color 0.15s ease-in-out,
@@ -88,7 +90,7 @@
 /* Must stay unpositioned: a positioned ancestor lifts the panel above the fixed
    canvases, hiding every plot's pixels. */
 .console-panel__host {
-    display: flex;
+    display: block;
     flex: 1 1 0;
     min-width: 0;
     min-height: 0;

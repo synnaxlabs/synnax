@@ -96,8 +96,8 @@
 
 .react-flow__node {
     .pluto-grid__rotate {
-        top: -8rem;
-        left: -8rem;
+        top: -5rem;
+        left: -5rem;
         position: absolute;
         z-index: 30;
         width: 3.5rem;

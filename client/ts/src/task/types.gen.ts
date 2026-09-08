@@ -27,16 +27,16 @@ export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const baseStartConfigZ = keyedConfigZ.extend({
+export const startConfigZ = keyedConfigZ.extend({
   autoStart: z.boolean().default(false),
 });
-export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
+export interface StartConfig extends z.infer<typeof startConfigZ> {}
 
-export const baseScanConfigZ = keyedConfigZ.extend({
+export const scanConfigZ = keyedConfigZ.extend({
   rate: z.number().default(0.2),
   disabled: z.boolean().default(false),
 });
-export interface BaseScanConfig extends z.infer<typeof baseScanConfigZ> {}
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
@@ -90,10 +90,10 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const basePersistConfigZ = baseStartConfigZ.extend({
+export const persistConfigZ = startConfigZ.extend({
   dataSavingDisabled: z.boolean().default(false),
 });
-export interface BasePersistConfig extends z.infer<typeof basePersistConfigZ> {}
+export interface PersistConfig extends z.infer<typeof persistConfigZ> {}
 
 export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });
@@ -101,16 +101,16 @@ export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof statusZ<Data>>
 >;
 
-export const baseReadConfigZ = basePersistConfigZ.extend({
+export const readConfigZ = persistConfigZ.extend({
   sampleRate: z.number().default(10),
   streamRate: z.number().default(5),
 });
-export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
+export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const baseWriteConfigZ = basePersistConfigZ.extend({
+export const writeConfigZ = persistConfigZ.extend({
   device: device.keyZ.default(""),
 });
-export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodType<string>,

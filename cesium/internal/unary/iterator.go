@@ -211,7 +211,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(
+	viewEnd, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
 		i.AutoChunkSize,
@@ -221,17 +221,29 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	if endApprox.Lower.After(i.bounds.End) {
+	if viewEnd.Lower.After(i.bounds.End) {
 		return i.Next(ctx, i.view.Start.Span(i.bounds.End))
 	}
-	i.view.End = endApprox.Lower
+	// A view start between two samples brackets the chunk end. The upper bound is the
+	// first sample past the chunk, so a view ending there holds exactly AutoChunkSize
+	// samples. A stamp that runs out of data reports an unbounded upper instead.
+	i.view.End = viewEnd.Lower
+	if viewEnd.Upper != telem.TimeStampMax {
+		i.view.End = viewEnd.Upper
+	}
 	i.reset(i.view.BoundBy(i.bounds))
 
 	nRemaining := i.AutoChunkSize
 	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
+		domainTR := i.internal.TimeRange()
+		// Domains are ordered, so one starting at or after the view end belongs to the
+		// next chunk. Leave the iterator on it and keep what this chunk already read.
+		if domainTR.Start.AfterEq(i.view.End) {
+			break
+		}
+		if !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Next() {
-				return false
+				break
 			}
 			continue
 		}
@@ -240,10 +252,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		startSample := startApprox.Upper
-		if !startApprox.Exact() && !startApprox.StartExact {
-			startSample = startApprox.Lower
-		}
+		startSample := pickSampleOffset(startApprox)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
@@ -271,7 +280,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 func (i *Iterator) autoPrev(ctx context.Context) bool {
 	i.view.End = i.view.Start
-	startApprox, err := i.idx.Stamp(
+	viewStart, err := i.idx.Stamp(
 		ctx,
 		i.view.Start,
 		-i.AutoChunkSize,
@@ -281,40 +290,51 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	if startApprox.Lower.Before(i.bounds.Start) {
+	if viewStart.Lower.Before(i.bounds.Start) {
 		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
 	}
-	i.view.Start = startApprox.Lower + 1
+	i.view.Start = viewStart.Lower + 1
 	i.reset(i.view.BoundBy(i.bounds))
 	nRemaining := i.AutoChunkSize
 	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
+		domainTR := i.internal.TimeRange()
+		// Domains are ordered, so one ending at or before the view start belongs to the
+		// previous chunk. Leave the iterator on it and keep this chunk's samples.
+		if domainTR.End.BeforeEq(i.view.Start) {
+			break
+		}
+		if !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Prev() {
-				return false
+				break
 			}
 			continue
+		}
+		startApprox, alignment, err := i.approximateStart(ctx)
+		if err != nil {
+			i.err = err
+			return false
 		}
 		endApprox, err := i.approximateEnd(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		endSample := endApprox.Upper
-		if !startApprox.Exact() && !endApprox.StartExact {
-			endSample = endApprox.Lower
-		}
+		endSample := pickSampleOffset(endApprox)
 		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
 		startSample := max(endSample-nRemaining, 0)
+		// approximateStart stamps the alignment at the view start. This chunk may begin
+		// earlier in the domain, so move the alignment back with it.
+		alignment -= telem.Alignment(pickSampleOffset(startApprox) - startSample)
 		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, 0, startOffset, endOffset-startOffset)
+		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false

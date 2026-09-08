@@ -14,9 +14,7 @@ import { type Context } from "@/vis/render/context";
 const errorCompile = (msg: string): Error =>
   new Error(`failed to compile webgl program: ${msg}`);
 
-/**
- * A general purpose compiler and utility container for workign with WebGL programs.
- */
+/** A general purpose compiler and utility container for workign with WebGL programs. */
 export class GLProgram {
   /** The render context used by this program. */
   readonly renderCtx: Context;
@@ -29,9 +27,8 @@ export class GLProgram {
   uniformLocCache = new Map<string, WebGLUniformLocation>();
 
   /**
-   * @constructor compiles the given vertex and fragment shaders under the given
-   * render context into a program.
-   *
+   * @constructor compiles the given vertex and fragment shaders under the given render
+   * context into a program.
    * @param ctx - The render context to use.
    * @param vertShader - The vertex shader code.
    * @param fragShader - The fragment shader code.
@@ -52,22 +49,12 @@ export class GLProgram {
     return (): void => this.renderCtx.gl.useProgram(null);
   }
 
-  /**
-   * Sets a uniform XY coordinate value.
-   *
-   * @param name - The name of the uniform.
-   * @param value - The value to set.
-   */
+  /** Sets a uniform XY coordinate value. */
   uniformXY(name: string, value: xy.Crude): void {
     this.renderCtx.gl.uniform2fv(this.getUniformLoc(name), xy.couple(value));
   }
 
-  /**
-   * Sets a uniform color value.
-   *
-   * @param name - The name of the uniform.
-   * @param value - The value to set.
-   */
+  /** Sets a uniform color value. */
   uniformColor(name: string, value: color.Color): void {
     this.renderCtx.gl.uniform4fv(this.getUniformLoc(name), color.rgba1(value));
   }

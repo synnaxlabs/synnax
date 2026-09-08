@@ -149,14 +149,13 @@ export interface Domain<Key extends record.Key, State extends query.Data, Action
 }
 
 /**
- * The canonical wire shape for a broadcast action frame. The consumer's
- * `schema` must produce this shape (use a zod transform if the server emits
- * differently-named fields). `seq` is a per-key monotonic sequence stamped by
- * the originating server node and is used to skip echoes that are stale
- * relative to the high-water mark — see `applyRemote`. `dispatchKey` is the
- * client-generated batch identifier the originator registered as outstanding
- * before sending; it is used to recognize own echoes race-safely so a
- * redundant reduce can be skipped when no foreign action interleaved.
+ * The canonical wire shape for a broadcast action frame. The consumer's `schema` must
+ * produce this shape (use a zod transform if the server emits differently-named
+ * fields). `seq` is a per-key monotonic sequence stamped by the originating server node
+ * and is used to skip echoes that are stale relative to the high-water mark — see
+ * `applyRemote`. `dispatchKey` is the client-generated batch identifier the originator
+ * registered as outstanding before sending; it is used to recognize own echoes
+ * race-safely so a redundant reduce can be skipped when no foreign action interleaved.
  */
 export interface Frame<Key, Action> {
   key: Key;
@@ -201,19 +200,17 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private readonly params: Required<
     Omit<ControllerParams<Key, State, Action>, "store">
   >;
-  // lastAppliedSeq tracks the highest broadcast sequence number applied for
-  // each key. Echoes whose seq does not exceed this are stale (a fresher
-  // value already overwrote them on the server) and are dropped. A seq of 0
-  // is treated as "unstamped" and always applies — that covers frames from
-  // servers that predate the field.
+  // lastAppliedSeq tracks the highest broadcast sequence number applied for each key.
+  // Echoes whose seq does not exceed this are stale (a fresher value already overwrote
+  // them on the server) and are dropped. A seq of 0 is treated as "unstamped" and
+  // always applies — that covers frames from servers that predate the field.
   private readonly lastAppliedSeq = new Map<Key, number>();
-  // outstandingDispatches tracks per-key dispatches the originator has
-  // applied locally via replay but whose broadcast echo has not yet arrived.
-  // Each entry's `disturbed` flag is flipped to true when a foreign echo
-  // lands during the outstanding window; on own-echo arrival, an entry that
-  // is not disturbed skips the reduce (the local replay was authoritative)
-  // and an entry that is disturbed re-runs to recover from the foreign
-  // overwrite.
+  // outstandingDispatches tracks per-key dispatches the originator has applied locally
+  // via replay but whose broadcast echo has not yet arrived. Each entry's `disturbed`
+  // flag is flipped to true when a foreign echo lands during the outstanding window; on
+  // own-echo arrival, an entry that is not disturbed skips the reduce (the local replay
+  // was authoritative) and an entry that is disturbed re-runs to recover from the
+  // foreign overwrite.
   private readonly outstandingDispatches = new Map<
     Key,
     Map<string, { disturbed: boolean }>
@@ -416,9 +413,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Apply and send the top live undo entry, moving it to the redo stack.
-   * Returns false when nothing is undoable. Rolls back and rethrows on send
-   * failure.
+   * Apply and send the top live undo entry, moving it to the redo stack. Returns false
+   * when nothing is undoable. Rolls back and rethrows on send failure.
    */
   async undo(key: Key, send: SendDispatch<Action>): Promise<boolean> {
     const prepared = this.prepareUndo(key);
@@ -434,9 +430,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Stage actions committed atomically as one undoable entry, registering the
-   * batch as outstanding before the send so the broadcast echo is recognized
-   * as own.
+   * Stage actions committed atomically as one undoable entry, registering the batch as
+   * outstanding before the send so the broadcast echo is recognized as own.
    */
   transaction(
     key: Key,
@@ -539,13 +534,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Apply a remote frame. The frame is dropped if its seq does not exceed the
-   * high-water mark previously applied for this key. If `dispatchKey` matches
-   * an entry the originator registered as outstanding, these actions were
-   * already applied via replay: if no foreign action interleaved during the
-   * outstanding window, skip the reduce; otherwise re-run it to recover from
-   * the foreign overwrite. A foreign frame (one whose dispatchKey is unknown)
-   * always reduces and marks every outstanding own dispatch with a greater
-   * seq as needing recovery.
+   * high-water mark previously applied for this key. If `dispatchKey` matches an entry
+   * the originator registered as outstanding, these actions were already applied via
+   * replay: if no foreign action interleaved during the outstanding window, skip the
+   * reduce; otherwise re-run it to recover from the foreign overwrite. A foreign frame
+   * (one whose dispatchKey is unknown) always reduces and marks every outstanding own
+   * dispatch with a greater seq as needing recovery.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
     if (seq !== 0) {
@@ -574,14 +568,13 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       // Fall through to reduce: a foreign echo overwrote state during the
       // outstanding window, so we must re-apply to recover.
     } else if (bucket != null)
-      // Foreign echo: any outstanding own dispatch represents a local replay
-      // that the server has not yet broadcast back. We don't know each
-      // entry's server-stamped seq yet (the echo carrying it hasn't arrived),
-      // so we can't tell whether the foreign was applied before or after it
-      // on the server — mark every outstanding entry as disturbed. Entries
-      // whose seq turns out to be greater than this foreign's seq genuinely
-      // need recovery; entries whose seq was lower will re-run idempotently
-      // and converge to the same value.
+      // Foreign echo: any outstanding own dispatch represents a local replay that the
+      // server has not yet broadcast back. We don't know each entry's server-stamped
+      // seq yet (the echo carrying it hasn't arrived), so we can't tell whether the
+      // foreign was applied before or after it on the server — mark every outstanding
+      // entry as disturbed. Entries whose seq turns out to be greater than this
+      // foreign's seq genuinely need recovery; entries whose seq was lower will re-run
+      // idempotently and converge to the same value.
       for (const entry of bucket.values()) entry.disturbed = true;
     const current = this.docs.get(key);
     if (current == null) {

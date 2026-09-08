@@ -47,7 +47,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("auth.service")
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 

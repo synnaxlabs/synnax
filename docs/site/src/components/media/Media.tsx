@@ -17,6 +17,8 @@ import {
   useState,
 } from "react";
 
+import { mediaURL } from "@/components/media/url";
+
 interface MediaProps {
   id: string;
   themed?: boolean;
@@ -29,8 +31,6 @@ export interface VideoProps
       DetailedHTMLProps<React.VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
       "id"
     > {}
-
-const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
 const useLiveTheme = (): string => {
   const [theme, setTheme] = useState(
@@ -58,7 +58,7 @@ const useLiveTheme = (): string => {
 
 export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement => {
   const theme = useLiveTheme();
-  const url = `${CDN_ROOT}/${id}${themed ? `-${theme}` : ""}.mp4`;
+  const url = mediaURL(id, "mp4", themed ? theme : undefined);
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -103,9 +103,7 @@ export const Image = ({
   ...rest
 }: ImageProps): ReactElement => {
   const theme = useLiveTheme();
-  let url = `${CDN_ROOT}/${id}`;
-  if (themed) url += `-${theme}`;
-  url += `.${extension}`;
+  const url = mediaURL(id, extension, themed ? theme : undefined);
   return (
     <img
       src={url}

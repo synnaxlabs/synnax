@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useOpenWindow } from "@/feature/panel/useOpenWindow";
+import { OPEN_WINDOW_TRIGGER, useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { Command } from "@/platform/command";
 import { Session } from "@/session";
 
@@ -22,9 +22,11 @@ const useOpenNewWindow = () => {
 
 const OpenWindowCommand = Command.create({
   key: "panel_open_window",
-  name: "Open a new window",
+  name: "Open new window",
   icon: <Icon.OpenInNewWindow />,
   useOnSelect: useOpenNewWindow,
+  useVisible: () => Session.Runtime.ENGINE === "tauri",
+  trigger: OPEN_WINDOW_TRIGGER,
 });
 
 export const COMMANDS = [OpenWindowCommand];

@@ -19,8 +19,8 @@ const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 }
 export const Properties = (): ReactElement => {
   const key = Log.useKey();
   const dispatch = Log.useSingleDispatch();
-  const hideChannelNames = Log.useIsHidingChannelNames();
-  const hideReceiptTimestamp = Log.useIsHidingReceiptTimestamp();
+  const channelNamesHidden = Log.useIsHidingChannelNames();
+  const receiptTimestampHidden = Log.useIsHidingReceiptTimestamp();
   const timestampPrecision = Log.useTimestampPrecision();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
@@ -32,26 +32,26 @@ export const Properties = (): ReactElement => {
 
   const handleShowChannelNamesChange = useCallback(
     (visible: boolean) =>
-      dispatch(log.setHideChannelNames({ hideChannelNames: !visible })),
+      dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible })),
     [dispatch],
   );
 
   const handleShowReceiptTimestampChange = useCallback(
     (visible: boolean) =>
-      dispatch(log.setHideReceiptTimestamp({ hideReceiptTimestamp: !visible })),
+      dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible })),
     [dispatch],
   );
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
-      <Input.Item label="Show Receipt Timestamp">
+      <Input.Item label="Show receipt timestamp">
         <Input.Switch
-          value={!hideReceiptTimestamp}
+          value={!receiptTimestampHidden}
           onChange={handleShowReceiptTimestampChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Receipt Timestamp Precision">
+      <Input.Item label="Receipt timestamp precision">
         <Input.Numeric
           value={timestampPrecision}
           onChange={handlePrecisionChange}
@@ -60,9 +60,9 @@ export const Properties = (): ReactElement => {
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Show Channel Names">
+      <Input.Item label="Show channel names">
         <Input.Switch
-          value={!hideChannelNames}
+          value={!channelNamesHidden}
           onChange={handleShowChannelNamesChange}
           disabled={!hasEditPermission}
         />

@@ -18,6 +18,7 @@ import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState } from "@/select/Context";
 import { Frame, type FrameProps } from "@/select/Frame";
+import { Text } from "@/text";
 
 const [PreviewContext, usePreview] = context.create<boolean>({
   defaultValue: false,
@@ -31,10 +32,21 @@ export interface ButtonsProps<
   extends
     Omit<Flex.BoxProps, "onSelect" | "onChange">,
     Omit<FrameProps<K, E>, "getItem" | "subscribe" | "data"> {
+  /** The selectable keys, in render order. */
   keys: K[] | readonly K[];
+  /** Whether to render the buttons flat and inert, for use inside a preview. */
   preview?: boolean;
 }
 
+/**
+ * A packed row of {@link Button}s acting as one selection. Use it in place of a dropdown
+ * when the options are few and fixed.
+ *
+ * @example
+ * <Select.Buttons keys={MODES} value={mode} onChange={setMode}>
+ *   <Select.Button itemKey="fast">Fast</Select.Button>
+ * </Select.Buttons>
+ */
 export const Buttons = <K extends record.Key = record.Key>({
   keys,
   value,
@@ -42,6 +54,7 @@ export const Buttons = <K extends record.Key = record.Key>({
   allowNone,
   multiple,
   preview = false,
+  children,
   ...rest
 }: ButtonsProps<K>): ReactElement => {
   const listProps = List.useKeysData<K>(keys);
@@ -53,6 +66,7 @@ export const Buttons = <K extends record.Key = record.Key>({
     value,
     onChange,
   } as FrameProps<K, record.Keyed<K>>;
+  const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
   return (
     <Frame<K, record.Keyed<K>>
       closeDialogOnSelect={false}
@@ -60,19 +74,24 @@ export const Buttons = <K extends record.Key = record.Key>({
       {...selectionProps}
     >
       <PreviewContext value={preview}>
-        <Flex.Box pack {...rest} />
+        <Flex.Box pack {...rest}>
+          {preview && isEmpty ? <Text.Text color={8}>None</Text.Text> : children}
+        </Flex.Box>
       </PreviewContext>
     </Frame>
   );
 };
 
+/** Props for {@link Button}. */
 export interface ButtonProps<K extends record.Key = record.Key> extends Omit<
   Base.ToggleProps,
   "onChange" | "value"
 > {
+  /** The key this button selects. */
   itemKey: K;
 }
 
+/** One option inside {@link Buttons}. It toggles on when its `itemKey` is selected. */
 export const Button = <K extends record.Key = record.Key>({
   itemKey,
   className,
@@ -80,6 +99,7 @@ export const Button = <K extends record.Key = record.Key>({
 }: ButtonProps<K>): ReactElement | null => {
   const { selected, onSelect } = useItemState<K>(itemKey);
   const preview = usePreview();
+  if (preview && !selected) return null;
   return (
     <Base.Toggle
       preview={preview}
@@ -87,7 +107,7 @@ export const Button = <K extends record.Key = record.Key>({
       id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
-      className={CSS(
+      className={CSS.cls(
         className,
         CSS.B("select-btn"),
         CSS.selected(selected),

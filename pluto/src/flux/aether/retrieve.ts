@@ -102,6 +102,7 @@ export class Retrieve<Query extends query.Params, Data extends query.Data> {
     void this.fetch({ client: this.client, query: this.query });
   }
 
+  /** Never rejects: a failure is routed to onError and a stale generation dropped. */
   private async fetch(params: RetrieveParams<Query>): Promise<void> {
     const generation = ++this.generation;
     try {

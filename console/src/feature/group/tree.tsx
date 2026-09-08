@@ -10,8 +10,8 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { Access, Flux, Group, Icon, Menu, Tree as PTree } from "@synnaxlabs/pluto";
 
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Group as PlatformGroup } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
@@ -37,7 +37,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     root: rootID,
   });
   const createFromSelection = PlatformGroup.useCreateFromSelection();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const firstResource = getResource(firstID);
   const rename = useRename(props);
@@ -175,7 +175,6 @@ const TreeItem = Tree.createItem({
   type: "group",
   icon: <Icon.Group />,
   canDrop: () => true,
-  // This haul item allows the group to be dragged between nodes in the tree.
   haulItems: ({ id }) => [id],
   ContextMenu: TreeContextMenu,
 });

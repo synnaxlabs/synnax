@@ -187,8 +187,9 @@ func (a ArrayZ) Validate(data any) error {
 // array will be validated according to the item schema.
 func Array(item Schema) ArrayZ {
 	a := ArrayZ{
-		baseZ: baseZ{dataType: ArrayT, expectedType: reflect.TypeFor[[]any]()},
-		item:  item,
+		dataType:     ArrayT,
+		expectedType: reflect.TypeFor[[]any](),
+		item:         item,
 	}
 	a.wrapper = a
 	return a

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, log } from "@synnaxlabs/client";
+import { type channel, DataType, log, type Synnax as Client } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -30,8 +31,10 @@ const entry = (
 ): log.ChannelEntry =>
   log.channelEntryZ.parse({ channel: channelKey, color: color.ZERO, ...overrides });
 
-const renderChannels = (channels: log.ChannelEntry[] = []) =>
-  renderLog(Channels, { log: { channels } });
+const roles = new RoleClients(client);
+
+const renderChannels = (channels: log.ChannelEntry[] = [], as?: Client) =>
+  renderLog(Channels, { log: { channels }, as });
 
 const rowsIn = (result: { container: HTMLElement }) =>
   result.container.querySelectorAll(".console-log__channel-row");
@@ -39,7 +42,7 @@ const rowsIn = (result: { container: HTMLElement }) =>
 describe("log/toolbar/Channels", () => {
   it("renders only the add-channel row when there are no channels", async () => {
     const { result } = await renderChannels();
-    expect(await screen.findByText("Add a channel...")).toBeDefined();
+    expect(await screen.findByText("Add channel")).toBeDefined();
     await waitFor(() => expect(rowsIn(result)).toHaveLength(1));
   });
 
@@ -67,5 +70,25 @@ describe("log/toolbar/Channels", () => {
       );
       expect(removeButtons.length).toBeGreaterThanOrEqual(2);
     });
+  });
+});
+
+describe("log/toolbar/Channels permissions", () => {
+  const isAddRowFrozen = (result: { container: HTMLElement }) =>
+    result.container.querySelector(".console-log__channel-select .pluto--disabled") !=
+    null;
+
+  it("should leave the add row live for a subject who may write the log", async () => {
+    const ch = await createChannel();
+    const { result } = await renderChannels([entry(ch)]);
+    await waitFor(() => expect(rowsIn(result)).toHaveLength(2));
+    await waitFor(() => expect(isAddRowFrozen(result)).toBe(false));
+  });
+
+  it("should freeze the add row for a viewer", async () => {
+    const ch = await createChannel();
+    const { result } = await renderChannels([entry(ch)], await roles.get("Viewer"));
+    await waitFor(() => expect(rowsIn(result)).toHaveLength(2));
+    await waitFor(() => expect(isAddRowFrozen(result)).toBe(true));
   });
 });

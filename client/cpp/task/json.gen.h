@@ -13,10 +13,13 @@
 
 #include <string>
 
+#include "client/cpp/device/key.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::task {
 
@@ -88,6 +91,103 @@ inline x::json::json Command::to_json() const {
     j["key"] = this->key;
     j["config_hash"] = this->config_hash;
     j["args"] = this->args;
+    return j;
+}
+
+inline KeyedConfig KeyedConfig::parse(x::json::Parser parser) {
+    return KeyedConfig{
+        .key = parser.field<x::uuid::UUID>("key", x::uuid::create()),
+    };
+}
+
+inline x::json::json KeyedConfig::to_json() const {
+    x::json::json j;
+    j["key"] = this->key.to_json();
+    return j;
+}
+
+inline StartConfig StartConfig::parse(x::json::Parser parser) {
+    StartConfig result;
+    static_cast<KeyedConfig &>(result) = KeyedConfig::parse(parser);
+    result.auto_start = parser.field<bool>("auto_start", false);
+    return result;
+}
+
+inline x::json::json StartConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: KeyedConfig::to_json().items())
+        j[k] = v;
+    j["auto_start"] = this->auto_start;
+    return j;
+}
+
+inline PersistConfig PersistConfig::parse(x::json::Parser parser) {
+    PersistConfig result;
+    static_cast<StartConfig &>(result) = StartConfig::parse(parser);
+    result.data_saving_disabled = parser.field<bool>("data_saving_disabled", false);
+    return result;
+}
+
+inline x::json::json PersistConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: StartConfig::to_json().items())
+        j[k] = v;
+    j["data_saving_disabled"] = this->data_saving_disabled;
+    return j;
+}
+
+inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
+    ReadConfig result;
+    static_cast<PersistConfig &>(result) = PersistConfig::parse(parser);
+    result.sample_rate = parser.field<::x::telem::Rate>(
+        "sample_rate",
+        ::x::telem::Rate(10)
+    );
+    result.stream_rate = parser.field<::x::telem::Rate>(
+        "stream_rate",
+        ::x::telem::Rate(5)
+    );
+    return result;
+}
+
+inline x::json::json ReadConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: PersistConfig::to_json().items())
+        j[k] = v;
+    j["sample_rate"] = this->sample_rate;
+    j["stream_rate"] = this->stream_rate;
+    return j;
+}
+
+inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
+    WriteConfig result;
+    static_cast<PersistConfig &>(result) = PersistConfig::parse(parser);
+    result.device = parser.field<::synnax::device::Key>("device", "");
+    return result;
+}
+
+inline x::json::json WriteConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: PersistConfig::to_json().items())
+        j[k] = v;
+    j["device"] = this->device;
+    return j;
+}
+
+inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
+    ScanConfig result;
+    static_cast<KeyedConfig &>(result) = KeyedConfig::parse(parser);
+    result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(0.200000));
+    result.disabled = parser.field<bool>("disabled", false);
+    return result;
+}
+
+inline x::json::json ScanConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: KeyedConfig::to_json().items())
+        j[k] = v;
+    j["rate"] = this->rate;
+    j["disabled"] = this->disabled;
     return j;
 }
 

@@ -35,6 +35,7 @@ class Variables {
     std::unordered_map<std::string, std::unordered_map<uint32_t, int64_t>> i64;
     std::unordered_map<std::string, std::unordered_map<uint32_t, float>> f32;
     std::unordered_map<std::string, std::unordered_map<uint32_t, double>> f64;
+    std::unordered_map<std::string, std::unordered_map<uint32_t, bool>> boolean;
     std::unordered_map<std::string, std::unordered_map<uint32_t, std::string>> string;
     std::unordered_map<std::string, std::unordered_map<uint32_t, x::telem::Series>>
         series;
@@ -53,6 +54,7 @@ public:
         this->i64.erase(key);
         this->f32.erase(key);
         this->f64.erase(key);
+        this->boolean.erase(key);
         this->string.erase(key);
         this->series.erase(key);
     }
@@ -81,6 +83,17 @@ public:
     DECLARE_VAR_OPS(f64, double)
 
 #undef DECLARE_VAR_OPS
+
+    bool load_bool(uint32_t var_id, bool init_value) {
+        auto &inner = this->boolean[this->current_node_key];
+        const auto it = inner.find(var_id);
+        if (it != inner.end()) return it->second;
+        inner[var_id] = init_value;
+        return init_value;
+    }
+    void store_bool(uint32_t var_id, bool value) {
+        this->boolean[this->current_node_key][var_id] = value;
+    }
 
     uint32_t
     load_str(uint32_t var_id, uint32_t init_handle, strings::State &str_state) {
@@ -128,6 +141,7 @@ public:
         this->i64.clear();
         this->f32.clear();
         this->f64.clear();
+        this->boolean.clear();
         this->string.clear();
         this->series.clear();
     }

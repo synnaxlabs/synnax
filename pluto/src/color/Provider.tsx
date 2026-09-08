@@ -30,10 +30,7 @@ export const frequentZ = z.record(z.string(), relevancyZ);
 
 export interface Frequent extends z.infer<typeof frequentZ> {}
 
-export const contextStateZ = z.object({
-  palettes: z.record(z.string(), color.paletteZ),
-  frequent: z.record(z.string(), relevancyZ),
-});
+export const contextStateZ = z.object({ frequent: frequentZ });
 
 export interface ContextState extends z.infer<typeof contextStateZ> {}
 
@@ -41,10 +38,7 @@ export interface ContextValue extends ContextState {
   updateFrequent: (color: color.Color) => void;
 }
 
-export const ZERO_CONTEXT_STATE: ContextState = {
-  palettes: { frequent: { key: "frequent", name: "Frequent", swatches: [] } },
-  frequent: {},
-};
+export const ZERO_CONTEXT_STATE: ContextState = { frequent: {} };
 
 const [Context, useContext] = context.create<ContextValue>({
   defaultValue: { ...ZERO_CONTEXT_STATE, updateFrequent: () => undefined },
@@ -119,17 +113,6 @@ export const Provider = ({
 export const useFrequent = (): color.Color[] => {
   const { frequent } = useContext();
   return Object.keys(frequent).map((hex) => color.construct(hex));
-};
-
-export const usePalette = (key: string): color.Palette | null => {
-  const { palettes } = useContext();
-  return palettes[key];
-};
-
-export const useRequiredPalette = (key: string): color.Palette => {
-  const palette = usePalette(key);
-  if (palette == null) throw new Error(`Palette "${key}" not found`);
-  return palette;
 };
 
 export const useFrequentUpdater = (): ((color: color.Color) => void) => {

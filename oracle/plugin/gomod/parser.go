@@ -83,21 +83,3 @@ func ResolveImportPath(outputPath, repoRoot, fallbackPrefix string) string {
 	}
 	return fallbackPrefix + outputPath
 }
-
-// FindRepoRoot walks up from the given path to find the git repository root.
-// Accepts both a .git directory (main checkout) and a .git file (linked
-// worktree, where .git contains a gitdir: pointer).
-func FindRepoRoot(path string) string {
-	dir := filepath.Dir(path)
-	for {
-		gitPath := filepath.Join(dir, ".git")
-		if _, err := os.Stat(gitPath); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return ""
-		}
-		dir = parent
-	}
-}

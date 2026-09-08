@@ -69,14 +69,14 @@ export const specZ = z.object({
   svg: z.string().min(1),
   /** states contains available visual states with regional styling configurations. */
   states: stateZ.array().default(() => []),
-  /** variant is the symbol variant or category identifier (e.g., 'sensor', 'valve'). */
+  /** variant is the symbol variant: 'static' or 'actuator'. */
   variant: z.string().min(1),
   /** handles contains connection points for linking to other diagram elements. */
   handles: handleZ.array().default(() => []),
   /** scale is the symbol scale factor. */
   scale: z.number().default(1),
-  /** scaleStroke indicates whether stroke width scales with the symbol size. */
-  scaleStroke: z.boolean().default(false),
+  /** strokeScaled is true when stroke width scales with the symbol size. */
+  strokeScaled: z.boolean().default(false),
   /**
    * previewViewport is an optional viewport configuration for symbol preview rendering.
    */

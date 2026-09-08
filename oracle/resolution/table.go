@@ -18,16 +18,14 @@ import (
 )
 
 type Table struct {
-	Imports    set.Set[string]
-	Namespaces set.Set[string]
-	Types      []Type
+	Imports set.Set[string]
+	Types   []Type
 }
 
 func NewTable() *Table {
 	t := &Table{
-		Types:      make([]Type, 0),
-		Imports:    make(set.Set[string]),
-		Namespaces: make(set.Set[string]),
+		Types:   make([]Type, 0),
+		Imports: make(set.Set[string]),
 	}
 	t.registerBuiltins()
 	return t
@@ -157,16 +155,6 @@ func (t *Table) UnionTypes() []Type {
 func (t *Table) MarkImported(path string) { t.Imports.Add(path) }
 
 func (t *Table) IsImported(path string) bool { return t.Imports.Contains(path) }
-
-func (t *Table) EnumsInNamespace(ns string) []Type {
-	return lo.Filter(t.Types, func(typ Type, _ int) bool {
-		if typ.Namespace != ns {
-			return false
-		}
-		_, ok := typ.Form.(EnumForm)
-		return ok
-	})
-}
 
 func (t *Table) TopologicalSort(types []Type) []Type {
 	if len(types) <= 1 {

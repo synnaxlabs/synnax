@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table as clientTable, type table } from "@synnaxlabs/client";
+import {
+  type Synnax as Client,
+  table as clientTable,
+  type table,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, render, within } from "@testing-library/react";
@@ -21,7 +26,7 @@ import {
 } from "react";
 
 import { Modals } from "@/platform/modals";
-import { createResourceTab } from "@/platform/panel/testutil";
+import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
@@ -79,13 +84,17 @@ export const createPreloadedState = (
 ): ConsolePreloadedState => ({
   [Session.Table.SLICE_NAME]: {
     ...Session.Table.ZERO_SLICE_STATE,
-    tables: { [key]: { ...Session.Table.ZERO_STATE, ...tableState } },
+    windows: {
+      [MAIN_WINDOW]: { [key]: { ...Session.Table.ZERO_STATE, ...tableState } },
+    },
   },
 });
 
 export interface RenderTableOptions {
   table?: Partial<table.New>;
   preloadedState?: (key: string) => ConsolePreloadedState;
+  /** The client the component renders against; defaults to the root client. */
+  as?: Client;
 }
 
 // renderTable creates a table on the server, mounts Component inside the panel and tab
@@ -94,14 +103,14 @@ export interface RenderTableOptions {
 // plus the Redux store and table key.
 export const renderTable = async (
   Component: ComponentType,
-  { table: overrides, preloadedState }: RenderTableOptions = {},
+  { table: overrides, preloadedState, as = client }: RenderTableOptions = {},
 ) => {
   const created = await client.tables.create(await project(), {
     name: "Test Table",
     ...overrides,
   });
   const { wrapper: Wrapper, store } = await createConsoleWrapper({
-    client,
+    client: as,
     preloadedState: preloadedState?.(created.key),
   });
   await loadTable(Wrapper, created.key);
@@ -109,6 +118,7 @@ export const renderTable = async (
     client,
     clientTable.ontologyID(created.key),
   );
+  await primePanel(Wrapper, panelKey);
   const result = render(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>

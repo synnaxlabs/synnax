@@ -232,10 +232,6 @@ describe("Ontology", () => {
         parent: ontology.ROOT_ID,
         name: name2,
       });
-      const oldRootLength = (
-        await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
-      ).length;
-
       await client.ontology.moveChildren(
         ontology.ROOT_ID,
         group.ontologyID(g.key),
@@ -246,10 +242,13 @@ describe("Ontology", () => {
         ids: group.ontologyID(g.key),
       });
       expect(children.length).toEqual(1);
-      const newRootLength = (
+      // Other specs write to the root concurrently, so only the two groups this test
+      // owns can be asserted on.
+      const rootKeys = (
         await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
-      ).length;
-      expect(newRootLength).toEqual(oldRootLength - 1);
+      ).map(({ key }) => key);
+      expect(rootKeys).toContain(ontology.idToString(group.ontologyID(g.key)));
+      expect(rootKeys).not.toContain(ontology.idToString(group.ontologyID(g2.key)));
     });
   });
 

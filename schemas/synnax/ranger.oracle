@@ -11,15 +11,14 @@ import "schemas/synnax/label"
 import "schemas/x/color"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/ranger"
-@py output  "client/py/synnax/ranger"
 @cpp output "client/cpp/ranger"
 @go output  "core/pkg/service/ranger"
 @pb
+@py output  "client/py/synnax/ranger"
+@ts output  "client/ts/src/ranger"
 
 Key = uuid {
-    @go version 1
-    @doc value  "is a unique identifier for a range, represented as a UUID."
+    @doc value "is a unique identifier for a range, represented as a UUID."
 }
 
 Range struct {
@@ -29,73 +28,70 @@ Range struct {
     }
     name       string          {
         @doc value           "is a human-readable name for the range."
-        @validate min_length 1
         @filter
+        @validate min_length 1
     }
     time_range telem.TimeRange {
         @doc value """
-            is the temporal extent of the range, defining its start and end
-            timestamps.
+            is the temporal extent of the range, defining its start and end timestamps.
         """
         @ts type   telem.TimeRangeBounded
     }
     color      color.Color?    {
         @doc value """
-            is an optional display color for visual identification of the range
-            in user interfaces.
+            is an optional display color for visual identification of the range in user
+            interfaces.
         """
     }
     labels     label.Label[]?  {
         @doc value     """
-            contains optional labels attached to this range for categorization
-            and filtering.
+            contains optional labels attached to this range for categorization and
+            filtering.
         """
         @go marshal    omit
         @validate skip
     }
     parent     Range?          {
         @doc value     """
-            is an optional parent range for hierarchical organization. Ranges
-            can be nested within other ranges.
+            is an optional parent range for hierarchical organization. Ranges can be
+            nested within other ranges.
         """
         @go marshal    omit
         @validate skip
     }
 
-    @go version      1
+    @cpp includes    "client/cpp/ranger/kv/kv.h"
+    @cpp methods     "ranger::kv::Client kv"
+    @cpp name        "Range"
     @doc value       """
-        is a user-defined region of time in the Synnax cluster. Ranges act as a
-        method for labeling and categorizing telemetry data within specific time
-        periods.
+        is a user-defined region of time in the Synnax cluster. Ranges act as a method
+        for labeling and categorizing telemetry data within specific time periods.
     """
-    @retrieve custom
-    @search
-    @ontology type   "range"
-    @pb
     @go marshal
     @go migrate
-    @cpp name        "Range"
-    @ts name         "Payload"
+    @ontology type   "range"
+    @pb
     @py name         "Payload"
-    @cpp methods     "ranger::kv::Client kv"
-    @cpp includes    "client/cpp/ranger/kv/kv.h"
+    @retrieve custom
+    @search
+    @ts name         "Payload"
 }
 
 New struct extends Range {
     -labels
     parent Range? {
-        @doc value "references the parent range by key."
+        @doc value "references the parent range."
         @ts pick   key
     }
     key?
 
+    @cpp omit
     @doc value "contains parameters for creating a new range."
+    @go omit
+    @pb omit
+    @py omit
     @ts {
         name "New"
         use_input
     }
-    @py omit
-    @cpp omit
-    @go omit
-    @pb omit
 }

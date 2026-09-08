@@ -247,7 +247,7 @@ export const {
   useResult: useResultTask,
   createResultSelector: createTaskResultSelector,
 } = Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({
-  name: "Task",
+  name: "task",
   retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
   onChange: ({ client, query }, handler) =>
     client.arcs.task.onChange(query.arcKey, handler),

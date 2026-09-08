@@ -36,7 +36,7 @@ const createChannel = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<NI.Task.DigitalReadSchemas> = {
-  name: "NI Digital Read Task",
+  name: "NI digital read task",
   type: NI.Task.DIGITAL_READ_TYPE,
   config: NI.Task.DIGITAL_READ_SCHEMAS.config.parse({}),
 };
@@ -75,7 +75,7 @@ describe("DigitalRead", () => {
     expect(screen.queryByDisplayValue("1")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create per-line channels keyed by port and line and update the device", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("di_named");

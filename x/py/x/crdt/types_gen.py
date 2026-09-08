@@ -18,8 +18,8 @@ from x import spatial
 
 class ID(BaseModel):
     """Uniquely identifies a character within a replicated text document. It pairs the
-    replica that created the character with that replica's per-character counter, making
-    the identifier globally unique without coordination.
+    replica that created the character with that replica's counter value, making the
+    identifier globally unique without coordination.
 
     Attributes:
         replica: Is the replica that created the character. A zero replica marks the
@@ -37,8 +37,8 @@ class Insert(BaseModel):
 
     Attributes:
         id: Is the identity of the inserted character.
-        origin: Is the existing character this one anchors to. The root sentinel anchors
-            to the start of the document.
+        origin: Is the existing character this one anchors to. Anchoring to the root
+            sentinel places the character at the start of the document.
         side: Is the side of origin the character anchors to: left places it immediately
             before the origin, right immediately after.
         char: Is the inserted Unicode code point.
@@ -51,7 +51,7 @@ class Insert(BaseModel):
 
 
 class Delete(BaseModel):
-    """Tombstones the character with the given id. It carries only the id because
+    """Tombstones the character with the given ID. It carries only the ID because
     removal needs no position; the character remains in the document tree as a tombstone
     so concurrently-inserted neighbors can still anchor to it.
 

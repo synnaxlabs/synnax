@@ -22,10 +22,7 @@ export const SelectMode = (props: SelectButtonModeProps): ReactElement => (
     <Select.Button itemKey="momentary" tooltip="Output true on press, false on release">
       Momentary
     </Select.Button>
-    <Select.Button
-      itemKey="pulse"
-      tooltip="Output true and then immediately output false on click"
-    >
+    <Select.Button itemKey="pulse" tooltip="Output true, then false, on click">
       Pulse
     </Select.Button>
   </Select.Buttons>

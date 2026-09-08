@@ -229,7 +229,6 @@ describe("caseconv wrapper traversal performance", () => {
       .default(null),
   });
 
-  // Union traversal (like nullishToEmpty)
   const unionSchema = z.object({
     data: record.nullishToEmpty(),
   });

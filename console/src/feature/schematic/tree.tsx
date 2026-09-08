@@ -23,8 +23,8 @@ import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
@@ -71,7 +71,7 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
 
 export const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
-  const rng = Session.Range.useSelectState();
+  const rng = Range.useResolve();
   const buildMessage = useCallback(
     ({ schematics }: Base.SnapshotParams) =>
       `${strings.naturalLanguageJoin(
@@ -85,7 +85,7 @@ export const useRangeSnapshot = () => {
       ({ data }: Flux.AfterSuccessParams<Base.SnapshotParams>) =>
         addStatus({
           variant: "success",
-          message: `Successfully snapshotted ${buildMessage(data)}`,
+          message: `Snapshotted ${buildMessage(data)}`,
         }),
       [buildMessage, addStatus],
     ),
@@ -96,7 +96,8 @@ export const useRangeSnapshot = () => {
     if (rng == null)
       return addStatus({
         variant: "error",
-        message: "Cannot snapshot schematics without an active range",
+        message: "Failed to snapshot schematics",
+        description: "No range is active.",
       });
     const schematics = ids.map((id) => ({
       key: id.key,
@@ -118,15 +119,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state: { getResource, shape },
   } = props;
-  const activeRange = Session.Range.useSelectState();
+  const activeRange = Range.useResolve();
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
-  const handleExport = Export.use();
-  const handleLink = Cluster.useCopyLinkToClipboard();
+  const handleExport = Export.useResource();
+  const handleLink = Core.useCopyLinkToClipboard();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];

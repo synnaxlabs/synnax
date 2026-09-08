@@ -16,7 +16,7 @@ import { Command } from "@/platform/command";
 
 export const CreateCommand = Command.create({
   key: "create_arc",
-  name: "Create an Arc automation",
+  name: "Create Arc automation",
   icon: <Icon.Arc />,
   useVisible: () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID),
   useOnSelect: Arc.useCreate,
@@ -24,7 +24,7 @@ export const CreateCommand = Command.create({
 
 export const OpenExplorerCommand = Command.create({
   key: "open_arc_explorer",
-  name: "Open the Arc Explorer",
+  name: "Open Arc explorer",
   icon: <PArc.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),

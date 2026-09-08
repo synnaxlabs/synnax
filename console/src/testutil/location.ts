@@ -10,16 +10,16 @@
 import { onTestFinished } from "vitest";
 
 /**
- * pinLocationOrigin pins window.location.origin for the duration of the calling
- * test. jsdom's location is not assignable, so code that branches on the page origin
- * cannot be driven any other way. The original location is restored automatically
- * when the test finishes.
+ * pinLocationOrigin pins window.location.origin and search for the duration of the
+ * calling test. jsdom's location is not assignable, so code that branches on the page
+ * origin cannot be driven any other way. The original location is restored
+ * automatically when the test finishes.
  */
-export const pinLocationOrigin = (origin: string): void => {
+export const pinLocationOrigin = (origin: string, search: string = ""): void => {
   const original = window.location;
   Object.defineProperty(window, "location", {
     configurable: true,
-    value: { origin },
+    value: { origin, search },
   });
   onTestFinished(() => {
     Object.defineProperty(window, "location", {

@@ -296,7 +296,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var (
 				indexes = []channel.Channel{{
 					Name:     UniqueChannelName(),
-					DataType: telem.TimeStampT,
+					DataType: telem.TimestampT,
 					IsIndex:  true,
 				}}
 				bases = []channel.Channel{{
@@ -343,7 +343,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{{
 						Name:     UniqueChannelName(),
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					}}
 					bases = []channel.Channel{
@@ -402,12 +402,12 @@ var _ = Describe("Calculation", Ordered, func() {
 					indexes = []channel.Channel{
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					}
@@ -476,12 +476,12 @@ var _ = Describe("Calculation", Ordered, func() {
 					indexes = []channel.Channel{
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						{
 							Name:     UniqueChannelName(),
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 					}
@@ -635,6 +635,127 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			)
 		})
+
+		Describe("Reset Channels", func() {
+			var base, sig channel.Channel
+			// Requests only calc, writes [10, 20, 30] with the signal off, then [5, 7]
+			// with the signal on for the first sample, and expects the max to clear.
+			expectReset := func(
+				ctx context.Context,
+				calc channel.Channel,
+				off, on telem.Series,
+			) {
+				rm := c.OpenRequestManager()
+				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				sCtx, cancel := signal.Isolated()
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: 1 * telem.SecondTS,
+					Keys:  channel.Keys{base.Key(), sig.Key()},
+				}))
+				defer func() {
+					Expect(rm.Close(ctx)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+					cancel()
+				}()
+				strm := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{calc.Key()},
+					SendOpenAck: new(true),
+				}))
+				_, sOutlet := confluence.Attach(strm, 1, 1)
+				strm.Flow(sCtx)
+				Eventually(sOutlet.Outlet()).Should(Receive())
+
+				keys := []channel.Key{base.Key(), sig.Key()}
+				MustSucceed(w.Write(frame.NewMulti(
+					keys,
+					[]telem.Series{telem.NewSeriesV[int64](10, 20, 30), off},
+				)))
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(calc.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[int64](30))
+
+				MustSucceed(w.Write(frame.NewMulti(
+					keys,
+					[]telem.Series{telem.NewSeriesV[int64](5, 7), on},
+				)))
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(calc.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[int64](7))
+			}
+
+			BeforeEach(func(ctx SpecContext) {
+				base = channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+			})
+
+			It("Should reset from a virtual boolean channel", func(ctx SpecContext) {
+				sig = channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.BooleanT,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &sig)).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s", base.Name),
+					Operations: []channel.Operation{{
+						Type:         channel.OperationTypeMax,
+						ResetChannel: sig.Key(),
+					}},
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				expectReset(
+					ctx,
+					calc,
+					telem.NewSeriesV(false, false, false),
+					telem.NewSeriesV(true, false),
+				)
+			})
+
+			It("Should reset from a calculated boolean channel", func(ctx SpecContext) {
+				sig = channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Uint8T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				Expect(channelWriter.Create(ctx, &sig)).To(Succeed())
+				resetCalc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.BooleanT,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s != 0", sig.Name),
+				}
+				Expect(channelWriter.Create(ctx, &resetCalc)).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s", base.Name),
+					Operations: []channel.Operation{{
+						Type:         channel.OperationTypeMax,
+						ResetChannel: resetCalc.Key(),
+					}},
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				expectReset(
+					ctx,
+					calc,
+					telem.NewSeriesV[uint8](0, 0, 0),
+					telem.NewSeriesV[uint8](1, 0),
+				)
+			})
+		})
 	})
 
 	Describe("Calculation Status", func() {
@@ -656,7 +777,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				Expect(channelWriter.Delete(
-					ctx, base.Key(), false),
+					ctx, base.Key(), false,
+				),
 				).To(Succeed())
 				rm := c.OpenRequestManager()
 				Expect(
@@ -664,7 +786,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				).To(Succeed())
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
-				Expect(status.NewRetrieve[types.Nil](statusSvc).
+				Expect(statusSvc.NewRetrieve[types.Nil]().
 					Where(status.MatchKeys[types.Nil](statusKey)).
 					Entry(&st).
 					Exec(ctx, nil)).To(Succeed())
@@ -699,12 +821,13 @@ var _ = Describe("Calculation", Ordered, func() {
 				// as an error status rather than synchronously.
 				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 				Expect(channelWriter.Rename(
-					ctx, calc.Key(), UniqueChannelName(), false),
+					ctx, calc.Key(), UniqueChannelName(), false,
+				),
 				).To(Succeed())
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
 				Eventually(func(g Gomega) {
-					g.Expect(status.NewRetrieve[types.Nil](statusSvc).
+					g.Expect(statusSvc.NewRetrieve[types.Nil]().
 						Where(status.MatchKeys[types.Nil](statusKey)).
 						Entry(&st).
 						Exec(ctx, nil)).To(Succeed())
@@ -734,7 +857,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
 			expectedKey := calc.OntologyID().String()
-			Expect(status.NewRetrieve[types.Nil](statusSvc).
+			Expect(statusSvc.NewRetrieve[types.Nil]().
 				Where(status.MatchKeys[types.Nil](expectedKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())

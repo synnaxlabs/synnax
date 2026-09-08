@@ -8,14 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x";
-import { useReactFlow } from "@xyflow/react";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Icon } from "@/icon";
-import { Text } from "@/text";
+import { Triggers } from "@/triggers";
+import { Viewport as BaseViewport } from "@/viewport";
 import { diagram } from "@/vis/diagram/aether";
 import { useContext } from "@/vis/diagram/Context";
+import { useFitView } from "@/vis/diagram/useFitView";
+
+const FIT_VIEW_TRIGGER = BaseViewport.ZOOM_DEFAULT_TRIGGERS.modes.zoomReset[0];
 
 export interface FitViewProps extends Omit<
   Button.ToggleProps,
@@ -23,15 +26,15 @@ export interface FitViewProps extends Omit<
 > {}
 
 export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
-  const { fitView } = useReactFlow();
+  const fitView = useFitView();
   const { fitViewOnResize, setFitViewOnResize } = useContext();
   return (
     <Button.Toggle
       onClick={(e) => {
-        void fitView(diagram.FIT_VIEW_OPTIONS);
+        fitView(diagram.FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
+      tooltip={tooltip}
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}
@@ -42,3 +45,9 @@ export const FitView = ({ onClick, ...rest }: FitViewProps): ReactElement => {
     </Button.Toggle>
   );
 };
+
+const tooltip = (
+  <Triggers.Text trigger={FIT_VIEW_TRIGGER} level="small">
+    Fit view to contents
+  </Triggers.Text>
+);

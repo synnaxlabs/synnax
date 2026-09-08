@@ -12,10 +12,10 @@ import "schemas/synnax/device"
 import "schemas/synnax/task"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/ethercat"
-@py output  "client/py/synnax/ethercat"
 @cpp output "client/cpp/ethercat"
 @go output  "core/pkg/service/ethercat"
+@py output  "client/py/synnax/ethercat"
+@ts output  "client/ts/src/ethercat"
 
 PDOAddress struct {
     index      uint16 = 0 {
@@ -33,11 +33,11 @@ PDOAddress struct {
     }
 
     @doc value  "addresses a PDO entry explicitly in the CoE object dictionary."
-    @go version 1
+    @go marshal
 }
 
 BaseReadChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -55,7 +55,7 @@ BaseReadChannel struct {
     }
 
     @doc value  "carries the fields every EtherCAT read channel shares."
-    @go version 1
+    @go marshal
 }
 
 ReadChannel union on type extends BaseReadChannel {
@@ -71,14 +71,14 @@ ReadChannel union on type extends BaseReadChannel {
     }
 
     @doc value  """
-        is a single EtherCAT read channel (TxPDO, slave to master). The type
-        field selects how the PDO entry is addressed.
+        is a single EtherCAT read channel (TxPDO, slave to master). The type field
+        selects how the PDO entry is addressed.
     """
-    @go version 1
+    @go marshal
 }
 
 BaseWriteChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -105,7 +105,7 @@ BaseWriteChannel struct {
     }
 
     @doc value  "carries the fields every EtherCAT write channel shares."
-    @go version 1
+    @go marshal
 }
 
 WriteChannel union on type extends BaseWriteChannel {
@@ -121,33 +121,32 @@ WriteChannel union on type extends BaseWriteChannel {
     }
 
     @doc value  """
-        is a single EtherCAT write channel (RxPDO, master to slave). The type
-        field selects how the PDO entry is addressed.
+        is a single EtherCAT write channel (RxPDO, master to slave). The type field
+        selects how the PDO entry is addressed.
     """
-    @go version 1
+    @go marshal
 }
 
-ReadConfig struct extends task.BaseReadConfig {
+ReadConfig struct extends task.ReadConfig {
     channels ReadChannel[] {
         @doc value "are the channels the task acquires."
     }
 
     @doc value  """
-        configures an EtherCAT read task. Each channel addresses a PDO entry on
-        its own slave; all slaves must share one network interface.
+        configures an EtherCAT read task. Each channel addresses a PDO entry on its own
+        slave; all slaves must share one network interface.
     """
-    @go version 1
     @go marshal
     @go migrate
 }
 
-WriteConfig struct extends task.BasePersistConfig {
+WriteConfig struct extends task.PersistConfig {
     state_rate     telem.Rate = 25 {
-        @doc value "is the rate at which output state is reported to Synnax, in hertz."
+        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
         @ts type   "number"
     }
     execution_rate telem.Rate = 1000 {
-        @doc value "is the rate at which commands are applied to the bus, in hertz."
+        @doc value "is the rate at which commands are applied to the bus, in Hertz."
         @ts type   "number"
     }
     channels       WriteChannel[] {
@@ -155,17 +154,15 @@ WriteConfig struct extends task.BasePersistConfig {
     }
 
     @doc value  """
-        configures an EtherCAT write task. Each channel addresses a PDO entry on
-        its own slave; all slaves must share one network interface.
+        configures an EtherCAT write task. Each channel addresses a PDO entry on its own
+        slave; all slaves must share one network interface.
     """
-    @go version 1
     @go marshal
     @go migrate
 }
 
-ScanConfig struct extends task.BaseScanConfig {
+ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an EtherCAT scan task."
-    @go version 1
     @go marshal
     @go migrate
 }

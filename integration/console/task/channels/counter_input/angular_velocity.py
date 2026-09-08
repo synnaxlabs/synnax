@@ -22,7 +22,7 @@ class AngularVelocity(Counter):
         min_val (float): Minimum value
         max_val (float): Maximum value
         units (str): "RPM", "Radians/s", or "Degrees/s"
-        decoding_type (str): "X1", "X2", "X4", or "Two Pulse"
+        decoding_type (str): "X1", "X2", "X4", or "Two pulse"
         pulses_per_rev (int): Pulses per revolution
         terminal_a (str): Input Terminal A
         terminal_b (str): Input Terminal B
@@ -34,7 +34,7 @@ class AngularVelocity(Counter):
         name: str,
         device: str,
         units: Literal["RPM", "Radians/s", "Degrees/s"] | None = None,
-        decoding_type: Literal["X1", "X2", "X4", "Two Pulse"] | None = None,
+        decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         pulses_per_rev: int | None = None,
         terminal_a: str | None = None,
         terminal_b: str | None = None,
@@ -45,12 +45,12 @@ class AngularVelocity(Counter):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Velocity Angular",
+            chan_type="Velocity angular",
             **kwargs,
         )
 
-        self._configure_dropdown("Scaled Units", units)
+        self._configure_dropdown("Scaled units", units)
         self._configure_input("Pulses / Rev", pulses_per_rev)
-        self._configure_dropdown("Decoding Type", decoding_type)
-        self._configure_dropdown("Input Terminal A", terminal_a)
-        self._configure_dropdown("Input Terminal B", terminal_b)
+        self._configure_dropdown("Decoding type", decoding_type)
+        self._configure_dropdown("Input terminal A", terminal_a)
+        self._configure_dropdown("Input terminal B", terminal_b)

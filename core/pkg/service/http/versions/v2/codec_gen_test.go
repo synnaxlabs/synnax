@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -143,15 +142,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.ReadConfig{
-				BasePersist: config.BasePersist{
-					BaseStart: config.BaseStart{
-						Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart: false,
-					},
-					DataSavingDisabled: true,
-				},
-				Device: "test_4",
-				Rate:   telem.Rate(5.5),
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Rate:               telem.Rate(5.5),
 				Endpoints: []v2.ReadEndpoint{
 					{
 						Key:         "test_7",
@@ -162,14 +157,14 @@ var _ = Describe("Codec", func() {
 						Body:        "test_16",
 						Fields: []v2.ReadField{
 							{
-								Key:             "test_18",
-								Name:            "test_19",
-								Disabled:        false,
-								Channel:         channel.Key(22),
-								Pointer:         "test_22",
-								DataType:        telem.DataType("test_23"),
-								TimestampFormat: new(v2.TimeFormat("iso8601")),
-								EnumValues:      []v2.EnumEntry{{Label: "test_26", Value: 27.5}},
+								Key:        "test_18",
+								Name:       "test_19",
+								Disabled:   false,
+								Channel:    channel.Key(22),
+								Pointer:    "test_22",
+								DataType:   telem.DataType("test_23"),
+								TimeFormat: new(v2.TimeFormat("iso8601")),
+								EnumValues: []v2.EnumEntry{{Label: "test_26", Value: 27.5}},
 							},
 						},
 						Index: "test_28",
@@ -177,25 +172,20 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.ReadConfig{
-				BasePersist: config.BasePersist{
-					BaseStart:          config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
-					DataSavingDisabled: false,
-				},
-				Device:    "",
-				Rate:      telem.Rate(0),
-				Endpoints: nil,
+				Key:                uuid.Nil,
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				Rate:               telem.Rate(0),
+				Endpoints:          nil,
 			}),
 			Entry("empty collections", v2.ReadConfig{
-				BasePersist: config.BasePersist{
-					BaseStart: config.BaseStart{
-						Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart: false,
-					},
-					DataSavingDisabled: true,
-				},
-				Device:    "test_4",
-				Rate:      telem.Rate(5.5),
-				Endpoints: []v2.ReadEndpoint{},
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Rate:               telem.Rate(5.5),
+				Endpoints:          []v2.ReadEndpoint{},
 			}),
 		)
 	})
@@ -219,14 +209,14 @@ var _ = Describe("Codec", func() {
 				Body:        "test_10",
 				Fields: []v2.ReadField{
 					{
-						Key:             "test_12",
-						Name:            "test_13",
-						Disabled:        false,
-						Channel:         channel.Key(16),
-						Pointer:         "test_16",
-						DataType:        telem.DataType("test_17"),
-						TimestampFormat: new(v2.TimeFormat("iso8601")),
-						EnumValues:      []v2.EnumEntry{{Label: "test_20", Value: 21.5}},
+						Key:        "test_12",
+						Name:       "test_13",
+						Disabled:   false,
+						Channel:    channel.Key(16),
+						Pointer:    "test_16",
+						DataType:   telem.DataType("test_17"),
+						TimeFormat: new(v2.TimeFormat("iso8601")),
+						EnumValues: []v2.EnumEntry{{Label: "test_20", Value: 21.5}},
 					},
 				},
 				Index: "test_22",
@@ -265,34 +255,34 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.ReadField{
-				Key:             "test_1",
-				Name:            "test_2",
-				Disabled:        true,
-				Channel:         channel.Key(5),
-				Pointer:         "test_5",
-				DataType:        telem.DataType("test_6"),
-				TimestampFormat: new(v2.TimeFormat("iso8601")),
-				EnumValues:      []v2.EnumEntry{{Label: "test_9", Value: 10.5}},
+				Key:        "test_1",
+				Name:       "test_2",
+				Disabled:   true,
+				Channel:    channel.Key(5),
+				Pointer:    "test_5",
+				DataType:   telem.DataType("test_6"),
+				TimeFormat: new(v2.TimeFormat("iso8601")),
+				EnumValues: []v2.EnumEntry{{Label: "test_9", Value: 10.5}},
 			}),
 			Entry("zero values", v2.ReadField{
-				Key:             "",
-				Name:            "",
-				Disabled:        false,
-				Channel:         channel.Key(0),
-				Pointer:         "",
-				DataType:        telem.DataType(""),
-				TimestampFormat: nil,
-				EnumValues:      nil,
+				Key:        "",
+				Name:       "",
+				Disabled:   false,
+				Channel:    channel.Key(0),
+				Pointer:    "",
+				DataType:   telem.DataType(""),
+				TimeFormat: nil,
+				EnumValues: nil,
 			}),
 			Entry("empty collections", v2.ReadField{
-				Key:             "test_1",
-				Name:            "test_2",
-				Disabled:        true,
-				Channel:         channel.Key(5),
-				Pointer:         "test_5",
-				DataType:        telem.DataType("test_6"),
-				TimestampFormat: new(v2.TimeFormat("iso8601")),
-				EnumValues:      []v2.EnumEntry{},
+				Key:        "test_1",
+				Name:       "test_2",
+				Disabled:   true,
+				Channel:    channel.Key(5),
+				Pointer:    "test_5",
+				DataType:   telem.DataType("test_6"),
+				TimeFormat: new(v2.TimeFormat("iso8601")),
+				EnumValues: []v2.EnumEntry{},
 			}),
 		)
 	})
@@ -308,18 +298,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.ScanConfig{
-				BaseScan: config.BaseScan{
-					Keyed:    config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					Rate:     telem.Rate(2.5),
-					Disabled: true,
-				},
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rate:     telem.Rate(2.5),
+				Disabled: true,
 			}),
 			Entry("zero values", v2.ScanConfig{
-				BaseScan: config.BaseScan{
-					Keyed:    config.Keyed{Key: uuid.Nil},
-					Rate:     telem.Rate(0),
-					Disabled: false,
-				},
+				Key:      uuid.Nil,
+				Rate:     telem.Rate(0),
+				Disabled: false,
 			}),
 		)
 	})
@@ -335,11 +321,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.WriteConfig{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
-				},
-				Device: "test_3",
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart: false,
+				Device:    "test_3",
 				Endpoints: []v2.WriteEndpoint{
 					{
 						Key:         "test_5",
@@ -368,15 +352,14 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.WriteConfig{
-				BaseStart: config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
+				Key:       uuid.Nil,
+				AutoStart: false,
 				Device:    "",
 				Endpoints: nil,
 			}),
 			Entry("empty collections", v2.WriteConfig{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
-				},
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart: false,
 				Device:    "test_3",
 				Endpoints: []v2.WriteEndpoint{},
 			}),
@@ -575,15 +558,11 @@ func BenchmarkEncodeDecodeQueryParam(b *testing.B) {
 
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v2.ReadConfig{
-		BasePersist: config.BasePersist{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
-			},
-			DataSavingDisabled: true,
-		},
-		Device: "test_4",
-		Rate:   telem.Rate(5.5),
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		Rate:               telem.Rate(5.5),
 		Endpoints: []v2.ReadEndpoint{
 			{
 				Key:         "test_7",
@@ -594,14 +573,14 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Body:        "test_16",
 				Fields: []v2.ReadField{
 					{
-						Key:             "test_18",
-						Name:            "test_19",
-						Disabled:        false,
-						Channel:         channel.Key(22),
-						Pointer:         "test_22",
-						DataType:        telem.DataType("test_23"),
-						TimestampFormat: new(v2.TimeFormat("iso8601")),
-						EnumValues:      []v2.EnumEntry{{Label: "test_26", Value: 27.5}},
+						Key:        "test_18",
+						Name:       "test_19",
+						Disabled:   false,
+						Channel:    channel.Key(22),
+						Pointer:    "test_22",
+						DataType:   telem.DataType("test_23"),
+						TimeFormat: new(v2.TimeFormat("iso8601")),
+						EnumValues: []v2.EnumEntry{{Label: "test_26", Value: 27.5}},
 					},
 				},
 				Index: "test_28",
@@ -633,14 +612,14 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 		Body:        "test_10",
 		Fields: []v2.ReadField{
 			{
-				Key:             "test_12",
-				Name:            "test_13",
-				Disabled:        false,
-				Channel:         channel.Key(16),
-				Pointer:         "test_16",
-				DataType:        telem.DataType("test_17"),
-				TimestampFormat: new(v2.TimeFormat("iso8601")),
-				EnumValues:      []v2.EnumEntry{{Label: "test_20", Value: 21.5}},
+				Key:        "test_12",
+				Name:       "test_13",
+				Disabled:   false,
+				Channel:    channel.Key(16),
+				Pointer:    "test_16",
+				DataType:   telem.DataType("test_17"),
+				TimeFormat: new(v2.TimeFormat("iso8601")),
+				EnumValues: []v2.EnumEntry{{Label: "test_20", Value: 21.5}},
 			},
 		},
 		Index: "test_22",
@@ -662,14 +641,14 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 
 func BenchmarkEncodeDecodeReadField(b *testing.B) {
 	seed := v2.ReadField{
-		Key:             "test_1",
-		Name:            "test_2",
-		Disabled:        true,
-		Channel:         channel.Key(5),
-		Pointer:         "test_5",
-		DataType:        telem.DataType("test_6"),
-		TimestampFormat: new(v2.TimeFormat("iso8601")),
-		EnumValues:      []v2.EnumEntry{{Label: "test_9", Value: 10.5}},
+		Key:        "test_1",
+		Name:       "test_2",
+		Disabled:   true,
+		Channel:    channel.Key(5),
+		Pointer:    "test_5",
+		DataType:   telem.DataType("test_6"),
+		TimeFormat: new(v2.TimeFormat("iso8601")),
+		EnumValues: []v2.EnumEntry{{Label: "test_9", Value: 10.5}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -688,11 +667,9 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	seed := v2.ScanConfig{
-		BaseScan: config.BaseScan{
-			Keyed:    config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			Rate:     telem.Rate(2.5),
-			Disabled: true,
-		},
+		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Rate:     telem.Rate(2.5),
+		Disabled: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -711,11 +688,9 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v2.WriteConfig{
-		BaseStart: config.BaseStart{
-			Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart: false,
-		},
-		Device: "test_3",
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart: false,
+		Device:    "test_3",
 		Endpoints: []v2.WriteEndpoint{
 			{
 				Key:         "test_5",
@@ -1049,15 +1024,11 @@ func FuzzDecodeQueryParam(f *testing.F) {
 func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v2.ReadConfig{
-			BasePersist: config.BasePersist{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
-				},
-				DataSavingDisabled: true,
-			},
-			Device: "test_4",
-			Rate:   telem.Rate(5.5),
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Rate:               telem.Rate(5.5),
 			Endpoints: []v2.ReadEndpoint{
 				{
 					Key:         "test_7",
@@ -1068,14 +1039,14 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Body:        "test_16",
 					Fields: []v2.ReadField{
 						{
-							Key:             "test_18",
-							Name:            "test_19",
-							Disabled:        false,
-							Channel:         channel.Key(22),
-							Pointer:         "test_22",
-							DataType:        telem.DataType("test_23"),
-							TimestampFormat: new(v2.TimeFormat("iso8601")),
-							EnumValues:      []v2.EnumEntry{{Label: "test_26", Value: 27.5}},
+							Key:        "test_18",
+							Name:       "test_19",
+							Disabled:   false,
+							Channel:    channel.Key(22),
+							Pointer:    "test_22",
+							DataType:   telem.DataType("test_23"),
+							TimeFormat: new(v2.TimeFormat("iso8601")),
+							EnumValues: []v2.EnumEntry{{Label: "test_26", Value: 27.5}},
 						},
 					},
 					Index: "test_28",
@@ -1090,13 +1061,12 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			BasePersist: config.BasePersist{
-				BaseStart:          config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
-				DataSavingDisabled: false,
-			},
-			Device:    "",
-			Rate:      telem.Rate(0),
-			Endpoints: nil,
+			Key:                uuid.Nil,
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			Rate:               telem.Rate(0),
+			Endpoints:          nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1106,16 +1076,12 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			BasePersist: config.BasePersist{
-				BaseStart: config.BaseStart{
-					Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart: false,
-				},
-				DataSavingDisabled: true,
-			},
-			Device:    "test_4",
-			Rate:      telem.Rate(5.5),
-			Endpoints: []v2.ReadEndpoint{},
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Rate:               telem.Rate(5.5),
+			Endpoints:          []v2.ReadEndpoint{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1156,14 +1122,14 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Body:        "test_10",
 			Fields: []v2.ReadField{
 				{
-					Key:             "test_12",
-					Name:            "test_13",
-					Disabled:        false,
-					Channel:         channel.Key(16),
-					Pointer:         "test_16",
-					DataType:        telem.DataType("test_17"),
-					TimestampFormat: new(v2.TimeFormat("iso8601")),
-					EnumValues:      []v2.EnumEntry{{Label: "test_20", Value: 21.5}},
+					Key:        "test_12",
+					Name:       "test_13",
+					Disabled:   false,
+					Channel:    channel.Key(16),
+					Pointer:    "test_16",
+					DataType:   telem.DataType("test_17"),
+					TimeFormat: new(v2.TimeFormat("iso8601")),
+					EnumValues: []v2.EnumEntry{{Label: "test_20", Value: 21.5}},
 				},
 			},
 			Index: "test_22",
@@ -1233,14 +1199,14 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 func FuzzDecodeReadField(f *testing.F) {
 	{
 		seed := v2.ReadField{
-			Key:             "test_1",
-			Name:            "test_2",
-			Disabled:        true,
-			Channel:         channel.Key(5),
-			Pointer:         "test_5",
-			DataType:        telem.DataType("test_6"),
-			TimestampFormat: new(v2.TimeFormat("iso8601")),
-			EnumValues:      []v2.EnumEntry{{Label: "test_9", Value: 10.5}},
+			Key:        "test_1",
+			Name:       "test_2",
+			Disabled:   true,
+			Channel:    channel.Key(5),
+			Pointer:    "test_5",
+			DataType:   telem.DataType("test_6"),
+			TimeFormat: new(v2.TimeFormat("iso8601")),
+			EnumValues: []v2.EnumEntry{{Label: "test_9", Value: 10.5}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1250,14 +1216,14 @@ func FuzzDecodeReadField(f *testing.F) {
 	}
 	{
 		seed := v2.ReadField{
-			Key:             "",
-			Name:            "",
-			Disabled:        false,
-			Channel:         channel.Key(0),
-			Pointer:         "",
-			DataType:        telem.DataType(""),
-			TimestampFormat: nil,
-			EnumValues:      nil,
+			Key:        "",
+			Name:       "",
+			Disabled:   false,
+			Channel:    channel.Key(0),
+			Pointer:    "",
+			DataType:   telem.DataType(""),
+			TimeFormat: nil,
+			EnumValues: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1267,14 +1233,14 @@ func FuzzDecodeReadField(f *testing.F) {
 	}
 	{
 		seed := v2.ReadField{
-			Key:             "test_1",
-			Name:            "test_2",
-			Disabled:        true,
-			Channel:         channel.Key(5),
-			Pointer:         "test_5",
-			DataType:        telem.DataType("test_6"),
-			TimestampFormat: new(v2.TimeFormat("iso8601")),
-			EnumValues:      []v2.EnumEntry{},
+			Key:        "test_1",
+			Name:       "test_2",
+			Disabled:   true,
+			Channel:    channel.Key(5),
+			Pointer:    "test_5",
+			DataType:   telem.DataType("test_6"),
+			TimeFormat: new(v2.TimeFormat("iso8601")),
+			EnumValues: []v2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1307,11 +1273,9 @@ func FuzzDecodeReadField(f *testing.F) {
 func FuzzDecodeScanConfig(f *testing.F) {
 	{
 		seed := v2.ScanConfig{
-			BaseScan: config.BaseScan{
-				Keyed:    config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				Rate:     telem.Rate(2.5),
-				Disabled: true,
-			},
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rate:     telem.Rate(2.5),
+			Disabled: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1321,11 +1285,9 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			BaseScan: config.BaseScan{
-				Keyed:    config.Keyed{Key: uuid.Nil},
-				Rate:     telem.Rate(0),
-				Disabled: false,
-			},
+			Key:      uuid.Nil,
+			Rate:     telem.Rate(0),
+			Disabled: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1358,11 +1320,9 @@ func FuzzDecodeScanConfig(f *testing.F) {
 func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v2.WriteConfig{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
-			},
-			Device: "test_3",
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart: false,
+			Device:    "test_3",
 			Endpoints: []v2.WriteEndpoint{
 				{
 					Key:         "test_5",
@@ -1398,7 +1358,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			BaseStart: config.BaseStart{Keyed: config.Keyed{Key: uuid.Nil}, AutoStart: false},
+			Key:       uuid.Nil,
+			AutoStart: false,
 			Device:    "",
 			Endpoints: nil,
 		}
@@ -1410,10 +1371,8 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			BaseStart: config.BaseStart{
-				Keyed:     config.Keyed{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart: false,
-			},
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart: false,
 			Device:    "test_3",
 			Endpoints: []v2.WriteEndpoint{},
 		}

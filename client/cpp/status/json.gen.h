@@ -19,13 +19,14 @@
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::status {
 
 template<typename Details>
 Status<Details> Status<Details>::parse(x::json::Parser parser) {
     return Status<Details>{
-        .key = parser.field<std::string>("key"),
+        .key = parser.field<Key>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),

@@ -68,8 +68,8 @@ describe("Rename", () => {
   });
 
   it("should render a custom title and label", async () => {
-    await openRename({ title: "Rename Range", label: "Range Name" });
+    await openRename({ title: "Rename Range", label: "Range name" });
     await waitFor(() => expect(screen.getByText("Rename Range")).toBeTruthy());
-    expect(screen.getByText("Range Name")).toBeTruthy();
+    expect(screen.getByText("Range name")).toBeTruthy();
   });
 });

@@ -40,7 +40,7 @@ export const spec = Segmented.createSpec(
   ({ points, crossings, color: colorVal }) => (
     <g
       className={CSS.B("symbol-colored")}
-      style={{ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }}
+      style={{ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }}
     >
       <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
       {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(

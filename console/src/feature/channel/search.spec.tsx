@@ -76,7 +76,7 @@ describe("channel/search", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("lineplot");
     const plot = await client.lineplots.retrieve(tab.resource.key);
-    expect(plot.name).toBe("Line Plot");
+    expect(plot.name).toBe("Line plot");
     expect(plot.channels.y1).toContain(ch.key);
   });
 

@@ -59,14 +59,16 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
   );
 
 export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
-const now = TimeStamp.now();
-export const EMPTY_TIME_BOUNDS: bounds.Bounds = {
-  lower: Number(now.valueOf()),
-  upper: Number(now.add(TimeSpan.HOUR).valueOf()),
-};
 
-export const emptyBounds = (type: TickType): bounds.Bounds =>
-  type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
+// Computed per call so an empty time axis tracks the present instead of app start.
+export const emptyBounds = (type: TickType): bounds.Bounds => {
+  if (type === "linear") return EMPTY_LINEAR_BOUNDS;
+  const now = TimeStamp.now();
+  return {
+    lower: Number(now.valueOf()),
+    upper: Number(now.add(TimeSpan.HOUR).valueOf()),
+  };
+};
 
 export interface AxisRenderProps {
   grid: grid.Grid;
@@ -191,7 +193,7 @@ export class BaseAxis<
     hold: boolean,
     fetchDataBounds: () => bounds.Bounds[],
     viewport: box.Box,
-  ): [scale.Scale, Error | null] {
+  ): [scale.Scale, bounds.Bounds, Error | null] {
     const [bounds, err] = this.iBounds(hold, fetchDataBounds);
     const dir = direction.swap(direction.construct(this.state.location));
     return [
@@ -199,6 +201,7 @@ export class BaseAxis<
         .scale(1)
         .translate(-box.root(viewport)[dir])
         .magnify(1 / box.dim(viewport, dir)),
+      bounds,
       err,
     ];
   }

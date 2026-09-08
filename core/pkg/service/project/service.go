@@ -15,7 +15,9 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -35,6 +37,15 @@ type ServiceConfig struct {
 	Ontology *ontology.Ontology
 	Group    *group.Service
 	Search   *search.Index
+	// ImEx is the leaf import/export registry Export serializes member documents
+	// through.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
+	// Panel is the panel service Export reads panel trees through.
+	//
+	// [REQUIRED]
+	Panel *panel.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -47,16 +58,20 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Panel = override.Nil(c.Panel, other.Panel)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("project")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("search", c.Search)
+	v.NotNil("imex", c.ImEx)
+	v.NotNil("panel", c.Panel)
 	return v.Error()
 }
 
@@ -91,10 +106,7 @@ func OpenService(
 		ctx,
 		"Projects",
 		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
+	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -103,9 +115,8 @@ func OpenService(
 		return s, nil
 	}
 	var sig io.Closer
-	if sig, err = signals.PublishFromGorp(
+	if sig, err = cfg.Signals.PublishFromGorp(
 		ctx,
-		cfg.Signals,
 		signals.GorpPublisherConfigUUID(s.table.Observe()),
 	); !ok(err, sig) {
 		return nil, err

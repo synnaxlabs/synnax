@@ -143,7 +143,7 @@ struct Config {
     x::telem::TimeSpan spin_duration = timing::HYBRID_SPIN_DEFAULT;
     int rt_priority = DEFAULT_RT_PRIORITY;
     int cpu_affinity = CPU_AFFINITY_AUTO;
-    bool lock_memory = false;
+    bool memory_locked = false;
 
     Config() = default;
 
@@ -172,7 +172,7 @@ struct Config {
         }
         rt_priority = parser.field<int>("rt_priority", DEFAULT_RT_PRIORITY);
         cpu_affinity = parser.field<int>("cpu_affinity", CPU_AFFINITY_AUTO);
-        lock_memory = parser.field<bool>("lock_memory", false);
+        memory_locked = parser.field<bool>("memory_locked", false);
     }
 
     Config apply_defaults(const x::telem::TimeSpan timing_interval) const {
@@ -217,7 +217,7 @@ struct Config {
         cfg.enabled = this->rt_priority > 0;
         cfg.priority = this->rt_priority;
         cfg.cpu_affinity = this->cpu_affinity;
-        cfg.lock_memory = this->lock_memory;
+        cfg.lock_memory = this->memory_locked;
         if (cfg.enabled && this->interval.nanoseconds() > 0) {
             cfg.period = this->interval;
             cfg.computation = this->interval * 0.2;
@@ -239,7 +239,7 @@ struct Config {
             os << "  " << x::log::SHALE() << "rt priority" << x::log::RESET() << ": "
                << cfg.rt_priority << "\n";
             os << "  " << x::log::SHALE() << "lock memory" << x::log::RESET() << ": "
-               << (cfg.lock_memory ? "yes" : "no") << "\n";
+               << (cfg.memory_locked ? "yes" : "no") << "\n";
         }
         if (cfg.cpu_affinity >= 0)
             os << "  " << x::log::SHALE() << "cpu affinity" << x::log::RESET() << ": "

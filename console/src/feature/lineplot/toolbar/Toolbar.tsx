@@ -27,8 +27,9 @@ import { Data } from "@/feature/lineplot/toolbar/Data";
 import { Lines } from "@/feature/lineplot/toolbar/Lines";
 import { Properties } from "@/feature/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -60,7 +61,11 @@ const Internal = (): ReactElement => {
             {name}
           </Base.Title>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
+            <Flex.Box
+              x
+              gap="small"
+              className={CSS.BE("line-plot", "toolbar", "actions")}
+            >
               <Button.Button
                 tooltip="Download as CSV"
                 size="medium"
@@ -69,8 +74,8 @@ const Internal = (): ReactElement => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton getID={() => lineplot.ontologyID(key)} />
-              <Cluster.CopyLinkToolbarButton
+              <Export.ToolbarButton id={lineplot.ontologyID(key)} />
+              <Core.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
               />
@@ -86,21 +91,27 @@ const Internal = (): ReactElement => {
             )}
           </Flex.Box>
         </Base.Header>
-        <Tabs.Content itemKey="data">
-          <Data />
-        </Tabs.Content>
-        <Tabs.Content itemKey="lines">
-          <Lines />
-        </Tabs.Content>
-        <Tabs.Content itemKey="axes">
-          <Axes />
-        </Tabs.Content>
-        <Tabs.Content itemKey="properties">
-          <Properties />
-        </Tabs.Content>
-        <Tabs.Content itemKey="annotations">
-          <Annotations />
-        </Tabs.Content>
+        {hasUpdatePermission ? (
+          <>
+            <Tabs.Content itemKey="data">
+              <Data />
+            </Tabs.Content>
+            <Tabs.Content itemKey="lines">
+              <Lines />
+            </Tabs.Content>
+            <Tabs.Content itemKey="axes">
+              <Axes />
+            </Tabs.Content>
+            <Tabs.Content itemKey="properties">
+              <Properties />
+            </Tabs.Content>
+            <Tabs.Content itemKey="annotations">
+              <Annotations />
+            </Tabs.Content>
+          </>
+        ) : (
+          <Empty.Action message={`${name} is not editable`} />
+        )}
       </Tabs.Frame>
     </Base.Content>
   );

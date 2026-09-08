@@ -124,7 +124,6 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.ThermocoupleType))
-		w.Int32(int32(v.PosChan))
 		w.Int32(int32(v.NegChan))
 		w.String(v.CjcSource)
 		w.Float64(float64(v.CjcSlope))
@@ -178,9 +177,6 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.ThermocoupleType = ThermocoupleType(rawV)
-		}
-		if v.PosChan, err = r.Int32(); err != nil {
-			return err
 		}
 		if v.NegChan, err = r.Int32(); err != nil {
 			return err

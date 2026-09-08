@@ -10,6 +10,7 @@
 import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
+import { caseconv } from "@/caseconv";
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { type CrudeSeries, isCrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
@@ -798,12 +799,12 @@ describe("Series", () => {
       expect(series.data[0]).toEqual(42);
     });
 
-    it("should keep typed-array-backed data insulated from source mutation", () => {
+    it("should share typed-array-backed data with the source without copying", () => {
       const src = new Float32Array([1, 2]);
       const series = new Series({ data: src });
       const first = series.data;
       src[0] = 99;
-      expect(first[0]).toEqual(1);
+      expect(first[0]).toEqual(99);
       expect(series.data[0]).toEqual(99);
     });
 
@@ -1020,6 +1021,21 @@ describe("Series", () => {
       expect(s.length).toEqual(0);
       expect(Array.from(s)).toEqual([]);
     });
+
+    it("should preserve record keys marked with preserveCase", () => {
+      const schema = z.object({
+        cells: caseconv.preserveCase(z.record(z.string(), z.number())),
+      });
+      const raw = new TextEncoder().encode(
+        JSON.stringify({ cells: { UnSv19BHjPB: 1, x5kWGi0DZha: 2 } }),
+      );
+      const buf = new ArrayBuffer(4 + raw.byteLength);
+      new DataView(buf).setUint32(0, raw.byteLength, true);
+      new Uint8Array(buf).set(raw, 4);
+      const s = new Series({ data: buf, dataType: DataType.JSON });
+      const out = s.parseJSON(schema);
+      expect(Object.keys(out[0].cells)).toEqual(["UnSv19BHjPB", "x5kWGi0DZha"]);
+    });
   });
 
   describe("bytes series", () => {
@@ -1200,7 +1216,6 @@ describe("Series", () => {
       it("should preserve properties when converting between different JS types", () => {
         const timeRange = new TimeRange(TimeStamp.seconds(50), TimeStamp.seconds(150));
 
-        // Test with bigint series
         const bigintSeries = new Series({
           data: [100n, 200n, 300n],
           dataType: DataType.INT64,
@@ -1220,7 +1235,6 @@ describe("Series", () => {
         expect(bigintConverted.at(0)).toBe(1100n); // 100n + 1000n
         expect(bigintConverted.alignmentBounds).toEqual({ lower: 50n, upper: 80n });
 
-        // Test with string series
         const stringSeries = new Series({
           data: ["apple", "banana", "cherry"],
           dataType: DataType.STRING,
@@ -1301,6 +1315,123 @@ describe("Series", () => {
         expect(copy.at(0)).toBe(2); // 1.5 + 0.5
         expect(copy.at(1)).toBe(3); // 2.5 + 0.5
         expect(copy.at(2)).toBe(4); // 3.5 + 0.5
+      });
+
+      // Every method below builds a new series from an existing one, so each asserts
+      // the full property set. A field dropped from one of these constructions is
+      // invisible until something downstream reads it.
+      const decimated = (): Series =>
+        new Series({
+          data: new Float32Array([1, 2, 3, 4, 5]),
+          dataType: DataType.FLOAT32,
+          timeRange: new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+          sampleOffset: 10,
+          alignment: 100n,
+          // Above one whenever the samples average or decimate raw data.
+          alignmentMultiple: 5n,
+          key: "original-key",
+        });
+
+      it("should preserve properties through convert", () => {
+        const original = decimated();
+        const converted = original.convert(DataType.FLOAT64);
+        expect(converted.dataType).toEqual(DataType.FLOAT64);
+        expect(converted.timeRange).toEqual(original.timeRange);
+        expect(converted.sampleOffset).toBe(0);
+        expect(converted.alignment).toBe(100n);
+        expect(converted.alignmentMultiple).toBe(5n);
+        expect(converted.length).toBe(5);
+        expect(converted.alignmentBounds).toEqual({ lower: 100n, upper: 125n });
+        // The conversion holds different samples, so it is a different series.
+        expect(converted.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through slice", () => {
+        const original = decimated();
+        const sliced = original.slice(1, 3);
+        expect(sliced.dataType).toEqual(original.dataType);
+        expect(sliced.timeRange).toEqual(original.timeRange);
+        expect(sliced.sampleOffset).toBe(10);
+        expect(sliced.alignmentMultiple).toBe(5n);
+        // Each sample steps the alignment by the multiple, so dropping one sample
+        // moves the start by five.
+        expect(sliced.alignment).toBe(105n);
+        expect(sliced.length).toBe(2);
+        expect(sliced.alignmentBounds).toEqual({ lower: 105n, upper: 115n });
+        expect(sliced.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through sub", () => {
+        const original = decimated();
+        const subbed = original.sub(1, 3);
+        expect(subbed.dataType).toEqual(original.dataType);
+        expect(subbed.timeRange).toEqual(original.timeRange);
+        expect(subbed.sampleOffset).toBe(10);
+        expect(subbed.alignmentMultiple).toBe(5n);
+        expect(subbed.alignment).toBe(105n);
+        expect(subbed.length).toBe(2);
+        expect(subbed.alignmentBounds).toEqual({ lower: 105n, upper: 115n });
+        expect(subbed.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through reAlign", () => {
+        const original = decimated();
+        const realigned = original.reAlign(500n);
+        expect(realigned.dataType).toEqual(original.dataType);
+        expect(realigned.sampleOffset).toBe(10);
+        expect(realigned.alignmentMultiple).toBe(5n);
+        expect(realigned.alignment).toBe(500n);
+        expect(realigned.length).toBe(5);
+        expect(realigned.alignmentBounds).toEqual({ lower: 500n, upper: 525n });
+        // A realigned series is deliberately unstamped: the caller is placing it in a
+        // new alignment space, not asserting when it was recorded.
+        expect(realigned.timeRange).toEqual(TimeRange.ZERO);
+        expect(realigned.key).not.toBe(original.key);
+      });
+
+      it("should preserve properties through compact", () => {
+        const original = Series.alloc({
+          capacity: 100,
+          dataType: DataType.FLOAT32,
+          timeRange: new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+          sampleOffset: 10,
+          alignment: 100n,
+          alignmentMultiple: 5n,
+          key: "original-key",
+        });
+        original.write(new Series(new Float32Array([1, 2, 3])));
+        const compacted = original.compact();
+        expect(compacted.dataType).toEqual(original.dataType);
+        expect(compacted.timeRange).toEqual(original.timeRange);
+        expect(compacted.sampleOffset).toBe(10);
+        expect(compacted.alignment).toBe(100n);
+        expect(compacted.alignmentMultiple).toBe(5n);
+        expect(compacted.length).toBe(3);
+        expect(compacted.alignmentBounds).toEqual({ lower: 100n, upper: 115n });
+        // Compacting re-houses the same series, so consumers tracking it by key
+        // still find it.
+        expect(compacted.key).toBe("original-key");
+      });
+
+      it("should preserve properties through alloc", () => {
+        const allocated = Series.alloc({
+          capacity: 10,
+          dataType: DataType.FLOAT32,
+          timeRange: new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+          sampleOffset: 10,
+          alignment: 100n,
+          alignmentMultiple: 5n,
+          key: "alloc-key",
+        });
+        expect(allocated.dataType).toEqual(DataType.FLOAT32);
+        expect(allocated.timeRange).toEqual(
+          new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+        );
+        expect(allocated.sampleOffset).toBe(10);
+        expect(allocated.alignment).toBe(100n);
+        expect(allocated.alignmentMultiple).toBe(5n);
+        expect(allocated.capacity).toBe(10);
+        expect(allocated.key).toBe("alloc-key");
       });
     });
   });
@@ -1859,6 +1990,123 @@ describe("Series", () => {
         dataType: DataType.FLOAT32,
       });
       expect(series.bounds).toEqual({ lower: Infinity, upper: -Infinity });
+    });
+  });
+
+  describe("boundsFor", () => {
+    it("should bound only the samples in the index range", () => {
+      const series = new Series({ data: new Float32Array([9999, -3, -2, -1, 9999]) });
+      expect(series.boundsFor(1, 4)).toStrictEqual({ lower: -3, upper: -1 });
+    });
+
+    it("should clamp out-of-range indices", () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      expect(series.boundsFor(-5, 100)).toStrictEqual({ lower: 1, upper: 3 });
+    });
+
+    // Exercises the bigint samples against the number Infinity sentinels in both the
+    // block-build and tail scans.
+    it("should compute bounds for bigint-backed series", () => {
+      const data = new BigInt64Array(5000);
+      for (let i = 0; i < data.length; i++) data[i] = BigInt(i);
+      const series = new Series({ data, dataType: DataType.INT64 });
+      expect(series.boundsFor(1, 4999)).toStrictEqual({ lower: 1, upper: 4998 });
+    });
+
+    it("should return invalid bounds for an empty range", () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      const b = series.boundsFor(2, 2);
+      expect(b.lower).toBeGreaterThan(b.upper);
+    });
+
+    it("should apply the sample offset", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        sampleOffset: 10,
+      });
+      expect(series.boundsFor(0, 2)).toStrictEqual({ lower: 11, upper: 12 });
+    });
+
+    it("should throw on variable length data types", () => {
+      const series = new Series({ data: ["a", "b"] });
+      expect(() => series.boundsFor(0, 1)).toThrow(
+        "cannot calculate bounds on a variable length data type",
+      );
+    });
+
+    it("should answer queries that mix cached blocks and raw edges", () => {
+      // 10k samples spans two complete 4096-sample blocks plus a raw tail.
+      const data = new Float32Array(10_000).fill(5);
+      data[1] = -500;
+      data[9_999] = 900;
+      const series = new Series({ data });
+      expect(series.boundsFor(0, 10_000)).toStrictEqual({ lower: -500, upper: 900 });
+      // Repeats hit the now-warm block summaries.
+      expect(series.boundsFor(0, 10_000)).toStrictEqual({ lower: -500, upper: 900 });
+      // The partial first block is scanned raw, so the outlier at index 1 is
+      // excluded once the range starts past it.
+      expect(series.boundsFor(2, 10_000)).toStrictEqual({ lower: 5, upper: 900 });
+    });
+
+    it("should include samples appended after blocks were cached", () => {
+      const series = Series.alloc({ capacity: 10_000, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array(6_000).fill(5) }));
+      // A sub-range query, so the completed first block gets summarized rather
+      // than hitting the whole-series fast path.
+      expect(series.boundsFor(1, 6_000)).toStrictEqual({ lower: 5, upper: 5 });
+      const next = new Float32Array(4_000).fill(5);
+      next[3_999] = -900;
+      series.write(new Series({ data: next }));
+      expect(series.boundsFor(2, 10_000)).toStrictEqual({ lower: -900, upper: 5 });
+    });
+  });
+
+  describe("compact", () => {
+    it("should copy a partially written series into a right-sized buffer", () => {
+      const series = Series.alloc({
+        capacity: 100,
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(1).range(TimeStamp.seconds(2)),
+        alignment: 5n,
+        key: "buffer-key",
+      });
+      series.write(new Series(new Float32Array([1, 2, 3])));
+      const compacted = series.compact();
+      expect(compacted).not.toBe(series);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
+      expect(Array.from(compacted)).toEqual([1, 2, 3]);
+      expect(compacted.length).toEqual(3);
+      expect(compacted.alignment).toEqual(5n);
+      expect(compacted.timeRange).toEqual(series.timeRange);
+      expect(compacted.key).toEqual("buffer-key");
+    });
+
+    it("should return itself when the series has no spare capacity", () => {
+      const full = new Series(new Float32Array([1, 2, 3]));
+      expect(full.compact()).toBe(full);
+      const alloc = Series.alloc({ capacity: 3, dataType: DataType.FLOAT32 });
+      alloc.write(new Series(new Float32Array([1, 2, 3])));
+      expect(alloc.compact()).toBe(alloc);
+    });
+
+    it("should copy a partially written variable-length series", () => {
+      const series = Series.alloc({ capacity: 1000, dataType: DataType.STRING });
+      series.write(new Series({ data: ["one", "two"], dataType: DataType.STRING }));
+      const compacted = series.compact();
+      expect(compacted).not.toBe(series);
+      expect(Array.from(compacted)).toEqual(["one", "two"]);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
+    });
+
+    it("should leave the original untouched", () => {
+      const series = Series.alloc({ capacity: 100, dataType: DataType.FLOAT32 });
+      series.write(new Series(new Float32Array([1, 2])));
+      series.compact();
+      expect(series.length).toEqual(2);
+      expect(series.capacity).toEqual(100);
+      // The original still has room, so it keeps accepting writes.
+      expect(series.write(new Series(new Float32Array([3])))).toEqual(1);
+      expect(Array.from(series)).toEqual([1, 2, 3]);
     });
   });
 

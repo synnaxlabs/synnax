@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -15,7 +16,9 @@ import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
+import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testutil";
+
+const roles = new RoleClients(client);
 
 describe("schematic/Selectable", () => {
   it("creates a schematic in the active project and opens its tab when clicked", async () => {
@@ -39,5 +42,33 @@ describe("schematic/Selectable", () => {
         true,
       ),
     );
+  });
+});
+
+describe("schematic/Selectable permissions", () => {
+  const findSelectable = () => {
+    const Selectable = Schematic.SELECTABLES.find(
+      (s) => s.type === schematic.TYPE_ONTOLOGY_ID.type,
+    );
+    assertDefined(Selectable, "no selectable registered for schematic");
+    return Selectable;
+  };
+
+  it("should offer the tile to an engineer", async () => {
+    const Selectable = findSelectable();
+    const { wrapper } = await createConsoleWrapper({
+      client: await roles.get("Engineer"),
+    });
+    render(<Selectable />, { wrapper });
+    expect(await screen.findByText("Schematic")).toBeTruthy();
+  });
+
+  it("should withhold the tile from a viewer", async () => {
+    const Selectable = findSelectable();
+    const { wrapper } = await createConsoleWrapper({
+      client: await roles.get("Viewer"),
+    });
+    const { container } = render(<Selectable />, { wrapper });
+    await waitFor(() => expect(container.textContent).toBe(""));
   });
 });

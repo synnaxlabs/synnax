@@ -27,7 +27,6 @@ import {
   ReactFlowProvider,
   SelectionMode,
   useOnViewportChange as useRFOnViewportChange,
-  useReactFlow,
   type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
@@ -70,6 +69,7 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
+import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
 import {
   calculateCursorPosition,
   internalNodeBox,
@@ -107,9 +107,8 @@ const EDITABLE_PROPS: ReactFlowProps = {
   connectionRadius: 30,
 };
 
-// The canvas stays navigable outside edit mode: Shift+drag pans, scroll and
-// pinch zoom, and selection is fully off so Shift can never start a
-// rubber-band box.
+// The canvas stays navigable outside edit mode: Shift+drag pans, scroll and pinch zoom,
+// and selection is fully off so Shift can never start a rubber-band box.
 const NOT_EDITABLE_PROPS: ReactFlowProps = {
   connectionRadius: 0,
   nodesDraggable: false,
@@ -141,7 +140,7 @@ export type ClipboardHandler = (
 
 export interface DiagramProps
   extends
-    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onPaste">,
+    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onCut" | "onPaste">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
     Pick<
@@ -178,6 +177,12 @@ export interface DiagramProps
    */
   onCopy?: ClipboardHandler;
   /**
+   * Called when a cut event fires on the diagram. The second argument is the
+   * cursor position in diagram space at the moment of the cut, derived from
+   * the most recent mousemove over the diagram. Ignored when not editable.
+   */
+  onCut?: ClipboardHandler;
+  /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
    * the most recent mousemove over the diagram.
@@ -186,6 +191,7 @@ export interface DiagramProps
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
+const FIT_VIEW_DEBOUNCE = TimeSpan.milliseconds(50);
 
 export const create = ({
   node: nodeRenderer,
@@ -287,6 +293,7 @@ export const create = ({
     autoRenderInterval,
     onDoubleClick,
     onCopy,
+    onCut,
     onPaste,
     onMouseMove,
     onContextMenu,
@@ -309,10 +316,10 @@ export const create = ({
       [visible, autoRenderInterval],
     );
 
-    const { fitView } = useReactFlow();
+    const fitView = useFitView();
     const debouncedFitView = useDebouncedCallback(
-      (args: diagram.FitViewOptions) => void fitView(args),
-      TimeSpan.milliseconds(50),
+      (args: diagram.FitViewOptions) => fitView(args),
+      FIT_VIEW_DEBOUNCE,
       [fitView],
     );
 
@@ -331,6 +338,8 @@ export const create = ({
       ),
     );
 
+    useInitialFitView(visible && isSized, fitViewOptions);
+
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
       Triggers.compareModeConfigs,
@@ -341,7 +350,7 @@ export const create = ({
     const syncZoomCSSVar = useCallback((zoom: number): void => {
       if (zoomRef.current === zoom) return;
       zoomRef.current = zoom;
-      triggerRef.current?.style.setProperty(CSS.var("diagram-zoom"), `${zoom}`);
+      triggerRef.current?.style.setProperty(CSS.variable("diagram-zoom"), `${zoom}`);
     }, []);
     syncZoomCSSVar(viewport.zoom);
 
@@ -456,21 +465,22 @@ export const create = ({
 
     const triggerRef = useRef<HTMLDivElement>(null);
     Triggers.use({
-      triggers: triggers.zoomReset,
+      triggers: triggers.modes.zoomReset,
       callback: useCallback(
         ({ stage, cursor }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
           if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
-          void fitView();
+          fitView();
         },
         [fitView],
       ),
     });
 
     const triggerProps = useMemo<Partial<ReactFlowProps>>(() => {
-      const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
-      const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
-      const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
+      const { select, pan, zoom } = triggers.modes;
+      const selectTriggers = Triggers.purgeMouse(select)[0] ?? null;
+      const panTriggers = Triggers.purgeMouse(pan)[0] ?? null;
+      const zoomTriggers = Triggers.purgeMouse(zoom)[0] ?? null;
       return {
         selectionOnDrag: selectTriggers == null,
         panOnDrag: panTriggers == null,
@@ -537,6 +547,14 @@ export const create = ({
       [onCopy, cursorInDiagramSpace],
     );
 
+    const handleCut = useCallback(
+      (e: ReactClipboardEvent<HTMLDivElement>): void => {
+        if (!editable) return;
+        onCut?.(e, cursorInDiagramSpace(e.currentTarget));
+      },
+      [onCut, editable, cursorInDiagramSpace],
+    );
+
     const handlePaste = useCallback(
       (e: ReactClipboardEvent<HTMLDivElement>): void => {
         onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
@@ -550,6 +568,7 @@ export const create = ({
         ref={containerRefs}
         onDoubleClick={onDoubleClick}
         onCopy={handleCopy}
+        onCut={handleCut}
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
         onContextMenu={onContextMenu}
@@ -560,7 +579,7 @@ export const create = ({
             {visible && isSized && (
               <ReactFlow
                 {...triggerProps}
-                className={CSS(
+                className={CSS.cls(
                   className,
                   CSS.B("diagram"),
                   CSS.editable(editable),
@@ -571,7 +590,6 @@ export const create = ({
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 ref={triggerRef}
-                fitView
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
@@ -584,7 +602,6 @@ export const create = ({
                 maxZoom={fitViewOptions.maxZoom}
                 isValidConnection={isValidConnection}
                 connectionMode={ConnectionMode.Loose}
-                fitViewOptions={fitViewOptions}
                 selectionMode={SelectionMode.Partial}
                 proOptions={PRO_OPTIONS}
                 deleteKeyCode={DELETE_KEY_CODES}

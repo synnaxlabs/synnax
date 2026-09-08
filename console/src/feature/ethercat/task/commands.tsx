@@ -15,14 +15,14 @@ import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "ethercat_create_read_task",
-  name: "Create an EtherCAT Read Task",
+  name: "Create EtherCAT read task",
   icon: <Icon.Logo.EtherCAT />,
   useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "ethercat_create_write_task",
-  name: "Create an EtherCAT Write Task",
+  name: "Create EtherCAT write task",
   icon: <Icon.Logo.EtherCAT />,
   useOnSelect: useCreateWrite,
 });

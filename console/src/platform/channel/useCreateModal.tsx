@@ -105,7 +105,7 @@ export const useCreateModal = Modals.create(({ close }) => {
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
-            <Text.Text color={9}>Create More</Text.Text>
+            <Text.Text color={9}>Create more</Text.Text>
           </Flex.Box>
           <Button.Button
             status={variant}

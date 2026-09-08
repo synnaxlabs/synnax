@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // unionData is the template view of a discriminated union. Each variant is
@@ -99,9 +100,12 @@ func (p *Plugin) processUnion(
 			SchemaName: camelCase(typeName) + "Z",
 			Doc:        doc.Get(v.Domains),
 		}
+		omitted := variantOmissions(v, table)
 		for _, ext := range form.Extends {
 			if pn, ok := parentSchemaName(ext, table, data); ok {
-				vd.ParentSchemas = append(vd.ParentSchemas, pn)
+				vd.ParentSchemas = append(
+					vd.ParentSchemas, pn+omitClause(ext, omitted, table),
+				)
 			}
 		}
 		if v.Inline {
@@ -109,7 +113,9 @@ func (p *Plugin) processUnion(
 				if pform, ok := payload.Form.(resolution.StructForm); ok {
 					for _, ext := range pform.Extends {
 						if pn, ok := parentSchemaName(ext, table, data); ok {
-							vd.ParentSchemas = append(vd.ParentSchemas, pn)
+							vd.ParentSchemas = append(
+								vd.ParentSchemas, pn+omitClause(ext, omitted, table),
+							)
 						}
 					}
 					for _, f := range pform.Fields {
@@ -127,4 +133,46 @@ func (p *Plugin) processUnion(
 		ud.Variants = append(ud.Variants, vd)
 	}
 	return ud
+}
+
+// variantOmissions returns the fields a variant drops from its inherited shape.
+func variantOmissions(
+	v resolution.UnionVariant, table *resolution.Table,
+) set.Set[string] {
+	if !v.Inline {
+		return nil
+	}
+	payload, ok := v.Type.Resolve(table)
+	if !ok {
+		return nil
+	}
+	form, ok := payload.Form.(resolution.StructForm)
+	if !ok {
+		return nil
+	}
+	return set.New(form.OmittedFields...)
+}
+
+// omitClause renders the `.omit({...})` a parent schema needs when the variant
+// drops one of the fields that parent contributes. Empty when it drops none.
+func omitClause(
+	parent resolution.TypeRef, omitted set.Set[string], table *resolution.Table,
+) string {
+	if len(omitted) == 0 {
+		return ""
+	}
+	resolved, ok := parent.Resolve(table)
+	if !ok {
+		return ""
+	}
+	var keys []string
+	for _, f := range resolution.UnifiedFields(resolved, table) {
+		if omitted.Contains(f.Name) {
+			keys = append(keys, camelCase(f.Name)+": true")
+		}
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	return ".omit({ " + strings.Join(keys, ", ") + " })"
 }

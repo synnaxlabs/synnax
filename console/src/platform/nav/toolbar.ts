@@ -19,3 +19,12 @@ export interface Toolbar extends Pick<Resize.SingleProps, "sizeBounds"> {
   trigger: Triggers.Trigger;
   useVisible?: () => boolean;
 }
+
+/**
+ * The keys of the toolbars the subject may open. Calls every toolbar's own visibility
+ * hook, so items has to be a module-level constant to keep the hook order stable.
+ */
+export const useVisibleKeys = (items: Toolbar[]): Set<string> =>
+  new Set(
+    items.filter(({ useVisible }) => useVisible?.() ?? true).map(({ key }) => key),
+  );

@@ -19,6 +19,7 @@ export const PREFIX = "ni";
 export type Units = ni.Units;
 export type AccelUnits = ni.AccelUnits;
 export type AccelSensitivityUnits = ni.AccelSensitivityUnits;
+export type AccelChargeSensitivityUnits = ni.AccelChargeSensitivityUnits;
 export type ChargeUnits = ni.ChargeUnits;
 export type ForceUnits = ni.ForceUnits;
 export type ElectricalUnits = ni.ElectricalUnits;
@@ -28,6 +29,14 @@ export type TemperatureUnits = ni.TemperatureUnits;
 export type TorqueUnits = ni.TorqueUnits;
 export type VelocityUnits = ni.VelocityUnits;
 export type VelocitySensitivityUnits = ni.VelocitySensitivityUnits;
+export type BridgeConfig = ni.BridgeConfig;
+export type ExcitationSource = ni.ExcitationSource;
+export type ForceSensitivityUnits = ni.ForceSensitivityUnits;
+export type ResistanceConfig = ni.ResistanceConfig;
+export type RTDType = ni.RTDType;
+export type StrainConfig = ni.StrainConfig;
+export type TerminalConfig = ni.TerminalConfig;
+export type ThermocoupleType = ni.ThermocoupleType;
 
 export const WAVE_TYPES = ni.WAVE_TYPES;
 export type WaveType = ni.WaveType;
@@ -93,31 +102,31 @@ export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =
 
 export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_accel: "Accelerometer",
-  ai_accel_4_wire_dc_voltage: "Accelerometer 4-Wire DC Voltage",
-  ai_accel_charge: "Accelerometer Charge",
+  ai_accel_4_wire_dc_voltage: "Accelerometer 4-wire DC voltage",
+  ai_accel_charge: "Accelerometer charge",
   ai_bridge: "Bridge",
   ai_charge: "Charge",
   ai_current: "Current",
   ai_current_rms: "Current RMS",
-  ai_force_bridge_polynomial: "Force Bridge Polynomial",
-  ai_force_bridge_table: "Force Bridge Table",
-  ai_force_bridge_two_point_lin: "Force Bridge Two-Point Linear",
+  ai_force_bridge_polynomial: "Force bridge polynomial",
+  ai_force_bridge_table: "Force bridge table",
+  ai_force_bridge_two_point_lin: "Force bridge two-point linear",
   ai_force_iepe: "Force IEPE",
-  ai_freq_voltage: "Frequency Voltage",
+  ai_freq_voltage: "Frequency voltage",
   ai_microphone: "Microphone",
-  ai_pressure_bridge_polynomial: "Pressure Bridge Polynomial",
-  ai_pressure_bridge_table: "Pressure Bridge Table",
-  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
+  ai_pressure_bridge_polynomial: "Pressure bridge polynomial",
+  ai_pressure_bridge_table: "Pressure bridge table",
+  ai_pressure_bridge_two_point_lin: "Pressure bridge two-point linear",
   ai_resistance: "Resistance",
   ai_rtd: "RTD",
-  ai_strain_gauge: "Strain Gauge",
-  ai_temp_builtin: "Temperature Built-In Sensor",
-  ai_thermistor_iex: "Thermistor Current Excitation",
-  ai_thermistor_vex: "Thermistor Voltage Excitation",
+  ai_strain_gauge: "Strain gauge",
+  ai_temp_builtin: "Temperature built-in sensor",
+  ai_thermistor_iex: "Thermistor current excitation",
+  ai_thermistor_vex: "Thermistor voltage excitation",
   ai_thermocouple: "Thermocouple",
-  ai_torque_bridge_polynomial: "Torque Bridge Polynomial",
-  ai_torque_bridge_table: "Torque Bridge Table",
-  ai_torque_bridge_two_point_lin: "Torque Bridge Two-Point Linear",
+  ai_torque_bridge_polynomial: "Torque bridge polynomial",
+  ai_torque_bridge_table: "Torque bridge table",
+  ai_torque_bridge_two_point_lin: "Torque bridge two-point linear",
   ai_velocity_iepe: "Velocity IEPE",
   ai_voltage: "Voltage",
   ai_voltage_rms: "Voltage RMS",
@@ -161,6 +170,7 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
 export type CIChannel = ni.CIChannel;
 export type CIChannelType = ni.CIChannelType;
 export type CIFreqUnits = ni.CIFreqUnits;
+export type CITimeUnits = ni.CITimeUnits;
 export type CIPeriodUnits = ni.CITimeUnits;
 export type CIPulseWidthUnits = ni.CITimeUnits;
 export type CISemiPeriodUnits = ni.CITimeUnits;
@@ -181,16 +191,16 @@ export const createCIChannel = (type: CIChannelType = "ci_frequency"): CIChannel
 
 export const CI_CHANNEL_TYPE_NAMES: Record<CIChannelType, string> = {
   ci_frequency: "Frequency",
-  ci_edge_count: "Edge Count",
+  ci_edge_count: "Edge count",
   ci_period: "Period",
-  ci_pulse_width: "Pulse Width",
-  ci_semi_period: "Semi Period",
-  ci_two_edge_sep: "Two Edge Separation",
-  ci_position_angular: "Position Angular",
-  ci_position_linear: "Position Linear",
-  ci_velocity_angular: "Velocity Angular",
-  ci_velocity_linear: "Velocity Linear",
-  ci_duty_cycle: "Duty Cycle",
+  ci_pulse_width: "Pulse width",
+  ci_semi_period: "Semi period",
+  ci_two_edge_sep: "Two edge separation",
+  ci_position_angular: "Position angular",
+  ci_position_linear: "Position linear",
+  ci_velocity_angular: "Velocity angular",
+  ci_velocity_linear: "Velocity linear",
+  ci_duty_cycle: "Duty cycle",
 };
 
 export const CI_CHANNEL_TYPE_ICONS: Record<CIChannelType, Icon.FC> = {
@@ -221,7 +231,7 @@ export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =
 
 export const AO_CHANNEL_TYPE_NAMES: Record<AOChannelType, string> = {
   ao_current: "Current",
-  ao_func_gen: "Function Generator",
+  ao_func_gen: "Function generator",
   ao_voltage: "Voltage",
 };
 
@@ -232,6 +242,13 @@ export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.FC> = {
 };
 
 export type AnalogChannel = AIChannel | AOChannel;
+
+/**
+ * Returns the port an analog channel reads or drives, or null when its type has none.
+ * The built-in temperature sensor is not wired to a port.
+ */
+export const channelPort = (channel: AnalogChannel): number | null =>
+  "port" in channel ? channel.port : null;
 
 export type DIChannel = ni.DIChannel;
 export const createDIChannel = (): DIChannel =>

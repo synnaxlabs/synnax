@@ -18,8 +18,7 @@
       "port": 0,
       "state_channel": 2011,
       "state_channel_name": "fixture_ao_voltage_state",
-      "type": "ao_voltage",
-      "units": "Volts"
+      "type": "ao_voltage"
     },
     {
       "cmd_channel": 2020,
@@ -40,8 +39,7 @@
       "port": 1,
       "state_channel": 2021,
       "state_channel_name": "fixture_ao_current_state",
-      "type": "ao_current",
-      "units": "Amps"
+      "type": "ao_current"
     },
     {
       "amplitude": 3.75,

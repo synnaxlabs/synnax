@@ -43,7 +43,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("arc.task.service")
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -71,6 +71,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               Type,
 			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.Config,
 			SetEntryKey:        (*Config).SetKey,
 			ApplyEntryDefaults: (*Config).ApplyDefaults,
 			ValidateEntry:      (*Config).Validate,

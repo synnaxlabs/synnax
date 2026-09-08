@@ -11,11 +11,18 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 
-const ai = (key: string, device: string, port: number): NI.Task.AIChannel => ({
-  ...NI.Task.createAIChannel(),
+const ai = (key: string, device: string, port: number): NI.Task.AIChannel => {
+  const channel = NI.Task.createAIChannel();
+  if (!("port" in channel)) throw new Error("channel carries no port");
+  channel.port = port;
+  return { ...channel, key, device };
+};
+
+// The built-in temperature sensor has no port, so it never collides with one.
+const aiTempBuiltin = (key: string, device: string): NI.Task.AIChannel => ({
+  ...NI.Task.createAIChannel("ai_temp_builtin"),
   key,
   device,
-  port,
 });
 
 const parseAnalog = (channels: NI.Task.AIChannel[]) =>
@@ -37,6 +44,12 @@ describe("port validation", () => {
 
   it("rejects a duplicate port on the same device", () => {
     expect(parseAnalog([ai("0", "dev1", 0), ai("1", "dev1", 0)]).success).toBe(false);
+  });
+
+  it("does not collide a portless channel with a real port", () => {
+    expect(parseAnalog([ai("0", "dev1", 0), aiTempBuiltin("1", "dev1")]).success).toBe(
+      true,
+    );
   });
 
   it("enforces port uniqueness independently per device", () => {

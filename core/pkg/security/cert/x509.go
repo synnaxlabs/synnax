@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	validFrom    = -time.Hour * 24
-	validFor     = time.Hour * 24 * 365
-	caCommonName = "Synnax CA"
+	validFrom      = -time.Hour * 24
+	validFor       = time.Hour * 24 * 365
+	caCommonName   = "Synnax CA"
+	nodeCommonName = "Synnax Node"
 )
 
 func newBasex509() (*x509.Certificate, error) {

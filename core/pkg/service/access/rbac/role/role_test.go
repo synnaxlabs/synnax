@@ -436,6 +436,33 @@ var _ = Describe("Retrieve", func() {
 	})
 })
 
+var _ = Describe("Search", func() {
+	// Writes commit directly so the search index observes them; indexing is
+	// asynchronous, hence the Eventually.
+	It("Should retrieve roles matching the search term", func(ctx SpecContext) {
+		w := svc.NewWriter(nil, true)
+		r := role.Role{Name: "quasar-operator", Description: "Quasar operator"}
+		Expect(w.Create(ctx, &r)).To(Succeed())
+		Eventually(func(g Gomega) {
+			var rs []role.Role
+			g.Expect(svc.NewRetrieve().
+				Search("quasar").
+				Entries(&rs).
+				Exec(ctx, nil)).To(Succeed())
+			g.Expect(rs).To(ContainElement(HaveField("Key", r.Key)))
+		}).Should(Succeed())
+	})
+
+	It("Should return no roles when nothing matches", func(ctx SpecContext) {
+		var rs []role.Role
+		Expect(svc.NewRetrieve().
+			Search("zzz-no-such-role").
+			Entries(&rs).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(rs).To(BeEmpty())
+	})
+})
+
 var _ = Describe("Ontology Integration", func() {
 	var tx gorp.Tx
 	BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })

@@ -57,10 +57,7 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         assert len(tasks) == 1, (
             f"Expected exactly 1 task named '{self.task_name}', got {len(tasks)}"
         )
-        raw = tasks[0]
-        typed = self.task_class(**raw.config)
-        typed.set_internal(raw)
-        return typed
+        return self.task_class(tasks[0])
 
     def run(self) -> None:
         self.test_task_config()
@@ -85,7 +82,9 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         assert self.tsk._internal.type == self.task_type, (
             f"Expected type '{self.task_type}', got '{self.tsk._internal.type}'"
         )
-        assert self.tsk.config.data_saving is True, "data_saving should be True"
+        assert self.tsk.config.data_saving_disabled is False, (
+            "data saving should stay enabled"
+        )
         assert len(self.tsk.config.channels) == self.num_channels, (
             f"Expected {self.num_channels} channels, "
             f"got {len(self.tsk.config.channels)}"
@@ -139,20 +138,20 @@ class ReadTaskConsoleVerify(ConsoleCase):
         self.log(f"Testing: Task form for '{self.task_name}' in console")
         console = self.console
 
-        task_page = console.project.open_from_search(TaskPage, self.task_name)
+        task_page = console.pages.open_from_search(TaskPage, self.task_name)
 
         layout = console.layout
         assert layout.get_input_field("Name") == self.task_name, "Task name mismatch"
-        assert layout.get_toggle("Data Saving") is True, "Data saving should be on"
-        assert layout.get_toggle("Auto Start") is False, "Auto start should be off"
+        assert layout.get_toggle("Data saving") is True, "Data saving should be on"
+        assert layout.get_toggle("Auto start") is False, "Auto start should be off"
 
         if self.expected_sample_rate is not None:
-            actual = layout.get_input_field("Sample Rate")
+            actual = layout.get_input_field("Sample rate")
             assert actual == self.expected_sample_rate, (
                 f"Sample rate: expected {self.expected_sample_rate}, got {actual}"
             )
         if self.expected_stream_rate is not None:
-            actual = layout.get_input_field("Stream Rate")
+            actual = layout.get_input_field("Stream rate")
             assert actual == self.expected_stream_rate, (
                 f"Stream rate: expected {self.expected_stream_rate}, got {actual}"
             )

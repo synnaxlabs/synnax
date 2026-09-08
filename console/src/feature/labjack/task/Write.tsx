@@ -79,10 +79,11 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
             });
           }}
         >
-          {({ value, onChange }) => (
+          {({ value, onChange, preview }) => (
             <SelectPort
               value={value}
               onChange={onChange}
+              preview={preview}
               model={device.model}
               portType={convertWriteChannelTypeToPortType(type)}
               allowNone={false}
@@ -194,7 +195,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "LabJack Write Task", type: WRITE_TYPE, config: cfg };
+  return { name: "LabJack write task", type: WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
@@ -354,7 +355,7 @@ export const useCreateWrite = Task.createUseCreate({
 
 export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  title: "LabJack Write Task",
+  title: "LabJack write task",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateWrite,
 });

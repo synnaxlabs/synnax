@@ -217,6 +217,7 @@ const createFakeMonaco = () => {
     }),
     setTheme: vi.fn(),
     addKeybindingRule: vi.fn(),
+    InjectedTextCursorStops: { Both: 0, Right: 1, Left: 2, None: 3 },
   };
   return {
     editor,
@@ -478,6 +479,23 @@ describe("Editor", () => {
       expect(screen.queryByText("Rename")).toBeNull();
     });
 
+    it("should hide the rename action and report when a provider fails", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      setRenameProviders([
+        { resolveRenameLocation: vi.fn().mockRejectedValue(new Error("boom")) },
+      ]);
+      renderEditor();
+      openMenu(monaco.editorInstance);
+      await vi.waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          "failed to check rename availability",
+          expect.anything(),
+        ),
+      );
+      expect(screen.queryByText("Rename")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
     it("should show and trigger rename when the cursor is renameable", async () => {
       setRenameProviders([renameableProvider]);
       renderEditor();
@@ -613,6 +631,8 @@ describe("Editor", () => {
             after: {
               content: PLACEHOLDER,
               inlineClassName: "pluto-editor__placeholder",
+              // None keeps a click from parking the caret after the placeholder.
+              cursorStops: 3,
             },
           },
         },

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "channels": [
     {
-      "channel": 1048581,
+      "channel": "{{channel:sy_node_1_metrics_cpu_percentage}}",
       "color": "",
       "notation": "standard",
       "precision": -1,

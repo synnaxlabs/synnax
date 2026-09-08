@@ -36,6 +36,8 @@ import { getRootElement } from "@/util/rootElement";
 interface ChildProps {
   ref?: Ref<HTMLElement>;
   "aria-describedby"?: string;
+  "aria-label"?: string;
+  children?: ReactNode;
   onPointerEnter?: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerLeave?: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerDown?: (e: React.PointerEvent<HTMLElement>) => void;
@@ -240,7 +242,7 @@ export const Dialog = ({
             id={id}
             role="tooltip"
             ref={combinedTooltipRef}
-            className={CSS(CSS.B("tooltip"), closing && CSS.M("closing"))}
+            className={CSS.cls(CSS.B("tooltip"), closing && CSS.M("closing"))}
           >
             {formatTip(tip)}
           </div>,
@@ -249,6 +251,14 @@ export const Dialog = ({
       {cloneElement(children_, {
         ref: combinedAnchorRef,
         "aria-describedby": visible ? id : children_.props["aria-describedby"],
+        // A string tip doubles as an icon-only anchor's accessible name. An
+        // anchor with visible text keeps that text as its name: aria-label
+        // would override it, breaking label-in-name.
+        "aria-label":
+          children_.props["aria-label"] ??
+          (typeof tip === "string" && Text.isSquare(children_.props.children)
+            ? tip
+            : undefined),
         onPointerEnter: (e) => {
           handlePointerEnter(e);
           children_.props.onPointerEnter?.(e);

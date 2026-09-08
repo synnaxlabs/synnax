@@ -65,7 +65,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
           </Form.Form>
         </Modals.Body>
         <Modals.Footer>
-          <Triggers.SaveHelpText action="Save" />
+          <Triggers.SaveHelpText action="Create" />
           <Nav.Bar.End>
             <Button.Button
               variant="filled"

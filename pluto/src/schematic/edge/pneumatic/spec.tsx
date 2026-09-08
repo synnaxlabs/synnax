@@ -60,7 +60,7 @@ export const spec = Segmented.createSpec(
   NAME,
   ({ points, crossings, color: colorVal }) => {
     const symbolStyle = useMemo(
-      () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+      () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
       [colorVal],
     );
     return (

@@ -37,6 +37,7 @@ export const nodeZ = z.object({
   position: xy.xyZ,
   zIndex: z.number().optional(),
   type: z.string().optional(),
+  draggable: z.boolean().optional(),
 });
 export type Node = z.infer<typeof nodeZ>;
 
@@ -65,6 +66,7 @@ export const translateNodesForward = (
     zIndex: node.zIndex,
     position: node.position,
     selected: selected.has(node.key),
+    draggable: node.draggable,
     data: EMPTY_DATA,
     dragHandle: dragHandleSelector,
   }));
@@ -185,11 +187,8 @@ export interface ConnectionLineProps {
 export const createEndpoint = (
   x: number,
   y: number,
-  position: string,
-): EdgeEndpoint => ({
-  position: { x, y },
-  orientation: position as location.Outer,
-});
+  orientation: location.Outer,
+): EdgeEndpoint => ({ position: { x, y }, orientation });
 
 export const createEdgeFromConnection = (connection: rf.Connection): Edge => ({
   key: id.create(),

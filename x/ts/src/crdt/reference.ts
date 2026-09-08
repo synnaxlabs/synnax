@@ -119,7 +119,6 @@ export class ReferenceText {
     this.applyDelete(...snapshot.deletes);
   }
 
-  // markDirty invalidates the cached traversal and derived caches after a mutation.
   private markDirty(): void {
     this.dirty = true;
     this.visibleCache = null;

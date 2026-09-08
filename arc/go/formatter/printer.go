@@ -1257,6 +1257,7 @@ func (p *printer) isType(tokType int) bool {
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,
 		parser.ArcLexerF32, parser.ArcLexerF64, parser.ArcLexerSTR,
+		parser.ArcLexerBOOL,
 		parser.ArcLexerSERIES, parser.ArcLexerCHAN:
 		return true
 	}
@@ -1268,7 +1269,9 @@ func (p *printer) isLiteral(tokType int) bool {
 	case parser.ArcLexerINTEGER_LITERAL,
 		parser.ArcLexerFLOAT_LITERAL,
 		parser.ArcLexerSTR_LITERAL,
-		parser.ArcLexerSTR_LITERAL_MULTI:
+		parser.ArcLexerSTR_LITERAL_MULTI,
+		parser.ArcLexerTRUE,
+		parser.ArcLexerFALSE:
 		return true
 	}
 	return false

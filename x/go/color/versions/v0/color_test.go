@@ -102,6 +102,71 @@ var _ = Describe("Color", func() {
 			Expect(json.Unmarshal([]byte(`null`), &c)).To(Succeed())
 			Expect(c).To(Equal(v0.Color{}))
 		})
+		It("Should unmarshal a legacy rgba255 object", func() {
+			var c v0.Color
+			Expect(
+				json.Unmarshal([]byte(`{"rgba255":[5,10,15,0.8]}`), &c),
+			).To(Succeed())
+			Expect(c).To(Equal(v0.Color{R: 5, G: 10, B: 15, A: 0.8}))
+		})
+		It("Should unmarshal a 3-element legacy rgba255 object", func() {
+			var c v0.Color
+			Expect(json.Unmarshal([]byte(`{"rgba255":[5,10,15]}`), &c)).To(Succeed())
+			Expect(c).To(Equal(v0.Color{R: 5, G: 10, B: 15, A: 1}))
+		})
+
+		DescribeTable("Should lift a legacy 0-255 alpha onto the 0-1 scale",
+			func(data string, expected v0.Color) {
+				var c v0.Color
+				Expect(json.Unmarshal([]byte(data), &c)).To(Succeed())
+				Expect(c.R).To(Equal(expected.R))
+				Expect(c.G).To(Equal(expected.G))
+				Expect(c.B).To(Equal(expected.B))
+				Expect(c.A).To(BeNumerically("~", expected.A, 0.001))
+			},
+			Entry("array with alpha 255",
+				`[28, 28, 28, 255]`, v0.Color{R: 28, G: 28, B: 28, A: 1}),
+			Entry("array with mid-range alpha",
+				`[255, 0, 0, 128]`, v0.Color{R: 255, G: 0, B: 0, A: 128.0 / 255}),
+			Entry("array with alpha just above 1 clamps to opaque",
+				`[255, 0, 0, 1.5]`, v0.Color{R: 255, G: 0, B: 0, A: 1}),
+			Entry("array with alpha at the clamp boundary",
+				`[255, 0, 0, 2]`, v0.Color{R: 255, G: 0, B: 0, A: 1}),
+			Entry("array with alpha just above the clamp boundary divides",
+				`[255, 0, 0, 2.01]`, v0.Color{R: 255, G: 0, B: 0, A: 2.01 / 255}),
+			Entry("array with alpha 1 stays opaque",
+				`[255, 0, 0, 1]`, v0.Color{R: 255, G: 0, B: 0, A: 1}),
+			Entry("array with fractional alpha untouched",
+				`[255, 0, 0, 0.25]`, v0.Color{R: 255, G: 0, B: 0, A: 0.25}),
+			Entry("object with alpha 255",
+				`{"r":5,"g":5,"b":5,"a":255}`, v0.Color{R: 5, G: 5, B: 5, A: 1}),
+			Entry("rgba255 object with alpha 255",
+				`{"rgba255":[5,5,5,255]}`, v0.Color{R: 5, G: 5, B: 5, A: 1}),
+		)
+
+		DescribeTable("Should reject an alpha above the 0-255 scale",
+			func(data string) {
+				var c v0.Color
+				Expect(json.Unmarshal([]byte(data), &c)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("array", `[255, 0, 0, 300]`),
+			Entry("object", `{"r":5,"g":5,"b":5,"a":300}`),
+			Entry("rgba255 object", `{"rgba255":[5,5,5,300]}`),
+		)
+
+		DescribeTable("Should reject an RGB channel outside the 0-255 range",
+			func(data string) {
+				var c v0.Color
+				Expect(json.Unmarshal([]byte(data), &c)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("array above the range", `[300, 0, 0, 1]`),
+			Entry("array below the range", `[-1, 0, 0, 1]`),
+			Entry("3-element array above the range", `[0, 256, 0]`),
+			Entry("rgba255 object above the range", `{"rgba255":[300,0,0,255]}`),
+			Entry("rgba255 object below the range", `{"rgba255":[-1,0,0,255]}`),
+		)
 	})
 
 	Describe("MessagePack", func() {
@@ -144,6 +209,20 @@ var _ = Describe("Color", func() {
 			var c v0.Color
 			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
 			Expect(c).To(Equal(v0.Color{}))
+		})
+		It("Should lift a legacy 0-255 alpha in an array", func() {
+			encoded := MustSucceed(msgpack.Marshal([]any{28, 28, 28, 255}))
+			var c v0.Color
+			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+			Expect(c).To(Equal(v0.Color{R: 28, G: 28, B: 28, A: 1}))
+		})
+		It("Should lift a legacy 0-255 alpha in a map", func() {
+			encoded := MustSucceed(msgpack.Marshal(
+				map[string]any{"r": 5, "g": 5, "b": 5, "a": 255},
+			))
+			var c v0.Color
+			Expect(msgpack.Unmarshal(encoded, &c)).To(Succeed())
+			Expect(c).To(Equal(v0.Color{R: 5, G: 5, B: 5, A: 1}))
 		})
 	})
 })

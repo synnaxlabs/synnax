@@ -22,43 +22,78 @@ or generator logic and schemas disagree.
 - Never sync on `rc` or any shared branch — sync writes generated files repo-wide. Sync
   only on the feature branch owning the schema changes.
 - `oracle check` verifies generated files match schemas — read-only, safe anywhere.
-- Confirm with the user before `oracle migrate` / `oracle snapshot`
-  (schema-version-affecting).
+- Confirm with the user before `oracle migrate` (version-affecting: scaffolds the next
+  version file).
 
-## Versioning Rules
+## Versioning Rules (RFC 0053)
 
-- **Version a schema (`@go version`) iff its data is gorp-persisted** — directly, via
-  ImEx, or by being embedded in a versioned schema. Nothing else needs migrations: wire
-  peers are never version-skewed, and there are no unvalidated caches.
-- **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
-  they are recomputed from their versioned sources, not migrated.
-- `@go version` is type-granular and must be declared per type; the analyzer rejects
-  file-level declarations. Declare it struct-level on persisted types (channel-style).
-  Unversioned siblings are transient — they generate real declarations at the package
-  root (merged into `types.gen.go` beside the version aliases) instead of riding the
-  versions/vN layout, and their shape changes never force a version bump.
-- Two classes must stay versioned despite being unpersisted: types referenced by a
-  versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
-  package without an import cycle; the persistence gate exempts these automatically),
-  and types whose hand-written Go methods entangle with versioned siblings (telem's
-  Size/Rate). Mark the latter `@go version N pinned` — the gate skips pinned types and
-  warns if a pinned type is actually persisted; the analyzer rejects any other version
-  argument.
-- `oracle check` runs a non-blocking persistence gate warning on versioned types outside
-  the persisted closure and on persisted types missing @go version at a versioned path.
-  Use `--verbose` to see warnings on passing gates.
-- Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
-  when another versioned schema embeds the type; unexported when only the package's own
-  gorp wiring or auto-copies call it.
-- `@go imex` (bare marker, requires `@go version`) on an imex-registered resource's root
-  struct emits `imex.gen.go` files across the versions tree: a `Version imex.Version`
-  constant in every `versions/vK` package the Core has exported (from the earliest
-  snapshot carrying the marker up to the current version), plus `Latest` and an
-  `autoDecodeEnvelope` ladder in the versions root that lifts server-era envelopes
-  through the per-bump `Migrate<Type>` steps. Earlier version packages predate Core
-  export and get no constant. The envelope version and migration chain are never
-  hand-maintained; hand `versions/imex.go` files route `> legacy.LastVersion` envelopes
-  to the ladder and keep only frozen Console-era decoding.
+- **Version files are hand-owned and hold the version story.**
+  `schemas/<domain>/versions/<resource>/vN.oracle` enumerates the resource's complete
+  persisted namespace at N: full declarations for shapes that changed at N, alias lines
+  (`Key = v0.Key`, pointing at the defining version) for the rest. Absence means the
+  type was removed at N. The versions directory is the sole version authority: there is
+  no `@go version` tag; the current version is the highest vN file, and membership in it
+  marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
+  the `@go` persistence set (`marshal` incl. field-level `omit`, `hand`, `migrate`,
+  `imex`). Codecs are explicit: a struct or union gets one iff its declaration carries
+  `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
+  codec methods: nothing generates, references stay valid. Generation fails when a
+  codec's persisted graph reaches a struct or union carrying neither form.
+- **The live file is a generated projection, then an annotation surface.** Sync writes
+  each versioned resource's live schema by merging chain resolution (version-owned
+  content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,
+  `@validate`, `@index`, `@pb`, wire-only types like `APIChannel`, and `action`
+  declarations — actions are wire mutations, not persisted content, so the analyzer
+  rejects them in version files). Edit shapes in version files; edit live-only concerns
+  in the live file. A hand edit to version-owned live content is overwritten by the next
+  sync, and the `versions` gate errors on the drift naming the version files as
+  authority.
+- **A resource is versioned iff its data is gorp-persisted.** Never version derived
+  artifacts. A resource that stops being persisted ENDS its chain with a tombstone: an
+  empty v(N+1).oracle (header and a comment only) records that everything was removed at
+  N+1. An ended chain keeps every earlier version frozen (packages, codecs, fixture
+  tests keep regenerating), has no current version, and its live file goes back to being
+  hand-owned — sync no longer projects it. Nothing current may hold a stored reference
+  into an ended chain; `oracle migrate` refuses it; declare members in a new version
+  file to revive it. Example: arc `Program` ended at v1 — arc v0 records embed its v0
+  bytes, and arc v1+ resolve the live shape at read time.
+- **Imports split on the persistence boundary.** A stored reference (part of the
+  record's persisted bytes, e.g. a range's color) imports a pinned version file
+  (`import "schemas/x/versions/color/v0"`). A resolved reference (read-time materialized
+  `@go marshal omit` fields, e.g. a task's status) imports the dependency's live schema
+  and always resolves its current surface. A live schema may import only its own
+  resource's versions directory. The `versions` gate enforces placement, and fails the
+  current surface on any stored pin lagging its dependency chain's current version.
+- **Change workflow**: for a version that has never shipped in a release, edit the
+  current vN file in place; for a shipped one, `oracle migrate <resource>` scaffolds
+  v(N+1).oracle (alias lines to definers, omit-transient declarations redeclared,
+  imports carried), then convert the changed types to full declarations and run
+  `oracle sync`. Shipped-ness is developer knowledge; Oracle never tracks it.
+- `oracle check`'s blocking `versions` gate enforces: live-file consistency (on-disk
+  live file == merged projection), import placement, stored-pin currency, and delta
+  minimality (a redeclaration structurally identical to its resolved predecessor must be
+  an alias; enum member sets compare exactly).
+- Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
+  files. Hand-written frozen definer files are marked `@go hand` in their version file;
+  hand-ness is version-local — an aliased member whose definer is an older version still
+  generates in the current package as a backward alias. `migrate.gen.go` is a pure
+  function of the two adjacent version files; hand-written transforms live in
+  `migrate.go` (renames and cross-resource moves have no generated counterpart).
+- Omit-transient members — types reachable from a file's `@go marshal` declarations only
+  through omitted fields, e.g. task's StatusDetails — track the live shape: they always
+  declare fully, may match their predecessor (exempt from the minimality gate), and
+  resolve their references at read time. A transient shape change to a shipped version
+  requires a mint.
+- `@go imex` (bare marker) on a versioned resource's root struct emits `imex.gen.go`
+  files across the versions tree: a `Version imex.Version` constant in every
+  `versions/vK` package the Core has exported (from the earliest version file carrying
+  the marker up to the current version), plus `Latest` and an `autoDecodeEnvelope`
+  ladder in the versions root that lifts server-era envelopes through the per-bump
+  `Migrate<Type>` steps. Version files record the marker, so the chain dates the export
+  history. Earlier version packages predate Core export and get no constant. The
+  envelope version and migration chain are never hand-maintained; hand
+  `versions/imex.go` files route `> legacy.LastVersion` envelopes to the ladder and keep
+  only frozen Console-era decoding.
 
 ## Field Optionality
 
@@ -83,6 +118,17 @@ applicable". A sentinel claims the question was answered when it was not, and it
 the "did you forget" check impossible to write.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
+
+## Default Groups
+
+`@default group "<name>"` on two or more fields makes their defaults fill as a unit: the
+generated fill runs only when every member holds its zero value. Use it when a field's
+zero is valid on its own but the group's all-zero state is not, such as a `min_val` /
+`max_val` pair, where an all-zero range means "unset" but a `max_val` of 0 is a real
+bound the fill must not overwrite.
+
+Grouping only changes Go. TypeScript, Python, and C++ fill from key presence at decode
+and never overwrite a value the caller sent.
 
 ## Contextual Validation
 
@@ -113,9 +159,12 @@ when most types need it, declare it file-level and omit the exceptions.
 
 ## Rules
 
-- Never hand-edit generated output — edit the schema, then sync (see Sync Workflow).
+- Never hand-edit generated output — edit the schema, then sync (see Sync Workflow). For
+  a versioned resource's live schema this means: shapes in the version files,
+  annotations in the live file.
 - Before changing plugin output, mirror the nearest existing `.gen` analog — never
   invent new generated shapes.
 - Wire-format or generator-wide changes hit every language at once: describe the blast
   radius and get explicit user sign-off first.
-- Schema migrations: `oracle migrate` generates migration code, then runs sync.
+- Schema migrations: `oracle migrate` scaffolds the next version file; sync then
+  regenerates `migrate.gen.go`, the frozen packages, and the live projection.

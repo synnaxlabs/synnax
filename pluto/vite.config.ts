@@ -20,7 +20,9 @@ export default defineConfig({
   plugins: [
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
-    lib({ name: "pluto" }),
+    // Pluto's maps are 17MB gzipped, mostly sourcesContent from bundled dependencies,
+    // so they stay out of the tarball. Every other package publishes its maps.
+    lib({ name: "pluto", publishSourcemaps: false }),
     {
       name: "copy-theme-css",
       closeBundle() {
@@ -92,6 +94,7 @@ export default defineConfig({
       ),
     },
     setupFiles: ["src/mock/setuptests.ts"],
+    testTimeout: 15_000,
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

@@ -15,7 +15,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type schematic } from "@/schematic";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -282,7 +282,9 @@ describe("Symbol Client", () => {
     // Zip entry names are stored uncompressed, so the raw archive names the bundle's
     // files without the spec needing a zip reader.
     const download = async (key: group.Key): Promise<string> => {
-      const stream = await client.schematics.symbols.exportGroup(key);
+      const stream = await client.schematics.symbols.exportGroup(key, {
+        encoding: "JSON",
+      });
       return new TextDecoder().decode(await new Response(stream).arrayBuffer());
     };
 
@@ -318,6 +320,58 @@ describe("Symbol Client", () => {
       expect(archive).toContain("manifest.json");
       expect(archive).toContain("Inlet.json");
       expect(archive).not.toContain("Nested");
+    });
+  });
+
+  describe("importGroup", () => {
+    it("should import an exported bundle back as a fresh group", async () => {
+      const exported = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `symbol-import-${id.create()}`,
+      });
+      await client.schematics.symbols.create({
+        name: "Inlet",
+        data: SYMBOL_DATA,
+        parent: group.ontologyID(exported.key),
+      });
+      const stream = await client.schematics.symbols.exportGroup(exported.key, {
+        encoding: "JSON",
+      });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.schematics.symbols.importGroup(bundle);
+      expect(imported.key).not.toEqual(exported.key);
+      expect(imported.name).toEqual(exported.name);
+      const symbols = await client.schematics.symbols.retrieve({
+        parent: group.ontologyID(imported.key),
+      });
+      expect(symbols).toHaveLength(1);
+      expect(symbols[0].name).toEqual("Inlet");
+    });
+
+    it("should create the imported group under the permanent group", async () => {
+      const exported = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `symbol-import-${id.create()}`,
+      });
+      const stream = await client.schematics.symbols.exportGroup(exported.key, {
+        encoding: "JSON",
+      });
+      const bundle = new Uint8Array(await new Response(stream).arrayBuffer());
+      const imported = await client.schematics.symbols.importGroup(bundle);
+      const permanent = await client.schematics.symbols.retrieveGroup();
+      const children = await client.groups.retrieve({
+        parent: group.ontologyID(permanent.key),
+      });
+      expect(children.map(({ key }) => key)).toContain(imported.key);
+    });
+
+    it("should reject a bundle without a manifest", async () => {
+      // The 22-byte end-of-central-directory record alone: a valid, empty archive.
+      const emptyArchive = new Uint8Array(22);
+      emptyArchive.set([0x50, 0x4b, 0x05, 0x06]);
+      await expect(client.schematics.symbols.importGroup(emptyArchive)).rejects.toThrow(
+        "bundle holds no manifest.json",
+      );
     });
   });
 
@@ -394,6 +448,68 @@ describe("Symbol Client", () => {
       } finally {
         stop();
       }
+    });
+
+    describe("optimistic", () => {
+      const WRITE_FAILED = new Error("write failed");
+      const fail = () => {
+        throw WRITE_FAILED;
+      };
+
+      const createPopulated = async (parent: ontology.ID = ontology.ROOT_ID) => {
+        const target = await createTarget(parent);
+        const symbol = await client.schematics.symbols.create({
+          name: "Inlet",
+          data: SYMBOL_DATA,
+          parent: group.ontologyID(target.key),
+        });
+        return { target, symbol };
+      };
+
+      it("should drop the group and its symbols before the write commits", async () => {
+        const { target, symbol } = await createPopulated();
+        let group_: query.Cached<group.Group> | undefined;
+        let symbol_: query.Cached<schematic.symbol.Symbol> | undefined;
+        await client.schematics.symbols.deleteGroup(target.key, {
+          onOptimistic: () => {
+            group_ = client.groups.getCached({ key: target.key });
+            symbol_ = client.schematics.symbols.getCached(symbol.key);
+          },
+        });
+        expect(query.isLive(group_)).toBe(false);
+        expect(query.isLive(symbol_)).toBe(false);
+      });
+
+      it("should restore the group and its symbols when the write fails", async () => {
+        const { target, symbol } = await createPopulated();
+        await expect(
+          client.schematics.symbols.deleteGroup(target.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(expectLive(client.groups.getCached({ key: target.key })).name).toEqual(
+          target.name,
+        );
+        expect(
+          expectLive(client.schematics.symbols.getCached(symbol.key)).name,
+        ).toEqual(symbol.name);
+      });
+
+      it("should restore the parent's children when the write fails", async () => {
+        const parent = await createParent();
+        const { target } = await createPopulated(parent);
+        let latest: query.Cached<group.Group[]> | undefined;
+        const stop = client.groups.onChange({ parent }, (cached) => {
+          latest = cached;
+        });
+        try {
+          expect(await client.groups.retrieve({ parent })).toHaveLength(1);
+          await expect(
+            client.schematics.symbols.deleteGroup(target.key, { onOptimistic: fail }),
+          ).rejects.toBe(WRITE_FAILED);
+          expect(expectLive(latest).map((g) => g.key)).toEqual([target.key]);
+        } finally {
+          stop();
+        }
+      });
     });
 
     it("should skip a resource that is not a symbol", async () => {

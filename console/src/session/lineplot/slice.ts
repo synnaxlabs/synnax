@@ -9,10 +9,13 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type lineplot } from "@synnaxlabs/client";
+import { type Drift } from "@synnaxlabs/drift";
 import { Viewport } from "@synnaxlabs/pluto";
 import { lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
 import { array, box, deep, dimensions, xy } from "@synnaxlabs/x";
 import z from "zod";
+
+import { Window } from "@/session/window";
 
 export const viewportZ = z.object({
   renderTrigger: z.number().default(0),
@@ -69,21 +72,24 @@ export interface NewState extends z.input<typeof stateZ> {}
 export const ZERO_STATE = stateZ.parse({});
 export const ZERO_ANNOTATIONS_STATE = annotationsZ.parse({});
 
+export const windowStateZ = z.record(z.string(), stateZ).default({});
+
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
-  plots: z.record(z.string(), stateZ).default({}),
+  /** A window is a viewport, so each holds its own view of every document. */
+  windows: z.record(z.string(), windowStateZ).default({}),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
-export const SLICE_NAME = "line";
+export const SLICE_NAME = "line_plot";
 
-export interface StoreState {
+export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface KeyedPayload {
+export interface KeyedPayload extends Window.OptionalKeyParams {
   key: lineplot.Key;
 }
 
@@ -138,32 +144,16 @@ export interface RemovePayload {
   keys: string[];
 }
 
-const withSelectedState =
-  <Payload extends KeyedPayload, Type extends string = string>(
-    handler?: (state: State, action: PayloadAction<Payload, Type>) => void,
-  ) =>
-  (state: SliceState, action: PayloadAction<Payload, Type>) => {
-    const {
-      payload: { key },
-    } = action;
-    let s = state.plots[key];
-    if (s == null) {
-      s = stateZ.parse({});
-      state.plots[key] = s;
-    }
-    handler?.(s, action);
-  };
+const withSelectedState = Window.createWithDocumentHandler(stateZ);
+const initializeDocument = Window.createDocumentInitializer(stateZ);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      if (payload.key in state.plots) return;
-      state.plots[payload.key] = stateZ.parse(payload);
-    },
-    setViewport: withSelectedState(
-      (state, { payload }: PayloadAction<SetViewportPayload>) => {
+    create: initializeDocument<CreatePayload, SliceState>,
+    setViewport: withSelectedState<SetViewportPayload, SliceState>(
+      (state, { payload }) => {
         const { key: _key, ...rest } = payload;
         state.viewport = {
           ...deep.copy(ZERO_STATE.viewport),
@@ -173,72 +163,66 @@ export const { actions, reducer } = createSlice({
         state.selection = deep.copy(ZERO_STATE.selection);
       },
     ),
-    storeViewport: withSelectedState(
-      (state, { payload }: PayloadAction<StoreViewportPayload>) => {
+    storeViewport: withSelectedState<StoreViewportPayload, SliceState>(
+      (state, { payload }) => {
         const { key: _key, ...rest } = payload;
         state.viewport = { ...state.viewport, ...rest };
         state.selection = deep.copy(ZERO_STATE.selection);
       },
     ),
-    setSelection: withSelectedState(
-      (state, { payload }: PayloadAction<SetSelectionPayload>) => {
+    setSelection: withSelectedState<SetSelectionPayload, SliceState>(
+      (state, { payload }) => {
         const { key: _key, ...rest } = payload;
         state.selection = { ...state.selection, ...rest };
       },
     ),
-    setActiveToolbarTab: withSelectedState(
-      (state, { payload: { tab } }: PayloadAction<SetActiveToolbarTabPayload>) => {
+    setActiveToolbarTab: withSelectedState<SetActiveToolbarTabPayload, SliceState>(
+      (state, { payload: { tab } }) => {
         state.toolbar.activeTab = tab;
       },
     ),
-    setControlHold: withSelectedState(
-      (state, { payload: { hold } }: PayloadAction<SetControlHoldPayload>) => {
+    setControlHold: withSelectedState<SetControlHoldPayload, SliceState>(
+      (state, { payload: { hold } }) => {
         state.control.hold = hold !== undefined ? hold : !state.control.hold;
       },
     ),
-    toggleControlClickMode: withSelectedState(
-      (state, { payload: { mode } }: PayloadAction<ToggleControlClickModePayload>) => {
-        state.control.clickMode = state.control.clickMode === mode ? null : mode;
-      },
-    ),
-    setControlEnableTooltip: withSelectedState(
-      (
-        state,
-        { payload: { enabled } }: PayloadAction<SetControlEnableTooltipPayload>,
-      ) => {
-        state.control.enableTooltip =
-          enabled !== undefined ? enabled : !state.control.enableTooltip;
-      },
-    ),
-    setViewportMode: withSelectedState(
-      (state, { payload: { mode } }: PayloadAction<SetViewportModePayload>) => {
+    toggleControlClickMode: withSelectedState<
+      ToggleControlClickModePayload,
+      SliceState
+    >((state, { payload: { mode } }) => {
+      state.control.clickMode = state.control.clickMode === mode ? null : mode;
+    }),
+    setControlEnableTooltip: withSelectedState<
+      SetControlEnableTooltipPayload,
+      SliceState
+    >((state, { payload: { enabled } }) => {
+      state.control.enableTooltip =
+        enabled !== undefined ? enabled : !state.control.enableTooltip;
+    }),
+    setViewportMode: withSelectedState<SetViewportModePayload, SliceState>(
+      (state, { payload: { mode } }) => {
         state.mode = mode;
       },
     ),
-    setSelectedRule: withSelectedState(
-      (state, { payload: { ruleKey } }: PayloadAction<SetSelectedRulePayload>) => {
+    setSelectedRule: withSelectedState<SetSelectedRulePayload, SliceState>(
+      (state, { payload: { ruleKey } }) => {
         state.selectedRules = array.toArray(ruleKey);
         state.toolbar.activeTab = "annotations";
       },
     ),
-    setMeasureMode: withSelectedState(
-      (state, { payload: { mode } }: PayloadAction<SetMeasureModePayload>) => {
+    setMeasureMode: withSelectedState<SetMeasureModePayload, SliceState>(
+      (state, { payload: { mode } }) => {
         state.measure.mode = mode;
       },
     ),
-    setRangeAnnotationsVisible: withSelectedState(
-      (
-        state,
-        { payload: { visible } }: PayloadAction<SetRangeAnnotationsVisiblePayload>,
-      ) => {
-        state.annotations.visible = visible;
-      },
-    ),
-    setLineVisible: withSelectedState(
-      (
-        state,
-        { payload: { lineKey, visible } }: PayloadAction<SetLineVisiblePayload>,
-      ) => {
+    setRangeAnnotationsVisible: withSelectedState<
+      SetRangeAnnotationsVisiblePayload,
+      SliceState
+    >((state, { payload: { visible } }) => {
+      state.annotations.visible = visible;
+    }),
+    setLineVisible: withSelectedState<SetLineVisiblePayload, SliceState>(
+      (state, { payload: { lineKey, visible } }) => {
         const hidden = new Set(state.hiddenLines);
         if (visible) hidden.delete(lineKey);
         else hidden.add(lineKey);
@@ -246,9 +230,10 @@ export const { actions, reducer } = createSlice({
       },
     ),
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      keys.forEach((key) => delete state.plots[key]);
+      Window.removeDocuments(state, keys);
     },
   },
+  extraReducers: Window.handleRemoved,
 });
 
 export const {
@@ -271,13 +256,31 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const purgeState = (state: State): State => {
-  state.hiddenLines = [];
+  state.selectedRules = [];
   return state;
 };
 
 export const purgeSliceState = <S extends StoreState>(state: S): S => {
-  Object.values(state[SLICE_NAME].plots).forEach(purgeState);
+  Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };
 
 export const PERSIST_EXCLUDE = [purgeSliceState];
+
+export const MIDDLEWARE = [
+  Window.createInjectKeyMiddleware([
+    create,
+    setViewport,
+    storeViewport,
+    setSelection,
+    setActiveToolbarTab,
+    setControlHold,
+    toggleControlClickMode,
+    setControlEnableTooltip,
+    setViewportMode,
+    setSelectedRule,
+    setMeasureMode,
+    setRangeAnnotationsVisible,
+    setLineVisible,
+  ]),
+];

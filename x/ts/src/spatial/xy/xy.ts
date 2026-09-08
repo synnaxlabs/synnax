@@ -258,10 +258,6 @@ export const normalize = (a: Crude): XY => {
   return { x: xy.x / length, y: xy.y / length };
 };
 
-/**
- * @returns the average of the given coordinates.
- * @param coordinates - The coordinates to average.
- */
 export const average = (...coordinates: Crude[]): XY => {
   const sum = coordinates.reduce((p, c) => translate(p, c), ZERO);
   return scale(sum, 1 / coordinates.length);

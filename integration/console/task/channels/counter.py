@@ -36,7 +36,7 @@ class Counter:
             layout: LayoutClient for UI operations
             name: Channel name
             device: Device identifier
-            chan_type: Channel type (e.g., "Edge Count", "Frequency")
+            chan_type: Channel type (e.g., "Edge count", "Frequency")
             port: Physical port number
             min_val: Minimum value
             max_val: Maximum value
@@ -48,11 +48,11 @@ class Counter:
         values: dict[str, str | bool] = {}
 
         # Configure channel type
-        layout.click_btn("Channel Type")
+        layout.click_btn("Channel type")
         layout.select_from_dropdown(
-            chan_type, reopen=lambda: layout.click_btn("Channel Type")
+            chan_type, reopen=lambda: layout.click_btn("Channel type")
         )
-        values["Channel Type"] = chan_type
+        values["Channel type"] = chan_type
 
         # Get device (set by task.add_channel)
         values["Device"] = layout.get_dropdown_value("Device")
@@ -66,16 +66,16 @@ class Counter:
 
         # Min/Max values (not all counter types have these)
         if min_val is not None:
-            layout.fill_input_field("Minimum Value", str(min_val))
-            values["Minimum Value"] = str(min_val)
+            layout.fill_input_field("Minimum value", str(min_val))
+            values["Minimum value"] = str(min_val)
         elif self.has_min_max():
-            values["Minimum Value"] = layout.get_input_field("Minimum Value")
+            values["Minimum value"] = layout.get_input_field("Minimum value")
 
         if max_val is not None:
-            layout.fill_input_field("Maximum Value", str(max_val))
-            values["Maximum Value"] = str(max_val)
+            layout.fill_input_field("Maximum value", str(max_val))
+            values["Maximum value"] = str(max_val)
         elif self.has_min_max():
-            values["Maximum Value"] = layout.get_input_field("Maximum Value")
+            values["Maximum value"] = layout.get_input_field("Maximum value")
 
         self.form_values = values
 

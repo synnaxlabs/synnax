@@ -51,7 +51,6 @@ export const allowRequest = (req: Request, policies: Policy[]): boolean => {
     let allowed = false;
 
     for (const policy of policies) {
-      // Check if every requested action is allowed by this policy
       const actionAllowed = policy.actions.includes(action);
       if (!actionAllowed) continue;
 
@@ -75,10 +74,8 @@ export const allowRequest = (req: Request, policies: Policy[]): boolean => {
       if (allowed) break;
     }
 
-    // If any object is not allowed, the entire request fails
     if (!allowed) return false;
   }
 
-  // All objects are allowed
   return true;
 };

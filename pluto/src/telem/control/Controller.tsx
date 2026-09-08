@@ -47,9 +47,10 @@ export { useContext };
 export const Controller = ({
   children,
   onStatusChange,
+  disabled = false,
   ...props
 }: ControllerProps): ReactElement => {
-  const memoProps = useMemoDeepEqual(props);
+  const memoProps = useMemoDeepEqual({ ...props, disabled });
   const [{ path }, { status, needsControlOf }, setState, methods] = Aether.use({
     type: control.Controller.TYPE,
     schema: control.controllerStateZ,

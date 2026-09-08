@@ -241,3 +241,12 @@ func ResolveGoSliceElemType(
 		actual = target
 	}
 }
+
+// TypeParamConstraint renders a type parameter's Go constraint: the builtin
+// constraint name when one is declared, any otherwise.
+func TypeParamConstraint(tp resolution.TypeParam) string {
+	if tp.Constraint != nil && resolution.IsConstraint(tp.Constraint.Name) {
+		return tp.Constraint.Name
+	}
+	return "any"
+}

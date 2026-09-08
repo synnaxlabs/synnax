@@ -27,9 +27,8 @@ import (
 // route a single source through multiple typed observables (one per entry
 // type / index registration) without re-subscribing the underlying KV
 // observer.
-func newObservable[K Key, E Entry[K]](
+func (db *DB) newObservable[K Key, E Entry[K]](
 	src observe.Observable[kv.TxReader],
-	db *DB,
 ) observe.Observable[iter.Seq[change.Change[K, E]]] {
 	kCodec := newKeyCodec[K, E](nil)
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
@@ -52,7 +51,7 @@ func newObservable[K Key, E Entry[K]](
 // Observe returns an observable that notifies its caller whenever a change is made
 // to entries in this table.
 func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]] {
-	return newObservable[K, E](t.db, t.db)
+	return t.db.newObservable[K, E](t.db)
 }
 
 func wrapMatchedChanges[K Key, E Entry[K]](

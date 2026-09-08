@@ -16,6 +16,7 @@ export * from "@/input/Item";
 export * from "@/input/Label";
 export * from "@/input/Numeric";
 export * from "@/input/Switch";
+export * from "@/input/Table";
 export * from "@/input/Text";
 export * from "@/input/Time";
 export * from "@/input/types";

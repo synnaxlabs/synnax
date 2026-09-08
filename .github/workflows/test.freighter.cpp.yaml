@@ -21,6 +21,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -38,6 +39,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/run_bazel.sh
       - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
@@ -54,6 +56,8 @@ concurrency:
 
 jobs:
   test:
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Test (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -107,5 +111,6 @@ jobs:
         if: matrix.os == 'windows-build-bot'
         run: |
           export MSYS_NO_PATHCONV=1
-          bazel --output_user_root=C:/tmp test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all //freighter/cpp/...
+          scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
+            //freighter/cpp/...
         shell: bash

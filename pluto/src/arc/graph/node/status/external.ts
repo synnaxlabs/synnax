@@ -16,7 +16,7 @@ export { configZ } from "@/arc/graph/node/status/config";
 
 export const SPEC: Spec<"status.set", Config> = {
   key: "status.set",
-  name: "Change Status",
+  name: "Change status",
   zIndex: 100,
   Form,
   Symbol,

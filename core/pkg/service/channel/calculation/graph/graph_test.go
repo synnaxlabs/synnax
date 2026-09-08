@@ -85,7 +85,7 @@ func openGraph(ctx context.Context) *graph.Graph {
 
 func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
 	var statuses []calculation.Status
-	err := status.NewRetrieve[types.Nil](statusSvc).
+	err := statusSvc.NewRetrieve[types.Nil]().
 		Where(status.MatchKeys[types.Nil](channel.OntologyID(key).String())).
 		Entries(&statuses).
 		Exec(ctx, nil)

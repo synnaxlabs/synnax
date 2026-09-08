@@ -24,7 +24,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[string](s)
+		vals := s.Unmarshal[string]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}
@@ -78,6 +78,8 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 		Entry("explicit u32(42)", "str(u32(42))", "42"),
 		Entry("explicit u8(255)", "str(u8(255))", "255"),
 		Entry("string literal", `str("hello")`, "hello"),
+		Entry("bool literal true", "str(true)", "true"),
+		Entry("bool literal false", "str(false)", "false"),
 	)
 
 	It(
@@ -171,7 +173,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			"f64",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.1)) },
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(3.1)) },
 			"3.1",
 		),
 		Entry(
@@ -179,7 +181,9 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			"f64",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) },
+			func(h *runtimeHarness) {
+				h.Ingest(100, telem.NewSeriesV(0.1234567890123456))
+			},
 			"0.1234567890123456",
 		),
 		Entry(
@@ -187,7 +191,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			"f64",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](math.NaN())) },
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(math.NaN())) },
 			"NaN",
 		),
 		Entry(
@@ -195,7 +199,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			"f64",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](math.Inf(1))) },
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(math.Inf(1))) },
 			"+Inf",
 		),
 		Entry(
@@ -203,7 +207,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			"f64",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](math.Inf(-1))) },
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(math.Inf(-1))) },
 			"-Inf",
 		),
 		Entry(
@@ -221,6 +225,22 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			telem.Uint32T,
 			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](4000000000)) },
 			"4000000000",
+		),
+		Entry(
+			"bool channel true",
+			"bool",
+			types.Bool(),
+			telem.BooleanT,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(true)) },
+			"true",
+		),
+		Entry(
+			"bool channel false",
+			"bool",
+			types.Bool(),
+			telem.BooleanT,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(false)) },
+			"false",
 		),
 	)
 
@@ -272,7 +292,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			types.F64(),
 			telem.Float64T,
 			" degrees",
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.14)) },
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(3.14)) },
 			"3.14 degrees",
 		),
 		Entry(
@@ -327,15 +347,15 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 		Entry("f64 3.14 and f64 -2.5",
 			"f64", "f64", types.F64(), types.F64(), telem.Float64T, telem.Float64T,
 			func(h *runtimeHarness) {
-				h.Ingest(100, telem.NewSeriesV[float64](3.14))
-				h.Ingest(101, telem.NewSeriesV[float64](-2.5))
+				h.Ingest(100, telem.NewSeriesV(3.14))
+				h.Ingest(101, telem.NewSeriesV(-2.5))
 			},
 			"3.14 some_words -2.5"),
 		Entry("f32 3.1 and f64 0.1234567890123456 (mixed precision)",
 			"f32", "f64", types.F32(), types.F64(), telem.Float32T, telem.Float64T,
 			func(h *runtimeHarness) {
 				h.Ingest(100, telem.NewSeriesV[float32](3.1))
-				h.Ingest(101, telem.NewSeriesV[float64](0.1234567890123456))
+				h.Ingest(101, telem.NewSeriesV(0.1234567890123456))
 			},
 			"3.1 some_words 0.1234567890123456"),
 	)
@@ -402,7 +422,7 @@ time.interval{50ms} -> `+source+` -> log_mem`, resolver,
 			"f64 channel -2.5",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](-2.5)) },
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(-2.5)) },
 			"-2.5",
 		),
 		Entry(
@@ -483,7 +503,9 @@ time.interval{50ms} -> `+expr+` -> log_mem`, resolver,
 			"f64 channel 0.1234567890123456 (high precision)",
 			types.F64(),
 			telem.Float64T,
-			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) },
+			func(h *runtimeHarness) {
+				h.Ingest(100, telem.NewSeriesV(0.1234567890123456))
+			},
 			"prefix 0.1234567890123456 suffix",
 		),
 		Entry("i32 channel -42 (negative)", types.I32(), telem.Int32T,

@@ -17,7 +17,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -110,9 +110,9 @@ type ReadField struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 	// DataType is the data type of the extracted value.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// TimestampFormat is the encoding of the JSON value when the target channel holds
+	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimestampFormat *TimeFormat `json:"timestamp_format,omitempty" msgpack:"timestamp_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the response to numeric channel values.
 	EnumValues []EnumEntry `json:"enum_values,omitzero" msgpack:"enum_values,omitzero"`
 }
@@ -166,10 +166,10 @@ func (r ReadEndpoint) Validate() error {
 // ReadConfig configures an HTTP read task, which polls one or more endpoints on an HTTP
 // server device and writes extracted JSON values to Synnax channels.
 type ReadConfig struct {
-	config.BasePersist
+	task.PersistConfig
 	// Device is the key of the HTTP server device to poll.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Rate is the polling rate applied to all endpoints, in hertz.
+	// Rate is the polling rate applied to all endpoints, in Hertz.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Endpoints contains the endpoints to poll.
 	Endpoints []ReadEndpoint `json:"endpoints,omitzero" msgpack:"endpoints,omitzero"`
@@ -483,7 +483,7 @@ func (w WriteEndpoint) Validate() error {
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
 type WriteConfig struct {
-	config.BaseStart
+	task.StartConfig
 	// Device is the key of the HTTP server device to write to.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Endpoints contains the endpoints to write to.
@@ -509,10 +509,10 @@ func (w WriteConfig) Validate() error {
 
 // ScanConfig configures an HTTP scan task.
 type ScanConfig struct {
-	config.BaseScan
+	task.ScanConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScan.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

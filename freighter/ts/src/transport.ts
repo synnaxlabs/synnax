@@ -14,10 +14,6 @@ import { type Middleware } from "@/middleware";
  * exchanging messages between a client and a server.
  */
 export interface Transport {
-  /**
-   * Use registers middleware that will be executed in order when the transport
-   *
-   * @param mw - The middleware to register.
-   */
+  /** Use registers middleware that will be executed in order when the transport */
   use: (...mw: Middleware[]) => void;
 }

@@ -18,7 +18,6 @@ export interface Transform {
   resolveDataType: (dt: DataType) => DataType;
   /**
    * Converts the series to the resolved data type.
-   * @param series - The series to convert.
    * @param offset - Subtracted from each sample before narrowing conversions to
    * preserve precision. Omitted when the buffer anchors off the first sample.
    */

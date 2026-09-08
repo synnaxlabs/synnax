@@ -45,6 +45,10 @@ struct Scale {
 struct BaseScale : Scale {
     const std::string scaled_units;
     const int pre_scaled_units;
+    /// @brief key of the scale created on the first apply. DAQmx scales are
+    /// process-global, so later applies reuse the definition instead of minting a
+    /// new one per run.
+    std::string key;
 
     bool is_none() override { return false; }
 
@@ -68,17 +72,18 @@ struct LinearScale final : BaseScale {
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
-        auto key = next_scale_key();
-        return {
-            key,
-            dmx->CreateLinScale(
-                key.c_str(),
+        if (!this->key.empty()) return {this->key, x::errors::NIL};
+        const auto k = next_scale_key();
+        if (const auto err = dmx->CreateLinScale(
+                k.c_str(),
                 this->slope,
                 this->offset,
                 this->pre_scaled_units,
                 this->scaled_units.c_str()
-            )
-        };
+            ))
+            return {"", err};
+        this->key = k;
+        return {k, x::errors::NIL};
     }
 };
 
@@ -104,19 +109,20 @@ struct MapScale final : BaseScale {
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
-        auto key = next_scale_key();
-        return {
-            key,
-            dmx->CreateMapScale(
-                key.c_str(),
+        if (!this->key.empty()) return {this->key, x::errors::NIL};
+        const auto k = next_scale_key();
+        if (const auto err = dmx->CreateMapScale(
+                k.c_str(),
                 this->pre_scaled_min,
                 this->pre_scaled_max,
                 this->scaled_min,
                 this->scaled_max,
                 this->pre_scaled_units,
                 this->scaled_units.c_str()
-            )
-        };
+            ))
+            return {"", err};
+        this->key = k;
+        return {k, x::errors::NIL};
     }
 };
 
@@ -136,19 +142,20 @@ struct PolynomialScale final : BaseScale {
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
-        auto key = next_scale_key();
-        return {
-            key,
-            dmx->CreatePolynomialScale(
-                key.c_str(),
+        if (!this->key.empty()) return {this->key, x::errors::NIL};
+        const auto k = next_scale_key();
+        if (const auto err = dmx->CreatePolynomialScale(
+                k.c_str(),
                 this->forward_coeffs.data(),
                 this->forward_coeffs.size(),
                 this->reverse_coeffs.data(),
                 this->reverse_coeffs.size(),
                 this->pre_scaled_units,
                 this->scaled_units.c_str()
-            )
-        };
+            ))
+            return {"", err};
+        this->key = k;
+        return {k, x::errors::NIL};
     }
 };
 
@@ -168,19 +175,20 @@ struct TableScale final : BaseScale {
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
-        auto key = next_scale_key();
-        return {
-            key,
-            dmx->CreateTableScale(
-                key.c_str(),
+        if (!this->key.empty()) return {this->key, x::errors::NIL};
+        const auto k = next_scale_key();
+        if (const auto err = dmx->CreateTableScale(
+                k.c_str(),
                 this->pre_scaled.data(),
                 this->pre_scaled.size(),
                 this->scaled.data(),
                 this->pre_scaled.size(),
                 this->pre_scaled_units,
                 this->scaled_units.c_str()
-            )
-        };
+            ))
+            return {"", err};
+        this->key = k;
+        return {k, x::errors::NIL};
     }
 };
 

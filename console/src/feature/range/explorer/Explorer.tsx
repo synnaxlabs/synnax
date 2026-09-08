@@ -15,13 +15,15 @@ import { location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
-import { Item } from "@/feature/range/list/Item";
+import { Item, type ItemProps } from "@/feature/range/list/Item";
 import { Label } from "@/platform/label";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { View } from "@/platform/view";
 
-const item = Component.renderProp(Item);
+const item = Component.renderProp((props: ItemProps) => (
+  <Item {...props} role="listitem" />
+));
 const contextMenu = Component.renderProp(ContextMenu);
 
 export const Explorer: Panel.Content = () => (
@@ -50,14 +52,16 @@ const Internal = () => {
           <Button.Button
             onClick={handleCreate}
             tooltipLocation={location.BOTTOM_LEFT}
-            tooltip="Create a range"
+            tooltip="Create range"
             variant="filled"
           >
             <Icon.Add />
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items contextMenu={contextMenu}>{item}</View.Items>
+      <View.Items role="list" aria-label="Ranges" contextMenu={contextMenu}>
+        {item}
+      </View.Items>
     </View.Form>
   );
 };

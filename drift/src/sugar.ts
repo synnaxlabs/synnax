@@ -26,8 +26,7 @@ const desugarType = (type: string): [string, string] => {
 
 /**
  * Sugars an action, embedding the window key in the type.
- * @param action - The action to sugar.
- * @param emitter - The window key to embed.
+ *
  * @returns - The sugared action.
  */
 export const sugar = <A extends BaseAction = UnknownAction>(
@@ -39,8 +38,6 @@ export const sugar = <A extends BaseAction = UnknownAction>(
 });
 
 /**
- * Desugars an action, extracting the window key from the type.
- * @param action - The action to desugar.
  * @returns - {
  *    emitted: Whether the action was emitted by another window.
  *    emitter: The window key that emitted the action.

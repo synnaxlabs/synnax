@@ -27,7 +27,7 @@ export const defaultConfig = (): Config => ({
   orientation: "left",
   units: "mV",
   color: color.ZERO,
-  size: "small",
+  size: "medium",
   label: Label.defaultConfig("Setpoint"),
   control: { show: true },
   sink: telem.sinkPipeline("number", {

@@ -59,6 +59,15 @@ else
 fi
 echo ""
 
+# --- Docker (unbounded image/layer growth, largest consumer on some bots) ---
+echo "Docker prune:"
+if command -v docker > /dev/null 2>&1; then
+    docker system prune -af > /dev/null 2>&1 && echo "  done" || echo "  failed"
+else
+    echo "  skipped (docker not found)"
+fi
+echo ""
+
 # --- Check if we already have enough space after bazel clean ---
 if has_enough_space; then
     echo "Free space $(get_free_mb)MB >= target ${MIN_FREE_MB}MB — skipping cache cleanup."

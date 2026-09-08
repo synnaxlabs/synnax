@@ -24,10 +24,10 @@ export interface SplitProps extends Omit<Resize.SplitProps, "onResizeEnd"> {
  * or nested Splits.
  */
 export const Split = ({ nodeKey, ...rest }: SplitProps): ReactElement => {
-  const { onResize } = useContext("Mosaic.Split");
+  const { onResize, disabled } = useContext("Mosaic.Split");
   const handleResizeEnd = useCallback(
     (size: number) => onResize?.(nodeKey, size),
     [onResize, nodeKey],
   );
-  return <Resize.Split onResizeEnd={handleResizeEnd} {...rest} />;
+  return <Resize.Split disabled={disabled} onResizeEnd={handleResizeEnd} {...rest} />;
 };

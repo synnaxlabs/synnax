@@ -16,7 +16,7 @@ import { Status as PlatformStatus } from "@/platform/status";
 
 const CreateCommand = Command.create({
   key: "create_status",
-  name: "Create a status",
+  name: "Create status",
   icon: <Status.CreateIcon />,
   useOnSelect: PlatformStatus.useCreateModal,
   useVisible: () => Access.useCreateGranted(status.TYPE_ONTOLOGY_ID),
@@ -24,7 +24,7 @@ const CreateCommand = Command.create({
 
 const OpenExplorerCommand = Command.create({
   key: "open_status_explorer",
-  name: "Open the Status Explorer",
+  name: "Open status explorer",
   icon: <Status.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),

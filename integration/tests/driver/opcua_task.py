@@ -46,7 +46,6 @@ class OPCUAReadTaskCase(SimulatorCase, ReadTaskCase):
             device=device.key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
-            data_saving=True,
             array_mode=self.array_mode,
             array_size=self.array_size,
             channels=channels,

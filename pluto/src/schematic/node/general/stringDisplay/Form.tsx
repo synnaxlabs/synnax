@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { primitive, type text } from "@synnaxlabs/x";
+import { primitive, zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -18,7 +18,6 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
@@ -28,7 +27,9 @@ import { Staleness } from "@/vis/staleness";
 const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
   const { value, onChange } = Base.useField<telem.StringSourceSpec>("telem");
-  const source = telem.streamChannelValuePropsZ.parse(value?.props);
+  const source = zod.parse(telem.streamChannelValuePropsZ, value?.props, {
+    label: "value stream source",
+  });
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
@@ -40,7 +41,7 @@ const TelemForm = (): ReactElement => {
     onChange(telem.streamChannelStringValue({ channel: key ?? 0 }));
   };
   if (typeof source.channel != "number")
-    throw new Error("Must pass in a channel by key to the String Display form");
+    throw new Error("Must pass in a channel by key to the string display form");
   return (
     <>
       <Input.Item label="Channel" grow>
@@ -64,22 +65,13 @@ const StyleForm = (): ReactElement => (
       <Label.Form path="label" />
       <Flex.Box x>
         <Form.ColorField path="color" />
+        <Form.LevelSizeField />
         <Base.NumericField
           path="inlineSize"
           label="Display width"
           hideIfNull
           inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
         />
-        <Base.Field<text.Level>
-          path="level"
-          label="Size"
-          hideIfNull
-          padHelpText={false}
-        >
-          {({ value, onChange }) => (
-            <Select.Text.Level value={value} onChange={onChange} />
-          )}
-        </Base.Field>
       </Flex.Box>
     </Flex.Box>
     <Orientation.Field path="" hideInner />

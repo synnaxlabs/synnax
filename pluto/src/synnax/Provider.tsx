@@ -77,8 +77,8 @@ const addClockSkewStatus = (
     variant: "warning",
     message: "Clock skew detected",
     description:
-      `This machine's clock is ${direction} the Synnax core ` +
-      `by approximately ${skew.abs().toString()}. This may cause ` +
+      `This machine's clock is ${direction} the Core ` +
+      `by about ${skew.abs().toString()}. This can cause ` +
       `issues with time-series data. Synchronize your system clock.`,
     details: {
       type: CLOCK_SKEW_EXCEEDED,

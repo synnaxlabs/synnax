@@ -13,27 +13,25 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
-	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/plugin"
-	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
-	"github.com/synnaxlabs/oracle/snapshot"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 )
 
 func newMigrateCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "migrate",
-		Short: "Generate migration files for schema changes and take a schema snapshot",
+		Use:   "migrate <resource>...",
+		Short: "Scaffold the next version file for the named resources",
+		Long: `Migrate writes v(N+1).oracle for each named resource: every current
+type as an alias line to its defining version, omit-transient declarations
+redeclared, imports carried forward. Edit the scaffold — convert the changed
+types to full declarations, bump stale pins — then run oracle sync. To amend a version that
+has not shipped, edit its file directly; there is no amend command.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := runMigrate(cmd); err != nil {
+			if err := runMigrate(cmd, args); err != nil {
 				printError(err.Error())
 				return err
 			}
@@ -42,176 +40,78 @@ func newMigrateCmd() *cobra.Command {
 	}
 }
 
-func runMigrate(cmd *cobra.Command) error {
-	ctx := cmd.Context()
-	verbose := viper.GetBool(verboseFlag)
+func runMigrate(cmd *cobra.Command, args []string) error {
 	printBanner()
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
 		return errors.Wrap(err, "migrate must be run within a git repository")
 	}
-
-	normalizedFiles, err := pipeline.DiscoverSchemas(repoRoot)
+	if len(args) == 0 {
+		return errors.New(
+			"name the resources to bump, e.g. `oracle migrate channel`",
+		)
+	}
+	chains, err := versions.Discover(repoRoot)
 	if err != nil {
 		return err
 	}
-	if len(normalizedFiles) == 0 {
-		return errors.New("no schema files found")
+	if len(chains) == 0 {
+		return errors.New(
+			"no version chains exist under schemas/; nothing to migrate",
+		)
 	}
-
-	printSchemaCount(len(normalizedFiles))
-
-	// Build a registry with only the migrate plugin.
-	registry := plugin.NewRegistry()
-	_ = registry.Register(gomigrate.New())
-
-	// Load old snapshot if one exists.
-	latestVersion, loadSnapshot, err := snapshot.TableLoader(ctx, repoRoot)
+	targets, err := resolveTargets(chains, args)
 	if err != nil {
 		return err
 	}
-
-	// Analyze current schemas.
-	loader := analyzer.NewStandardFileLoader(repoRoot)
-	table, diag := analyzer.Analyze(ctx, normalizedFiles, loader)
-	if diag != nil {
-		printDiagnostics(diag.String())
-		if !diag.Ok() {
-			return errors.New("schema analysis failed")
-		}
-	}
-
-	// Read core version for migration numbering.
-	coreVersion, err := readCoreVersion(repoRoot)
-	if err != nil {
-		return errors.Wrap(err, "failed to read core version")
-	}
-
-	// Build the plugin request.
-	req := &plugin.Request{
-		Resolutions:     table,
-		RepoRoot:        repoRoot,
-		SnapshotVersion: coreVersion,
-		LoadSnapshot:    loadSnapshot,
-	}
-
-	// If we have a previous snapshot, load it for diffing. A snapshot the
-	// current grammar can no longer analyze is historical text, not a
-	// baseline — migrate proceeds without diffing rather than failing.
-	if latestVersion > 0 {
-		oldTable, err := loadSnapshot(latestVersion)
-		if err != nil && !errors.Is(err, snapshot.ErrAnalysis) {
-			return errors.Wrap(err, "failed to load latest snapshot")
-		}
-		switch {
-		case err != nil:
-			printDim(fmt.Sprintf(
-				"snapshot v%d no longer parses under the current grammar; "+
-					"migration diffing resumes at the next snapshot",
-				latestVersion,
-			))
-		case oldTable != nil:
-			req.OldResolutions = oldTable
-			req.SnapshotVersion = latestVersion
-			if gomigrate.SnapshotPreVersioning(oldTable) {
-				printDim(fmt.Sprintf(
-					"snapshot v%d predates @go version; migration diffing resumes at the next snapshot",
-					latestVersion,
-				))
-			}
-		}
-	}
-
-	// Run the migrate plugin.
-	resp, err := registry.Get("go/migrate").Generate(req)
-	if err != nil {
-		return errors.Wrap(err, "migration generation failed")
-	}
-
-	formatters, err := format.Default(repoRoot)
-	if err != nil {
-		return errors.Wrap(err, "build formatter registry")
-	}
-
-	written := 0
-	var templates []string
-	for _, f := range resp.Files {
-		fullPath := filepath.Join(repoRoot, f.Path)
-		canonical, err := formatters.Format(ctx, f.Content, fullPath)
+	resolver := versions.NewResolver(
+		chains, analyzer.NewStandardFileLoader(repoRoot),
+	)
+	ctx := cmd.Context()
+	for _, chain := range targets {
+		out, err := versions.Scaffold(ctx, resolver, chain)
 		if err != nil {
 			return err
 		}
-		if err := writeFileIfChanged(fullPath, canonical); err != nil {
-			return errors.Wrapf(err, "failed to write %s", f.Path)
+		next := chain.FilePath(chain.Current()+1) + ".oracle"
+		target := filepath.Join(repoRoot, next)
+		if _, err := os.Stat(target); err == nil {
+			return errors.Newf("%s already exists", next)
 		}
-		if strings.HasSuffix(f.Path, "/migrate.go") {
-			templates = append(templates, f.Path)
+		if err := os.WriteFile(target, []byte(out), 0o644); err != nil {
+			return errors.Wrapf(err, "failed to write %s", next)
 		}
-		if verbose {
-			printFileWritten("go/migrate", f.Path)
-		}
-		written++
+		printDim(fmt.Sprintf("  ✏️  %s", next))
 	}
-	if len(templates) > 0 {
-		for _, t := range templates {
-			printDim(fmt.Sprintf("  ✏️  %s ← edit this", t))
-		}
-	}
-	// Delete files that were retargeted and moved.
-	for _, d := range resp.Deletions {
-		fullPath := filepath.Join(repoRoot, d)
-		if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
-			return errors.Wrapf(err, "failed to delete retargeted file %s", d)
-		}
-		if verbose {
-			printDim(fmt.Sprintf("  moved %s", d))
-		}
-	}
-
-	printSyncedCount(written, len(resp.Files)-written)
-
-	// Run oracle sync to update types/codecs.
-	printDim("running sync...")
-	if err := runSync(cmd); err != nil {
-		return errors.Wrap(err, "sync failed after migration generation")
-	}
-
+	printDim(
+		"convert the changed types to full declarations, then run `oracle sync`",
+	)
 	return nil
 }
 
-// readCoreVersion reads core/pkg/version/VERSION and returns the migration
-// version number (major*1000 + minor). For "0.53.4" this returns 53.
-func readCoreVersion(repoRoot string) (int, error) {
-	data, err := os.ReadFile(
-		filepath.Join(repoRoot, "core", "pkg", "version", "VERSION"),
-	)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to read core VERSION file")
+// resolveTargets maps resource arguments to chains.
+func resolveTargets(
+	chains map[string]versions.Chain, args []string,
+) ([]versions.Chain, error) {
+	targets := make([]versions.Chain, 0, len(args))
+	for _, arg := range args {
+		var matches []versions.Chain
+		for _, chain := range chains {
+			if chain.Resource == arg || chain.LivePath() == arg {
+				matches = append(matches, chain)
+			}
+		}
+		switch len(matches) {
+		case 1:
+			targets = append(targets, matches[0])
+		case 0:
+			return nil, errors.Newf("no version chain matches %q", arg)
+		default:
+			return nil, errors.Newf(
+				"%q is ambiguous; use a live path like %q",
+				arg, matches[0].LivePath(),
+			)
+		}
 	}
-	version := strings.TrimSpace(string(data))
-	parts := strings.Split(version, ".")
-	if len(parts) < 2 {
-		return 0, errors.Newf("invalid version format: %s", version)
-	}
-	major, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return 0, errors.Wrapf(err, "invalid major version: %s", parts[0])
-	}
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return 0, errors.Wrapf(err, "invalid minor version: %s", parts[1])
-	}
-	return major*1000 + minor, nil
-}
-
-func writeFileIfChanged(path string, content []byte) error {
-	existing, err := os.ReadFile(path)
-	if err == nil && string(existing) == string(content) {
-		return nil
-	}
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, content, 0o644)
+	return targets, nil
 }

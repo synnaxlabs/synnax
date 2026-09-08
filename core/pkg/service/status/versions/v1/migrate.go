@@ -9,27 +9,9 @@
 
 package v1
 
-import (
-	"context"
-
-	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
-)
+import "github.com/synnaxlabs/x/gorp"
 
 // Migration lifts stored statuses from v0 to v1. Labels are intentionally dropped: they
 // are no longer persisted on the status and are instead resolved at read time from the
 // label relationship.
-var Migration = gorp.NewEntryMigration(
-	"v54_drop_labels",
-	func(_ context.Context, old v0.Status[any]) (Status[any], error) {
-		return Status[any]{
-			Key:         old.Key,
-			Name:        old.Name,
-			Variant:     old.Variant,
-			Message:     old.Message,
-			Description: old.Description,
-			Time:        old.Time,
-			Details:     old.Details,
-		}, nil
-	},
-)
+var Migration = gorp.NewEntryMigration("v54_drop_labels", autoMigrateStatus[any])

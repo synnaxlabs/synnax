@@ -1,0 +1,67 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-connection-indicator.console--checking {
+    /* The ring grows past the glyph's viewBox, which clips by default. */
+    overflow: visible;
+
+    /* An SVG element's transform-origin starts at 0 0, so the center is explicit.
+       Without it the ring scales out of its top left corner. */
+    & circle {
+        transform-box: fill-box;
+        transform-origin: center;
+    }
+
+    & .pluto-status-indicator__track {
+        animation: console-connection-ping 1.3s ease-out infinite;
+    }
+
+    & .pluto-status-indicator__core {
+        animation: console-connection-beat 1.3s ease-in-out infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        & circle {
+            animation: none;
+        }
+    }
+}
+
+/* Every resting value is left implicit, so the cycle starts and ends on the static
+   glyph. The ring returns to its resting size at 71%, while still invisible. */
+@keyframes console-connection-ping {
+    20% {
+        transform: scale(1.1);
+        opacity: 1;
+        stroke-width: 1.5;
+    }
+
+    70% {
+        transform: scale(1.9);
+        opacity: 0;
+        stroke-width: 0.75;
+    }
+
+    71% {
+        transform: scale(1);
+        opacity: 0;
+    }
+}
+
+@keyframes console-connection-beat {
+    20% {
+        transform: scale(1.15);
+    }
+
+    60% {
+        transform: scale(0.85);
+    }
+}

@@ -33,7 +33,6 @@ import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
@@ -45,9 +44,6 @@ const FIT_VIEW_OPTIONS: BaseDiagram.FitViewOptions = {
 };
 
 const SNAP_GRID: xy.Couple = [2, 2];
-
-const UNDO_TRIGGER: Triggers.Trigger = ["Control", "Z"];
-const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
 
 export interface EditorProps extends Omit<
   BaseDiagram.DiagramProps,
@@ -131,10 +127,12 @@ export const Editor = ({
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
-  const { onCopy, onPaste } = useClipboard({
+  const { onCopy, onCut, onPaste, copy, cut, paste } = useClipboard({
     key,
     selected,
+    onCut: onSelectionChange,
     onPaste: onSelectionChange,
+    container: ref,
   });
 
   BaseDiagram.useTriggers({
@@ -143,6 +141,7 @@ export const Editor = ({
     onUndo: undo,
     onRedo: redo,
     enabled: enableTriggers,
+    editable,
   });
 
   const contextMenu = Menu.useContextMenu();
@@ -151,38 +150,44 @@ export const Editor = ({
       <Menu.Menu level="small" gap="small">
         {editable && (
           <>
-            <Menu.Item
-              itemKey="undo"
-              onClick={undo}
-              disabled={!canUndo}
-              triggerIndicator={UNDO_TRIGGER}
-            >
-              <Icon.Undo />
-              Undo
-            </Menu.Item>
-            <Menu.Item
-              itemKey="redo"
-              onClick={redo}
-              disabled={!canRedo}
-              triggerIndicator={REDO_TRIGGER}
-            >
-              <Icon.Redo />
-              Redo
-            </Menu.Item>
+            <BaseDiagram.Menu.ClipboardItems
+              cut={cut}
+              copy={copy}
+              paste={paste}
+              hasSelection={(selected?.length ?? 0) > 0}
+            />
+            <Menu.Divider />
+            <Menu.UndoRedoItems
+              undo={undo}
+              redo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+            />
             {extraMenuItems != null && <Menu.Divider />}
           </>
         )}
         {extraMenuItems?.(menuProps)}
       </Menu.Menu>
     ),
-    [undo, redo, canUndo, canRedo, editable, extraMenuItems],
+    [
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+      editable,
+      extraMenuItems,
+      selected,
+      cut,
+      copy,
+      paste,
+    ],
   );
 
   return (
     <Scope.Provider value={key}>
       <Diagram
         ref={ref}
-        className={CSS(className, CSS.B("arc"))}
+        className={CSS.cls(className, CSS.B("arc"))}
         fitViewOptions={FIT_VIEW_OPTIONS}
         snapGrid={SNAP_GRID}
         snapToGrid
@@ -193,6 +198,7 @@ export const Editor = ({
         editable={editable}
         onContextMenu={contextMenu.open}
         onCopy={onCopy}
+        onCut={onCut}
         onPaste={onPaste}
         nodes={nodes}
         edges={edges}

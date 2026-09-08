@@ -9,11 +9,10 @@
 
 /**
  * Context is the metadata associated with a freighter transport request.
- *
  * @property target - The target the request is being issued to.
  * @property protocol - The protocol used to issue the request.
  * @property params - Arbitrary string parameters that can be set by client side
- *   middleware and read by server side middleware.
+ * middleware and read by server side middleware.
  */
 export interface Context {
   target: string;
@@ -59,9 +58,7 @@ export class MiddlewareCollector {
   /**
    * Executes middleware in order, passing the the metadata to each middleware until the
    * end of the chain is reached. It then calls the finalizer with the metadata.
-   *
    * @param ctx - The context to pass to the middleware.
-   * @param finalizer - The finalizer to call with the metadata.
    * @returns The context produced by the chain. Throws if any middleware or the
    * finalizer throws.
    */

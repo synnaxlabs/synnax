@@ -27,7 +27,6 @@ interface InternalState {
   staleness: staleness.Registration;
 }
 
-// Light is a component that listens to a telemetry source to update its state.
 export class Light
   extends aether.Leaf<typeof stateZ, InternalState>
   implements diagram.Element

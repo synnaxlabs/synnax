@@ -17,5 +17,4 @@ export const SelectCommand = Command.create({
   name: "Change color theme",
   useOnSelect: () => useModal(),
   icon: <Icon.DarkMode />,
-  sortOrder: 0,
 });

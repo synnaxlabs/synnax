@@ -106,10 +106,10 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
             variant="outlined"
             onClick={() => setExpanded(!showAll)}
           >
-            {showAll ? "Show Less" : `+${overflow} More`}
+            {showAll ? "Show less" : `+${overflow} more`}
           </Button.Button>
           <Button.Button size="small" variant="outlined" onClick={silenceAll}>
-            Clear All
+            Clear all
           </Button.Button>
         </Flex.Box>
       )}

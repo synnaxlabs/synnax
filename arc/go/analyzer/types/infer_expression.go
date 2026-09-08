@@ -29,7 +29,7 @@ import (
 // descent.
 func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.Type {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return InferLogicalOr(context.Child(ctx, logicalOr))
+		return InferLogicalOr(ctx.Child(logicalOr))
 	}
 	return types.Type{}
 }
@@ -39,10 +39,15 @@ func InferLogicalOr(
 ) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
 	if len(ands) > 1 {
-		return types.U8()
+		for _, a := range ands {
+			if InferLogicalAnd(ctx.Child(a)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
 	if len(ands) == 1 {
-		return InferLogicalAnd(context.Child(ctx, ands[0]))
+		return InferLogicalAnd(ctx.Child(ands[0]))
 	}
 	return types.Type{}
 }
@@ -50,12 +55,17 @@ func InferLogicalOr(
 func InferLogicalAnd(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
 ) types.Type {
-	equalities := ctx.AST.AllEqualityExpression()
-	if len(equalities) > 1 {
-		return types.U8()
+	eqs := ctx.AST.AllEqualityExpression()
+	if len(eqs) > 1 {
+		for _, e := range eqs {
+			if InferEquality(ctx.Child(e)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
-	if len(equalities) == 1 {
-		return InferEquality(context.Child(ctx, equalities[0]))
+	if len(eqs) == 1 {
+		return InferEquality(ctx.Child(eqs[0]))
 	}
 	return types.Type{}
 }
@@ -63,23 +73,35 @@ func InferLogicalAnd(
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
 	relExpressions := ctx.AST.AllRelationalExpression()
 	if len(relExpressions) > 1 {
-		return types.U8()
+		for _, r := range relExpressions {
+			if InferRelational(ctx.Child(r)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
 	if len(relExpressions) == 1 {
-		return InferRelational(context.Child(ctx, relExpressions[0]))
+		return InferRelational(ctx.Child(relExpressions[0]))
 	}
 	return types.Type{}
 }
 
+// InferRelational types a comparison. A series operand makes it element-wise,
+// yielding a bool series.
 func InferRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
 	if len(additives) > 1 {
-		return types.U8()
+		for _, a := range additives {
+			if InferAdditive(ctx.Child(a)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
+		return types.Bool()
 	}
 	if len(additives) == 1 {
-		return InferAdditive(context.Child(ctx, additives[0]))
+		return InferAdditive(ctx.Child(additives[0]))
 	}
 	return types.Type{}
 }
@@ -148,12 +170,12 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 	}
 	if len(multiplicatives) > 1 {
 		checkMinusSpacing(ctx)
-		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0]))
+		firstType := InferMultiplicative(ctx.Child(multiplicatives[0]))
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()
 
 		for i := 1; i < len(multiplicatives); i++ {
-			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i]))
+			nextType := InferMultiplicative(ctx.Child(multiplicatives[i]))
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
 				nextElem := nextType.Unwrap()
@@ -184,23 +206,23 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 		}
 		return elemType
 	}
-	return InferMultiplicative(context.Child(ctx, multiplicatives[0]))
+	return InferMultiplicative(ctx.Child(multiplicatives[0]))
 }
 
 func InferMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) types.Type {
-	powers := ctx.AST.AllPowerExpression()
-	if len(powers) == 0 {
+	unaries := ctx.AST.AllUnaryExpression()
+	if len(unaries) == 0 {
 		return types.Type{}
 	}
-	if len(powers) > 1 {
-		firstType := InferPower(context.Child(ctx, powers[0]))
+	if len(unaries) > 1 {
+		firstType := InferFromUnaryExpression(ctx.Child(unaries[0]))
 		isSeries := firstType.Kind == types.KindSeries
 		elemType := firstType.Unwrap()
 
-		for i := 1; i < len(powers); i++ {
-			nextType := InferPower(context.Child(ctx, powers[i]))
+		for i := 1; i < len(unaries); i++ {
+			nextType := InferFromUnaryExpression(ctx.Child(unaries[i]))
 			if nextType.Kind == types.KindSeries {
 				isSeries = true
 				nextElem := nextType.Unwrap()
@@ -228,22 +250,22 @@ func InferMultiplicative(
 		ctx.TypeMap[ctx.AST] = resultType
 		return resultType
 	}
-	resultType := InferPower(context.Child(ctx, powers[0]))
+	resultType := InferFromUnaryExpression(ctx.Child(unaries[0]))
 	ctx.TypeMap[ctx.AST] = resultType
 	return resultType
 }
 
 func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type {
-	if unary := ctx.AST.UnaryExpression(); unary != nil {
-		baseType := InferFromUnaryExpression(context.Child(ctx, unary))
+	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
+		baseType := InferPostfix(ctx.Child(postfix))
 
-		// If no caret operator, return base type
-		if ctx.AST.CARET() == nil || ctx.AST.PowerExpression() == nil {
+		// If no power operator, return base type
+		if ctx.AST.CARET() == nil || ctx.AST.UnaryExpression() == nil {
 			return baseType
 		}
 
 		// Recursively infer exponent type (right-associative)
-		_ = InferPower(context.Child(ctx, ctx.AST.PowerExpression()))
+		_ = InferFromUnaryExpression(ctx.Child(ctx.AST.UnaryExpression()))
 
 		// Power operation returns the unwrapped base type
 		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
@@ -256,22 +278,22 @@ func InferFromUnaryExpression(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) types.Type {
 	if ctx.AST.UnaryExpression() != nil {
-		// Unary operator (- or not) - unwrap channels in the operand
+		// Unwrap channels but keep series: not/- on a series stays a series.
 		return InferFromUnaryExpression(
-			context.Child(ctx, ctx.AST.UnaryExpression()),
-		).Unwrap()
+			ctx.Child(ctx.AST.UnaryExpression()),
+		).UnwrapChan()
 	}
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		return inferPostfixType(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		return InferPower(ctx.Child(power))
 	}
 	return types.Type{}
 }
 
-func inferPostfixType(
+func InferPostfix(
 	ctx context.Context[parser.IPostfixExpressionContext],
 ) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
-		primaryType := inferPrimaryType(context.Child(ctx, primary))
+		primaryType := inferPrimaryType(ctx.Child(primary))
 
 		// Handle function call suffixes - return the function's return type
 		funcCalls := ctx.AST.AllFunctionCallSuffix()
@@ -314,10 +336,6 @@ func inferPrimaryType(
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
-		// Handle boolean literals (parsed as identifiers in the grammar)
-		if text == "true" || text == "false" {
-			return types.U8()
-		}
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
 				// When a variable is referenced, resolve literal constraints to
@@ -330,13 +348,17 @@ func inferPrimaryType(
 		return types.Type{}
 	}
 	if literal := ctx.AST.Literal(); literal != nil {
-		return inferLiteralType(context.Child(ctx, literal))
+		return inferLiteralType(ctx.Child(literal))
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		return InferFromExpression(context.Child(ctx, expr))
+		return InferFromExpression(ctx.Child(expr))
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if typeCtx := typeCast.Type_(); typeCtx != nil {
+			// bool conversions are rejected, so the cast has no type.
+			if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+				return types.Type{}
+			}
 			t, _ := InferFromTypeContext(typeCtx)
 			return t
 		}
@@ -349,7 +371,12 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		return inferNumericLiteralType(ctx, numLit)
 	}
 	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
-		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
+		return inferSeriesLiteralType(ctx.Child(seriesLit))
+	}
+	if boolLit := ctx.AST.BooleanLiteral(); boolLit != nil {
+		t := types.Bool()
+		ctx.TypeMap[ctx.AST] = t
+		return t
 	}
 	if parser.StringTerminal(ctx.AST) != nil {
 		t := types.String()
@@ -390,11 +417,11 @@ func inferSeriesLiteralType(
 	}
 
 	firstExpr := exprs[0]
-	elemType := InferFromExpression(context.Child(ctx, firstExpr)).UnwrapChan()
+	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
 	allLiterals := parser.IsNumericLiteral(firstExpr)
 
 	for i := 1; i < len(exprs); i++ {
-		nextType := InferFromExpression(context.Child(ctx, exprs[i])).UnwrapChan()
+		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
 		thisIsLiteral := parser.IsNumericLiteral(exprs[i])
 		// Literals can unify across int/float (like Go), but variables cannot
 		if allLiterals && thisIsLiteral {

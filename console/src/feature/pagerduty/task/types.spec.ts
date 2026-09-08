@@ -21,7 +21,7 @@ describe("PagerDuty Alert Task Types", () => {
           {
             key: "alert-1",
             status: "my-status",
-            treatErrorAsCritical: true,
+            errorsCritical: true,
             component: "sensor",
             group: "hw",
             class: "temp",
@@ -36,7 +36,7 @@ describe("PagerDuty Alert Task Types", () => {
         expect(result.data.autoStart).toBe(true);
         expect(result.data.alerts).toHaveLength(1);
         expect(result.data.alerts[0].status).toBe("my-status");
-        expect(result.data.alerts[0].treatErrorAsCritical).toBe(true);
+        expect(result.data.alerts[0].errorsCritical).toBe(true);
       }
     });
 
@@ -113,7 +113,7 @@ describe("PagerDuty Alert Task Types", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         const alert = result.data.alerts[0];
-        expect(alert.treatErrorAsCritical).toBe(false);
+        expect(alert.errorsCritical).toBe(false);
         expect(alert.component).toBe("");
         expect(alert.group).toBe("");
         expect(alert.class).toBe("");

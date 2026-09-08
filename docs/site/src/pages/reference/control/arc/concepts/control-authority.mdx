@@ -59,12 +59,12 @@ sequence main {
 
     stage escalate {
         control.set_authority{value=200}
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         time.wait{duration=5s} => done
     }
 
     stage done {
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 
@@ -113,8 +113,8 @@ sequence main {
 
     stage emergency {
         control.set_authority{value=255}
-        0 -> press_vlv_cmd
-        1 -> vent_vlv_cmd
+        false -> press_vlv_cmd
+        true -> vent_vlv_cmd
     }
 }
 
@@ -139,13 +139,13 @@ authority 200
 
 sequence main {
     stage active {
-        1 -> press_vlv_cmd
+        true -> press_vlv_cmd
         done_condition => yield
     }
 
     stage yield {
         control.set_authority{value=0}
-        0 -> press_vlv_cmd
+        false -> press_vlv_cmd
     }
 }
 

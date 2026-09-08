@@ -14,8 +14,8 @@ import { z } from "zod";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 
-const RESOURCE_NAME = "Policy";
-const PLURAL_RESOURCE_NAME = "Policies";
+const RESOURCE_NAME = "policy";
+const PLURAL_RESOURCE_NAME = "policies";
 
 export const formSchema = z.object({
   key: z.uuid().optional(),

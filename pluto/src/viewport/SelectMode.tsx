@@ -57,21 +57,21 @@ export const SelectMode = ({
     <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
       <Select.Button
         itemKey="zoom"
-        tooltip={<TooltipText mode="zoom" triggers={triggers.zoom} />}
+        tooltip={<TooltipText mode="zoom" triggers={triggers.modes.zoom} />}
         {...commonProps}
       >
         <Icon.Zoom />
       </Select.Button>
       <Select.Button
         itemKey="pan"
-        tooltip={<TooltipText mode="pan" triggers={triggers.pan} />}
+        tooltip={<TooltipText mode="pan" triggers={triggers.modes.pan} />}
         {...commonProps}
       >
         <Icon.Pan />
       </Select.Button>
       <Select.Button
         itemKey="select"
-        tooltip={<TooltipText mode="select" triggers={triggers.select} />}
+        tooltip={<TooltipText mode="select" triggers={triggers.modes.select} />}
         {...commonProps}
       >
         <Icon.Selection />

@@ -58,7 +58,7 @@ describe("Controls.Bar", () => {
     expect(onDeploy).toHaveBeenCalledTimes(1);
   });
 
-  it("should render extra actions in the action row and hide them on snapshots", async () => {
+  it("should render extra actions in the action row and hide them with it", async () => {
     const { rerender } = await renderWithConsole(
       <Task.Controls.Bar
         status={createTaskStatus()}
@@ -74,7 +74,7 @@ describe("Controls.Bar", () => {
       <Task.Controls.Bar
         status={createTaskStatus()}
         running={false}
-        snapshot
+        hideActions
         extraActions={<button>Pick rack</button>}
         onDeploy={vi.fn()}
         onStop={vi.fn()}

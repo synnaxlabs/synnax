@@ -40,20 +40,20 @@ const multiply = createOperator({
 const divide = createOperator({ key: "divide", name: "Divide", Symbol: Divide });
 const greaterThan = createOperator({
   key: "gt",
-  name: "Greater Than",
+  name: "Greater than",
   Symbol: GreaterThan,
 });
-const lessThan = createOperator({ key: "lt", name: "Less Than", Symbol: LessThan });
+const lessThan = createOperator({ key: "lt", name: "Less than", Symbol: LessThan });
 const equal = createOperator({ key: "eq", name: "Equal", Symbol: Equal });
-const notEqual = createOperator({ key: "ne", name: "Not Equal", Symbol: NotEqual });
+const notEqual = createOperator({ key: "ne", name: "Not equal", Symbol: NotEqual });
 const greaterThanOrEqual = createOperator({
   key: "ge",
-  name: "Greater Than or Equal",
+  name: "Greater than or equal",
   Symbol: GreaterThanOrEqual,
 });
 const lessThanOrEqual = createOperator({
   key: "le",
-  name: "Less Than or Equal",
+  name: "Less than or equal",
   Symbol: LessThanOrEqual,
 });
 const and = createOperator({ key: "and", name: "And", Symbol: And });

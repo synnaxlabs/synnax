@@ -32,7 +32,7 @@ type Writer struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
-	status    status.Writer[StatusDetails]
+	status    status.Writer
 	table     *gorp.Table[Key, Task]
 	configs   config.Registry
 }

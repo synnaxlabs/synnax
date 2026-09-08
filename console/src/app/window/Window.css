@@ -16,6 +16,12 @@
     background: var(--pluto-gray-l2);
 }
 
+/* Only the workspace is in flow here; the modal stack and the feed are positioned.
+   A secondary window holds a real two-child column, so it stays flex. */
+.pluto-flex.console-main--primary {
+    display: block;
+}
+
 /* Outlined chips recess into the chrome rather than rise off it. Scoped to the
    variant: a text button has no rest fill, so the same band would darken it on
    hover and then drop it back onto the bar on press. */

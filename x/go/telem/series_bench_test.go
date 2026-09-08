@@ -22,7 +22,7 @@ import (
 func BenchmarkValueAt(b *testing.B) {
 	series := telem.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 	for i := 0; b.Loop(); i++ {
-		_ = telem.ValueAt[float64](series, i%10)
+		_ = series.ValueAt[float64](i % 10)
 	}
 }
 
@@ -31,7 +31,7 @@ func BenchmarkValueAt(b *testing.B) {
 func BenchmarkSetValueAt(b *testing.B) {
 	series := telem.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 	for i := 0; b.Loop(); i++ {
-		telem.SetValueAt(series, i%10, float64(i))
+		series.SetValueAt(i%10, float64(i))
 	}
 }
 
@@ -43,7 +43,7 @@ func BenchmarkValueAtLargeSlice(b *testing.B) {
 	}
 	series := telem.NewSeriesV(data...)
 	for i := 0; b.Loop(); i++ {
-		_ = telem.ValueAt[float64](series, i%10000)
+		_ = series.ValueAt[float64](i % 10000)
 	}
 }
 
@@ -55,7 +55,7 @@ func BenchmarkSetValueAtLargeSlice(b *testing.B) {
 	}
 	series := telem.NewSeriesV(data...)
 	for i := 0; b.Loop(); i++ {
-		telem.SetValueAt(series, i%10000, float64(i))
+		series.SetValueAt(i%10000, float64(i))
 	}
 }
 

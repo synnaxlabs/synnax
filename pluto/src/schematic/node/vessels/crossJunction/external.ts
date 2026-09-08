@@ -27,7 +27,7 @@ export const defaultConfig = (): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "Cross Junction",
+  name: "Cross junction",
   Form: Form.StyleForm,
   Node: Label.createLabeled<Config>(CrossJunction),
   Preview: CrossJunction,

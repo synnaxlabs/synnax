@@ -52,7 +52,7 @@ describe("Panel.useOpenResource", () => {
       </Wrapper>
     );
     const { result } = renderHook(() => Panel.useOpenResource(), { wrapper });
-    // The id references nothing on the cluster, so any retrieval fails loudly.
+    // The id references nothing on the Core, so any retrieval fails loudly.
     const id = table.ontologyID(uuid.create());
     await act(async () => {
       result.current(ontology.resourceZ.parse({ id, name: uniqueName("ghost") }));

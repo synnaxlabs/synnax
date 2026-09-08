@@ -17,6 +17,7 @@ export interface ControllerProps extends PropsWithChildren {}
 export const Controller = memo(({ children }: ControllerProps): ReactElement => {
   const key = Schematic.useKey();
   const authority = Session.Schematic.useSelectAuthority();
+  const { isCurrentlyEditable } = Session.Schematic.useSelectEditable();
   const name = Schematic.useName();
   const dispatch = Session.useDispatch();
   const username = User.useResultUsername({}).data ?? "";
@@ -31,6 +32,7 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
       onStatusChange={handleStatusChange}
       name={controlName}
       authority={authority}
+      disabled={isCurrentlyEditable}
     >
       {children}
     </Control.Controller>

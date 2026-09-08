@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
-import { renderModalOpener } from "@/platform/modals/testutil";
+import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
 
 const client = createTestClient();
 
@@ -39,18 +39,27 @@ describe("OPCUA.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("opc.tcp://existing-server:4840")).toBeTruthy();
     expect(screen.getByDisplayValue("operator")).toBeTruthy();
-    await screen.findByText("Client Certificate");
+    await screen.findByText("Client certificate");
   });
 
   it("should reveal certificate fields when a security mode is enabled", async () => {
     await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client });
     await screen.findByText("Server");
     fireEvent.click(screen.getByText("Sign"));
-    await screen.findByText("Client Certificate");
-    expect(screen.getByText("Client Private Key")).toBeTruthy();
-    expect(screen.getByText("Server Certificate")).toBeTruthy();
+    await screen.findByText("Client certificate");
+    expect(screen.getByText("Client private key")).toBeTruthy();
+    expect(screen.getByText("Server certificate")).toBeTruthy();
     expect(screen.getByText("Basic 256-bit")).toBeTruthy();
     fireEvent.click(screen.getAllByText("None")[0]);
-    await waitFor(() => expect(screen.queryByText("Client Certificate")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Client certificate")).toBeNull());
+  });
+
+  // Submitting with no rack chosen fails validation. That error is the proof the keys
+  // reached the same save path the Connect button uses.
+  it("should submit on the shortcut its footer advertises", async () => {
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{}], { client });
+    await screen.findByRole("dialog");
+    pressSaveTrigger();
+    expect(await screen.findByText(/rack is required/i)).toBeTruthy();
   });
 });

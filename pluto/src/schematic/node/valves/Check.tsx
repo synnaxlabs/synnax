@@ -25,7 +25,7 @@ export const Check = ({
 }: Props): ReactElement => (
   <Primitive.Div
     orientation={orientation}
-    className={CSS(CSS.B("check-valve"), className)}
+    className={CSS.cls(CSS.B("check-valve"), className)}
     {...rest}
   >
     <Handle.Linear

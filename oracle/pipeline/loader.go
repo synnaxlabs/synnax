@@ -44,3 +44,7 @@ func (l *overlayLoader) Load(importPath string) (string, string, error) {
 }
 
 func (l *overlayLoader) RepoRoot() string { return l.inner.RepoRoot() }
+
+func (l *overlayLoader) Versioned(importPath string) bool {
+	return l.inner.Versioned(importPath)
+}

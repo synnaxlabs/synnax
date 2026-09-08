@@ -73,4 +73,93 @@ describe("csv", () => {
       });
     });
   });
+  describe("parseBlock", () => {
+    it("should split a tab delimited block into rows of fields", () => {
+      expect(csv.parseBlock("1\t10\n2\t20")).toEqual([
+        ["1", "10"],
+        ["2", "20"],
+      ]);
+    });
+
+    it("should split a comma delimited block", () => {
+      expect(csv.parseBlock("1,10\n2,20")).toEqual([
+        ["1", "10"],
+        ["2", "20"],
+      ]);
+    });
+
+    it("should keep commas inside a tab delimited field", () => {
+      expect(csv.parseBlock("1,000\t2,000")).toEqual([["1,000", "2,000"]]);
+    });
+
+    it("should keep a delimiter inside a quoted field", () => {
+      expect(csv.parseBlock('"a,b",c')).toEqual([["a,b", "c"]]);
+    });
+
+    it("should unescape doubled quotes", () => {
+      expect(csv.parseBlock('"say ""hi""",b')).toEqual([['say "hi"', "b"]]);
+    });
+
+    it("should trim the fields", () => {
+      expect(csv.parseBlock(" 1 , 10 ")).toEqual([["1", "10"]]);
+    });
+
+    it("should drop empty lines", () => {
+      expect(csv.parseBlock("1,10\n\n2,20\n")).toEqual([
+        ["1", "10"],
+        ["2", "20"],
+      ]);
+    });
+
+    it("should handle carriage returns", () => {
+      expect(csv.parseBlock("1,10\r\n2,20")).toEqual([
+        ["1", "10"],
+        ["2", "20"],
+      ]);
+    });
+
+    it("should leave ragged rows ragged", () => {
+      expect(csv.parseBlock("1,10,100\n2")).toEqual([["1", "10", "100"], ["2"]]);
+    });
+
+    it("should keep a newline inside a quoted field", () => {
+      expect(csv.parseBlock('"a\nb",c')).toEqual([["a\nb", "c"]]);
+    });
+
+    it("should split on commas when the only tab is inside a quoted field", () => {
+      expect(csv.parseBlock('"a\tb",c')).toEqual([["a\tb", "c"]]);
+    });
+
+    it("should return no rows for empty text", () => {
+      expect(csv.parseBlock("")).toEqual([]);
+    });
+  });
+
+  describe("formatBlock", () => {
+    it("should join rows into a tab delimited block", () => {
+      expect(
+        csv.formatBlock([
+          [1, 10],
+          [2, 20],
+        ]),
+      ).toBe("1\t10\n2\t20");
+    });
+
+    it("should quote a field holding a delimiter", () => {
+      expect(csv.formatBlock([["a\tb", "c,d"]])).toBe('"a\tb"\t"c,d"');
+    });
+
+    it("should round-trip through parseBlock", () => {
+      const rows = [
+        ["a,b", 'say "hi"'],
+        ["1", "2"],
+      ];
+      expect(csv.parseBlock(csv.formatBlock(rows))).toEqual(rows);
+    });
+
+    it("should round-trip a field holding a newline", () => {
+      const rows = [["a\nb", "c"]];
+      expect(csv.parseBlock(csv.formatBlock(rows))).toEqual(rows);
+    });
+  });
 });

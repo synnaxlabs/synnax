@@ -11,6 +11,7 @@ export * from "@/deep/atKeys";
 export * from "@/deep/copy";
 export * from "@/deep/difference";
 export * from "@/deep/equal";
+export * from "@/deep/freeze";
 export * from "@/deep/get";
 export * from "@/deep/merge";
 export * from "@/deep/partial";

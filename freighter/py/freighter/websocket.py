@@ -9,6 +9,7 @@
 
 import ssl
 from collections.abc import MutableMapping
+from contextlib import ExitStack
 from typing import Any, Generic, Literal, Self
 
 from pydantic import BaseModel
@@ -20,6 +21,7 @@ from websockets.exceptions import (
 )
 from websockets.sync.client import ClientConnection as SyncClientProtocol
 from websockets.sync.client import connect as sync_connect
+from websockets.sync.client import reconnect as SyncConnector
 
 from freighter.context import Context
 from freighter.exceptions import EOF, StreamClosed
@@ -179,6 +181,7 @@ DEFAULT_MAX_SIZE = 2**20
 
 class SyncWebsocketStream(Stream[RQ, RS]):
     _encoder: Codec
+    _connection: ExitStack
     _internal: SyncClientProtocol
     _server_closed: Exception | None
     _send_closed: bool
@@ -187,11 +190,12 @@ class SyncWebsocketStream(Stream[RQ, RS]):
     def __init__(
         self,
         encoder: Codec,
-        ws: SyncClientProtocol,
+        connector: SyncConnector,
         res_t: type[RS],
     ):
         self._encoder = encoder
-        self._internal = ws
+        self._connection = ExitStack()
+        self._internal = self._connection.enter_context(connector)
         self._send_closed = False
         self._server_closed = None
         self._res_msg_t = _new_res_msg_t(res_t)
@@ -266,7 +270,7 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             assert exc_pld is not None
             self._server_closed = decode_exception(exc_pld)
         finally:
-            self._internal.close()
+            self._connection.close()
 
 
 class _Base:
@@ -375,13 +379,14 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
 
         def finalizer(ctx: Context) -> Context:
             out_ctx = Context(target, "websocket", "client")
-            ws = sync_connect(
+            connector = sync_connect(
                 self._endpoint.child(target).stringify(),
                 additional_headers=self.additional_headers(ctx.params),
                 max_size=self._max_message_size,
+                legacy=False,
                 **self._kwargs,
             )
-            socket = SyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
+            socket = SyncWebsocketStream[RQ, RS](self._encoder, connector, res_t)
             socket.receive_open_ack()
             socket_container[0] = socket
             return out_ctx

@@ -17,7 +17,7 @@ import { User } from "@/platform/user";
 import { uniqueName } from "@/testutil";
 
 describe("User.useRegisterModal", () => {
-  it("should disable the Register button when no cluster is connected", async () => {
+  it("should disable the Register button when no Core is connected", async () => {
     await openModal(User.useRegisterModal);
     await screen.findByText("Username");
     expect(findButton("Register").className).toContain("pluto--disabled");
@@ -58,7 +58,7 @@ describe("User.useRegisterModal", () => {
     fireEvent.change(screen.getByPlaceholderText("password"), {
       target: { value: "password123" },
     });
-    fireEvent.click(await screen.findByText("Select a role"));
+    fireEvent.click(await screen.findByText("Select role"));
     const [roleItem] = await screen.findAllByText(role.name);
     fireEvent.click(roleItem);
 

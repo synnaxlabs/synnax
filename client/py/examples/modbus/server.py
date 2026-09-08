@@ -12,6 +12,7 @@ import math
 import time
 
 from pymodbus import ModbusDeviceIdentification
+from pymodbus.client import ModbusTcpClient
 from pymodbus.datastore.context import SimDevice
 from pymodbus.server import ModbusTcpServer
 from pymodbus.simulator.simdata import DataType, SimData
@@ -65,9 +66,33 @@ class ModbusSim(DeviceSim):
     host = "127.0.0.1"
     port = 5020
     device_name = "Modbus TCP Test Server"
+    channel_names = (f"{device_name.replace(' ', '_')}_time",)
 
     async def _run_server(self) -> None:
         await run_server(self.host, self.port, rate=self.rate)
+
+    def _wait_for_ready(self) -> None:
+        """Poll until the server answers a coil read."""
+        super()._wait_for_ready()
+        timer = sy.Timer()
+        while True:
+            client = ModbusTcpClient(self.host, port=self.port, timeout=1)
+            try:
+                if (
+                    client.connect()
+                    and not client.read_coils(0, count=1, device_id=SLAVE_ID).isError()
+                ):
+                    return
+            except Exception:
+                pass
+            finally:
+                client.close()
+            if timer.elapsed() > self.startup_timeout:
+                raise RuntimeError(
+                    f"Modbus server on {self.host}:{self.port} not answering after "
+                    f"{self.startup_timeout}"
+                )
+            sy.sleep(0.1)
 
     @staticmethod
     def create_device(rack_key: int) -> modbus.Device:

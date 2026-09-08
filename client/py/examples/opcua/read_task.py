@@ -76,8 +76,6 @@ my_float_1 = client.channels.create(
 )
 
 # Create the OPC UA Read Task
-# Using node_name to reference the OPC UA variables directly by their names.
-# This is more reliable than using node IDs which can change between server restarts.
 tsk = sy.opcua.ReadTask(
     name="OPC UA Py - Read Task",
     device=dev.key,

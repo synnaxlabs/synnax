@@ -27,7 +27,7 @@ export const Angled = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS(CSS.B("angled-valve"), className)}
+    className={CSS.cls(CSS.B("angled-valve"), className)}
   >
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

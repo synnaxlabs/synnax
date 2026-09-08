@@ -12,18 +12,18 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/session/range";
 
 const STATIC: Range.StaticState = {
+  variant: "static",
   key: "static-1",
   name: "Static 1",
-  persisted: true,
-  variant: "static",
   timeRange: { start: 0, end: 1000 },
 };
 
+const PERSISTED: Range.PersistedState = { variant: "persisted", key: "persisted-1" };
+
 const DYNAMIC: Range.DynamicState = {
+  variant: "dynamic",
   key: "dynamic-1",
   name: "Dynamic 1",
-  persisted: false,
-  variant: "dynamic",
   span: 1000,
 };
 
@@ -37,10 +37,28 @@ const stateWith = (ranges: Range.State[], selected?: string): Range.SliceState =
 
 describe("range slice", () => {
   describe("default state", () => {
-    it("should seed the rolling ranges including the recent range", () => {
+    it("should store no ranges of its own", () => {
       const state = Range.reducer(undefined, { type: "@@INIT" });
-      expect(state.ranges.map((r) => r.key)).toContain(Range.RECENT_KEY);
+      expect(state.ranges).toEqual([]);
       expect(state.selected).toBeUndefined();
+    });
+
+    // Callers fall back to the recent range when nothing is selected, so it has to be
+    // there whatever the session has stored.
+    it("should offer the rolling ranges whatever it holds", () => {
+      const keys = Range.selectKeys({ [Range.SLICE_NAME]: emptyState() });
+      expect(keys).toContain(Range.RECENT_KEY);
+      expect(Range.BUILT_IN.every(({ key }) => keys.includes(key))).toBe(true);
+    });
+
+    it("should keep a built-in through a remove", () => {
+      const next = Range.reducer(
+        emptyState(),
+        Range.remove({ keys: [Range.RECENT_KEY] }),
+      );
+      expect(Range.selectKeys({ [Range.SLICE_NAME]: next })).toContain(
+        Range.RECENT_KEY,
+      );
     });
   });
 
@@ -84,6 +102,40 @@ describe("range slice", () => {
     });
   });
 
+  describe("restore", () => {
+    it("should put a range back at the index it was removed from", () => {
+      const next = Range.reducer(
+        stateWith([DYNAMIC]),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
+      );
+      expect(next.ranges).toEqual([STATIC, DYNAMIC]);
+    });
+
+    it("should put the selection back", () => {
+      const next = Range.reducer(
+        stateWith([]),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }], selected: STATIC.key }),
+      );
+      expect(next.selected).toEqual(STATIC.key);
+    });
+
+    it("should keep a selection made while the delete was in flight", () => {
+      const next = Range.reducer(
+        stateWith([DYNAMIC], DYNAMIC.key),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
+      );
+      expect(next.selected).toEqual(DYNAMIC.key);
+    });
+
+    it("should skip a range the slice already holds", () => {
+      const next = Range.reducer(
+        stateWith([STATIC]),
+        Range.restore({ ranges: [{ index: 0, range: STATIC }] }),
+      );
+      expect(next.ranges).toEqual([STATIC]);
+    });
+  });
+
   describe("select", () => {
     it("should set the selected key", () => {
       const next = Range.reducer(emptyState(), Range.select(STATIC.key));
@@ -97,7 +149,7 @@ describe("range slice", () => {
         stateWith([STATIC]),
         Range.rename({ key: STATIC.key, name: "Renamed" }),
       );
-      expect(next.ranges[0].name).toEqual("Renamed");
+      expect(next.ranges[0]).toEqual({ ...STATIC, name: "Renamed" });
     });
 
     it("should be a no-op when the key does not match", () => {
@@ -107,47 +159,15 @@ describe("range slice", () => {
       );
       expect(next.ranges).toEqual([STATIC]);
     });
-  });
 
-  describe("updateRemote", () => {
-    it("should update the name and time range of a static range", () => {
+    // The Core owns a persisted range's name, so renaming one here would only invent
+    // a second answer for it.
+    it("should be a no-op for a range the Core holds", () => {
       const next = Range.reducer(
-        stateWith([STATIC]),
-        Range.updateRemote({
-          key: STATIC.key,
-          name: "Remote",
-          timeRange: { start: 5, end: 50 },
-        }),
+        stateWith([PERSISTED]),
+        Range.rename({ key: PERSISTED.key, name: "Renamed" }),
       );
-      expect(next.ranges[0]).toEqual({
-        ...STATIC,
-        name: "Remote",
-        timeRange: { start: 5, end: 50 },
-      });
-    });
-
-    it("should be a no-op for a dynamic range", () => {
-      const next = Range.reducer(
-        stateWith([DYNAMIC]),
-        Range.updateRemote({
-          key: DYNAMIC.key,
-          name: "Remote",
-          timeRange: { start: 5, end: 50 },
-        }),
-      );
-      expect(next.ranges).toEqual([DYNAMIC]);
-    });
-
-    it("should be a no-op when the key does not match", () => {
-      const next = Range.reducer(
-        stateWith([STATIC]),
-        Range.updateRemote({
-          key: "missing",
-          name: "Remote",
-          timeRange: { start: 5, end: 50 },
-        }),
-      );
-      expect(next.ranges).toEqual([STATIC]);
+      expect(next.ranges).toEqual([PERSISTED]);
     });
   });
 });

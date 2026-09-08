@@ -71,7 +71,6 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     }
 
     if (this.state.position == null) {
-      // Calculate the position of the rule at the middle of the plot
       const pos = scale.pos(0.5);
       this.setState((p) => ({ ...p, position: pos }));
     }
@@ -96,9 +95,8 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     const { upper2d: canvas } = renderCtx;
     const draw = this.internal.draw;
 
-    // The pixel position we calculate for the main thread is relative
-    // to the plot box, so we need to offset it to match the pixel positions
-    // of the canvas.
+    // The pixel position we calculate for the main thread is relative to the plot box,
+    // so we need to offset it to match the pixel positions of the canvas.
     const pos = this.updatePositions(props) + box.top(props.plot);
 
     draw.rule({

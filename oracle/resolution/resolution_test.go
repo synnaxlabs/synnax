@@ -210,12 +210,6 @@ var _ = Describe("Table", func() {
 			Expect(types).To(HaveLen(4))
 		})
 
-		It("filters enums in namespace", func() {
-			enums := table.EnumsInNamespace("auth")
-			Expect(enums).To(HaveLen(1))
-			Expect(enums[0].Name).To(Equal("Status"))
-		})
-
 		It("filters types with specific domain", func() {
 			Expect(table.Add(resolution.Type{
 				Name: "WithGo", QualifiedName: "pkg.WithGo", Namespace: "pkg",
@@ -691,14 +685,6 @@ var _ = Describe("Type Forms", func() {
 			ref := resolution.TypeRef{Name: "nonexistent.Type"}
 			_, ok := ref.Resolve(table)
 			Expect(ok).To(BeFalse())
-		})
-
-		It("MustResolve panics when type not found", func() {
-			table := resolution.NewTable()
-			ref := resolution.TypeRef{Name: "nonexistent.Type"}
-			Expect(func() {
-				ref.MustResolve(table)
-			}).To(Panic())
 		})
 	})
 

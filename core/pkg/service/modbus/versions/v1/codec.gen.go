@@ -247,8 +247,8 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rv RegisterValue) EncodeOrc(w *orc.Writer) error {
 	w.String(string(rv.DataType))
-	w.Bool(rv.SwapBytes)
-	w.Bool(rv.SwapWords)
+	w.Bool(rv.BytesSwapped)
+	w.Bool(rv.WordsSwapped)
 	return nil
 }
 
@@ -262,10 +262,10 @@ func (rv *RegisterValue) DecodeOrc(r *orc.Reader) error {
 		}
 		rv.DataType = telem.DataType(rawV)
 	}
-	if rv.SwapBytes, err = r.Bool(); err != nil {
+	if rv.BytesSwapped, err = r.Bool(); err != nil {
 		return err
 	}
-	if rv.SwapWords, err = r.Bool(); err != nil {
+	if rv.WordsSwapped, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

@@ -13,18 +13,9 @@ import { useMemo, useState } from "react";
 
 import { Runtime } from "@/session/runtime";
 import { Select } from "@/session/select";
-import {
-  type Mode,
-  modeZ,
-  SLICE_NAME,
-  type SliceState,
-  type StoreState,
-} from "@/session/theme/slice";
+import { type Mode, SLICE_NAME, type StoreState } from "@/session/theme/slice";
 
-const selectSlice = (state: StoreState): SliceState => state[SLICE_NAME];
-
-const selectMode = (state: StoreState): Mode =>
-  modeZ.catch("system").parse(selectSlice(state).mode);
+const selectMode = (state: StoreState): Mode => state[SLICE_NAME].mode;
 
 export const useSelectMode = (): Mode => Select.useMemo(selectMode, []);
 
@@ -55,8 +46,9 @@ export const useProviderProps = (): Theming.ProviderProps => {
         return () => query.removeEventListener("change", handler);
       }
       const win = getCurrentWindow();
-      setOSKey(keyFor((await win.theme()) === "dark"));
+      const theme = await win.theme();
       if (signal.aborted) return;
+      setOSKey(keyFor(theme === "dark"));
       return await win.onThemeChanged(({ payload }) =>
         setOSKey(keyFor(payload === "dark")),
       );

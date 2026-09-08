@@ -22,10 +22,9 @@ export const isObject = <T extends record.Unknown = record.Unknown>(
 /**
  * A stricter version of {@link isObject} that additionally rejects class instances,
  * arrays, and any non-`Object.prototype` objects. Returns true only for plain objects
- * created via `{}`, `Object.create(null)`, or an object literal.
- *
- * Useful for walkers that need to distinguish "plain data bag" from "wrapped instance"
- * (e.g. `Date`, `Map`, `Error`), which `isObject` treats the same.
+ * created via `{}`, `Object.create(null)`, or an object literal. Useful for walkers
+ * that need to distinguish "plain data bag" from "wrapped instance" (e.g. `Date`,
+ * `Map`, `Error`), which `isObject` treats the same.
  */
 export const isPlainObject = (item?: unknown): item is Record<string, unknown> => {
   if (item == null || typeof item !== "object") return false;

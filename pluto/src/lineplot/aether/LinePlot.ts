@@ -32,6 +32,7 @@ export const linePlotStateZ = z.object({
   grid: z.record(z.string(), grid.regionZ),
   visible: z.boolean().default(true),
   clearOverScan: xy.crudeZ.default(xy.ZERO),
+  loading: z.boolean().default(false),
 });
 
 const axesBoundsZ = z.record(
@@ -125,6 +126,10 @@ export class LinePlot
     return calculateExposure(this.state.viewport, this.state.container);
   }
 
+  private get loading(): boolean {
+    return this.axes.some((a) => a.loading);
+  }
+
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { ...this.state, plot, canvases, exposure: this.exposure };
     this.axes.forEach((xAxis) => xAxis.render(p));
@@ -139,10 +144,11 @@ export class LinePlot
     const bounds: AxesBounds = {};
     this.axes.forEach((v) => {
       const axisKey = v.state.axisKey ?? v.key;
-      bounds[axisKey] = v.bounds(this.state.hold);
+      const xBounds = v.bounds(this.state.hold);
+      bounds[axisKey] = xBounds;
       v.yAxes.forEach((y) => {
         const yAxisKey = y.state.axisKey ?? y.key;
-        bounds[yAxisKey] = y.bounds(this.state.hold);
+        bounds[yAxisKey] = y.bounds(this.state.hold, xBounds);
       });
     });
     return bounds;
@@ -167,8 +173,12 @@ export class LinePlot
       ins.L.debug("deleted, skipping render", { key: this.key });
       return;
     }
-    if (!this.state.visible) {
-      ins.L.debug("not visible, skipping render", { key: this.key });
+    // Skips draws while loading to free the worker and avoid autoscaling partial data.
+    const loading = this.loading;
+    if (loading !== this.state.loading) this.setState((p) => ({ ...p, loading }));
+    const skip = !this.state.visible ? "not visible" : loading ? "loading" : null;
+    if (skip != null) {
+      ins.L.debug(`${skip}, skipping render`, { key: this.key });
       return ({ canvases }) =>
         renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
@@ -202,7 +212,7 @@ export class LinePlot
       this.renderTooltips(plot, canvases);
       this.renderMeasures(plot);
     } catch (e) {
-      handleError(e, "failed to render line plot");
+      handleError(e, "Failed to render line plot");
     } finally {
       removeCanvasScissor();
       removeGLScissor();

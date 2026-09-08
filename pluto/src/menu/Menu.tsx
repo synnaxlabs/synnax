@@ -28,21 +28,27 @@ const [Context, useContext] = context.create<ContextValue>({
 });
 export { useContext };
 
+/** Props for {@link Menu}. */
 export interface MenuProps
   extends PropsWithChildren, Pick<ContextValue, "level" | "gap" | "background"> {
+  /** The key of the selected item. */
   value?: string;
+  /**
+   * Called with the key of the clicked item. Pass a record instead to route each key to
+   * its own handler.
+   */
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }
 
 /**
- * Menu is a modular component that allows you to create a menu with a list of items.
- * It satisfies the InputControl string interface, so it's selected value can be
- * controlled.
+ * Holds the shared state for a list of {@link Item}s: which one is selected, what
+ * happens on click, and the text level, gap, and background they inherit. It renders no
+ * element of its own.
  *
- * @param props - Props for the component. All unlisted props will be spread to the
- * underlying Space component acting as the root element.
- * @param props.onChange - Callback executed when the selected item changes.
- * @param props.value - The selected item.
+ * @example
+ * <Menu.Menu onChange={{ rename, delete: del }}>
+ *   <Menu.Item itemKey="rename">Rename</Menu.Item>
+ * </Menu.Menu>
  */
 export const Menu = ({
   children,

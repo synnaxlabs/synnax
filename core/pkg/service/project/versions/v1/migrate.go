@@ -24,10 +24,10 @@ import (
 
 // LegacyLayoutKVPrefix is the KV key prefix under which the layout staging migration
 // stages each project's legacy layout blob. The remainder of the key is the project's
-// key. The panel migration scans this prefix to convert the blobs into panels and
-// deletes the entries as it consumes them, so it never reads the project layout field
-// and the field can later be removed without ordering a project-table migration after a
-// panel-table one.
+// key. The panel service's composition migration, which the service layer runs after
+// every table is open, scans this prefix to convert the blobs into panels and deletes
+// the entries as it consumes them, so it never reads the project layout field and the
+// field can later be removed without coupling the two tables' chains.
 const LegacyLayoutKVPrefix = "sy_project_legacy_layout/"
 
 // migrateLayoutsToStaging copies every project's layout blob into its own staging KV
@@ -128,9 +128,7 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	projects := make([]Project, len(stale))
 	keys := make([]Key, len(stale))
 	for i, ws := range stale {
-		if projects[i], err = autoMigrateProject(ctx, ws); err != nil {
-			return err
-		}
+		projects[i] = Project{Key: ws.Key, Name: ws.Name, Layout: ws.Layout}
 		keys[i] = ws.Key
 	}
 	if err := gorp.WrapWriter[Key, Project](tx).Set(ctx, projects...); err != nil {

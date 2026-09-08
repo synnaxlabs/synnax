@@ -85,10 +85,10 @@ original_task = sy.modbus.ReadTask(
     stream_rate=sy.Rate.HZ * 10,
     channels=[
         sy.modbus.InputRegisterReadChannel(
-            type="register_input", channel=input_reg_0.key, address=0, data_type="uint8"
+            channel=input_reg_0.key, address=0, data_type="uint8"
         ),
         sy.modbus.InputRegisterReadChannel(
-            type="register_input", channel=input_reg_1.key, address=1, data_type="uint8"
+            channel=input_reg_1.key, address=1, data_type="uint8"
         ),
     ],
 )
@@ -123,8 +123,7 @@ copied_task_raw = client.tasks.copy(
 copied_task = sy.modbus.ReadTask(internal=copied_task_raw)
 
 # Modify the stream rate and enable auto-start
-# Convert Rate to int to avoid Pydantic serialization warnings
-copied_task.config.stream_rate = int(sy.Rate.HZ * 5)
+copied_task.config.stream_rate = sy.Rate.HZ * 5
 copied_task.config.auto_start = True
 
 # Reconfigure the task with the new settings
@@ -150,13 +149,12 @@ print()
 print("\nStep 3: Listing all tasks on the rack")
 print("-" * 70)
 
-# List all tasks again to see the original and copy
-all_tasks_updated = client.tasks.list()
-print(f"✓ Found {len(all_tasks_updated)} task(s) on the rack:\n")
+all_tasks = client.tasks.list()
+print(f"✓ Found {len(all_tasks)} task(s) on the rack:\n")
 
 # Group tasks by type for better visualization
-modbus_tasks = [t for t in all_tasks_updated if t.type == "modbus_read"]
-other_tasks = [t for t in all_tasks_updated if t.type != "modbus_read"]
+modbus_tasks = [t for t in all_tasks if t.type == "modbus_read"]
+other_tasks = [t for t in all_tasks if t.type != "modbus_read"]
 
 if modbus_tasks:
     print("  Modbus Read Tasks:")

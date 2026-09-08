@@ -58,10 +58,6 @@ I have verified that code examples for each of the following services run correc
 - [ ] `client/ts`
   - [ ] `@synnaxlabs/client` version in `examples/node` is up-to-date
 
-### Broken Links
-
-- [ ] I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
-
 ### Release Notes
 
 - [ ] I have verified that release notes exist for this release.
@@ -72,36 +68,26 @@ I have verified that code examples for each of the following services run correc
 
 I can successfully:
 
-- **Connect core Modal**
-  - [ ] Connect to a core.
 - **Dropdown**
-  - [ ] Add a new core.
-  - [ ] Connect to a core by selecting it.
   - [ ] Disconnect from a core by selecting it.
   - [ ] View the default local core in the selector.
   - [ ] View the default demo core in the selector.
   - **Context Menu**
     - [ ] Connect to a core.
     - [ ] Disconnect the active core.
-    - [ ] Rename a core.
-    - [ ] Remove a core.
     - [ ] Copy a link to a core.
     - [ ] Hard reload the console.
 - **Search and Command Palette**
   - [ ] Use the "Log out" command to log out of the active core.
 - [ ] Open a core from a link.
-- [ ] Receive meaningful feedback when a core connection fails.
 
 ### Login Page
 
 I can successfully:
 
 - **Login Screen**
-  - [ ] See the core list on the left when multiple cores are configured.
   - [ ] Select a core from the list and see it highlighted.
   - [ ] Switch between cores and see the login form reset (username/password cleared).
-  - [ ] Receive meaningful error feedback when logging in with invalid credentials.
-  - [ ] Add a new core using the "+" button in the core list header.
   - [ ] See connection status indicators for each core in the list.
 - **User Badge**
   - [ ] See the user avatar and username in the top-right corner after logging in.

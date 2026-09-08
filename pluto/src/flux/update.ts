@@ -27,6 +27,7 @@ import { useDebouncedCallback } from "@/hooks";
 import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
+/** What an update implementation receives. */
 export interface UpdateParams<
   Input extends query.Data,
   Output extends query.Data = Input,
@@ -38,6 +39,7 @@ export interface UpdateParams<
   onOptimisticComplete: (data: Output) => Promise<void>;
 }
 
+/** Params for {@link createUpdate}. */
 export type CreateUpdateParams<
   Input extends query.Data,
   Output extends query.Data = Input,
@@ -50,8 +52,11 @@ export type CreateUpdateParams<
   ) => Promise<Output | false>;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
+/** Return value for `useObservableUpdate`. */
 export interface UseObservableUpdateReturn<Input extends query.Data> {
+  /** Runs the update and reports a failure as an error status. */
   update: (data: Input, opts?: query.FetchOptions) => void;
+  /** Runs the update and resolves to whether it succeeded. */
   updateAsync: (data: Input, opts?: query.FetchOptions) => Promise<boolean>;
 }
 
@@ -101,6 +106,7 @@ export interface UseDirectUpdateParams<
   StatusDetails extends z.ZodType = z.ZodNever,
 > extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
 
+/** Return value for `useUpdate`: the update callbacks plus its own result state. */
 export type UseDirectUpdateReturn<
   Input extends query.Data,
   StatusDetails extends z.ZodType = z.ZodNever,
@@ -126,6 +132,7 @@ export interface UseUpdate<
   ): UseDirectUpdateReturn<Input, StatusDetails>;
 }
 
+/** The hooks {@link createUpdate} builds for one mutation. */
 export interface CreateUpdateReturn<
   Input extends query.Data,
   Output extends query.Data = Input,
@@ -290,6 +297,11 @@ const useDirect = <
   return { ...result, ...methods };
 };
 
+/**
+ * Builds the hooks that run one mutation against a Core, applying the change to the
+ * cache before the request returns and rolling it back on failure. Call it once per
+ * mutation, at module scope.
+ */
 export const createUpdate = <
   Input extends query.Data,
   Output extends query.Data = Input,

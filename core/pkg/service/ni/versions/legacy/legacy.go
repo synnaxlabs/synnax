@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/set"
 )
 
 // LastVersion is the newest legacy NI shape. The typed shape sits directly above it.
@@ -26,9 +27,9 @@ const LastVersion imex.Version = 1
 var AnalogRead = legacy.Rewrite{Post: analogRead}
 
 // CounterRead converts the released counter read shape: an optional task-level
-// device the schema no longer stores, and a measurement method spelling the Python
+// device the schema no longer stores, a measurement method spelling the Python
 // client wrote on frequency and period channels that the Driver's own table never
-// knew.
+// knew, and a frequency unit NI-DAQmx rejects.
 var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	pushDownDevice(config)
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
@@ -36,8 +37,52 @@ var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 		if (t == "ci_frequency" || t == "ci_period") && ch["meas_method"] == "DynAvg" {
 			ch["meas_method"] = "DynamicAvg"
 		}
+		// NI-DAQmx measures a frequency in hertz or in ticks. A task storing seconds
+		// never configured, so hertz is the only reading that can run.
+		if t == "ci_frequency" && ch["units"] == "Seconds" {
+			ch["units"] = "Hz"
+		}
+		legacy.RenameKey(ch, "z_index_enable", "z_index_enabled")
 	})
 }}
+
+// AnalogWrite converts the released analog write shape: channels carried units the
+// schema no longer stores.
+var AnalogWrite = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
+	legacy.EachChild(config, "channels", deleteFixedUnits)
+}}
+
+// fixedUnitTypes are the channel types NI-DAQmx accepts one engineering unit for. The
+// schema stores no units for them and the driver passes the constant.
+var fixedUnitTypes = set.New(
+	"ai_current",
+	"ai_current_rms",
+	"ai_freq_voltage",
+	"ai_microphone",
+	"ai_resistance",
+	"ai_strain_gauge",
+	"ai_voltage",
+	"ai_voltage_rms",
+	"ai_voltage_with_excit",
+	"ao_current",
+	"ao_voltage",
+)
+
+// deleteBuiltinTempPort drops the port of a built-in temperature channel. The sensor
+// is not wired to a port, and the Driver reads it at a fixed location.
+func deleteBuiltinTempPort(ch msgpack.EncodedJSON) {
+	if ch["type"] == "ai_temp_builtin" {
+		delete(ch, "port")
+	}
+}
+
+// deleteFixedUnits drops the units of a channel whose type accepts only one. It runs
+// after any type rename, so it sees the current spelling.
+func deleteFixedUnits(ch msgpack.EncodedJSON) {
+	if t, ok := ch["type"].(string); ok && fixedUnitTypes.Contains(t) {
+		delete(ch, "units")
+	}
+}
 
 // Digital converts released digital read and write shapes: channels carried a type
 // tag with one possible value, which the schema no longer stores.
@@ -59,9 +104,12 @@ func analogRead(config msgpack.EncodedJSON) {
 		if ch["type"] == "ai_frequency_voltage" {
 			ch["type"] = "ai_freq_voltage"
 		}
+		deleteFixedUnits(ch)
+		deleteBuiltinTempPort(ch)
 		rewriteChargeUnits(ch)
 		rewriteStrainValues(ch)
 		collapseCJC(ch)
+		legacy.RenameKey(ch, "use_excit_for_scaling", "scaled_by_excitation")
 	})
 }
 
@@ -94,16 +142,13 @@ var strainConfigs = map[string]string{
 	"quarter-bridge-II": "QuarterBridgeII",
 }
 
-// rewriteStrainValues replaces a strain gauge channel's kebab-case bridge names and
-// Console 0.36's lowercase units with the DAQmx spellings.
+// rewriteStrainValues replaces a strain gauge channel's kebab-case bridge names with
+// the DAQmx spellings.
 func rewriteStrainValues(ch msgpack.EncodedJSON) {
 	if ch["type"] != "ai_strain_gauge" {
 		return
 	}
 	legacy.RemapValue(ch, "strain_config", strainConfigs)
-	if ch["units"] == "strain" {
-		ch["units"] = "Strain"
-	}
 }
 
 // rewriteChargeUnits replaces a charge channel's released unit strings with the DAQmx

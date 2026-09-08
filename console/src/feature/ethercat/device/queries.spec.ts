@@ -342,5 +342,59 @@ describe("EtherCAT Device queries", () => {
       expect(updated1.properties.enabled).toBe(true);
       expect(updated2.properties.enabled).toBe(true);
     });
+
+    it("should hand the updated devices to afterSuccess", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "After Success Device",
+        network: "eth0",
+        enabled: true,
+      });
+      let updated: EtherCAT.Device.SlaveDevice[] = [];
+
+      const { result } = renderHook(
+        () =>
+          EtherCAT.Device.useToggleEnabled({
+            afterSuccess: ({ data }) => {
+              updated = data;
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: dev.key });
+      });
+
+      expect(updated.map(({ key }) => key)).toEqual([dev.key]);
+      expect(updated[0].properties.enabled).toBe(false);
+    });
+
+    it("should run afterOptimistic before the write commits", async () => {
+      const dev = await createSlaveDevice(rack.key, {
+        name: "Optimistic Toggle Device",
+        network: "eth0",
+        enabled: true,
+      });
+      const order: string[] = [];
+
+      const { result } = renderHook(
+        () =>
+          EtherCAT.Device.useToggleEnabled({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data[0].properties.enabled}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ keys: dev.key });
+      });
+
+      expect(order).toEqual(["optimistic:false", "success"]);
+    });
   });
 });

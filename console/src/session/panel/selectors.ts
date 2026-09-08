@@ -73,8 +73,7 @@ export const selectSelected = (state: StoreState): panel.Key | undefined =>
   selectWindowState(state).selected;
 
 /** @returns the strip's panel order, shared by every window. */
-export const selectOrder = (state: StoreState): panel.Key[] =>
-  selectSliceState(state).order;
+export const selectOrder = (state: StoreState): panel.Key[] => state[SLICE_NAME].order;
 
 /** @returns the strip's panel order, as {@link selectOrder}. */
 const useSelectOrder = (): panel.Key[] => Select.useMemo(selectOrder, []);

@@ -12,11 +12,6 @@ import { array } from "@synnaxlabs/x";
 
 import { type State } from "@/session/range/slice";
 
+/** References the Core's ranges. Their names and windows stay on the Core. */
 export const fromClient = (ranges: ranger.Payload | ranger.Payload[]): State[] =>
-  array.toArray(ranges).map((range) => ({
-    variant: "static",
-    key: range.key,
-    name: range.name,
-    timeRange: range.timeRange.numeric,
-    persisted: true,
-  }));
+  array.toArray(ranges).map(({ key }) => ({ variant: "persisted", key }));

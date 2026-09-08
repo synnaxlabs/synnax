@@ -14,7 +14,7 @@ import { Rate } from "@/platform/task/fields/Rate";
 
 export const StreamRate = () => (
   <Rate
-    label="Stream Rate"
+    label="Stream rate"
     path="config.streamRate"
     className={CSS.B("task-rate-field")}
   />

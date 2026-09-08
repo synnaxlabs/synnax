@@ -41,7 +41,7 @@ const createReadChannel = (
     nodeName,
     channel: 0,
     disabled: false,
-    useAsIndex: false,
+    isIndex: false,
     dataType: "float32",
     name: "",
     ...overrides,
@@ -59,7 +59,7 @@ const createReadConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<OPCUA.Task.ReadSchemas> = {
-  name: "OPC UA Read Task",
+  name: "OPC UA read task",
   type: OPCUA.Task.READ_TYPE,
   config: OPCUA.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -112,7 +112,7 @@ describe("OPCUA.Read", () => {
 
   it("should use the flagged timestamp channel as the index and reuse it on redeploy", async () => {
     const dev = await createOPCDevice(client);
-    const tsChannel = createReadChannel({ useAsIndex: true, dataType: "timestamp" });
+    const tsChannel = createReadChannel({ isIndex: true, dataType: "timestamp" });
     const dataChannel = createReadChannel();
     const draft = await createDraft(
       client,
@@ -172,16 +172,16 @@ describe("OPCUA.Read", () => {
     await renderRead({ client, taskKey: draft.key });
     // The seeded channel appearing means the task row's config has loaded.
     await screen.findByText(new RegExp(ch.nodeName));
-    await screen.findByText("Stream Rate");
-    expect(screen.queryByText("Array Size")).toBeNull();
+    await screen.findByText("Stream rate");
+    expect(screen.queryByText("Array size")).toBeNull();
 
-    const arrayModeSwitch = getLabeledInput("Array Sampling");
+    const arrayModeSwitch = getLabeledInput("Array sampling");
     fireEvent.click(arrayModeSwitch);
-    await screen.findByText("Array Size");
-    expect(screen.queryByText("Stream Rate")).toBeNull();
+    await screen.findByText("Array size");
+    expect(screen.queryByText("Stream rate")).toBeNull();
 
     fireEvent.click(arrayModeSwitch);
-    await screen.findByText("Stream Rate");
-    expect(screen.queryByText("Array Size")).toBeNull();
+    await screen.findByText("Stream rate");
+    expect(screen.queryByText("Array size")).toBeNull();
   });
 });

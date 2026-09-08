@@ -17,9 +17,8 @@ import { Log } from "@/platform/log";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-// A virtual channel without an expression has no stored data to plot, so it
-// routes to a log, which displays its live samples. Calculated channels plot
-// like persisted ones.
+// A virtual channel without an expression has no stored data to plot, so it routes to a
+// log, which displays its live samples. Calculated channels plot like persisted ones.
 const isPlainVirtual = ({ data }: ontology.Resource): boolean =>
   data?.virtual === true && data.expression == "";
 
@@ -72,7 +71,7 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
           }
           const selectedRange = getSelectedRange() ?? Session.Range.RECENT_KEY;
           const { key } = await client.lineplots.create(project, {
-            name: "Line Plot",
+            name: "Line plot",
             channels: { y1: [channelKey] },
             ranges: { x1: [selectedRange] },
           });

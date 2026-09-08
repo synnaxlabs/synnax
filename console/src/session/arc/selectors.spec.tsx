@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { access, arc, channel, framer, type Synnax, user } from "@synnaxlabs/client";
 import {
   createTestClient,
@@ -21,6 +20,7 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/session/arc";
+import { createSliceStore, inWindow } from "@/session/window/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 const KEY = "arc-1";
@@ -36,9 +36,11 @@ const customState = Arc.stateZ.parse({
 });
 
 const storeWith = (slice: Arc.SliceState) =>
-  configureStore({
-    reducer: { [Arc.SLICE_NAME]: Arc.reducer },
-    preloadedState: { [Arc.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Arc.SLICE_NAME,
+    reducer: Arc.reducer,
+    preloadedState: slice,
+    middleware: Arc.MIDDLEWARE,
   });
 
 const wrapperFor = (
@@ -54,7 +56,8 @@ const wrapperFor = (
   return Wrapper;
 };
 
-const createCustomStore = () => storeWith({ version: 0, arcs: { [KEY]: customState } });
+const createCustomStore = () =>
+  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
 describe("arc selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {
@@ -149,10 +152,10 @@ describe("arc selector stability under dispatch", () => {
   it("should re-point the selector when its key dependency changes", () => {
     const s = storeWith({
       version: 0,
-      arcs: {
+      windows: inWindow({
         [KEY]: customState,
         "arc-2": Arc.stateZ.parse({ toolbar: { selectedTab: "stages" } }),
-      },
+      }),
     });
     const { result, rerender } = renderHook(
       ({ key }: { key: string }) => Arc.useSelectToolbar({ key }),
@@ -230,7 +233,7 @@ const setup = async ({ editable, userClient = client }: SetupParams) => {
     preloadedState: {
       [Arc.SLICE_NAME]: {
         version: 0,
-        arcs: { [KEY]: Arc.stateZ.parse({ graph: { editable } }) },
+        windows: inWindow({ [KEY]: Arc.stateZ.parse({ graph: { editable } }) }),
       },
     },
   });

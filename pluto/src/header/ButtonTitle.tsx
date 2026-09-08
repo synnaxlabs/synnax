@@ -14,19 +14,13 @@ import { TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
 
+/** Props for {@link ButtonTitle}. */
 export interface ButtonTitleProps extends Omit<
   Button.ButtonProps,
   "variant" | "size"
 > {}
 
-/**
- * Header.Title.Use renders a clickable header title.
- *
- * @param props - The comonent props. The props for this component are identical
- * to {@link Button}, except the variant is always 'outlined' and that the component size
- * is automatically inferred from the 'level' prop passsed to the parent {@link Header}
- * component.
- */
+/** A {@link Title} the user can click. It takes its size from the enclosing header. */
 export const ButtonTitle = ({
   children = "",
   className,
@@ -39,7 +33,7 @@ export const ButtonTitle = ({
       variant="text"
       size={TEXT_LEVEL_SIZES[level]}
       onClick={onClick}
-      className={CSS(CSS.B("header-button-title"), className)}
+      className={CSS.cls(CSS.B("header-button-title"), className)}
       sharp
       {...rest}
     >

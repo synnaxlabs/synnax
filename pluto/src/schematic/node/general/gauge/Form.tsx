@@ -28,8 +28,6 @@ const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.1, y: 0.1 },
 };
 
-const BOUND_INPUT_PROPS: Partial<Input.NumericProps> = { step: 10 };
-
 const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
   if (v === "small") set("barWidth", 4);
   else if (v === "h5") set("barWidth", 8);
@@ -49,18 +47,7 @@ export const GaugeForm = (): ReactElement => (
           <Flex.Box x>
             <Form.ColorField path="color" />
             <Form.UnitsField />
-            <Base.NumericField
-              path="bounds.lower"
-              label="Min value"
-              hideIfNull
-              inputProps={BOUND_INPUT_PROPS}
-            />
-            <Base.NumericField
-              path="bounds.upper"
-              label="Max value"
-              hideIfNull
-              inputProps={BOUND_INPUT_PROPS}
-            />
+            <Form.BoundsFields path="bounds" hideIfNull />
             <Base.NumericField
               path="barWidth"
               label="Bar width"

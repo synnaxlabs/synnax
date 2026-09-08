@@ -16,7 +16,7 @@ import (
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
-	config "github.com/synnaxlabs/synnax/pkg/service/task/config/versions/v0"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -25,10 +25,10 @@ import (
 type RegisterValue struct {
 	// DataType is the data type the register contents are interpreted as.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// SwapBytes is true when the byte order within each 16-bit word is swapped.
-	SwapBytes bool `json:"swap_bytes" msgpack:"swap_bytes"`
-	// SwapWords is true when the word order of multi-register values is swapped.
-	SwapWords bool `json:"swap_words" msgpack:"swap_words"`
+	// BytesSwapped is true when the byte order within each 16-bit word is swapped.
+	BytesSwapped bool `json:"bytes_swapped" msgpack:"bytes_swapped"`
+	// WordsSwapped is true when the word order of multi-register values is swapped.
+	WordsSwapped bool `json:"words_swapped" msgpack:"words_swapped"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -329,7 +329,7 @@ func (u *WriteChannel) ApplyDefaults() {
 
 // ReadConfig configures a Modbus read task.
 type ReadConfig struct {
-	config.BaseRead
+	task.ReadConfig
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the channels the task acquires.
@@ -338,7 +338,7 @@ type ReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
-	r.BaseRead.ApplyDefaults()
+	r.ReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
@@ -346,7 +346,7 @@ func (r *ReadConfig) ApplyDefaults() {
 
 // WriteConfig configures a Modbus write task.
 type WriteConfig struct {
-	config.BaseWrite
+	task.WriteConfig
 	// Channels are the channels the task drives.
 	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
@@ -360,10 +360,10 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig struct {
-	config.BaseScan
+	task.ScanConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
-	s.BaseScan.ApplyDefaults()
+	s.ScanConfig.ApplyDefaults()
 }

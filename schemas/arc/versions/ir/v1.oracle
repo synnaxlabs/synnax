@@ -1,0 +1,40 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/arc/versions/types/v1"
+
+Handle = v0.Handle
+
+EdgeKind = v0.EdgeKind
+
+Edge = v0.Edge
+
+Body = v0.Body
+
+Function struct {
+    key      string         {
+        @doc value "is the function identifier (template name)."
+    }
+    body     Body           {
+        @doc value "is raw source code for user-defined functions."
+    }
+    inputs   types.Params   {
+        @doc value "contains input parameter definitions."
+    }
+    outputs  types.Params   {
+        @doc value "contains output parameter definitions."
+    }
+    channels types.Channels {
+        @doc value "contains channel read/write declarations."
+    }
+
+    @go marshal
+}
+
+Functions Function[]

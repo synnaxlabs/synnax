@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch } from "@reduxjs/toolkit";
-import { Color, type state } from "@synnaxlabs/pluto";
+import { type Color, type state } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -21,7 +21,7 @@ import {
 import { Select } from "@/session/select";
 
 const selectContext = (state: StoreState): Color.ContextState =>
-  Color.contextStateZ.parse(state[SLICE_NAME].context);
+  state[SLICE_NAME].context;
 
 export const useSelectContext = (): Color.ContextState =>
   Select.useMemo(selectContext, []);

@@ -11,17 +11,9 @@ import { type connection } from "@synnaxlabs/client";
 import { Status, Synnax, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Connection as PlatformConnection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Island } from "@/platform/shell/Island";
-
-export const STATUS_LABELS: Record<connection.Status["variant"], string> = {
-  success: "Connected",
-  info: "Connected",
-  loading: "Connecting",
-  warning: "Reconnecting",
-  error: "Unreachable",
-  disabled: "Disconnected",
-};
 
 /* Rejected credentials mean the Core answered, so the island stays nominal and
    the login form carries the auth error. */
@@ -31,7 +23,7 @@ const variantOf = (status?: connection.Status | null): connection.Status["varian
   return status.variant;
 };
 
-export interface ConnectionCluster {
+export interface ConnectionCore {
   name: string;
   host: string;
   port: number | string;
@@ -40,7 +32,7 @@ export interface ConnectionCluster {
 
 export interface ConnectionProps {
   /** Identity of the Core the surface works against; null hides the island. */
-  cluster?: ConnectionCluster | null;
+  core?: ConnectionCore | null;
 }
 
 /**
@@ -48,26 +40,21 @@ export interface ConnectionProps {
  * client status is authoritative when the target is the active connection;
  * otherwise a one-shot check reports reachability.
  */
-export const Connection = ({ cluster }: ConnectionProps): ReactElement | null => {
+export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
   const client = Synnax.use();
   const live = Synnax.useConnectionStatus();
   const isActive =
     client != null &&
-    cluster != null &&
-    client.params.host === cluster.host &&
-    Number(client.params.port) === Number(cluster.port) &&
-    (cluster.secure ?? false) === client.params.secure;
+    core != null &&
+    client.params.host === core.host &&
+    Number(client.params.port) === Number(core.port) &&
+    (core.secure ?? false) === client.params.secure;
   const checked = Synnax.useCheckConnection(
-    isActive || cluster == null
+    isActive || core == null
       ? null
-      : {
-          host: cluster.host,
-          port: cluster.port,
-          secure: cluster.secure,
-          retry: { maxRetries: 0 },
-        },
+      : { host: core.host, port: core.port, secure: core.secure },
   );
-  if (cluster == null) return null;
+  if (core == null) return null;
   const variant = variantOf(isActive ? live : checked);
   return (
     <Island
@@ -80,13 +67,13 @@ export const Connection = ({ cluster }: ConnectionProps): ReactElement | null =>
         className={CSS.BE("shell", "connection-dot")}
       />
       <Text.Text color={10} weight={500} overflow="ellipsis">
-        {cluster.name}
+        {core.name}
       </Text.Text>
       <Text.Text color={9} overflow="ellipsis">
-        {cluster.host}:{cluster.port}
+        {core.host}:{core.port}
       </Text.Text>
       <Text.Text status={variant} className={CSS.BE("shell", "connection-status")}>
-        {STATUS_LABELS[variant]}
+        {PlatformConnection.STATUS_LABELS[variant]}
       </Text.Text>
     </Island>
   );

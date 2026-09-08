@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <thread>
@@ -54,11 +55,14 @@ public:
             return {telem::TimeSpan(elapsed), false};
         }
         const auto remaining = interval - elapsed;
+        const auto deadline = now + remaining.chrono();
         if (this->high_rate())
             this->precise_sleep(remaining);
         else
             std::this_thread::sleep_for(remaining.chrono());
-        last = hs_clock::now();
+        // Anchor to the deadline so a late wake shortens the next sleep instead of
+        // stretching every period. An early wake keeps the wake time.
+        last = std::min(deadline, hs_clock::now());
         return {telem::TimeSpan(elapsed), true};
     }
 
@@ -70,13 +74,14 @@ public:
             return {telem::TimeSpan(elapsed), false};
         }
         const auto remaining = interval - elapsed;
+        const auto deadline = now + remaining.chrono();
         if (this->high_rate())
             this->precise_sleep(remaining);
         else if (this->medium_rate())
             std::this_thread::sleep_for(remaining.chrono());
         else
             breaker.wait_for(remaining);
-        last = hs_clock::now();
+        last = std::min(deadline, hs_clock::now());
         return {telem::TimeSpan(elapsed), true};
     }
 

@@ -9,7 +9,7 @@
 
 import "@/app/window/Primary.css";
 
-import { Access, Flex, OS } from "@synnaxlabs/pluto";
+import { Flex, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Link } from "@/app/link";
@@ -19,14 +19,15 @@ import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
 import { Device } from "@/feature/device";
 import { Panel } from "@/feature/panel";
+import { Persist } from "@/feature/persist";
 import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 const SideEffect = (): null => {
-  Access.useLoadPermissions({});
   Device.useListenForChanges();
   Link.useDeep();
+  Persist.useStoreStatus();
   Triggers.use();
   return null;
 };
@@ -52,15 +53,15 @@ export const Primary = (): ReactElement => {
           <Project.Guard>
             <ProjectSideEffect />
             <div
-              className={CSS(
+              className={CSS.cls(
                 CSS.BE("main", "workspace"),
                 fullWidthTop && CSS.M("full-width-top"),
               )}
             >
               <Nav.Bar.Top />
               <Nav.Bar.Left />
-              <Flex.Box y gap="tiny" className={CSS.BE("main", "content")}>
-                <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
+              <Flex.Box y gap="small" className={CSS.BE("main", "content")}>
+                <Flex.Box x gap="small" grow className={CSS.BE("main", "row")}>
                   <Nav.Drawer.Left />
                   <Mosaic.Mosaic />
                 </Flex.Box>

@@ -61,16 +61,46 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle removes the node with the matching key and discards any config entry
-// stored under that key.
+// groupBoxVariant must match the client's groupBox symbol config variant.
+const groupBoxVariant = "groupBox"
+
+// Handle removes the node with the matching key, discards any config entry
+// stored under that key, and splices the key out of every group's members.
 func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
+	removed := false
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == p.Key {
 			state.Nodes = append(state.Nodes[:i], state.Nodes[i+1:]...)
+			removed = true
 			break
 		}
 	}
 	delete(state.Configs, p.Key)
+	if !removed {
+		return state, nil
+	}
+	for key, cfg := range state.Configs {
+		if cfg["variant"] != groupBoxVariant {
+			continue
+		}
+		members, ok := cfg["members"].([]any)
+		if !ok {
+			continue
+		}
+		filtered := make([]any, 0, len(members))
+		for _, m := range members {
+			if m != p.Key {
+				filtered = append(filtered, m)
+			}
+		}
+		if len(filtered) == len(members) {
+			continue
+		}
+		next := make(msgpack.EncodedJSON, len(cfg))
+		maps.Copy(next, cfg)
+		next["members"] = filtered
+		state.Configs[key] = next
+	}
 	return state, nil
 }
 

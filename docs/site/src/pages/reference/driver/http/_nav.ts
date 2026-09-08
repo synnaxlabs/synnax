@@ -14,11 +14,6 @@ export const HTTP_NAV: PageNavNode = {
   name: "HTTP",
   children: [
     {
-      key: "/reference/driver/http/get-started",
-      href: "/reference/driver/http/get-started",
-      name: "Get Started",
-    },
-    {
       key: "/reference/driver/http/connect-server",
       href: "/reference/driver/http/connect-server",
       name: "Connect to a Server",

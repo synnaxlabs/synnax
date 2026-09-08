@@ -37,7 +37,7 @@ from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc import ArcCase
 
 SHORT_CIRCUIT_SOURCE = """
-func noop{} (input u8) u8 {
+func noop{} (input bool) bool {
     return input
 }
 

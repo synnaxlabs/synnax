@@ -43,7 +43,7 @@ const DefaultEmptyContent = (): ReactElement => {
   const { resourceType } = useContext("View.Items");
   return (
     <Flex.Box center>
-      <Text.Text status="disabled">No {plural(resourceType)} found.</Text.Text>
+      <Text.Text status="disabled">No {plural(resourceType)} found</Text.Text>
     </Flex.Box>
   );
 };

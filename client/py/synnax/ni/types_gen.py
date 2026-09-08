@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -354,12 +355,10 @@ CIMeasMethod = Literal["LowFreq1Ctr", "HighFreq2Ctr", "LargeRng2Ctr", "DynamicAv
 
 CI_FREQ_UNITS_HZ: Literal["Hz"] = "Hz"
 
-CI_FREQ_UNITS_SECONDS: Literal["Seconds"] = "Seconds"
-
 CI_FREQ_UNITS_TICKS: Literal["Ticks"] = "Ticks"
 
 
-CIFreqUnits = Literal["Hz", "Seconds", "Ticks"]
+CIFreqUnits = Literal["Hz", "Ticks"]
 
 CI_TIME_UNITS_SECONDS: Literal["Seconds"] = "Seconds"
 
@@ -435,6 +434,25 @@ WAVE_TYPE_SAWTOOTH: Literal["Sawtooth"] = "Sawtooth"
 
 WaveType = Literal["Sine", "Triangle", "Square", "Sawtooth"]
 
+ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_G: Literal["PicoCoulombsPerG"] = (
+    "PicoCoulombsPerG"
+)
+
+ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_METERS_PER_SECOND_SQUARED: Literal[
+    "PicoCoulombsPerMetersPerSecondSquared"
+] = "PicoCoulombsPerMetersPerSecondSquared"
+
+ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_INCHES_PER_SECOND_SQUARED: Literal[
+    "PicoCoulombsPerInchesPerSecondSquared"
+] = "PicoCoulombsPerInchesPerSecondSquared"
+
+
+AccelChargeSensitivityUnits = Literal[
+    "PicoCoulombsPerG",
+    "PicoCoulombsPerMetersPerSecondSquared",
+    "PicoCoulombsPerInchesPerSecondSquared",
+]
+
 
 class MinMaxVal(BaseModel):
     """Bounds the expected signal range in scaled units.
@@ -473,7 +491,7 @@ class CurrentExcitation(BaseModel):
 
     Attributes:
         current_excit_source: Selects the source of the current excitation signal.
-        current_excit_val: Is the current excitation level, in amps.
+        current_excit_val: Is the current excitation level, in Amps.
     """
 
     current_excit_source: ExcitationSource = "Internal"
@@ -485,7 +503,7 @@ class VoltageExcitation(BaseModel):
 
     Attributes:
         voltage_excit_source: Selects the source of the voltage excitation signal.
-        voltage_excit_val: Is the voltage excitation level, in volts.
+        voltage_excit_val: Is the voltage excitation level, in Volts.
     """
 
     voltage_excit_source: ExcitationSource = "Internal"
@@ -497,7 +515,7 @@ class Bridge(BaseModel):
 
     Attributes:
         bridge_config: Selects the physical bridge wiring.
-        nominal_bridge_resistance: Is the nominal resistance of the bridge, in ohms.
+        nominal_bridge_resistance: Is the nominal resistance of the bridge, in Ohms.
     """
 
     bridge_config: BridgeConfig = "FullBridge"
@@ -574,7 +592,7 @@ class BaseAIChannel(BaseModel):
         device: Is the key of the device the channel belongs to.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -589,13 +607,13 @@ class ZIndex(BaseModel):
     """Configures the Z-index reset behavior of an encoder.
 
     Attributes:
-        z_index_enable: Is true when the encoder's Z index resets the count.
-        z_index_val: Is the count value the Z index resets to.
+        z_index_enabled: Is true when the encoder's Z index resets the count.
+        z_index_val: Is the value the measurement resets to when the Z index is active.
         z_index_phase: Selects the A/B states at which the Z index is active.
         terminal_z: Is the terminal the Z index signal is wired to.
     """
 
-    z_index_enable: bool = False
+    z_index_enabled: bool = False
     z_index_val: float = 0
     z_index_phase: ZIndexPhase = "AHighBHigh"
     terminal_z: str = ""
@@ -613,7 +631,7 @@ class BaseCIChannel(BaseModel):
         device: Is the key of the device the counter belongs to.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -637,7 +655,7 @@ class BaseAOChannel(BaseModel):
         port: Is the physical port the channel writes to.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -661,7 +679,7 @@ class DIChannel(BaseModel):
         line: Is the digital line within the port the channel reads from.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -686,7 +704,7 @@ class DOChannel(BaseModel):
         line: Is the digital line within the port the channel writes to.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -699,11 +717,11 @@ class DOChannel(BaseModel):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Carries the configuration fields shared by NI write tasks.
 
     Attributes:
-        state_rate: Is the rate at which output state is reported to Synnax, in hertz.
+        state_rate: Is the rate at which output state is reported to Synnax, in Hertz.
     """
 
     state_rate: telem.Rate = telem.Rate(10)
@@ -712,7 +730,7 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures the NI device scanner task.
 
     Attributes:
@@ -745,8 +763,8 @@ class ChanCJC(BaseModel):
     port: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
-# Is the cold-junction compensation for a thermocouple. The source selects
-# where the reference temperature comes from.
+# Is the cold-junction compensation for a thermocouple. The source selects where
+# the reference temperature comes from.
 CJC = Annotated[
     Union[BuiltInCJC, ConstValCJC, ChanCJC],
     Field(discriminator="source"),
@@ -808,7 +826,7 @@ Scale = Annotated[
 ]
 
 
-class DigitalReadConfig(task.BaseReadConfig):
+class DigitalReadConfig(task.ReadConfig):
     """Configures an NI digital read task.
 
     Attributes:
@@ -850,7 +868,6 @@ class AIVoltageChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a voltage."""
 
     type: Literal["ai_voltage"] = "ai_voltage"
-    units: Units = "Volts"
 
 
 class AIAccelChannel(
@@ -874,7 +891,6 @@ class AICurrentChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a current."""
 
     type: Literal["ai_current"] = "ai_current"
-    units: Units = "Amps"
     shunt_resistor_loc: ShuntResistorLocation = "Default"
     ext_shunt_resistor_val: float = 1
 
@@ -913,7 +929,6 @@ class AIMicrophoneChannel(BaseAIChannel, Terminal, CurrentExcitation, CustomScal
     """Reads sound pressure from a microphone."""
 
     type: Literal["ai_microphone"] = "ai_microphone"
-    units: Units = "Pascals"
     mic_sensitivity: float = 0
     max_snd_press_level: float = 0
 
@@ -946,7 +961,6 @@ class AIResistanceChannel(
     """Reads a resistance."""
 
     type: Literal["ai_resistance"] = "ai_resistance"
-    units: Units = "Ohms"
 
 
 class AIRTDChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
@@ -962,7 +976,6 @@ class AIStrainGaugeChannel(BaseAIChannel, MinMaxVal, VoltageExcitation, CustomSc
     """Reads strain from a strain gauge."""
 
     type: Literal["ai_strain_gauge"] = "ai_strain_gauge"
-    units: Units = "Strain"
     strain_config: StrainConfig = "FullBridgeI"
     gage_factor: float = 0
     initial_bridge_voltage: float = 0
@@ -971,10 +984,15 @@ class AIStrainGaugeChannel(BaseAIChannel, MinMaxVal, VoltageExcitation, CustomSc
     lead_wire_resistance: float = 0
 
 
-class AITempBuiltinChannel(BaseAIChannel):
+class AITempBuiltinChannel(BaseModel):
     """Reads temperature from the device's built-in sensor."""
 
     type: Literal["ai_temp_builtin"] = "ai_temp_builtin"
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    name: str = ""
+    disabled: bool = False
+    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    device: device_.Key = ""
     units: TemperatureUnits = "DegC"
 
 
@@ -1025,16 +1043,17 @@ class AIAccel4WireDCVoltageChannel(
     type: Literal["ai_accel_4_wire_dc_voltage"] = "ai_accel_4_wire_dc_voltage"
     units: AccelUnits = "g"
     sensitivity_units: AccelSensitivityUnits = "mVoltsPerG"
-    use_excit_for_scaling: bool = False
+    scaled_by_excitation: bool = False
 
 
-class AIAccelChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
+class AIAccelChargeChannel(
+    BaseAIChannel, MinMaxVal, Terminal, Sensitivity, CustomScale
+):
     """Reads acceleration from a charge-mode accelerometer."""
 
     type: Literal["ai_accel_charge"] = "ai_accel_charge"
     units: AccelUnits = "g"
-    sensitivity: float = 0
-    sensitivity_units: AccelSensitivityUnits = "mVoltsPerG"
+    sensitivity_units: AccelChargeSensitivityUnits = "PicoCoulombsPerG"
 
 
 class AIChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
@@ -1048,7 +1067,6 @@ class AICurrentRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads RMS current."""
 
     type: Literal["ai_current_rms"] = "ai_current_rms"
-    units: Units = "Amps"
     shunt_resistor_loc: ShuntResistorLocation = "Default"
     ext_shunt_resistor_val: float = 1
 
@@ -1067,7 +1085,6 @@ class AIFreqVoltageChannel(BaseAIChannel, MinMaxVal, CustomScale):
     """Reads frequency from a voltage signal."""
 
     type: Literal["ai_freq_voltage"] = "ai_freq_voltage"
-    units: Units = "Hz"
     threshold_level: float = 0
     hysteresis: float = 0
 
@@ -1117,7 +1134,6 @@ class AIVoltageRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads RMS voltage."""
 
     type: Literal["ai_voltage_rms"] = "ai_voltage_rms"
-    units: Units = "Volts"
 
 
 class AIVoltageWithExcitChannel(
@@ -1126,13 +1142,12 @@ class AIVoltageWithExcitChannel(
     """Reads a voltage with excitation."""
 
     type: Literal["ai_voltage_with_excit"] = "ai_voltage_with_excit"
-    units: Units = "Volts"
     bridge_config: BridgeConfig = "FullBridge"
-    use_excit_for_scaling: bool = False
+    scaled_by_excitation: bool = False
 
 
-# Is a single NI analog input channel. The type field selects the
-# measurement mode and the fields that accompany it.
+# Is a single NI analog input channel. The type field selects the measurement mode
+# and the fields that accompany it.
 AIChannel = Annotated[
     Union[
         AIVoltageChannel,
@@ -1170,7 +1185,7 @@ AIChannel = Annotated[
 ]
 
 
-class CIFrequencyChannel(BaseCIChannel, CustomScale):
+class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures signal frequency."""
 
     type: Literal["ci_frequency"] = "ci_frequency"
@@ -1194,7 +1209,7 @@ class CIEdgeCountChannel(BaseCIChannel):
     terminal: str = ""
 
 
-class CIPeriodChannel(BaseCIChannel, CustomScale):
+class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures signal period."""
 
     type: Literal["ci_period"] = "ci_period"
@@ -1208,7 +1223,7 @@ class CIPeriodChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-class CIPulseWidthChannel(BaseCIChannel, CustomScale):
+class CIPulseWidthChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures pulse width."""
 
     type: Literal["ci_pulse_width"] = "ci_pulse_width"
@@ -1219,7 +1234,7 @@ class CIPulseWidthChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-class CISemiPeriodChannel(BaseCIChannel, CustomScale):
+class CISemiPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures semi-period."""
 
     type: Literal["ci_semi_period"] = "ci_semi_period"
@@ -1229,7 +1244,7 @@ class CISemiPeriodChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
+class CITwoEdgeSepChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures the separation between two edges."""
 
     type: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
@@ -1242,7 +1257,7 @@ class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
     second_terminal: str = ""
 
 
-class CIVelocityLinearChannel(BaseCIChannel, CustomScale):
+class CIVelocityLinearChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures linear velocity from an encoder."""
 
     type: Literal["ci_velocity_linear"] = "ci_velocity_linear"
@@ -1255,7 +1270,7 @@ class CIVelocityLinearChannel(BaseCIChannel, CustomScale):
     terminal_b: str = ""
 
 
-class CIVelocityAngularChannel(BaseCIChannel, CustomScale):
+class CIVelocityAngularChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures angular velocity from an encoder."""
 
     type: Literal["ci_velocity_angular"] = "ci_velocity_angular"
@@ -1292,7 +1307,7 @@ class CIPositionAngularChannel(BaseCIChannel, CustomScale, ZIndex):
     terminal_b: str = ""
 
 
-class CIDutyCycleChannel(BaseCIChannel, CustomScale):
+class CIDutyCycleChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures the duty cycle of a signal."""
 
     type: Literal["ci_duty_cycle"] = "ci_duty_cycle"
@@ -1302,8 +1317,8 @@ class CIDutyCycleChannel(BaseCIChannel, CustomScale):
     terminal: str = ""
 
 
-# Is a single NI counter input channel. The type field selects the
-# measurement mode and the fields that accompany it.
+# Is a single NI counter input channel. The type field selects the measurement
+# mode and the fields that accompany it.
 CIChannel = Annotated[
     Union[
         CIFrequencyChannel,
@@ -1326,7 +1341,6 @@ class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale):
     """Drives a current output."""
 
     type: Literal["ao_current"] = "ao_current"
-    units: Units = "Amps"
 
 
 class AOFuncGenChannel(BaseAOChannel):
@@ -1343,18 +1357,17 @@ class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
     """Drives a voltage output."""
 
     type: Literal["ao_voltage"] = "ao_voltage"
-    units: Units = "Volts"
 
 
-# Is a single NI analog output channel. The type field selects the
-# output mode and the fields that accompany it.
+# Is a single NI analog output channel. The type field selects the output mode and
+# the fields that accompany it.
 AOChannel = Annotated[
     Union[AOCurrentChannel, AOFuncGenChannel, AOVoltageChannel],
     Field(discriminator="type"),
 ]
 
 
-class AnalogReadConfig(task.BaseReadConfig):
+class AnalogReadConfig(task.ReadConfig):
     """Configures an NI analog read task. Each channel carries its own device.
 
     Attributes:
@@ -1367,7 +1380,7 @@ class AnalogReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class CounterReadConfig(task.BaseReadConfig):
+class CounterReadConfig(task.ReadConfig):
     """Configures an NI counter read task. Each channel carries its own device.
 
     Attributes:

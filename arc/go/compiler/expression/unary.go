@@ -21,7 +21,7 @@ func compileUnary(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) (types.Type, error) {
 	if ctx.AST.MINUS() != nil {
-		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
+		innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -58,7 +58,7 @@ func compileUnary(
 	}
 
 	if ctx.AST.NOT() != nil {
-		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
+		innerType, err := compileUnary(ctx.Child(ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -66,20 +66,20 @@ func compileUnary(
 		if innerType.Kind == types.KindSeries {
 			if !innerType.IsBool() {
 				return types.Type{}, errors.Newf(
-					"logical NOT on series requires boolean (u8) element type, got %s",
+					"logical NOT on series requires a bool element type, got %s",
 					innerType.Unwrap(),
 				)
 			}
-			ctx.Resolver.EmitSeriesNotU8(ctx.Writer, ctx.WriterID)
+			ctx.Resolver.EmitSeriesNot(ctx.Writer, ctx.WriterID)
 			return innerType, nil
 		}
 
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		return compilePostfix(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		return compilePower(ctx.Child(power))
 	}
 	return types.Type{}, errors.New("unknown unary expression")
 }

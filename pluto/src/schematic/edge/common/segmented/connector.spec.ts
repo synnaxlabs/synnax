@@ -365,11 +365,8 @@ describe("connector", () => {
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -10 },
-        // Down
         { direction: "y", length: 30 },
-        // Right
         { direction: "x", length: 40 },
       ],
     };
@@ -383,11 +380,8 @@ describe("connector", () => {
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -40 },
-        // Up
         { direction: "y", length: -30 },
-        // Right
         { direction: "x", length: 10 },
       ],
     };
@@ -401,15 +395,10 @@ describe("connector", () => {
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -10 },
-        // Up
         { direction: "y", length: -10 },
-        // Right
         { direction: "x", length: 30 },
-        // Down
         { direction: "y", length: 10 },
-        // Right
         { direction: "x", length: 10 },
       ],
     };
@@ -423,15 +412,10 @@ describe("connector", () => {
         targetBox: box.ZERO,
       },
       expected: [
-        // Left
         { direction: "x", length: -10 },
-        // Up
         { direction: "y", length: -10 },
-        // Left
         { direction: "x", length: -30 },
-        // Down
         { direction: "y", length: 10 },
-        // Right
         { direction: "x", length: 10 },
       ],
     };
@@ -732,11 +716,6 @@ describe("connector", () => {
       expected: [{ direction: "x", length: 30 }],
     };
 
-    // Props:
-    // S---T
-    //
-    // Expected:
-    // S-----T
     const SIMPLE_MOVE_LEFT: Spec = {
       name: "simple move left",
       props: { delta: { x: -10, y: 0 }, segments: [{ direction: "x", length: 30 }] },

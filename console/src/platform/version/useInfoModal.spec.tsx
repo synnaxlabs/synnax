@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(
@@ -33,18 +33,22 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
 }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: mocks.relaunch }));
 
-import { renderWithModals } from "@/platform/modals/testutil";
+import { Modals } from "@/platform/modals";
+import { Wrapper } from "@/platform/modals/testutil";
 import { Version } from "@/platform/version";
 
-const Harness = (): ReactElement => {
-  const open = Version.useInfoModal();
-  return <button onClick={() => open()}>open</button>;
-};
-Harness.displayName = "Harness";
+const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Wrapper>
+    {children}
+    <Modals.Stack />
+  </Wrapper>
+);
 
 const openModal = (): void => {
-  renderWithModals(<Harness />);
-  fireEvent.click(screen.getByRole("button", { name: "open" }));
+  const { result } = renderHook(Version.useInfoModal, { wrapper });
+  act(() => {
+    result.current();
+  });
 };
 
 describe("version useInfoModal", () => {
@@ -77,7 +81,7 @@ describe("version useInfoModal", () => {
       expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
     );
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Update & Restart" }));
+      fireEvent.click(screen.getByRole("button", { name: "Update and restart" }));
     });
     await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
     expect(mocks.relaunch).toHaveBeenCalledTimes(1);

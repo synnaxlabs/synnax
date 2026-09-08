@@ -147,13 +147,14 @@ func (retrieveRequestTranslator) Forward(
 		return string(v)
 	})
 	return &RetrieveRequest{
-		Keys:          msg.Keys,
-		SearchTerm:    msg.SearchTerm,
-		Offset:        int32(msg.Offset),
-		Limit:         int32(msg.Limit),
-		IncludeLabels: msg.IncludeLabels,
-		HasLabels:     hasLabels,
-		Variants:      variants,
+		Keys:                msg.Keys,
+		SearchTerm:          msg.SearchTerm,
+		Offset:              int32(msg.Offset),
+		Limit:               int32(msg.Limit),
+		IncludeLabels:       msg.IncludeLabels,
+		HasLabels:           hasLabels,
+		Variants:            variants,
+		IgnoreNotFoundError: msg.IgnoreNotFoundError,
 	}, nil
 }
 
@@ -174,13 +175,14 @@ func (retrieveRequestTranslator) Backward(
 		return svcstatus.Variant(v)
 	})
 	return status.RetrieveRequest{
-		Keys:          msg.Keys,
-		SearchTerm:    msg.SearchTerm,
-		Offset:        int(msg.Offset),
-		Limit:         int(msg.Limit),
-		HasLabels:     hasLabelKeys,
-		Variants:      variants,
-		IncludeLabels: msg.IncludeLabels,
+		Keys:                msg.Keys,
+		SearchTerm:          msg.SearchTerm,
+		Offset:              int(msg.Offset),
+		Limit:               int(msg.Limit),
+		HasLabels:           hasLabelKeys,
+		Variants:            variants,
+		IncludeLabels:       msg.IncludeLabels,
+		IgnoreNotFoundError: msg.IgnoreNotFoundError,
 	}, nil
 }
 

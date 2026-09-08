@@ -19,19 +19,21 @@ export interface AtlasProps {
 
 const PADDING = 2;
 const SCALE_FACTOR = 2;
-
 /**
  * @desc a text atlas that allows for efficient caching and rendering of monospaced
  * characters.
  */
 export class MonospacedAtlas {
-  // A canvas buffer that holds rendered characters.
   private readonly atlas: OffscreenCanvas;
-  // Cached dimensions of a character.
   private readonly charDims: dimensions.Dimensions;
-  // A map of characters to their index in the atlas.
   private readonly charMap: Map<string, number>;
-  // The default characters to include in the atlas.
+  private readonly cols: number;
+  /** Height of one grid cell, tall enough to hold any glyph in the set. */
+  private readonly cellHeight: number;
+  /** Distance from the top of a cell to the baseline the glyph is drawn on. */
+  private readonly baselineOffset: number;
+  /** Drop from the origin each text baseline sets to the alphabetic baseline. */
+  private readonly baselineShifts: Record<CanvasTextBaseline, number>;
   private static readonly DEFAULT_CHARS =
     "0123456789.:-°µmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%";
 
@@ -44,21 +46,48 @@ export class MonospacedAtlas {
     const tempCanvas = new OffscreenCanvas(1, 1);
     const ctx = tempCanvas.getContext("2d") as OffscreenCanvasRenderingContext2D;
     ctx.font = font;
+    ctx.textBaseline = "alphabetic";
     const metrics = ctx.measureText("0");
     this.charDims = dimensionsFromMetrics(metrics);
+    // Width pads out to the cell the atlas lays glyphs on, which fillText advances by
+    // and measureText must report. Height stays the ink, which callers center on.
     this.charDims.width += PADDING;
-    this.charDims.height += PADDING;
+
+    // A digit carries neither the tallest ascender nor any descender, so a cell sized
+    // from one clips glyphs like "g" and lets them paint into the cell below, which
+    // then copies out with its neighbor. Size the cell from the whole set instead.
+    const run = ctx.measureText(characters);
+    this.baselineOffset = Math.ceil(Math.abs(run.actualBoundingBoxAscent)) + PADDING;
+    this.cellHeight =
+      this.baselineOffset + Math.ceil(Math.abs(run.actualBoundingBoxDescent)) + PADDING;
+
+    // Canvas measures ink from the origin the current baseline sets, so the drop to
+    // the alphabetic baseline is the difference of the two ascents. Measuring beats
+    // deriving it: engines disagree on where "middle" and "top" sit.
+    const shift = (baseline: CanvasTextBaseline): number => {
+      ctx.textBaseline = baseline;
+      const { actualBoundingBoxAscent: ascent } = ctx.measureText("0");
+      return metrics.actualBoundingBoxAscent - ascent;
+    };
+    this.baselineShifts = {
+      alphabetic: shift("alphabetic"),
+      bottom: shift("bottom"),
+      hanging: shift("hanging"),
+      ideographic: shift("ideographic"),
+      middle: shift("middle"),
+      top: shift("top"),
+    };
 
     const totalChars = uniqueChars.length;
     const atlasCharWidth = this.charDims.width;
-    const atlasCharHeight = this.charDims.height;
 
     const cols = Math.ceil(Math.sqrt(totalChars));
     const rows = Math.ceil(totalChars / cols);
+    this.cols = cols;
 
     this.atlas = new OffscreenCanvas(
       atlasCharWidth * cols * SCALE_FACTOR,
-      atlasCharHeight * (rows + 1) * SCALE_FACTOR,
+      this.cellHeight * rows * SCALE_FACTOR,
     );
 
     const atlasCtx = this.atlas.getContext("2d") as OffscreenCanvasRenderingContext2D;
@@ -73,7 +102,7 @@ export class MonospacedAtlas {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const x = col * atlasCharWidth;
-      const y = (row + 1) * atlasCharHeight;
+      const y = row * this.cellHeight + this.baselineOffset;
       atlasCtx.fillText(char, x, y);
       this.charMap.set(char, i);
     });
@@ -85,10 +114,12 @@ export class MonospacedAtlas {
     x: number,
     y: number,
   ): void {
-    const { width, height } = this.charDims;
-    const cols = Math.ceil(Math.sqrt(this.charMap.size));
-    if (ctx.textAlign === "center") x -= (width * text.length) / 2;
-    if (ctx.textBaseline === "middle") y += height / 2;
+    const { width } = this.charDims;
+    const { cols, cellHeight } = this;
+    const totalWidth = width * text.length;
+    if (ctx.textAlign === "center") x -= totalWidth / 2;
+    else if (ctx.textAlign === "right" || ctx.textAlign === "end") x -= totalWidth;
+    const top = y + this.baselineShifts[ctx.textBaseline] - this.baselineOffset;
 
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
@@ -100,13 +131,13 @@ export class MonospacedAtlas {
       ctx.drawImage(
         this.atlas,
         col * width * SCALE_FACTOR,
-        row * height * SCALE_FACTOR + PADDING,
+        row * cellHeight * SCALE_FACTOR,
         width * SCALE_FACTOR,
-        height * SCALE_FACTOR,
+        cellHeight * SCALE_FACTOR,
         x + i * width,
-        y - height - PADDING / SCALE_FACTOR,
+        top,
         width,
-        height,
+        cellHeight,
       );
     }
   }

@@ -10,6 +10,7 @@
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};
@@ -1317,6 +1318,44 @@ describe("Table", () => {
       expect(results).toEqual([item("a", "a-fresh")]);
     });
 
+    it("should refetch per caller when a strict fetch rejects the shared batch", async () => {
+      const fetch = vi.fn(async (keys: string[]) => {
+        if (keys.includes("gone")) throw new NotFoundError("gone");
+        return keys.map((k) => item(k, k));
+      });
+      const table = fetchTable(fetch);
+      const [a, gone] = await Promise.allSettled([
+        table.retrieve(["a"]),
+        table.retrieve(["gone"]),
+      ]);
+      expect(a).toEqual({ status: "fulfilled", value: [item("a", "a")] });
+      expect(gone.status).toEqual("rejected");
+      if (gone.status === "rejected")
+        expect(NotFoundError.matches(gone.reason)).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should reject a lone strict retrieve with the fetch error", async () => {
+      const fetch = vi.fn(async (keys: string[]): Promise<Item[]> => {
+        throw new NotFoundError(keys.join(","));
+      });
+      const table = fetchTable(fetch);
+      await expect(table.retrieve(["a", "gone"])).rejects.toThrow(NotFoundError);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should tombstone a refreshed key the fetch omits", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.filter((k) => k !== "gone").map((k) => item(k, `${k}-fresh`)),
+      );
+      const table = fetchTable(fetch);
+      table.set([item("a", "stale"), item("gone", "stale")]);
+      const results = await table.retrieve(["a", "gone"], { refresh: true });
+      expect(results).toEqual([item("a", "a-fresh")]);
+      expect(table.get("gone")).toBeUndefined();
+      expect(table.getTombstone("gone")).toBeDefined();
+    });
+
     it("should not clobber existing entries under if-absent hydration", async () => {
       const fetch = async (keys: string[]) => keys.map((k) => item(k, `${k}-fetched`));
       const table = fetchTable(fetch, "if-absent");
@@ -1458,6 +1497,31 @@ describe("Tombstones", () => {
     table.delete("k1");
     expect(table.status("k1")).toBe("unknown");
     expect(table.getTombstone("k1")).toBeUndefined();
+  });
+
+  it("should corpse nothing when an entry is evicted", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.evict("k1");
+    expect(table.get("k1")).toBeUndefined();
+    expect(table.status("k1")).toBe("unknown");
+    expect(table.getTombstone("k1")).toBeUndefined();
+  });
+
+  it("should restore an evicted entry through the returned rollback", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.evict("k1")();
+    expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should notify a delete event for an evicted entry", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    const subscriber = vi.fn();
+    table.subscribe(subscriber);
+    table.evict("k1");
+    expect(subscriber).toHaveBeenCalledWith({ variant: "delete", key: "k1" });
   });
 
   it("should clear the tombstone on a subsequent set", () => {

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "type": "symbol_group",
+  "name": "custom symbols",
+  "symbols": [
+    {
+      "file": "1801287_037c2e56.json",
+      "key": "037c2e56-09a2-4ee9-9e1c-ab0ba619cefc",
+      "name": "1801287"
+    }
+  ]
+}

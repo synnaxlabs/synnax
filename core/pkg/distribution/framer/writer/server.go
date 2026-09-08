@@ -55,11 +55,11 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment(pipe, "toStorage", w)
-	plumber.SetSource(pipe, "receiver", receiver)
-	plumber.SetSink(pipe, "sender", sender)
-	plumber.MustConnect[ts.WriterRequest](pipe, "receiver", "toStorage", 1)
-	plumber.MustConnect[ts.WriterResponse](pipe, "toStorage", "sender", 1)
+	pipe.SetSegment("toStorage", w)
+	pipe.SetSource("receiver", receiver)
+	pipe.SetSink("sender", sender)
+	pipe.MustConnect[ts.WriterRequest]("receiver", "toStorage", 1)
+	pipe.MustConnect[ts.WriterResponse]("toStorage", "sender", 1)
 	pipe.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

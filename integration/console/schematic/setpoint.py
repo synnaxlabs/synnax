@@ -45,7 +45,7 @@ class Setpoint(Symbol):
             self.set_label(channel_name)
 
             # Navigate to Properties > Control tab
-            self.page.get_by_text("Properties").click()
+            self.open_properties_tab()
             self.page.get_by_text("Control").last.click()
             self.set_channel(input_field="Command Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name

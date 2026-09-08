@@ -138,7 +138,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 				Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 				Expect(fnSym.Type.Kind).To(Equal(types.KindFunction))
 				output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
-				Expect(output.Type).To(Equal(types.U8()))
+				Expect(output.Type).To(Equal(types.Bool()))
 			},
 		)
 
@@ -178,7 +178,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 				fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 				Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 				output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
-				Expect(output.Type).To(Equal(types.U8()))
+				Expect(output.Type).To(Equal(types.Bool()))
 			},
 		)
 

@@ -136,12 +136,6 @@ class ExecutionClient:
             self._log(f"Killed {killed} active test(s)", True)
 
     def _retry_failed(self, sequences: list[Sequence]) -> None:
-        all_defs: dict[str, TestDefinition] = {}
-        for seq in sequences:
-            for td in seq.tests:
-                key = str(td)
-                all_defs[key] = td
-
         with self._tests_lock:
             failed = [
                 t for t in self._tests if t.status in (STATUS.FAILED, STATUS.TIMEOUT)
@@ -150,26 +144,42 @@ class ExecutionClient:
         if not failed:
             return
 
-        retry_defs: list[TestDefinition] = []
-        for result in failed:
-            key = str(result)
-            if key in all_defs:
-                retry_defs.append(all_defs[key])
+        failed_keys = {str(result) for result in failed}
+        # A test in an asynchronous sequence can depend on its peers running at the
+        # same time, so each retry keeps its own sequence's order.
+        retries: list[tuple[Sequence, list[TestDefinition]]] = []
+        retry_keys: set[str] = set()
+        for seq in sequences:
+            defs = [
+                td
+                for td in seq.tests
+                if str(td) in failed_keys and str(td) not in retry_keys
+            ]
+            if len(defs) == 0:
+                continue
+            retry_keys.update(str(td) for td in defs)
+            retries.append((seq, defs))
 
-        if not retry_defs:
+        if len(retries) == 0:
             return
 
-        self._log(f"==== RETRYING {len(retry_defs)} FAILED TEST(S) ====\n", True)
-
-        retry_keys = {str(td) for td in retry_defs}
+        retry_total = sum(len(defs) for _, defs in retries)
+        self._log(f"==== RETRYING {retry_total} FAILED TEST(S) ====\n", True)
 
         with self._tests_lock:
             for result in failed:
-                self._tests.remove(result)
+                if str(result) in retry_keys:
+                    self._tests.remove(result)
             self._tests_offset = len(self._tests)
 
-        self._total_tests = len(retry_defs)
-        self._execute_sequential(retry_defs)
+        self._total_tests = retry_total
+        for seq, defs in retries:
+            if self.should_stop:
+                break
+            if seq.order == "asynchronous":
+                self._execute_async(seq.name, defs, seq.pool_size)
+            else:
+                self._execute_sequential(defs)
 
         with self._tests_lock:
             for test in self._tests:

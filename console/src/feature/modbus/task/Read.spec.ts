@@ -25,7 +25,7 @@ const client = createTestClient();
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<Modbus.Task.ReadSchemas> = {
-  name: "Modbus Read Task",
+  name: "Modbus read task",
   type: Modbus.Task.READ_TYPE,
   config: Modbus.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -36,7 +36,7 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
 
 describe("Modbus.Read", () => {
-  it("should build channels in the form and create them on the cluster on deploy", async () => {
+  it("should build channels in the form and create them on the Core on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
       ...Modbus.Task.READ_SCHEMAS.config.parse({}),

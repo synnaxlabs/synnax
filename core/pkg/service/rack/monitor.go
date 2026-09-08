@@ -114,7 +114,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := status.NewWriter[StatusDetails](m.svc.Status, nil).
+	if err := m.svc.Status.NewWriter(nil).
 		SetMany(ctx, &statuses); err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 
 func (m *monitor) handleChange(
 	ctx context.Context,
-	t gorp.TxReader[string, status.Status[any]],
+	t gorp.TxReader[status.Key, status.Status[any]],
 ) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -151,7 +151,7 @@ func (m *monitor) handleChange(
 	}
 }
 
-func parseKeyFromOntologyIDString(s string) (Key, error) {
+func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
 	id, err := ontology.ParseID(s)
 	if err != nil {
 		return 0, err

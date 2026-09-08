@@ -23,9 +23,8 @@ export type Environment = (typeof ENVIRONMENTS)[number];
 export type EnvironmentFilter = (env: Environment) => boolean;
 
 /**
- * @param treshold
- * @returns An environnment filter that returns true if the environment is greater
- * than or equal to the given threshold.
+ * @returns An environnment filter that returns true if the environment is greater than
+ * or equal to the given threshold.
  */
 export const envThresholdFilter =
   (treshold: Environment): EnvironmentFilter =>

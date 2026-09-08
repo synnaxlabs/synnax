@@ -3,21 +3,20 @@ layout: "@/layouts/Reference.astro"
 title: "Console"
 heading: "The Synnax Console"
 description: "Install and use the Synnax Console."
-next: "Requirements"
-nextURL: "/reference/console/requirements"
+next: "UI Overview"
+nextURL: "/reference/console/ui-overview"
 ---
 
 import { Flex, Divider } from "@synnaxlabs/pluto";
 
 import { Console } from "@/components/console";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Image } from "@/components/media/Media";
+import { Image, Video } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
 The Synnax Console is a desktop application for visualizing data, controlling hardware,
-and managing a Synnax Core. This page will get you started with installing the Console,
-and point you to the right resources for learning how to use it.
+and managing a Synnax Core. It runs on Windows 11 and macOS Sequoia or later.
 
 <Divider.Divider x />
 
@@ -40,3 +39,99 @@ Install the Console by downloading the latest release for your operating system:
 After downloading and installing the Console, you'll see the following splash screen:
 
 <Image id="console/get-started/window" client:only="react" />
+
+<Divider.Divider x />
+
+## Connecting a Core
+
+Connect to a Core by clicking the **Add a Core** button and entering your connection
+parameters.
+
+<Video client:only="react" id="console/clusters/connect" />
+
+<table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <b>Host</b>
+      </td>
+      <td>
+        <p>The hostname or IP address of the Core.</p>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <b>Port</b>
+      </td>
+      <td>
+        <p>The port number of the Core.</p>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <b>Secure</b>
+      </td>
+      {
+        <td>
+          <p>
+            Whether to use TLS when connecting to the Core. This parameter only works
+            with secure Cores.
+          </p>
+        </td>
+      }
+    </tr>
+    <tr>
+      <td>
+        <b>Username</b>
+      </td>
+      <td>
+        <p>The username to use when connecting to the Core.</p>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <b>Password</b>
+      </td>
+      <td>
+        <p>The password to use when connecting to the Core.</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<Divider.Divider x />
+
+## Requirements
+
+### Hardware
+
+|             | Minimum                                             | Recommended                                          |
+| ----------- | --------------------------------------------------- | ---------------------------------------------------- |
+| **CPU**     | Intel Core i5 (8th gen) / AMD Ryzen 5 (3000 series) | Intel Core i7 (10th gen) / AMD Ryzen 7 (4000 series) |
+| **RAM**     | 8 GB                                                | 16 GB or more                                        |
+| **Storage** | 2 GB available                                      | 4 GB available (SSD recommended)                     |
+
+### Graphics
+
+The Console is GPU-intensive: high-frequency plotting and dense schematics need a
+dedicated graphics card for smooth performance.
+
+|             | Minimum                      | Recommended                      |
+| ----------- | ---------------------------- | -------------------------------- |
+| **GPU**     | NVIDIA GTX 1030 / AMD RX 550 | NVIDIA RTX 2060 / AMD RX 5600 XT |
+| **VRAM**    | 2 GB                         | 6 GB or more                     |
+| **DirectX** | Version 12                   | Version 12 Ultimate              |
+| **OpenGL**  | Version 4.5                  | Version 4.6                      |
+
+Integrated graphics (Intel Iris Xe, AMD Radeon Vega) work, but performance drops with
+multiple high-frequency streams, long time ranges, or complex schematics.
+
+### Display
+
+Use a display of at least 1920x1080. A 4K display is preferred for extended use.

@@ -17,6 +17,7 @@ proto_library(
         "auth/auth.proto",
         "channel/channel.proto",
         "connectivity/connectivity.proto",
+        "control/control.proto",
         "device/device.proto",
         "framer/framer.proto",
         "rack/rack.proto",

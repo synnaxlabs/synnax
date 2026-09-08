@@ -53,12 +53,15 @@ const SingleProvider = <K extends record.Key = record.Key>({
   );
 };
 
+/** Props a custom {@link Frame} trigger receives. */
 export interface TriggerProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
 > {
   value: K | null;
+  /** Reads the entry for a key, subscribing to its changes. */
   useItem: (key: K) => E;
+  /** Opens the dialog. */
   onClick: () => void;
 }
 
@@ -83,11 +86,16 @@ export interface SingleFrameProps<
   multiple?: false;
 }
 
+/** Props for {@link Frame}. Set `multiple` to switch to a multi-entry selection. */
 export type FrameProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
 > = MultipleFrameProps<K, E> | SingleFrameProps<K, E>;
 
+/**
+ * Provides list data and selection state to its children, with no UI of its own. Use it
+ * to build a selection whose trigger and dialog are not the standard ones.
+ */
 export const Frame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
@@ -98,6 +106,7 @@ export const Frame = <
   itemHeight,
   multiple,
   onFetchMore,
+  overscan,
   virtual = false,
   value,
   onChange,
@@ -109,6 +118,7 @@ export const Frame = <
     subscribe={subscribe}
     onFetchMore={onFetchMore}
     itemHeight={itemHeight}
+    overscan={overscan}
     virtual={virtual}
   >
     {multiple ? (

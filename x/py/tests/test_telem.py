@@ -434,7 +434,7 @@ class TestDataType:
         [
             (sy.DataType.INT8, np.dtype(np.int8)),
             (sy.DataType.FLOAT32, np.dtype(np.float32)),
-            (sy.DataType.BOOL, np.dtype(np.bool_)),
+            (sy.DataType.BOOLEAN, np.dtype(np.bool_)),
         ],
     )
     def test_np(self, value: sy.DataType, expected: np.dtype[np.generic]) -> None:
@@ -447,7 +447,7 @@ class TestDataType:
             (sy.DataType.STRING, True),
             (sy.DataType.JSON, True),
             (sy.DataType.BYTES, True),
-            (sy.DataType.BOOL, False),
+            (sy.DataType.BOOLEAN, False),
             (sy.DataType.UUID, False),
             (sy.DataType.TIMESTAMP, False),
             (sy.DataType.FLOAT64, False),
@@ -467,8 +467,8 @@ class TestDataType:
         assert data_type.is_variable is expected
 
     def test_bool_density(self) -> None:
-        """Should report BIT8 density for BOOL"""
-        assert sy.DataType.BOOL.density == sy.Density.BIT8
+        """Should report BIT8 density for BOOLEAN"""
+        assert sy.DataType.BOOLEAN.density == sy.Density.BIT8
 
 
 @pytest.mark.telem

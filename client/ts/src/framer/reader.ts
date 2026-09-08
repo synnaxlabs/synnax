@@ -173,7 +173,6 @@ const createCSVReadableStream = ({
         if (remainingPending === 0 || stagedRecords.length === 0) {
           const hasMore = await iterator.next();
           if (!hasMore) {
-            // Flush remaining records
             const finalRows = buildCSVRows(Infinity, true);
             if (finalRows.length > 0)
               controller.enqueue(

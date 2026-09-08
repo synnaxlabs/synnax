@@ -256,42 +256,40 @@ var _ = Describe("Module", func() {
 	})
 
 	Describe("Create", func() {
-		It("Should return ErrNotFound for an unrecognized type", func(ctx SpecContext) {
+		It("Should return ErrNotFound for an unrecognized type", func() {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(mod.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should construct a create node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, create.Config("rng", "", "")))
+		It("Should construct a create node from valid inputs", func() {
+			n := MustSucceed(mod.Create(create.Config("rng", "", "")))
 			Expect(n).ToNot(BeNil())
 			Expect(func() { n.Reset() }).ToNot(Panic())
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
 
-		It("Should construct an end node from valid inputs", func(ctx SpecContext) {
-			n := MustSucceed(mod.Create(ctx, end.Config(uuid.NewString())))
+		It("Should construct an end node from valid inputs", func() {
+			n := MustSucceed(mod.Create(end.Config(uuid.NewString())))
 			Expect(n).ToNot(BeNil())
 		})
 
 		It(
 			"Should return a clean error when create is missing name",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{Node: ir.Node{Type: "create", Inputs: types.Params{
 					{Name: "parent", Type: types.String(), Value: ""},
 					{Name: "color", Type: types.String(), Value: ""},
 				}, Outputs: create.Outputs}}
 				state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 				cfg.State = state.Node("")
-				Expect(
-					mod.Create(ctx, cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("ranges.create inputs")))
 			},
 		)
 
 		It(
 			"Should return a clean error when end is missing key",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type:    "end",
@@ -301,9 +299,7 @@ var _ = Describe("Module", func() {
 				}
 				state := node.New(ir.IR{Nodes: ir.Nodes{cfg.Node}})
 				cfg.State = state.Node("")
-				Expect(
-					mod.Create(ctx, cfg),
-				).Error().
+				Expect(mod.Create(cfg)).Error().
 					To(MatchError(ContainSubstring("ranges.end inputs")))
 			},
 		)
@@ -320,9 +316,9 @@ var _ = Describe("createNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, name, parent, colorHex string) (node.Node, *node.State) {
+	build := func(name, parent, colorHex string) (node.Node, *node.State) {
 		cfg := create.Config(name, parent, colorHex)
-		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
+		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
 
 	It(
@@ -330,10 +326,10 @@ var _ = Describe("createNode.Next", func() {
 		func(ctx SpecContext) {
 			name := "create_open_" + uuid.NewString()
 			before := telem.Now()
-			n, state := build(ctx, name, "", "")
+			n, state := build(name, "", "")
 			n.Next(nodeCtx(ctx))
 
-			keys := telem.UnmarshalSeries[string](*state.Output(0))
+			keys := state.Output(0).Unmarshal[string]()
 			Expect(keys).To(HaveLen(1))
 			newKey := keys[0]
 			MustSucceed(uuid.Parse(newKey))
@@ -353,10 +349,10 @@ var _ = Describe("createNode.Next", func() {
 		"Should store a parsed color when a valid hex is provided",
 		func(ctx SpecContext) {
 			name := "create_color_" + uuid.NewString()
-			n, state := build(ctx, name, "", "#DF6D38")
+			n, state := build(name, "", "#DF6D38")
 			n.Next(nodeCtx(ctx))
 
-			newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+			newKey := state.Output(0).Unmarshal[string]()[0]
 			r := MustSucceed(retrieveRange(ctx, newKey))
 			Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("#DF6D38"))))
 			Expect(rep.get()).To(BeEmpty())
@@ -365,9 +361,9 @@ var _ = Describe("createNode.Next", func() {
 
 	It("Should accept an rgb() color", func(ctx SpecContext) {
 		name := "create_rgb_" + uuid.NewString()
-		n, state := build(ctx, name, "", "rgb(223, 109, 56)")
+		n, state := build(name, "", "rgb(223, 109, 56)")
 		n.Next(nodeCtx(ctx))
-		newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+		newKey := state.Output(0).Unmarshal[string]()[0]
 		r := MustSucceed(retrieveRange(ctx, newKey))
 		Expect(*r.Color).To(Equal(MustSucceed(color.FromCSS("rgb(223, 109, 56)"))))
 		Expect(rep.get()).To(BeEmpty())
@@ -377,11 +373,11 @@ var _ = Describe("createNode.Next", func() {
 		"Should warn and not create the range when the color is invalid",
 		func(ctx SpecContext) {
 			name := "create_badcolor_" + uuid.NewString()
-			n, state := build(ctx, name, "", "not-a-color")
+			n, state := build(name, "", "not-a-color")
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			Expect(rangeSvc.
 				NewRetrieve().
@@ -407,10 +403,10 @@ var _ = Describe("createNode.Next", func() {
 			}
 			Expect(rangeSvc.NewWriter(nil).Create(ctx, &parent)).To(Succeed())
 
-			n, state := build(ctx, "child_"+uuid.NewString(), parent.Key.String(), "")
+			n, state := build("child_"+uuid.NewString(), parent.Key.String(), "")
 			n.Next(nodeCtx(ctx))
 
-			newKey := telem.UnmarshalSeries[string](*state.Output(0))[0]
+			newKey := state.Output(0).Unmarshal[string]()[0]
 			Expect(newKey).ToNot(BeEmpty())
 			MustSucceed(retrieveRange(ctx, newKey))
 			Expect(rep.get()).To(BeEmpty())
@@ -420,11 +416,11 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should warn and emit an empty key when the parent key is not a UUID",
 		func(ctx SpecContext) {
-			n, state := build(ctx, "bad_parent_"+uuid.NewString(), "not-a-uuid", "")
+			n, state := build("bad_parent_"+uuid.NewString(), "not-a-uuid", "")
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
@@ -439,11 +435,11 @@ var _ = Describe("createNode.Next", func() {
 		// The configured "" would succeed parentless; only the live slot value
 		// can produce this warning.
 		cfg := create.Config("var_parent_"+uuid.NewString(), VarOf("not-a-uuid"), "")
-		n := MustSucceed(mod.Create(ctx, cfg))
+		n := MustSucceed(mod.Create(cfg))
 		n.Next(nodeCtx(ctx))
 
 		Expect(
-			telem.UnmarshalSeries[string](*cfg.State.Output(0)),
+			cfg.State.Output(0).Unmarshal[string](),
 		).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
@@ -463,9 +459,9 @@ var _ = Describe("endNode.Next", func() {
 		mod = newModule(ctx, rep)
 	})
 
-	build := func(ctx context.Context, key string) (node.Node, *node.State) {
+	build := func(key string) (node.Node, *node.State) {
 		cfg := end.Config(key)
-		return MustSucceed(mod.Create(ctx, cfg)), cfg.State
+		return MustSucceed(mod.Create(cfg)), cfg.State
 	}
 
 	openRange := func(ctx context.Context) ranger.Range {
@@ -480,11 +476,11 @@ var _ = Describe("endNode.Next", func() {
 	It("Should set the end bound to now", func(ctx SpecContext) {
 		r := openRange(ctx)
 		before := telem.Now()
-		n, state := build(ctx, r.Key.String())
+		n, state := build(r.Key.String())
 		n.Next(nodeCtx(ctx))
 
 		Expect(
-			telem.UnmarshalSeries[string](*state.Output(0)),
+			state.Output(0).Unmarshal[string](),
 		).To(Equal([]string{r.Key.String()}))
 		updated := MustSucceed(retrieveRange(ctx, r.Key.String()))
 		Expect(updated.TimeRange.End).To(BeNumerically(">=", before))
@@ -496,11 +492,11 @@ var _ = Describe("endNode.Next", func() {
 	It(
 		"Should warn and emit an empty key when the key is not a UUID",
 		func(ctx SpecContext) {
-			n, state := build(ctx, "not-a-uuid")
+			n, state := build("not-a-uuid")
 			n.Next(nodeCtx(ctx))
 
 			Expect(
-				telem.UnmarshalSeries[string](*state.Output(0)),
+				state.Output(0).Unmarshal[string](),
 			).To(Equal([]string{""}))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
@@ -512,10 +508,10 @@ var _ = Describe("endNode.Next", func() {
 	)
 
 	It("Should warn when the range does not exist", func(ctx SpecContext) {
-		n, state := build(ctx, uuid.NewString())
+		n, state := build(uuid.NewString())
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].variant).To(Equal(status.VariantWarning))

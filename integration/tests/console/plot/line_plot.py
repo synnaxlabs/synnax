@@ -30,7 +30,7 @@ class LinePlot(ConsoleCase):
         self._shared_plot_name = None
         self.ctx_plot_name = None
 
-        ctx_plot = self.console.project.create_plot(f"Context Menu Test {self.suffix}")
+        ctx_plot = self.console.pages.create(Plot, f"Context Menu Test {self.suffix}")
         self.ctx_plot_name = ctx_plot.page_name
         self.ctx_plot_link = ctx_plot.copy_link()
         ctx_plot.close()
@@ -48,7 +48,7 @@ class LinePlot(ConsoleCase):
         suffix = random_name()
         index_name, data_name = self._setup_channels(suffix)
 
-        plot = self.console.project.create_plot(f"Line Plot Test {suffix}")
+        plot = self.console.pages.create(Plot, f"Line Plot Test {suffix}")
         self._shared_plot_name = plot.page_name
         plot.add_channels("Y1", data_name)
 
@@ -85,7 +85,7 @@ class LinePlot(ConsoleCase):
         self.test_open_plot_by_name(plot_name, plot_link)
 
         # Delete shared plot after all tests that reference it
-        self.console.project.delete_page(plot_name)
+        self.console.pages.delete(plot_name)
         self._shared_plot_name = None
 
         self.client.channels.delete([data_name, index_name])
@@ -276,7 +276,7 @@ class LinePlot(ConsoleCase):
         """Test opening a plot by double-clicking it in the project resources toolbar."""
         self.log("Testing open plot from resources toolbar")
 
-        plot = self.console.project.open_plot(plot_name)
+        plot = self.console.pages.open(Plot, plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
@@ -293,7 +293,7 @@ class LinePlot(ConsoleCase):
         """Test dragging a plot from the resources toolbar onto the mosaic."""
         self.log("Testing drag plot onto mosaic")
 
-        plot = self.console.project.drag_plot_to_mosaic(plot_name)
+        plot = self.console.pages.drag_to_mosaic(Plot, plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
@@ -310,13 +310,13 @@ class LinePlot(ConsoleCase):
         assert self.ctx_plot_name is not None
 
         self.log("Testing copy link via context menu")
-        link = self.console.project.copy_page_link(self.ctx_plot_name)
+        link = self.console.pages.copy_link(self.ctx_plot_name)
         assert link == self.ctx_plot_link, (
             f"Context menu link should match: expected {self.ctx_plot_link}, got {link}"
         )
 
         self.log("Testing export plot via context menu")
-        exported = self.console.project.export_page(self.ctx_plot_name)
+        exported = self.console.pages.export(self.ctx_plot_name)
         assert_envelope(
             exported, envelope_type="lineplot", min_version=1, name=self.ctx_plot_name
         )
@@ -324,8 +324,8 @@ class LinePlot(ConsoleCase):
 
         self.log("Testing rename plot via context menu")
         new_name = f"Renamed Plot {self.suffix}"
-        self.console.project.rename_page(self.ctx_plot_name, new_name)
-        assert self.console.project.page_exists(new_name), (
+        self.console.pages.rename(self.ctx_plot_name, new_name)
+        assert self.console.pages.exists(new_name), (
             f"Renamed plot '{new_name}' should exist"
         )
         self.ctx_plot_name = new_name
@@ -334,7 +334,7 @@ class LinePlot(ConsoleCase):
         """Test deleting a plot via context menu in the project resources toolbar."""
         self.log("Testing delete plot via context menu")
         assert self.ctx_plot_name is not None
-        self.console.project.delete_page(self.ctx_plot_name)
+        self.console.pages.delete(self.ctx_plot_name)
         self.ctx_plot_name = None
 
     def test_ctx_delete_multiple_plots(self) -> None:
@@ -345,12 +345,12 @@ class LinePlot(ConsoleCase):
         plot_names = []
 
         for i in range(3):
-            plot = self.console.project.create_plot(f"Multi Delete {suffix} {i}")
+            plot = self.console.pages.create(Plot, f"Multi Delete {suffix} {i}")
             plot_names.append(plot.page_name)
             self._cleanup_pages.append(plot.page_name)
             plot.close()
 
-        self.console.project.delete_pages(plot_names)
+        self.console.pages.delete_many(plot_names)
         for name in plot_names:
             self._cleanup_pages.remove(name)
 
@@ -358,7 +358,7 @@ class LinePlot(ConsoleCase):
         """Test opening an existing plot by searching its name in the command palette."""
         self.log("Testing open plot by name via command palette")
 
-        plot = self.console.project.open_from_search(Plot, plot_name)
+        plot = self.console.pages.open_from_search(Plot, plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"

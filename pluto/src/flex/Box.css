@@ -85,9 +85,6 @@
     &.pluto--align-self-end {
         align-self: flex-end;
     }
-    &.pluto--align-self-stretch {
-        align-self: stretch;
-    }
     &.pluto--direction-x {
         flex-direction: row;
         &.pluto--reverse {
@@ -176,6 +173,13 @@
         --pluto-height: var(--pluto-height-small);
         min-height: var(--pluto-height);
         height: fit-content;
+    }
+
+    /* A definite cross size defeats stretch, so this clears the fit-content height the
+       size classes above set. It sits after them to win on source order. */
+    &.pluto--align-self-stretch {
+        align-self: stretch;
+        height: auto;
     }
 
     &.pluto--border-color-0 {

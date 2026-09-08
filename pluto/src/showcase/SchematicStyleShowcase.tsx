@@ -9,8 +9,9 @@
 
 import "./SchematicStyleShowcase.css";
 
-import { type CSSProperties, Fragment, type ReactElement } from "react";
+import { Fragment, type ReactElement } from "react";
 
+import { type CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Text } from "@/text";
 
@@ -18,10 +19,10 @@ import { Text } from "@/text";
 // the quiet chassis with channel color allowed in exactly one place. Columns
 // show neutral, colored, warning, and critical (soft-fill tint alarms).
 
-const TEAL = {
+const TEAL: CSS.VarProperties = {
   "--schx-color": "#3fb6c2",
   "--schx-rgb": "63, 182, 194",
-} as CSSProperties;
+};
 
 type AlarmState = "rest" | "warn" | "crit";
 
@@ -203,10 +204,8 @@ const SetpointChip = ({
   </div>
 );
 
-const stateStyle = (s: StateSpec): CSSProperties | undefined =>
-  s.hex != null
-    ? ({ "--schx-color": s.hex, "--schx-rgb": s.rgb } as CSSProperties)
-    : undefined;
+const stateStyle = (s: StateSpec): CSS.VarProperties | undefined =>
+  s.hex != null ? { "--schx-color": s.hex, "--schx-rgb": s.rgb } : undefined;
 
 const StateChip = ({
   modifier,

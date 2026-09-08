@@ -25,6 +25,17 @@
       ]
     },
     {
+      "sequence_name": "Console Configuration",
+      "tests": [
+        { "case": "console/task/opcua_read_task" },
+        { "case": "console/task/opcua_write_task" },
+        { "case": "console/task/opcua_invalid" },
+        { "case": "console/task/modbus_read_task" },
+        { "case": "console/task/modbus_write_task" },
+        { "case": "console/task/modbus_invalid" }
+      ]
+    },
+    {
       "sequence_name": "PagerDuty Alert",
       "tests": [{ "case": "client/pagerduty_alert" }]
     }

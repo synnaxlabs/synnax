@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { errors, Rate } from "@synnaxlabs/x";
+import {
+  EOF,
+  type Stream,
+  Unreachable,
+  type WebSocketClient,
+} from "@synnaxlabs/freighter";
+import { errors, Rate, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -23,6 +28,7 @@ const reqZ = z.object({
   downsampleFactor: z.int(),
   throttleRate: Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
+  keepAlive: TimeSpan.z.optional(),
 });
 
 /**
@@ -31,7 +37,11 @@ const reqZ = z.object({
  */
 export interface StreamerRequest extends z.infer<typeof reqZ> {}
 
-const resZ = z.object({ frame: frameZ });
+const resZ = z.object({
+  frame: frameZ,
+  /** Marks an empty response the Core emits so a dead connection is detectable. */
+  keepAlive: z.boolean().optional(),
+});
 
 /**
  * Response interface for streaming frames from a Synnax cluster.
@@ -49,57 +59,49 @@ const intermediateStreamerConfigZ = z.object({
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */
   excludeGroups: z.uint32().array().default([]),
+  /** Interval at which the Core emits keep-alive responses so a silently dead
+   connection fails reads instead of hanging forever. TimeSpan.ZERO disables
+   detection. Defaults to 5 seconds. */
+  keepAlive: TimeSpan.z.default(TimeSpan.seconds(5)),
 });
 
+/** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
   paramsZ.transform((channels) => intermediateStreamerConfigZ.parse({ channels })),
 );
 
+/** Config for a streamer. Pass it to `client.telem.openStreamer`. */
 export type StreamerConfig = z.input<typeof streamerConfigZ>;
 
 /**
- * A streamer is used to stream frames of telemetry in real-time from a Synnax cluster.
- * It should not be constructed directly, and should instead be created using the
- * client's openStreamer method.
+ * Streams frames of telemetry from a Synnax cluster in real time. Open one with the
+ * client's openStreamer method, never directly. Read frames with `read` or by
+ * iterating the streamer. Close it in a `finally` block to free its resources.
  *
- * To open a streamer, use the openStreamer method on the client and pass it in the list
- * of channels you'd like to receive data from. Once the streamer has been opened, call
- * the `read` method to read the next frame of telemetry, or use the streamer as an
- * async iterator to iterate over the frames of telemetry as they are received.
- *
- * The list of channels being streamed can be updated at any time by using the `update`
- * method.
- *
- * Once done, call the `close` method to close the streamer and free all associated
- * resources. We recommend using the streamer within a try-finally block to ensure
- * that it is closed properly in the event of an error.
- *
- * For detailed documentation, see https://docs.synnaxlabs.com/reference/client/working-with-data/streaming-data
+ * @see https://docs.synnaxlabs.com/reference/client/working-with-data/streaming-data
  */
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
-  /**
-   * Update the list of channels being streamed from. This replaces the list of channels
-   * being streamed from with the new list of channels.
-   */
+  /** Replaces the list of channels being streamed from. */
   update: (channels: channel.Params) => Promise<void>;
   /** Close the streamer and free all associated resources. */
   close: () => void;
-  /** Read the next frame of telemetry. */
+  /**
+   * Read the next frame of telemetry.
+   * @throws {Unreachable} if keep-alives were flowing and the stream then stays silent
+   * past the keep-alive deadline: the connection is presumed dead.
+   */
   read: () => Promise<Frame>;
 }
 
-/**
- * A function that opens a streamer.
- */
+/** A function that opens a streamer. */
 export interface StreamOpener {
   (config: StreamerConfig): Promise<Streamer>;
 }
 
 /**
- * Creates a function that opens streamers with the given channel resolver and
- * client.
+ * Creates a function that opens streamers with the given channel resolver and client.
  * @param retrieveChannels - Resolves channel params to payloads for the codec
  * @param client - The WebSocket client to use for streaming
  * @returns A function that opens streamers with the given configuration
@@ -107,7 +109,7 @@ export interface StreamOpener {
 export const createStreamOpener =
   (retrieveChannels: ChannelRetriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
-    const cfg = streamerConfigZ.parse(config);
+    const cfg = zod.parse(streamerConfigZ, config, { label: "streamer config" });
     const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
     client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);
@@ -117,14 +119,19 @@ export const createStreamOpener =
       cfg.downsampleFactor,
       cfg.throttleRate,
       cfg.excludeGroups,
+      cfg.keepAlive,
     );
     stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
       excludeGroups: cfg.excludeGroups,
+      keepAlive: cfg.keepAlive,
     });
-    await stream.receive();
+    // A keep-alive can beat the open ack onto the wire, so the ack is the first
+    // non-keep-alive response.
+    let res = await stream.receive();
+    while (res.keepAlive === true) res = await stream.receive();
     return streamer;
   };
 
@@ -132,7 +139,6 @@ export const createStreamOpener =
  * Opens a new streamer with the given configuration.
  * @param retrieveChannels - Resolves channel params to payloads for the codec
  * @param client - The WebSocket client to use for streaming
- * @param config - The configuration for the streamer
  * @returns A promise that resolves to a new streamer
  */
 export const openStreamer = async (
@@ -141,12 +147,20 @@ export const openStreamer = async (
   config: StreamerConfig,
 ): Promise<Streamer> => await createStreamOpener(retrieveChannels, client)(config);
 
+// Missing this many keep-alive intervals in a row fails the pending read: one is normal
+// jitter, three is a dead connection.
+const KEEP_ALIVE_DEADLINE_FACTOR = 3;
+
 class BaseStreamer implements Streamer {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;
   private readonly throttleRate: Rate;
   private readonly excludeGroups: number[];
+  private readonly deadline: TimeSpan;
+  // Set once the Core proves keep-alive support by sending one, so the deadline never
+  // arms against a Core that will not send them.
+  private armed = false;
 
   constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
@@ -154,12 +168,16 @@ class BaseStreamer implements Streamer {
     downsampleFactor: number = 1,
     throttleRate: Rate = new Rate(0),
     excludeGroups: number[] = [],
+    keepAlive: TimeSpan = TimeSpan.ZERO,
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
     this.downsampleFactor = downsampleFactor;
     this.throttleRate = throttleRate;
     this.excludeGroups = excludeGroups;
+    this.deadline = TimeSpan.milliseconds(
+      keepAlive.milliseconds * KEEP_ALIVE_DEADLINE_FACTOR,
+    );
   }
 
   get keys(): channel.Key[] {
@@ -177,7 +195,37 @@ class BaseStreamer implements Streamer {
   }
 
   async read(): Promise<Frame> {
-    return this.adapter.adapt(new Frame((await this.stream.receive()).frame));
+    while (true) {
+      const res = await this.receiveWithDeadline();
+      if (res.keepAlive === true) {
+        if (!this.deadline.isZero) this.armed = true;
+        continue;
+      }
+      return this.adapter.adapt(new Frame(res.frame));
+    }
+  }
+
+  private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
+    const received = this.stream.receive();
+    if (!this.armed) return await received;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        const silence = this.deadline.toString();
+        const message = `streamer received no response for ${silence}`;
+        reject(new Unreachable({ message }));
+      }, this.deadline.milliseconds);
+    });
+    try {
+      return await Promise.race([received, deadline]);
+    } catch (err) {
+      // The read already failed for its caller; a late settle of the losing receive
+      // must not surface as an unhandled rejection.
+      received.catch(() => {});
+      throw errors.fromUnknown(err);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async update(channels: channel.Params): Promise<void> {

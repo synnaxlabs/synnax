@@ -52,6 +52,11 @@ export class Breaker {
     return true;
   }
 
+  /** Whether {@link wait} has retries left. */
+  get canRetry(): boolean {
+    return this.retries < this.config.maxRetries;
+  }
+
   /** A log-ready summary of the retry count and the next interval. */
   get retryMessage(): string {
     return `breaker triggered ${this.retries + 1}/${this.config.maxRetries} times, retrying in ${this.interval.toString()}`;

@@ -22,7 +22,7 @@ export const Selector = Base.create({
   selectables: SELECTABLES,
   icon: <Icon.Component />,
   tabTitle: "Create component",
-  text: "Create a component",
+  text: "Create component",
 });
 
 export const TABS: Panel.Tabs = { [Base.TAB_TYPE]: Selector };

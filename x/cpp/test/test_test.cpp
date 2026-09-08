@@ -111,6 +111,21 @@ TEST_F(XTestTest, TestEventuallyLEWithCustomTimeout) {
     t.join();
 }
 
+/// @brief it should eventually return a nil error with custom timeout.
+TEST_F(XTestTest, TestEventuallyNILWithCustomTimeout) {
+    std::thread t([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        counter = 1;
+    });
+
+    ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+        counter.load() == 1 ? errors::NIL : errors::VALIDATION,
+        std::chrono::milliseconds(200),
+        std::chrono::milliseconds(10)
+    );
+    t.join();
+}
+
 /// @brief it should unwrap successful results with ASSERT_NIL_P.
 TEST_F(XTestTest, TestMustSucceedSuccess) {
     auto successful_op = []() -> std::pair<int, errors::Error> {

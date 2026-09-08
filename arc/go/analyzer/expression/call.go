@@ -115,7 +115,7 @@ func checkArgType[T antlr.ParserRuleContext](
 	arg symbol.Argument,
 	signature string,
 ) {
-	argType := atypes.InferFromExpression(acontext.Child(ctx, arg.Expr))
+	argType := atypes.InferFromExpression(ctx.Child(arg.Expr))
 	if param.Type.Kind != types.KindChan {
 		argType = argType.UnwrapChan()
 	}

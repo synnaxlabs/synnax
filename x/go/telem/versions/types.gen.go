@@ -37,7 +37,7 @@ type Rate = v0.Rate
 type Size = v0.Size
 
 // DataType is a string identifier specifying the format of telemetry samples. Supports
-// fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
+// fixed-density types (float64, int32, timestamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
 type DataType = v0.DataType
 

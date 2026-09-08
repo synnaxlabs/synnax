@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
-// The raw persisted shape of a v0 device's properties, as stored on the cluster
-// before the versioned migration existed.
+// The raw persisted shape of a v0 device's properties, as stored on the Core before the
+// versioned migration existed.
 const V0_PROPERTIES = {
   version: "0.0.0",
   connection: {

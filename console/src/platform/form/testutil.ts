@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/**
- * Returns the rendered KeyValueEditor rows in document order. Rows carry no
- * accessible handle of their own, so the structural class selector lives here.
- */
+import { within } from "@testing-library/react";
+
+/** Returns the KeyValueEditor's entry rows, without the heading row. */
 export const getKVRows = (container: HTMLElement): HTMLElement[] =>
-  Array.from(container.querySelectorAll<HTMLElement>(".console-kv-row"));
+  within(container).getAllByRole("row").slice(1);

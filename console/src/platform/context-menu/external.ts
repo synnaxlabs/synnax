@@ -11,4 +11,5 @@ export * from "@/platform/context-menu/DeleteItem";
 export * from "@/platform/context-menu/FavoriteItems";
 export * from "@/platform/context-menu/Menu";
 export * from "@/platform/context-menu/ReloadConsoleItem";
+export * from "@/platform/context-menu/RemoveItem";
 export * from "@/platform/context-menu/RenameItem";

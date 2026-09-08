@@ -15,8 +15,10 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distcontrol "github.com/synnaxlabs/synnax/pkg/distribution/control"
 	distframer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"google.golang.org/grpc"
 )
@@ -29,6 +31,7 @@ type Transport struct {
 	alamos.ReportProvider
 	channel channel.Transport
 	framer  framer.Transport
+	control control.Transport
 }
 
 var (
@@ -43,6 +46,7 @@ func New(pool *fgrpc.Pool) Transport {
 		ReportProvider: fgrpc.Reporter,
 		channel:        channel.New(pool),
 		framer:         framer.New(pool),
+		control:        control.New(pool),
 	}
 }
 
@@ -52,16 +56,21 @@ func (t Transport) Channel() distchannel.Transport { return t.channel }
 // Framer implements distribution.Transport.
 func (t Transport) Framer() distframer.Transport { return t.framer }
 
-// Use implements the freighter.Transport interface, binding the given middleware to
-// both the channel and framer transports.
+// Control implements distribution.Transport.
+func (t Transport) Control() distcontrol.Transport { return t.control }
+
+// Use implements the freighter.Transport interface, binding the given middleware to the
+// channel, framer, and control transports.
 func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.channel.Use(middleware...)
 	t.framer.Use(middleware...)
+	t.control.Use(middleware...)
 }
 
-// BindTo implements the grpc.BindableTransport interface, registering both the channel
-// and framer transports with the given gRPC service registrar.
+// BindTo implements the grpc.BindableTransport interface, registering the channel,
+// framer, and control transports with the given gRPC service registrar.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.channel.BindTo(reg)
 	t.framer.BindTo(reg)
+	t.control.BindTo(reg)
 }

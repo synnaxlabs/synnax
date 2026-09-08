@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
-import { primitive, type record, uuid, verbs } from "@synnaxlabs/x";
+import { primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -119,7 +119,7 @@ export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({
-  name: "Device Group",
+  name: "device group",
   retrieve: async ({ client }) => {
     const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     return res.find((r) => r.name === "Devices")?.id;
@@ -200,7 +200,7 @@ export const createForm = <
         }),
         client.statuses.onSet((changed) => {
           if (changed.key !== device.statusKey(key)) return;
-          set("status", device.statusZ.parse(changed));
+          set("status", zod.parse(device.statusZ, changed, { label: "device status" }));
         }),
       ];
     },

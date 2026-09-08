@@ -16,8 +16,8 @@
       "disabled": true,
       "key": "ch-mb-holding-out",
       "name": "fixture_mb_holding_register_output",
-      "swap_bytes": false,
-      "swap_words": false,
+      "bytes_swapped": false,
+      "words_swapped": false,
       "type": "holding_register"
     }
   ],

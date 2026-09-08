@@ -12,10 +12,7 @@ import type { UnknownAction } from "@reduxjs/toolkit";
 const undefinedActionMessage = "[drift] - unexpected undefined action";
 const undefinedActionTypeMessage = "[drift] - unexpected undefined action type";
 
-/**
- * Ensures an action is valid, and throws an error if it is not.
- * @param a - The action to validate.
- */
+/** Ensures an action is valid, and throws an error if it is not. */
 export const validateAction = (meta: {
   emitted?: boolean;
   action?: UnknownAction;

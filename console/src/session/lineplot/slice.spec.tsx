@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,14 +14,18 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/session/lineplot";
+import { createSliceStore, documentIn } from "@/session/window/testutil";
 
 const storeWith = (slice: LinePlot.SliceState) =>
-  configureStore({
-    reducer: { [LinePlot.SLICE_NAME]: LinePlot.reducer },
-    preloadedState: { [LinePlot.SLICE_NAME]: slice },
+  createSliceStore({
+    name: LinePlot.SLICE_NAME,
+    reducer: LinePlot.reducer,
+    preloadedState: slice,
+    middleware: LinePlot.MIDDLEWARE,
   });
 
 const KEY = "plot-1";
+const AUX_WINDOW = "aux-window";
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -52,6 +55,19 @@ describe("LinePlot Slice", () => {
 
   beforeEach(() => {
     store = storeWith(LinePlot.ZERO_SLICE_STATE);
+  });
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(LinePlot.create({ key: KEY }));
+    store.dispatch(LinePlot.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      LinePlot.setActiveToolbarTab({ key: KEY, tab: "axes", windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[LinePlot.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.toolbar.activeTab).toBe("axes");
+    expect(documentIn(slice, KEY)?.toolbar.activeTab).toBe("data");
   });
 
   describe("create", () => {
@@ -370,36 +386,22 @@ describe("LinePlot Slice", () => {
       expect(parsed.hiddenLines).toEqual([]);
     });
   });
+});
 
-  describe("purgeState", () => {
-    it("should clear hidden lines", () => {
-      const state = LinePlot.stateZ.parse({ hiddenLines: ["l1", "l2"] });
-      expect(LinePlot.purgeState(state).hiddenLines).toEqual([]);
-    });
-
-    it("should leave other fields untouched", () => {
-      const state = LinePlot.stateZ.parse({
-        hiddenLines: ["l1"],
-        toolbar: { activeTab: "axes" },
-      });
-      expect(LinePlot.purgeState(state).toolbar.activeTab).toBe("axes");
-    });
+describe("persistence", () => {
+  // A selection is the state of an edit in progress, so it does not outlive the
+  // session that made it.
+  it("should clear the selection on the way to disk", () => {
+    const state = LinePlot.stateZ.parse({ selectedRules: ["r1", "r2"] });
+    expect(LinePlot.purgeState(state).selectedRules).toEqual([]);
   });
 
-  describe("purgeSliceState", () => {
-    it("should clear hidden lines on every plot in the slice", () => {
-      const state = {
-        [LinePlot.SLICE_NAME]: {
-          version: 0 as const,
-          plots: {
-            "plot-1": LinePlot.stateZ.parse({ hiddenLines: ["l1"] }),
-            "plot-2": LinePlot.stateZ.parse({ hiddenLines: ["l2"] }),
-          },
-        },
-      };
-      const purged = LinePlot.purgeSliceState(state);
-      expect(purged[LinePlot.SLICE_NAME].plots["plot-1"].hiddenLines).toEqual([]);
-      expect(purged[LinePlot.SLICE_NAME].plots["plot-2"].hiddenLines).toEqual([]);
+  it("should leave the rest of the document alone", () => {
+    const state = LinePlot.stateZ.parse({
+      selectedRules: ["r1"],
+      hiddenLines: ["l1"],
     });
+    // Hidden lines are how the window looks at the plot, so they survive.
+    expect(LinePlot.purgeState(state).hiddenLines).toEqual(["l1"]);
   });
 });

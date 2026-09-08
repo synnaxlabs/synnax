@@ -26,7 +26,7 @@ describe("OPCUA.Device.Select", () => {
       deviceKey: dev.key,
       client,
     });
-    expect(screen.getByText("OPC UA Server")).toBeTruthy();
+    expect(screen.getByText("OPC UA server")).toBeTruthy();
     const trigger = await findDialogTrigger();
     await waitFor(() => expect(trigger.textContent).toContain(dev.name));
   });

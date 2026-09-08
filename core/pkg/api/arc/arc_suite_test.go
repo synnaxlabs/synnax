@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package arc
+package arc_test
 
 import (
 	"testing"
@@ -15,8 +15,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
+	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -52,7 +55,7 @@ var (
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
 	arcSvc   *arc.Service
-	apiSvc   *Service
+	apiSvc   *apiarc.Service
 	author   user.User
 	rackSvc  *rack.Service
 	testRack *rack.Rack
@@ -139,21 +142,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statusSvc}
+	apiSvc = MustSucceed(apiarc.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service:      &service.Layer{Arc: arcSvc, Status: statusSvc, RBAC: rbacSvc},
+	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
 	)
 	testRack = &rack.Rack{Name: "API Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 })
-
-// authedCtx returns a freighter.Context derived from ctx with the given user
-// installed as the request subject so auth.GetSubject succeeds.
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
-	return fctx
-}
 
 // grantOn creates a policy granting the given action on the given objects to a
 // fresh role and assigns the role to the given subject. Writes commit directly

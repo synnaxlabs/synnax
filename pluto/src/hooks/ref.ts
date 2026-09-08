@@ -21,8 +21,6 @@ import {
  * A ref that satisfies the interface of useState, but returns a ref as the first
  * element of the tuple. This is useful when you want to keep a piece of state but don't
  * want its changes to trigger a re-render.
- *
- * @param initialValue - The initial value of the ref.
  * @returns a tuple containing the ref and the pseudo-setState function.
  */
 export const useStateRef = <T extends state.State>(
@@ -36,11 +34,9 @@ export const useStateRef = <T extends state.State>(
 };
 
 /**
- * Use synced ref keeps the provided value in sync with the returned ref. This is
- * useful when you want access to a piece of state but don't want it's changes
- * to trigger a re-render.
- *
- * @param value - The value to keep in sync with the ref.
+ * Use synced ref keeps the provided value in sync with the returned ref. This is useful
+ * when you want access to a piece of state but don't want it's changes to trigger a
+ * re-render.
  * @returns a ref that is kept in sync with the provided value.
  */
 export const useSyncedRef = <T>(value: T): RefObject<T> => {
@@ -49,6 +45,13 @@ export const useSyncedRef = <T>(value: T): RefObject<T> => {
   return ref;
 };
 
+/**
+ * Holds a ref whose value is built on the first render and kept for the component's
+ * life. Use it in place of `useRef(expensive())`, which builds a fresh value on every
+ * render and throws it away.
+ *
+ * @example const store = useInitializerRef(() => new Store());
+ */
 export const useInitializerRef = <T>(initializer: () => T): RefObject<T> => {
   const initializedRef = useRef<boolean>(false);
   const ref = useRef<T | null>(null);
@@ -64,7 +67,6 @@ export const useInitializerRef = <T>(initializer: () => T): RefObject<T> => {
  * updated when the provided refs changes. These refs are only set once, and are assumed
  * to be static throughout the lifetime of the component.
  *
- * @param refs - The refs to combine.
  * @returns - A callback ref that will set all of the provided refs.
  */
 export const useCombinedRefs = <T>(
@@ -80,26 +82,30 @@ export const useCombinedRefs = <T>(
     [],
   );
 
+/**
+ * Keeps a piece of state and a ref to it. The ref is assigned by the setter itself, so
+ * it is current as soon as the setter returns, before the re-render it triggers.
+ * @param initialState - The initial state, or a function that lazily computes it.
+ * @returns a tuple of the state, its setter, and a ref holding the latest value.
+ */
 export const useCombinedStateAndRef = <T extends primitive.Value | object>(
   initialState: state.Initial<T>,
-): [T, state.Setter<T>, React.RefObject<T>] => {
-  const ref = useRef<T | null>(null);
-  const [s, setS] = reactUseState<T>(() => {
-    const s = state.executeInitialSetter<T>(initialState);
-    ref.current = s;
-    return s;
-  });
+): [T, state.Setter<T>, RefObject<T>] => {
+  const ref = useInitializerRef<T>(() => state.executeInitialSetter<T>(initialState));
+  const [s, setS] = reactUseState<T>(() => ref.current);
 
   const setStateAndRef: state.Setter<T> = useCallback((nextState): void => {
-    setS((p) => {
-      ref.current = state.executeSetter<T>(nextState, p);
-      return ref.current;
-    });
+    ref.current = state.executeSetter<T>(nextState, ref.current);
+    setS(ref.current);
   }, []);
 
-  return [s, setStateAndRef, ref as React.RefObject<T>];
+  return [s, setStateAndRef, ref];
 };
 
+/**
+ * @returns the value this hook was given on the previous render, or undefined on the
+ * first. Compare against it to react to a change without storing it in state.
+ */
 export const usePrevious = <T>(value: T): T | undefined => {
   const ref = useRef<T>(undefined);
   const prev = ref.current;

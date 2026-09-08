@@ -1,0 +1,341 @@
+{
+  "activeTheme": "synnaxLight",
+  "themes": {
+    "synnaxDark": {
+      "name": "Synnax Dark",
+      "key": "synnaxDark",
+      "colors": {
+        "border": "#242424",
+        "primary": {
+          "m2": "#041b3d",
+          "m1": "#356fc5",
+          "z": "#3774d0",
+          "p1": "#5e94ee",
+          "p2": "#8ab8ff"
+        },
+        "gray": {
+          "l0": "#020202",
+          "l1": "#080808",
+          "l2": "#151515",
+          "l3": "#242424",
+          "l4": "#2f2f2f",
+          "l5": "#3b3b3b",
+          "l6": "#4a4a4a",
+          "l7": "#5c5c5c",
+          "l8": "#767676",
+          "l9": "#959595",
+          "l10": "#dadada",
+          "l11": "#fafafa"
+        },
+        "error": {
+          "m2": "#92070e",
+          "m1": "#c30912",
+          "z": "#f5242e",
+          "p1": "#f7555d",
+          "p2": "#fa8f94"
+        },
+        "secondary": {
+          "m2": "#2d8f4e",
+          "m1": "#38b261",
+          "z": "#50c878",
+          "p1": "#73d393",
+          "p2": "#96deae"
+        },
+        "warning": {
+          "m2": "#999400",
+          "m1": "#ccc500",
+          "z": "#fff700",
+          "p1": "#fff94d",
+          "p2": "#fffb80"
+        },
+        "palettes": {
+          "recent": { "key": "recent", "name": "Recent", "swatches": [] }
+        },
+        "visualization": {
+          "palettes": {
+            "default": [
+              "#dc136c",
+              "#20a4f3",
+              "#7ac74f",
+              "#ffc43d",
+              "#fe5f55",
+              "#8075ff",
+              "#d90429",
+              "#f7aef8",
+              "#f18f01",
+              "#791e94",
+              "#279af1",
+              "#d9fff5",
+              "#ff6b6b",
+              "#52ffb8"
+            ]
+          }
+        },
+        "white": "#ffffff",
+        "black": "#000000",
+        "text": "#fafafa",
+        "textInverted": "#020202",
+        "textOnPrimary": "#fafafa",
+        "logo": "var(--pluto-text-color)"
+      },
+      "sizes": {
+        "base": 6,
+        "border": { "radius": 3, "width": 1, "thickWidth": 1 },
+        "schematic": { "elementStrokeWidth": 2 }
+      },
+      "typography": {
+        "family": "'Inter Variable', sans-serif",
+        "codeFamily": "'Geist Mono', monospace",
+        "h1": { "size": 6, "weight": "500", "lineHeight": 9 },
+        "h2": { "size": 4.5, "weight": "medium", "lineHeight": 6.75 },
+        "h3": { "size": 3.5, "weight": "medium", "lineHeight": 5.25 },
+        "h4": { "size": 2.6666, "weight": "medium", "lineHeight": 3.9999 },
+        "h5": {
+          "size": 2.333333,
+          "weight": 450,
+          "lineHeight": 3.4999995000000004
+        },
+        "p": { "size": 2.1666666666, "weight": "regular", "lineHeight": 3 },
+        "small": {
+          "size": 1.916666,
+          "weight": "regular",
+          "lineHeight": 2.3333333
+        }
+      }
+    },
+    "synnaxLight": {
+      "name": "Synnax Light",
+      "key": "synnaxLight",
+      "colors": {
+        "border": "#e4e4e4",
+        "primary": {
+          "m2": "#041b3d",
+          "m1": "#356fc5",
+          "z": "#3774d0",
+          "p1": "#5e94ee",
+          "p2": "#8ab8ff"
+        },
+        "gray": {
+          "l0": "#fefefe",
+          "l1": "#fafafa",
+          "l2": "#f2f2f2",
+          "l3": "#ececec",
+          "l4": "#e4e4e4",
+          "l5": "#d1d1d1",
+          "l6": "#bcbcbc",
+          "l7": "#acacac",
+          "l8": "#8f8f8f",
+          "l9": "#4f4f4f",
+          "l10": "#292929",
+          "l11": "#050505"
+        },
+        "error": {
+          "m2": "#92070e",
+          "m1": "#c30912",
+          "z": "#f5242e",
+          "p1": "#f7555d",
+          "p2": "#fa8f94"
+        },
+        "secondary": {
+          "m2": "#2d8f4e",
+          "m1": "#38b261",
+          "z": "#50c878",
+          "p1": "#73d393",
+          "p2": "#96deae"
+        },
+        "warning": {
+          "m2": "#999400",
+          "m1": "#ccc500",
+          "z": "#fff700",
+          "p1": "#fff94d",
+          "p2": "#fffb80"
+        },
+        "palettes": {
+          "recent": { "key": "recent", "name": "Recent", "swatches": [] }
+        },
+        "visualization": {
+          "palettes": {
+            "default": [
+              "#dc136c",
+              "#20a4f3",
+              "#7ac74f",
+              "#ffc43d",
+              "#fe5f55",
+              "#8075ff",
+              "#d90429",
+              "#f7aef8",
+              "#f18f01",
+              "#791e94",
+              "#279af1",
+              "#d9fff5",
+              "#ff6b6b",
+              "#52ffb8"
+            ]
+          }
+        },
+        "white": "#ffffff",
+        "black": "#000000",
+        "text": "#050505",
+        "textInverted": "#fefefe",
+        "textOnPrimary": "#fefefe",
+        "logo": "url(#synnax-linear-gradient)"
+      },
+      "sizes": {
+        "base": 6,
+        "border": { "radius": 3, "width": 1, "thickWidth": 1 },
+        "schematic": { "elementStrokeWidth": 2 }
+      },
+      "typography": {
+        "family": "'Inter Variable', sans-serif",
+        "codeFamily": "'Geist Mono', monospace",
+        "h1": { "size": 6, "weight": "500", "lineHeight": 9 },
+        "h2": { "size": 4.5, "weight": "medium", "lineHeight": 6.75 },
+        "h3": { "size": 3.5, "weight": "medium", "lineHeight": 5.25 },
+        "h4": { "size": 2.6666, "weight": "medium", "lineHeight": 3.9999 },
+        "h5": {
+          "size": 2.333333,
+          "weight": 450,
+          "lineHeight": 3.4999995000000004
+        },
+        "p": { "size": 2.1666666666, "weight": "regular", "lineHeight": 3 },
+        "small": {
+          "size": 1.916666,
+          "weight": "regular",
+          "lineHeight": 2.3333333
+        }
+      }
+    }
+  },
+  "layouts": {
+    "main": {
+      "name": "Main",
+      "key": "main",
+      "type": "main",
+      "location": "window",
+      "windowKey": "main",
+      "window": { "navTop": false }
+    },
+    "616a222d-986f-4b85-96d4-f35d7486407e": {
+      "tab": { "location": "center" },
+      "type": "layoutSelector",
+      "icon": "Visualize",
+      "location": "mosaic",
+      "name": "New Component",
+      "key": "616a222d-986f-4b85-96d4-f35d7486407e",
+      "windowKey": "main"
+    },
+    "98dbf43a-ec8d-4708-8532-533aaafa9e28": {
+      "name": "NI Analog Write Task",
+      "icon": "Logo.NI",
+      "location": "mosaic",
+      "args": {},
+      "type": "ni_analog_write",
+      "key": "98dbf43a-ec8d-4708-8532-533aaafa9e28",
+      "windowKey": "main"
+    },
+    "312ec0ff-026c-403b-8a5c-1f034bdc092f": {
+      "key": "312ec0ff-026c-403b-8a5c-1f034bdc092f",
+      "location": "mosaic",
+      "name": "Schematic",
+      "icon": "Schematic",
+      "type": "schematic",
+      "window": { "navTop": true, "showTitle": true },
+      "windowKey": "main"
+    },
+    "4292973a-b862-4f69-9009-99183c32bf8f": {
+      "key": "4292973a-b862-4f69-9009-99183c32bf8f",
+      "name": "Line Plot",
+      "location": "mosaic",
+      "type": "lineplot",
+      "icon": "Visualize",
+      "windowKey": "main"
+    }
+  },
+  "hauling": { "source": { "key": "", "type": "" }, "items": [] },
+  "mosaics": {
+    "main": {
+      "activeTab": "312ec0ff-026c-403b-8a5c-1f034bdc092f",
+      "root": {
+        "key": 1,
+        "direction": "x",
+        "last": {
+          "key": 3,
+          "tabs": [
+            {
+              "closable": true,
+              "icon": "Visualize",
+              "name": "Line Plot",
+              "tabKey": "4292973a-b862-4f69-9009-99183c32bf8f"
+            }
+          ],
+          "selected": "4292973a-b862-4f69-9009-99183c32bf8f",
+          "size": 0.5
+        },
+        "first": {
+          "key": 2,
+          "direction": "x",
+          "last": {
+            "key": 5,
+            "tabs": [
+              {
+                "closable": true,
+                "icon": "Schematic",
+                "name": "Schematic",
+                "tabKey": "312ec0ff-026c-403b-8a5c-1f034bdc092f"
+              }
+            ],
+            "selected": "312ec0ff-026c-403b-8a5c-1f034bdc092f",
+            "size": 0.5
+          },
+          "first": {
+            "key": 4,
+            "tabs": [
+              {
+                "closable": true,
+                "icon": "Visualize",
+                "name": "New Component",
+                "tabKey": "616a222d-986f-4b85-96d4-f35d7486407e"
+              },
+              {
+                "closable": true,
+                "icon": "Logo.NI",
+                "name": "NI Analog Write Task",
+                "tabKey": "98dbf43a-ec8d-4708-8532-533aaafa9e28"
+              }
+            ],
+            "selected": "98dbf43a-ec8d-4708-8532-533aaafa9e28"
+          }
+        }
+      },
+      "focused": null
+    }
+  },
+  "nav": {
+    "main": {
+      "drawers": {
+        "bottom": {
+          "activeItem": "visualization",
+          "menuItems": ["visualization"],
+          "hover": false
+        },
+        "left": {
+          "activeItem": null,
+          "menuItems": ["channel", "range", "workspace", "device", "task", "user"],
+          "size": 400,
+          "hover": false
+        },
+        "right": { "activeItem": null, "menuItems": [] }
+      }
+    }
+  },
+  "alreadyCheckedGetStarted": false,
+  "altKeyToKey": {},
+  "keyToAltKey": {},
+  "colorContext": {
+    "palettes": {
+      "frequent": { "key": "frequent", "name": "Frequent", "swatches": [] }
+    },
+    "frequent": {}
+  },
+  "version": "5.0.0"
+}

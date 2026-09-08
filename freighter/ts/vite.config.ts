@@ -14,7 +14,11 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [lib({ name: "freighter" })],
-  build: { rolldownOptions: { external: ["zod"] } },
+  build: {
+    rolldownOptions: {
+      external: ["zod", "@synnaxlabs/alamos", "@synnaxlabs/x"],
+    },
+  },
   test: {
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {

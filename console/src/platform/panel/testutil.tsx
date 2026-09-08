@@ -36,8 +36,8 @@ import {
 export const getMosaicLeaf = (): HTMLElement =>
   getBySelector<HTMLElement>(document, ".pluto-mosaic__leaf");
 
-/** Persists a panel with the given tree to the cluster, parented to a throwaway
- * project. */
+/** Persists a panel with the given tree to the Core, parented to a throwaway project.
+ * */
 export const createServerPanel = async (
   client: Synnax,
   root: panel.New["root"],
@@ -76,7 +76,7 @@ export interface PanelWrapperParams {
   store?: TestStore;
   panelKey?: panel.Key;
   tabKey?: panel.TabKey;
-  /** Project selected in the session. Created on the cluster when omitted. */
+  /** Project selected in the session. Created on the Core when omitted. */
   project?: project.Key;
 }
 
@@ -106,7 +106,15 @@ export const createPanelWrapper = async ({
   resolvedStore.dispatch(Session.Project.select(projectKey));
   // A scoped panel renders because it is the window's selected panel; tab
   // focus/visibility selectors require that term.
-  if (panelKey != null) resolvedStore.dispatch(Session.Panel.select({ key: panelKey }));
+  if (panelKey != null) {
+    resolvedStore.dispatch(Session.Panel.select({ key: panelKey }));
+    // The scope alone names the tab the component reads. Focus is a session term, so
+    // the same tab has to win the panel's selection for it to read as focused.
+    if (tabKey != null)
+      resolvedStore.dispatch(
+        Session.Panel.internalSelectTab({ key: panelKey, tabKey, otherTabKeys: [] }),
+      );
+  }
   const wrapper = ({ children }: PropsWithChildren): ReactElement => {
     let inner: ReactNode = children;
     if (tabKey != null)

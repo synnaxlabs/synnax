@@ -28,6 +28,7 @@ const ConcentricSVG: Icon.SVGFC = ({ color, style, ...rest }) => (
     {...rest}
   >
     <circle
+      className={CSS.BE("status-indicator", "track")}
       cx="6.5"
       cy="6.5"
       r="5.5"
@@ -36,18 +37,23 @@ const ConcentricSVG: Icon.SVGFC = ({ color, style, ...rest }) => (
       strokeWidth="1"
       opacity="0.45"
     />
-    <circle cx="6.5" cy="6.5" r="3" />
+    <circle className={CSS.BE("status-indicator", "core")} cx="6.5" cy="6.5" r="3" />
   </svg>
 );
 
 const Concentric = Icon.wrapSVGIcon(ConcentricSVG, "status-concentric");
 
+/** Props for {@link Indicator}. */
 export interface IndicatorProps extends Icon.IconProps {
   variant?: status.Variant;
   /** Replaces the concentric glyph, tinted with the variant color. */
   children?: ReactElement<Icon.IconProps>;
 }
 
+/**
+ * The dot that carries a status variant's color. A loading variant spins instead, and
+ * a child icon takes the color in place of the dot.
+ */
 export const Indicator = ({
   variant,
   children,
@@ -61,7 +67,7 @@ export const Indicator = ({
   // class rule outranks a presentation attribute.
   return cloneElement(children, {
     ...others,
-    className: CSS(children.props.className, className),
+    className: CSS.cls(children.props.className, className),
     style: { ...children.props.style, ...(color != null && { color }), ...style },
   });
 };

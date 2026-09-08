@@ -19,7 +19,7 @@
 #include "client/cpp/label/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
-#include "x/cpp/color/types.gen.h"
+#include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"

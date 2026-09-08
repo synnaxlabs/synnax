@@ -21,6 +21,7 @@ import {
 import { HardenedStreamer } from "@/framer/hardened";
 import { type StreamOpener } from "@/framer/streamer";
 
+/** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
     CacheProps,
@@ -29,6 +30,7 @@ export interface FeedProps
   openStreamer: StreamOpener;
 }
 
+/** The part of {@link FeedProps} a caller sets. The client supplies the rest. */
 export interface FeedOptions extends Omit<FeedProps, "readRemote" | "openStreamer"> {}
 
 /**
@@ -50,6 +52,7 @@ export class Feed {
       dynamicBufferSize,
       gcInterval,
       staleEntryThreshold,
+      staleCoverageThreshold,
       removalDelay,
       breaker,
       batchDebounce,
@@ -60,6 +63,7 @@ export class Feed {
       dynamicBufferSize,
       gcInterval,
       staleEntryThreshold,
+      staleCoverageThreshold,
       instrumentation: instrumentation?.child("cache"),
     });
     this.reader = new Reader({

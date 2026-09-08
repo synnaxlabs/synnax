@@ -47,7 +47,7 @@ export const useCreateModal = Modals.create(({ close }) => {
       if (key == null) throw new UnexpectedError("Project key is null");
       dispatch(Session.Project.select(key));
       createPanel({
-        name: "New Panel",
+        name: "New panel",
         parent: project.ontologyID(key),
         root: { variant: "leaf", tabs: [Selector.createEmptyTab()] },
       });
@@ -63,7 +63,7 @@ export const useCreateModal = Modals.create(({ close }) => {
           <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
-                placeholder="Project Name"
+                placeholder="Name"
                 variant="text"
                 autoFocus
                 level="h3"

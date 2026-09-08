@@ -118,7 +118,6 @@ class _NIReadTaskBase(_NITaskMixin, ReadTaskCase):
             device=self._device_key,
             sample_rate=sample_rate,
             stream_rate=stream_rate,
-            data_saving=True,
             channels=channels,
         )
 

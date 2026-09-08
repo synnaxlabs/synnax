@@ -90,7 +90,7 @@ describe("version Badge", () => {
     mocks.engine = "tauri";
     mocks.update = { version: "9.9.9" };
     renderWithModals(<Version.Badge />);
-    expect(await screen.findByText("Update Available")).toBeTruthy();
+    expect(await screen.findByText("Update available")).toBeTruthy();
   });
 
   it("should open the info modal when the update prompt is clicked", async () => {
@@ -98,27 +98,27 @@ describe("version Badge", () => {
     mocks.version = "2.4.6";
     mocks.update = { version: "9.9.9" };
     renderWithModals(<Version.Badge />);
-    fireEvent.click(await screen.findByText("Update Available"));
+    fireEvent.click(await screen.findByText("Update available"));
     await waitFor(() => expect(screen.getByText("Console v2.4.6")).toBeTruthy());
   });
 
   it("should warn when the connected Core's version is incompatible", async () => {
     mocks.engine = "tauri";
     renderWithModals(<Version.Badge />, { connectionStatus: MISMATCH_STATUS });
-    expect(await screen.findByText("Version Mismatch")).toBeTruthy();
+    expect(await screen.findByText("Version mismatch")).toBeTruthy();
   });
 
   it("should prefer the update prompt over the mismatch warning", async () => {
     mocks.engine = "tauri";
     mocks.update = { version: "9.9.9" };
     renderWithModals(<Version.Badge />, { connectionStatus: MISMATCH_STATUS });
-    expect(await screen.findByText("Update Available")).toBeTruthy();
-    expect(screen.queryByText("Version Mismatch")).toBeNull();
+    expect(await screen.findByText("Update available")).toBeTruthy();
+    expect(screen.queryByText("Version mismatch")).toBeNull();
   });
 
   it("should not open the info modal when clicked in the browser", async () => {
     renderWithModals(<Version.Badge />, { connectionStatus: MISMATCH_STATUS });
-    fireEvent.click(await screen.findByText("Version Mismatch"));
+    fireEvent.click(await screen.findByText("Version mismatch"));
     await waitFor(() => expect(screen.queryByText(/Console v/)).toBeNull());
   });
 });

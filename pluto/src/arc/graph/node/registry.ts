@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
 import z from "zod/v4";
 
 import { Constant } from "@/arc/graph/node/constant";
@@ -32,7 +33,6 @@ export const REGISTRY = {
   ...StableFor.REGISTRY,
 } as const;
 
-// Type is the union of registered function type discriminants.
 export type Type = keyof typeof REGISTRY;
 
 // configZ validates a node config against the registered function types, discriminating
@@ -49,8 +49,6 @@ export const configZ = z.discriminatedUnion("type", [
 export type Config = z.infer<typeof configZ>;
 export type ConfigOf<T extends Type> = Extract<Config, { type: T }>;
 
-// resolveSpec returns the Spec for the given function type. It throws NotFoundError if
-// the type is not registered.
 export const resolveSpec = (type: string): Spec<Type, Config> => {
   const spec = (REGISTRY as Record<string, Spec>)[type];
   if (spec == null) throw new NotFoundError(`Arc function ${type} not found`);
@@ -69,28 +67,24 @@ export const GROUPS: Group[] = [
     key: "basic",
     name: "Basic",
     Icon: Icon.Schematic,
-    symbols: [...keysOf(Constant.REGISTRY), ...keysOf(Status.REGISTRY)],
+    symbols: [...record.keys(Constant.REGISTRY), ...record.keys(Status.REGISTRY)],
   },
   {
     key: "telem",
     name: "Telemetry",
     Icon: Icon.Channel,
-    symbols: [...keysOf(Source.REGISTRY), ...keysOf(Sink.REGISTRY)],
+    symbols: [...record.keys(Source.REGISTRY), ...record.keys(Sink.REGISTRY)],
   },
   {
     key: "operator",
     name: "Operators",
     Icon: Icon.Add,
-    symbols: keysOf(Operator.REGISTRY),
+    symbols: record.keys(Operator.REGISTRY),
   },
   {
     key: "flow_control",
-    name: "Flow Control",
+    name: "Flow control",
     Icon: Icon.Select,
-    symbols: [...keysOf(Select.REGISTRY), ...keysOf(StableFor.REGISTRY)],
+    symbols: [...record.keys(Select.REGISTRY), ...record.keys(StableFor.REGISTRY)],
   },
 ];
-
-function keysOf<T extends string>(registry: Record<T, unknown>): Type[] {
-  return Object.keys(registry) as Type[];
-}

@@ -56,17 +56,17 @@ The scan task runs periodically to detect new devices and update device informat
 
 When a device is discovered, Synnax stores the following properties:
 
-| Property      | Type    | Description                                                               |
-| ------------- | ------- | ------------------------------------------------------------------------- |
-| `name`        | string  | Human-readable device name from ESI file                                  |
-| `serial`      | string  | Unique device serial number                                               |
-| `vendorId`    | number  | EtherCAT vendor ID                                                        |
-| `productCode` | number  | Device model/product identifier                                           |
-| `revision`    | number  | Hardware/firmware revision number                                         |
-| `network`     | string  | Network interface name (e.g., `eth0`, `enp3s0`)                           |
-| `position`    | number  | Slave position on the EtherCAT bus (0-indexed)                            |
-| `enabled`     | boolean | Whether the device participates in cyclic data exchange (default: `true`) |
-| `pdos`        | object  | Available PDO mappings (TxPDOs for inputs, RxPDOs for outputs)            |
+| Property       | Type    | Description                                                               |
+| -------------- | ------- | ------------------------------------------------------------------------- |
+| `name`         | string  | Human-readable device name from ESI file                                  |
+| `serial`       | string  | Unique device serial number                                               |
+| `vendor_id`    | number  | EtherCAT vendor ID                                                        |
+| `product_code` | number  | Device model/product identifier                                           |
+| `revision`     | number  | Hardware/firmware revision number                                         |
+| `network`      | string  | Network interface name (e.g., `eth0`, `enp3s0`)                           |
+| `position`     | number  | Slave position on the EtherCAT bus (0-indexed)                            |
+| `enabled`      | boolean | Whether the device participates in cyclic data exchange (default: `true`) |
+| `pdos`         | object  | Available PDO mappings (TxPDOs for inputs, RxPDOs for outputs)            |
 
 <Divider.Divider x />
 
@@ -89,13 +89,13 @@ commands, setpoints, and configuration values.
 
 Each PDO entry has the following properties:
 
-| Property    | Type   | Description                                     |
-| ----------- | ------ | ----------------------------------------------- |
-| `name`      | string | Human-readable entry name (e.g., `status_word`) |
-| `index`     | number | CoE object index (hexadecimal, e.g., `0x6041`)  |
-| `subIndex`  | number | CoE object subindex                             |
-| `bitLength` | number | Data width in bits (e.g., 8, 16, 32)            |
-| `dataType`  | string | Data type (e.g., `uint16`, `int32`, `float32`)  |
+| Property     | Type   | Description                                     |
+| ------------ | ------ | ----------------------------------------------- |
+| `name`       | string | Human-readable entry name (e.g., `status_word`) |
+| `index`      | number | CoE object index (hexadecimal, e.g., `0x6041`)  |
+| `sub_index`  | number | CoE object subindex                             |
+| `bit_length` | number | Data width in bits (e.g., 8, 16, 32)            |
+| `data_type`  | string | Data type (e.g., `uint16`, `int32`, `float32`)  |
 
 <Divider.Divider x />
 
@@ -147,19 +147,14 @@ disable them all at once.
 
 ```python
 import synnax as sy
-import json
 
 client = sy.Synnax()
 
 # Retrieve the device
 device = client.devices.retrieve(name="EL3102")
 
-# Parse properties (stored as JSON string in Python client)
-props = json.loads(device.properties)
-
 # Disable the device
-props["enabled"] = False
-device.properties = json.dumps(props)
+device.properties["enabled"] = False
 
 # Update the device
 client.devices.create(device)
@@ -174,7 +169,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve the device
-const device = await client.devices.retrieve({ name: "EL3102" });
+const [device] = await client.devices.retrieve({ names: ["EL3102"] });
 
 // Disable the device
 device.properties.enabled = false;
@@ -203,19 +198,14 @@ To re-enable a disabled EtherCAT device:
 
 ```python
 import synnax as sy
-import json
 
 client = sy.Synnax()
 
 # Retrieve the device
 device = client.devices.retrieve(name="EL3102")
 
-# Parse properties
-props = json.loads(device.properties)
-
 # Re-enable the device
-props["enabled"] = True
-device.properties = json.dumps(props)
+device.properties["enabled"] = True
 
 # Update the device
 client.devices.create(device)
@@ -230,7 +220,7 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve the device
-const device = await client.devices.retrieve({ name: "EL3102" });
+const [device] = await client.devices.retrieve({ names: ["EL3102"] });
 
 // Re-enable the device
 device.properties.enabled = true;
@@ -267,19 +257,16 @@ import synnax as sy
 # Connect to Synnax
 client = sy.Synnax()
 
-# List all devices to find EtherCAT devices
-all_devices = client.devices.list()
-
-# Filter for EtherCAT devices
-ethercat_devices = [d for d in all_devices if d.make == "EtherCAT"]
+# Retrieve every EtherCAT device
+ethercat_devices = client.devices.retrieve(makes=["EtherCAT"])
 
 for dev in ethercat_devices:
     print(f"Device: {dev.name}")
     print(f"  Key: {dev.key}")
     print(f"  Network: {dev.location}")
     print(f"  Position: {dev.properties.get('position')}")
-    print(f"  Vendor ID: {dev.properties.get('vendorId')}")
-    print(f"  Product Code: {dev.properties.get('productCode')}")
+    print(f"  Vendor ID: {dev.properties.get('vendor_id')}")
+    print(f"  Product Code: {dev.properties.get('product_code')}")
 
 # Retrieve a specific device by name
 device = client.devices.retrieve(name="EK1100")
@@ -292,12 +279,12 @@ rx_pdos = pdos.get("outputs", [])  # Output PDOs (Synnax -> device)
 print(f"\nTxPDOs (inputs) for {device.name}:")
 for pdo in tx_pdos:
     print(f"  {pdo['name']}: index=0x{pdo['index']:04X}, "
-          f"subindex={pdo['subIndex']}, type={pdo['dataType']}")
+          f"subindex={pdo['sub_index']}, type={pdo['data_type']}")
 
 print(f"\nRxPDOs (outputs) for {device.name}:")
 for pdo in rx_pdos:
     print(f"  {pdo['name']}: index=0x{pdo['index']:04X}, "
-          f"subindex={pdo['subIndex']}, type={pdo['dataType']}")
+          f"subindex={pdo['sub_index']}, type={pdo['data_type']}")
 ```
 
   </Fragment>
@@ -309,11 +296,8 @@ import { Synnax } from "@synnaxlabs/client";
 // Connect to Synnax
 const client = new Synnax();
 
-// List all devices to find EtherCAT devices
-const allDevices = await client.devices.list();
-
-// Filter for EtherCAT devices
-const ethercatDevices = allDevices.filter((d) => d.make === "EtherCAT");
+// Retrieve every EtherCAT device
+const ethercatDevices = await client.devices.retrieve({ makes: ["EtherCAT"] });
 
 for (const dev of ethercatDevices) {
   console.log(`Device: ${dev.name}`);
@@ -325,10 +309,20 @@ for (const dev of ethercatDevices) {
 }
 
 // Retrieve a specific device by name
-const device = await client.devices.retrieve({ name: "EK1100" });
+const [device] = await client.devices.retrieve({ names: ["EK1100"] });
 
 // Access PDO information
-const pdos = device.properties?.pdos ?? {};
+interface PDOEntry {
+  name: string;
+  index: number;
+  subIndex: number;
+  dataType: string;
+}
+
+const pdos = device.properties.pdos as {
+  inputs?: PDOEntry[];
+  outputs?: PDOEntry[];
+};
 const txPdos = pdos.inputs ?? []; // Input PDOs (device -> Synnax)
 const rxPdos = pdos.outputs ?? []; // Output PDOs (Synnax -> device)
 

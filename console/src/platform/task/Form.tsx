@@ -15,9 +15,10 @@ import {
   type rack,
   type status,
   type Synnax,
-  type task,
+  task,
 } from "@synnaxlabs/client";
 import {
+  Access,
   Flex,
   Form as PForm,
   Input,
@@ -25,7 +26,7 @@ import {
   Synnax as PSynnax,
   Task as PTask,
 } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
@@ -85,6 +86,14 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
 
+/**
+ * Whether the surrounding task form renders read-only: the task is a snapshot or the
+ * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
+ */
+export const useIsPreview = <Schema extends z.ZodType>(
+  ctx?: PForm.ContextValue<Schema>,
+) => PForm.useContext<Schema>(ctx).mode === "preview";
+
 interface HeaderProps {
   isSnapshot: boolean;
 }
@@ -106,6 +115,9 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 
 // The deploy pipeline saves once at the end; notifying would fire autosave first.
 const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
+
+// Numeric fields have drag handles that emit a change per pixel.
+const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
 
 const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
   issue.code === "custom" && issue.params != null && "variant" in issue.params
@@ -130,32 +142,37 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,
+      autoSaveDebounce: AUTO_SAVE_DEBOUNCE,
     });
 
-    // Deploy pipeline: resolve channels and rack through onConfigure, persist
-    // the row, then issue the start command so the driver picks it up.
+    // The form saves on every edit, so a subject who cannot write the task gets it
+    // read-only rather than fields that revert once the save is refused.
+    const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
+
     const handleDeploy = useCallback(() => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
-        const { config, name } = form.value();
-        const result = deployConfigZ.safeParse(config);
-        if (!result.success) {
-          let blocked = false;
-          result.error.issues.forEach((issue) => {
-            const variant = issueVariant(issue);
-            if (variant !== "warning") blocked = true;
-            const path = ["config", ...issue.path].join(".");
-            form.setStatus(path, { key: path, variant, message: issue.message });
-          });
-          if (blocked) return;
+        if (canEdit) {
+          const { config, name } = form.value();
+          const result = deployConfigZ.safeParse(config);
+          if (!result.success) {
+            let blocked = false;
+            result.error.issues.forEach((issue) => {
+              const variant = issueVariant(issue);
+              if (variant !== "warning") blocked = true;
+              const path = ["config", ...issue.path].join(".");
+              form.setStatus(path, { key: path, variant, message: issue.message });
+            });
+            if (blocked) return;
+          }
+          const [newConfig, newRack] = await onConfigure(client, config, name);
+          form.set("config", newConfig, SKIP_AUTOSAVE);
+          if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
+          if (!(await saveAsync())) return;
         }
-        const [newConfig, newRack] = await onConfigure(client, config, name);
-        form.set("config", newConfig, SKIP_AUTOSAVE);
-        if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
-        if (!(await saveAsync())) return;
         await client.tasks.executeCommand({ task: taskKey, type: "start" });
       }, "Failed to start task");
-    }, [client, form, saveAsync, taskKey, handleError]);
+    }, [client, form, saveAsync, taskKey, handleError, canEdit]);
 
     const handleStop = useCallback(() => {
       handleError(async () => {
@@ -168,14 +185,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     return (
       <Flex.Box
         y
-        className={CSS(CSS.B("task-configure"), CSS.BM("task-configure", type))}
+        className={CSS.cls(CSS.B("task-configure"), CSS.BM("task-configure", type))}
         grow
         empty
       >
         <Flex.Box grow>
           <PForm.Form<PTask.FormSchema<S>>
             {...form}
-            mode={isSnapshot ? "preview" : "normal"}
+            mode={isSnapshot || !canEdit ? "preview" : "normal"}
           >
             {showHeader && <Header isSnapshot={isSnapshot} />}
             {Properties != null && (

@@ -39,7 +39,7 @@ class Bridge(Analog):
         device: str,
         units: Literal["mV/V", "V/V"] | None = None,
         configuration: (
-            Literal["Full Bridge", "Half Bridge", "Quarter Bridge"] | None
+            Literal["Full bridge", "Half bridge", "Quarter bridge"] | None
         ) = None,
         resistance: float | None = None,
         excitation_source: Literal["Internal", "External", "None"] | None = None,
@@ -54,8 +54,8 @@ class Bridge(Analog):
             **kwargs,
         )
 
-        self._configure_dropdown("Electrical Units", units)
-        self._configure_dropdown("Bridge Configuration", configuration)
-        self._configure_input("Nominal Bridge Resistance", resistance)
-        self._configure_dropdown("Voltage Excitation Source", excitation_source)
-        self._configure_input("Voltage Excitation Value", excitation_value)
+        self._configure_dropdown("Electrical units", units)
+        self._configure_dropdown("Bridge configuration", configuration)
+        self._configure_input("Nominal bridge resistance", resistance)
+        self._configure_dropdown("Voltage excitation source", excitation_source)
+        self._configure_input("Voltage excitation value", excitation_value)

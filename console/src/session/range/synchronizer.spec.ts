@@ -9,7 +9,7 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -34,24 +34,6 @@ const preloadedFor = (range: ranger.Range) => ({
 });
 
 describe("Range.SYNCHRONIZERS", () => {
-  it("should update a favorited range in the slice when it is renamed remotely", async () => {
-    const range = await createRange();
-    const { wrapper, store } = await createConsoleWrapper({
-      client,
-      preloadedState: preloadedFor(range),
-    });
-    renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
-      wrapper,
-    });
-    const nextName = id.create();
-    await client.ranges.rename(range.key, nextName);
-    await waitFor(() => {
-      expect(Session.Range.selectState(store.getState(), range.key)?.name).toBe(
-        nextName,
-      );
-    });
-  });
-
   it("should remove a favorited range from the slice when it is deleted remotely", async () => {
     const range = await createRange();
     const { wrapper, store } = await createConsoleWrapper({

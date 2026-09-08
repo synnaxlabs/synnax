@@ -13,21 +13,22 @@
     flex-shrink: 0;
 }
 
+/* Reveals with clip-path rather than width so the fill never runs layout, and never
+   scales, which would distort the overlay's corner radius. */
 @keyframes delay {
     0% {
-        width: 0%;
-        -webkit-backdrop-filter: brightness(0.6);
-        backdrop-filter: brightness(0.6);
+        clip-path: inset(0 100% 0 0);
+        background-color: rgb(0 0 0 / 40%);
     }
+
     99% {
-        width: 100%;
-        -webkit-backdrop-filter: brightness(0.6);
-        backdrop-filter: brightness(0.6);
+        clip-path: inset(0 0 0 0);
+        background-color: rgb(0 0 0 / 40%);
     }
+
     100% {
-        width: 100%;
-        -webkit-backdrop-filter: brightness(1);
-        backdrop-filter: brightness(1);
+        clip-path: inset(0 0 0 0);
+        background-color: transparent;
     }
 }
 
@@ -56,13 +57,6 @@
         align-items: center;
     }
 
-    &.pluto--disabled {
-        cursor: not-allowed;
-        & * {
-            cursor: not-allowed;
-        }
-    }
-
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);
     }
@@ -77,22 +71,38 @@
     &.pluto--height-huge {
         padding: 0 2.5rem;
     }
+
     &.pluto--height-small {
         padding: 0 1.5rem;
     }
+
     &.pluto--height-tiny {
         padding: 0 1rem;
     }
+
     &.pluto-btn--filled {
         border-radius: var(--pluto-border-radius-small);
 
         .pluto-text {
             color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
         }
+
         color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
+
         &.pluto--status-success {
             color: var(--pluto-text-on-primary);
         }
+
+        /* The keycap's neutral fill has no contrast against a filled button, so it
+           inverts to a physical white cap instead. Both values are absolute: a
+           theme-relative gray would flip with the theme and vanish. */
+        --pluto-keycap-bg: var(--pluto-white);
+        --pluto-keycap-border-color: var(--pluto-white);
+
+        .pluto-text--keyboard {
+            color: var(--pluto-black);
+        }
+
         --pluto-bg: var(--pluto-primary-z);
         --pluto-hover-bg: var(--pluto-primary-p1);
         --pluto-active-bg: var(--pluto-primary-m1);
@@ -101,22 +111,25 @@
         --pluto-active-border-color: var(--pluto-primary-m1);
 
         &.pluto-btn--custom-color {
-            --pluto-bg: rgba(var(--pluto-btn-color), 1);
-            --pluto-hover-bg: rgba(var(--pluto-btn-color), 0.85);
-            --pluto-active-bg: rgba(var(--pluto-btn-color), 0.6);
-            --pluto-border-color: rgba(var(--pluto-btn-color), 1);
-            --pluto-hover-border-color: rgba(var(--pluto-btn-color), 0.85);
-            --pluto-active-border-color: rgba(var(--pluto-btn-color), 0.7);
+            --pluto-bg: rgb(var(--pluto-btn-color), 1);
+            --pluto-hover-bg: rgb(var(--pluto-btn-color), 0.85);
+            --pluto-active-bg: rgb(var(--pluto-btn-color), 0.6);
+            --pluto-border-color: rgb(var(--pluto-btn-color), 1);
+            --pluto-hover-border-color: rgb(var(--pluto-btn-color), 0.85);
+            --pluto-active-border-color: rgb(var(--pluto-btn-color), 0.7);
         }
+
         &:hover {
             text-decoration: none;
         }
 
         &.pluto--status-warning {
             color: var(--pluto-text-on-warning);
+
             .pluto-text {
                 color: var(--pluto-text-on-warning);
             }
+
             --pluto-bg: var(--pluto-warning-z);
             --pluto-hover-bg: var(--pluto-warning-p1);
             --pluto-active-bg: var(--pluto-warning-m1);
@@ -127,6 +140,7 @@
 
         &.pluto--status-error {
             color: var(--pluto-text-on-primary);
+
             --pluto-bg: var(--pluto-error-z);
             --pluto-hover-bg: var(--pluto-error-p1);
             --pluto-active-bg: var(--pluto-error-m1);
@@ -137,6 +151,7 @@
 
         &.pluto--disabled {
             color: var(--pluto-text-disabled);
+
             --pluto-bg: var(--pluto-gray-l3);
             --pluto-color: var(--pluto-text-disabled);
             --pluto-border-color: var(--pluto-gray-l6);
@@ -145,16 +160,15 @@
         &::after {
             content: "";
             position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 0%;
+            inset: 0;
             z-index: 1;
             border-radius: var(--pluto-border-radius);
+            clip-path: inset(0 100% 0 0);
         }
+
         &:active::after {
             animation: delay var(--pluto-btn-delay) linear;
-            width: 100%;
+            clip-path: inset(0 0 0 0);
         }
     }
 
@@ -162,8 +176,15 @@
         margin-left: auto;
     }
 
+    /* Cap content that outgrows the square sizes the row past the caps themselves, so
+       pin them to the row's right edge and every hint ends on the same edge. */
+    .pluto-trigger-indicator > .pluto-text {
+        justify-content: flex-end;
+    }
+
     &.pluto--square {
         padding: 0;
+
         & .pluto-icon {
             width: round(1.1em, 1px);
             height: round(1.1em, 1px);
@@ -183,12 +204,20 @@
             transform: translate(45%, -45%);
             z-index: 10;
             transition: opacity 0.1s ease-in-out;
+
+            /* The badge floats clear of the button, over the page, so it keeps the
+               page's own cap colors. A filled button inverts its caps to read against
+               the fill, which here would leave a black glyph on the dark badge. */
             & .pluto-text--keyboard {
                 background: var(--pluto-gray-l0);
                 border-color: var(--pluto-gray-l7);
+                color: var(--pluto-text-color);
             }
         }
-        &:hover .pluto-trigger-indicator {
+
+        /* A disabled button's trigger is inert, so the hint stays hidden rather than
+           advertising a dead shortcut. */
+        &:hover:not(.pluto--disabled) .pluto-trigger-indicator {
             opacity: 1;
         }
     }
@@ -197,19 +226,19 @@
         --pluto-bg: var(--pluto-fill-rest);
         --pluto-hover-bg: var(--pluto-fill-hover);
         --pluto-active-bg: var(--pluto-fill-press);
-
         --pluto-border-color: var(--pluto-gray-l7);
         --pluto-hover-border-color: var(--pluto-gray-l8);
         --pluto-active-border-color: var(--pluto-gray-l8);
 
         &.pluto-btn--custom-color {
-            --pluto-border-color: rgba(var(--pluto-btn-color), 1);
-            --pluto-hover-border-color: rgba(var(--pluto-btn-color), 0.6);
-            --pluto-active-border-color: rgba(var(--pluto-btn-color), 1);
+            --pluto-border-color: rgb(var(--pluto-btn-color), 1);
+            --pluto-hover-border-color: rgb(var(--pluto-btn-color), 0.6);
+            --pluto-active-border-color: rgb(var(--pluto-btn-color), 1);
         }
 
         &.pluto--status-warning {
             color: var(--pluto-warning-z);
+
             --pluto-border-color: var(--pluto-warning-z);
             --pluto-hover-border-color: var(--pluto-warning-p1);
             --pluto-active-border-color: var(--pluto-warning-m1);
@@ -217,6 +246,7 @@
 
         &.pluto--status-error {
             color: var(--pluto-error-p1);
+
             --pluto-border-color: var(--pluto-error-z);
             --pluto-hover-border-color: var(--pluto-error-p1);
             --pluto-active-border-color: var(--pluto-error-m1);
@@ -224,53 +254,28 @@
 
         &.pluto--disabled {
             color: var(--pluto-text-disabled);
+
             --pluto-bg: var(--pluto-gray-l3);
             --pluto-border-color: var(--pluto-gray-l6);
         }
     }
 
     &.pluto-btn--text {
-        /* Grounded, not inherited: custom props cascade, so an undeclared bg
-           would repaint a host row's selection fill inside the nested button. */
+        /* Grounded, not inherited: custom props cascade, so an undeclared bg would
+           repaint a host row's selection fill inside the nested button. An undeclared
+           state border color is worse: the shared hover and active rules below blank
+           --pluto-border-color for the whole subtree. */
         --pluto-bg: transparent;
         --pluto-hover-bg: var(--pluto-fill-hover);
         --pluto-active-bg: var(--pluto-fill-press);
         --pluto-border-color: var(--pluto-gray-l0);
+        --pluto-hover-border-color: var(--pluto-gray-l0);
+        --pluto-active-border-color: var(--pluto-gray-l0);
 
         /* A shade reads as de-emphasis, so hover restores full text color. A crude
            color is semantic and sets an inline style, which this cannot override. */
         &:hover:not(.pluto--status-warning, .pluto--status-error, .pluto--disabled) {
             color: var(--pluto-text-color);
-        }
-
-        &.pluto--disabled {
-            color: var(--pluto-text-disabled);
-        }
-
-        &.pluto--status-warning {
-            color: var(--pluto-warning-p1);
-        }
-
-        &.pluto--status-error {
-            color: var(--pluto-error-p1);
-        }
-    }
-
-    &.pluto-btn--preview {
-        cursor: default;
-        pointer-events: none;
-        padding: 0;
-        transition: none;
-
-        --pluto-bg: transparent;
-        --pluto-hover-bg: transparent;
-        --pluto-active-bg: transparent;
-        --pluto-border-color: transparent;
-        --pluto-hover-border-color: transparent;
-        --pluto-active-border-color: transparent;
-
-        &:focus-visible {
-            outline: none;
         }
 
         &.pluto--disabled {
@@ -293,7 +298,61 @@
         --pluto-border-color: var(--pluto-selected-border-color);
         --pluto-hover-border-color: var(--pluto-selected-border-color);
         --pluto-active-border-color: var(--pluto-selected-border-color);
+
         color: var(--pluto-selected-color);
+    }
+
+    /* Placed after the selected block so a preview strips the selected chassis
+       too: the value reads as plain text, never as a still-active control. */
+    &.pluto-btn--preview {
+        cursor: default;
+        pointer-events: none;
+        padding: 0;
+        transition: none;
+
+        --pluto-bg: transparent;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: transparent;
+        --pluto-active-border-color: transparent;
+
+        &.pluto--selected {
+            color: var(--pluto-text-color);
+        }
+
+        &:focus-visible {
+            outline: none;
+        }
+
+        &.pluto--disabled {
+            color: var(--pluto-text-disabled);
+        }
+
+        &.pluto--status-warning {
+            color: var(--pluto-warning-p1);
+        }
+
+        &.pluto--status-error {
+            color: var(--pluto-error-p1);
+        }
+    }
+
+    /* Placed after the variant blocks: their cap vars and text colors would otherwise
+       outrank these, leaving a trigger hint at full contrast. */
+    &.pluto--disabled {
+        cursor: not-allowed;
+
+        & * {
+            cursor: not-allowed;
+        }
+
+        --pluto-keycap-bg: transparent;
+        --pluto-keycap-border-color: var(--pluto-gray-l6);
+
+        & .pluto-text {
+            color: var(--pluto-text-disabled);
+        }
     }
 
     /* Inline glyph action: a chassis-nested micro-button (tab close, tag close).
@@ -303,15 +362,18 @@
         --pluto-bg: transparent;
         --pluto-hover-bg: transparent;
         --pluto-active-bg: transparent;
+
         & svg {
             fill: var(--pluto-gray-l9);
             transition:
                 transform 0.1s ease-out,
                 fill 0.1s ease-out;
         }
+
         &:hover svg {
             fill: var(--pluto-gray-l11);
         }
+
         &.pluto--destructive:active svg {
             fill: var(--pluto-error-z);
         }
@@ -326,11 +388,13 @@
         width: 3rem;
         height: 3rem;
         padding: 0;
+
         & svg {
             width: 2rem;
             height: 2rem;
             flex-shrink: 0;
         }
+
         .pluto--reveals:not(:hover) &:not(:focus-visible) svg {
             transform: scale(0.9);
         }
@@ -343,6 +407,7 @@
 
     /* We use the flex selector that is always present in order to increase
      specificity of the hover and active states. */
+
     /* pluto--focus-frozen marks a control whose pointer states freeze while it
        holds focus: hover and press swap nothing until it blurs. */
     &:not(.pluto-btn--prevent-click, .pluto--disabled) {

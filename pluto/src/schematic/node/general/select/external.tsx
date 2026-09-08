@@ -26,7 +26,7 @@ export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
-  size: "small",
+  size: "medium",
   inlineSize: 100,
   options: [],
   label: Label.defaultConfig("Select"),

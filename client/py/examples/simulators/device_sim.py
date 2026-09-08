@@ -35,54 +35,37 @@ class DeviceSim(Simulator):
     - port: TCP port the server listens on (used for readiness check)
     - startup_timeout: max time to wait for the server to accept connections
     - device_name: name used for Synnax device registration
+    - channel_names: names of the Synnax channels that carry the device's data
     """
 
     host: str
     port: int
     startup_timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND
     device_name: str
+    channel_names: tuple[str, ...] = ()
 
     def __init__(self, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
         super().__init__(verbose=verbose)
         self.rate = rate
         self.process: BaseProcess | None = None
 
-    def _kill_port_occupant(self) -> None:
-        """Kill any process currently listening on self.port."""
+    def _require_port_free(self) -> None:
         try:
             with socket.create_connection((self.host, self.port), timeout=0.5):
                 pass
         except OSError:
-            return  # Port is free
-        self.log(f"Port {self.port} is in use, killing stale process")
-        killed = False
-        try:
-            import psutil
-
-            # net_connections queries all TCP sockets in one syscall — much
-            # faster than iterating every process with process_iter().
-            for conn in psutil.net_connections(kind="tcp"):
-                if conn.status == "LISTEN" and conn.laddr.port == self.port:
-                    if conn.pid is None:
-                        continue
-                    try:
-                        psutil.Process(conn.pid).kill()
-                        self.log(f"Killed stale PID {conn.pid} on port {self.port}")
-                        killed = True
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
-                        pass
-        except Exception as e:
-            self.log(f"Could not kill port occupant: {e}")
-        if killed:
-            sy.sleep(1)  # Give OS time to release the port
+            return
+        raise RuntimeError(f"Port {self.port} is already in use")
 
     def start(self) -> None:
         """Start the device server in a subprocess.
 
-        Blocks until the server is accepting TCP connections on its port,
-        or raises RuntimeError if the process dies or the timeout expires.
+        Blocks until the server accepts TCP connections on its port.
+
+        :raises RuntimeError: If the port is already in use, the process dies, or
+            the timeout expires.
         """
-        self._kill_port_occupant()
+        self._require_port_free()
         self.process = multiprocessing.Process(
             target=self._subprocess_entry, daemon=True
         )
@@ -112,7 +95,12 @@ class DeviceSim(Simulator):
         )
 
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
-        """Terminate the server subprocess."""
+        """Terminate the server subprocess and wait until its port stops accepting
+        connections.
+
+        :raises RuntimeError: If something still accepts connections on the port
+            after the subprocess is gone.
+        """
         self._running = False
         if self.process is None:
             return
@@ -130,7 +118,20 @@ class DeviceSim(Simulator):
             self.log(f"Error terminating server: {e}")
         finally:
             self.process = None
-            sy.sleep(1)
+        self._wait_for_port_closed(timeout)
+
+    def _wait_for_port_closed(self, timeout: sy.TimeSpan) -> None:
+        timer = sy.Timer()
+        while timer.elapsed() < timeout:
+            try:
+                with socket.create_connection((self.host, self.port), timeout=0.5):
+                    pass
+            except OSError:
+                return
+            sy.sleep(0.05)
+        raise RuntimeError(
+            f"Port {self.port} still accepts connections after {timeout}"
+        )
 
     def _subprocess_entry(self) -> None:
         """Entry point for the subprocess."""

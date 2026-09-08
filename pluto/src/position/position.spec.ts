@@ -126,7 +126,6 @@ describe("position", () => {
       },
     };
 
-    // Dialog larger than container
     const TOP_LEFT_LARGE: Spec = {
       name: "box in top left, preference for top-left/bottom-right pairing",
       params: {

@@ -15,4 +15,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored labels.
-var Migrations = []migrate.Migration{v0.Migration}
+var Migrations = []migrate.Migration{v0.NormalizeKeys, v0.Migration}

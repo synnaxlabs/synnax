@@ -16,6 +16,8 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
+	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -101,7 +103,8 @@ func structDefaultFills(
 		if comp.Value.Kind == resolution.ValueKindStruct {
 			fills = append(
 				fills,
-				structDefaultFills(selector, f.Type, comp.Value, data)...)
+				structDefaultFills(selector, f.Type, comp.Value, data)...,
+			)
 			continue
 		}
 		if fill, ok := componentFill(selector, f.Type, &comp.Value, data); ok {
@@ -432,10 +435,24 @@ func resolvesToMethodType(ref resolution.TypeRef, data *templateData) bool {
 	return false
 }
 
+// probeData returns a copy of data whose import manager is a scratch instance, so
+// rendering done only to answer a has-own probe registers no imports on the real file.
+func probeData(data *templateData) *templateData {
+	m := imports.NewManager()
+	r := *data.resolver
+	r.ImportAdder = m
+	d := *data
+	d.Manager = m
+	d.resolver = &r
+	return &d
+}
+
 // typeNeedsMethod reports whether the type named by ref emits a recursive method: it
 // has a field satisfying hasOwn, or a nested struct field, slice/array element, map
 // value, or union variant payload that (transitively) does. Generic types and type
 // parameters never emit a method. visited guards against cycles in recursive types.
+// Probing must not leak imports into the emitted file, so hasOwn runs against a
+// scratch-import copy of data.
 func typeNeedsMethod(
 	ref resolution.TypeRef,
 	data *templateData,
@@ -467,11 +484,12 @@ func typeNeedsMethod(
 		if form.IsGeneric() {
 			return false
 		}
+		probe := probeData(data)
 		for _, field := range resolution.UnifiedFields(resolved, data.table) {
 			if skip(field, data) {
 				continue
 			}
-			if hasOwn(field, data) ||
+			if hasOwn(field, probe) ||
 				typeNeedsMethod(field.Type, data, visited, hasOwn, skip) {
 				return true
 			}
@@ -540,4 +558,88 @@ func goRecurseStep(
 		step.Kind = recursePointer
 	}
 	return step, true
+}
+
+// defaultGroupData describes a set of fields whose defaults apply as a unit. The
+// generated ApplyDefaults fills every member only when all of them hold their zero
+// value, so a deliberate zero on any member survives the fill.
+type defaultGroupData struct {
+	// Members is every field in the group, rendered into the all-zero guard.
+	Members []defaultFillData
+	// Fills is the subset of members carrying a non-zero default, the only ones with
+	// anything to assign.
+	Fills []defaultFillData
+}
+
+// defaultGroupName returns the group a field's default belongs to, or "" when the
+// field fills on its own.
+func defaultGroupName(f resolution.Field) string {
+	return domain.GetStringFromField(f, "default", "group")
+}
+
+// goDefaultGroups returns one entry per `@default group` declared across fields, in
+// first-declaration order. A group whose members all default to their zero value has
+// nothing to assign and is dropped.
+func goDefaultGroups(
+	fields []resolution.Field,
+	data *templateData,
+) []defaultGroupData {
+	var order []string
+	byName := make(map[string]*defaultGroupData)
+	for _, f := range fields {
+		name := defaultGroupName(f)
+		if name == "" || f.Default == nil || f.Optional {
+			continue
+		}
+		member, ok := groupMember(f, data)
+		if !ok {
+			continue
+		}
+		g, seen := byName[name]
+		if !seen {
+			g = &defaultGroupData{}
+			byName[name] = g
+			order = append(order, name)
+		}
+		g.Members = append(g.Members, member)
+		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
+	}
+	groups := make([]defaultGroupData, 0, len(order))
+	for _, name := range order {
+		if g := byName[name]; len(g.Fills) > 0 {
+			groups = append(groups, *g)
+		}
+	}
+	return groups
+}
+
+// groupMember returns the zero comparison for one group member. It returns ok=false
+// for a default kind with no zero literal, which checkDefaultGroups rejects from a
+// group.
+func groupMember(
+	f resolution.Field,
+	data *templateData,
+) (defaultFillData, bool) {
+	name := naming.GetFieldName(f)
+	switch f.Default.Kind {
+	case resolution.ValueKindString:
+		return defaultFillData{GoName: name, ZeroLit: `""`}, true
+	case resolution.ValueKindInt, resolution.ValueKindFloat:
+		return defaultFillData{GoName: name, ZeroLit: "0"}, true
+	case resolution.ValueKindIdent:
+		ev, ok := validation.ResolveEnumVariant(
+			f.Default.IdentValue,
+			f.Type,
+			data.table,
+		)
+		if !ok {
+			return defaultFillData{}, false
+		}
+		form, isEnum := ev.Type.Form.(resolution.EnumForm)
+		if !isEnum || form.IsIntEnum {
+			return defaultFillData{}, false
+		}
+		return defaultFillData{GoName: name, ZeroLit: `""`}, true
+	}
+	return defaultFillData{}, false
 }

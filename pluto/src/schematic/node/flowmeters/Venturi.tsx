@@ -26,7 +26,7 @@ export const Venturi = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("flowmeter-Venturi"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"

@@ -29,7 +29,7 @@ message Subject {
   string key = 1;
   // name is a human-readable name for the subject.
   string name = 2;
-  // group optional identifier shared by subjects from the same logical group (e.g.) all
-  // writers from the same Driver rack.
+  // group is an optional identifier shared by subjects from the same logical group
+  // (e.g., all writers from the same Driver rack).
   uint32 group = 3;
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
+import { border, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -44,6 +44,9 @@ const valueState = staleness.configZ.extend({
   // host can't grow to fit the natural text width (e.g. a table cell);
   // overflow gets truncated at the cell edge instead of bleeding past.
   clip: z.boolean().default(false),
+  // borderRadius rounds the clip region, in px. Set it when the host has rounded
+  // corners, so the background fill does not square them off.
+  borderRadius: border.crudeRadiusZ.optional(),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -120,7 +123,7 @@ export class Value
   private requestRender(): void {
     const { requestRender } = this.internal;
     if (requestRender != null) requestRender("layout");
-    else void this.render({});
+    else this.render({});
   }
 
   get box(): box.Box {
@@ -172,6 +175,8 @@ export class Value
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
     let value = telem.value();
     canvas.font = fontString;
+    canvas.textAlign = "left";
+    canvas.textBaseline = "alphabetic";
     const fontHeight = this.fontHeight;
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);
@@ -190,7 +195,9 @@ export class Value
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
-    const undoClip = this.state.clip ? canvas.scissor(b) : null;
+    const undoClip = this.state.clip
+      ? canvas.scissor(b, xy.ZERO, this.state.borderRadius)
+      : null;
     try {
       if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
         const colorValue = backgroundTelem.value();

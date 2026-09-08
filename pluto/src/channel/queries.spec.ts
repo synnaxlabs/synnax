@@ -941,9 +941,8 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      // A second client creates ch2 so this client's record store holds only
-      // ch1: a cached partial answer must not suppress the fetch of the full
-      // one.
+      // A second client creates ch2 so this client's record store holds only ch1: a
+      // cached partial answer must not suppress the fetch of the full one.
       const ch2 = await createTestClient().channels.create({
         name: id.create(),
         dataType: DataType.INT32,
@@ -1161,6 +1160,41 @@ describe("queries", () => {
         expect(result.current.retrieve?.alias).toEqual("updated_alias");
       });
     });
+
+    it("should run afterOptimistic before the write commits", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const range = await client.ranges.create({
+        name: id.create(),
+        timeRange: new TimeRange({ start: 1n, end: 3000n }),
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Channel.useUpdateAlias({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.alias}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({
+          range: range.key,
+          channel: ch.key,
+          alias: "optimistic_alias",
+        });
+      });
+
+      expect(order).toEqual(["optimistic:optimistic_alias", "success"]);
+    });
   });
 
   describe("useDeleteAlias", () => {
@@ -1257,6 +1291,38 @@ describe("queries", () => {
         expect(ch1After?.alias).toBeUndefined();
         expect(ch2After?.alias).toBeUndefined();
       });
+    });
+
+    it("should run afterOptimistic before the write commits", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const range = await client.ranges.create({
+        name: id.create(),
+        timeRange: new TimeRange({ start: 1n, end: 4000n }),
+      });
+      await client.ranges.setAlias(range.key, ch.key, "optimistic_delete");
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Channel.useDeleteAlias({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data.channels as channel.Key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({ range: range.key, channels: ch.key });
+      });
+
+      expect(order).toEqual([`optimistic:${ch.key}`, "success"]);
     });
   });
 

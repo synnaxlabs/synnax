@@ -105,8 +105,6 @@ type WriterConfig struct {
 	//
 	// When AutoIndex is true, any index channel referenced by a data channel in
 	// Channels but not present in Channels itself is implicitly opened for writing.
-	// SetAuthority calls that name a data channel propagate to its index channel,
-	// taking the max authority across all data channels referencing that index.
 	//
 	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
 	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
@@ -124,10 +122,10 @@ var _ config.Config[WriterConfig] = WriterConfig{}
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
-	validate.NotEmptySlice(v, "channels", c.Channels)
-	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorized)
-	validate.NotNil(v, "sync", c.Sync)
-	validate.NotNil(v, "auto_index", c.AutoIndex)
+	v.NotEmptySlice("channels", c.Channels)
+	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorized)
+	v.NotNil("sync", c.Sync)
+	v.NotNil("auto_index", c.AutoIndex)
 	v.Exec(c.ControlSubject.Validate)
 	v.Ternary(
 		"authorities",
@@ -216,11 +214,8 @@ func (db *DB) newStreamWriter(
 		domainWriters  = make(map[ChannelKey]*idxWriter)
 		virtualWriters map[ChannelKey]*virtual.Writer
 		controlUpdate  ControlUpdate
-		keyToIdx       map[ChannelKey]*idxWriter
+		keyToIdx       = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
 	)
-	if *cfg.AutoIndex {
-		keyToIdx = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
-	}
 	defer func() {
 		if err == nil {
 			return
@@ -291,10 +286,8 @@ func (db *DB) newStreamWriter(
 			idxW.writingToIdx = true
 			idxW.internal[key] = &unaryWriterState{Writer: *uW}
 			domainWriters[u.Channel().Index] = idxW
-			if *cfg.AutoIndex {
-				keyToIdx[key] = idxW
-				idxW.dataAuth = make(map[ChannelKey]xcontrol.Authority)
-			}
+			keyToIdx[key] = idxW
+			idxW.dataAuth = make(map[ChannelKey]xcontrol.Authority)
 		}
 		if transfer.Occurred() {
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
@@ -330,33 +323,26 @@ func (db *DB) newStreamWriter(
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
 		idxW.internal[key] = &unaryWriterState{Writer: *uW}
-		if *cfg.AutoIndex {
-			keyToIdx[key] = idxW
-			if idxW.writingToIdx {
-				idxW.dataAuth[key] = cfg.authority(i)
-			}
+		keyToIdx[key] = idxW
+		if idxW.writingToIdx {
+			idxW.dataAuth[key] = cfg.authority(i)
 		}
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
-		if err = db.updateControlDigests(ctx, controlUpdate); err != nil {
-			return nil, err
-		}
+		db.controlUpdates.Notify(ctx, controlUpdate)
 	}
 
 	w = &streamWriter{
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
-		virtual: &virtualWriter{
-			internal:  virtualWriters,
-			digestKey: db.mu.digests.key,
-		},
-		keyToIdx: keyToIdx,
-		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
+		virtual:      &virtualWriter{internal: virtualWriters},
+		keyToIdx:     keyToIdx,
+		updateDBControl: func(ctx context.Context, update ControlUpdate) {
 			db.mu.RLock()
 			defer db.mu.RUnlock()
-			return db.updateControlDigests(ctx, update)
+			db.controlUpdates.Notify(ctx, update)
 		},
 	}
 	for _, idx := range domainWriters {

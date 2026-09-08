@@ -26,14 +26,13 @@ class UserLoginLogout(ConsoleCase):
 
         self.log(f"Registering user: {username}")
 
-        success = self.console.access.register_user(
+        self.console.access.register_user(
             username=username,
             password=password,
             first_name=first_name,
             last_name=last_name,
             role_name=role_name,
         )
-        assert success, f"Failed to register user {username}"
 
         self.log("User registered, now logging out...")
 

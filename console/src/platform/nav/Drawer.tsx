@@ -69,7 +69,7 @@ export const Drawer = ({
   return (
     <Nav.Drawer
       location={loc}
-      className={CSS(CLASS, hover && CSS.M("hover"))}
+      className={CSS.cls(CLASS, hover && CSS.M("hover"))}
       collapsed={collapsed}
       onMouseLeave={handleMouseLeave}
       onResize={handleResize}

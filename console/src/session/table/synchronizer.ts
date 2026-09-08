@@ -9,12 +9,13 @@
 
 import { Synchronizer } from "@/session/synchronizer";
 import { type Action, remove, type StoreState } from "@/session/table/slice";
+import { Window } from "@/session/window";
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
   Synchronizer.createRemover<StoreState, Action>({
     name: "remove deleted tables",
     domain: (client) => client.tables,
-    selectKeys: (state: StoreState) => Object.keys(state.table.tables),
+    selectKeys: (state: StoreState) => Window.documentKeys(state.table),
     remove: (keys) => remove({ keys }),
   }),
 ];

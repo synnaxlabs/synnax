@@ -10,6 +10,8 @@
 package versions
 
 import (
+	"slices"
+
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
@@ -21,5 +23,9 @@ type MigrationsConfig = v0.MigrationConfig
 
 // NewMigrations returns the ordered migration chain for stored racks.
 func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
-	return append(v0.NewMigrations(cfg), v1.Migration, v2.Migration)
+	return slices.Concat(
+		[]migrate.Migration{v0.NormalizeKeys},
+		v0.NewMigrations(cfg),
+		[]migrate.Migration{v1.Migration, v2.Migration},
+	)
 }

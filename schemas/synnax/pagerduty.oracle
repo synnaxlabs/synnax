@@ -7,41 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/status"
 import "schemas/synnax/task"
 
-@ts output "client/ts/src/pagerduty"
-@py output "client/py/synnax/pagerduty"
 @go output "core/pkg/service/pagerduty"
+@py output "client/py/synnax/pagerduty"
+@ts output "client/ts/src/pagerduty"
 
 Alert struct {
-    key                     string = "" {
+    key             string = create {
         @doc value "uniquely identifies the alert within the task."
         @key
     }
-    status                  string = "" {
+    status          status.Key = "" {
         @doc value "is the key of the Synnax status the alert watches."
     }
-    treat_error_as_critical bool = false {
-        @doc value "maps the error variant to PagerDuty critical instead of error."
+    errors_critical bool = false {
+        @doc value "is true when the error variant maps to PagerDuty critical."
     }
-    component               string = "" {
+    component       string = "" {
         @doc value "is the PagerDuty component attached to triggered events."
     }
-    group                   string = "" {
+    group           string = "" {
         @doc value "is the PagerDuty group attached to triggered events."
     }
-    class                   string = "" {
+    class           string = "" {
         @doc value "is the PagerDuty class attached to triggered events."
     }
-    disabled                bool = false {
+    disabled        bool = false {
         @doc value "is true when the alert is excluded from the task."
     }
 
     @doc value  "maps a Synnax status to a PagerDuty event routing rule."
-    @go version 1
+    @go marshal
 }
 
-TaskConfig struct extends task.BaseStartConfig {
+TaskConfig struct extends task.StartConfig {
     routing_key string = "" {
         @doc value "is the PagerDuty Events API v2 routing key."
     }
@@ -50,10 +51,9 @@ TaskConfig struct extends task.BaseStartConfig {
     }
 
     @doc value  """
-        configures a PagerDuty alert task, which forwards Synnax status changes
-        to PagerDuty as events.
+        configures a PagerDuty alert task, which forwards Synnax status changes to
+        PagerDuty as events.
     """
-    @go version 1
     @go marshal
     @go migrate
 }

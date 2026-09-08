@@ -17,7 +17,7 @@ export interface WriteChannelTypeEntry extends record.KeyedNamed<WriteChannelTyp
 
 const NAMES: Record<WriteChannelType, string> = {
   coil: "Coil",
-  holding_register: "Holding Register",
+  holding_register: "Holding register",
 };
 
 const DATA: WriteChannelTypeEntry[] = modbus.WRITE_CHANNEL_TYPES.map((key) => ({
@@ -36,7 +36,7 @@ export const SelectWriteChannelTypeField = Form.buildSelectField<
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "Channel Type",
+    label: "Channel type",
     showLabel: false,
     showHelpText: false,
     hideIfNull: true,

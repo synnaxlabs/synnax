@@ -93,6 +93,20 @@
     position: relative;
 }
 
+.pluto-panel-mosaic__overlaid-leaf {
+    height: 100%;
+}
+
+/* Grid sizes the content row from the leaf's own height, so the panel's 100% resolves
+   in one pass. Under flex the row came from flex-grow, forcing a second layout of the
+   whole panel subtree per resize frame. */
+.pluto-mosaic__leaf > .pluto-tabs,
+.pluto-flex.pluto-panel-mosaic__overlaid-leaf {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+}
+
 /* Spares WebKit a level of per-frame flex re-measurement while a pane resizes. */
 .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content,
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__content {

@@ -20,15 +20,11 @@ export interface WrapProps {
 /**
  * A higher order component that wraps a React component and attaches an optional,
  * prop-set tooltip to it.
- *
- * @param Component - Any React component.
- *
  * @returns The wrapped React component, with the following props added:
- *
- * @param props.tooltip - An optional ReactNode containing the tooltip content. If
- * the prop is not specified, a tooltip is not shown.
- * @param props.tooltipLocation - The preferred location for the tooltip relative to
- * the element it is attached to. If unspecified, the tooltip automatically chooses a
+ * @param props.tooltip - An optional ReactNode containing the tooltip content. If the
+ * prop is not specified, a tooltip is not shown.
+ * @param props.tooltipLocation - The preferred location for the tooltip relative to the
+ * element it is attached to. If unspecified, the tooltip automatically chooses a
  * location based on the element's position on the screen.
  * @param props.hideTooltip - Force the tooltip to remain hidden.
  * @default false.

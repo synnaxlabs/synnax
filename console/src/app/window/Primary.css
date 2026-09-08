@@ -37,7 +37,7 @@
     );
     --console-bottom-drawer-inset-bottom: var(--console-inset-bottom);
 
-    flex-grow: 1;
+    height: 100%;
     min-height: 0;
     display: grid;
     grid-template-columns:

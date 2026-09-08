@@ -41,10 +41,10 @@ class TwoEdgeSeparation(Counter):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Two Edge Separation",
+            chan_type="Two edge separation",
             **kwargs,
         )
 
-        self._configure_dropdown("Scaled Units", units)
+        self._configure_dropdown("Scaled units", units)
         self._configure_dropdown("Edge 1", first_edge)
         self._configure_dropdown("Edge 2", second_edge)

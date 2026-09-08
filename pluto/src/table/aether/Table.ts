@@ -97,7 +97,7 @@ export class Table extends aether.Composite<typeof tableStateZ, InternalState, C
 
   private requestRender(priority: render.Priority): void {
     const { renderCtx } = this.internal;
-    void renderCtx.loop.set({
+    renderCtx.loop.set({
       key: `${Table.TYPE}-${this.key}`,
       render: this.render.bind(this),
       priority,

@@ -79,8 +79,8 @@ func (v *validator) validate(req Request) error {
 func validateSeriesDataType(ch channel.Channel, s telem.Series) error {
 	sDt := s.DataType
 	cDt := ch.DataType
-	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) &&
-		(cDt == telem.Int64T || cDt == telem.TimeStampT)
+	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimestampT) &&
+		(cDt == telem.Int64T || cDt == telem.TimestampT)
 	if cDt != sDt && !isEquivalent {
 		return errors.Wrapf(
 			validate.ErrValidation,

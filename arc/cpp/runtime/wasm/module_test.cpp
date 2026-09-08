@@ -373,4 +373,55 @@ TEST(JsonToWasmTest, ReturnsZeroForNull) {
     const auto result = json_to_wasm(val, type);
     EXPECT_EQ(result.i32(), 0);
 }
+
+TEST(SampleToWasmTypedTest, ConvertsBool) {
+    arc::types::Type type{.kind = arc::types::Kind::Bool};
+    const auto true_val = sample_to_wasm(
+        x::telem::SampleValue(static_cast<uint8_t>(1)),
+        type
+    );
+    EXPECT_EQ(true_val.i32(), 1);
+    const auto false_val = sample_to_wasm(
+        x::telem::SampleValue(static_cast<uint8_t>(0)),
+        type
+    );
+    EXPECT_EQ(false_val.i32(), 0);
+}
+
+TEST(SampleToWasmTypedTest, NormalizesNonzeroBool) {
+    arc::types::Type type{.kind = arc::types::Kind::Bool};
+    const auto result = sample_to_wasm(x::telem::SampleValue(42.0), type);
+    EXPECT_EQ(result.i32(), 1);
+}
+
+TEST(SampleFromWasmTest, ConvertsBool) {
+    arc::types::Type type{.kind = arc::types::Kind::Bool};
+    wasmtime::Val true_wasm(static_cast<int32_t>(1));
+    EXPECT_EQ(std::get<uint8_t>(sample_from_wasm(true_wasm, type)), 1);
+    wasmtime::Val nonzero_wasm(static_cast<int32_t>(42));
+    EXPECT_EQ(std::get<uint8_t>(sample_from_wasm(nonzero_wasm, type)), 1);
+    wasmtime::Val false_wasm(static_cast<int32_t>(0));
+    EXPECT_EQ(std::get<uint8_t>(sample_from_wasm(false_wasm, type)), 0);
+}
+
+TEST(SampleFromBitsTest, ConvertsBool) {
+    arc::types::Type type{.kind = arc::types::Kind::Bool};
+    EXPECT_EQ(std::get<uint8_t>(sample_from_bits(1, type)), 1);
+    EXPECT_EQ(std::get<uint8_t>(sample_from_bits(42, type)), 1);
+    EXPECT_EQ(std::get<uint8_t>(sample_from_bits(0, type)), 0);
+}
+
+TEST(JsonToWasmTest, ConvertsBoolTrue) {
+    x::json::json val = true;
+    arc::types::Type type{.kind = arc::types::Kind::Bool};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i32(), 1);
+}
+
+TEST(JsonToWasmTest, ConvertsBoolFalse) {
+    x::json::json val = false;
+    arc::types::Type type{.kind = arc::types::Kind::Bool};
+    const auto result = json_to_wasm(val, type);
+    EXPECT_EQ(result.i32(), 0);
+}
 }

@@ -30,7 +30,7 @@ var _ = Describe("Write", func() {
 			Channel: channel.Channel{
 				Name:     "Ray",
 				Key:      2,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				Virtual:  true,
 			},
 			FS: fs.NewMem(),
@@ -160,7 +160,7 @@ var _ = Describe("Write", func() {
 						Channel: channel.Channel{
 							Name:     "virtual-fs-check",
 							Key:      99,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							Virtual:  true,
 						},
 						FS: rec,

@@ -87,7 +87,6 @@ export const OnThisPage = ({
     };
   }, []);
 
-  // Update indicator position when currentID changes
   useEffect(() => {
     if (!menuRef.current || !currentID) return;
     const activeItem = menuRef.current.querySelector<HTMLElement>(

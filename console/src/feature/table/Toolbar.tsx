@@ -27,7 +27,7 @@ import {
 import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
@@ -39,6 +39,8 @@ const Internal = (): ReactElement => {
   const key = Table.useKey();
   const name = Table.useName();
   const editable = Session.Table.useSelectEditable();
+  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
+  const canEdit = hasUpdatePermission && editable;
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
   const cellsByKey = Table.useCells({ cellKeys: selectedCellKeys });
   const liveCellCount = cellsByKey.size;
@@ -65,16 +67,13 @@ const Internal = (): ReactElement => {
             )}
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
-        <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton getID={() => table.ontologyID(key)} />
-          <Cluster.CopyLinkToolbarButton
-            name={name}
-            ontologyID={table.ontologyID(key)}
-          />
+        <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} gap="small">
+          <Export.ToolbarButton id={table.ontologyID(key)} />
+          <Core.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
         </Flex.Box>
       </Base.Header>
       <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
-        {!editable ? (
+        {!canEdit ? (
           <NotEditableContent name={name} />
         ) : liveCellCount === 0 ? (
           <EmptyContent />
@@ -179,9 +178,8 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   return (
     <Empty.Action
-      x
-      message={`${name} is not editable.${hasUpdatePermission ? " To make changes," : ""}`}
-      action={hasUpdatePermission ? "enable editing." : undefined}
+      message={`${name} is not editable`}
+      action={hasUpdatePermission ? "Enable editing" : undefined}
       onClick={() => dispatch(Session.Table.setEditable({ key, editable: true }))}
     />
   );

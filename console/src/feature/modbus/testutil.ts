@@ -23,7 +23,7 @@ export interface CreateModbusDeviceOptions {
   properties?: Partial<Properties>;
 }
 
-/** Creates a rack and a configured Modbus server device on the live cluster. */
+/** Creates a rack and a configured Modbus server device on the live Core. */
 export const createModbusDevice = async (
   client: Synnax,
   { configured = true, properties }: CreateModbusDeviceOptions = {},

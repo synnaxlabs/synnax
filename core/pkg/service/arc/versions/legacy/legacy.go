@@ -114,12 +114,10 @@ func lift(d v2.Data) Document {
 	edges := make(graph.Edges, len(d.Graph.Edges))
 	for i, e := range d.Graph.Edges {
 		edges[i] = graph.Edge{
-			Key: e.Key,
-			Edge: ir.Edge{
-				Source: e.Source,
-				Target: e.Target,
-				Kind:   ir.EdgeKindContinuous,
-			},
+			Key:    e.Key,
+			Source: e.Source,
+			Target: e.Target,
+			Kind:   ir.EdgeKindContinuous,
 		}
 	}
 	return Document{

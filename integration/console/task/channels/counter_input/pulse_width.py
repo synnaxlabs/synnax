@@ -41,10 +41,10 @@ class PulseWidth(Counter):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Pulse Width",
+            chan_type="Pulse width",
             **kwargs,
         )
 
-        self._configure_dropdown("Starting Edge", starting_edge)
-        self._configure_dropdown("Scaled Units", units)
-        self._configure_dropdown("Input Terminal", terminal)
+        self._configure_dropdown("Starting edge", starting_edge)
+        self._configure_dropdown("Scaled units", units)
+        self._configure_dropdown("Input terminal", terminal)

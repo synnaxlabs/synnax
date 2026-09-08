@@ -29,7 +29,7 @@ class TestPagerDutyAlertTask:
                             "key": "alert-1",
                             "status": "database-health",
                             "disabled": False,
-                            "treat_error_as_critical": True,
+                            "errors_critical": True,
                             "component": "postgres",
                             "group": "infrastructure",
                             "class": "database_error",
@@ -47,7 +47,7 @@ class TestPagerDutyAlertTask:
                             "key": "alert-1",
                             "status": "sensor-1",
                             "disabled": False,
-                            "treat_error_as_critical": False,
+                            "errors_critical": False,
                             "component": "temperature-sensor",
                             "group": "hardware",
                             "class": "sensor_anomaly",
@@ -56,7 +56,7 @@ class TestPagerDutyAlertTask:
                             "key": "alert-2",
                             "status": "sensor-2",
                             "disabled": True,
-                            "treat_error_as_critical": True,
+                            "errors_critical": True,
                             "component": "pressure-sensor",
                             "group": "hardware",
                             "class": "sensor_failure",
@@ -87,7 +87,7 @@ class TestPagerDutyAlertTask:
         """Test that Alert has correct defaults."""
         alert = sy.pagerduty.Alert(status="my-status")
         assert alert.status == "my-status"
-        assert alert.treat_error_as_critical is False
+        assert alert.errors_critical is False
         assert alert.component == ""
         assert alert.group == ""
         assert alert.class_ == ""
@@ -139,7 +139,7 @@ class TestPagerDutyAlertTask:
             alerts=[
                 sy.pagerduty.Alert(
                     status="db-health",
-                    treat_error_as_critical=True,
+                    errors_critical=True,
                     component="postgres",
                     group="infra",
                     class_="db_error",
@@ -164,7 +164,7 @@ class TestPagerDutyAlertTask:
                 sy.pagerduty.Alert(
                     status="test-status",
                     disabled=False,
-                    treat_error_as_critical=True,
+                    errors_critical=True,
                     component="test-component",
                 ),
             ],
@@ -181,7 +181,7 @@ class TestPagerDutyAlertTask:
         for orig, retr in zip(task.config.alerts, tsk.config.alerts):
             assert retr.status == orig.status
             assert retr.disabled == orig.disabled
-            assert retr.treat_error_as_critical == orig.treat_error_as_critical
+            assert retr.errors_critical == orig.errors_critical
             assert retr.component == orig.component
             assert retr.group == orig.group
             assert retr.class_ == orig.class_
@@ -196,7 +196,7 @@ class TestPagerDutyAlertTask:
                 sy.pagerduty.Alert(
                     status="sensor-health",
                     disabled=False,
-                    treat_error_as_critical=False,
+                    errors_critical=False,
                     component="temperature",
                     group="sensors",
                     class_="anomaly",
@@ -204,7 +204,7 @@ class TestPagerDutyAlertTask:
                 sy.pagerduty.Alert(
                     status="db-health",
                     disabled=False,
-                    treat_error_as_critical=True,
+                    errors_critical=True,
                     component="postgres",
                 ),
             ],
@@ -221,5 +221,5 @@ class TestPagerDutyAlertTask:
         for orig, retr in zip(original.config.alerts, retrieved.config.alerts):
             assert retr.status == orig.status
             assert retr.disabled == orig.disabled
-            assert retr.treat_error_as_critical == orig.treat_error_as_critical
+            assert retr.errors_critical == orig.errors_critical
             assert retr.component == orig.component
