@@ -363,15 +363,17 @@ func (t *Transport) Configure(
 			return err
 		}
 	}
-	t.lis = lis
 	var port string
 	if _, port, err = net.SplitHostPort(lis.Addr().String()); err != nil {
-		return errors.Wrapf(
+		// Configure owns the listener even on this path, so release it instead of
+		// returning an error that leaves the address bound.
+		return errors.Combine(errors.Wrapf(
 			validate.ErrValidation,
 			"listener address %q has no port",
 			lis.Addr(),
-		)
+		), lis.Close())
 	}
+	t.lis = lis
 	t.addr = address.Newf("%s:%s", addr.Host(), port)
 	return nil
 }

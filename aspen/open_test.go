@@ -90,11 +90,11 @@ var _ = Describe("WithListener", func() {
 		},
 	)
 	It(
-		"Should return an error when the listener address has no port",
+		"Should reject and close a listener whose address has no port",
 		func(ctx SpecContext) {
-			lis := DeferClose(portlessListener{
+			lis := portlessListener{
 				Listener: MustSucceed(net.Listen("tcp", "localhost:0")),
-			})
+			}
 			Expect(aspen.Open(
 				ctx,
 				"",
@@ -104,6 +104,9 @@ var _ = Describe("WithListener", func() {
 				aspen.InMemory(),
 				aspen.WithListener(lis),
 			)).Error().To(MatchError(validate.ErrValidation))
+
+			By("Releasing the listener instead of leaving the address bound")
+			Expect(lis.Close()).To(MatchError(net.ErrClosed))
 		},
 	)
 })
