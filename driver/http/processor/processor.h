@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
 #include <deque>
 #include <future>
 #include <mutex>
@@ -43,7 +44,8 @@ public:
 
     /// @brief executes requests in parallel and blocks until all complete.
     /// @param requests the requests to execute concurrently.
-    /// @returns per-request response/error pairs.
+    /// @returns per-request response/error pairs. A request queued behind an
+    /// unreachable device fails with SKIPPED_ERROR without being sent.
     [[nodiscard]] std::vector<std::pair<Response, x::errors::Error>>
     execute(const std::vector<Request> &requests);
 
@@ -60,6 +62,7 @@ private:
         std::string response_body;
         struct curl_slist *headers = nullptr;
         Method method;
+        std::string base_url;
         x::telem::TimeStamp start;
     };
 
@@ -67,6 +70,13 @@ private:
     struct PendingRequest {
         const Request *request;
         std::promise<std::pair<Response, x::errors::Error>> promise;
+    };
+
+    /// @brief in-flight count and requests waiting for a slot on one base URL.
+    struct Gate {
+        std::size_t in_flight = 0;
+        std::deque<PendingRequest> waiting;
+        x::telem::TimeStamp last_reached{0};
     };
 
     /// @brief event loop that processes pending requests and drives curl transfers.
@@ -79,11 +89,22 @@ private:
     /// @brief creates a curl easy handle from a Request and ActiveTransfer.
     static CURL *create_handle(const Request &req, ActiveTransfer &t);
 
+    /// @brief starts the transfer for p on gate, false if no curl handle could be made.
+    bool dispatch(PendingRequest &&p, Gate &gate);
+
+    /// @brief detaches and destroys a transfer's curl handle.
+    void finish(CURL *handle, const ActiveTransfer &t);
+
+    /// @brief fails every active and waiting request with err.
+    void fail_all(const x::errors::Error &err);
+
     CURLM *multi = nullptr;
     std::thread io_thread;
     std::atomic<bool> running{true};
     std::mutex queue_mutex;
     std::deque<PendingRequest> pending;
     std::unordered_map<CURL *, ActiveTransfer> active;
+    /// @brief per base URL gates, touched only by the event loop thread.
+    std::unordered_map<std::string, Gate> gates;
 };
 }

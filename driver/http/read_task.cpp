@@ -233,11 +233,15 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     common::ReadResult res;
     this->sample_clock.wait(breaker);
 
+    const auto tick_start = x::telem::TimeStamp::now();
     auto results = this->processor->execute(this->requests);
+    const auto tick = x::telem::TimeStamp::now() - tick_start;
 
     fr.reserve(this->cfg.channels.size() + this->cfg.software_timed_indexes.size());
 
     std::vector<std::string> warnings;
+    std::size_t skipped = 0;
+    std::size_t failed = 0;
 
     // Parse all response bodies up front so sampling groups can reference them.
     std::vector<bool> ep_parsed(this->cfg.endpoints.size(), false);
@@ -245,7 +249,13 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         const auto &ep = this->cfg.endpoints[ei];
         auto &[resp, req_err] = results[ei];
 
+        if (req_err.matches(errors::SKIPPED_ERROR)) {
+            skipped++;
+            continue;
+        }
+
         if (req_err) {
+            failed++;
             const auto &req = requests[ei];
             warnings.push_back(
                 std::string(to_string(req.method)) + " " + req.url +
@@ -272,6 +282,19 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             );
         }
     }
+    if (skipped > 0)
+        warnings.push_back(
+            std::to_string(skipped) + " requests not sent, the device was unreachable"
+        );
+    if (failed == 0 && skipped == 0 && !this->requests.empty() &&
+        this->requests.size() > this->requests.front().max_concurrent_requests &&
+        tick > this->cfg.rate.period())
+        warnings.push_back(
+            std::to_string(this->requests.size()) + " endpoints polled " +
+            std::to_string(this->requests.front().max_concurrent_requests) +
+            " at a time overran the period, lower the rate or raise max concurrent "
+            "requests on the device"
+        );
 
     // Process each sampling group atomically: either all fields in the group succeed
     // and are written to the frame, or the entire group is skipped.

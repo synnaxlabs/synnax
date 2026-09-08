@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -1520,6 +1522,148 @@ TEST(HTTPReadTask, RepeatedReads) {
         EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
     }
     breaker.stop();
+}
+
+namespace {
+/// @brief builds a config with one numeric field per path, all on channel keys 1..N.
+ReadTaskConfig make_multi_endpoint_cfg(
+    const std::vector<std::string> &paths,
+    const x::telem::Rate rate
+) {
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving_disabled = true;
+    cfg.auto_start = false;
+    cfg.rate = rate;
+    for (std::size_t i = 0; i < paths.size(); i++) {
+        const auto key = static_cast<synnax::channel::Key>(i + 1);
+        ReadField field;
+        field.pointer = "/value";
+        field.channel = key;
+        ReadEndpoint ep;
+        ep.method = "GET";
+        ep.path = paths[i];
+        ep.body = "";
+        ep.fields = {field};
+        cfg.endpoints.push_back(ep);
+        cfg.channels[key] = {
+            .key = key,
+            .name = "value" + std::to_string(key),
+            .data_type = x::telem::FLOAT64_T,
+        };
+    }
+    return cfg;
+}
+
+mock::Route value_route(const std::string &path, const x::telem::TimeSpan &delay) {
+    return {
+        .method = Method::GET,
+        .path = path,
+        .status_code = 200,
+        .response_body = R"({"value": 1.0})",
+        .delay = delay,
+    };
+}
+}
+
+/// @brief endpoints not sent because the device was unreachable should collapse into
+/// one warning.
+TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneWarning) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                value_route("/slow", 2 * x::telem::SECOND),
+                value_route("/a", x::telem::TimeSpan::ZERO()),
+                value_route("/b", x::telem::TimeSpan::ZERO()),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/slow", "/a", "/b"}, x::telem::Rate(10000));
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"timeout_ms", 100}, {"max_concurrent_requests", 1}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 0);
+    EXPECT_NE(res.warning.find("/slow"), std::string::npos);
+    EXPECT_NE(res.warning.find("2 requests not sent"), std::string::npos);
+    EXPECT_EQ(res.warning.find("/a"), std::string::npos);
+    EXPECT_EQ(res.warning.find("polled"), std::string::npos);
+}
+
+/// @brief more endpoints than slots overrunning the period should warn about the
+/// cap.
+TEST(HTTPReadTask, CapWarningWhenPollOverrunsPeriod) {
+    const auto delay = 30 * x::telem::MILLISECOND;
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                value_route("/a", delay),
+                value_route("/b", delay),
+                value_route("/c", delay),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b", "/c"}, x::telem::Rate(100));
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"max_concurrent_requests", 1}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 3);
+    EXPECT_NE(res.warning.find("3 endpoints polled 1 at a time"), std::string::npos);
+}
+
+/// @brief more endpoints than slots finishing within the period should not warn.
+TEST(HTTPReadTask, NoCapWarningWithinPeriod) {
+    const auto delay = 30 * x::telem::MILLISECOND;
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                value_route("/a", delay),
+                value_route("/b", delay),
+                value_route("/c", delay),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b", "/c"}, x::telem::Rate(2));
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"max_concurrent_requests", 1}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 3);
+    EXPECT_TRUE(res.warning.empty());
 }
 
 /// @brief it should skip disabled fields and only return enabled ones.

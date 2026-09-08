@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <memory>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -33,6 +38,28 @@ Request make_request(
         .url = base_url + path,
         .method = method,
         .timeout = TIMEOUT,
+    };
+}
+
+Request make_gated_request(
+    const std::string &base_url,
+    const std::string &path,
+    const std::size_t cap
+) {
+    auto req = make_request(base_url, path);
+    req.base_url = base_url;
+    req.max_concurrent_requests = cap;
+    return req;
+}
+
+mock::Route delayed_route(const std::string &path, const x::telem::TimeSpan &delay) {
+    return {
+        .method = Method::GET,
+        .path = path,
+        .status_code = 200,
+        .response_body = "ok",
+        .content_type = "text/plain",
+        .delay = delay,
     };
 }
 }
@@ -1590,6 +1617,186 @@ TEST(ProcessorTest, MultiThreadedParallelBatches) {
     // Even threads: 2 threads * 3 iters * 2 requests = 12.
     // Odd threads: 2 threads * 3 iters * 1 request = 6.
     EXPECT_EQ(success_count.load(), 18);
+
+    server.stop();
+}
+
+TEST(ProcessorTest, GateRunsRequestsAboveCapInOrder) {
+    const auto delay = 30 * x::telem::MILLISECOND;
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        delayed_route("/a", delay),
+        delayed_route("/b", delay),
+        delayed_route("/c", delay),
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server.base_url(), "/a", 1),
+        make_gated_request(server.base_url(), "/b", 1),
+        make_gated_request(server.base_url(), "/c", 1),
+    };
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 3);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    EXPECT_GE(results[1].first.time_range.start, results[0].first.time_range.end);
+    EXPECT_GE(results[2].first.time_range.start, results[1].first.time_range.end);
+
+    auto received = server.received_requests();
+    ASSERT_EQ(received.size(), 3);
+    EXPECT_EQ(received[0].path, "/a");
+    EXPECT_EQ(received[1].path, "/b");
+    EXPECT_EQ(received[2].path, "/c");
+
+    server.stop();
+}
+
+TEST(ProcessorTest, GateRunsUpToCapInParallel) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        delayed_route("/a", delay),
+        delayed_route("/b", delay),
+        delayed_route("/c", delay),
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server.base_url(), "/a", 2),
+        make_gated_request(server.base_url(), "/b", 2),
+        make_gated_request(server.base_url(), "/c", 2),
+    };
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 3);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    const auto &a = results[0].first.time_range;
+    const auto &b = results[1].first.time_range;
+    const auto &c = results[2].first.time_range;
+    EXPECT_LT(b.start, a.end);
+    EXPECT_GE(c.start, std::min(a.end, b.end));
+
+    server.stop();
+}
+
+TEST(ProcessorTest, GateIsPerBaseURL) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    mock::ServerConfig cfg_a;
+    cfg_a.routes = {delayed_route("/a", delay)};
+    mock::Server server_a(cfg_a);
+    ASSERT_NIL(server_a.start());
+
+    mock::ServerConfig cfg_b;
+    cfg_b.routes = {delayed_route("/b", delay)};
+    mock::Server server_b(cfg_b);
+    ASSERT_NIL(server_b.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server_a.base_url(), "/a", 1),
+        make_gated_request(server_b.base_url(), "/b", 1),
+    };
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 2);
+    ASSERT_NIL(results[0].second);
+    ASSERT_NIL(results[1].second);
+    EXPECT_LT(results[1].first.time_range.start, results[0].first.time_range.end);
+
+    server_a.stop();
+    server_b.stop();
+}
+
+TEST(ProcessorTest, UnreachableSkipsWaitingRequests) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        delayed_route("/slow", 2 * x::telem::SECOND),
+        delayed_route("/a", x::telem::TimeSpan::ZERO()),
+        delayed_route("/b", x::telem::TimeSpan::ZERO()),
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server.base_url(), "/slow", 1),
+        make_gated_request(server.base_url(), "/a", 1),
+        make_gated_request(server.base_url(), "/b", 1),
+    };
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 3);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
+    ASSERT_OCCURRED_AS_P(results[1], errors::SKIPPED_ERROR);
+    ASSERT_OCCURRED_AS_P(results[2], errors::SKIPPED_ERROR);
+    EXPECT_EQ(server.received_requests().size(), 1);
+
+    const auto resp = ASSERT_NIL_P(
+        proc.execute(make_gated_request(server.base_url(), "/a", 1))
+    );
+    EXPECT_EQ(resp.status_code, 200);
+
+    server.stop();
+}
+
+TEST(ProcessorTest, UnreachableKeepsWaitingRequestsWhenDeviceResponds) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        delayed_route("/slow", 2 * x::telem::SECOND),
+        delayed_route("/fast", 50 * x::telem::MILLISECOND),
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    auto slow = make_gated_request(server.base_url(), "/slow", 2);
+    slow.timeout = 300 * x::telem::MILLISECOND;
+    std::vector<Request> reqs = {slow};
+    for (int i = 0; i < 10; i++)
+        reqs.push_back(make_gated_request(server.base_url(), "/fast", 2));
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 11);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
+    for (std::size_t i = 1; i < results.size(); i++) {
+        const auto &resp = ASSERT_NIL_P(results[i]);
+        EXPECT_EQ(resp.status_code, 200);
+    }
+    EXPECT_EQ(server.received_requests().size(), 11);
+
+    server.stop();
+}
+
+TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {delayed_route("/slow", 2 * x::telem::SECOND)};
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs;
+    for (int i = 0; i < 3; i++) {
+        auto req = make_gated_request(server.base_url(), "/slow", 1);
+        req.timeout = 5 * x::telem::SECOND;
+        reqs.push_back(req);
+    }
+
+    auto proc = std::make_unique<Processor>();
+    std::vector<std::pair<Response, x::errors::Error>> results;
+    std::thread caller([&] { results = proc->execute(reqs); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    proc.reset();
+    caller.join();
+
+    ASSERT_EQ(results.size(), 3);
+    for (const auto &result: results)
+        ASSERT_OCCURRED_AS_P(result, errors::CRITICAL_ERROR);
 
     server.stop();
 }
