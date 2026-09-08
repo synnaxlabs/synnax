@@ -114,8 +114,8 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 	return func(o *options) { o.Instrumentation = i }
 }
 
-// InMemory sets Aspen to use a memory-backed key-value engine. This option is ignored if a
-// custom key-value engine is set (using WithEngine).
+// InMemory sets Aspen to use a memory-backed key-value engine. This option is ignored
+// if a custom key-value engine is set (using WithEngine).
 func InMemory() Option {
 	return func(o *options) { o.dirname = ""; o.fs = vfs.NewMem() }
 }
