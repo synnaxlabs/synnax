@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <condition_variable>
 #include <mutex>
 #include <stdexcept>
 #include <thread>
@@ -28,6 +29,8 @@ struct Server::Impl {
     std::unique_ptr<httplib::Server> svr;
     std::thread thread;
     std::atomic<bool> running{false};
+    std::mutex stop_mu;
+    std::condition_variable stop_cv;
     std::string host;
     bool secure;
     std::string cert_path;
@@ -96,8 +99,13 @@ struct Server::Impl {
                         route,
                         counter](const httplib::Request &req, httplib::Response &res) {
             log_request(req);
-            if (route.delay > x::telem::TimeSpan::ZERO())
-                std::this_thread::sleep_for(route.delay.chrono());
+            if (route.delay > x::telem::TimeSpan::ZERO()) {
+                // Wakes on stop so tests never wait out a long route.
+                std::unique_lock lock(this->stop_mu);
+                this->stop_cv.wait_for(lock, route.delay.chrono(), [this] {
+                    return !this->running.load();
+                });
+            }
             if (!route.redirect_to.empty()) {
                 res.status = route.status_code;
                 res.set_redirect(route.redirect_to, route.status_code);
@@ -183,7 +191,11 @@ x::errors::Error Server::start() {
 
 void Server::stop() {
     if (!this->impl->running) return;
-    this->impl->running = false;
+    {
+        std::lock_guard lock(this->impl->stop_mu);
+        this->impl->running = false;
+    }
+    this->impl->stop_cv.notify_all();
     this->impl->svr->stop();
     if (this->impl->thread.joinable()) this->impl->thread.join();
 }

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <map>
 #include <set>
 #include <string>
@@ -119,10 +120,17 @@ struct RequestConfig {
     std::string request_content_type;
 };
 
+/// @brief default cap on in-flight requests sharing a base URL.
+constexpr std::size_t DEFAULT_MAX_CONCURRENT_REQUESTS = 6;
+
 /// @brief a fully resolved HTTP request.
 struct Request {
     /// @brief fully resolved URL (base + path + query params).
     std::string url;
+    /// @brief device base URL, the key for the processor's in-flight cap.
+    std::string base_url;
+    /// @brief cap on in-flight requests sharing base_url.
+    std::size_t max_concurrent_requests = DEFAULT_MAX_CONCURRENT_REQUESTS;
     /// @brief HTTP method.
     Method method;
     /// @brief request timeout.

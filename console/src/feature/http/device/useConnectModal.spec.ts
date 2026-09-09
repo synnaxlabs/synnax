@@ -43,6 +43,36 @@ describe("useConnectModal", () => {
     await screen.findByDisplayValue("tok_existing_123");
   });
 
+  it("should default max concurrent requests to 6 for a new device", async () => {
+    await renderConnectModal();
+    expect(screen.getByText("Max concurrent requests")).toBeTruthy();
+    expect(await screen.findByDisplayValue("6")).toBeTruthy();
+  });
+
+  it("should populate max concurrent requests from an existing device", async () => {
+    const dev = await createHTTPDevice(client, {
+      properties: { maxConcurrentRequests: 3 },
+    });
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    expect(await screen.findByDisplayValue("3")).toBeTruthy();
+  });
+
+  it("should clamp max concurrent requests to at least 1", async () => {
+    const dev = await createHTTPDevice(client, {
+      properties: { maxConcurrentRequests: 3 },
+    });
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    const input = await screen.findByDisplayValue("3");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("1"));
+  });
+
   it("should reveal the token field for bearer auth", async () => {
     await renderConnectModal();
     clickAuthButton("Bearer token");
