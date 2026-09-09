@@ -43,6 +43,20 @@ describe("useConnectModal", () => {
     await screen.findByDisplayValue("tok_existing_123");
   });
 
+  it("should open a device saved without a validateResponse flag", async () => {
+    const dev = await createHTTPDevice(client, {
+      properties: {
+        healthCheck: { method: "GET", path: "/health" } as HTTP.Device.HealthCheck,
+      },
+    });
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    expect(await screen.findByDisplayValue("/health")).toBeTruthy();
+    expect(getSwitchInput("Validate response body").checked).toBe(false);
+  });
+
   it("should default max concurrent requests to 6 for a new device", async () => {
     await renderConnectModal();
     expect(screen.getByText("Max concurrent requests")).toBeTruthy();
