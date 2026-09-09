@@ -178,6 +178,12 @@ export const healthCheckZ = z.discriminatedUnion("method", [
 
 export type HealthCheck = z.infer<typeof healthCheckZ>;
 
+// A missing validateResponse means whatever the presence of a response says.
+const fillValidateResponse = (v: unknown): unknown =>
+  typeof v === "object" && v != null && !("validateResponse" in v)
+    ? { ...v, validateResponse: "response" in v && v.response != null }
+    : v;
+
 export const ZERO_HEALTH_CHECK = {
   method: "GET",
   path: "",
@@ -202,8 +208,14 @@ const v0PropertiesZ = z.object({
   readIndexes: z.record(z.string(), channel.keyZ),
 });
 
+// Anything that is not a channel key reads as no index.
+const storedIndexZ = z.preprocess(
+  (v) => (channel.keyZ.safeParse(v).success ? v : 0),
+  channel.keyZ,
+);
+
 const readEndpointPropsZ = z.object({
-  index: channel.keyZ,
+  index: storedIndexZ,
   channels: z.record(z.string(), channel.keyZ),
 });
 
@@ -218,7 +230,9 @@ const v1PropertiesZ = v0PropertiesZ
       .int()
       .positive("Max concurrent requests must be at least 1")
       .default(defaultMaxConcurrentRequests),
-    healthCheck: healthCheckZ.default(ZERO_HEALTH_CHECK),
+    healthCheck: z
+      .preprocess(fillValidateResponse, healthCheckZ)
+      .default(ZERO_HEALTH_CHECK),
     write: z.record(z.string(), channel.keyZ).default({}),
     read: z.record(z.string(), readEndpointPropsZ).default({}),
     version: z.literal(1),

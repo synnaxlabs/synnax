@@ -899,6 +899,52 @@ class TestHTTPDevicePropertyUpdates:
         ep_props = props["read"]["/api/v1/data"]
         assert ep_props["channels"]["/temperature"] == temp_ch.key
         assert ep_props["channels"]["/pressure"] == pres_ch.key
+        assert ep_props["index"] == 0
+
+    def test_read_task_stores_index_channel_key(self, client: sy.Synnax):
+        """A value-timed endpoint stores its index field's channel key."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.http.Device(
+            host="127.0.0.1:8080",
+            secure=False,
+            name="Test HTTP Read Index Device",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+
+        suffix = random_name()
+        time_ch = client.channels.create(
+            name=f"http_time_{suffix}",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        temp_ch = client.channels.create(
+            name=f"http_temp_{suffix}",
+            data_type=sy.DataType.FLOAT64,
+            index=time_ch.key,
+        )
+        time_field = sy.http.ReadField(
+            pointer="/timestamp", channel=time_ch.key, time_format="unix_sec"
+        )
+        task = sy.http.ReadTask(
+            name="Test HTTP Read Index",
+            device=device.key,
+            rate=1.0,
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/api/v1/data",
+                    index=time_field.key,
+                    fields=[
+                        time_field,
+                        sy.http.ReadField(pointer="/temperature", channel=temp_ch.key),
+                    ],
+                ),
+            ],
+        )
+        task.update_device_properties(client.devices)
+
+        ep_props = client.devices.retrieve(key=device.key).properties["read"]
+        assert ep_props["/api/v1/data"]["index"] == time_ch.key
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a WriteTask updates device properties."""

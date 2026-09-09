@@ -114,11 +114,11 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             props["read"] = {}
         for ep in self.config.endpoints:
             channels: dict[str, int] = {}
-            index_key: str | None = None
+            index_key = 0
             for field in ep.fields:
                 channels[field.pointer] = field.channel
                 if ep.index != "" and field.key == ep.index:
-                    index_key = field.key
+                    index_key = field.channel
             props["read"][ep.path] = {"index": index_key, "channels": channels}
         dev.properties = props
         return device_client.create(dev)
