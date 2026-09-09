@@ -10,12 +10,13 @@
 import { device, NotFoundError, query, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, type record } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Device } from "@/device";
+import { Errors } from "@/errors";
 import { Status } from "@/status";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -1504,6 +1505,71 @@ describe("queries", () => {
 
         const retrieved = await client.devices.retrieve(dev.key);
         expect(retrieved.name).toBe("updated-schema-device");
+      });
+
+      it("should apply schema defaults to a generically cached device", async () => {
+        const defaultedSchemas = {
+          properties: z.object({
+            connection: z.object({ host: z.string() }).default({ host: "" }),
+          }),
+          make: z.string(),
+          model: z.string(),
+        };
+        const rack = await client.racks.create({ name: "schema-form-rack" });
+        const dev = await client.devices.create({
+          key: id.create(),
+          name: "generic_cached_form_device",
+          rack: rack.key,
+          location: "test",
+          make: "custom_make",
+          model: "test",
+          properties: {},
+        });
+
+        const useForm = Device.createForm(defaultedSchemas);
+        const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
+          wrapper,
+        });
+
+        await waitFor(() => {
+          expect(result.current.form.value().name).toBe("generic_cached_form_device");
+        });
+        expect(result.current.form.value().properties).toEqual({
+          connection: { host: "" },
+        });
+      });
+
+      it("should not seed the form from a cached device that fails the schemas", async () => {
+        const rack = await client.racks.create({ name: "schema-form-rack" });
+        const dev = await client.devices.create({
+          key: id.create(),
+          name: "generic_cached_invalid_device",
+          rack: rack.key,
+          location: "test",
+          make: "custom_make",
+          model: "test",
+          properties: {},
+        });
+
+        const useForm = Device.createForm(schemas);
+        const Display = (): ReactElement => {
+          useForm({ query: { key: dev.key } });
+          return <div data-testid="loaded" />;
+        };
+        let utils!: ReturnType<typeof render>;
+        await act(async () => {
+          utils = render(
+            <Errors.SuspenseBoundary
+              loading={<div>loading</div>}
+              FallbackComponent={() => <div data-testid="error" />}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>,
+            { wrapper },
+          );
+        });
+        await waitFor(() => expect(utils.queryByTestId("error")).not.toBeNull());
+        expect(utils.queryByTestId("loaded")).toBeNull();
       });
 
       it("should not reset the form when a different device is set", async () => {

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/telem/control/Legend.css";
+
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type color, type state, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
@@ -152,27 +154,29 @@ const LegendEntry = ({
         value={entryColor}
         onVisibleChange={onColorPickerVisibleChange}
       />
-      <Text.Text level="small" color={10} overflow="nowrap">
-        {parsed.primary}
-      </Text.Text>
-      {parsed.secondary != null && (
-        <>
+      {parsed.secondary == null ? (
+        <Text.Text level="small" color={10} overflow="nowrap">
+          {parsed.primary}
+        </Text.Text>
+      ) : (
+        <Flex.Box className={CSS.BE("legend-entry", "subject")} gap="small" x>
           <Text.Text
+            className={CSS.cls(CSS.BE("legend-entry", "user"), isSelf && CSS.M("self"))}
             level="small"
-            color="var(--pluto-gray-l10-80)"
             overflow="nowrap"
             gap="tiny"
-            weight={450}
           >
             <Icon.User />
             {parsed.secondary}
           </Text.Text>
-          {isSelf && (
-            <Text.Text level="small" status="success">
-              {isSelf && "you"}
-            </Text.Text>
-          )}
-        </>
+          <Text.Text
+            className={CSS.BE("legend-entry", "name")}
+            level="small"
+            overflow="nowrap"
+          >
+            {parsed.primary}
+          </Text.Text>
+        </Flex.Box>
       )}
     </Flex.Box>
   );
