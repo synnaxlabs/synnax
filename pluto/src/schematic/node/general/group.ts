@@ -31,5 +31,6 @@ export const GROUP: Group = {
     "polygon",
     "circle",
     "box",
+    "line",
   ],
 };

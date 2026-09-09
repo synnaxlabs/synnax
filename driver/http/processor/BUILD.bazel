@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -25,6 +26,18 @@ cc_library(
     ],
 )
 
+cc_binary(
+    name = "processor_bench",
+    srcs = ["processor_bench.cpp"],
+    deps = [
+        ":processor",
+        "//driver/http/errors",
+        "//driver/http/mock",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
+    ],
+)
+
 cc_test(
     name = "processor_test",
     srcs = ["processor_test.cpp"],
@@ -32,6 +45,7 @@ cc_test(
         "//driver/http/mock:test_cert.pem",
         "//driver/http/mock:test_key.pem",
     ],
+    shard_count = 4,
     visibility = ["//visibility:public"],
     deps = [
         ":processor",

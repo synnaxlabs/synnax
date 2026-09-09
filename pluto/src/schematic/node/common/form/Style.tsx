@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Errors } from "@/errors";
@@ -39,7 +40,7 @@ export const StyleForm = ({
       <Flex.Box y grow>
         <Label.Form omit={omit} path="label" />
         <Flex.Box x grow>
-          {!hasStateOverrides && <ColorField path="color" optional />}
+          {!hasStateOverrides && <ColorField path="color" defaultValue={color.ZERO} />}
           <Form.SwitchField
             path="normallyOpen"
             label="Normally open"
