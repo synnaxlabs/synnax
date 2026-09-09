@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <string>
 #include <utility>
 
@@ -194,6 +195,7 @@ void Processor::fail_all(const x::errors::Error &err) {
         for (auto &p: gate.waiting)
             p.promise.set_value({Response{}, err});
     this->gates.clear();
+    this->touched.clear();
 }
 
 void Processor::run() {
@@ -203,9 +205,10 @@ void Processor::run() {
             std::lock_guard lock(this->queue_mutex);
             while (!this->pending.empty()) {
                 auto &p = this->pending.front();
-                auto [gate_it, _] = this->gates.try_emplace(p.request->base_url);
+                auto [gate_it, opened] = this->gates.try_emplace(p.request->base_url);
                 auto &gate = gate_it->second;
-                if (gate.in_flight >= p.request->max_concurrent_requests)
+                if (opened) gate.cap = p.request->max_concurrent_requests;
+                if (gate.in_flight >= gate.cap)
                     gate.waiting.push_back(std::move(p));
                 else if (
                     !this->dispatch(std::move(p), gate) && gate.in_flight == 0 &&
@@ -254,20 +257,33 @@ void Processor::run() {
 
             auto &gate = gate_it->second;
             gate.in_flight--;
-            if (!unreachable) gate.last_reached = x::telem::TimeStamp::now();
+            if (unreachable)
+                gate.unreachable_start = std::max(gate.unreachable_start, start);
+            else
+                gate.last_reached = x::telem::TimeStamp::now();
+            if (!gate.touched) this->touched.push_back(gate_it);
+            gate.touched = true;
+        }
+
+        // Skips wait for the whole batch so a success read after a timeout counts.
+        for (const auto gate_it: this->touched) {
+            auto &gate = gate_it->second;
+            gate.touched = false;
             // A dead device fails its queue now, not one timeout at a time.
-            if (unreachable && gate.last_reached < start) {
+            if (gate.last_reached < gate.unreachable_start) {
                 for (auto &p: gate.waiting)
                     p.promise.set_value({Response{}, SKIPPED});
                 gate.waiting.clear();
             }
-            while (!gate.waiting.empty()) {
+            gate.unreachable_start = x::telem::TimeStamp(0);
+            while (gate.in_flight < gate.cap && !gate.waiting.empty()) {
                 auto next = std::move(gate.waiting.front());
                 gate.waiting.pop_front();
-                if (this->dispatch(std::move(next), gate)) break;
+                this->dispatch(std::move(next), gate);
             }
             if (gate.in_flight == 0 && gate.waiting.empty()) this->gates.erase(gate_it);
         }
+        this->touched.clear();
 
         if (!this->active.empty())
             curl_multi_poll(

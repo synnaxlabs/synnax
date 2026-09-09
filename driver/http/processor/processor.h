@@ -81,10 +81,17 @@ private:
 
     /// @brief in-flight count and requests waiting for a slot on one base URL.
     struct Gate {
+        /// @brief cap taken from the first request that opened the gate.
+        std::size_t cap = 0;
         std::size_t in_flight = 0;
         std::deque<PendingRequest> waiting;
         x::telem::TimeStamp last_reached{0};
+        /// @brief latest dispatch time among this batch's unreachable results.
+        x::telem::TimeStamp unreachable_start{0};
+        bool touched = false;
     };
+
+    using GateIter = std::unordered_map<std::string, Gate>::iterator;
 
     /// @brief event loop that processes pending requests and drives curl transfers.
     void run();
@@ -114,5 +121,7 @@ private:
     std::unordered_map<CURL *, ActiveTransfer> active;
     /// @brief per base URL gates, touched only by the event loop thread.
     std::unordered_map<std::string, Gate> gates;
+    /// @brief gates with completions in the current batch.
+    std::vector<GateIter> touched;
 };
 }

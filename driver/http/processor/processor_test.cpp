@@ -1987,4 +1987,71 @@ TEST(ProcessorTest, ShutdownWakesActivePoll) {
     server.stop();
 }
 
+TEST(ProcessorTest, GateKeepsCapOfFirstRequest) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        delayed_route("/a", delay),
+        delayed_route("/b", delay),
+        delayed_route("/c", delay),
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server.base_url(), "/a", 1),
+        make_gated_request(server.base_url(), "/b", 3),
+        make_gated_request(server.base_url(), "/c", 3),
+    };
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 3);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    const auto &a = results[0].first.time_range;
+    const auto &b = results[1].first.time_range;
+    const auto &c = results[2].first.time_range;
+    EXPECT_GE(b.start, a.end);
+    EXPECT_GE(c.start, b.end);
+
+    server.stop();
+}
+
+TEST(ProcessorTest, GateRefillsEverySlotFreedInOneBatch) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    mock::ServerConfig server_cfg;
+    server_cfg.routes = {
+        delayed_route("/a", delay),
+        delayed_route("/b", delay),
+        delayed_route("/c", delay),
+        delayed_route("/d", delay),
+    };
+    mock::Server server(server_cfg);
+    ASSERT_NIL(server.start());
+
+    std::vector<Request> reqs = {
+        make_gated_request(server.base_url(), "/a", 2),
+        make_gated_request(server.base_url(), "/b", 2),
+        make_gated_request(server.base_url(), "/c", 2),
+        make_gated_request(server.base_url(), "/d", 2),
+    };
+
+    Processor proc;
+    const auto start = std::chrono::steady_clock::now();
+    const auto results = proc.execute(reqs);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+    ASSERT_EQ(results.size(), 4);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    const auto first_end = std::min(
+        results[0].first.time_range.end,
+        results[1].first.time_range.end
+    );
+    EXPECT_GE(results[2].first.time_range.start, first_end);
+    EXPECT_GE(results[3].first.time_range.start, first_end);
+
+    server.stop();
+}
+
 }
