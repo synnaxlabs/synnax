@@ -530,19 +530,14 @@ func (s *Server) getCompletionItems(
 		case NestingTopLevel, NestingStageBody, NestingSequenceBody:
 			execFilter = symbol.ExecFlow
 		}
-		modulePrefix := ""
-		if dotIdx := strings.LastIndex(prefix, "."); dotIdx >= 0 {
-			modulePrefix = prefix[:dotIdx+1]
-		}
+		moduleName, memberPrefix, qualified := strings.CutLast(prefix, ".")
 		startChar := pos.Character - uint32(len(prefix))
-		if modulePrefix != "" {
+		if qualified {
 			// Module-qualified prefix (e.g. "math." or "time.n"): find the
 			// module by name, prefer the document's scope tree (so user
 			// imports are respected); fall back to the STL ambient prelude
 			// so completion still works when the document hasn't yet been
 			// analyzed (e.g. mid-typing "math.").
-			moduleName := strings.TrimSuffix(modulePrefix, ".")
-			memberPrefix := prefix[len(modulePrefix):]
 			var mod *symbol.Symbol
 			if scopeAtCursor := doc.findScopeAtPosition(pos); scopeAtCursor != nil {
 				mod, _ = scopeAtCursor.Resolve(
@@ -585,7 +580,7 @@ func (s *Server) getCompletionItems(
 						!strings.HasPrefix(sym.Name, memberPrefix) {
 						continue
 					}
-					qualifiedName := modulePrefix + sym.Name
+					qualifiedName := moduleName + "." + sym.Name
 					item := symbolCompletionItem(sym)
 					item.FilterText = protocol.NewOptional(qualifiedName)
 					item.TextEdit = &protocol.TextEdit{
