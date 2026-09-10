@@ -380,25 +380,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
 
-		It("Should handle invalid downsampling factors", func(ctx SpecContext) {
-			ch := &channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.Float32T,
-				Virtual:  true,
-			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
-			keys := []channel.Key{ch.Key()}
-
-			_, err := streamerSvc.New(ctx, streamer.Config{
-				Keys:             keys,
-				SendOpenAck:      true,
-				DownsampleFactor: -2,
-			})
-			Expect(
-				err,
-			).To(MatchError(ContainSubstring("downsample_factor: must be greater than or equal to 0")))
-		})
-
 		It(
 			"Should correctly combine downsampling with calculations",
 			func(ctx SpecContext) {
@@ -487,7 +468,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			total  channel.Key
 		}
 
-		openStateful := func(ctx SpecContext, factor int) statefulStream {
+		openStateful := func(ctx SpecContext, factor uint32) statefulStream {
 			GinkgoHelper()
 			indexCh := &channel.Channel{
 				Name:     UniqueChannelName(),

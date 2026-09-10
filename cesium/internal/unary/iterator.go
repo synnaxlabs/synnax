@@ -32,7 +32,7 @@ type IteratorConfig struct {
 	// DownsampleFactor keeps every n-th sample of each series the iterator reads,
 	// striding the read so the discarded samples are never materialized. Values below
 	// 2 keep every sample.
-	DownsampleFactor int
+	DownsampleFactor uint32
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {

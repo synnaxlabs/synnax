@@ -97,7 +97,7 @@ var _ = Describe("Downsampled Iteration", func() {
 			readAll := func(
 				ctx SpecContext,
 				db *unary.DB,
-				factor int,
+				factor uint32,
 			) []telem.Series {
 				GinkgoHelper()
 				cfg := unary.IterRange(telem.TimeRangeMax)
@@ -115,7 +115,7 @@ var _ = Describe("Downsampled Iteration", func() {
 			}
 
 			DescribeTable("Fixed-density channels",
-				func(ctx SpecContext, count, factor int, expected []int64) {
+				func(ctx SpecContext, count int, factor uint32, expected []int64) {
 					writeInt64(ctx, telem.SecondTS, count)
 					series := readAll(ctx, dataDB, factor)
 					Expect(series).To(HaveLen(1))
@@ -124,37 +124,37 @@ var _ = Describe("Downsampled Iteration", func() {
 				Entry(
 					"Should keep every other sample",
 					8,
-					2,
+					uint32(2),
 					[]int64{1, 3, 5, 7},
 				),
 				Entry(
 					"Should keep every third sample",
 					9,
-					3,
+					uint32(3),
 					[]int64{1, 4, 7},
 				),
 				Entry(
 					"Should keep every sample when the factor is one",
 					4,
-					1,
+					uint32(1),
 					[]int64{1, 2, 3, 4},
 				),
 				Entry(
 					"Should keep every sample when the factor is unset",
 					4,
-					0,
+					uint32(0),
 					[]int64{1, 2, 3, 4},
 				),
 				Entry(
 					"Should keep the first sample when the factor exceeds the count",
 					4,
-					10,
+					uint32(10),
 					[]int64{1},
 				),
 				Entry(
 					"Should keep the first sample when the factor is unbounded",
 					4,
-					math.MaxInt,
+					uint32(math.MaxUint32),
 					[]int64{1},
 				),
 			)

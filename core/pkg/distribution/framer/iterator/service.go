@@ -53,7 +53,7 @@ type Config struct {
 	// memory. Values below 2 keep every sample.
 	//
 	// [OPTIONAL]
-	DownsampleFactor int
+	DownsampleFactor uint32
 }
 
 // Validate ensures that Keys is non-empty and contains no free channels, which cannot

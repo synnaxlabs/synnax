@@ -183,7 +183,7 @@ func (IteratorRequestTranslator) Backward(
 		Keys:             channel.KeysFromUint32(req.Keys),
 		ChunkSize:        req.ChunkSize,
 		SeqNum:           int(req.SeqNum),
-		DownsampleFactor: int(req.DownsampleFactor),
+		DownsampleFactor: req.DownsampleFactor,
 	}, nil
 }
 
@@ -204,7 +204,7 @@ func (IteratorRequestTranslator) Forward(
 		Keys:             req.Keys.Uint32(),
 		ChunkSize:        req.ChunkSize,
 		SeqNum:           int32(req.SeqNum),
-		DownsampleFactor: int32(req.DownsampleFactor),
+		DownsampleFactor: req.DownsampleFactor,
 	}, nil
 }
 

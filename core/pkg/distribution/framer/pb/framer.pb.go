@@ -43,7 +43,7 @@ type IteratorRequest struct {
 	Keys             []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	ChunkSize        int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
 	SeqNum           int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
-	DownsampleFactor int32                  `protobuf:"varint,9,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
+	DownsampleFactor uint32                 `protobuf:"varint,9,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -127,7 +127,7 @@ func (x *IteratorRequest) GetSeqNum() int32 {
 	return 0
 }
 
-func (x *IteratorRequest) GetDownsampleFactor() int32 {
+func (x *IteratorRequest) GetDownsampleFactor() uint32 {
 	if x != nil {
 		return x.DownsampleFactor
 	}
@@ -640,7 +640,7 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\n" +
 	"chunk_size\x18\a \x01(\x03R\tchunkSize\x12\x17\n" +
 	"\aseq_num\x18\b \x01(\x05R\x06seqNum\x12+\n" +
-	"\x11downsample_factor\x18\t \x01(\x05R\x10downsampleFactor\"\xde\x01\n" +
+	"\x11downsample_factor\x18\t \x01(\rR\x10downsampleFactor\"\xde\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +

@@ -144,7 +144,7 @@ type IteratorConfig struct {
 	// DownsampleFactor keeps every n-th sample of each series the iterator reads. The
 	// read is strided at the source, so the discarded samples are never read into
 	// memory. Values below 2 keep every sample.
-	DownsampleFactor int
+	DownsampleFactor uint32
 }
 
 // Flow implements the confluence.Segment interface.

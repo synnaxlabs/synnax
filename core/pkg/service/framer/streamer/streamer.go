@@ -44,7 +44,7 @@ type Config struct {
 	SendOpenAck bool `json:"send_open_ack" msgpack:"send_open_ack"`
 	// DownsampleFactor keeps every n-th sample of each delivered series. Values below
 	// 2 keep every sample.
-	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
+	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
 	// ThrottleRate caps the rate at which frames are delivered. Zero disables
 	// throttling.
 	ThrottleRate telem.Rate `json:"throttle_rate" msgpack:"throttle_rate"`
@@ -62,7 +62,6 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("streamer.config")
-	v.GreaterThanEq("downsample_factor", c.DownsampleFactor, 0)
 	v.GreaterThanEq("throttle_rate", c.ThrottleRate, 0)
 	if c.KeepAlive != 0 {
 		v.GreaterThanEq("keep_alive", c.KeepAlive, MinKeepAlive)

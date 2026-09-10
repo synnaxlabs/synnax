@@ -11,7 +11,6 @@ package iterator_test
 
 import (
 	"strconv"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1344,12 +1343,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 		DescribeTable(
-			"Should not downsample when factor is 0 or 1 or negative",
-			func(ctx SpecContext, factor int) {
-				suffix := strconv.Itoa(factor)
-				if strings.HasPrefix(suffix, "-") {
-					suffix = "neg_" + suffix[1:]
-				}
+			"Should not downsample when factor is 0 or 1",
+			func(ctx SpecContext, factor uint32) {
+				suffix := strconv.FormatUint(uint64(factor), 10)
 				indexCh := &channel.Channel{
 					Name:     "downsample_time" + suffix,
 					DataType: telem.TimestampT,
@@ -1390,9 +1386,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 2, 3, 4))
 				Expect(iter.Close()).To(Succeed())
 			},
-			Entry("factor is 0", 0),
-			Entry("factor is 1", 1),
-			Entry("factor is negative", -1),
+			Entry("factor is 0", uint32(0)),
+			Entry("factor is 1", uint32(1)),
 		)
 
 		It(

@@ -38,7 +38,7 @@ type streamer struct {
 	keys          set.Set[channel.Key]
 	// downsampleFactor keeps every n-th sample of each delivered series. Values below
 	// 2 keep every sample.
-	downsampleFactor int
+	downsampleFactor uint32
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
@@ -64,7 +64,7 @@ type StreamerConfig struct {
 	// 2 keep every sample.
 	//
 	// [OPTIONAL] - Defaults to 0.
-	DownsampleFactor int
+	DownsampleFactor uint32
 }
 
 var _ config.Config[StreamerConfig] = StreamerConfig{}

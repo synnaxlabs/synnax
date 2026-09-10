@@ -31,7 +31,7 @@ message IteratorRequest {
   repeated uint32 keys = 6;
   int64 chunk_size = 7;
   int32 seq_num = 8;
-  int32 downsample_factor = 9;
+  uint32 downsample_factor = 9;
 }
 
 message IteratorResponse {

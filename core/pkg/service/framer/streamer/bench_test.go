@@ -255,7 +255,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 }
 
 func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
-	for _, factor := range []int{2, 10} {
+	for _, factor := range []uint32{2, 10} {
 		b.Run(fmt.Sprintf("factor=%d", factor), func(b *testing.B) {
 			env := newBenchStreamerEnv(b)
 			defer env.close(b)

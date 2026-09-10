@@ -53,7 +53,7 @@ type Config struct {
 	// memory. Values below 2 keep every sample.
 	//
 	// [OPTIONAL]
-	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
+	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
 }
 
 func (c Config) distribution() framer.IteratorConfig {

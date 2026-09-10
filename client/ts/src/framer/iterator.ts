@@ -37,7 +37,7 @@ export const iteratorReqZ = z.object({
   stamp: TimeStamp.z.optional(),
   keys: keyZ.array().optional(),
   chunkSize: z.number().optional(),
-  downsampleFactor: z.int().optional(),
+  downsampleFactor: z.uint32().optional(),
 });
 
 export interface IteratorRequest extends z.infer<typeof iteratorReqZ> {}
