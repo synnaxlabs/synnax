@@ -159,6 +159,73 @@ var _ = Describe("Relay", func() {
 			},
 		)
 	})
+	Describe("DownsampleFactor", func() {
+		It("Should keep every n-th sample of each delivered series", func(
+			ctx SpecContext,
+		) {
+			node := mock.NewNode(ctx)
+			idx := channel.Channel{
+				Name:     "downsample_time",
+				IsIndex:  true,
+				DataType: telem.TimestampT,
+			}
+			idx = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idx}))[0]
+			data := channel.Channel{
+				Name:       "downsample_data",
+				DataType:   telem.Float32T,
+				LocalIndex: idx.LocalKey,
+			}
+			data = MustSucceed(node.Channel.Create(ctx, []channel.Channel{data}))[0]
+			keys := channel.KeysFromChannels([]channel.Channel{idx, data})
+
+			full := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
+				Keys: keys,
+			}))
+			strided := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
+				Keys:             keys,
+				DownsampleFactor: 2,
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			fullReq, fullRes := confluence.Attach(full, 10)
+			stridedReq, stridedRes := confluence.Attach(strided, 10)
+			full.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			strided.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			time.Sleep(10 * time.Millisecond)
+
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			Expect(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					telem.NewSeriesV[float32](1, 2, 3, 4),
+				},
+			))).To(BeTrue())
+
+			var res relay.Response
+			Eventually(stridedRes.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(data.Key()).Series[0]).
+				To(telem.MatchSeriesDataV[float32](1, 3))
+			Expect(res.Frame.Get(idx.Key()).Series[0]).
+				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 12)))
+
+			// The relay hands the same frame to every streamer, so a strided consumer
+			// must not shorten what a full-rate one sees.
+			Eventually(fullRes.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(data.Key()).Series[0]).
+				To(telem.MatchSeriesDataV[float32](1, 2, 3, 4))
+
+			Expect(w.Close()).To(Succeed())
+			stridedReq.Close()
+			fullReq.Close()
+			confluence.Drain(stridedRes)
+			confluence.Drain(fullRes)
+		})
+	})
+
 	Describe("ExcludeGroups", Ordered, func() {
 		It(
 			"Should filter out frames from a matching group on gateway writes",

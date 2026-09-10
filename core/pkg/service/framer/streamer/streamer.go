@@ -42,8 +42,8 @@ type Config struct {
 	// SendOpenAck sets whether an empty readiness response is sent once the relay has
 	// applied the streamer's demands.
 	SendOpenAck bool `json:"send_open_ack" msgpack:"send_open_ack"`
-	// DownsampleFactor keeps every n-th sample of each frame. Values below 2 keep
-	// every sample.
+	// DownsampleFactor keeps every n-th sample of each delivered series. Values below
+	// 2 keep every sample.
 	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
 	// ThrottleRate caps the rate at which frames are delivered. Zero disables
 	// throttling.
@@ -83,9 +83,10 @@ func (c Config) Override(other Config) Config {
 
 func (c Config) distribution() framer.StreamerConfig {
 	return framer.StreamerConfig{
-		Keys:          c.Keys,
-		SendOpenAck:   &c.SendOpenAck,
-		ExcludeGroups: c.ExcludeGroups,
+		Keys:             c.Keys,
+		SendOpenAck:      &c.SendOpenAck,
+		ExcludeGroups:    c.ExcludeGroups,
+		DownsampleFactor: c.DownsampleFactor,
 	}
 }
 
@@ -141,10 +142,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 var (
-	distAddr       address.Address = "distribution"
-	utAddr         address.Address = "updater_transform"
-	downsampleAddr address.Address = "downsample"
-	throttleAddr   address.Address = "throttle"
+	distAddr     address.Address = "distribution"
+	utAddr       address.Address = "updater_transform"
+	throttleAddr address.Address = "throttle"
 )
 
 const (
@@ -170,11 +170,6 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	p.SetSegment(utAddr, ut)
 	p.MustConnect[framer.StreamerRequest](utAddr, distAddr, requestBufferSize)
 	routeOutletFrom := distAddr
-	if cfg.DownsampleFactor > 1 {
-		p.SetSegment(downsampleAddr, newDownsampler(cfg))
-		p.MustConnect[Response](routeOutletFrom, downsampleAddr, responseBufferSize)
-		routeOutletFrom = downsampleAddr
-	}
 	if cfg.ThrottleRate > 0 {
 		p.SetSegment(throttleAddr, newThrottle(cfg))
 		p.MustConnect[Response](routeOutletFrom, throttleAddr, responseBufferSize)

@@ -194,6 +194,30 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Close()).To(Succeed())
 			})
 
+			It("Should carry calculation state across domains", func(
+				ctx SpecContext,
+			) {
+				total := &channel.Channel{
+					Name:       "running_total",
+					DataType:   telem.Float32T,
+					Expression: "total f32 $= 0\ntotal = total + sensor_1\nreturn total",
+				}
+				Expect(channelWriter.Create(ctx, total)).To(Succeed())
+				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+					Keys:   []channel.Key{total.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				var got []float32
+				for iter.Next(iterator.AutoSpan) {
+					for _, ser := range iter.Value().Get(total.Key()).Series {
+						got = append(got, ser.Unmarshal[float32]()...)
+					}
+				}
+				Expect(got).To(Equal([]float32{1, 3, 6, 10, 15, 21, 28, 36, 45, 55}))
+				Expect(iter.Close()).To(Succeed())
+			})
+
 			Describe("Nested Calculations", func() {
 				It(
 					"Should correctly handle 2-level nesting (C → B → A)",

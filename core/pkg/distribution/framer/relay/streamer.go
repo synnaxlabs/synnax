@@ -15,6 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -35,6 +36,9 @@ type streamer struct {
 	sendOpenAck   bool
 	excludeGroups []uint32
 	keys          set.Set[channel.Key]
+	// downsampleFactor keeps every n-th sample of each delivered series. Values below
+	// 2 keep every sample.
+	downsampleFactor int
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
@@ -56,6 +60,11 @@ type StreamerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to empty.
 	ExcludeGroups []uint32
+	// DownsampleFactor keeps every n-th sample of each delivered series. Values below
+	// 2 keep every sample.
+	//
+	// [OPTIONAL] - Defaults to 0.
+	DownsampleFactor int
 }
 
 var _ config.Config[StreamerConfig] = StreamerConfig{}
@@ -65,6 +74,7 @@ func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.SendOpenAck = override.Nil(c.SendOpenAck, other.SendOpenAck)
 	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
+	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
 	return c
 }
 
@@ -84,13 +94,28 @@ func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 		return nil, err
 	}
 	return &streamer{
-		sendOpenAck:   *cfg.SendOpenAck,
-		excludeGroups: cfg.ExcludeGroups,
-		keys:          set.New(cfg.Keys...),
-		addr:          address.Rand(),
-		demands:       r.demands,
-		relay:         r,
+		sendOpenAck:      *cfg.SendOpenAck,
+		excludeGroups:    cfg.ExcludeGroups,
+		downsampleFactor: cfg.DownsampleFactor,
+		keys:             set.New(cfg.Keys...),
+		addr:             address.Rand(),
+		demands:          r.demands,
+		relay:            r,
 	}, nil
+}
+
+// downsample returns fr holding every downsampleFactor-th sample of each of its
+// series. The frame is copied first: a filtered frame shares its series slice with the
+// relay frame every other streamer is reading.
+func (s *streamer) downsample(fr frame.Frame) frame.Frame {
+	if s.downsampleFactor <= 1 {
+		return fr
+	}
+	fr = fr.ShallowCopy()
+	for i, ser := range fr.SeriesI() {
+		fr.SetSeriesAt(i, ser.Downsample(s.downsampleFactor))
+	}
+	return fr
 }
 
 func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
@@ -173,7 +198,10 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					continue
 				}
 				if filtered := r.Frame.KeepKeys(s.keys); !filtered.Empty() {
-					res := Response{Frame: filtered, Group: r.Group}
+					res := Response{
+						Frame: s.downsample(filtered),
+						Group: r.Group,
+					}
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),

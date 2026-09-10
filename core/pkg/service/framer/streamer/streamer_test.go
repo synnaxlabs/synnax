@@ -475,6 +475,115 @@ var _ = Describe("Streamer", Ordered, func() {
 			},
 		)
 	})
+	Describe("Stateful Calculations", func() {
+		// openStateful creates an index, a data channel, and a calculated channel
+		// holding a running sum of the data channel, then opens a writer over the
+		// concrete channels and a streamer over the calculation.
+		type statefulStream struct {
+			writer *framer.Writer
+			inlet  confluence.Inlet[streamer.Request]
+			outlet confluence.Outlet[streamer.Response]
+			keys   []channel.Key
+			total  channel.Key
+		}
+
+		openStateful := func(ctx SpecContext, factor int) statefulStream {
+			GinkgoHelper()
+			indexCh := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			total := &channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Expression: fmt.Sprintf(
+					"total f32 $= 0\ntotal = total + %s\nreturn total",
+					dataCh.Name,
+				),
+			}
+			Expect(channelWriter.Create(ctx, total)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:             []channel.Key{total.Key()},
+				SendOpenAck:      true,
+				DownsampleFactor: factor,
+			}))
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			inlet, outlet := confluence.Attach(s)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+			return statefulStream{
+				writer: w,
+				inlet:  inlet,
+				outlet: outlet,
+				keys:   keys,
+				total:  total.Key(),
+			}
+		}
+
+		writeAt := func(
+			st statefulStream,
+			start telem.TimeStamp,
+			values ...float32,
+		) {
+			GinkgoHelper()
+			stamps := make([]telem.TimeStamp, len(values))
+			for i := range values {
+				stamps[i] = start + telem.TimeStamp(i)*telem.SecondTS
+			}
+			MustSucceed(st.writer.Write(frame.NewMulti(
+				st.keys,
+				[]telem.Series{
+					telem.NewSeries(stamps),
+					telem.NewSeries(values),
+				},
+			)))
+		}
+
+		It("Should carry calculation state across frames", func(ctx SpecContext) {
+			st := openStateful(ctx, 0)
+			var res streamer.Response
+			writeAt(st, telem.SecondTS, 1, 2, 3)
+			Eventually(st.outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(st.total).Series[0]).
+				To(telem.MatchSeriesDataV[float32](1, 3, 6))
+			writeAt(st, 4*telem.SecondTS, 4, 5)
+			Eventually(st.outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Get(st.total).Series[0]).
+				To(telem.MatchSeriesDataV[float32](10, 15))
+			Expect(st.writer.Close()).To(Succeed())
+			st.inlet.Close()
+			Eventually(st.outlet.Outlet()).Should(BeClosed())
+		})
+
+		It("Should downsample a calculation after it runs", func(ctx SpecContext) {
+			st := openStateful(ctx, 2)
+			writeAt(st, telem.SecondTS, 1, 2, 3, 4, 5, 6, 7, 8)
+			var res streamer.Response
+			Eventually(st.outlet.Outlet()).Should(Receive(&res))
+			// The running sum over every sample is 1, 3, 6, 10, 15, 21, 28, 36. Summing
+			// a strided input would instead give 1, 4, 9, 16.
+			Expect(res.Frame.Get(st.total).Series[0]).
+				To(telem.MatchSeriesDataV[float32](1, 6, 15, 28))
+			Expect(st.writer.Close()).To(Succeed())
+			st.inlet.Close()
+			Eventually(st.outlet.Outlet()).Should(BeClosed())
+		})
+	})
+
 	Describe("Throttling", func() {
 		It("Should accumulate and throttle frames", func(ctx SpecContext) {
 			ch := &channel.Channel{
