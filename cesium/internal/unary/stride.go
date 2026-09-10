@@ -47,7 +47,7 @@ func readStridedFixed(
 ) ([]byte, int64, error) {
 	var (
 		srcSamples = density.SampleCount(size)
-		kept       = (srcSamples + factor - 1) / factor
+		kept       = srcSamples/factor + min(srcSamples%factor, 1)
 		stride     = int64(density.Size(factor))
 		// batch is how many kept samples a single ReadAt covers. A stride wider than
 		// the buffer drops it to one, so the read skips the discarded samples instead

@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -147,6 +149,12 @@ var _ = Describe("Downsampled Iteration", func() {
 					"Should keep the first sample when the factor exceeds the count",
 					4,
 					10,
+					[]int64{1},
+				),
+				Entry(
+					"Should keep the first sample when the factor is unbounded",
+					4,
+					math.MaxInt,
 					[]int64{1},
 				),
 			)
