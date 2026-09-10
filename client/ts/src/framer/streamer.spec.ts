@@ -208,6 +208,13 @@ describe("Streamer", () => {
     });
 
     describe("downsampling", () => {
+      // The wire field is unsigned, so a factor the schema lets through would be
+      // reinterpreted by the Core instead of rejected.
+      test.each([-1, 1.5, 2 ** 32])("rejects a factor of %s", (factor) => {
+        expect(() =>
+          streamerConfigZ.parse({ channels: [], downsampleFactor: factor }),
+        ).toThrow();
+      });
       test("downsample factor of 1", async () => {
         const ch = await newVirtualChannel(client);
         const streamer = await client.openStreamer({
