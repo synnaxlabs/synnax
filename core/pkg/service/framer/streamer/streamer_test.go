@@ -525,13 +525,13 @@ var _ = Describe("Streamer", Ordered, func() {
 			for i := range values {
 				stamps[i] = start + telem.TimeStamp(i)*telem.SecondTS
 			}
-			MustSucceed(st.writer.Write(frame.NewMulti(
+			Expect(st.writer.Write(frame.NewMulti(
 				st.keys,
 				[]telem.Series{
 					telem.NewSeries(stamps),
 					telem.NewSeries(values),
 				},
-			)))
+			))).To(BeTrue())
 		}
 
 		It("Should carry calculation state across frames", func(ctx SpecContext) {
