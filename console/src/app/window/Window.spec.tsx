@@ -26,8 +26,8 @@ const fireFileDragOver = (target: HTMLElement): void => {
 describe("app/window/Window", () => {
   installPortalRoot();
 
-  // The window's own background carries no actions of its own, so Reload Console is
-  // the only thing standing between a right click there and a dead menu.
+  // The window's own background carries no actions of its own, so Reload Console is the
+  // only thing standing between a right click there and a dead menu.
   it("offers Reload Console from the window background", async () => {
     const { container } = await renderWithConsole(
       <Haul.Provider {...Session.Haul.PROVIDER_PROPS}>
