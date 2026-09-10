@@ -135,7 +135,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Frame).To(telem.MatchWrittenFrame(writtenFr.Frame))
@@ -201,7 +201,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					telem.NewSeriesV[float32](-1, -2, -3, -4, -5),
 				},
 			)
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			inlet.Close()
@@ -249,7 +249,7 @@ var _ = Describe("Streamer", Ordered, func() {
 						telem.NewSeriesV[float32](-1, -2, -3, -4, -5),
 					},
 				)
-				MustSucceed(w.Write(writtenFr))
+				Expect(w.Write(writtenFr)).To(BeTrue())
 				var res streamer.Response
 				Eventually(outlet.Outlet()).Should(Receive(&res))
 				inlet.Close()
@@ -317,22 +317,22 @@ var _ = Describe("Streamer", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(Receive())
 
 				// Writer A sends [idxA, dataA] — not enough inputs to compute
-				MustSucceed(wA.Write(frame.NewMulti(
+				Expect(wA.Write(frame.NewMulti(
 					keysA,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3),
 						telem.NewSeriesV[float32](10, 20, 30),
 					},
-				)))
+				))).To(BeTrue())
 
 				// Writer B sends [idxB, dataB] — now both inputs available
-				MustSucceed(wB.Write(frame.NewMulti(
+				Expect(wB.Write(frame.NewMulti(
 					keysB,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(1, 2, 3),
 						telem.NewSeriesV[float32](1, 2, 3),
 					},
-				)))
+				))).To(BeTrue())
 
 				var res streamer.Response
 				Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -370,7 +370,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
 			Expect(
@@ -441,7 +441,7 @@ var _ = Describe("Streamer", Ordered, func() {
 						telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
 					},
 				)
-				MustSucceed(w.Write(writtenFr))
+				Expect(w.Write(writtenFr)).To(BeTrue())
 
 				var res streamer.Response
 				Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -594,7 +594,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -631,7 +631,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -672,7 +672,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				ch.Key(),
 				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6),
 			)
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -712,7 +712,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -749,7 +749,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Eventually(outlet.Outlet()).Should(Receive())
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -790,7 +790,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				ch.Key(),
 				telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6),
 			)
-			MustSucceed(w.Write(writtenFr))
+			Expect(w.Write(writtenFr)).To(BeTrue())
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
