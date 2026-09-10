@@ -11,7 +11,6 @@ package breaker_test
 
 import (
 	"context"
-	"testing/synctest"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,17 +28,18 @@ var _ = Describe("Breaker", func() {
 	})
 	It("Should be canceled as the underlying context is canceled", func() {
 		Bubble(func() {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithTimeout(
+				context.Background(),
+				500*time.Millisecond,
+			)
+			defer cancel()
 			b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
 				BaseInterval: 1 * time.Hour,
 				MaxRetries:   breaker.InfiniteRetries,
 			}))
-			go func() {
-				defer GinkgoRecover()
-				synctest.Sleep(500 * time.Millisecond)
-				cancel()
-			}()
+			start := time.Now()
 			Expect(b.Wait()).To(BeFalse())
+			Expect(time.Since(start)).To(Equal(500 * time.Millisecond))
 		})
 	})
 	It("Should scale the timeout every time it fails", func() {
