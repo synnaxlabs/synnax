@@ -11,7 +11,6 @@ package kv
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/grpc"
@@ -31,13 +30,13 @@ type (
 	setServer = grpc.UnaryServer[
 		kv.SetRequest,
 		*SetRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	deleteServer = grpc.UnaryServer[
 		kv.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )

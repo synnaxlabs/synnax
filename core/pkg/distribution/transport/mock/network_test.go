@@ -11,7 +11,6 @@ package mock_test
 
 import (
 	"context"
-	"go/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,16 +72,16 @@ var _ = Describe("Transport", func() {
 		func(ctx SpecContext) {
 			var received channel.Keys
 			server.Framer().Deleter().Server().BindHandler(
-				func(_ context.Context, req deleter.Request) (types.Nil, error) {
+				func(_ context.Context, req deleter.Request) (struct{}, error) {
 					received = req.Keys
-					return types.Nil{}, nil
+					return struct{}{}, nil
 				},
 			)
 			Expect(client.Framer().Deleter().Client().Send(
 				ctx,
 				leaseholder,
 				deleter.Request{Keys: channel.Keys{9}},
-			)).To(Equal(types.Nil{}))
+			)).To(Equal(struct{}{}))
 			Expect(received).To(Equal(channel.Keys{9}))
 		},
 	)

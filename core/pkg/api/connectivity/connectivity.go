@@ -11,7 +11,6 @@ package connectivity
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -35,7 +34,7 @@ type CheckResponse = auth.ClusterInfo
 
 func (s *Service) Check(
 	context.Context,
-	types.Nil,
+	struct{},
 ) (CheckResponse, error) {
 	return CheckResponse{
 		ClusterKey:  s.cluster.Key().String(),

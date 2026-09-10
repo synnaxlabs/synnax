@@ -11,7 +11,6 @@ package kv
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -85,15 +84,15 @@ func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.kv.NewWriter(tx).SetMany(ctx, req.Pairs)
+	return struct{}{}, s.kv.NewWriter(tx).SetMany(ctx, req.Pairs)
 }
 
 type DeleteRequest struct {
@@ -105,19 +104,19 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	w := s.kv.NewWriter(tx)
 	for _, key := range req.Keys {
 		if err := w.Delete(ctx, req.Range, key); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }

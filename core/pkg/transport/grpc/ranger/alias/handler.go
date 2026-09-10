@@ -11,7 +11,6 @@ package alias
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/grpc"
@@ -26,7 +25,7 @@ type (
 	setServer = grpc.UnaryServer[
 		alias.SetRequest,
 		*SetRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	resolveServer = grpc.UnaryServer[
@@ -38,7 +37,7 @@ type (
 	deleteServer = grpc.UnaryServer[
 		alias.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	listServer = grpc.UnaryServer[

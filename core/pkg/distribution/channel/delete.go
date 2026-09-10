@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"go/types"
 )
 
 // Delete deletes the storage channels for the provided keys, routing each key to its
@@ -35,6 +34,6 @@ func (s *Service) Delete(ctx context.Context, keys Keys) error {
 
 func (s *Service) deleteHandler(
 	ctx context.Context, req DeleteRequest,
-) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TS.DeleteChannels(req.Keys.Storage())
+) (struct{}, error) {
+	return struct{}{}, s.cfg.TS.DeleteChannels(req.Keys.Storage())
 }

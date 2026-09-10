@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -39,7 +38,7 @@ type (
 	deleteServer = grpc.UnaryServer[
 		task.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	copyServer = grpc.UnaryServer[

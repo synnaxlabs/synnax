@@ -11,7 +11,6 @@ package deleter
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
@@ -25,13 +24,13 @@ type (
 	client = fgrpc.UnaryClient[
 		deleter.Request,
 		*pb.DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	server = fgrpc.UnaryServer[
 		deleter.Request,
 		*pb.DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )

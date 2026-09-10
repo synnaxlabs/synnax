@@ -1524,8 +1524,7 @@ func (p *Plugin) generateGenericStructConversion(
 		forwardConverters = append(forwardConverters, "nil")
 		backwardConverters = append(backwardConverters, "nil")
 		if typeArg.Name == "nil" {
-			data.AddInternal("gotypes", "go/types")
-			explicitTypeArgs = append(explicitTypeArgs, "gotypes.Nil")
+			explicitTypeArgs = append(explicitTypeArgs, "struct{}")
 		} else {
 			explicitTypeArgs = append(explicitTypeArgs, "any")
 		}

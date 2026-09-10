@@ -11,7 +11,6 @@ package rack
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -179,22 +178,22 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: rack.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	exists, err := s.device.NewRetrieve().
 		Where(device.MatchRacks(req.Keys...)).
 		Exists(ctx, tx)
 	if err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if exists {
-		return types.Nil{}, errors.Wrapf(
+		return struct{}{}, errors.Wrapf(
 			validate.ErrValidation,
 			"cannot delete rack when devices are still attached",
 		)
@@ -203,10 +202,10 @@ func (s *Service) Delete(
 		Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
 		Exists(ctx, tx)
 	if err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if exists {
-		return types.Nil{}, errors.Wrapf(
+		return struct{}{}, errors.Wrapf(
 			validate.ErrValidation,
 			"cannot delete rack when tasks are still attached",
 		)
@@ -214,13 +213,13 @@ func (s *Service) Delete(
 	w := s.rack.NewWriter(tx)
 	for _, k := range req.Keys {
 		if err := w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 	}
 	// Only internal tasks are left: the check above rejects the delete while the user
 	// still has tasks of their own on the rack.
 	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }

@@ -11,7 +11,6 @@ package observe
 
 import (
 	"context"
-	"go/types"
 	"sync"
 
 	"github.com/synnaxlabs/x/set"
@@ -201,7 +200,7 @@ type Translator[I any, O any] struct {
 	Translate func(context.Context, I) (O, bool)
 }
 
-var _ Observable[types.Nil] = Translator[any, types.Nil]{}
+var _ Observable[struct{}] = Translator[any, struct{}]{}
 
 func (t Translator[I, O]) OnChange(handler func(context.Context, O)) Disconnect {
 	return t.Observable.OnChange(func(ctx context.Context, v I) {

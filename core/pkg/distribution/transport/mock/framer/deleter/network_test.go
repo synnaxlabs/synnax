@@ -11,7 +11,6 @@ package deleter_test
 
 import (
 	"context"
-	"go/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,14 +42,14 @@ var _ = Describe("Transport", func() {
 		func(ctx SpecContext) {
 			var received channel.Keys
 			server.Server().BindHandler(
-				func(_ context.Context, req distdeleter.Request) (types.Nil, error) {
+				func(_ context.Context, req distdeleter.Request) (struct{}, error) {
 					received = req.Keys
-					return types.Nil{}, nil
+					return struct{}{}, nil
 				},
 			)
 			Expect(client.Client().Send(ctx, leaseholder, distdeleter.Request{
 				Keys: channel.Keys{4, 5},
-			})).To(Equal(types.Nil{}))
+			})).To(Equal(struct{}{}))
 			Expect(received).To(Equal(channel.Keys{4, 5}))
 		},
 	)

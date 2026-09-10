@@ -13,7 +13,6 @@ package deleter
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -65,8 +64,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	cfg.Transport.Server().
-		BindHandler(func(ctx context.Context, req Request) (types.Nil, error) {
-			return types.Nil{}, cfg.TSChannel.DeleteTimeRange(
+		BindHandler(func(ctx context.Context, req Request) (struct{}, error) {
+			return struct{}{}, cfg.TSChannel.DeleteTimeRange(
 				ctx,
 				req.Keys.Storage(),
 				req.Bounds,

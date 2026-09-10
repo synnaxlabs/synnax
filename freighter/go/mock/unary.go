@@ -11,7 +11,6 @@ package mock
 
 import (
 	"context"
-	"go/types"
 	"sync"
 
 	"github.com/synnaxlabs/freighter"
@@ -19,8 +18,8 @@ import (
 )
 
 var (
-	_ freighter.UnaryClient[types.Nil, any] = (*UnaryClient[types.Nil, any])(nil)
-	_ freighter.UnaryServer[types.Nil, any] = (*UnaryServer[types.Nil, any])(nil)
+	_ freighter.UnaryClient[struct{}, any] = (*UnaryClient[struct{}, any])(nil)
+	_ freighter.UnaryServer[struct{}, any] = (*UnaryServer[struct{}, any])(nil)
 )
 
 // UnaryServer implements the freighter.UnaryServer interface using go channels as

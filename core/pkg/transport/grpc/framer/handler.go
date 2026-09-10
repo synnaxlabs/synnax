@@ -11,7 +11,6 @@ package framer
 
 import (
 	"context"
-	"go/types"
 
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -56,7 +55,7 @@ type (
 	frameDeleteServer = fgrpc.UnaryServer[
 		framer.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )

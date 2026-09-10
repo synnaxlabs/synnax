@@ -11,7 +11,6 @@ package auth
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -114,11 +113,11 @@ func (s *Service) ChangePassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ChangePasswordRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
+	return struct{}{}, s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
 		Username: req.Username,
 		Password: req.NewPassword,
 	})

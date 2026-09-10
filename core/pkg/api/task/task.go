@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -175,21 +174,21 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: task.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	w := s.task.NewWriter(tx)
 	for _, k := range req.Keys {
 		if err := w.Delete(ctx, k, false); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }
 
 type (
