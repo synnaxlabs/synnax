@@ -13,6 +13,18 @@ rem SY-2814: Simplify this script
 
 echo Setting up Windows artifacts download...
 
+rem Self-hosted runners keep the profile across jobs: skip when this attempt's
+rem binaries are already in place (a re-run keeps the run id but can rebuild them).
+if "%REF_RUN_ID%"=="" goto :not_cached
+if not exist "%USERPROFILE%\synnax-binaries\.run-id" goto :not_cached
+if not exist "%USERPROFILE%\synnax-binaries\synnax.exe" goto :not_cached
+findstr /x /c:"%REF_RUN_ID%-%GITHUB_RUN_ATTEMPT%" "%USERPROFILE%\synnax-binaries\.run-id" >nul 2>nul
+if %errorlevel% equ 0 (
+    echo Binaries for run %REF_RUN_ID% already present, skipping download
+    exit /b 0
+)
+:not_cached
+
 rem Setup GitHub CLI (Windows)
 echo Setting up GitHub CLI...
 
@@ -195,5 +207,7 @@ if not exist "%USERPROFILE%\synnax-binaries\synnax.exe" (
 
 echo Synnax binary ready at %USERPROFILE%\synnax-binaries\synnax.exe
 dir "%USERPROFILE%\synnax-binaries\synnax*"
+
+>"%USERPROFILE%\synnax-binaries\.run-id" echo %REF_RUN_ID%-%GITHUB_RUN_ATTEMPT%
 
 echo Windows artifacts setup completed successfully

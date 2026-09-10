@@ -41,17 +41,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
         with:
-          node-version-file: package.json
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install
+          cache: true
 
       - name: Update Docs Search Index
         working-directory: docs/site

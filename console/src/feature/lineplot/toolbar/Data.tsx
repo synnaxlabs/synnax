@@ -19,14 +19,12 @@ import { CSS } from "@/platform/css";
 
 export const Data = (): ReactElement => (
   <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
+    <XAxisRangeSelect axisKey="x1" grow />
     <YAxisChannelSelect axisKey="y1" align="center" grow />
     <YAxisChannelSelect axisKey="y2" grow />
-    <Flex.Box x grow wrap>
-      <XAxisRangeSelect axisKey="x1" grow />
-      <XAxisChannelSelect
-        axisKey="x1"
-        className={CSS.BE("line-plot", "toolbar", "data-x")}
-      />
-    </Flex.Box>
+    <XAxisChannelSelect
+      axisKey="x1"
+      className={CSS.BE("line-plot", "toolbar", "data-x")}
+    />
   </Flex.Box>
 );

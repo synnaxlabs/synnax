@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
 
@@ -25,11 +26,11 @@ describe("OPC UA Scan Task Types", () => {
   });
 
   it("should accept null statusData", () => {
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(z.validate(OPCUA.Task.SCAN_SCHEMAS.statusData, null)).toBe(true);
   });
 
   it("should accept undefined statusData", () => {
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    expect(z.validate(OPCUA.Task.SCAN_SCHEMAS.statusData, undefined)).toBe(true);
   });
 });
 
@@ -75,9 +76,9 @@ describe("OPC UA Read Task Config Validation", () => {
   });
 
   it("should accept a valid config", () => {
-    expect(
-      OPCUA.Task.READ_SCHEMAS.config.safeParse(createConfig([{}, {}])).success,
-    ).toBe(true);
+    expect(z.validate(OPCUA.Task.READ_SCHEMAS.config, createConfig([{}, {}]))).toBe(
+      true,
+    );
   });
 
   it("should reject a node ID used by multiple channels", () => {
@@ -203,9 +204,10 @@ describe("draft configs", () => {
   });
   it("should accept the zero write config", () => {
     expect(
-      OPCUA.Task.WRITE_SCHEMAS.config.safeParse(
+      z.validate(
+        OPCUA.Task.WRITE_SCHEMAS.config,
         OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
-      ).success,
+      ),
     ).toBe(true);
   });
 });

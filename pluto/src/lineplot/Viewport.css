@@ -13,3 +13,21 @@
     position: relative;
     overflow: hidden;
 }
+
+.pluto-line-plot__loading {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    container-type: size;
+}
+
+/* Sits below the orbital stage, whose size is the same min() over the region. */
+.pluto-line-plot__loading-message {
+    position: absolute;
+    left: 0;
+    right: 0;
+    justify-content: center;
+    text-align: center;
+    font-size: var(--pluto-p-size);
+    top: calc(50% + min(var(--pluto-orbital-size, 18rem), 100cqw, 100cqh) / 2 + 2rem);
+}

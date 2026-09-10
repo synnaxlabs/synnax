@@ -9,6 +9,7 @@
 
 import { arc, query } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
+import { type RefObject } from "react";
 
 import { useDispatch } from "@/arc/queries";
 import { Synnax } from "@/synnax";
@@ -23,6 +24,7 @@ export interface UseClipboardParams {
   selected?: string[];
   onCut?: (remaining: string[]) => void;
   onPaste?: (newKeys: string[]) => void;
+  container?: RefObject<HTMLDivElement | null>;
 }
 
 export const useClipboard = ({
@@ -30,6 +32,7 @@ export const useClipboard = ({
   selected,
   onCut,
   onPaste,
+  container,
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const { dispatch } = useDispatch();
   const client = Synnax.use();
@@ -44,7 +47,7 @@ export const useClipboard = ({
       } = cached;
       return { nodes, edges, configs: inputs };
     },
-    apply: ({ nodes, edges, newKeys }) => {
+    apply: ({ nodes, edges, remap }) => {
       const actions: arc.Action[] = [];
       for (const { node, config } of nodes) {
         actions.push(arc.setNode({ node }));
@@ -54,7 +57,7 @@ export const useClipboard = ({
       for (const { edge } of edges)
         actions.push(arc.addEdge({ edge: { ...edge, key: uuid.create() } }));
       dispatch({ key, actions });
-      onPaste?.(newKeys);
+      onPaste?.(Object.values(remap));
     },
     remove: ({ nodes, edges }) => {
       dispatch({
@@ -66,5 +69,5 @@ export const useClipboard = ({
       });
     },
   };
-  return Diagram.useClipboard({ adapter, selected, onCut });
+  return Diagram.useClipboard({ adapter, selected, onCut, container });
 };

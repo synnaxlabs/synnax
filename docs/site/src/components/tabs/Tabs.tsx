@@ -9,7 +9,11 @@
 
 import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
 import { Text } from "@synnaxlabs/pluto/text";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
+
+// Astro's React SSR camelCases dashed slot names; hydration passes them raw.
+const slotName = (key: string): string =>
+  key.replace(/[-_]([a-z])/g, (_, c: string) => c.toUpperCase());
 
 export interface TabEntry {
   tabKey: string;
@@ -24,8 +28,30 @@ export interface TabsProps extends Record<string, ReactElement | any> {
 
 export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => {
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const compensationFrame = useRef(0);
+
+  // Synced blocks above this one resize on select, each in its own React root on
+  // its own schedule. Scroll away the drift over two frames to keep this block put.
+  const compensateScroll = () => {
+    const el = frameRef.current;
+    if (el == null) return;
+    const top = el.getBoundingClientRect().top;
+    const compensate = () => {
+      const delta = el.getBoundingClientRect().top - top;
+      if (delta !== 0) window.scrollBy(0, delta);
+    };
+    cancelAnimationFrame(compensationFrame.current);
+    compensationFrame.current = requestAnimationFrame(() => {
+      compensate();
+      compensationFrame.current = requestAnimationFrame(compensate);
+    });
+  };
+
+  useEffect(() => () => cancelAnimationFrame(compensationFrame.current), []);
 
   const handleSelect = (tabKey: string) => {
+    compensateScroll();
     setSelected(tabKey);
     if (queryParamKey == null) return;
     const url = new URL(window.location.href);
@@ -50,7 +76,7 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
   }, [queryParamKey]);
 
   return (
-    <Base.Frame value={selected} onChange={handleSelect}>
+    <Base.Frame ref={frameRef} value={selected} onChange={handleSelect}>
       <Base.Selector>
         {tabs.map(({ tabKey, name, icon }) => (
           <Base.Tab key={tabKey} itemKey={tabKey}>
@@ -61,7 +87,7 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
       </Base.Selector>
       {tabs.map(({ tabKey }) => (
         <Base.Content key={tabKey} itemKey={tabKey}>
-          {rest[tabKey]}
+          {rest[tabKey] ?? rest[slotName(tabKey)]}
         </Base.Content>
       ))}
     </Base.Frame>

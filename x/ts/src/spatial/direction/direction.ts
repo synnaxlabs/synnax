@@ -46,7 +46,7 @@ export const dimension = (direction: Crude): Dimension =>
 export const location = (direction: Crude): Location =>
   construct(direction) === "x" ? "left" : "top";
 
-export const isDirection = (c: unknown): c is Direction => crudeZ.safeParse(c).success;
+export const isDirection = (c: unknown): c is Direction => z.validate(crudeZ, c);
 
 export const signedDimension = (direction: Crude): SignedDimension =>
   construct(direction) === "x" ? "signedWidth" : "signedHeight";

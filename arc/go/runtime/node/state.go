@@ -354,8 +354,8 @@ func (s *State) StringInput(name string) string {
 	if err != nil {
 		return ""
 	}
-	if s := s.RefInput(i); s.Len() > 0 {
-		return string(s.At(-1))
+	if ref := s.RefInput(i); ref.Len() > 0 {
+		return string(ref.At(-1))
 	}
 	if v, ok := s.params[i].Value.(string); ok {
 		return v
@@ -371,8 +371,8 @@ func (s *State) NumericInput[T telem.NumericSample](name string) T {
 	if err != nil {
 		return 0
 	}
-	if s := s.RefInput(i); s.Len() > 0 {
-		return s.ValueAt[T](-1)
+	if ref := s.RefInput(i); ref.Len() > 0 {
+		return ref.ValueAt[T](-1)
 	}
 	if v := s.params[i].Value; v != nil {
 		return telem.CastNumeric[T](v)

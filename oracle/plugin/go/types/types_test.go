@@ -1209,6 +1209,40 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
+				"Should flatten when two parents promote one name",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Base struct {
+					x string
+				}
+
+				A struct extends Base {
+					aa string
+				}
+
+				B struct {
+					base string
+				}
+
+				Child struct extends A, B {
+					c string
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+
+					content := string(resp.Files[0].Content)
+					// Embedding A and B promotes Base from both, and Go rejects an
+					// ambiguous promoted name as a selector and as a literal key.
+					Expect(content).NotTo(ContainSubstring("\tA\n"))
+					Expect(content).NotTo(ContainSubstring("\tB\n"))
+					Expect(content).To(ContainSubstring(`X string`))
+					Expect(content).To(ContainSubstring(`Base string`))
+				},
+			)
+
+			It(
 				"Should keep embedding when a field restates only a default",
 				func(ctx SpecContext) {
 					source := `
@@ -1473,52 +1507,6 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(content).To(ContainSubstring(`type C struct {`))
 					Expect(content).To(ContainSubstring("\tA\n"))
 					Expect(content).To(ContainSubstring("\tB\n"))
-					Expect(content).To(ContainSubstring(`C bool`))
-				},
-			)
-
-			It(
-				"Should flatten fields when multiple extends have field conflicts",
-				func(ctx SpecContext) {
-					source := `
-				@go output "core/entities"
-
-				A struct {
-					shared string
-					a int32
-				}
-
-				B struct {
-					shared string
-					b int32
-				}
-
-				C struct extends A, B {
-					c bool
-				}
-			`
-					table, diag := analyzer.AnalyzeSource(
-						ctx,
-						source,
-						"entities",
-						loader,
-					)
-					Expect(diag.Ok()).To(BeTrue())
-
-					req := &plugin.Request{
-						Resolutions: table,
-					}
-
-					resp := MustSucceed(goPlugin.Generate(req))
-
-					content := string(resp.Files[0].Content)
-					// C should have flattened fields (no embedding due to conflict)
-					Expect(content).To(ContainSubstring(`type C struct {`))
-					Expect(content).NotTo(ContainSubstring("\tA\n"))
-					Expect(content).NotTo(ContainSubstring("\tB\n"))
-					Expect(content).To(ContainSubstring(`Shared string`))
-					Expect(content).To(ContainSubstring(`A int32`))
-					Expect(content).To(ContainSubstring(`B int32`))
 					Expect(content).To(ContainSubstring(`C bool`))
 				},
 			)

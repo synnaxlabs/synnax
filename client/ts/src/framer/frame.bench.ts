@@ -44,7 +44,7 @@ describe("get", () => {
   const payload = createPayload(keys, 10);
   const frame = new Frame(payload);
   allocSuite("frame 100ch x 10smp", [
-    ["from payload", () => void new Frame(payload)],
+    ["from payload", () => new Frame(payload)],
     ["get one key", () => void frame.get(keys[99])],
     [
       "get all keys",

@@ -7,16 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.layout import LayoutClient
-from console.range.surface import (
-    CREATE_MODAL_SELECTOR,
-    FAVORITE_ACTIONS,
-    UNFAVORITE_ACTIONS,
-    Surface,
-)
+from console.range.surface import FAVORITE_ACTIONS, UNFAVORITE_ACTIONS, Surface
 from console.range.toolbar import Toolbar
 from console.views import ViewsClient
 
@@ -24,12 +19,6 @@ from console.views import ViewsClient
 class Explorer(Surface):
     """The Range Explorer page. Shows all persisted ranges."""
 
-    ITEM_SELECTOR = ".console-range__list-item"
-    # The view tabs above the ranges are a list too, so exclude them: they carry no
-    # range rows and scrolling them does nothing.
-    LIST_SELECTOR = (
-        ".console-range-explorer .pluto-list__items:not(.console-view__views)"
-    )
     SEARCH_INPUT_PLACEHOLDER = "Search ranges..."
     STATIC_VIEW_NAME = "All ranges"
     # The explorer list must stay the same height at the bottom for longer than a page
@@ -48,9 +37,24 @@ class Explorer(Surface):
         self.layout.command_palette("Open range explorer")
         self.views.wait_for_static_view()
 
+    def _list(self) -> Locator:
+        """Get the explorer's scrolling list of ranges.
+
+        The name separates the list from the other range lists on the page, such as the
+        toolbar's favorites.
+        """
+        return self.layout.page.get_by_role("list", name="Ranges").first
+
+    def get_mounted_item(self, name: str) -> Locator:
+        """Get a range row already mounted in the list, skipping the scroll sweep.
+
+        :param name: Exact name of the range.
+        """
+        return self._list().get_by_role("listitem", name=name, exact=True).first
+
     def get_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
-        item = self.layout.get_list_item(self.ITEM_SELECTOR, name)
+        item = self.get_mounted_item(name)
         if item.count() == 0:
             self._scroll_to(item)
         return item
@@ -69,7 +73,7 @@ class Explorer(Surface):
         :param budget: Backstop on the whole sweep. Callers that probe for a
             range that is not there page through the entire list.
         """
-        lst = self.layout.page.locator(self.LIST_SELECTOR).first
+        lst = self._list()
         if lst.count() == 0:
             return
         lst.evaluate("el => { el.scrollTop = 0; }")
@@ -101,7 +105,7 @@ class Explorer(Surface):
         :returns: The time range text (e.g. "Jan 1 00:00:00 → Jan 2 00:00:00").
         """
         item = self.get_item(name)
-        return item.locator("small.pluto-text--small").first.inner_text()
+        return item.get_by_role("group", name="Time range").inner_text()
 
     def exists(self, name: str) -> bool:
         """Check if a range exists in the explorer."""
@@ -146,9 +150,17 @@ class Explorer(Surface):
         self.toolbar.wait_for_removed(name)
 
     def _deselect_all(self) -> None:
-        """Deselect all explorer ranges by dispatching click on their checkbox
-        labels."""
-        self.layout.deselect_all_items(self.layout.page, self.ITEM_SELECTOR)
+        """Deselect all explorer ranges by clicking their checked checkboxes.
+
+        The checkbox indicator paints over the input, so a real click lands on the wrong
+        element. The event goes straight to the input instead.
+        """
+        checked = self._list().get_by_role("checkbox", name="Select", checked=True)
+        # Wait out each unchecking before the next. Clicking again while the row is
+        # still checked re-selects the box that was just cleared.
+        while (remaining := checked.count()) > 0:
+            checked.first.dispatch_event("click")
+            expect(checked).to_have_count(remaining - 1, timeout=5000)
 
     def _select_many(self, names: list[str]) -> Locator:
         """Select multiple explorer ranges via their checkbox labels."""
@@ -209,8 +221,6 @@ class Explorer(Surface):
         item = self.get_item(parent_name)
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Create child range")
-        modal = self.layout.page.locator(CREATE_MODAL_SELECTOR)
-        modal.wait_for(state="visible", timeout=5000)
         self.fill_create_modal(child_name)
 
     def search(self, term: str) -> None:

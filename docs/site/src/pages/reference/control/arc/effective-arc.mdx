@@ -43,8 +43,8 @@ If multiple transitions are true simultaneously, the first one wins.
 
 ### Use `->` for Streaming, `=>` for Transitions
 
-Continuous edges (`->`) fire on every data arrival. Conditional edges (`=>`) fire while
-the source is truthy.
+Continuous edges (`->`) fire whenever the source produces a value. Conditional edges
+(`=>`) fire while the source is truthy.
 
 ```arc channels="sensor, output, pressure"
 // Streaming: continuously process sensor data

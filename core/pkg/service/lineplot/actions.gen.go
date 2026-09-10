@@ -33,6 +33,7 @@ const (
 	ActionTypeAddRange              = "add_range"
 	ActionTypeRemoveRange           = "remove_range"
 	ActionTypeSetRanges             = "set_ranges"
+	ActionTypeSetCustomRange        = "set_custom_range"
 	ActionTypeSetAxisLabel          = "set_axis_label"
 	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
 	ActionTypeSetAxisLabelLevel     = "set_axis_label_level"
@@ -138,6 +139,12 @@ type RemoveRangePayload struct {
 type SetRangesPayload struct {
 	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
 	Ranges  []string `json:"ranges" msgpack:"ranges"`
+}
+
+// SetCustomRangePayload sets the window the "custom" range key resolves to. A null
+// custom clears the window.
+type SetCustomRangePayload struct {
+	Custom *CustomRange `json:"custom,omitempty" msgpack:"custom,omitempty"`
 }
 
 // SetAxisLabelPayload sets the label rendered along the axis identified by key.
@@ -298,6 +305,7 @@ type Action struct {
 	AddRange              *AddRangePayload              `json:"add_range,omitempty" msgpack:"add_range,omitempty"`
 	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitempty" msgpack:"remove_range,omitempty"`
 	SetRanges             *SetRangesPayload             `json:"set_ranges,omitempty" msgpack:"set_ranges,omitempty"`
+	SetCustomRange        *SetCustomRangePayload        `json:"set_custom_range,omitempty" msgpack:"set_custom_range,omitempty"`
 	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitempty" msgpack:"set_axis_label,omitempty"`
 	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitempty" msgpack:"set_axis_label_direction,omitempty"`
 	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitempty" msgpack:"set_axis_label_level,omitempty"`
@@ -395,6 +403,11 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRanges.Handle(state)
+		case ActionTypeSetCustomRange:
+			if a.SetCustomRange == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetCustomRange.Handle(state)
 		case ActionTypeSetAxisLabel:
 			if a.SetAxisLabel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -573,6 +586,11 @@ func NewRemoveRangeAction(p RemoveRangePayload) Action {
 // NewSetRangesAction wraps a SetRangesPayload in an Action envelope.
 func NewSetRangesAction(p SetRangesPayload) Action {
 	return Action{Type: ActionTypeSetRanges, SetRanges: &p}
+}
+
+// NewSetCustomRangeAction wraps a SetCustomRangePayload in an Action envelope.
+func NewSetCustomRangeAction(p SetCustomRangePayload) Action {
+	return Action{Type: ActionTypeSetCustomRange, SetCustomRange: &p}
 }
 
 // NewSetAxisLabelAction wraps a SetAxisLabelPayload in an Action envelope.

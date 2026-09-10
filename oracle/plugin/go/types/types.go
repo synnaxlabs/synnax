@@ -740,14 +740,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
-	// Flatten (rather than embed the parent) when fields are omitted, parents
-	// conflict, a field removes an inherited domain, or a field restates an
-	// inherited field's type — none can be expressed through Go struct embedding.
-	flatten := len(form.Extends) > 0 &&
-		(len(form.OmittedFields) > 0 ||
-			resolver.HasFieldConflicts(form.Extends, data.table) ||
-			resolver.HasDomainOmissions(form) ||
-			resolver.HasStructuralOverride(form, data.table))
+	flatten := len(form.Extends) > 0 && !CanEmbed(form, data.table)
 	fields := resolution.UnifiedFields(entry, data.table)
 	// Fields the struct redeclares only to change an inherited default. The embedded
 	// parent already declares them, so they contribute a default fill and nothing

@@ -18,7 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -723,6 +725,73 @@ var _ = Describe("Writer", func() {
 						}),
 					).Error().
 						To(MatchError(validate.ErrValidation))
+				},
+			)
+
+			It(
+				"Should set, replace, and clear the custom range via SetCustomRange",
+				func(ctx SpecContext) {
+					plot := lineplot.LinePlot{Name: "test"}
+					Expect(
+						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
+					).To(Succeed())
+					retrieve := func() lineplot.LinePlot {
+						GinkgoHelper()
+						var res lineplot.LinePlot
+						Expect(
+							svc.NewRetrieve().
+								Where(lineplot.MatchKeys(plot.Key)).
+								Entry(&res).
+								Exec(ctx, tx),
+						).
+							To(Succeed())
+						return res
+					}
+					dynamic := lineplot.CustomRange{
+						Variant: lineplot.DynamicCustomRange{Span: telem.Minute},
+					}
+					Expect(
+						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+							lineplot.NewSetCustomRangeAction(
+								lineplot.SetCustomRangePayload{Custom: &dynamic},
+							),
+						}),
+					).To(Succeed())
+					Expect(retrieve().Ranges.Custom).To(Equal(&dynamic))
+					static := lineplot.CustomRange{
+						Variant: lineplot.StaticCustomRange{Start: 0, End: 1000},
+					}
+					Expect(
+						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+							lineplot.NewSetCustomRangeAction(
+								lineplot.SetCustomRangePayload{Custom: &static},
+							),
+						}),
+					).To(Succeed())
+					Expect(retrieve().Ranges.Custom).To(Equal(&static))
+					Expect(
+						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+							lineplot.NewSetCustomRangeAction(
+								lineplot.SetCustomRangePayload{},
+							),
+						}),
+					).To(Succeed())
+					Expect(retrieve().Ranges.Custom).To(BeNil())
+				},
+			)
+
+			It(
+				"Should reject a SetCustomRange action with no payload",
+				func(ctx SpecContext) {
+					plot := lineplot.LinePlot{Name: "test"}
+					Expect(
+						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
+					).To(Succeed())
+					Expect(
+						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+							{Type: lineplot.ActionTypeSetCustomRange},
+						}),
+					).To(MatchError(union.ErrMissingPayload))
 				},
 			)
 

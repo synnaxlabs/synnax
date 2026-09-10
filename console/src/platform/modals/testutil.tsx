@@ -42,7 +42,7 @@ import {
 // stack needs a Redux Provider even though modals themselves live in a separate store.
 const store = configureStore({
   reducer: Session.reducer,
-  preloadedState: deep.copy(Session.ZERO_STATE),
+  preloadedState: deep.freeze(deep.copy(Session.ZERO_STATE)),
 });
 
 const createWrapper = (connectionStatus?: connection.Status): FC<PropsWithChildren> => {

@@ -256,7 +256,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	nodes := make(map[string]node.Node)
 	for _, irNode := range t.prog.Program.Nodes {
-		n, nodeErr := f.Create(ctx, node.Config{
+		n, nodeErr := f.Create(node.Config{
 			Node:    irNode,
 			Program: *t.prog.Program,
 			State:   drt.state.nodes.Node(irNode.Key),

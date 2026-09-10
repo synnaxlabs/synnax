@@ -7088,4 +7088,217 @@ var _ = Describe("Sequence", func() {
 			Expect(countOf(out, 401, "parent")).To(BeZero())
 		})
 	})
+
+	// An entry node (no incoming edges, no channel reads) fires once per activation.
+	Describe("Entry node one-shot", func() {
+		It(
+			"fires a config-only function once per stage activation",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 402},
+					"log":       {types.String(), 403},
+					"data":      {types.F32(), 404},
+					"out_str":   {types.String(), 405},
+				})
+				h := newRuntimeHarness(ctx, `
+    func event_log{msg str} () {
+        log = msg
+    }
+    func seen(v f32) str {
+        return "seen"
+    }
+    sequence main {
+        stage s1 {
+            event_log{"armed"}
+            data -> seen{} -> out_str
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 402, DataType: telem.Uint8T},
+					channels.Digest{Key: 403, DataType: telem.StringT},
+					channels.Digest{Key: 404, DataType: telem.Float32T},
+					channels.Digest{Key: 405, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 402)
+				out, _ := h.Flush()
+				Expect(countOf(out, 403, "armed")).To(Equal(1))
+				for range 3 {
+					h.Ingest(404, telem.NewSeriesV[float32](1.5))
+					for range 5 {
+						advance(h, ctx, telem.Millisecond)
+					}
+				}
+				out, _ = h.Flush()
+				Expect(countOf(out, 405, "seen")).To(Equal(3),
+					"each sample must tick the channel-driven flow")
+				Expect(countOf(out, 403, "armed")).To(BeZero(),
+					"scheduler ticks must not re-fire the config-only entry")
+			},
+		)
+
+		It(
+			"re-fires a config-only function on stage re-entry",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 406},
+					"go_b":      {types.U8(), 407},
+					"go_a":      {types.U8(), 408},
+					"log":       {types.String(), 409},
+				})
+				h := newRuntimeHarness(ctx, `
+    func event_log{msg str} () {
+        log = msg
+    }
+    sequence main {
+        stage a {
+            event_log{"a"}
+            go_b => b
+        }
+        stage b {
+            go_a => a
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 406, DataType: telem.Uint8T},
+					channels.Digest{Key: 407, DataType: telem.Uint8T},
+					channels.Digest{Key: 408, DataType: telem.Uint8T},
+					channels.Digest{Key: 409, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 406)
+				trigger(h, ctx, 407)
+				trigger(h, ctx, 408)
+				out, _ := h.Flush()
+				Expect(countOf(out, 409, "a")).To(Equal(2),
+					"stage re-entry must re-fire the config-only entry")
+			},
+		)
+
+		It(
+			"fires a bare time.now source once per activation",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 410},
+					"ts_out":    {types.I64(), 411},
+				})
+				h := newRuntimeHarness(ctx, `import time
+    sequence main {
+        stage s1 {
+            time.now{} -> ts_out
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 410, DataType: telem.Uint8T},
+					channels.Digest{Key: 411, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 410)
+				out, _ := h.Flush()
+				samples := int64(0)
+				for _, s := range out.Get(411).Series {
+					samples += s.Len()
+				}
+				Expect(samples).To(Equal(int64(1)))
+				advance(h, ctx, 10*telem.Millisecond)
+				advance(h, ctx, 20*telem.Millisecond)
+				advance(h, ctx, 50*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(411).Series).To(BeEmpty(),
+					"idle cycles must not re-fire the one-shot source")
+			},
+		)
+
+		// Threshold math for the interval beside the one-shot:
+		//   BaseInterval = 50ms (only timer in the program)
+		//   tolerance    = BaseInterval / 2 = 25ms
+		//   fire when    = elapsed - lastFired >= period - tolerance = 25ms
+		//   lastFired    = -period initially, so activation fires immediately
+		// Fires land at ~1ms (activation), 60ms, 120ms, and 180ms; the 10ms tick
+		// is only 9ms past the last fire and stays below the threshold.
+		It(
+			"keeps an interval repeating beside a one-shot source",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 412},
+					"tick_ch":   {types.U8(), 413},
+					"log":       {types.String(), 414},
+				})
+				h := newRuntimeHarness(ctx, `
+    func event_log{msg str} () {
+        log = msg
+    }
+    sequence main {
+        stage s1 {
+            interval{50ms} -> tick_ch
+            event_log{"once"}
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 412, DataType: telem.Uint8T},
+					channels.Digest{Key: 413, DataType: telem.Uint8T},
+					channels.Digest{Key: 414, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 412)
+				advance(h, ctx, 10*telem.Millisecond)
+				advance(h, ctx, 60*telem.Millisecond)
+				advance(h, ctx, 120*telem.Millisecond)
+				advance(h, ctx, 180*telem.Millisecond)
+				out, _ := h.Flush()
+				ticks := int64(0)
+				for _, s := range out.Get(413).Series {
+					ticks += s.Len()
+				}
+				Expect(ticks).To(BeNumerically(">=", 3),
+					"the interval must keep repeating")
+				Expect(countOf(out, 414, "once")).To(Equal(1),
+					"timer cycles must not re-fire the config-only entry")
+			},
+		)
+
+		// Threshold math for the wait:
+		//   BaseInterval = 100ms (only timer in the program)
+		//   tolerance    = BaseInterval / 2 = 50ms
+		//   fire when    = elapsed - startTime >= duration - tolerance = 50ms
+		// startTime lands at ~1ms during activation, so 20ms is safely below the
+		// threshold and 160ms safely past it.
+		It(
+			"fires time.wait once at its deadline and never again",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 415},
+					"done_ch":   {types.U8(), 416},
+				})
+				h := newRuntimeHarness(ctx, `
+    sequence main {
+        stage s1 {
+            wait{100ms} -> done_ch
+        }
+    }
+    start_cmd => main`, resolver,
+					channels.Digest{Key: 415, DataType: telem.Uint8T},
+					channels.Digest{Key: 416, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 415)
+				advance(h, ctx, 20*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(416).Series).To(BeEmpty(),
+					"wait must not fire below its deadline")
+				advance(h, ctx, 160*telem.Millisecond)
+				out, _ = h.Flush()
+				samples := int64(0)
+				for _, s := range out.Get(416).Series {
+					samples += s.Len()
+				}
+				Expect(samples).To(Equal(int64(1)))
+				advance(h, ctx, 300*telem.Millisecond)
+				advance(h, ctx, 500*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(416).Series).To(BeEmpty(),
+					"a fired wait must stay quiet")
+			},
+		)
+	})
 })

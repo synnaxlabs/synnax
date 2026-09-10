@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/media",
-  "version": "0.57.0",
+  "version": "0.58.0",
   "type": "module",
   "description": "Media Assets for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/media",
@@ -25,11 +25,11 @@
     "react": "catalog:"
   },
   "devDependencies": {
-    "@synnaxlabs/eslint-config": "workspace:^",
-    "@synnaxlabs/madge": "workspace:^",
-    "@synnaxlabs/stylelint-config": "workspace:^",
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/stylelint-config": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",

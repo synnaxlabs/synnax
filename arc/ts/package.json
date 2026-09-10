@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/arc",
   "private": true,
-  "version": "0.57.0",
+  "version": "0.58.0",
   "type": "module",
   "description": "TypeScript/JavaScript utilities for the Arc language",
   "exports": {
@@ -18,8 +18,8 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@synnaxlabs/tsconfig": "workspace:^",
-    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }

@@ -21,6 +21,9 @@ var _ = Describe("Node", func() {
 		reads := func(key uint32) types.Channels {
 			return types.Channels{Read: map[uint32]string{key: "ch"}}
 		}
+		writes := func(key uint32) types.Channels {
+			return types.Channels{Write: map[uint32]string{key: "ch"}}
+		}
 		edgeInto := func(nodeKey string) ir.Edge {
 			return ir.Edge{Target: ir.Handle{Node: nodeKey, Param: "input"}}
 		}
@@ -39,6 +42,8 @@ var _ = Describe("Node", func() {
 				ir.Node{Key: "n", Channels: reads(1)}, ir.Edges{edgeInto("n")}, false),
 			Entry("an edge that targets a different node",
 				ir.Node{Key: "n"}, ir.Edges{edgeInto("other")}, true),
+			Entry("a channel write only",
+				ir.Node{Key: "n", Channels: writes(2)}, ir.Edges{}, true),
 		)
 	})
 

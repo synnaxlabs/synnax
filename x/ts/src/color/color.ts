@@ -100,12 +100,10 @@ export const colorZ = crudeZ.transform((v) => construct(v));
 export type Color = RGBA;
 
 /** @returns true if the given color can be parsed into a valid color object. */
-export const isCrude = (color: unknown): color is Crude =>
-  colorZ.safeParse(color).success;
+export const isCrude = (color: unknown): color is Crude => z.validate(colorZ, color);
 
 /** @returns true if the color is a true Color type. */
-export const isColor = (color: unknown): color is Color =>
-  rgbaZ.safeParse(color).success;
+export const isColor = (color: unknown): color is Color => z.validate(rgbaZ, color);
 
 /**
  * Converts a crude color to its most meaningful CSS format.
@@ -377,12 +375,9 @@ export const fromCSS = (cssColor: string): Color | undefined => {
       const g = trimmed[2];
       const b = trimmed[3];
       const expanded = `#${r}${r}${g}${g}${b}${b}`;
-      if (hexZ.safeParse(expanded).success) return fromHex(expanded);
+      if (z.validate(hexZ, expanded)) return fromHex(expanded);
     }
-    if (
-      (trimmed.length === 7 || trimmed.length === 9) &&
-      hexZ.safeParse(trimmed).success
-    )
+    if ((trimmed.length === 7 || trimmed.length === 9) && z.validate(hexZ, trimmed))
       return fromHex(trimmed);
     return undefined;
   }

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/feature/core/Badge";
 export * from "@/feature/core/commands";
-export * from "@/feature/core/ConnectionBadge";
 export * from "@/feature/core/link";
 export * from "@/feature/core/notifications";
 export * from "@/platform/core/external";

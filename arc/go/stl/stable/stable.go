@@ -11,7 +11,6 @@ package stable
 
 import (
 	"bytes"
-	"context"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -99,7 +98,7 @@ func WithNow(fn func() telem.TimeStamp) func(*Host) {
 	return func(h *Host) { h.now = fn }
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}

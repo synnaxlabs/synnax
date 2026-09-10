@@ -9,15 +9,11 @@
 
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
 import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
 import { toCSSVars } from "@/theming/css";
 
 const INDENTATION = "    ";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const formatVars = (
   vars: Record<string, string | number | undefined>,
@@ -28,7 +24,10 @@ const formatVars = (
     .map(([key, value]) => `${key}: ${value};`)
     .join(`\n${INDENTATION.repeat(indentationLevel)}`)}`;
 
-const headerPath = path.resolve(__dirname, "../../../../licenses/headers/template.txt");
+const headerPath = path.resolve(
+  import.meta.dirname,
+  "../../../../licenses/headers/template.txt",
+);
 const headerContent = fs.readFileSync(headerPath, "utf-8").trim();
 const currentYear = new Date().getFullYear();
 const processedHeader = headerContent.replace(/\{\{YEAR\}\}/g, currentYear.toString());
@@ -78,7 +77,7 @@ ${formatVars(darkPrefixedVars)}
 };
 
 const writeToFile = (filename: string, content: string) => {
-  fs.writeFileSync(path.join(__dirname, filename), content, "utf-8");
+  fs.writeFileSync(path.join(import.meta.dirname, filename), content, "utf-8");
 };
 
 const light = themeZ.parse(SYNNAX_LIGHT);

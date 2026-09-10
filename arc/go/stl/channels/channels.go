@@ -121,7 +121,7 @@ func NewHost(
 	return h, nil
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	isSource := cfg.Node.Type == "on"
 	isSink := cfg.Node.Type == "write"
 	if !isSource && !isSink {

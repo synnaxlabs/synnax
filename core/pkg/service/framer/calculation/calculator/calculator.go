@@ -181,7 +181,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	cs.nodes = node.New(cfg.Module.IR)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
-		n, nodeErr := f.Create(ctx, node.Config{
+		n, nodeErr := f.Create(node.Config{
 			Node:    irNode,
 			Program: cfg.Module.Program,
 			State:   cs.nodes.Node(irNode.Key),

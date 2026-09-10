@@ -9,14 +9,14 @@
 
 import { fireEvent, getByLabelText } from "@testing-library/react";
 
-/** Hovers the rendered ConnectionBadge's trigger to open its tooltip. */
-export const hoverConnectionBadge = (container: HTMLElement): void => {
-  fireEvent.pointerOver(getByLabelText(container, "Connection status"), {
+/** Hovers the rendered Core.Badge trigger to open its tooltip. */
+export const hoverCoreBadge = (container: HTMLElement): void => {
+  fireEvent.pointerOver(getByLabelText(container, "Core menu"), {
     pointerType: "mouse",
   });
 };
 
-/** Clicks the rendered ConnectionBadge's trigger to open its dialog. */
-export const clickConnectionBadge = (container: HTMLElement): void => {
-  fireEvent.click(getByLabelText(container, "Connection status"));
+/** Clicks the rendered Core.Badge trigger to open its dialog. */
+export const clickCoreBadge = (container: HTMLElement): void => {
+  fireEvent.click(getByLabelText(container, "Core menu"));
 };

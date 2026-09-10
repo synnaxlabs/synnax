@@ -8,7 +8,8 @@
         { "case": "console/project/ontology" },
         { "case": "console/pages/file_drop" },
         { "case": "console/channel/ontology" },
-        { "case": "console/task/task_lifecycle" }
+        { "case": "console/task/task_lifecycle" },
+        { "case": "console/channel/tree_virtualization" }
       ]
     },
     {
@@ -61,8 +62,7 @@
         { "case": "console/channel/channel_context_menu" },
         { "case": "console/channel/calculated_channels" },
         { "case": "console/channel/rename_synchronization" },
-        { "case": "console/channel/calc_type_cascade" },
-        { "case": "console/channel/tree_virtualization" }
+        { "case": "console/channel/calc_type_cascade" }
       ]
     },
     {

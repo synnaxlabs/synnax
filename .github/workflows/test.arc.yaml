@@ -66,6 +66,8 @@ concurrency:
 
 jobs:
   server:
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     uses: ./.github/workflows/build.docker.yaml
     permissions:
       packages: write
@@ -152,6 +154,8 @@ jobs:
         run: docker rm -f synnax-test-arc || true
 
   test-cpp:
+    # Pushes to rc already run these tests, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Test C++ (${{ matrix.os }})
     strategy:
       fail-fast: false

@@ -25,7 +25,7 @@ export * from "@/schematic/node/general/scale/config";
 
 export const defaultConfig = (): Config => ({
   variant: VARIANT,
-  orientation: "left",
+  orientation: "top",
   dimensions: { ...DEFAULT_DIMENSIONS },
   color: color.ZERO,
   label: Label.defaultConfig("Scale"),

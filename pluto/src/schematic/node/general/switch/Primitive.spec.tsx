@@ -71,6 +71,38 @@ describe("switch symbol", () => {
     });
   });
 
+  describe("scale", () => {
+    // The dimensions are computed from the scale var in Switch.css; jsdom cannot
+    // compute them, so we assert the source var.
+    it("should set the scale var from the scale prop", () => {
+      const { container } = render(<Switch scale={3} />);
+      expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
+        "3",
+      );
+    });
+
+    it("should default the scale var to 1", () => {
+      const { container } = render(<Switch />);
+      expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
+        "1",
+      );
+    });
+  });
+
+  describe("orientation", () => {
+    // The box swap and rotation live in switch.css; jsdom cannot compute them, so we
+    // assert the direction class that keys them.
+    it("should carry the direction class for the orientation prop", () => {
+      const { container } = render(<Switch orientation="bottom" />);
+      expect(getRoot(container).getAttribute("class")).toContain("pluto--direction-y");
+    });
+
+    it("should default to the x direction", () => {
+      const { container } = render(<Switch />);
+      expect(getRoot(container).getAttribute("class")).toContain("pluto--direction-x");
+    });
+  });
+
   describe("enabled", () => {
     it("should reflect the enabled state on the input", () => {
       const { container } = render(<Switch enabled />);

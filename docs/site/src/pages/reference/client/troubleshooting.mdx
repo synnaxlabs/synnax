@@ -29,7 +29,7 @@ Synnax doesn't enforce a specific way to work with Python, although our developm
 recommends using the latest version of the official
 [Python installer](https://www.python.org/downloads/).
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -40,8 +40,6 @@ Alternatively, if you plan to use Synnax inside
 [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10), follow the
 instructions for Linux instead.
 
-<div style={{ margin: "14rem 0" }}>
-</div>
 </Fragment>
 
 <Fragment slot="macOS">
@@ -95,7 +93,7 @@ is recommended.
   @synnaxlabs/client`.
 </Note.Note>
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -163,14 +161,12 @@ python --version # or try: python3 --version, python3.12 --version
 If the output shows `Python 3.12.x` or higher, the version is compatible. If older,
 update Python:
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
 Reinstall from [python.org](https://www.python.org/downloads/) - make sure to check "Add
 Python to PATH".
-
-<div style={{ margin: "14rem 0" }}></div>
 
 </Fragment>
 
@@ -187,8 +183,6 @@ brew upgrade python
 See the [Installing the Language](#installing-the-language) section above for
 distribution-specific instructions.
 
-<div style={{ margin: "14rem 0" }}>
-</div>
 </Fragment>
 
 </Platform.Tabs>
@@ -224,7 +218,7 @@ If `python --version` returns `command not found`, the executable isn't on your 
   in your PATH. Check your PATH order and remove or reorder conflicting entries.
 </Note.Note>
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
@@ -236,8 +230,6 @@ If `python --version` returns `command not found`, the executable isn't on your 
 **To fix:** Search "environment variables" in Start Menu → Edit system environment
 variables → Environment Variables → Edit `Path` → Add your Python directory → Log out
 and back in.
-
-<div style={{ margin: "14rem 0" }}></div>
 
 </Fragment>
 
@@ -279,15 +271,11 @@ source ~/.bashrc
 
 If `node --version` returns `command not found`, Node.js isn't on your PATH.
 
-<Platform.Tabs client:only="react" exclude={["Docker"]}>
+<Platform.Tabs client:load exclude={["Docker"]}>
 
 <Fragment slot="Windows">
-<div style={{ margin: "4rem 0" }}>
-</div>
 Reinstall from [nodejs.org](https://nodejs.org/) - the installer automatically adds
 Node.js to PATH.
-
-<div style={{ margin: "28rem 0" }}></div>
 
 </Fragment>
 
