@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <string>
 #include <utility>
 
@@ -22,11 +23,9 @@ namespace {
 /// curl_multi_wakeup.
 const auto IDLE_POLL_TIMEOUT = static_cast<long>(x::telem::SECOND.milliseconds());
 
-/// @brief maximum time the event loop blocks between I/O checks while transfers are
-/// in-flight. Caps how long newly submitted requests wait to be picked up when no
-/// socket activity occurs.
-const auto ACTIVE_POLL_TIMEOUT = static_cast<long>(
-    x::telem::MILLISECOND.milliseconds()
+const auto SKIPPED = x::errors::Error(
+    http::errors::SKIPPED_ERROR,
+    "not sent, an earlier request to the device was unreachable"
 );
 struct CurlGlobal {
     CurlGlobal() { curl_global_init(CURL_GLOBAL_DEFAULT); }
@@ -139,7 +138,8 @@ CURL *Processor::create_handle(const Request &req, ActiveTransfer &t) {
     return handle;
 }
 
-Processor::Processor() {
+Processor::Processor(const x::telem::TimeSpan active_poll_timeout):
+    active_poll_timeout_ms(static_cast<int>(active_poll_timeout.milliseconds())) {
     ensure_curl_initialized();
     this->multi = curl_multi_init();
     this->io_thread = std::thread([this] { run(); });
@@ -149,12 +149,53 @@ Processor::~Processor() {
     this->running.store(false);
     curl_multi_wakeup(this->multi);
     if (this->io_thread.joinable()) this->io_thread.join();
-    for (auto &[handle, transfer]: this->active) {
-        curl_multi_remove_handle(this->multi, handle);
-        if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
-        curl_easy_cleanup(handle);
-    }
+    for (auto &[handle, transfer]: this->active)
+        this->finish(handle, transfer);
     curl_multi_cleanup(this->multi);
+}
+
+bool Processor::dispatch(PendingRequest &&p, Gate &gate) {
+    ActiveTransfer t;
+    t.start = x::telem::TimeStamp::now();
+    t.promise = std::move(p.promise);
+    t.base_url = p.request->base_url;
+    CURL *handle = create_handle(*p.request, t);
+    if (handle == nullptr) {
+        t.promise.set_value({
+            Response{},
+            x::errors::Error(
+                http::errors::CRITICAL_ERROR,
+                "failed to create curl handle"
+            ),
+        });
+        return false;
+    }
+    auto [it, _] = this->active.emplace(handle, std::move(t));
+    // Set WRITEDATA after emplace so it points to the response_body at its final
+    // address in the map.
+    curl_easy_setopt(handle, CURLOPT_WRITEDATA, &it->second.response_body);
+    curl_multi_add_handle(this->multi, handle);
+    gate.in_flight++;
+    return true;
+}
+
+void Processor::finish(CURL *handle, const ActiveTransfer &t) {
+    curl_multi_remove_handle(this->multi, handle);
+    if (t.headers != nullptr) curl_slist_free_all(t.headers);
+    curl_easy_cleanup(handle);
+}
+
+void Processor::fail_all(const x::errors::Error &err) {
+    for (auto &[handle, transfer]: this->active) {
+        transfer.promise.set_value({Response{}, err});
+        this->finish(handle, transfer);
+    }
+    this->active.clear();
+    for (auto &[_, gate]: this->gates)
+        for (auto &p: gate.waiting)
+            p.promise.set_value({Response{}, err});
+    this->gates.clear();
+    this->touched.clear();
 }
 
 void Processor::run() {
@@ -164,26 +205,16 @@ void Processor::run() {
             std::lock_guard lock(this->queue_mutex);
             while (!this->pending.empty()) {
                 auto &p = this->pending.front();
-                ActiveTransfer t;
-                t.start = x::telem::TimeStamp::now();
-                t.promise = std::move(p.promise);
-                CURL *handle = create_handle(*p.request, t);
-                if (handle == nullptr) {
-                    t.promise.set_value({
-                        Response{},
-                        x::errors::Error(
-                            http::errors::CRITICAL_ERROR,
-                            "failed to create curl handle"
-                        ),
-                    });
-                    this->pending.pop_front();
-                    continue;
-                }
-                auto [it, _] = this->active.emplace(handle, std::move(t));
-                // Set WRITEDATA after emplace so it points to the response_body at its
-                // final address in the map.
-                curl_easy_setopt(handle, CURLOPT_WRITEDATA, &it->second.response_body);
-                curl_multi_add_handle(this->multi, handle);
+                auto [gate_it, opened] = this->gates.try_emplace(p.request->base_url);
+                auto &gate = gate_it->second;
+                if (opened) gate.cap = p.request->max_concurrent_requests;
+                if (gate.in_flight >= gate.cap)
+                    gate.waiting.push_back(std::move(p));
+                else if (
+                    !this->dispatch(std::move(p), gate) && gate.in_flight == 0 &&
+                    gate.waiting.empty()
+                )
+                    this->gates.erase(gate_it);
                 this->pending.pop_front();
             }
         }
@@ -198,17 +229,9 @@ void Processor::run() {
         if (mc != CURLM_OK) {
             LOG(ERROR) << "[http.processor] curl_multi_perform error: "
                        << curl_multi_strerror(mc);
-            const auto err = x::errors::Error(
-                http::errors::CRITICAL_ERROR,
-                curl_multi_strerror(mc)
+            this->fail_all(
+                x::errors::Error(http::errors::CRITICAL_ERROR, curl_multi_strerror(mc))
             );
-            for (auto &[handle, transfer]: this->active) {
-                transfer.promise.set_value({Response{}, err});
-                curl_multi_remove_handle(this->multi, handle);
-                if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
-                curl_easy_cleanup(handle);
-            }
-            this->active.clear();
             continue;
         }
 
@@ -222,33 +245,63 @@ void Processor::run() {
             if (it == this->active.end()) continue;
             auto &transfer = it->second;
             auto result = build_result(handle, msg->data.result, transfer);
+            const bool unreachable = result.second.matches(
+                http::errors::UNREACHABLE_ERROR
+            );
             transfer.promise.set_value(std::move(result));
-            curl_multi_remove_handle(this->multi, handle);
-            if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
-            curl_easy_cleanup(handle);
+            const auto start = transfer.start;
+            auto gate_it = this->gates.find(transfer.base_url);
+            this->finish(handle, transfer);
             this->active.erase(it);
+            if (gate_it == this->gates.end()) continue;
+
+            auto &gate = gate_it->second;
+            gate.in_flight--;
+            if (unreachable)
+                gate.unreachable_start = std::max(gate.unreachable_start, start);
+            else
+                gate.last_reached = x::telem::TimeStamp::now();
+            if (!gate.touched) this->touched.push_back(gate_it);
+            gate.touched = true;
         }
 
+        // Skips wait for the whole batch so a success read after a timeout counts.
+        for (const auto gate_it: this->touched) {
+            auto &gate = gate_it->second;
+            gate.touched = false;
+            // A dead device fails its queue now, not one timeout at a time.
+            if (gate.last_reached < gate.unreachable_start) {
+                for (auto &p: gate.waiting)
+                    p.promise.set_value({Response{}, SKIPPED});
+                gate.waiting.clear();
+            }
+            gate.unreachable_start = x::telem::TimeStamp(0);
+            while (gate.in_flight < gate.cap && !gate.waiting.empty()) {
+                auto next = std::move(gate.waiting.front());
+                gate.waiting.pop_front();
+                this->dispatch(std::move(next), gate);
+            }
+            if (gate.in_flight == 0 && gate.waiting.empty()) this->gates.erase(gate_it);
+        }
+        this->touched.clear();
+
         if (!this->active.empty())
-            curl_multi_poll(this->multi, nullptr, 0, ACTIVE_POLL_TIMEOUT, nullptr);
+            curl_multi_poll(
+                this->multi,
+                nullptr,
+                0,
+                this->active_poll_timeout_ms,
+                nullptr
+            );
     }
 
-    for (auto &[handle, transfer]: this->active) {
-        transfer.promise.set_value({
-            Response{},
-            x::errors::Error(http::errors::CRITICAL_ERROR, "processor shutting down"),
-        });
-        curl_multi_remove_handle(this->multi, handle);
-        if (transfer.headers != nullptr) curl_slist_free_all(transfer.headers);
-        curl_easy_cleanup(handle);
-    }
-    this->active.clear();
-
-    std::lock_guard lock(this->queue_mutex);
     const auto err = x::errors::Error(
         http::errors::CRITICAL_ERROR,
         "processor shutting down"
     );
+    this->fail_all(err);
+
+    std::lock_guard lock(this->queue_mutex);
     while (!this->pending.empty()) {
         this->pending.front().promise.set_value({Response{}, err});
         this->pending.pop_front();
