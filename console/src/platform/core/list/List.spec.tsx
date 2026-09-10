@@ -57,6 +57,15 @@ describe("Core List", () => {
     });
   });
 
+  it("should offer Reload Console from a Core's context menu", async () => {
+    await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   // The link names the cluster, not the record, so it opens on a machine whose own
   // record for that cluster carries a different key.
   it("should copy a link to the Core's cluster from the context menu", async () => {

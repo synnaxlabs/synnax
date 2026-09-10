@@ -63,6 +63,13 @@ describe("arc/ontology", () => {
   });
 
   describe("context menu", () => {
+    it("should offer Reload Console", async () => {
+      const { arc, root } = await createArcInGroup();
+      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      await openTreeRowContextMenu(arc.name);
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
     it("renames the Arc in place without a confirmation prompt", async () => {
       const { arc, root } = await createArcInGroup();
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Haul } from "@synnaxlabs/pluto";
-import { createEvent, fireEvent, waitFor } from "@testing-library/react";
+import { createEvent, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Window } from "@/app/window";
@@ -25,6 +25,18 @@ const fireFileDragOver = (target: HTMLElement): void => {
 
 describe("app/window/Window", () => {
   installPortalRoot();
+
+  // The window's own background carries no actions of its own, so Reload Console is
+  // the only thing standing between a right click there and a dead menu.
+  it("offers Reload Console from the window background", async () => {
+    const { container } = await renderWithConsole(
+      <Haul.Provider {...Session.Haul.PROVIDER_PROPS}>
+        <Window.Window />
+      </Haul.Provider>,
+    );
+    fireEvent.contextMenu(getBySelector<HTMLElement>(container, ".console-main"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
 
   // Dropping a file onto the mosaic imports it, but only while the haul carries FILE.
   // Nothing else starts that drag, so losing this makes every file drop a no-op.

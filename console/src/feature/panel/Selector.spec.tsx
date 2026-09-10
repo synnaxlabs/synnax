@@ -546,6 +546,11 @@ describe("Panel.Selector", () => {
       await screen.findByText("Delete");
     };
 
+    it("should offer Reload Console", async () => {
+      await openPillMenu();
+      expect(screen.getByText("Reload Console")).toBeTruthy();
+    });
+
     it("should offer the panel in a second window in the tauri engine", async () => {
       mocks.engine = "tauri";
       await openPillMenu();
