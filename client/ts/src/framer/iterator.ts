@@ -16,6 +16,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -52,18 +53,20 @@ export const iteratorResZ = z.object({
 
 export interface IteratorResponse extends z.infer<typeof iteratorResZ> {}
 
-/** Config for an iterator. Pass it to `client.telem.openIterator`. */
-export interface IteratorConfig {
+export const iteratorConfigZ = z.object({
   /** chunkSize is the maximum number of samples contained per channel in the frame
    * resulting from a call to next with {@link AUTO_SPAN}.
    */
-  chunkSize?: number;
+  chunkSize: z.number().default(1e5),
   /**
-   * downsampleFactor is the factor to downsample the data by. If downsampleFactor is
-   * less than or equal to 1, no downsampling will be performed.
+   * downsampleFactor keeps every n-th sample of each series read. Values below 2 keep
+   * every sample.
    */
-  downsampleFactor?: number;
-}
+  downsampleFactor: z.uint32().default(1),
+});
+
+/** Config for an iterator. Pass it to `client.telem.openIterator`. */
+export interface IteratorConfig extends z.input<typeof iteratorConfigZ> {}
 
 /**
  * Iterates over a cluster's telemetry in time order. Open one through the segment
@@ -98,6 +101,7 @@ export class Iterator {
     client: WebSocketClient,
     opts: IteratorConfig = {},
   ): Promise<Iterator> {
+    const cfg = zod.parse(iteratorConfigZ, opts, { label: "iterator config" });
     const adapter = await ReadAdapter.open(retrieveChannels, channels);
     client = client.withCodec(new WSIteratorCodec(adapter.codec));
     const stream = await client.stream("/frame/iterate", iteratorReqZ, iteratorResZ);
@@ -106,8 +110,8 @@ export class Iterator {
       command: IteratorCommand.Open,
       keys: Array.from(adapter.keys),
       bounds: new TimeRange(tr),
-      chunkSize: opts.chunkSize ?? 1e5,
-      downsampleFactor: opts.downsampleFactor ?? 1,
+      chunkSize: cfg.chunkSize,
+      downsampleFactor: cfg.downsampleFactor,
     });
     return iter;
   }
