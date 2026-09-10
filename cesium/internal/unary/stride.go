@@ -98,6 +98,11 @@ func readStridedVariable(
 			return nil, 0, err
 		}
 		length := int64(telem.ByteOrder.Uint32(lenBuf))
+		// A length prefix is stored data. Without this bound a corrupt one would
+		// drive an allocation of up to 4GiB before the short read caught it.
+		if pos+4+length > int64(size) {
+			return out, src, nil
+		}
 		pos += 4 + length
 		if src%factor != 0 {
 			if _, err := br.Discard(int(length)); err != nil {

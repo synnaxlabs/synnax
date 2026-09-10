@@ -11,6 +11,7 @@ package unary_test
 
 import (
 	"math"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,6 +24,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// corruptPrefixLength is the payload size the forged prefix claims. Large enough that
+// an unbounded read allocating it is unmistakable against a spec's normal footprint.
+const corruptPrefixLength = 1 << 30
 
 var _ = Describe("Downsampled Iteration", func() {
 	for fsName, openFS := range FileSystems {
@@ -177,6 +182,43 @@ var _ = Describe("Downsampled Iteration", func() {
 				Expect(series).To(HaveLen(2))
 				Expect(series[0].Unmarshal[int64]()).To(Equal([]int64{1, 4}))
 				Expect(series[1].Unmarshal[int64]()).To(Equal([]int64{1, 4}))
+			})
+
+			It("Should stop at a corrupt variable-length prefix", func(
+				ctx SpecContext,
+			) {
+				// The write path persists a series' bytes verbatim, so a prefix can
+				// claim more payload than the domain holds.
+				data := make([]byte, 0, 16)
+				for _, v := range []string{"ab", "cd"} {
+					data = telem.ByteOrder.AppendUint32(data, uint32(len(v)))
+					data = append(data, v...)
+				}
+				data = telem.ByteOrder.AppendUint32(data, corruptPrefixLength)
+				corrupt := telem.Series{DataType: telem.StringT, Data: data}
+				Expect(corrupt.Len()).To(Equal(int64(2)))
+
+				Expect(unary.Write(
+					ctx,
+					indexDB,
+					telem.SecondTS,
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+				)).To(Succeed())
+				Expect(
+					unary.Write(ctx, stringDB, telem.SecondTS, corrupt),
+				).To(Succeed())
+
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				series := readAll(ctx, stringDB, 2)
+				runtime.ReadMemStats(&after)
+
+				Expect(series).To(HaveLen(1))
+				Expect(series[0].Unmarshal[string]()).To(Equal([]string{"ab"}))
+				// TotalAlloc is cumulative, so this is the read's own allocation. An
+				// unbounded read would take the prefix at its word and claim 1GiB.
+				Expect(after.TotalAlloc - before.TotalAlloc).
+					To(BeNumerically("<", uint64(corruptPrefixLength)))
 			})
 
 			It("Should keep every other variable-length sample", func(
