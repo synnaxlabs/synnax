@@ -1216,6 +1216,58 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
+		It("Should downsample a calculation after it runs", func(ctx SpecContext) {
+			indexCh := &channel.Channel{
+				Name:     "downsample_stateful_time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "downsample_stateful_sensor",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: new(true),
+			}))
+			Expect(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+				},
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			total := &channel.Channel{
+				Name:     "downsample_stateful_total",
+				DataType: telem.Float32T,
+				Expression: "total f32 $= 0\n" +
+					"total = total + downsample_stateful_sensor\n" +
+					"return total",
+			}
+			Expect(channelWriter.Create(ctx, total)).To(Succeed())
+
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:             []channel.Key{total.Key()},
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: 2,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+			v := iter.Value().Get(total.Key())
+			Expect(v.Series).To(HaveLen(1))
+			// The running sum over every sample is 1, 3, 6, 10, 15, 21, 28, 36. Summing
+			// a strided input would instead give 1, 4, 9, 16.
+			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 6, 15, 28))
+			Expect(iter.Close()).To(Succeed())
+		})
+
 		It("Should correctly downsample with a factor of 3", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_time_3",

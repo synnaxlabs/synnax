@@ -42,6 +42,8 @@ const (
 	CommandValid        = framer.IteratorCommandValid
 )
 
+type responseSegment = confluence.Segment[Response, Response]
+
 type Iterator struct {
 	requests    confluence.Inlet[Request]
 	responses   confluence.Outlet[Response]

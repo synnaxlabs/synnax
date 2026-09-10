@@ -121,7 +121,14 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
-	dist, err := s.cfg.Framer.NewStreamIterator(ctx, cfg.distribution())
+	distCfg := cfg.distribution()
+	if calcTransform != nil {
+		// A calculation must see every sample its expression was written over. Fed a
+		// strided input, a stateful expression returns a different signal rather than
+		// a downsampled one, so the factor stays above the calculation.
+		distCfg.DownsampleFactor = 0
+	}
+	dist, err := s.cfg.Framer.NewStreamIterator(ctx, distCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +142,11 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		)
 		p.MustConnect[Response](routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
+		if cfg.DownsampleFactor > 1 {
+			p.SetSegment("downsampler", newDownsampler(cfg))
+			p.MustConnect[Response](routeOutletFrom, "downsampler", 25)
+			routeOutletFrom = "downsampler"
+		}
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
