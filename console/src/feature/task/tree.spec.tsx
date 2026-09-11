@@ -233,6 +233,15 @@ describe("task ontology", () => {
 });
 
 describe("permission to write the task", () => {
+  it("should offer Reload Console", async () => {
+    const t = await createTask();
+    await renderTreeContextMenu(Menu, {
+      client,
+      resources: [createResource(t.ontologyID, t.name, { snapshot: false })],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should withhold rename, grouping, and delete from a viewer", async () => {
     const t = await createTask();
     await renderTreeContextMenu(Menu, {

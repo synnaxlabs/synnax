@@ -83,6 +83,12 @@ describe("rack ontology service", () => {
     expect(screen.getByText("Delete")).toBeTruthy();
   });
 
+  it("should offer Reload Console", async () => {
+    const r = await createRack();
+    await renderMenu([r]);
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should hide single-selection actions for a multi-rack selection", async () => {
     const a = await createRack();
     const b = await createRack();
