@@ -2522,7 +2522,7 @@ var _ = Describe("Downsampled Iteration", func() {
 			BeforeEach(func(ctx SpecContext) {
 				fs = openFS()
 				indexKey := GenerateChannelKey()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -2533,7 +2533,7 @@ var _ = Describe("Downsampled Iteration", func() {
 						Index:    indexKey,
 					},
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -2546,7 +2546,7 @@ var _ = Describe("Downsampled Iteration", func() {
 				dataDB.SetIndex(indexDB.Index())
 				var stringIns alamos.Instrumentation
 				stringIns, stringLogs = ObservedInstrumentation(zapcore.ErrorLevel)
-				stringDB = MustSucceed(unary.Open(ctx, unary.Config{
+				stringDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:              MustSucceed(fs.Sub("strings")),
 					MetaCodec:       json.Codec,
 					Instrumentation: stringIns,
@@ -2559,12 +2559,6 @@ var _ = Describe("Downsampled Iteration", func() {
 				}))
 				stringDB.SetIndex(indexDB.Index())
 			})
-			AfterEach(func() {
-				Expect(stringDB.Close()).To(Succeed())
-				Expect(dataDB.Close()).To(Succeed())
-				Expect(indexDB.Close()).To(Succeed())
-			})
-
 			// writeInt64 writes count samples starting at start seconds, one sample per
 			// second, where the value of each sample is its one-based index.
 			writeInt64 := func(ctx SpecContext, start telem.TimeStamp, count int) {
@@ -2591,8 +2585,7 @@ var _ = Describe("Downsampled Iteration", func() {
 				GinkgoHelper()
 				cfg := unary.IterRange(telem.TimeRangeMax)
 				cfg.DownsampleFactor = factor
-				iter := MustSucceed(db.OpenIterator(cfg))
-				defer func() { Expect(iter.Close()).To(Succeed()) }()
+				iter := MustOpen(db.OpenIterator(cfg))
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
 				Expect(iter.Next(ctx, telem.TimeSpan(1e6)*telem.Second)).To(BeTrue())
 				frame := iter.Value()
@@ -2736,8 +2729,7 @@ var _ = Describe("Downsampled Iteration", func() {
 				cfg := unary.IterRange(telem.TimeRangeMax)
 				cfg.DownsampleFactor = 2
 				cfg.AutoChunkSize = 6
-				iter := MustSucceed(dataDB.OpenIterator(cfg))
-				defer func() { Expect(iter.Close()).To(Succeed()) }()
+				iter := MustOpen(dataDB.OpenIterator(cfg))
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
 				Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 				Expect(iter.Value().Count()).To(Equal(2))
