@@ -12,6 +12,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";
+import { Menu } from "@/menu";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { Triggers } from "@/triggers";
 
@@ -124,6 +125,14 @@ describe("log/Base", () => {
     it("should render custom empty content when provided", () => {
       renderLog({ emptyContent: <div data-testid="custom-empty">No data</div> });
       expect(screen.getByTestId("custom-empty")).toBeDefined();
+    });
+
+    it("should append the consumer's extra context menu items", async () => {
+      const { container } = renderLog({
+        extraContextMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item>,
+      });
+      fireEvent.contextMenu(getLogDiv(container));
+      expect(await screen.findByText("Extra")).toBeDefined();
     });
 
     it("should apply className to the container div", () => {

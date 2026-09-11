@@ -180,6 +180,13 @@ describe("range/Toolbar", () => {
       );
     });
 
+    it("offers Reload Console", async () => {
+      const rng = await createTestRange(client);
+      await renderToolbar({ ranges: [toState(rng)] });
+      await openContextMenu(rng.name);
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
     it("clears the active range", async () => {
       const rng = await createTestRange(client);
       const { store } = await renderToolbar({

@@ -19,9 +19,12 @@ import { Synnax } from "@/synnax";
 
 const PLACEHOLDER = "Start typing to write your automation";
 
-export interface EditorProps extends Pick<Code.EditorProps, "autoFocus"> {}
+export interface EditorProps extends Pick<
+  Code.EditorProps,
+  "autoFocus" | "extraMenuItems"
+> {}
 
-export const Editor = ({ autoFocus = false }: EditorProps) => {
+export const Editor = ({ autoFocus = false, extraMenuItems }: EditorProps) => {
   const resourceKey = useKey();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
@@ -71,6 +74,7 @@ export const Editor = ({ autoFocus = false }: EditorProps) => {
       background={0}
       placeholder={PLACEHOLDER}
       autoFocus={autoFocus && value.length === 0}
+      extraMenuItems={extraMenuItems}
       scrollBeyondLastLine
     />
   );
