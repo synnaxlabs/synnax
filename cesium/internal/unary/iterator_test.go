@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -26,6 +27,8 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Iterator Behavior", Ordered, func() {
@@ -2510,10 +2513,11 @@ var _ = Describe("Downsampled Iteration", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var (
-				fs       fs.FS
-				indexDB  *unary.DB
-				dataDB   *unary.DB
-				stringDB *unary.DB
+				fs         fs.FS
+				indexDB    *unary.DB
+				dataDB     *unary.DB
+				stringDB   *unary.DB
+				stringLogs *observer.ObservedLogs
 			)
 			BeforeEach(func(ctx SpecContext) {
 				fs = openFS()
@@ -2540,9 +2544,12 @@ var _ = Describe("Downsampled Iteration", func() {
 					},
 				}))
 				dataDB.SetIndex(indexDB.Index())
+				var stringIns alamos.Instrumentation
+				stringIns, stringLogs = ObservedInstrumentation(zapcore.ErrorLevel)
 				stringDB = MustSucceed(unary.Open(ctx, unary.Config{
-					FS:        MustSucceed(fs.Sub("strings")),
-					MetaCodec: json.Codec,
+					FS:              MustSucceed(fs.Sub("strings")),
+					MetaCodec:       json.Codec,
+					Instrumentation: stringIns,
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "strings",
@@ -2696,6 +2703,9 @@ var _ = Describe("Downsampled Iteration", func() {
 				// unbounded read would take the prefix at its word and claim 1GiB.
 				Expect(after.TotalAlloc - before.TotalAlloc).
 					To(BeNumerically("<", uint64(corruptPrefixLength)))
+				Expect(
+					stringLogs.FilterMessageSnippet("stopped short").All(),
+				).ToNot(BeEmpty())
 			})
 
 			It("Should keep every other variable-length sample", func(
