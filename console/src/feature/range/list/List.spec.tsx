@@ -72,6 +72,17 @@ describe("range/list/List", () => {
     expect(screen.queryByText(other.name)).toBeNull();
   });
 
+  it("offers Reload Console from a range's context menu", async () => {
+    const rng = await createTestRange(client);
+    await renderList();
+    const input = await waitFor(() =>
+      getInputByNodePlaceholder(document.body, "Search Ranges..."),
+    );
+    fireEvent.change(input, { target: { value: rng.name } });
+    fireEvent.contextMenu(await screen.findByText(rng.name));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("opens the create range modal from the add button", async () => {
     await renderList();
     await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));

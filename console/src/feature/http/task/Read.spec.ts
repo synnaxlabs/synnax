@@ -131,6 +131,16 @@ describe("HTTP Read form", () => {
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
   });
 
+  it("should offer Reload Console from the endpoint context menu", async () => {
+    await renderRead();
+    await addEndpoint();
+    const path = screen.getByPlaceholderText("/api/data");
+    fireEvent.change(path, { target: { value: "/api/v1" } });
+    fireEvent.blur(path);
+    fireEvent.contextMenu(await screen.findByText(/\/api\/v1/));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should seed the form from the task row's config", async () => {
     const client = createTestClient();
     const config = createReadConfig("dev_1", [

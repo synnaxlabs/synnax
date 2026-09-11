@@ -44,6 +44,16 @@ describe("role ontology service", () => {
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
+  it("should offer Reload Console", async () => {
+    const role = await createRole();
+    assertDefined(RoleItem.ContextMenu);
+    await renderTreeContextMenu(RoleItem.ContextMenu, {
+      client,
+      resources: [roleResource(role.key, role.name, false)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should hide rename from a subject who cannot write the role", async () => {
     const role = await createRole();
     const viewer = await roles.get("Viewer");

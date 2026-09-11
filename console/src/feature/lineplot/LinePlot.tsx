@@ -88,6 +88,8 @@ const RangeAnnotationContextMenu = ({
         <Icon.CSV />
         Download as CSV
       </Menu.Item>
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
 };

@@ -7,25 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Drift } from "@synnaxlabs/drift";
 import { Menu } from "@synnaxlabs/pluto";
 import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Link } from "@/platform/link";
-import { renderWithConsole } from "@/testutil";
+import { renderWithConsole, type TestStore } from "@/testutil";
+
+const render = async (): Promise<TestStore> => {
+  const { store } = await renderWithConsole(
+    <Menu.Menu>
+      <ContextMenu.ReloadConsoleItem />
+    </Menu.Menu>,
+  );
+  return store;
+};
 
 describe("ContextMenu.ReloadConsoleItem", () => {
   beforeEach(() => localStorage.removeItem(Link.SHOULD_IGNORE_KEY));
 
   it("flags the next deep link as ignored before reloading", async () => {
-    await renderWithConsole(
-      <Menu.Menu>
-        <ContextMenu.ReloadConsoleItem />
-      </Menu.Menu>,
-    );
+    await render();
     expect(localStorage.getItem(Link.SHOULD_IGNORE_KEY)).toBeNull();
     fireEvent.click(screen.getByText("Reload Console"));
     expect(localStorage.getItem(Link.SHOULD_IGNORE_KEY)).toBe("true");
+  });
+
+  it("moves the window into its reloading stage", async () => {
+    const store = await render();
+    expect(Drift.selectWindow(store.getState())?.stage).not.toBe("reloading");
+    fireEvent.click(screen.getByText("Reload Console"));
+    expect(Drift.selectWindow(store.getState())?.stage).toBe("reloading");
   });
 });
