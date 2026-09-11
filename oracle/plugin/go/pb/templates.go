@@ -51,13 +51,12 @@ package {{.Package}}
 {{- if .HasImports}}
 
 import (
-{{- range .ExternalImports}}
+{{- range .StdImports}}
 	"{{.}}"
 {{- end}}
-{{- if and (gt (len .ExternalImports) 0) (gt (len .InternalImports) 0)}}
-
-{{- end}}
-{{- range .InternalImports}}
+{{- if and .StdImports .NonStdImports}}
+{{end}}
+{{- range .NonStdImports}}
 {{- if .NeedsAlias}}
 	{{.Alias}} "{{.Path}}"
 {{- else}}

@@ -13,6 +13,7 @@ package log
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/gorp"
 )
 

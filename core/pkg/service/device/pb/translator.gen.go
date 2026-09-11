@@ -13,6 +13,7 @@ package pb
 
 import (
 	"encoding/json"
+
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"

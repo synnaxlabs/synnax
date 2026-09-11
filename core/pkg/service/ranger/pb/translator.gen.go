@@ -12,11 +12,12 @@
 package pb
 
 import (
+	"uuid"
+
 	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
-	"uuid"
 )
 
 // RangeToPB converts Range to Range.

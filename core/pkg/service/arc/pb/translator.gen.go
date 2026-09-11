@@ -13,6 +13,8 @@ package pb
 
 import (
 	"encoding/json"
+	"uuid"
+
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
@@ -23,7 +25,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-	"uuid"
 )
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
