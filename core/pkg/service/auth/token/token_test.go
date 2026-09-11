@@ -11,6 +11,10 @@ package token_test
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/rsa"
 	"time"
 	"uuid"
@@ -22,9 +26,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type mockKeyService struct{ key *rsa.PrivateKey }
+type mockKeyService struct{ key crypto.PrivateKey }
 
-func (m *mockKeyService) NodePrivate() crypto.PrivateKey { return m.key }
+func (m *mockKeyService) TokenPrivate() crypto.PrivateKey { return m.key }
 
 var _ = Describe("token", func() {
 	var (
@@ -40,6 +44,30 @@ var _ = Describe("token", func() {
 		issuer = uuid.New()
 		tk = MustSucceed(svc.New(issuer))
 	})
+	Describe("Signing keys", func() {
+		BeforeEach(func() { cfg.Now = time.Now })
+		DescribeTable("should sign and validate with every supported key type",
+			func(generate func() crypto.PrivateKey) {
+				svc := MustSucceed(token.NewService(token.ServiceConfig{
+					KeyProvider: &mockKeyService{key: generate()},
+					Now:         time.Now,
+				}))
+				issuer := uuid.New()
+				Expect(svc.Validate(MustSucceed(svc.New(issuer)))).To(Equal(issuer))
+			},
+			Entry("RSA", func() crypto.PrivateKey {
+				return MustSucceed(rsa.GenerateKey(rand.Reader, 1024))
+			}),
+			Entry("ECDSA P-256", func() crypto.PrivateKey {
+				return MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
+			}),
+			Entry("Ed25519", func() crypto.PrivateKey {
+				_, priv := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+				return priv
+			}),
+		)
+	})
+
 	Describe("Nominal", func() {
 		BeforeEach(func() { cfg.Now = time.Now })
 		It("Should generate a token for the given issuer", func() {

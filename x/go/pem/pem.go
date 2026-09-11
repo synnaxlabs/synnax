@@ -13,12 +13,14 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/mldsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"io"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -27,6 +29,11 @@ const (
 	BlockTypePKCS8PrivateKey = "PRIVATE KEY"
 	BlockTypeCertificate     = "CERTIFICATE"
 )
+
+// ErrUnsupportedKey is returned when a private key's algorithm has no PEM encoding in
+// this package. FromPrivateKey supports RSA, ECDSA, Ed25519 and ML-DSA keys;
+// ToPrivateKey supports the block types declared above.
+var ErrUnsupportedKey = errors.Wrap(validate.ErrValidation, "unsupported key type")
 
 func FromPrivateKey(key crypto.PrivateKey) (*pem.Block, error) {
 	switch key := key.(type) {
@@ -40,15 +47,21 @@ func FromPrivateKey(key crypto.PrivateKey) (*pem.Block, error) {
 		return &pem.Block{
 			Type:  BlockTypeECPrivateKey,
 			Bytes: b,
-		}, errors.Wrap(err, "[security] - failed to marshal ECDSA private key")
-	case *ed25519.PrivateKey:
+		}, errors.Wrap(err, "failed to marshal ECDSA private key")
+	case ed25519.PrivateKey:
 		b, err := x509.MarshalPKCS8PrivateKey(key)
 		return &pem.Block{
 			Type:  BlockTypePKCS8PrivateKey,
 			Bytes: b,
-		}, errors.Wrap(err, "[security] - failed to marshal ed25519 private key")
+		}, errors.Wrap(err, "failed to marshal ed25519 private key")
+	case *mldsa.PrivateKey:
+		b, err := x509.MarshalPKCS8PrivateKey(key)
+		return &pem.Block{
+			Type:  BlockTypePKCS8PrivateKey,
+			Bytes: b,
+		}, errors.Wrap(err, "failed to marshal ML-DSA private key")
 	}
-	return nil, errors.New("[security] - unsupported key type")
+	return nil, errors.Wrap(ErrUnsupportedKey, "cannot encode private key")
 }
 
 func FromCertBytes(b []byte) *pem.Block {
@@ -64,7 +77,7 @@ func ToPrivateKey(b *pem.Block) (crypto.PrivateKey, error) {
 	case BlockTypePKCS8PrivateKey:
 		return x509.ParsePKCS8PrivateKey(b.Bytes)
 	}
-	return nil, errors.New("[security] - unsupported key type")
+	return nil, errors.Wrapf(ErrUnsupportedKey, "cannot decode PEM block %q", b.Type)
 }
 
 // Write writes the PEM blocks to the writer.

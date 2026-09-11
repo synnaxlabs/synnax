@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
+	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -42,6 +43,9 @@ type LoaderConfig struct {
 	NodeKeyPath string
 	// NodeCertPath is the path to the node certificate. This is relative to CertsDir.
 	NodeCertPath string
+	// TokenKeyPath is the path to the authentication token signing key. This is
+	// relative to CertsDir.
+	TokenKeyPath string
 }
 
 var (
@@ -53,6 +57,7 @@ var (
 		CACertPath:   "ca.crt",
 		NodeKeyPath:  "node.key",
 		NodeCertPath: "node.crt",
+		TokenKeyPath: "token.key",
 		FS:           xfs.Default,
 	}
 )
@@ -73,6 +78,10 @@ func (l LoaderConfig) AbsoluteNodeCertPath() string {
 	return l.CertsDir + "/" + l.NodeCertPath
 }
 
+func (l LoaderConfig) AbsoluteTokenKeyPath() string {
+	return l.CertsDir + "/" + l.TokenKeyPath
+}
+
 // Override implements Properties.
 func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	l.CertsDir = override.String(l.CertsDir, other.CertsDir)
@@ -80,6 +89,7 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	l.CACertPath = override.String(l.CACertPath, other.CACertPath)
 	l.NodeKeyPath = override.String(l.NodeKeyPath, other.NodeKeyPath)
 	l.NodeCertPath = override.String(l.NodeCertPath, other.NodeCertPath)
+	l.TokenKeyPath = override.String(l.TokenKeyPath, other.TokenKeyPath)
 	l.FS = override.Nil(l.FS, other.FS)
 	l.Instrumentation = override.Zero(l.Instrumentation, other.Instrumentation)
 	return l
@@ -93,6 +103,7 @@ func (l LoaderConfig) Validate() error {
 	v.NotEmptyString("ca_cert_path", l.CACertPath)
 	v.NotEmptyString("node_key_path", l.NodeKeyPath)
 	v.NotEmptyString("node_cert_path", l.NodeCertPath)
+	v.NotEmptyString("token_key_path", l.TokenKeyPath)
 	v.NotNil("fs", l.FS)
 	return v.Error()
 }
@@ -159,6 +170,23 @@ func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
 		err = errors.Wrapf(err, "node certificate not found")
 	}
 	return c, err
+}
+
+// LoadTokenKey loads the dedicated key a Core signs authentication tokens with. It
+// wraps fs.ErrNotExist when the key has not been created.
+func (l *Loader) LoadTokenKey() (crypto.PrivateKey, error) {
+	b, err := l.readAll(l.TokenKeyPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			err = errors.Wrapf(err, "token signing key not found")
+		}
+		return nil, err
+	}
+	block, _ := pem.Decode(b)
+	if block == nil {
+		return nil, errors.Newf("no PEM block in %s", l.AbsoluteTokenKeyPath())
+	}
+	return xpem.ToPrivateKey(block)
 }
 
 // TrustAnchorsPEM returns the certificates a client verifies this Core against: the CA

@@ -171,7 +171,7 @@ func (s *Service) isCloseToExpired(claims *jwt.RegisteredClaims) bool {
 }
 
 func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
-	key := s.cfg.KeyProvider.NodePrivate()
+	key := s.cfg.KeyProvider.TokenPrivate()
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
 		return jwt.SigningMethodRS512, key
@@ -184,20 +184,20 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
 		default:
 			return jwt.SigningMethodES512, key
 		}
-	case *ed25519.PrivateKey:
+	case ed25519.PrivateKey:
 		return jwt.SigningMethodEdDSA, key
 	}
 	panic("unsupported key type")
 }
 
 func (s *Service) publicKey() any {
-	key := s.cfg.KeyProvider.NodePrivate()
+	key := s.cfg.KeyProvider.TokenPrivate()
 	switch key := key.(type) {
 	case *rsa.PrivateKey:
 		return key.Public()
 	case *ecdsa.PrivateKey:
 		return key.Public()
-	case *ed25519.PrivateKey:
+	case ed25519.PrivateKey:
 		return key.Public()
 	}
 	panic("unsupported key type")

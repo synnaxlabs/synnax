@@ -51,5 +51,10 @@ func GenerateAuto(cfg cert.FactoryConfig) error {
 	if err = factory.CreateCAPairIfMissing(); err != nil {
 		return err
 	}
+	if factory.KeyAlgorithm.PostQuantum() {
+		if err = factory.CreateTokenKeyIfMissing(); err != nil {
+			return err
+		}
+	}
 	return factory.CreateNodePairIfStale()
 }

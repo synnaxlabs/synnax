@@ -21,8 +21,11 @@ import (
 
 // secureProvider implements the Provider interface for use in a secure cluster.
 type secureProvider struct {
-	loader   *cert.Loader
-	tls      *tls.Certificate
+	loader *cert.Loader
+	tls    *tls.Certificate
+	// tokenKey signs authentication tokens. It is tls.PrivateKey unless that key's
+	// algorithm has no JWT signing method.
+	tokenKey crypto.PrivateKey
 	certPool *x509.CertPool
 	ProviderConfig
 }
@@ -43,6 +46,15 @@ func newSecureProvider(cfg ProviderConfig) (Provider, error) {
 	p.tls, err = l.LoadNodeTLS()
 	if err != nil {
 		return nil, err
+	}
+	if p.tokenKey = p.tls.PrivateKey; !cert.SignsJWT(p.tokenKey) {
+		if p.tokenKey, err = l.LoadTokenKey(); err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"node certificate uses %T, which cannot sign authentication tokens",
+				p.tls.PrivateKey,
+			)
+		}
 	}
 	return p, nil
 }
@@ -160,8 +172,8 @@ func (p *secureProvider) baseTLSConfig(
 	}
 }
 
-// NodePrivate implements KeyProvider.
-func (p *secureProvider) NodePrivate() crypto.PrivateKey { return p.tls.PrivateKey }
+// TokenPrivate implements KeyProvider.
+func (p *secureProvider) TokenPrivate() crypto.PrivateKey { return p.tokenKey }
 
 func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return p.tls, nil
