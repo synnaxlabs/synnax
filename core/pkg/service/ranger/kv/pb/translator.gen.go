@@ -12,9 +12,9 @@
 package pb
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
+	"uuid"
 )
 
 // PairToPB converts Pair to Pair.

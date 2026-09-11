@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -87,7 +87,7 @@ var _ = Describe("Codec", func() {
 				}},
 			}),
 			Entry("zero values", v0.Panel{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Root: v0.Node{Variant: v0.LeafNode{Tabs: nil}},
 			}),
@@ -123,7 +123,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedTabBase),
-			Entry("zero values", v0.TabBase{Key: uuid.Nil}),
+			Entry("zero values", v0.TabBase{Key: uuid.Nil()}),
 		)
 	})
 	Describe("View", func() {
@@ -326,7 +326,7 @@ func FuzzDecodePanel(f *testing.F) {
 	}
 	{
 		seed := v0.Panel{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Root: v0.Node{Variant: v0.LeafNode{Tabs: nil}},
 		}
@@ -410,7 +410,7 @@ func FuzzDecodeTabBase(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.TabBase{Key: uuid.Nil}
+		seed := v0.TabBase{Key: uuid.Nil()}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -981,7 +981,7 @@ func (b *testValueBuilder) zeroPrimitiveExpr(
 		base = "0"
 	case "uuid":
 		b.needsUUID = true
-		base = "uuid.Nil"
+		base = "uuid.Nil()"
 	case "bytes":
 		return "nil", nil
 	case "record", "any":
@@ -1187,7 +1187,7 @@ package {{.Package}}_test
 import (
 	"testing"
 {{- if .NeedsUUID}}
-	"github.com/google/uuid"
+	"uuid"
 {{- end}}
 
 	"github.com/google/go-cmp/cmp"

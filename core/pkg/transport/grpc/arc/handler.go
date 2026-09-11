@@ -11,8 +11,8 @@ package arc
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"

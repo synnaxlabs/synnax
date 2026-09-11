@@ -10,7 +10,8 @@
 package symbol_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -62,7 +63,7 @@ var _ = Describe("ImEx", func() {
 		It("Should return not found for a missing key", func(ctx SpecContext) {
 			id := ontology.ID{
 				Type: ontology.ResourceTypeSchematicSymbol,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})

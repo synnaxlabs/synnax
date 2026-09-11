@@ -12,8 +12,8 @@ package v0
 import (
 	"context"
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"

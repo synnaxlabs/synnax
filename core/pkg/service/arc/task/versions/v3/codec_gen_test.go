@@ -12,8 +12,8 @@
 package v3_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -47,10 +47,10 @@ var _ = Describe("Codec", func() {
 				MemoryLocked:       true,
 			}),
 			Entry("zero values", v3.Config{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
-				ArcKey:             uuid.Nil,
+				ArcKey:             uuid.Nil(),
 				Hash:               "",
 				ExecutionMode:      v3.ExecutionMode(""),
 				RtPriority:         0,
@@ -109,10 +109,10 @@ func FuzzDecodeConfig(f *testing.F) {
 	}
 	{
 		seed := v3.Config{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
-			ArcKey:             uuid.Nil,
+			ArcKey:             uuid.Nil(),
 			Hash:               "",
 			ExecutionMode:      v3.ExecutionMode(""),
 			RtPriority:         0,

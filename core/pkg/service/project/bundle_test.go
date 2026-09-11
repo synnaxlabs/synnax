@@ -12,8 +12,8 @@ package project_test
 import (
 	"encoding/json"
 	"maps"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	text "github.com/synnaxlabs/arc/text/versions/v1"
@@ -299,7 +299,7 @@ var _ = Describe("Export", func() {
 		proj := createProject(ctx, "Dangling Task")
 		dangling := ontology.ID{
 			Type: ontology.ResourceTypeTask,
-			Key:  uuid.NewString(),
+			Key:  uuid.New().String(),
 		}
 		createPanel(ctx, "Controls", proj.OntologyID(), leaf(resourceTab(dangling)))
 		files, _ := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
@@ -407,7 +407,7 @@ func bundlePanel(name string, paths ...string) []byte {
 	tabs := make([]any, len(paths))
 	for i, p := range paths {
 		tabs[i] = map[string]any{
-			"key": uuid.NewString(), "variant": "resource", "resource": p,
+			"key": uuid.New().String(), "variant": "resource", "resource": p,
 		}
 	}
 	return MustSucceed(json.Marshal(map[string]any{

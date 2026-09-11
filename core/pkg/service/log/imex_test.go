@@ -12,8 +12,8 @@ package log_test
 import (
 	"encoding/json"
 	"os"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -81,7 +81,10 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should return not found when the log does not exist",
 			func(ctx SpecContext) {
-				id := ontology.ID{Type: ontology.ResourceTypeLog, Key: uuid.NewString()}
+				id := ontology.ID{
+					Type: ontology.ResourceTypeLog,
+					Key:  uuid.New().String(),
+				}
 				Expect(
 					imexSvc.Export(ctx, id),
 				).Error().

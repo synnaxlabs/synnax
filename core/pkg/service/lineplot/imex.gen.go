@@ -14,10 +14,10 @@ package lineplot
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"uuid"
 )
 
 // Export retrieves the LinePlot identified by id and serializes it, stamping

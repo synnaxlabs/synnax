@@ -13,7 +13,6 @@ package pb
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -21,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"uuid"
 )
 
 // CommandToPB converts Command to Command.

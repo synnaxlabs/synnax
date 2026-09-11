@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/zyn"
 )
 

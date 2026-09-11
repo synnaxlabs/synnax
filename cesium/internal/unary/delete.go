@@ -11,8 +11,8 @@ package unary
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -70,7 +70,7 @@ func (db *DB) lockControllerForNonWriteOp(
 		ErrIfControlled: new(true),
 		TimeRange:       tr,
 		Authority:       xcontrol.AuthorityAbsolute,
-		Subject:         xcontrol.Subject{Key: uuid.NewString(), Name: opName},
+		Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
 		OpenResource: func() (*controlledWriter, error) {
 			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
 		},

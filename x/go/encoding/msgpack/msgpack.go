@@ -23,9 +23,17 @@ import (
 )
 
 // Codec is a MessagePack implementation of http.Codec.
-var Codec http.Codec = &codec{}
+var Codec http.Codec = newCodec()
 
 type codec struct{}
+
+// newCodec returns the MessagePack codec and installs the UUID representation. The
+// representation must hold for the whole process, because msgpack.Marshal and
+// msgpack.Unmarshal encode without going through the codec.
+func newCodec() *codec {
+	registerUUID()
+	return &codec{}
+}
 
 func (*codec) ContentType() string { return "application/msgpack" }
 

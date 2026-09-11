@@ -11,8 +11,8 @@ package channel
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -200,7 +200,7 @@ func (s *Service) Retrieve(
 	)
 
 	var resRng ranger.Range
-	if req.RangeKey != uuid.Nil {
+	if req.RangeKey != uuid.Nil() {
 		err := s.ranger.NewRetrieve().
 			Where(ranger.MatchKeys(req.RangeKey)).
 			Entry(&resRng).
@@ -271,7 +271,7 @@ func (s *Service) Retrieve(
 		)
 	}
 	oChannels := translateChannelsForward(resChannels)
-	if resRng.Key != uuid.Nil {
+	if resRng.Key != uuid.Nil() {
 		aliasReader := s.alias.NewReader(nil)
 		for i, ch := range resChannels {
 			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())

@@ -11,8 +11,8 @@ package versions
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -43,7 +43,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
-	a.Key = uuid.Nil
+	a.Key = uuid.Nil()
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.

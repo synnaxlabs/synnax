@@ -10,7 +10,8 @@
 package group_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -40,7 +41,7 @@ var _ = Describe("KeyFromOntologyID", func() {
 			))
 		},
 		Entry("a project",
-			ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.NewString()},
+			ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.New().String()},
 			`must be a group, got "project"`),
 		Entry("a zero ID", ontology.ID{}, `must be a group, got ""`),
 		Entry("a group whose key is not a UUID",

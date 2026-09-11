@@ -12,8 +12,8 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -442,7 +442,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.AnalogReadConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				SampleRate:         telem.Rate(0),
@@ -485,7 +485,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.AnalogWriteConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
@@ -772,7 +772,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.CounterReadConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				SampleRate:         telem.Rate(0),
@@ -921,7 +921,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.DigitalReadConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				SampleRate:         telem.Rate(0),
@@ -971,7 +971,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.DigitalWriteConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
@@ -1076,7 +1076,7 @@ var _ = Describe("Codec", func() {
 				IgnoredModels: []string{"test_4"},
 			}),
 			Entry("zero values", v2.ScanConfig{
-				Key:           uuid.Nil,
+				Key:           uuid.Nil(),
 				Rate:          telem.Rate(0),
 				Disabled:      false,
 				IgnoredModels: nil,
@@ -1201,7 +1201,7 @@ var _ = Describe("Codec", func() {
 				StateRate:          telem.Rate(5.5),
 			}),
 			Entry("zero values", v2.WriteConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
@@ -2446,7 +2446,7 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.AnalogReadConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			SampleRate:         telem.Rate(0),
@@ -2520,7 +2520,7 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.AnalogWriteConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
@@ -3083,7 +3083,7 @@ func FuzzDecodeCounterReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.CounterReadConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			SampleRate:         telem.Rate(0),
@@ -3359,7 +3359,7 @@ func FuzzDecodeDigitalReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.DigitalReadConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			SampleRate:         telem.Rate(0),
@@ -3440,7 +3440,7 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.DigitalWriteConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
@@ -3669,7 +3669,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			Key:           uuid.Nil,
+			Key:           uuid.Nil(),
 			Rate:          telem.Rate(0),
 			Disabled:      false,
 			IgnoredModels: nil,
@@ -3952,7 +3952,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",

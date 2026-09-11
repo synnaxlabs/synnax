@@ -12,8 +12,8 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -83,7 +83,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.TaskConfig{
-				Key:        uuid.Nil,
+				Key:        uuid.Nil(),
 				AutoStart:  false,
 				RoutingKey: "",
 				Alerts:     nil,
@@ -236,7 +236,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			Key:        uuid.Nil,
+			Key:        uuid.Nil(),
 			AutoStart:  false,
 			RoutingKey: "",
 			Alerts:     nil,

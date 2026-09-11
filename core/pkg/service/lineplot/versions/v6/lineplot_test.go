@@ -10,7 +10,8 @@
 package v6_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"

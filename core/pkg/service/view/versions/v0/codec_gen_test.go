@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -43,7 +43,7 @@ var _ = Describe("Codec", func() {
 				Query: msgpack.EncodedJSON{"key_4": "value_4"},
 			}),
 			Entry("zero values", v0.View{
-				Key:   uuid.Nil,
+				Key:   uuid.Nil(),
 				Name:  "",
 				Type:  "",
 				Query: nil,
@@ -90,7 +90,7 @@ func FuzzDecodeView(f *testing.F) {
 	}
 	{
 		seed := v0.View{
-			Key:   uuid.Nil,
+			Key:   uuid.Nil(),
 			Name:  "",
 			Type:  "",
 			Query: nil,

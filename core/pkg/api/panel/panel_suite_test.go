@@ -11,8 +11,8 @@ package panel_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
@@ -100,7 +100,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // absent.
 func newUser(ctx SpecContext) user.User {
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: uuid.NewString(),
+		Username: uuid.New().String(),
 	}))
 }
 

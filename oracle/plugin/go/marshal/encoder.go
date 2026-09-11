@@ -1221,7 +1221,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 			return "", errors.Newf("unsupported primitive type: %s", prim.Name)
 		}
 		if typemap.IsUUID(prim.Name) {
-			b.imports["github.com/google/uuid"] = "uuid"
+			b.imports["uuid"] = ""
 		}
 		return goType, nil
 	}

@@ -12,9 +12,9 @@
 package pb
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	"uuid"
 )
 
 // LabelToPB converts Label to Label.

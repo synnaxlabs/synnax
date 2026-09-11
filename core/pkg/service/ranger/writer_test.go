@@ -10,7 +10,8 @@
 package ranger_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -34,7 +35,7 @@ var _ = Describe("Writer", func() {
 				},
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(r.Key).ToNot(Equal(uuid.Nil))
+			Expect(r.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It(
 			"Should return a validation error when the name is empty",
@@ -70,7 +71,7 @@ var _ = Describe("Writer", func() {
 				},
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(r.Key).ToNot(Equal(uuid.Nil))
+			Expect(r.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It("Should not override the UUID if it is already set", func(ctx SpecContext) {
 			k := uuid.New()

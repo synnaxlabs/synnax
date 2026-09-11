@@ -10,7 +10,8 @@
 package project_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -24,7 +25,7 @@ var _ = Describe("Writer", func() {
 				Layout: map[string]any{"key": "data"},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-			Expect(proj.Key).ToNot(Equal(uuid.Nil))
+			Expect(proj.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It(
 			"Should return a validation error when the name is empty",

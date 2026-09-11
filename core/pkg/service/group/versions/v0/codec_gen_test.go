@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -39,7 +39,7 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 			}),
-			Entry("zero values", v0.Group{Key: uuid.Nil, Name: ""}),
+			Entry("zero values", v0.Group{Key: uuid.Nil(), Name: ""}),
 		)
 	})
 })
@@ -77,7 +77,7 @@ func FuzzDecodeGroup(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Group{Key: uuid.Nil, Name: ""}
+		seed := v0.Group{Key: uuid.Nil(), Name: ""}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -17,8 +17,8 @@ import (
 	"encoding/json/jsontext"
 	"slices"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"

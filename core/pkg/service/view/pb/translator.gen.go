@@ -12,9 +12,9 @@
 package pb
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"google.golang.org/protobuf/types/known/structpb"
+	"uuid"
 )
 
 // ViewToPB converts View to View.

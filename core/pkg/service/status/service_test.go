@@ -10,7 +10,8 @@
 package status_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -105,7 +106,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It(
 				"Should update an existing row whose Key matches the input",
 				func(ctx SpecContext) {
-					key := uuid.NewString()
+					key := uuid.New().String()
 					Expect(writer.Set(ctx, &status.Status[any]{
 						Key: key, Name: "by_key_orig", Variant: status.VariantInfo,
 						Message: "old", Time: telem.Now(),
@@ -158,7 +159,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 						Message: "key", Time: telem.Now(),
 					})).To(Succeed())
 					Expect(writer.Set(ctx, &status.Status[any]{
-						Key:     uuid.NewString(),
+						Key:     uuid.New().String(),
 						Name:    shared,
 						Variant: status.VariantInfo,
 						Message: "name",
@@ -184,7 +185,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 				"Should update in place when there is a single name match",
 				func(ctx SpecContext) {
 					name := "by_name_single"
-					existingKey := uuid.NewString()
+					existingKey := uuid.New().String()
 					Expect(writer.Set(ctx, &status.Status[any]{
 						Key: existingKey, Name: name, Variant: status.VariantSuccess,
 						Message: "ok", Time: telem.Now(),
@@ -217,8 +218,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 				"Should report multipleMatches and update only the first match",
 				func(ctx SpecContext) {
 					name := "by_name_multi"
-					firstKey := uuid.NewString()
-					secondKey := uuid.NewString()
+					firstKey := uuid.New().String()
+					secondKey := uuid.New().String()
 					Expect(writer.Set(ctx, &status.Status[any]{
 						Key: firstKey, Name: name, Variant: status.VariantInfo,
 						Message: "first", Time: telem.Now(),
@@ -265,7 +266,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 				"Should accept an empty message on the by-name path",
 				func(ctx SpecContext) {
 					name := "by_name_empty_msg"
-					existingKey := uuid.NewString()
+					existingKey := uuid.New().String()
 					Expect(writer.Set(ctx, &status.Status[any]{
 						Key: existingKey, Name: name, Variant: status.VariantInfo,
 						Message: "old", Time: telem.Now(),

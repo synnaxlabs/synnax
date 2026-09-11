@@ -13,8 +13,8 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
@@ -269,7 +269,7 @@ var _ = Describe("Module", func() {
 		})
 
 		It("Should construct an end node from valid inputs", func() {
-			n := MustSucceed(mod.Create(end.Config(uuid.NewString())))
+			n := MustSucceed(mod.Create(end.Config(uuid.New().String())))
 			Expect(n).ToNot(BeNil())
 		})
 
@@ -324,7 +324,7 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should create an open range that starts now and ends at max",
 		func(ctx SpecContext) {
-			name := "create_open_" + uuid.NewString()
+			name := "create_open_" + uuid.New().String()
 			before := telem.Now()
 			n, state := build(name, "", "")
 			n.Next(nodeCtx(ctx))
@@ -348,7 +348,7 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should store a parsed color when a valid hex is provided",
 		func(ctx SpecContext) {
-			name := "create_color_" + uuid.NewString()
+			name := "create_color_" + uuid.New().String()
 			n, state := build(name, "", "#DF6D38")
 			n.Next(nodeCtx(ctx))
 
@@ -360,7 +360,7 @@ var _ = Describe("createNode.Next", func() {
 	)
 
 	It("Should accept an rgb() color", func(ctx SpecContext) {
-		name := "create_rgb_" + uuid.NewString()
+		name := "create_rgb_" + uuid.New().String()
 		n, state := build(name, "", "rgb(223, 109, 56)")
 		n.Next(nodeCtx(ctx))
 		newKey := state.Output(0).Unmarshal[string]()[0]
@@ -372,7 +372,7 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should warn and not create the range when the color is invalid",
 		func(ctx SpecContext) {
-			name := "create_badcolor_" + uuid.NewString()
+			name := "create_badcolor_" + uuid.New().String()
 			n, state := build(name, "", "not-a-color")
 			n.Next(nodeCtx(ctx))
 
@@ -398,12 +398,12 @@ var _ = Describe("createNode.Next", func() {
 		"Should parent the new range under an existing parent range",
 		func(ctx SpecContext) {
 			parent := ranger.Range{
-				Name:      "parent_" + uuid.NewString(),
+				Name:      "parent_" + uuid.New().String(),
 				TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 			}
 			Expect(rangeSvc.NewWriter(nil).Create(ctx, &parent)).To(Succeed())
 
-			n, state := build("child_"+uuid.NewString(), parent.Key.String(), "")
+			n, state := build("child_"+uuid.New().String(), parent.Key.String(), "")
 			n.Next(nodeCtx(ctx))
 
 			newKey := state.Output(0).Unmarshal[string]()[0]
@@ -416,7 +416,7 @@ var _ = Describe("createNode.Next", func() {
 	It(
 		"Should warn and emit an empty key when the parent key is not a UUID",
 		func(ctx SpecContext) {
-			n, state := build("bad_parent_"+uuid.NewString(), "not-a-uuid", "")
+			n, state := build("bad_parent_"+uuid.New().String(), "not-a-uuid", "")
 			n.Next(nodeCtx(ctx))
 
 			Expect(
@@ -434,7 +434,7 @@ var _ = Describe("createNode.Next", func() {
 	It("Should read a var-bound parent at fire time", func(ctx SpecContext) {
 		// The configured "" would succeed parentless; only the live slot value
 		// can produce this warning.
-		cfg := create.Config("var_parent_"+uuid.NewString(), VarOf("not-a-uuid"), "")
+		cfg := create.Config("var_parent_"+uuid.New().String(), VarOf("not-a-uuid"), "")
 		n := MustSucceed(mod.Create(cfg))
 		n.Next(nodeCtx(ctx))
 
@@ -466,7 +466,7 @@ var _ = Describe("endNode.Next", func() {
 
 	openRange := func(ctx context.Context) ranger.Range {
 		r := ranger.Range{
-			Name:      "end_target_" + uuid.NewString(),
+			Name:      "end_target_" + uuid.New().String(),
 			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 		}
 		Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
@@ -508,7 +508,7 @@ var _ = Describe("endNode.Next", func() {
 	)
 
 	It("Should warn when the range does not exist", func(ctx SpecContext) {
-		n, state := build(uuid.NewString())
+		n, state := build(uuid.New().String())
 		n.Next(nodeCtx(ctx))
 
 		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
@@ -627,7 +627,7 @@ var _ = Describe("WASM host functions", func() {
 		It(
 			"Should create a range and return a handle resolving to its key",
 			func(ctx SpecContext) {
-				name := "wasm_create_" + uuid.NewString()
+				name := "wasm_create_" + uuid.New().String()
 				nameH := strs.Create(name)
 				colorH := strs.Create("")
 				parentH := strs.Create("")
@@ -662,7 +662,7 @@ var _ = Describe("WASM host functions", func() {
 			"Should set the end bound to now and return a handle resolving to the key",
 			func(ctx SpecContext) {
 				r := ranger.Range{
-					Name: "wasm_end_" + uuid.NewString(),
+					Name: "wasm_end_" + uuid.New().String(),
 					TimeRange: telem.TimeRange{
 						Start: telem.Now(),
 						End:   telem.TimeStampMax,

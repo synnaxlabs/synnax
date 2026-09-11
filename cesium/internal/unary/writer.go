@@ -12,8 +12,8 @@ package unary
 import (
 	"context"
 	"sync/atomic"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"

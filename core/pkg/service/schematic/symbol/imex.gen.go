@@ -14,10 +14,10 @@ package symbol
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+	"uuid"
 )
 
 // Export retrieves the Symbol identified by id and serializes it, stamping

@@ -10,7 +10,8 @@
 package v5_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"

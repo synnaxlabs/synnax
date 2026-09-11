@@ -15,9 +15,9 @@ import (
 	"crypto/rsa"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -147,16 +147,16 @@ func (s *Service) validate(token string) (user.Key, *jwt.RegisteredClaims, error
 	}, jwt.WithTimeFunc(s.cfg.Now))
 	if err != nil {
 		if isVerificationError(err) {
-			return uuid.Nil, claims, auth.ErrInvalidToken
+			return uuid.Nil(), claims, auth.ErrInvalidToken
 		}
 		if isExpiredError(err) {
-			return uuid.Nil, claims, auth.ErrExpiredToken
+			return uuid.Nil(), claims, auth.ErrExpiredToken
 		}
-		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
+		return uuid.Nil(), claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	id, err := uuid.Parse(claims.Issuer)
 	if err != nil {
-		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
+		return uuid.Nil(), claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	return id, claims, nil
 }

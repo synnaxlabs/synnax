@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -47,7 +47,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v0.Label{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Color: color.Color{
 					R: 0,
@@ -106,7 +106,7 @@ func FuzzDecodeLabel(f *testing.F) {
 	}
 	{
 		seed := v0.Label{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Color: color.Color{
 				R: 0,

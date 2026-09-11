@@ -11,8 +11,8 @@ package schematic_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"

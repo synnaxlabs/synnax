@@ -12,8 +12,8 @@ package v1_test
 import (
 	"context"
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -101,7 +101,7 @@ var _ = Describe("Workspace to project migration", func() {
 			}
 			lpID := ontology.ID{
 				Type: ontology.ResourceTypeLineplot,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			resTable := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
@@ -234,16 +234,16 @@ var _ = Describe("Remove author relationships migration", func() {
 			))
 			projectID := ontology.ID{
 				Type: ontology.ResourceTypeProject,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			userID := ontology.ID{
 				Type: ontology.ResourceTypeUser,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			groupID := group.OntologyID(uuid.New())
 			lpID := ontology.ID{
 				Type: ontology.ResourceTypeLineplot,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 
 			authorToProject := parentOf(userID, projectID)

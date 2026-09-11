@@ -1312,7 +1312,7 @@ func (p *Plugin) generatePrimitiveConversion(
 ) (forward, backward string, hasError, hasBackwardError bool) {
 	switch primitive {
 	case "uuid":
-		data.AddExternal("github.com/google/uuid")
+		data.AddExternal("uuid")
 		return fmt.Sprintf("%s.String()", goField),
 			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
 	case "timestamp":
@@ -1657,7 +1657,7 @@ func (p *Plugin) generateTypeDefConversion(
 	resolvedGoName := naming.GetGoName(resolved)
 
 	if baseType.Name == "uuid" {
-		data.AddExternal("github.com/google/uuid")
+		data.AddExternal("uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolvedGoName)
@@ -1700,7 +1700,7 @@ func (p *Plugin) generateAliasConversion(
 
 	// Handle uuid specially
 	if primitiveName == "uuid" {
-		data.AddExternal("github.com/google/uuid")
+		data.AddExternal("uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolvedGoName)
@@ -1799,7 +1799,7 @@ func (p *Plugin) generateArrayConversion(
 	if resolution.IsPrimitive(elemType.Name) {
 		switch elemType.Name {
 		case "uuid":
-			data.AddExternal("github.com/google/uuid")
+			data.AddExternal("uuid")
 			data.AddExternal("github.com/samber/lo")
 			// Forward conversion uses lo.Map (no error possible)
 			// Backward conversion uses IIFE with proper error handling

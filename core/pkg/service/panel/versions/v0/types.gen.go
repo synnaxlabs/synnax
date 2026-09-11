@@ -15,8 +15,8 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"strconv"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"

@@ -11,8 +11,8 @@ package arc_test
 
 import (
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
@@ -78,13 +78,13 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: uuid.NewString()}
+			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: uuid.New().String()}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeArc, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 

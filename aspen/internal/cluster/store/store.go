@@ -13,8 +13,8 @@ package store
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/change"
@@ -98,7 +98,7 @@ type State struct {
 }
 
 func (s *State) IsZero() bool {
-	return s.ClusterKey == uuid.Nil && s.HostKey == 0 && len(s.Nodes) == 0
+	return s.ClusterKey == uuid.Nil() && s.HostKey == 0 && len(s.Nodes) == 0
 }
 
 type core struct {

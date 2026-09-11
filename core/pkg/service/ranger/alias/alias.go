@@ -12,8 +12,8 @@ package alias
 
 import (
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -27,15 +27,15 @@ const keySeparator = "---"
 func parseGorpKey(key string) (ranger.Key, channel.Key, error) {
 	split := strings.Split(key, keySeparator)
 	if len(split) != 2 {
-		return uuid.Nil, 0, errors.Newf("[alias] - invalid key")
+		return uuid.Nil(), 0, errors.Newf("[alias] - invalid key")
 	}
 	r, err := uuid.Parse(split[0])
 	if err != nil {
-		return uuid.Nil, 0, errors.Wrapf(err, "[alias] - invalid range")
+		return uuid.Nil(), 0, errors.Wrapf(err, "[alias] - invalid range")
 	}
 	c, err := channel.ParseKey(split[1])
 	if err != nil {
-		return uuid.Nil, 0, errors.Wrapf(err, "[alias] - invalid channel")
+		return uuid.Nil(), 0, errors.Wrapf(err, "[alias] - invalid channel")
 	}
 	return r, c, nil
 }

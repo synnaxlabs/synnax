@@ -12,8 +12,8 @@
 package v6_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -180,7 +180,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v6.LinePlot{
-				Key:   uuid.Nil,
+				Key:   uuid.Nil(),
 				Name:  "",
 				Title: v6.Title{Level: text.Level(""), Visible: false},
 				Legend: v6.Legend{
@@ -747,7 +747,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 	}
 	{
 		seed := v6.LinePlot{
-			Key:   uuid.Nil,
+			Key:   uuid.Nil(),
 			Name:  "",
 			Title: v6.Title{Level: text.Level(""), Visible: false},
 			Legend: v6.Legend{

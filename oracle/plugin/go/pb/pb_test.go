@@ -1057,7 +1057,7 @@ var _ = Describe("Go PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 					ExpectContent(resp, "translator.gen.go").
-						ToContain(`"github.com/google/uuid"`)
+						ToContain(`"uuid"`)
 				},
 			)
 

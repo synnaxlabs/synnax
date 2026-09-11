@@ -14,8 +14,8 @@ import (
 	"iter"
 	"slices"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -73,7 +73,7 @@ var _ = Describe("Ontology", func() {
 				))
 			},
 			Entry("a group",
-				ontology.ID{Type: ontology.ResourceTypeGroup, Key: uuid.NewString()},
+				ontology.ID{Type: ontology.ResourceTypeGroup, Key: uuid.New().String()},
 				`must be a project, got "group"`),
 			Entry("a zero ID", ontology.ID{}, `must be a project, got ""`),
 			Entry("a project whose key is not a UUID",
@@ -98,7 +98,7 @@ var _ = Describe("Ontology", func() {
 		})
 		It("Should return an error when an ID is not a project", func() {
 			Expect(project.KeysFromOntologyIDs([]ontology.ID{
-				{Type: ontology.ResourceTypeGroup, Key: uuid.NewString()},
+				{Type: ontology.ResourceTypeGroup, Key: uuid.New().String()},
 			})).Error().To(MatchError(ContainSubstring("must be a project")))
 		})
 	})
@@ -125,7 +125,7 @@ var _ = Describe("Ontology", func() {
 		It(
 			"Should return query.ErrNotFound when no project has the given key",
 			func(ctx SpecContext) {
-				Expect(svc.RetrieveResource(ctx, uuid.NewString(), nil)).Error().
+				Expect(svc.RetrieveResource(ctx, uuid.New().String(), nil)).Error().
 					To(MatchError(query.ErrNotFound))
 			},
 		)

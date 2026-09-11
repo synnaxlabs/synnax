@@ -18,7 +18,7 @@ var Mappings = map[string]primitives.Mapping{
 	"uuid": {
 		TargetType: "uuid.UUID",
 		Imports: []primitives.Import{
-			{Category: "external", Path: "github.com/google/uuid"},
+			{Category: "external", Path: "uuid"},
 		},
 	},
 	"string": {TargetType: "string"},

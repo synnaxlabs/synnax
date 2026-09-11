@@ -17,8 +17,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -346,7 +346,7 @@ var _ = Describe("ImportGroup", func() {
 			symbols := make([]map[string]any, len(memberFiles))
 			for i, file := range memberFiles {
 				symbols[i] = map[string]any{
-					"file": file, "key": uuid.NewString(), "name": file,
+					"file": file, "key": uuid.New().String(), "name": file,
 				}
 			}
 			return MustSucceed(json.Marshal(map[string]any{

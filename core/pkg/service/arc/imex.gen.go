@@ -14,10 +14,10 @@ package arc
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"uuid"
 )
 
 // Export retrieves the Arc identified by id and serializes it, stamping

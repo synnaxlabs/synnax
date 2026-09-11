@@ -10,7 +10,8 @@
 package user_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -140,22 +141,26 @@ var _ = Describe("Service", func() {
 			w = svc.NewWriter(tx)
 		})
 		It("Should retrieve a user by its key", func(ctx SpecContext) {
-			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			created := MustSucceed(
+				w.Create(ctx, user.User{Username: uuid.New().String()}),
+			)
 			var u user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(u).To(Equal(created))
 		})
 		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
-			a := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
-			b := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			a := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
+			b := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
 			var ret []user.User
 			Expect(svc.NewRetrieve().Where(user.MatchKeys(a.Key, b.Key)).Entries(&ret).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ret).To(ConsistOf(a, b))
 		})
 		It("Should retrieve a user by its username", func(ctx SpecContext) {
-			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			created := MustSucceed(
+				w.Create(ctx, user.User{Username: uuid.New().String()}),
+			)
 			var u user.User
 			Expect(svc.NewRetrieve().Where(user.MatchUsernames(created.Username)).
 				Entry(&u).Exec(ctx, tx)).To(Succeed())
