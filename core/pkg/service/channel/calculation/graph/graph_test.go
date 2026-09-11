@@ -28,12 +28,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
 	db            *gorp.DB
+	otg           *ontology.Ontology
 	statusSvc     *status.Service
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -42,7 +44,7 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
@@ -1086,6 +1088,34 @@ var _ = Describe("Graph", func() {
 				By("Recreating the dependency")
 				createDep(ctx, "st_clear_dep")
 				eventuallyExpectNoStatus(ctx, calc.Key())
+			},
+		)
+
+		It(
+			"Should pair a status entry with an ontology resource through set and clear",
+			func(ctx SpecContext) {
+				openGraph(ctx)
+				calc := createBrokenCalc(ctx, "st_resource", "st_resource_dep")
+				expectStatus(ctx, calc.Key())
+				id := status.OntologyID(calculation.StatusKey(calc.Key()))
+
+				By("The set defines the status resource")
+				var res []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(id).
+					Entries(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res).To(HaveLen(1))
+
+				By("Restoring the dependency so the graph clears the status")
+				createDep(ctx, "st_resource_dep")
+				eventuallyExpectNoStatus(ctx, calc.Key())
+
+				By("The clear removes the status resource with the entry")
+				Expect(otg.NewRetrieve().
+					WhereIDs(id).
+					Entries(&[]ontology.Resource{}).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
