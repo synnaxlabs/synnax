@@ -141,15 +141,15 @@ func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (res struct{}, err error) {
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{panel.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return struct{}{}, err
 	}
-	return res, s.internal.
+	return struct{}{}, s.internal.
 		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
@@ -161,13 +161,13 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (res struct{}, err error) {
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: panel.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return struct{}{}, err
 	}
-	return res, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

@@ -32,10 +32,7 @@ type EmptyTranslator struct{}
 var _ Translator[struct{}, *emptypb.Empty] = EmptyTranslator{}
 
 // Forward implements Translator.
-func (EmptyTranslator) Forward(
-	ctx context.Context,
-	t struct{},
-) (*emptypb.Empty, error) {
+func (EmptyTranslator) Forward(context.Context, struct{}) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
 

@@ -9,9 +9,7 @@
 
 package channel
 
-import (
-	"github.com/synnaxlabs/freighter"
-)
+import "github.com/synnaxlabs/freighter"
 
 // CreateMessage is the request and response payload for a channel create operation. As
 // a request it carries the channels to create; as a response it carries those same

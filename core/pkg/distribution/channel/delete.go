@@ -9,9 +9,7 @@
 
 package channel
 
-import (
-	"context"
-)
+import "context"
 
 // Delete deletes the storage channels for the provided keys, routing each key to its
 // leaseholder. Free channels have no storage registration and are skipped. It does not

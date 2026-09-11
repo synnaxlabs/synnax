@@ -32,10 +32,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type CheckResponse = auth.ClusterInfo
 
-func (s *Service) Check(
-	context.Context,
-	struct{},
-) (CheckResponse, error) {
+func (s *Service) Check(context.Context, struct{}) (CheckResponse, error) {
 	return CheckResponse{
 		ClusterKey:  s.cluster.Key().String(),
 		NodeVersion: version.Get(),
