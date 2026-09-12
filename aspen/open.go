@@ -68,11 +68,16 @@ func Open(
 		// The listener is the first point at which an operating system assigned port is
 		// known, so bind before the cluster advertises the host address.
 		lis, o.cluster.HostAddress, err = openListener(o)
-		// Serve releases the listener when it stops, so the closer must tolerate a
-		// listener the transport already closed.
-		if !ok(err, io.CloserFunc(func() error {
-			return errors.Skip(lis.Close(), net.ErrClosed)
-		})) {
+		// Release only a listener Open bound itself: one from WithListener stays the
+		// caller's. Serve releases it when it stops, so tolerate an already closed
+		// listener.
+		lisCloser := io.NopCloser
+		if o.lis == nil {
+			lisCloser = io.CloserFunc(func() error {
+				return errors.Skip(lis.Close(), net.ErrClosed)
+			})
+		}
+		if !ok(err, lisCloser) {
 			return nil, err
 		}
 		err = o.transport.owned.Configure(o.Instrumentation)

@@ -12,6 +12,7 @@ package aspen_test
 import (
 	"context"
 	"net"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -87,7 +88,10 @@ var _ = Describe("WithListener", func() {
 			addr := db.Cluster.Host().Address
 			Expect(addr).To(Equal(address.Newf("localhost:%d", port)))
 			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
+
+			By("Releasing the listener on shutdown")
 			Expect(db.Close()).To(Succeed())
+			Expect(lis.Close()).To(MatchError(net.ErrClosed))
 		},
 	)
 	It(
@@ -106,6 +110,28 @@ var _ = Describe("WithListener", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("is not a TCP address")),
 			))
+
+			By("Leaving the listener for the caller to close")
+			Expect(lis.Close()).To(Succeed())
+		},
+	)
+	It(
+		"Should leave the caller's listener open when a later stage fails",
+		func(ctx SpecContext) {
+			lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+			// Nothing answers at localhost:1, so the pledge runs until the context
+			// expires, failing Open after the listener is bound.
+			pledgeCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+			defer cancel()
+			Expect(aspen.Open(
+				pledgeCtx,
+				"",
+				"localhost:0",
+				[]address.Address{"localhost:1"},
+				aspen.InMemory(),
+				aspen.WithListener(lis),
+				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
+			)).Error().To(MatchError(context.DeadlineExceeded))
 
 			By("Leaving the listener for the caller to close")
 			Expect(lis.Close()).To(Succeed())
