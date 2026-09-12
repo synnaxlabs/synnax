@@ -116,6 +116,7 @@ var _ = Describe("Breaker", func() {
 		var wg sync.WaitGroup
 		wg.Go(func() { waited <- b.Wait() })
 		Eventually(clock.Pending).Should(Equal(1))
+		cancel()
 		Eventually(waited).Should(Receive(BeFalse()))
 		wg.Wait()
 	})
