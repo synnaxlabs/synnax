@@ -76,19 +76,34 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 // with the keys that do exist.
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Delete.Exec", tx)
+	_, err := d.exec(ctx, tx)
+	return err
+}
+
+// ExecKeys executes the query and returns the keys of the entries it deleted, in scan
+// order. A key the filter names but no entry matches is absent from the result, so a
+// caller that deletes a paired record in another table can drive that delete from the
+// same scan instead of resolving the set a second time.
+func (d Delete[K, E]) ExecKeys(ctx context.Context, tx Tx) ([]K, error) {
+	checkForNilTx("Delete.ExecKeys", tx)
+	return d.exec(ctx, tx)
+}
+
+func (d Delete[K, E]) exec(ctx context.Context, tx Tx) ([]K, error) {
 	var (
 		queryCtx = Context{Context: ctx, Tx: tx}
 		entries  []E
 		q        = d.retrieve.Entries(&entries)
 	)
 	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
+		return nil, err
 	}
 	if err := d.guards.checkMany(queryCtx, entries); err != nil {
-		return err
+		return nil, err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return wrapWriter(tx, d.retrieve.keyPrefix, d.indexes).Delete(ctx, keys...)
+	w := wrapWriter(tx, d.retrieve.keyPrefix, d.indexes)
+	return keys, w.Delete(ctx, keys...)
 }
 
 type (

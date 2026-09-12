@@ -67,11 +67,13 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 
 // Delete deletes the views with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
-		Exec(ctx, w.tx); err != nil {
+	deleted, err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, View](keys...)).
+		ExecKeys(ctx, w.tx)
+	if err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
 }
 
 func (w Writer) validate(v View) error {

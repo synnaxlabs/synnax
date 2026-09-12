@@ -162,10 +162,13 @@ func (w Writer) SetManyWithParent[D any](
 // Delete deletes the statuses with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	return w.withTx(ctx, func(w Writer) error {
-		if err := w.table.NewWriter(w.tx).Delete(ctx, keys...); err != nil {
+		deleted, err := w.table.NewDelete().
+			Where(gorp.MatchKeys[Key, Status[any]](keys...)).
+			ExecKeys(ctx, w.tx)
+		if err != nil {
 			return err
 		}
-		return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+		return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
 	})
 }
 

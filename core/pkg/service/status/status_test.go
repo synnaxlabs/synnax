@@ -12,6 +12,7 @@ package status_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -198,7 +198,8 @@ var _ = Describe("Status", Ordered, func() {
 			})
 
 			It(
-				"Should remove an entry a concurrent set commits mid-delete",
+				"Should keep an entry paired with its resource when a set commits "+
+					"mid-delete",
 				func(ctx SpecContext) {
 					key := status.Key("interleaved-delete")
 					stat := &status.Status[any]{
@@ -216,14 +217,16 @@ var _ = Describe("Status", Ordered, func() {
 					Expect(delTx.Commit(ctx)).To(Succeed())
 					Expect(delTx.Close()).To(Succeed())
 
+					By("Leaving the set that won the race intact")
 					Expect(svc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](key)).
 						Entry(&status.Status[any]{}).
-						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Exec(ctx, nil)).To(Succeed())
 					Expect(otg.NewRetrieve().
 						WhereIDs(status.OntologyID(key)).
 						Entries(&[]ontology.Resource{}).
-						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+						Exec(ctx, nil)).To(Succeed())
+					Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
 				},
 			)
 
@@ -846,17 +849,20 @@ var _ = Describe("Status", Ordered, func() {
 	})
 })
 
-// interleaveTx runs f the first time the wrapped transaction opens an iterator, after
-// the iterator captures its read state. A delete that resolves keys through that
-// iterator cannot see what f commits.
+// interleaveTx runs f once the wrapped transaction finishes its first read, so a write
+// f commits lands after a delete has already resolved which keys exist.
 type interleaveTx struct {
 	gorp.Tx
 	once sync.Once
 	f    func()
 }
 
-func (t *interleaveTx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
-	iter, err := t.Tx.OpenIterator(opts)
+func (t *interleaveTx) Get(
+	ctx context.Context,
+	key []byte,
+	opts ...any,
+) ([]byte, io.Closer, error) {
+	value, closer, err := t.Tx.Get(ctx, key, opts...)
 	t.once.Do(t.f)
-	return iter, err
+	return value, closer, err
 }
