@@ -11,7 +11,6 @@ package breaker
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/synnaxlabs/x/config"
@@ -20,8 +19,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const InfiniteRetries = math.MaxInt
+// InfiniteRetries lifts the retry limit: a breaker configured with it keeps waiting
+// for as long as its context is live. It is the only negative MaxRetries accepted.
+const InfiniteRetries = -1
 
+// Config configures a Breaker.
 type Config struct {
 	// BaseInterval is the interval of time waited on the first time Wait is called on
 	// the breaker. This interval keeps growing at an exponential rate set by Scale.
@@ -31,9 +33,10 @@ type Config struct {
 	// call to Wait. For example, if set at 2, the second call to Wait will wait 2x
 	// longer than the first, the third will wait 4x, etc.
 	// Default: 1.
-	Scale float32
-	// MaxRetries is the number set for how many calls to Wait is allowed. Once a
-	// breaker goes beyond this number, it no can no longer Wait and returns false.
+	Scale float64
+	// MaxRetries is how many calls to Wait are allowed. Once a breaker reaches this
+	// number, Wait no longer waits and returns false. Set it to InfiniteRetries to
+	// lift the limit.
 	// Default: 0.
 	MaxRetries int
 	// Clock is the time source Wait blocks against.
@@ -41,6 +44,7 @@ type Config struct {
 	Clock xtime.Clock
 }
 
+// Override returns c with any non-zero fields of o applied on top.
 func (c Config) Override(o Config) Config {
 	c.BaseInterval = override.Numeric(c.BaseInterval, o.BaseInterval)
 	c.MaxRetries = override.Numeric(c.MaxRetries, o.MaxRetries)
@@ -49,23 +53,24 @@ func (c Config) Override(o Config) Config {
 	return c
 }
 
+// Validate returns an error if c contains invalid values.
 func (c Config) Validate() error {
 	v := validate.New("breaker")
 	v.GreaterThanEq("base_interval", c.BaseInterval, 0)
-	v.GreaterThanEq("max_retries", c.MaxRetries, 0)
+	v.GreaterThanEq("max_retries", c.MaxRetries, InfiniteRetries)
 	v.GreaterThanEq("scale", c.Scale, 1)
 	v.NotNil("clock", c.Clock)
 	return v.Error()
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{Scale: 1, Clock: xtime.Real}
-)
+var _ config.Config[Config] = Config{}
 
+// Breaker waits an exponentially growing interval between retries, giving up once it
+// reaches MaxRetries or its context is canceled. A Breaker is not safe for concurrent
+// use.
 type Breaker struct {
-	ctx context.Context
-	Config
+	ctx          context.Context
+	cfg          Config
 	currInterval time.Duration
 	retryCount   int
 }
@@ -74,38 +79,36 @@ type Breaker struct {
 // context is canceled while the breaker is waiting, the breaker stops waiting
 // immediately.
 func NewBreaker(ctx context.Context, configs ...Config) (Breaker, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(Config{Scale: 1, Clock: xtime.Real}, configs...)
 	if err != nil {
 		return Breaker{}, err
 	}
-	b := Breaker{Config: cfg, ctx: ctx}
+	b := Breaker{cfg: cfg, ctx: ctx}
 	b.Reset()
 	return b, nil
 }
 
 // Wait returns a boolean indicating whether the breaker can wait again. A breaker
-// cannot wait if its context is canceled or if it reached its maximum retry count.
-// Wait waits an exponentially increasing amount of time each time it is called.
+// cannot wait if its context is canceled or if it reached its maximum retry count. Wait
+// waits an exponentially increasing amount of time each time it is called.
 func (b *Breaker) Wait() bool {
-	if b.MaxRetries != InfiniteRetries && b.retryCount == b.MaxRetries {
+	if b.cfg.MaxRetries != InfiniteRetries && b.retryCount == b.cfg.MaxRetries {
 		return false
 	}
 
 	fired := make(chan struct{})
-	timer := b.Clock.RunAt(b.Clock.Now().Add(b.currInterval), func() { close(fired) })
+	deadline := b.cfg.Clock.Now().Add(b.currInterval)
+	timer := b.cfg.Clock.RunAt(deadline, func() { close(fired) })
 	select {
 	case <-fired:
 	case <-b.ctx.Done():
 		timer.Stop()
 		return false
 	}
-	b.currInterval = time.Duration(float32(b.currInterval) * b.Scale)
+	b.currInterval = time.Duration(float64(b.currInterval) * b.cfg.Scale)
 	b.retryCount++
 	return true
 }
 
 // Reset resets the breaker to the base interval and to have 0 retries.
-func (b *Breaker) Reset() {
-	b.currInterval = b.BaseInterval
-	b.retryCount = 0
-}
+func (b *Breaker) Reset() { b.currInterval = b.cfg.BaseInterval; b.retryCount = 0 }
