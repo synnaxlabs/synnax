@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -43,9 +43,9 @@ var _ = Describe("Codec", func() {
 				Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 			}),
 			Entry("zero values", v0.Workspace{
-				Key:    uuid.Nil,
+				Key:    uuid.Nil(),
 				Name:   "",
-				Author: uuid.Nil,
+				Author: uuid.Nil(),
 				Layout: nil,
 			}),
 		)
@@ -90,9 +90,9 @@ func FuzzDecodeWorkspace(f *testing.F) {
 	}
 	{
 		seed := v0.Workspace{
-			Key:    uuid.Nil,
+			Key:    uuid.Nil(),
 			Name:   "",
-			Author: uuid.Nil,
+			Author: uuid.Nil(),
 			Layout: nil,
 		}
 		w := orc.NewWriter(0)

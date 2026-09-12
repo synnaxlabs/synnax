@@ -12,7 +12,7 @@ package cesium_test
 import (
 	"encoding/binary"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"strconv"
 	"sync"
@@ -882,7 +882,7 @@ var _ = Describe("Writer Behavior", func() {
 								)
 								defer shutdown()
 
-								rng := rand.New(rand.NewSource(alignmentSeed))
+								rng := rand.New(rand.NewPCG(alignmentSeed, 0))
 								ts := 10 * telem.SecondTS
 								for range 8 {
 									w := MustSucceed(
@@ -898,8 +898,8 @@ var _ = Describe("Writer Behavior", func() {
 											},
 										}),
 									)
-									for range rng.Intn(4) + 1 {
-										n := rng.Intn(5) + 1
+									for range rng.IntN(4) + 1 {
+										n := rng.IntN(5) + 1
 										stamps := make([]telem.TimeStamp, n)
 										ints := make([]int64, n)
 										floats := make([]float32, n)

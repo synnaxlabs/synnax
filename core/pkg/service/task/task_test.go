@@ -12,8 +12,8 @@ package task_test
 import (
 	"context"
 	"math"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -140,7 +140,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).ToNot(Equal(uuid.Nil))
+			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Name).To(Equal("Test Task"))
 		})
 		It("Should preserve a client-provided key", func(ctx SpecContext) {
@@ -157,7 +157,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create a rackless draft", func(ctx SpecContext) {
 			m := &task.Task{Type: testType, Name: "Draft Task"}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).ToNot(Equal(uuid.Nil))
+			Expect(m.Key).ToNot(Equal(uuid.Nil()))
 			Expect(m.Rack.IsZero()).To(BeTrue())
 		})
 	})
@@ -493,7 +493,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(m.Name).To(Equal("Test Task"))
 			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
-			Expect(t.Key).ToNot(Equal(uuid.Nil))
+			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 			Expect(t.Key).ToNot(Equal(m.Key))
 		})
 

@@ -10,8 +10,6 @@
 package mock
 
 import (
-	"go/types"
-
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -26,8 +24,8 @@ type Network struct {
 	pledge     *mock.Network[pledge.Request, pledge.Response]
 	cluster    *mock.Network[gossip.Message, gossip.Message]
 	operations *mock.Network[kv.TxRequest, kv.TxRequest]
-	lease      *mock.Network[kv.TxRequest, types.Nil]
-	feedback   *mock.Network[kv.FeedbackMessage, types.Nil]
+	lease      *mock.Network[kv.TxRequest, struct{}]
+	feedback   *mock.Network[kv.FeedbackMessage, struct{}]
 	recovery   *mock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 }
 
@@ -36,8 +34,8 @@ func NewNetwork() *Network {
 		pledge:     mock.NewNetwork[pledge.Request, pledge.Response](),
 		cluster:    mock.NewNetwork[gossip.Message, gossip.Message](),
 		operations: mock.NewNetwork[kv.TxRequest, kv.TxRequest](),
-		lease:      mock.NewNetwork[kv.TxRequest, types.Nil](),
-		feedback:   mock.NewNetwork[kv.FeedbackMessage, types.Nil](),
+		lease:      mock.NewNetwork[kv.TxRequest, struct{}](),
+		feedback:   mock.NewNetwork[kv.FeedbackMessage, struct{}](),
 		recovery:   mock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 	}
 }
@@ -53,10 +51,10 @@ type transport struct {
 	clusterClient     *mock.UnaryClient[gossip.Message, gossip.Message]
 	batchServer       *mock.UnaryServer[kv.TxRequest, kv.TxRequest]
 	batchClient       *mock.UnaryClient[kv.TxRequest, kv.TxRequest]
-	leaseServer       *mock.UnaryServer[kv.TxRequest, types.Nil]
-	leaseClient       *mock.UnaryClient[kv.TxRequest, types.Nil]
-	feedbackServer    *mock.UnaryServer[kv.FeedbackMessage, types.Nil]
-	feedbackClient    *mock.UnaryClient[kv.FeedbackMessage, types.Nil]
+	leaseServer       *mock.UnaryServer[kv.TxRequest, struct{}]
+	leaseClient       *mock.UnaryClient[kv.TxRequest, struct{}]
+	feedbackServer    *mock.UnaryServer[kv.FeedbackMessage, struct{}]
+	feedbackClient    *mock.UnaryClient[kv.FeedbackMessage, struct{}]
 	recoveryServer    *mock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
 	recoveryClient    *mock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
 	pendingMiddleware []freighter.Middleware

@@ -60,6 +60,33 @@ var _ = Describe("Clock", func() {
 			Expect(f.Now()).To(Equal(time.Time{}.Add(7 * time.Second)))
 		})
 
+		Describe("Pending", func() {
+			It("Should count only timers that have not fired", func() {
+				clock := &xtime.Fake{}
+				Expect(clock.Pending()).To(Equal(0))
+				clock.RunAt(clock.Now().Add(10*time.Millisecond), func() {})
+				clock.RunAt(clock.Now().Add(30*time.Millisecond), func() {})
+				Expect(clock.Pending()).To(Equal(2))
+				clock.Advance(10 * time.Millisecond)
+				Expect(clock.Pending()).To(Equal(1))
+				clock.Advance(20 * time.Millisecond)
+				Expect(clock.Pending()).To(Equal(0))
+			})
+			It("Should not count a deadline that already passed", func() {
+				clock := &xtime.Fake{}
+				clock.RunAt(clock.Now().Add(-time.Second), func() {})
+				Expect(clock.Pending()).To(Equal(0))
+			})
+			It("Should stop counting a timer that was stopped", func() {
+				clock := &xtime.Fake{}
+				t := clock.RunAt(clock.Now().Add(time.Second), func() {})
+				Expect(clock.Pending()).To(Equal(1))
+				Expect(t.Stop()).To(BeTrue())
+				clock.Advance(time.Second)
+				Expect(clock.Pending()).To(Equal(0))
+			})
+		})
+
 		Describe("RunAt", func() {
 			It("Should call scheduled functions when Advance crosses the deadline",
 				func() {

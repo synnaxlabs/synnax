@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -42,7 +42,7 @@ var _ = Describe("Codec", func() {
 				Data: msgpack.EncodedJSON{"key_3": "value_3"},
 			}),
 			Entry("zero values", v0.LinePlot{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Data: nil,
 			}),
@@ -86,7 +86,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 	}
 	{
 		seed := v0.LinePlot{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Data: nil,
 		}

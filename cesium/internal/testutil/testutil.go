@@ -11,7 +11,7 @@ package testutil
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium"
@@ -60,7 +60,7 @@ func GenerateDataAndChannels(
 
 	data := make([]int64, numSamplesPerDomain)
 	for i := range numSamplesPerDomain {
-		data[i] = rand.Int63()
+		data[i] = rand.Int64()
 	}
 
 	return telem.NewSeries(data), channels, channelKeys

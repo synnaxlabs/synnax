@@ -304,18 +304,19 @@ var _ = Describe("Freighter Transport", func() {
 	})
 
 	Describe("JSONRPCMessage", func() {
-		Describe("UnmarshalJSON", func() {
+		Describe("Decoding", func() {
 			It("Should unmarshal valid JSON object", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage
 				input := `{"content":"test message"}`
 				Expect(json.Unmarshal([]byte(input), &msg)).To(Succeed())
 				Expect(msg.Content).To(Equal("test message"))
 			})
-			It("Should handle raw string as content", func(ctx SpecContext) {
+			It("Should reject a JSON value that is not an object", func(
+				ctx SpecContext,
+			) {
 				var msg transport.JSONRPCMessage
-				input := `"raw string content"`
-				Expect(json.Unmarshal([]byte(input), &msg)).To(Succeed())
-				Expect(msg.Content).To(Equal(input))
+				Expect(json.Unmarshal([]byte(`"raw string content"`), &msg)).
+					To(MatchError(ContainSubstring("cannot unmarshal")))
 			})
 			It("Should handle empty object", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage

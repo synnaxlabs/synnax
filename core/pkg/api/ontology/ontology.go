@@ -11,7 +11,6 @@ package ontology
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -130,13 +129,13 @@ func (s *Service) AddChildren(
 	ctx context.Context,
 	tx gorp.Tx,
 	req AddChildrenRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if err := s.ontology.NewWriter(tx).DefineRelationships(
 		ctx,
@@ -144,9 +143,9 @@ func (s *Service) AddChildren(
 		ontology.RelationshipTypeParentOf,
 		req.Children...,
 	); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }
 
 type RemoveChildrenRequest struct {
@@ -158,15 +157,15 @@ func (s *Service) RemoveChildren(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RemoveChildrenRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.ontology.NewWriter(tx).DeleteRelationships(
+	return struct{}{}, s.ontology.NewWriter(tx).DeleteRelationships(
 		ctx,
 		lo.Map(req.Children, func(child ontology.ID, _ int) ontology.Relationship {
 			return ontology.Relationship{
@@ -188,13 +187,13 @@ func (s *Service) MoveChildren(
 	ctx context.Context,
 	tx gorp.Tx,
 	req MoveChildrenRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.From, req.To),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	w := s.ontology.NewWriter(tx)
 	for _, child := range req.Children {
@@ -203,7 +202,7 @@ func (s *Service) MoveChildren(
 			Type: ontology.RelationshipTypeParentOf,
 			To:   child,
 		}); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 		if err := w.DefineRelationships(
 			ctx,
@@ -211,8 +210,8 @@ func (s *Service) MoveChildren(
 			ontology.RelationshipTypeParentOf,
 			child,
 		); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }

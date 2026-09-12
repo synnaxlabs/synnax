@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -42,7 +42,7 @@ var _ = Describe("Codec", func() {
 				Internal:    false,
 			}),
 			Entry("zero values", v0.Role{
-				Key:         uuid.Nil,
+				Key:         uuid.Nil(),
 				Name:        "",
 				Description: "",
 				Internal:    false,
@@ -89,7 +89,7 @@ func FuzzDecodeRole(f *testing.F) {
 	}
 	{
 		seed := v0.Role{
-			Key:         uuid.Nil,
+			Key:         uuid.Nil(),
 			Name:        "",
 			Description: "",
 			Internal:    false,

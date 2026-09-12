@@ -12,8 +12,8 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -104,7 +104,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.Table{
-				Key:     uuid.Nil,
+				Key:     uuid.Nil(),
 				Name:    "",
 				Rows:    nil,
 				Columns: nil,
@@ -361,7 +361,7 @@ func FuzzDecodeTable(f *testing.F) {
 	}
 	{
 		seed := v1.Table{
-			Key:     uuid.Nil,
+			Key:     uuid.Nil(),
 			Name:    "",
 			Rows:    nil,
 			Columns: nil,

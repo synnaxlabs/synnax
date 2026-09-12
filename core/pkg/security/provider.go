@@ -43,10 +43,12 @@ type TLSProvider interface {
 	VerifyCertTrustAnchors(src cert.Source) error
 }
 
-// KeyProvider provides information of private keys for the node.
+// KeyProvider provides the private keys the node signs with.
 type KeyProvider interface {
-	// NodePrivate returns the private key of the node's TLS certificate.
-	NodePrivate() crypto.PrivateKey
+	// TokenPrivate returns the key the node signs authentication tokens with. It is
+	// the node's TLS key when that key's algorithm has a JWT signing method, and the
+	// dedicated key at LoaderConfig.TokenKeyPath otherwise.
+	TokenPrivate() crypto.PrivateKey
 }
 
 // Provider provides security information and services for the node. It's important to

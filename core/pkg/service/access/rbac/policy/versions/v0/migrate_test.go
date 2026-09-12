@@ -11,8 +11,8 @@ package v0_test
 
 import (
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
@@ -57,8 +57,8 @@ var _ = Describe("Migration", func() {
 	It(
 		"Should extract legacy policies into the KV mapping and delete them",
 		func(ctx SpecContext) {
-			u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
-			u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
+			u1 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
+			u2 := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.New().String()}
 			shared := newLegacy(u1, u2)
 			single := newLegacy(u1)
 			modern := v0.Policy{

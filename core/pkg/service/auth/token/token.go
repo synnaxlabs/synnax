@@ -15,9 +15,9 @@ import (
 	"crypto/rsa"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -147,16 +147,16 @@ func (s *Service) validate(token string) (user.Key, *jwt.RegisteredClaims, error
 	}, jwt.WithTimeFunc(s.cfg.Now))
 	if err != nil {
 		if isVerificationError(err) {
-			return uuid.Nil, claims, auth.ErrInvalidToken
+			return uuid.Nil(), claims, auth.ErrInvalidToken
 		}
 		if isExpiredError(err) {
-			return uuid.Nil, claims, auth.ErrExpiredToken
+			return uuid.Nil(), claims, auth.ErrExpiredToken
 		}
-		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
+		return uuid.Nil(), claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	id, err := uuid.Parse(claims.Issuer)
 	if err != nil {
-		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
+		return uuid.Nil(), claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	return id, claims, nil
 }
@@ -171,7 +171,7 @@ func (s *Service) isCloseToExpired(claims *jwt.RegisteredClaims) bool {
 }
 
 func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
-	key := s.cfg.KeyProvider.NodePrivate()
+	key := s.cfg.KeyProvider.TokenPrivate()
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
 		return jwt.SigningMethodRS512, key
@@ -184,20 +184,20 @@ func (s *Service) signingMethodAndKey() (jwt.SigningMethod, any) {
 		default:
 			return jwt.SigningMethodES512, key
 		}
-	case *ed25519.PrivateKey:
+	case ed25519.PrivateKey:
 		return jwt.SigningMethodEdDSA, key
 	}
 	panic("unsupported key type")
 }
 
 func (s *Service) publicKey() any {
-	key := s.cfg.KeyProvider.NodePrivate()
+	key := s.cfg.KeyProvider.TokenPrivate()
 	switch key := key.(type) {
 	case *rsa.PrivateKey:
 		return key.Public()
 	case *ecdsa.PrivateKey:
 		return key.Public()
-	case *ed25519.PrivateKey:
+	case ed25519.PrivateKey:
 		return key.Public()
 	}
 	panic("unsupported key type")

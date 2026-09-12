@@ -12,8 +12,8 @@ package arc
 import (
 	"context"
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
@@ -55,7 +55,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		exists bool
 		err    error
 	)
-	if a.Key == uuid.Nil {
+	if a.Key == uuid.Nil() {
 		a.Key = uuid.New()
 	} else {
 		exists, err = w.table.NewRetrieve().

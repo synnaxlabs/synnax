@@ -13,7 +13,8 @@ package pb
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"

@@ -12,7 +12,8 @@
 package v2
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -351,58 +352,53 @@ type WriteField struct {
 	Variant WriteFieldVariant
 }
 
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u WriteField) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t WriteFieldType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteField) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case StaticWriteField:
-		t = StaticWriteFieldType
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldType `json:"type"`
+			StaticWriteField
+		}{Type: StaticWriteFieldType, StaticWriteField: v})
 	case GeneratedWriteField:
-		t = GeneratedWriteFieldType
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldType `json:"type"`
+			GeneratedWriteField
+		}{Type: GeneratedWriteFieldType, GeneratedWriteField: v})
 	default:
-		return nil, errors.Newf("WriteField: nil or unknown variant %T", u.Variant)
+		return errors.Newf("WriteField: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *WriteField) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type WriteFieldType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case StaticWriteFieldType:
 		var v StaticWriteField
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GeneratedWriteFieldType:
 		var v GeneratedWriteField
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v

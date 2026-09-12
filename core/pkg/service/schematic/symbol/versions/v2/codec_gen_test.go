@@ -12,8 +12,8 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -264,7 +264,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.Symbol{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Data: v2.Spec{
 					SVG:             "",
@@ -830,7 +830,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 	}
 	{
 		seed := v2.Symbol{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Data: v2.Spec{
 				SVG:             "",

@@ -63,6 +63,7 @@ type encoderFileOutput struct {
 	Package        string
 	ExtraImports   map[string]string
 	NeedsJSON      bool
+	NeedsJSONText  bool
 	HasFlex        bool
 	ConcreteCodecs []concreteCodec
 	GenericCodecs  []genericCodec
@@ -97,6 +98,7 @@ func generateEncoderCodecFile(
 		}
 		fo.FlexMethods = flexBuf.String()
 		fo.HasFlex = true
+		fo.NeedsJSONText = true
 		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = "msgpack"
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
@@ -1219,7 +1221,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 			return "", errors.Newf("unsupported primitive type: %s", prim.Name)
 		}
 		if typemap.IsUUID(prim.Name) {
-			b.imports["github.com/google/uuid"] = "uuid"
+			b.imports["uuid"] = ""
 		}
 		return goType, nil
 	}
@@ -1288,6 +1290,9 @@ package {{.Package}}
 import (
 {{- if .NeedsJSON}}
 	"encoding/json"
+{{- end}}
+{{- if .NeedsJSONText}}
+	"encoding/json/jsontext"
 {{- end}}
 {{- if or .ConcreteCodecs .GenericCodecs}}
 

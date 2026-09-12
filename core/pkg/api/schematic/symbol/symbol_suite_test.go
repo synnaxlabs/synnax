@@ -11,8 +11,8 @@ package symbol_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -125,7 +125,7 @@ func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "test-" + uuid.NewString(),
+		Username: "test-" + uuid.New().String(),
 	}))
 }
 
@@ -141,10 +141,13 @@ func grantOn(
 	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: string(action) + "-" + uuid.NewString(), Description: "test"}
+	r := &role.Role{
+		Name:        string(action) + "-" + uuid.New().String(),
+		Description: "test",
+	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
-		Name:    string(action) + "-policy-" + uuid.NewString(),
+		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}

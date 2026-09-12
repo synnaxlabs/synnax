@@ -11,8 +11,8 @@ package v1_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -101,7 +101,7 @@ var _ = Describe("MigrateTask", func() {
 				Type:   "opc_read",
 				Config: msgpack.EncodedJSON{"endpoint": "opc.tcp://localhost:4840"},
 				Status: &v0.Status{
-					Key:         "task:" + uuid.NewString(),
+					Key:         "task:" + uuid.New().String(),
 					Name:        "running",
 					Variant:     "success",
 					Message:     "task acquiring",

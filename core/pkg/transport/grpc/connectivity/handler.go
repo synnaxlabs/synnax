@@ -11,7 +11,6 @@ package connectivity
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -22,7 +21,7 @@ import (
 
 type (
 	server = grpc.UnaryServer[
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 		connectivity.CheckResponse,
 		*CheckResponse,

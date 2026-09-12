@@ -15,8 +15,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 // Address represents an addressable item in a network.

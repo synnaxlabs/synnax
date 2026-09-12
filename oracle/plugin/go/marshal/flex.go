@@ -36,12 +36,12 @@ type flexConfig struct {
 var flexConfigMap = map[string]flexConfig{
 	"uint64": {
 		MsgpackHelper: "UnmarshalUint64",
-		JSONHelper:    "UnmarshalStringUint64",
+		JSONHelper:    "UnmarshalStringUint64From",
 		CastType:      "uint64",
 	},
 	"uint32": {
 		MsgpackHelper: "UnmarshalUint32",
-		JSONHelper:    "UnmarshalStringUint32",
+		JSONHelper:    "UnmarshalStringUint32From",
 		CastType:      "uint32",
 	},
 }
@@ -92,9 +92,9 @@ func ({{.Receiver}} *{{.GoName}}) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-// UnmarshalJSON coerces JSON numbers or strings into {{.GoName}}.
-func ({{.Receiver}} *{{.GoName}}) UnmarshalJSON(b []byte) error {
-	n, err := xjson.{{.JSONHelper}}(b)
+// UnmarshalJSONFrom coerces JSON numbers or strings into {{.GoName}}.
+func ({{.Receiver}} *{{.GoName}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	n, err := xjson.{{.JSONHelper}}(dec)
 	if err != nil {
 		return err
 	}

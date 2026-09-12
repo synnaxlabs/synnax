@@ -11,7 +11,6 @@ package channel_test
 
 import (
 	"context"
-	"go/types"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -53,16 +52,16 @@ var _ = Describe("Transport", func() {
 			transport.DeleteServer().BindHandler(
 				func(
 					_ context.Context, req distchannel.DeleteRequest,
-				) (types.Nil, error) {
+				) (struct{}, error) {
 					received = req
-					return types.Nil{}, nil
+					return struct{}{}, nil
 				},
 			)
 			Expect(transport.DeleteClient().Send(
 				ctx,
 				addr,
 				distchannel.DeleteRequest{Keys: distchannel.Keys{1, 2, 3}},
-			)).To(Equal(types.Nil{}))
+			)).To(Equal(struct{}{}))
 			Expect(received.Keys).To(Equal(distchannel.Keys{1, 2, 3}))
 		})
 	})
@@ -73,9 +72,9 @@ var _ = Describe("Transport", func() {
 			transport.RenameServer().BindHandler(
 				func(
 					_ context.Context, req distchannel.RenameRequest,
-				) (types.Nil, error) {
+				) (struct{}, error) {
 					received = req
-					return types.Nil{}, nil
+					return struct{}{}, nil
 				},
 			)
 			Expect(transport.RenameClient().Send(
@@ -84,7 +83,7 @@ var _ = Describe("Transport", func() {
 				distchannel.RenameRequest{
 					Renames: map[distchannel.Key]string{1: "beta", 2: "gamma"},
 				},
-			)).To(Equal(types.Nil{}))
+			)).To(Equal(struct{}{}))
 			Expect(received.Renames).To(Equal(
 				map[distchannel.Key]string{1: "beta", 2: "gamma"},
 			),

@@ -10,7 +10,8 @@
 package schematic_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -28,7 +29,7 @@ var _ = Describe("Writer", func() {
 		It("Should create a Schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
-			Expect(s.Key).ToNot(Equal(uuid.Nil))
+			Expect(s.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It(
 			"Should return a validation error when the name is empty",

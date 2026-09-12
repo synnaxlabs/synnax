@@ -10,7 +10,8 @@
 package service_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -35,7 +36,7 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			node := mock.NewNode(ctx)
 			db := node.DB
-			lpKey := uuid.NewString()
+			lpKey := uuid.New().String()
 			lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: lpKey}
 			Expect(gorp.WrapWriter[string, ontology.Resource](db).
 				Set(ctx, ontology.Resource{ID: lpID})).To(Succeed())

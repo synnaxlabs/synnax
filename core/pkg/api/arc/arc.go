@@ -11,7 +11,6 @@ package arc
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/alamos"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
@@ -95,15 +94,15 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: arc.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 // DispatchRequest carries a sequence of collaborative-edit actions to relay to the
@@ -119,15 +118,15 @@ func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{arc.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (

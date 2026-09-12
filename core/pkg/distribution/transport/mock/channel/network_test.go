@@ -11,7 +11,6 @@ package channel_test
 
 import (
 	"context"
-	"go/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,30 +62,30 @@ var _ = Describe("Transport", func() {
 	It("Should round-trip a delete request to the leaseholder", func(ctx SpecContext) {
 		var received distchannel.Keys
 		server.DeleteServer().BindHandler(
-			func(_ context.Context, req distchannel.DeleteRequest) (types.Nil, error) {
+			func(_ context.Context, req distchannel.DeleteRequest) (struct{}, error) {
 				received = req.Keys
-				return types.Nil{}, nil
+				return struct{}{}, nil
 			},
 		)
 		Expect(client.DeleteClient().Send(
 			ctx,
 			leaseholder,
 			distchannel.DeleteRequest{Keys: distchannel.Keys{1, 2, 3}},
-		)).To(Equal(types.Nil{}))
+		)).To(Equal(struct{}{}))
 		Expect(received).To(Equal(distchannel.Keys{1, 2, 3}))
 	})
 
 	It("Should round-trip a rename request to the leaseholder", func(ctx SpecContext) {
 		var received distchannel.RenameRequest
 		server.RenameServer().BindHandler(
-			func(_ context.Context, req distchannel.RenameRequest) (types.Nil, error) {
+			func(_ context.Context, req distchannel.RenameRequest) (struct{}, error) {
 				received = req
-				return types.Nil{}, nil
+				return struct{}{}, nil
 			},
 		)
 		Expect(client.RenameClient().Send(ctx, leaseholder, distchannel.RenameRequest{
 			Renames: map[distchannel.Key]string{7: "renamed"},
-		})).To(Equal(types.Nil{}))
+		})).To(Equal(struct{}{}))
 		Expect(received.Renames).To(Equal(map[distchannel.Key]string{7: "renamed"}))
 	})
 

@@ -392,8 +392,8 @@ func importAlias(item IImportItemContext) string {
 		}
 	}
 	path := importPathText(item.ImportPath())
-	if idx := strings.LastIndexByte(path, '.'); idx >= 0 {
-		return path[idx+1:]
+	if _, name, ok := strings.CutLast(path, "."); ok {
+		return name
 	}
 	return path
 }

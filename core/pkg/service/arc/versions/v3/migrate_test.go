@@ -12,8 +12,8 @@ package v3_test
 import (
 	"context"
 	"slices"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"

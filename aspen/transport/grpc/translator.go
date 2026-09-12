@@ -11,8 +11,8 @@ package grpc
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"

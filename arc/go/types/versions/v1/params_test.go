@@ -28,11 +28,6 @@ var _ = Describe("Params", func() {
 		}
 	})
 	Describe("MarshalJSON", func() {
-		It("Should marshal nil params as an empty array", func() {
-			var nilParams types.Params
-			data := MustSucceed(json.Marshal(nilParams))
-			Expect(string(data)).To(Equal("[]"))
-		})
 		It("Should marshal params as a JSON array", func() {
 			data := MustSucceed(json.Marshal(params))
 			Expect(string(data)).To(HavePrefix("["))

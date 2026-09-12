@@ -12,8 +12,8 @@
 package v7_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -122,7 +122,7 @@ var _ = Describe("Codec", func() {
 				Configs: map[string]msgpack.EncodedJSON{"test_21": {"key_21": "value_21"}},
 			}),
 			Entry("zero values", v7.Schematic{
-				Key:      uuid.Nil,
+				Key:      uuid.Nil(),
 				Name:     "",
 				Snapshot: false,
 				Nodes:    nil,
@@ -404,7 +404,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := v7.Schematic{
-			Key:      uuid.Nil,
+			Key:      uuid.Nil(),
 			Name:     "",
 			Snapshot: false,
 			Nodes:    nil,

@@ -12,7 +12,6 @@ package graph_test
 import (
 	"context"
 	"fmt"
-	"go/types"
 	"sync"
 	"time"
 
@@ -85,8 +84,8 @@ func openGraph(ctx context.Context) *graph.Graph {
 
 func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool) {
 	var statuses []calculation.Status
-	err := statusSvc.NewRetrieve[types.Nil]().
-		Where(status.MatchKeys[types.Nil](channel.OntologyID(key).String())).
+	err := statusSvc.NewRetrieve[struct{}]().
+		Where(status.MatchKeys[struct{}](channel.OntologyID(key).String())).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {

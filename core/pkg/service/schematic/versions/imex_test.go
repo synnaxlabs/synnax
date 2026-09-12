@@ -10,7 +10,8 @@
 package versions_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -142,7 +143,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	})
 
 	It("Should drop the key on the wire", func(ctx SpecContext) {
-		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil))
+		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil()))
 	})
 
 	It("Should take the name from the envelope header", func(ctx SpecContext) {

@@ -11,6 +11,9 @@ package json_test
 
 import (
 	"bytes"
+	"encoding/json/jsontext"
+	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +24,21 @@ import (
 
 type toEncode struct {
 	Value int
+}
+
+func decoderOf(data string) *jsontext.Decoder {
+	return jsontext.NewDecoder(strings.NewReader(data))
+}
+
+func encodeWith[T any](
+	write func(*jsontext.Encoder, T) error,
+	value T,
+) string {
+	var buf bytes.Buffer
+	Expect(write(jsontext.NewEncoder(&buf), value)).To(Succeed())
+	// A bare encoder terminates a top-level value with a newline; a marshaler writing
+	// into a larger document does not.
+	return strings.TrimSuffix(buf.String(), "\n")
 }
 
 type markup struct {
@@ -41,6 +59,14 @@ var _ = Describe("Codec", func() {
 		var d2 toEncode
 		Expect(json.Codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2).To(Equal(toEncode{1}))
+	})
+	It("Should decode one value and leave the rest of the stream", func(
+		ctx SpecContext,
+	) {
+		r := bytes.NewReader([]byte(`{"Value":1}{"Value":2}`))
+		var d toEncode
+		Expect(json.Codec.DecodeStream(ctx, r, &d)).To(Succeed())
+		Expect(d).To(Equal(toEncode{1}))
 	})
 	It("Should add error info on encoding failure", func(ctx SpecContext) {
 		Expect(json.Codec.Encode(ctx, make(chan int))).Error().To(MatchError(
@@ -83,17 +109,87 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+type wireShapes struct {
+	NilSlice   []int          `json:"nil_slice"`
+	NilMap     map[string]int `json:"nil_map"`
+	NilBytes   []byte         `json:"nil_bytes"`
+	EmptySlice []int          `json:"empty_slice"`
+	Bytes      []byte         `json:"bytes"`
+	ZeroInt    int            `json:"zero_int,omitempty"`
+	ZeroBool   bool           `json:"zero_bool,omitempty"`
+	EmptyPtr   *toEncode      `json:"empty_ptr,omitempty"`
+	Duration   time.Duration  `json:"duration"`
+}
+
+var _ = Describe("Wire format", func() {
+	It("Should encode a nil slice and a nil map as empty, not null", func(
+		ctx SpecContext,
+	) {
+		type shape struct {
+			Slice []int          `json:"slice"`
+			Map   map[string]int `json:"map"`
+		}
+		Expect(MustSucceed(json.Codec.Encode(ctx, shape{}))).
+			To(MatchJSON(`{"slice":[],"map":{}}`))
+	})
+	It("Should match object names case-sensitively", func(ctx SpecContext) {
+		var d toEncode
+		Expect(json.Codec.Decode(ctx, []byte(`{"value":7}`), &d)).To(Succeed())
+		Expect(d).To(Equal(toEncode{}))
+	})
+	It("Should reject a repeated object name", func(ctx SpecContext) {
+		var d toEncode
+		Expect(json.Codec.Decode(ctx, []byte(`{"Value":1,"Value":2}`), &d)).
+			To(MatchError(ContainSubstring("failed to decode")))
+	})
+	It("Should order map members deterministically", func(ctx SpecContext) {
+		m := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
+		first := MustSucceed(json.Codec.Encode(ctx, m))
+		for range 8 {
+			Expect(json.Codec.Encode(ctx, m)).To(Equal(first))
+		}
+		Expect(string(first)).To(Equal(`{"a":2,"b":4,"m":3,"q":5,"z":1}`))
+	})
+	It("Should encode a duration as nanoseconds", func(ctx SpecContext) {
+		Expect(MustSucceed(json.Codec.Encode(ctx, wireShapes{Duration: time.Second}))).
+			To(ContainSubstring(`"duration":1000000000`))
+	})
+	It("Should decode a duration from nanoseconds", func(ctx SpecContext) {
+		var v wireShapes
+		Expect(json.Codec.Decode(ctx, []byte(`{"duration":1500000000}`), &v)).
+			To(Succeed())
+		Expect(v.Duration).To(Equal(1500 * time.Millisecond))
+	})
+})
+
 var _ = Describe("NewCodec", func() {
 	It("Should encode compactly with no options", func(ctx SpecContext) {
 		b := MustSucceed(json.NewCodec().Encode(ctx, toEncode{1}))
 		Expect(string(b)).To(Equal(`{"Value":1}`))
 	})
+	Describe("WithCaseInsensitiveNames", func() {
+		loose := json.NewCodec(json.WithCaseInsensitiveNames())
+
+		It("Should match an object name differing only in case", func(
+			ctx SpecContext,
+		) {
+			var d toEncode
+			Expect(loose.Decode(ctx, []byte(`{"value":7}`), &d)).To(Succeed())
+			Expect(d).To(Equal(toEncode{7}))
+		})
+
+		It("Should still write the field's declared name", func(ctx SpecContext) {
+			Expect(MustSucceed(loose.Encode(ctx, toEncode{7}))).
+				To(MatchJSON(`{"Value":7}`))
+		})
+	})
+
 	Describe("WithoutHTMLEscaping", func() {
 		plain := json.NewCodec(json.WithoutHTMLEscaping())
 
 		It("Should write <, >, and & literally", func(ctx SpecContext) {
 			b := MustSucceed(plain.Encode(ctx, markup{`<a href="x">1 & 2</a>`}))
-			Expect(string(b)).To(Equal(`{"Value":"<a href=\"x\">1 & 2</a>"}` + "\n"))
+			Expect(string(b)).To(Equal(`{"Value":"<a href=\"x\">1 & 2</a>"}`))
 		})
 
 		It("Should escape them by default", func(ctx SpecContext) {
@@ -105,7 +201,7 @@ var _ = Describe("NewCodec", func() {
 			ctx SpecContext,
 		) {
 			b := MustSucceed(plain.Encode(ctx, markup{"a\u2028b\u2029c"}))
-			Expect(string(b)).To(Equal(`{"Value":"a\u2028b\u2029c"}` + "\n"))
+			Expect(string(b)).To(Equal(`{"Value":"a\u2028b\u2029c"}`))
 		})
 
 		It("Should decode to the same value as the escaping codec", func(
@@ -172,25 +268,42 @@ var _ = Describe("NewCodec", func() {
 	})
 })
 
-var _ = Describe("MarshalStringInt64", func() {
+var _ = Describe("Validate", func() {
+	It("Should accept a well-formed document", func() {
+		Expect(json.Validate([]byte(`{"a":[1,{"b":null}]}`))).To(Succeed())
+	})
+	It("Should reject a duplicate object name and name its location", func() {
+		Expect(json.Validate([]byte(`{"a":{"b":1,"b":2}}`))).To(MatchError(
+			SatisfyAll(ContainSubstring("duplicate"), ContainSubstring(`"/a"`)),
+		))
+	})
+	It("Should reject invalid UTF-8", func() {
+		Expect(json.Validate([]byte("{\"a\":\"\xff\"}"))).
+			To(MatchError(ContainSubstring("invalid UTF-8")))
+	})
+	It("Should reject malformed syntax", func() {
+		Expect(json.Validate([]byte(`{"a":1,}`))).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("MarshalStringInt64To", func() {
 	It("Should encode an int64 value as a string", func() {
-		Expect(json.MarshalStringInt64(12)).To(Equal([]byte("\"12\"")))
-		Expect(json.MarshalStringInt64(-1)).To(Equal([]byte("\"-1\"")))
+		Expect(encodeWith(json.MarshalStringInt64To, int64(12))).To(Equal(`"12"`))
+		Expect(encodeWith(json.MarshalStringInt64To, int64(-1))).To(Equal(`"-1"`))
 	})
 })
 
-var _ = Describe("MarshalStringUint64", func() {
+var _ = Describe("MarshalStringUint64To", func() {
 	It("Should encode a uint64 value as a string", func() {
-		Expect(json.MarshalStringUint64(12)).To(Equal([]byte("\"12\"")))
+		Expect(encodeWith(json.MarshalStringUint64To, uint64(12))).To(Equal(`"12"`))
 	})
 })
 
-var _ = DescribeTable("UnmarshalStringInt64",
+var _ = DescribeTable("UnmarshalStringInt64From",
 	func(input string, expected int64, shouldError bool) {
-		b := []byte(input)
-		val, err := json.UnmarshalStringInt64(b)
+		val, err := json.UnmarshalStringInt64From(decoderOf(input))
 		if shouldError {
-			Expect(err).To(MatchError(ContainSubstring("invalid")))
+			Expect(err).To(HaveOccurred())
 		} else {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(expected))
@@ -200,20 +313,15 @@ var _ = DescribeTable("UnmarshalStringInt64",
 	Entry("string number", `"123"`, int64(123), false),
 	Entry("negative number", `-123`, int64(-123), false),
 	Entry("negative string", `"-123"`, int64(-123), false),
-	Entry(
-		"max int64",
-		`9223372036854775807`,
-		int64(9223372036854775807),
-		false,
-	),
+	Entry("max int64", `9223372036854775807`, int64(9223372036854775807), false),
 	Entry("invalid string", `"abc"`, int64(0), true),
 	Entry("invalid json", `{invalid}`, int64(0), true),
+	Entry("boolean", `true`, int64(0), true),
 )
 
-var _ = DescribeTable("UnmarshalStringUint32",
+var _ = DescribeTable("UnmarshalStringUint32From",
 	func(input string, expected uint32, shouldError bool) {
-		b := []byte(input)
-		val, err := json.UnmarshalStringUint32(b)
+		val, err := json.UnmarshalStringUint32From(decoderOf(input))
 		if shouldError {
 			Expect(err).To(HaveOccurred())
 		} else {
@@ -228,12 +336,12 @@ var _ = DescribeTable("UnmarshalStringUint32",
 	Entry("negative string", `"-123"`, uint32(0), true),
 	Entry("invalid string", `"abc"`, uint32(0), true),
 	Entry("invalid json", `{invalid}`, uint32(0), true),
+	Entry("null", `null`, uint32(0), true),
 )
 
-var _ = DescribeTable("UnmarshalStringUint64",
+var _ = DescribeTable("UnmarshalStringUint64From",
 	func(input string, expected uint64, shouldError bool) {
-		b := []byte(input)
-		val, err := json.UnmarshalStringUint64(b)
+		val, err := json.UnmarshalStringUint64From(decoderOf(input))
 		if shouldError {
 			Expect(err).To(HaveOccurred())
 		} else {
@@ -243,14 +351,10 @@ var _ = DescribeTable("UnmarshalStringUint64",
 	},
 	Entry("direct number", `123`, uint64(123), false),
 	Entry("string number", `"123"`, uint64(123), false),
-	Entry(
-		"max uint64",
-		`18446744073709551615`,
-		uint64(18446744073709551615),
-		false,
-	),
+	Entry("max uint64", `18446744073709551615`, uint64(18446744073709551615), false),
 	Entry("negative number", `-123`, uint64(0), true),
 	Entry("negative string", `"-123"`, uint64(0), true),
 	Entry("invalid string", `"abc"`, uint64(0), true),
 	Entry("invalid json", `{invalid}`, uint64(0), true),
+	Entry("array", `[1]`, uint64(0), true),
 )

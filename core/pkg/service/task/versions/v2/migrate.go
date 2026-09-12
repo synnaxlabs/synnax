@@ -15,9 +15,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"uuid"
 
 	"github.com/cespare/xxhash/v2"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"

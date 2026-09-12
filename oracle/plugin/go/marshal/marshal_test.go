@@ -816,7 +816,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("marshal flex on a distinct scalar type", func() {
-			It("Should generate DecodeMsgpack and UnmarshalJSON methods", func() {
+			It("Should generate DecodeMsgpack and UnmarshalJSONFrom methods", func() {
 				source := `
 					@go output "core/pkg/test"
 					@pb
@@ -835,8 +835,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToContain(
 					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
 					"xmsgpack.UnmarshalUint64",
-					"func (kv *Key) UnmarshalJSON(b []byte) error",
-					"xjson.UnmarshalStringUint64",
+					"func (kv *Key) UnmarshalJSONFrom(dec *jsontext.Decoder) error",
+					"xjson.UnmarshalStringUint64From",
 				)
 			})
 
@@ -859,8 +859,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToContain(
 					"func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error",
 					"xmsgpack.UnmarshalUint32",
-					"func (kv *Key) UnmarshalJSON(b []byte) error",
-					"xjson.UnmarshalStringUint32",
+					"func (kv *Key) UnmarshalJSONFrom(dec *jsontext.Decoder) error",
+					"xjson.UnmarshalStringUint32From",
 				)
 			})
 		})
@@ -926,11 +926,11 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 
 			It(
-				"Should emit the google/uuid import exactly once when uuid-typed fields are present",
+				"Should emit the uuid import exactly once when uuid-typed fields are present",
 				func() {
 					// Regression: the test fixture generator both set
 					// NeedsUUID (which the template renders as a hardcoded
-					// `"github.com/google/uuid"` line) and registered the same
+					// `"uuid"` line) and registered the same
 					// import under ExtraImports with an explicit "uuid" alias,
 					// producing two import lines for the same path and breaking
 					// the generated test file with a "uuid redeclared" compile
@@ -947,8 +947,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec_gen_test.go")
-					content.ToContain(`"github.com/google/uuid"`)
-					content.ToNotContain(`uuid "github.com/google/uuid"`)
+					content.ToContain(`"uuid"`)
+					content.ToNotContain(`uuid "uuid"`)
 				},
 			)
 

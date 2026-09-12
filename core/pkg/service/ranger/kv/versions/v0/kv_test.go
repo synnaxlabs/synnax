@@ -10,7 +10,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions/v0"

@@ -237,8 +237,8 @@ package {{.Package}}
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"{{.Runtime}}"
 	"{{.Ontology}}"
 	"{{.Versions}}"

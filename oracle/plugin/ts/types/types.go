@@ -2789,8 +2789,8 @@ func tsTelemNumericDefault(
 	typeRef resolution.TypeRef, data *templateData, literal string, isZero bool,
 ) (string, bool) {
 	name := typeRef.Name
-	if i := strings.LastIndex(name, "."); i >= 0 {
-		name = name[i+1:]
+	if _, bare, ok := strings.CutLast(name, "."); ok {
+		name = bare
 	}
 	switch name {
 	case "TimeStamp", "TimeSpan", "Rate":

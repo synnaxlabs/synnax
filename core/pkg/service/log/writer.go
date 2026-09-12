@@ -11,8 +11,8 @@ package log
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -31,7 +31,7 @@ type Writer struct {
 }
 
 // Create creates the given log within the project provided. If the log does not have a
-// key, a new key will be generated. If projectKey is uuid.Nil, the log is created
+// key, a new key will be generated. If projectKey is uuid.Nil(), the log is created
 // without a project ParentOf relationship; this is used by imports that supply no
 // parent project.
 func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
@@ -39,7 +39,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 		exists bool
 		err    error
 	)
-	if l.Key == uuid.Nil {
+	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
 	} else {
 		if exists, err = w.
@@ -61,7 +61,7 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) erro
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
-		if projectKey != uuid.Nil {
+		if projectKey != uuid.Nil() {
 			if err = w.otgWriter.DefineRelationships(
 				ctx,
 				project.OntologyID(projectKey),

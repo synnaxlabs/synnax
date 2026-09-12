@@ -12,7 +12,6 @@ package cert
 import (
 	"crypto"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -41,8 +40,10 @@ type FactoryConfig struct {
 	LoaderConfig
 	// Hosts is the list of hosts to use for the node certificate.
 	Hosts []address.Address
-	// KeySize is the size of the private key to generate.
+	// KeySize is the size of the private key to generate. It sizes RSA keys only.
 	KeySize int
+	// KeyAlgorithm is the algorithm the generated private keys use.
+	KeyAlgorithm KeyAlgorithm
 }
 
 var (
@@ -51,6 +52,7 @@ var (
 	DefaultFactoryConfig = FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
+		KeyAlgorithm:  KeyAlgorithmRSA,
 		AllowKeyReuse: new(false),
 	}
 )
@@ -58,6 +60,7 @@ var (
 // Override implements [config.Config].
 func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	f.KeySize = override.Numeric(f.KeySize, other.KeySize)
+	f.KeyAlgorithm = override.String(f.KeyAlgorithm, other.KeyAlgorithm)
 	f.Hosts = override.Slice(f.Hosts, other.Hosts)
 	f.AllowKeyReuse = override.Nil(f.AllowKeyReuse, other.AllowKeyReuse)
 	f.LoaderConfig = f.LoaderConfig.Override(other.LoaderConfig)
@@ -68,6 +71,7 @@ func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 func (f FactoryConfig) Validate() error {
 	v := validate.New("cert.factory")
 	v.Positive("key_size", f.KeySize)
+	v.Exec(f.KeyAlgorithm.validate)
 	v.NotNil("allow_key_reuse", f.AllowKeyReuse)
 	v.Exec(f.LoaderConfig.Validate)
 	return v.Error()
@@ -100,7 +104,7 @@ func (f *Factory) CreateCAPair() error {
 
 	var key crypto.PrivateKey
 	if !exists {
-		key, err = rsa.GenerateKey(nil, f.KeySize)
+		key, err = f.KeyAlgorithm.GenerateKey(f.KeySize)
 		if err != nil {
 			return err
 		}
@@ -144,6 +148,25 @@ func (f *Factory) CreateCAPair() error {
 		return err
 	}
 	return f.writePEM(f.CACertPath, xpem.FromCertBytes(b) /*multi */, true)
+}
+
+// CreateTokenKeyIfMissing creates the key a Core signs authentication tokens with, if
+// it does not already exist. A Core whose certificate uses a post-quantum algorithm
+// needs it, because ML-DSA has no JWT signing method.
+func (f *Factory) CreateTokenKeyIfMissing() error {
+	exists, err := f.FS.Exists(f.TokenKeyPath)
+	if err != nil || exists {
+		return err
+	}
+	key, err := generateTokenKey()
+	if err != nil {
+		return err
+	}
+	p, err := xpem.FromPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	return f.writePEM(f.TokenKeyPath, p /* multi */, false)
 }
 
 func (f *Factory) CreateCAPairIfMissing() error {
@@ -219,7 +242,7 @@ func (f *Factory) CreateNodePair() error {
 // writeNodePair generates a key, signs a certificate for Hosts with the CA, and writes
 // both to the given paths.
 func (f *Factory) writeNodePair(certPath, keyPath string) error {
-	nodeKey, err := rsa.GenerateKey(nil, f.KeySize)
+	nodeKey, err := f.KeyAlgorithm.GenerateKey(f.KeySize)
 	if err != nil {
 		return err
 	}
@@ -241,7 +264,7 @@ func (f *Factory) writeNodePair(certPath, keyPath string) error {
 // without touching the filesystem. The caller supplies the hosts because they vary per
 // listener; the factory supplies the CA the certificate chains to.
 func (f *Factory) SignNodeCert(hosts []address.Address) (*tls.Certificate, error) {
-	nodeKey, err := rsa.GenerateKey(nil, f.KeySize)
+	nodeKey, err := f.KeyAlgorithm.GenerateKey(f.KeySize)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +276,7 @@ func (f *Factory) SignNodeCert(hosts []address.Address) (*tls.Certificate, error
 }
 
 func (f *Factory) signNodeCert(
-	nodeKey *rsa.PrivateKey,
+	nodeKey crypto.Signer,
 	hosts []address.Address,
 ) ([]byte, error) {
 	ca, caPrivate, err := f.Loader.LoadCAPair()

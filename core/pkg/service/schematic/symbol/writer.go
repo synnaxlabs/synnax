@@ -11,8 +11,8 @@ package symbol
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -42,7 +42,7 @@ func (w Writer) Create(
 		return err
 	}
 	var exists bool
-	if s.Key == uuid.Nil {
+	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
 		exists, err = w.table.NewRetrieve().Where(MatchKeys(s.Key)).Exists(ctx, w.tx)

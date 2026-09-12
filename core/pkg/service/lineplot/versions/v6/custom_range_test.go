@@ -94,7 +94,7 @@ var _ = Describe("CustomRange", func() {
 			func(payload string) {
 				var decoded v6.CustomRange
 				Expect(json.Unmarshal([]byte(payload), &decoded)).
-					To(MatchError(ContainSubstring("cannot unmarshal")))
+					To(MatchError(ContainSubstring("cannot decode a number")))
 			},
 			Entry("dynamic span", `{"variant":"dynamic","span":true}`),
 			Entry("static start", `{"variant":"static","start":true}`),

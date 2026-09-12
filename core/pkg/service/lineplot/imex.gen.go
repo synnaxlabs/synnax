@@ -13,8 +13,8 @@ package lineplot
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"

@@ -20,11 +20,10 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	gotypes "go/types"
 )
 
 // Status is channel-specific status information.
-type Status = status.Status[gotypes.Nil]
+type Status = status.Status[struct{}]
 
 // Channel is a logical collection of samples emitted by or representing values from a
 // single source. Channels are the fundamental unit of telemetry storage and streaming

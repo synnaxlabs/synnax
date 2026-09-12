@@ -10,8 +10,10 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -75,8 +77,13 @@ func normalizeAlpha(a float64) (float64, error) {
 
 // parseChannel parses a single RGB channel. A value outside 0-255 fails validation
 // rather than wrapping through the uint8 conversion.
-func parseChannel(n json.Number) (uint8, error) {
-	v, err := n.Int64()
+func parseChannel(n jsontext.Value) (uint8, error) {
+	if n.Kind() != '0' {
+		return 0, errors.Wrapf(
+			validate.ErrValidation, "color channel %s is not a number", n,
+		)
+	}
+	v, err := strconv.ParseInt(string(n), 10, 64)
 	if err != nil {
 		return 0, err
 	}
@@ -89,7 +96,7 @@ func parseChannel(n json.Number) (uint8, error) {
 }
 
 // fromNumbers parses an [R, G, B] or [R, G, B, A] number tuple into a Color.
-func fromNumbers(arr []json.Number) (Color, error) {
+func fromNumbers(arr []jsontext.Value) (Color, error) {
 	r, err := parseChannel(arr[0])
 	if err != nil {
 		return Color{}, err
@@ -104,7 +111,7 @@ func fromNumbers(arr []json.Number) (Color, error) {
 	}
 	a := 1.0
 	if len(arr) == 4 {
-		if a, err = arr[3].Float64(); err != nil {
+		if a, err = strconv.ParseFloat(string(arr[3]), 64); err != nil {
 			return Color{}, err
 		}
 		if a, err = normalizeAlpha(a); err != nil {
@@ -114,7 +121,7 @@ func fromNumbers(arr []json.Number) (Color, error) {
 	return Color{R: r, G: g, B: b, A: a}, nil
 }
 
-// UnmarshalJSON supports four formats:
+// UnmarshalJSONFrom supports four formats:
 //   - string: "#ff0000" or "#ff000080"
 //   - array:  [255, 0, 0, 1.0]
 //   - object: {"r": 255, "g": 0, "b": 0, "a": 1.0}
@@ -122,41 +129,50 @@ func fromNumbers(arr []json.Number) (Color, error) {
 //
 // JSON null and the empty string both decode to the zero Color. An alpha above 1 is
 // lifted from the legacy 0-255 scale onto 0-1.
-func (c *Color) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+func (c *Color) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	switch data.Kind() {
+	case 'n':
 		*c = Color{}
 		return nil
-	}
-	var s string
-	if json.Unmarshal(data, &s) == nil {
+	case '"':
+		var s string
+		if err = json.Unmarshal(data, &s); err != nil {
+			return err
+		}
 		if s == "" {
 			*c = Color{}
 			return nil
 		}
-		parsed, err := FromHex(s)
-		if err != nil {
+		*c, err = FromHex(s)
+		return err
+	case '[':
+		var arr []jsontext.Value
+		if err = json.Unmarshal(data, &arr); err != nil {
 			return err
 		}
-		*c = parsed
-		return nil
-	}
-
-	// Try array [R, G, B, A]
-	var arr []json.Number
-	if json.Unmarshal(data, &arr) == nil && (len(arr) == 3 || len(arr) == 4) {
-		parsed, err := fromNumbers(arr)
-		if err != nil {
-			return err
+		if len(arr) != 3 && len(arr) != 4 {
+			return errors.Newf("invalid color array length: %d", len(arr))
 		}
-		*c = parsed
-		return nil
+		*c, err = fromNumbers(arr)
+		return err
+	case '{':
+		return c.unmarshalObject(data)
+	default:
+		return errors.Newf("cannot unmarshal color from: %s", data)
 	}
+}
 
-	// Try legacy object {"rgba255": [R, G, B, A]}
+// unmarshalObject decodes the current {"r","g","b","a"} form, falling back to the
+// legacy {"rgba255": [...]} form.
+func (c *Color) unmarshalObject(data jsontext.Value) error {
 	var legacy struct {
-		RGBA255 []json.Number `json:"rgba255"`
+		RGBA255 []jsontext.Value `json:"rgba255"`
 	}
-	if json.Unmarshal(data, &legacy) == nil &&
+	if err := json.Unmarshal(data, &legacy); err == nil &&
 		(len(legacy.RGBA255) == 3 || len(legacy.RGBA255) == 4) {
 		parsed, err := fromNumbers(legacy.RGBA255)
 		if err != nil {
@@ -165,12 +181,10 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 		*c = parsed
 		return nil
 	}
-
-	// Try object {"r": ..., "g": ..., "b": ..., "a": ...}
 	type colorAlias Color
 	var obj colorAlias
 	if err := json.Unmarshal(data, &obj); err != nil {
-		return errors.Newf("cannot unmarshal color from: %s", string(data))
+		return errors.Newf("cannot unmarshal color from: %s", data)
 	}
 	a, err := normalizeAlpha(obj.A)
 	if err != nil {

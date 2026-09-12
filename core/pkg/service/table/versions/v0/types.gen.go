@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 

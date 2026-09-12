@@ -12,7 +12,8 @@
 package pb
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"

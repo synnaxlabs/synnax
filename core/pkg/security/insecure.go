@@ -42,5 +42,5 @@ func (p *insecureProvider) VerifyCertCoreCA(cert.Source) error { return nil }
 // VerifyCertTrustAnchors implements TLSProvider.
 func (p *insecureProvider) VerifyCertTrustAnchors(cert.Source) error { return nil }
 
-// NodePrivate implements KeyProvider.
-func (p *insecureProvider) NodePrivate() crypto.PrivateKey { return p.nodeSecret }
+// TokenPrivate implements KeyProvider.
+func (p *insecureProvider) TokenPrivate() crypto.PrivateKey { return p.nodeSecret }

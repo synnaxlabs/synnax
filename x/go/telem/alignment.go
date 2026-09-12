@@ -10,7 +10,8 @@
 package telem
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"math"
 
@@ -18,8 +19,8 @@ import (
 )
 
 var (
-	_ json.Unmarshaler = (*Alignment)(nil)
-	_ json.Marshaler   = (*Alignment)(nil)
+	_ json.UnmarshalerFrom = (*Alignment)(nil)
+	_ json.MarshalerTo     = (*Alignment)(nil)
 )
 
 // NewAlignment takes the given array index and sample index within that array and
@@ -45,9 +46,9 @@ func (a Alignment) String() string {
 	return fmt.Sprintf("%v-%v", a.DomainIndex(), a.SampleIndex())
 }
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (a *Alignment) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringUint64(b)
+// UnmarshalJSONFrom implements json.UnmarshalerFrom.
+func (a *Alignment) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	n, err := xjson.UnmarshalStringUint64From(dec)
 	if err != nil {
 		return err
 	}
@@ -55,9 +56,9 @@ func (a *Alignment) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// MarshalJSON implements json.Marshaler.
-func (a Alignment) MarshalJSON() ([]byte, error) {
-	return xjson.MarshalStringUint64(uint64(a)), nil
+// MarshalJSONTo implements json.MarshalerTo.
+func (a Alignment) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return xjson.MarshalStringUint64To(enc, uint64(a))
 }
 
 // AddSamples increments the sample index of the alignment.

@@ -11,8 +11,8 @@ package policy
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -29,7 +29,7 @@ type Writer struct {
 
 // Create creates a new policy in the database.
 func (w Writer) Create(ctx context.Context, p *Policy) error {
-	if p.Key == uuid.Nil {
+	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
 	}
 	if p.Internal && !w.allowInternal {

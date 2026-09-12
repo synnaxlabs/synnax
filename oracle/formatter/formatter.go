@@ -768,11 +768,11 @@ func (f *formatter) formatDomainOmitsToString(
 
 func (f *formatter) currentLineLen() int {
 	s := f.sb.String()
-	lastNewline := strings.LastIndex(s, "\n")
-	if lastNewline == -1 {
+	_, lastLine, ok := strings.CutLast(s, "\n")
+	if !ok {
 		return len(s)
 	}
-	return len(s) - lastNewline - 1
+	return len(lastLine)
 }
 
 func (f *formatter) formatInlineDomainsToString(

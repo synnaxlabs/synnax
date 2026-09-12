@@ -10,7 +10,8 @@
 package table_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -48,13 +49,16 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeTable, Key: uuid.NewString()}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeTable,
+				Key:  uuid.New().String(),
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeTable, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 

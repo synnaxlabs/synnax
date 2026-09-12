@@ -11,8 +11,8 @@ package versions_test
 
 import (
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"

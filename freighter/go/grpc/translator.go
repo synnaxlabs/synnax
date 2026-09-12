@@ -11,7 +11,6 @@ package grpc
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/freighter"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -30,17 +29,14 @@ type Translator[I, O freighter.Payload] interface {
 // EmptyTranslator is a translator for an empty GRPC request.
 type EmptyTranslator struct{}
 
-var _ Translator[types.Nil, *emptypb.Empty] = EmptyTranslator{}
+var _ Translator[struct{}, *emptypb.Empty] = EmptyTranslator{}
 
 // Forward implements Translator.
-func (EmptyTranslator) Forward(
-	ctx context.Context,
-	t types.Nil,
-) (*emptypb.Empty, error) {
+func (EmptyTranslator) Forward(context.Context, struct{}) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
 
 // Backward implements Translator.
-func (EmptyTranslator) Backward(context.Context, *emptypb.Empty) (types.Nil, error) {
-	return types.Nil{}, nil
+func (EmptyTranslator) Backward(context.Context, *emptypb.Empty) (struct{}, error) {
+	return struct{}{}, nil
 }

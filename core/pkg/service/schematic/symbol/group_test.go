@@ -10,7 +10,8 @@
 package symbol_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -83,7 +84,7 @@ var _ = Describe("DeleteGroup", func() {
 		g := createGroup(ctx, proj.OntologyID())
 		Expect(svc.DeleteGroup(ctx, tx, g.Key, []ontology.ID{
 			{Type: ontology.ResourceTypeSchematicSymbol, Key: "not-a-uuid"},
-		})).To(MatchError(ContainSubstring("invalid UUID")))
+		})).To(MatchError(ContainSubstring("invalid uuid")))
 	})
 })
 

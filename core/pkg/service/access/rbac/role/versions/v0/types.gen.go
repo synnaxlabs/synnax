@@ -11,7 +11,7 @@
 
 package v0
 
-import "github.com/google/uuid"
+import "uuid"
 
 // Key is a unique identifier for a role, represented as a UUID.
 type Key = uuid.UUID

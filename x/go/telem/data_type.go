@@ -10,7 +10,8 @@
 package telem
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/telem/versions"
 )
 

@@ -11,9 +11,8 @@ package kv
 
 import (
 	"context"
-	"go/types"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
@@ -31,13 +30,13 @@ type (
 	setServer = grpc.UnaryServer[
 		kv.SetRequest,
 		*SetRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	deleteServer = grpc.UnaryServer[
 		kv.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )
