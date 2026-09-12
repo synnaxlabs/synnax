@@ -64,9 +64,7 @@ func batchable(t types.Type) bool {
 	}
 }
 
-// compileBatchWrapper emits the wrapper exported under t.key + BatchSuffix: a loop
-// that loads each input from its own base pointer at its own stride, calls t.key, and
-// stores the result into the output block.
+// compileBatchWrapper emits the wrapper exported under t.key + BatchSuffix.
 func compileBatchWrapper(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	t batchTarget,
