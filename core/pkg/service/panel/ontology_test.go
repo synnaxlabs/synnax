@@ -55,7 +55,7 @@ var _ = Describe("Ontology", func() {
 		It("Should error when an ontology ID key is not a UUID", func() {
 			Expect(panel.KeysFromOntologyIDs([]ontology.ID{{
 				Type: ontology.ResourceTypePanel, Key: "not-a-uuid",
-			}})).Error().To(MatchError(ContainSubstring("invalid UUID")))
+			}})).Error().To(MatchError(ContainSubstring("invalid uuid")))
 		})
 	})
 
@@ -76,7 +76,7 @@ var _ = Describe("Ontology", func() {
 			"Should error when retrieving a resource with a non-UUID key",
 			func(ctx SpecContext) {
 				Expect(svc.RetrieveResource(ctx, "not-a-uuid", tx)).Error().
-					To(MatchError(ContainSubstring("invalid UUID")))
+					To(MatchError(ContainSubstring("invalid uuid")))
 			},
 		)
 

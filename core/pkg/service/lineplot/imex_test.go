@@ -61,7 +61,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: "not-a-uuid"}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 

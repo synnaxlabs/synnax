@@ -393,7 +393,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
+			Expect(stat.Message).To(ContainSubstring("invalid uuid"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 

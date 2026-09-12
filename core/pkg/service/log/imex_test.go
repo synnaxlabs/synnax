@@ -99,7 +99,7 @@ var _ = Describe("ImEx", func() {
 				Expect(
 					imexSvc.Export(ctx, id),
 				).Error().
-					To(MatchError(ContainSubstring("UUID")))
+					To(MatchError(ContainSubstring("uuid")))
 			},
 		)
 	})

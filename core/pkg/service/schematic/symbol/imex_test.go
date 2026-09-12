@@ -73,7 +73,7 @@ var _ = Describe("ImEx", func() {
 				Type: ontology.ResourceTypeSchematicSymbol,
 				Key:  "not-a-uuid",
 			}
-			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("uuid")))
 		})
 	})
 

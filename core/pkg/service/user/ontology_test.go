@@ -152,7 +152,7 @@ var _ = Describe("Ontology", func() {
 			"Should return an error when the key is not a valid UUID",
 			func(ctx SpecContext) {
 				Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
-					To(MatchError(ContainSubstring("invalid UUID")))
+					To(MatchError(ContainSubstring("invalid uuid")))
 			},
 		)
 		It(
