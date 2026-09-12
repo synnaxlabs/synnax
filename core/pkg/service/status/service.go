@@ -207,14 +207,15 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
-// NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
-// service's DB.
+// NewWriter opens a Writer for statuses. Pass a nil tx to give each call its own
+// transaction against the service's DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		group:     s.group,
+		db:    s.cfg.DB,
+		tx:    tx,
+		table: s.table,
+		otg:   s.cfg.Ontology,
+		group: s.group,
 	}
 }
 

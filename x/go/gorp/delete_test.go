@@ -23,6 +23,47 @@ var _ = Describe("Delete", func() {
 		tx = DeferClose(db.OpenTx())
 	})
 
+	Describe("ExecKeys", func() {
+		It("Should return the keys it deleted", func(ctx SpecContext) {
+			Expect(gorp.NewCreate[int32, entry]().
+				Entries(&[]entry{{ID: 1, Data: "one"}, {ID: 2, Data: "two"}}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewDelete[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](1, 2)).
+				ExecKeys(ctx, tx)).To(ConsistOf(int32(1), int32(2)))
+		})
+
+		It("Should omit keys that match no entry", func(ctx SpecContext) {
+			Expect(gorp.NewCreate[int32, entry]().
+				Entry(&entry{ID: 3, Data: "three"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewDelete[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](3, 404)).
+				ExecKeys(ctx, tx)).To(ConsistOf(int32(3)))
+		})
+
+		It("Should return no keys when nothing matches", func(ctx SpecContext) {
+			Expect(gorp.NewDelete[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](909)).
+				ExecKeys(ctx, tx)).To(BeEmpty())
+		})
+
+		It("Should return the guard's error and delete nothing", func(ctx SpecContext) {
+			Expect(gorp.NewCreate[int32, entry]().
+				Entry(&entry{ID: 4, Data: "guarded"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewDelete[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](4)).
+				Guard(func(_ gorp.Context, e entry) error {
+					return validate.ErrValidation
+				}).
+				ExecKeys(ctx, tx)).Error().To(MatchError(validate.ErrValidation))
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](4)).
+				Exists(ctx, tx)).To(BeTrue())
+		})
+	})
+
 	Describe("WhereKeys", func() {
 		It("Should delete an entry by key in the db", func(ctx SpecContext) {
 			Expect(gorp.NewCreate[int32, entry]().

@@ -107,15 +107,16 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return err
 		}
 	}
-	if err := w.table.NewDelete().
+	deleted, err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Arc](keys...)).
-		Exec(ctx, w.tx); err != nil {
+		ExecKeys(ctx, w.tx)
+	if err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
-			return err
-		}
+	if err = w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...); err != nil {
+		return err
+	}
+	for _, key := range deleted {
 		w.sweeper.forget(key)
 		w.taskSync.Forget(key)
 	}

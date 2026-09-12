@@ -102,10 +102,11 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 
 // Delete deletes the symbols with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	if err := w.table.NewDelete().
+	deleted, err := w.table.NewDelete().
 		Where(MatchKeys(keys...)).
-		Exec(ctx, w.tx); err != nil {
+		ExecKeys(ctx, w.tx)
+	if err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
 }
