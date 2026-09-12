@@ -180,10 +180,7 @@ func WithRetryOnPanic(maxRetries ...int) RoutineOption {
 // WithRetryScale sets the scale on the breaker used to restart the goroutine. The scale
 // defines the rate by which the interval between two retries grow. (Default: 1)
 func WithRetryScale(scale float64) RoutineOption {
-	return func(r *routineOptions) {
-		r.breakerCfg.Scale = scale
-		r.useBreaker = true
-	}
+	return func(r *routineOptions) { r.breakerCfg.Scale = scale; r.useBreaker = true }
 }
 
 // CancelOnFail instructs the goroutine to cancel upon failing (error)

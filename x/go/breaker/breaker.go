@@ -19,27 +19,31 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// InfiniteRetries lifts the retry limit: a breaker configured with it keeps waiting
-// for as long as its context is live. It is the only negative MaxRetries accepted.
+// InfiniteRetries lifts the retry limit: a breaker configured with it keeps waiting for
+// as long as its context is live.
 const InfiniteRetries = -1
 
 // Config configures a Breaker.
 type Config struct {
 	// BaseInterval is the interval of time waited on the first time Wait is called on
 	// the breaker. This interval keeps growing at an exponential rate set by Scale.
+	//
 	// Default: 1s.
 	BaseInterval time.Duration
 	// Scale is the multiplicative rate by which the timeout interval grows with each
 	// call to Wait. For example, if set at 2, the second call to Wait will wait 2x
 	// longer than the first, the third will wait 4x, etc.
+	//
 	// Default: 1.
 	Scale float64
 	// MaxRetries is how many calls to Wait are allowed. Once a breaker reaches this
 	// number, Wait no longer waits and returns false. Set it to InfiniteRetries to
 	// lift the limit.
+	//
 	// Default: 0.
 	MaxRetries int
 	// Clock is the time source Wait blocks against.
+	//
 	// Default: xtime.Real.
 	Clock xtime.Clock
 }

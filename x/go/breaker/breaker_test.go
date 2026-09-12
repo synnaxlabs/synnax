@@ -98,14 +98,14 @@ var _ = Describe("Breaker", func() {
 
 	It("By default should not allow retry", func(specCtx SpecContext) {
 		ctx, cancel := context.WithCancel(specCtx)
+		DeferCleanup(cancel)
 		b := MustSucceed(breaker.NewBreaker(ctx))
 		Expect(b.Wait()).To(BeFalse())
-		cancel()
 	})
 
 	It("Should stop waiting when the context is canceled", func(specCtx SpecContext) {
 		ctx, cancel := context.WithCancel(specCtx)
-		defer cancel()
+		DeferCleanup(cancel)
 		clock := &xtime.Fake{}
 		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
 			BaseInterval: time.Hour,
@@ -116,7 +116,6 @@ var _ = Describe("Breaker", func() {
 		var wg sync.WaitGroup
 		wg.Go(func() { waited <- b.Wait() })
 		Eventually(clock.Pending).Should(Equal(1))
-		cancel()
 		Eventually(waited).Should(Receive(BeFalse()))
 		wg.Wait()
 	})
