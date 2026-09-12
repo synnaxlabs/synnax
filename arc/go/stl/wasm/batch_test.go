@@ -111,7 +111,7 @@ var _ = Describe("Batched execution", func() {
 			telem.NewSeriesV[float64](0.5),
 		)
 		Expect(out.Len()).To(Equal(int64(count)))
-		values := telem.UnmarshalSeries[float64](out)
+		values := out.Unmarshal[float64]()
 		Expect(values[0]).To(Equal(0.5))
 		Expect(values[count-1]).To(Equal(float64(count-1) + 0.5))
 	})
