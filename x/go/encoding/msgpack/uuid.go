@@ -35,22 +35,14 @@ func registerUUID() {
 			if err != nil {
 				return err
 			}
-			u, err := decodeUUID(b)
-			if err != nil {
-				return err
+			var u uuid.UUID
+			if len(b) == len(u) {
+				u = uuid.UUID(b)
+			} else if u, err = uuid.Parse(string(b)); err != nil {
+				return errors.Wrapf(err, "failed to decode uuid from %d bytes", len(b))
 			}
 			v.Set(reflect.ValueOf(u))
 			return nil
 		},
 	)
-}
-
-// decodeUUID reads a UUID from its 16 byte form or from any textual form that
-// uuid.Parse accepts.
-func decodeUUID(b []byte) (uuid.UUID, error) {
-	if len(b) == len(uuid.UUID{}) {
-		return uuid.UUID(b), nil
-	}
-	u, err := uuid.Parse(string(b))
-	return u, errors.Wrapf(err, "failed to decode uuid from %d bytes", len(b))
 }
