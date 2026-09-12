@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // filterCases size a frame and the key list a caller demands from it. Frames of 100
@@ -70,6 +71,38 @@ func BenchmarkKeepKeys(b *testing.B) {
 		b.Run(c.name, func(b *testing.B) {
 			for b.Loop() {
 				_ = fr.KeepKeys(keys)
+			}
+		})
+	}
+}
+
+// BenchmarkEncodeMsgpack measures encoding a frame unmasked and after KeepKeys has
+// masked it. The masked branch encodes element by element rather than handing the
+// whole slice to the encoder.
+func BenchmarkEncodeMsgpack(b *testing.B) {
+	for _, c := range []struct {
+		name            string
+		total, demanded int
+	}{
+		{"10Frame/5Demanded", 10, 5},
+		{"100Frame/50Demanded", 100, 50},
+	} {
+		frame, demanded := newFilterFrame(c.total, c.demanded)
+		masked := frame.KeepKeys(set.New(demanded...))
+		b.Run("unmasked/"+c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := msgpack.Marshal(frame); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+		b.Run("masked/"+c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := msgpack.Marshal(masked); err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}

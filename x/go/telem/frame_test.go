@@ -3875,6 +3875,25 @@ var _ = Describe("Frame", func() {
 				)))
 			})
 
+			It("Should clear a mask left on the receiver", func(ctx SpecContext) {
+				full := telem.MultiFrame(
+					[]int32{1, 2, 3},
+					[]telem.Series{
+						telem.NewSeriesV[int64](1),
+						telem.NewSeriesV[int64](2),
+						telem.NewSeriesV[int64](3),
+					},
+				)
+				// A receiver carrying a mask from an earlier value must not filter
+				// what it decodes next.
+				decoded := full.KeepKeys(set.New[int32](1))
+				Expect(decoded.Count()).To(Equal(1))
+				buf := MustSucceed(codec.Encode(ctx, full))
+				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(decoded.Count()).To(Equal(3))
+				Expect(decoded.KeysSlice()).To(Equal([]int32{1, 2, 3}))
+			})
+
 			It("Should encode and decode an empty frame", func(ctx SpecContext) {
 				original := telem.Frame[int32]{}
 				buf := MustSucceed(codec.Encode(ctx, original))
