@@ -13,11 +13,11 @@ package schematic
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
-	"uuid"
 )
 
 // Export retrieves the Schematic identified by id and serializes it, stamping

@@ -237,8 +237,8 @@ package {{.Package}}
 
 import (
 	"context"
-
 	"uuid"
+
 	"{{.Runtime}}"
 	"{{.Ontology}}"
 	"{{.Versions}}"

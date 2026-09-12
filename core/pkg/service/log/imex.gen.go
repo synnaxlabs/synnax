@@ -13,11 +13,11 @@ package log
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"uuid"
 )
 
 // Export retrieves the Log identified by id and serializes it, stamping
