@@ -17,10 +17,12 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// registerUUID represents a UUID as its 16 raw bytes. uuid.UUID marshals only to
-// text, which would widen every stored UUID to a 36 character string and reject
-// records written by earlier versions. Decoding accepts both widths.
-func registerUUID() {
+// A UUID is represented as its 16 raw bytes. uuid.UUID marshals only to text, which
+// would widen every stored UUID to a 36 character string and reject records written by
+// earlier versions. Decoding accepts both widths. The representation is installed at
+// load time because it must hold for the whole process: msgpack.Marshal and
+// msgpack.Unmarshal encode without going through Codec.
+func init() {
 	msgpack.Register(
 		uuid.UUID{},
 		func(enc *msgpack.Encoder, v reflect.Value) error {
