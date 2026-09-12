@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -108,6 +109,55 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 	}
 	return f.DB.OpenIterator(opts)
 }
+
+var _ = Describe("Table.NewWriter", func() {
+	var idxDB *gorp.DB
+	BeforeEach(func() { idxDB = OpenGorpMsgpackDB() })
+	AfterEach(func() { Expect(idxDB.Close()).To(Succeed()) })
+
+	It("Should write and delete entries under the table's prefix", func(
+		ctx SpecContext,
+	) {
+		table := MustSucceed(gorp.OpenTable(
+			ctx,
+			gorp.TableConfig[int32, indexedEntry]{DB: idxDB},
+		))
+		DeferClose(table)
+		w := table.NewWriter(idxDB)
+		Expect(w.Set(ctx, indexedEntry{ID: 1, Name: "alpha"})).To(Succeed())
+		Expect(table.NewRetrieve().
+			Where(gorp.MatchKeys[int32, indexedEntry](1)).
+			Entry(&indexedEntry{}).
+			Exec(ctx, idxDB)).To(Succeed())
+		Expect(w.Delete(ctx, 1)).To(Succeed())
+		Expect(table.NewRetrieve().
+			Where(gorp.MatchKeys[int32, indexedEntry](1)).
+			Entry(&indexedEntry{}).
+			Exec(ctx, idxDB)).To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should delete a key that does not exist", func(ctx SpecContext) {
+		table := MustSucceed(gorp.OpenTable(
+			ctx,
+			gorp.TableConfig[int32, indexedEntry]{DB: idxDB},
+		))
+		DeferClose(table)
+		Expect(table.NewWriter(idxDB).Delete(ctx, 404)).To(Succeed())
+	})
+
+	It("Should stage mutations against the table's indexes", func(ctx SpecContext) {
+		nameIdx := gorp.NewLookupIndex(
+			"name", func(e *indexedEntry) string { return e.Name },
+		)
+		table := openIndexedTable(ctx, idxDB, nameIdx)
+		DeferClose(table)
+		w := table.NewWriter(idxDB)
+		Expect(w.Set(ctx, indexedEntry{ID: 7, Name: "indexed"})).To(Succeed())
+		Expect(nameIdx.Get(nil, "indexed")).To(ConsistOf(int32(7)))
+		Expect(w.Delete(ctx, 7)).To(Succeed())
+		Expect(nameIdx.Get(nil, "indexed")).To(BeEmpty())
+	})
+})
 
 var _ = Describe("Index", func() {
 	var idxDB *gorp.DB

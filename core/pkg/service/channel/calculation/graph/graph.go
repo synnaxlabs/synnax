@@ -253,6 +253,9 @@ func (g *Graph) handleChanges(
 			g.L.Debug("channel deleted, removing node and re-inspecting dependents",
 				zap.Stringer("channel", chg.Key),
 			)
+			if _, tracked := g.mu.nodes[chg.Key]; tracked {
+				g.clearNodeStatus(ctx, nil, chg.Key)
+			}
 			g.removeNode(chg.Key)
 			if ch.Name != "" {
 				unresolvedNames = append(unresolvedNames, ch.Name)
@@ -321,27 +324,12 @@ func (g *Graph) handleChanges(
 	}
 }
 
-func (g *Graph) withStatusTx(
-	ctx context.Context,
-	tx gorp.Tx,
-	f func(status.Writer) error,
-) error {
-	if tx != nil {
-		return f(g.status.NewWriter(tx))
-	}
-	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return f(g.status.NewWriter(tx))
-	})
-}
-
 func (g *Graph) setNodeStatus(
 	ctx context.Context,
 	tx gorp.Tx,
 	st *calculation.Status,
 ) {
-	if err := g.withStatusTx(ctx, tx, func(w status.Writer) error {
-		return w.Set(ctx, st)
-	}); err != nil {
+	if err := g.status.NewWriter(tx).Set(ctx, st); err != nil {
 		g.L.Warn("failed to set error status for channel",
 			zap.String("key", st.Key),
 			zap.Error(err),
@@ -350,9 +338,8 @@ func (g *Graph) setNodeStatus(
 }
 
 func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
-	if err := g.withStatusTx(ctx, tx, func(w status.Writer) error {
-		return w.Delete(ctx, calculation.StatusKey(key))
-	}); err != nil {
+	if err := g.status.NewWriter(tx).
+		Delete(ctx, calculation.StatusKey(key)); err != nil {
 		g.L.Warn("failed to clear status for channel",
 			zap.Stringer("channel", key),
 			zap.Error(err),

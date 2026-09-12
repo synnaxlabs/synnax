@@ -273,6 +273,13 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	return d
 }
 
+// NewWriter returns a Writer bound to this Table. The Writer addresses entries by key
+// and performs no reads, so a Delete stages the same mutation whether or not the entry
+// exists. Mutations are staged against the Table's secondary indexes.
+func (t *Table[K, E]) NewWriter(tx Tx) *Writer[K, E] {
+	return wrapWriter[K, E](tx, t.keyPrefix, t.indexes)
+}
+
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {

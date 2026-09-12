@@ -1119,6 +1119,28 @@ var _ = Describe("Graph", func() {
 			},
 		)
 
+		It(
+			"Should clear the status when the calculated channel is deleted",
+			func(ctx SpecContext) {
+				openGraph(ctx)
+				calc := createBrokenCalc(ctx, "st_del", "st_del_dep")
+				expectStatus(ctx, calc.Key())
+
+				By("Deleting the calculated channel")
+				Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
+
+				eventuallyExpectNoStatus(ctx, calc.Key())
+				id := status.OntologyID(calculation.StatusKey(calc.Key()))
+				Eventually(func() error {
+					return otg.NewRetrieve().
+						WhereIDs(id).
+						Entries(&[]ontology.Resource{}).
+						Exec(ctx, nil)
+				}, 2*time.Second, 10*time.Millisecond).
+					Should(MatchError(query.ErrNotFound))
+			},
+		)
+
 		It("Should overwrite status when the error changes", func(ctx SpecContext) {
 			openGraph(ctx)
 			createDep(ctx, "st_ow_a")

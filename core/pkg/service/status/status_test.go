@@ -11,6 +11,8 @@ package status_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -193,6 +196,86 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should be idempotent", func(ctx SpecContext) {
 				Expect(w.Delete(ctx, "non-existent-key")).To(Succeed())
 			})
+
+			It(
+				"Should remove an entry a concurrent set commits mid-delete",
+				func(ctx SpecContext) {
+					key := status.Key("interleaved-delete")
+					stat := &status.Status[any]{
+						Name:    "Interleaved",
+						Key:     key,
+						Variant: "info",
+						Message: "set mid-delete",
+						Time:    telem.Now(),
+					}
+					delTx := db.OpenTx()
+					interleaved := &interleaveTx{Tx: delTx, f: func() {
+						Expect(svc.NewWriter(nil).Set(ctx, stat)).To(Succeed())
+					}}
+					Expect(svc.NewWriter(interleaved).Delete(ctx, key)).To(Succeed())
+					Expect(delTx.Commit(ctx)).To(Succeed())
+					Expect(delTx.Close()).To(Succeed())
+
+					Expect(svc.NewRetrieve[any]().
+						Where(status.MatchKeys[any](key)).
+						Entry(&status.Status[any]{}).
+						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Expect(otg.NewRetrieve().
+						WhereIDs(status.OntologyID(key)).
+						Entries(&[]ontology.Resource{}).
+						Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				},
+			)
+
+			It(
+				"Should keep an entry and its resource paired when a set races a clear",
+				func(ctx SpecContext) {
+					const rounds = 300
+					for i := range rounds {
+						key := status.Key(fmt.Sprintf("race-%d", i))
+						stat := &status.Status[any]{
+							Name:    "Racer",
+							Key:     key,
+							Variant: "info",
+							Message: "racing",
+							Time:    telem.Now(),
+						}
+						errs := make(chan error, 2)
+						var wg sync.WaitGroup
+						wg.Add(2)
+						go func() {
+							defer wg.Done()
+							errs <- svc.NewWriter(nil).Set(ctx, stat)
+						}()
+						go func() {
+							defer wg.Done()
+							errs <- svc.NewWriter(nil).Delete(ctx, key)
+						}()
+						wg.Wait()
+						close(errs)
+						for err := range errs {
+							Expect(err).To(Succeed())
+						}
+						entryErr := svc.NewRetrieve[any]().
+							Where(status.MatchKeys[any](key)).
+							Entry(&status.Status[any]{}).
+							Exec(ctx, nil)
+						if entryErr != nil {
+							Expect(entryErr).To(MatchError(query.ErrNotFound))
+						}
+						entryFound := entryErr == nil
+						resourceFound := MustSucceed(otg.NewRetrieve().
+							WhereIDs(status.OntologyID(key)).
+							Exists(ctx, nil))
+						Expect(entryFound).To(
+							Equal(resourceFound),
+							"round %d left entry=%v resource=%v",
+							i, entryFound, resourceFound,
+						)
+						Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
+					}
+				},
+			)
 
 			It("Should delete multiple statuses", func(ctx SpecContext) {
 				statuses := []status.Status[any]{
@@ -762,3 +845,18 @@ var _ = Describe("Status", Ordered, func() {
 		})
 	})
 })
+
+// interleaveTx runs f the first time the wrapped transaction opens an iterator, after
+// the iterator captures its read state. A delete that resolves keys through that
+// iterator cannot see what f commits.
+type interleaveTx struct {
+	gorp.Tx
+	once sync.Once
+	f    func()
+}
+
+func (t *interleaveTx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	iter, err := t.Tx.OpenIterator(opts)
+	t.once.Do(t.f)
+	return iter, err
+}
