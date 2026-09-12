@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,12 +36,16 @@ type Config struct {
 	// breaker goes beyond this number, it no can no longer Wait and returns false.
 	// Default: 0.
 	MaxRetries int
+	// Clock is the time source Wait blocks against.
+	// Default: xtime.Real.
+	Clock xtime.Clock
 }
 
 func (c Config) Override(o Config) Config {
 	c.BaseInterval = override.Numeric(c.BaseInterval, o.BaseInterval)
 	c.MaxRetries = override.Numeric(c.MaxRetries, o.MaxRetries)
 	c.Scale = override.Numeric(c.Scale, o.Scale)
+	c.Clock = override.Nil(c.Clock, o.Clock)
 	return c
 }
 
@@ -49,12 +54,13 @@ func (c Config) Validate() error {
 	v.GreaterThanEq("base_interval", c.BaseInterval, 0)
 	v.GreaterThanEq("max_retries", c.MaxRetries, 0)
 	v.GreaterThanEq("scale", c.Scale, 1)
+	v.NotNil("clock", c.Clock)
 	return v.Error()
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{Scale: 1}
+	defaultConfig                       = Config{Scale: 1, Clock: xtime.Real}
 )
 
 type Breaker struct {
@@ -85,10 +91,12 @@ func (b *Breaker) Wait() bool {
 		return false
 	}
 
-	ch := time.After(b.currInterval)
+	fired := make(chan struct{})
+	timer := b.Clock.RunAt(b.Clock.Now().Add(b.currInterval), func() { close(fired) })
 	select {
-	case <-ch:
+	case <-fired:
 	case <-b.ctx.Done():
+		timer.Stop()
 		return false
 	}
 	b.currInterval = time.Duration(float32(b.currInterval) * b.Scale)

@@ -82,6 +82,15 @@ func (f *Fake) schedule(at time.Time) <-chan time.Time {
 	return ch
 }
 
+// Pending returns the number of timers scheduled but not yet fired. A test driving a
+// consumer that blocks on a timer uses it to wait until the consumer has scheduled,
+// because Advance fires only the timers already on the list.
+func (f *Fake) Pending() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.timers)
+}
+
 // RunAt schedules fn to run from a goroutine at the given deadline, calling it unless
 // the returned Timer's Stop method wins the race first.
 func (f *Fake) RunAt(t time.Time, fn func()) Timer {

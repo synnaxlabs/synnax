@@ -18,7 +18,6 @@ import (
 )
 
 func TestBreaker(t *testing.T) {
-	RegisterSuiteT(t)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Breaker Suite")
 }
