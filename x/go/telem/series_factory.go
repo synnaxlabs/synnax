@@ -162,10 +162,9 @@ func marshalFixed[T FixedSample](data []T) []byte {
 	return b
 }
 
-// UnmarshalSeries converts a Series back into a slice of the specified data type. Note
-// that this function does NOT check the Series' DataType, it simply unmarshals the data
-// according to type T.
-func UnmarshalSeries[T Sample](series Series) []T {
+// Unmarshal converts the Series back into a slice of the specified data type. Unmarshal
+// does NOT check the Series' DataType; it unmarshals the data according to type T.
+func (series Series) Unmarshal[T Sample]() []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
@@ -220,11 +219,10 @@ func unmarshalVariable[T VariableSample](b []byte) []T {
 	return data
 }
 
-// UnmarshalJSONSeries unmarshals a JSON-encoded series into a slice of JSON values
-// of the specified type T. This function does NOT check the Series' DataType, it simply
-// unmarshals the data according to type T.
-func UnmarshalJSONSeries[T any](s Series) ([]T, error) {
-	byteSlices := UnmarshalSeries[[]byte](s)
+// DecodeJSON unmarshals a JSON-encoded series into a slice of values of the specified
+// type T. DecodeJSON does NOT check the Series' DataType.
+func (s Series) DecodeJSON[T any]() ([]T, error) {
+	byteSlices := s.Unmarshal[[]byte]()
 	data := make([]T, len(byteSlices))
 	for i, b := range byteSlices {
 		if err := json.Unmarshal(b, &data[i]); err != nil {

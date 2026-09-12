@@ -74,7 +74,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
-	validate.NonZeroable(v, "module", c.Module)
+	v.NonZeroable("module", c.Module)
 	return v.Error()
 }
 

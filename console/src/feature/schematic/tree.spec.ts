@@ -212,6 +212,18 @@ describe("Schematic TreeContextMenu", () => {
 });
 
 describe("permission to write the schematic", () => {
+  it("should offer Reload Console", async () => {
+    const s = await createSchematic();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [
+        createResource(schematic.ontologyID(s.key), s.name, { snapshot: false }),
+      ],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should withhold rename, grouping, copying, and delete from a viewer", async () => {
     const s = await createSchematic();
     assertDefined(Item.ContextMenu);

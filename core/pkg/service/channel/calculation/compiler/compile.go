@@ -50,8 +50,8 @@ func (c Config) Override(other Config) Config {
 
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
-	validate.NonZero(v, "channel.key", c.Channel.Key())
-	validate.NotNil(v, "channel_service", c.ChannelService)
+	v.NonZero("channel.key", c.Channel.Key())
+	v.NotNil("channel_service", c.ChannelService)
 	return v.Error()
 }
 

@@ -16,6 +16,7 @@ import { actions } from "@/actions";
 import { channel } from "@/channel";
 import {
   axisKeyZ,
+  customRangeZ,
   downsampleModeZ,
   keyZ,
   type LinePlot,
@@ -153,6 +154,16 @@ export const setRangesPayloadZ = z.object({
 });
 
 export type SetRangesPayload = z.infer<typeof setRangesPayloadZ>;
+
+/**
+ * SetCustomRange sets the window the "custom" range key resolves to. A null custom
+ * clears the window.
+ */
+export const setCustomRangePayloadZ = z.object({
+  custom: zod.nullToUndefined(customRangeZ),
+});
+
+export type SetCustomRangePayload = z.infer<typeof setCustomRangePayloadZ>;
 
 /** SetAxisLabel sets the label rendered along the axis identified by key. */
 export const setAxisLabelPayloadZ = z.object({
@@ -380,6 +391,10 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("add_range"), addRange: addRangePayloadZ }),
   z.object({ type: z.literal("remove_range"), removeRange: removeRangePayloadZ }),
   z.object({ type: z.literal("set_ranges"), setRanges: setRangesPayloadZ }),
+  z.object({
+    type: z.literal("set_custom_range"),
+    setCustomRange: setCustomRangePayloadZ,
+  }),
   z.object({ type: z.literal("set_axis_label"), setAxisLabel: setAxisLabelPayloadZ }),
   z.object({
     type: z.literal("set_axis_label_direction"),
@@ -533,6 +548,15 @@ export const setRanges = (payload: z.input<typeof setRangesPayloadZ>): Action =>
   type: "set_ranges",
   setRanges: zod.parse(setRangesPayloadZ, payload, {
     label: "line plot set_ranges action payload",
+  }),
+});
+
+export const setCustomRange = (
+  payload: z.input<typeof setCustomRangePayloadZ>,
+): Action => ({
+  type: "set_custom_range",
+  setCustomRange: zod.parse(setCustomRangePayloadZ, payload, {
+    label: "line plot set_custom_range action payload",
   }),
 });
 
@@ -748,6 +772,10 @@ export interface Handlers {
   addRange: (state: Draft<LinePlot>, payload: AddRangePayload) => HandlerResult;
   removeRange: (state: Draft<LinePlot>, payload: RemoveRangePayload) => HandlerResult;
   setRanges: (state: Draft<LinePlot>, payload: SetRangesPayload) => HandlerResult;
+  setCustomRange: (
+    state: Draft<LinePlot>,
+    payload: SetCustomRangePayload,
+  ) => HandlerResult;
   setAxisLabel: (state: Draft<LinePlot>, payload: SetAxisLabelPayload) => HandlerResult;
   setAxisLabelDirection: (
     state: Draft<LinePlot>,
@@ -830,6 +858,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.removeRange(state, action.removeRange);
       case "set_ranges":
         return handlers.setRanges(state, action.setRanges);
+      case "set_custom_range":
+        return handlers.setCustomRange(state, action.setCustomRange);
       case "set_axis_label":
         return handlers.setAxisLabel(state, action.setAxisLabel);
       case "set_axis_label_direction":

@@ -135,9 +135,9 @@ var _ config.Config[Config] = (*Config)(nil)
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("arc.lsp.transport.freighter")
-	validate.NotNil(v, "server", c.Server)
-	validate.NotNil(v, "stream", c.Stream)
-	validate.Positive(v, "max_content_length", c.MaxContentLength)
+	v.NotNil("server", c.Server)
+	v.NotNil("stream", c.Stream)
+	v.Positive("max_content_length", c.MaxContentLength)
 	return v.Error()
 }
 

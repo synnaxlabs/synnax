@@ -111,7 +111,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 }
 
 func (d *Driver) startHeartbeat() {
-	statusWriter := status.NewWriter[rack.StatusDetails](d.cfg.Status, nil)
+	statusWriter := d.cfg.Status.NewWriter(nil)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.closer = append(d.closer, signal.NewHardShutdown(sCtx, cancel))
 	signal.GoTick(
@@ -145,13 +145,11 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 		return err
 	}
 	p := plumber.New()
-	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](
-		p, "streamer", streamer,
-	)
+	p.SetSegment[framer.StreamerRequest, framer.StreamerResponse]("streamer", streamer)
 	sink := &commandSink{driver: d}
 	sink.Sink = sink.process
-	plumber.SetSink[framer.StreamerResponse](p, "driver", sink)
-	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "driver", 10)
+	p.SetSink[framer.StreamerResponse]("driver", sink)
+	p.MustConnect[framer.StreamerResponse]("streamer", "driver", 10)
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
 	d.streamerRequests = streamerRequests
@@ -279,7 +277,7 @@ func (d *Driver) ackFailure(
 ) {
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmd.Key
-	if sErr := status.NewWriter[task.StatusDetails](d.cfg.Status, nil).
+	if sErr := d.cfg.Status.NewWriter(nil).
 		Set(ctx, &status.Status[task.StatusDetails]{
 			Key:     task.OntologyID(t.Key).String(),
 			Name:    t.Name,

@@ -59,17 +59,16 @@ func (c JSONPublisherConfig[V]) Override(
 // Validate implements config.Config.
 func (c JSONPublisherConfig[V]) Validate() error {
 	v := validate.New("signals.json_publisher_config")
-	validate.NotNil(v, "observable", c.Observable)
-	validate.NotEmptyString(v, "set_name", c.SetName)
+	v.NotNil("observable", c.Observable)
+	v.NotEmptyString("set_name", c.SetName)
 	return v.Error()
 }
 
 // PublishJSON opens a Signals pipeline that writes every value the configured
 // observable emits to the configured channel as one JSON sample. A value that fails to
 // marshal is logged and dropped. The returned io.Closer stops the pipeline.
-func PublishJSON[V any](
+func (p *Provider) PublishJSON[V any](
 	ctx context.Context,
-	p *Provider,
 	cfgs ...JSONPublisherConfig[V],
 ) (io.Closer, error) {
 	cfg, err := config.New(JSONPublisherConfig[V]{}, cfgs...)

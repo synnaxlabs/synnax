@@ -54,7 +54,7 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 	if diags != nil && !diags.Ok() {
 		return errors.Newf("invalid placeholder %q: %s", seg.Text, diags.String())
 	}
-	t, err := Compile(context.Child(ctx, expr).WithHint(types.Type{}))
+	t, err := Compile(ctx.Child(expr).WithHint(types.Type{}))
 	if err != nil {
 		return err
 	}

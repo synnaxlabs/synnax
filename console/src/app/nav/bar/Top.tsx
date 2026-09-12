@@ -17,7 +17,6 @@ import { Docs } from "@/feature/docs";
 import { Panel } from "@/feature/panel";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
-import { User } from "@/platform/user";
 import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 
@@ -80,8 +79,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
           <>
             <Version.Badge />
             <Docs.OpenButton />
-            <User.Badge />
-            <Core.ConnectionBadge />
+            <Core.Badge />
           </>
         )}
         <Window.Controls visibleIfOS="Windows" forceOS={os} />

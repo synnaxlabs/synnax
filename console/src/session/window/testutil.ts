@@ -15,6 +15,7 @@ import {
   type Reducer,
 } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
+import { deep } from "@synnaxlabs/x";
 
 import { type Documents } from "@/session/window/keyed";
 
@@ -93,10 +94,10 @@ export const createSliceStore = <Name extends string, S, A extends Action = Acti
       [name]: reducer,
       [Drift.SLICE_NAME]: Drift.reducer,
     }) as unknown as Reducer<Record<Name, S> & Drift.StoreState, A>,
-    preloadedState: {
+    preloadedState: deep.freeze({
       [name]: preloadedState,
       ...DRIFT_STATE,
-    } as Record<Name, S> & Drift.StoreState,
+    }) as Record<Name, S> & Drift.StoreState,
     middleware: (getDefault) =>
       getDefault({ serializableCheck: false }).concat(middleware) as never,
   });

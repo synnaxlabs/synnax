@@ -1065,12 +1065,13 @@ class LayoutClient:
             f"{item_selector}:has(input.pluto-input__checkbox-input:checked"
             ":not([aria-label='Favorite']))"
         )
-        for _ in range(10):
-            if checked.count() == 0:
-                break
+        # Wait out each unchecking before the next. Clicking again while the row is
+        # still checked re-selects the box that was just cleared.
+        while (remaining := checked.count()) > 0:
             checked.first.locator(
                 ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
             ).dispatch_event("click")
+            expect(checked).to_have_count(remaining - 1, timeout=5000)
 
     def select_items(
         self, names: list[str], get_item_fn: Callable[[str], Locator]

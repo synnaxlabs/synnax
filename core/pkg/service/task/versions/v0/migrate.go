@@ -64,7 +64,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				return t.OntologyID().String()
 			})
 			var existingStatuses []v0Status
-			if err = status.NewRetrieve[StatusDetails](cfg.Status).
+			if err = cfg.Status.NewRetrieve[StatusDetails]().
 				Where(status.MatchKeys[StatusDetails](statusKeys...)).
 				Entries(&existingStatuses).
 				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
@@ -95,10 +95,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				"creating unknown statuses for existing tasks",
 				zap.Int("count", len(missingStatuses)),
 			)
-			return status.NewWriter[StatusDetails](
-				cfg.Status,
-				tx,
-			).SetMany(ctx, &missingStatuses)
+			return cfg.Status.NewWriter(tx).SetMany(ctx, &missingStatuses)
 		},
 	)
 }

@@ -60,6 +60,22 @@ describe("project/Splash", () => {
     });
   });
 
+  describe("awaiting a deep link's project", () => {
+    it("should show the notice only while a link waits on a selection", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      const notice = "Select a project to open the link";
+      expect(screen.queryByText(notice)).toBeNull();
+      act(() => {
+        store.dispatch(Session.Link.beginProjectWait());
+      });
+      expect(await screen.findByText(notice)).toBeDefined();
+      act(() => {
+        store.dispatch(Session.Link.endProjectWait());
+      });
+      await waitFor(() => expect(screen.queryByText(notice)).toBeNull());
+    });
+  });
+
   describe("selecting an existing project", () => {
     it("should activate the project", async () => {
       const name = `proj-${id.create()}`;

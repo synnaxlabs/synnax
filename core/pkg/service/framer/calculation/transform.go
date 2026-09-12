@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -33,7 +34,7 @@ func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	opts = append(opts, confluence.DeferErr(g.calculators.Close))
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(g.Out)
-	writeTo := g.calculators.WriteTo()
+	writeTo := set.New(g.calculators.WriteTo()...)
 	sCtx.Go(func(ctx context.Context) error {
 		for {
 			select {

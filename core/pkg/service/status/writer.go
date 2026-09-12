@@ -21,7 +21,7 @@ import (
 )
 
 // Writer is used to create and update statuses within the DB.
-type Writer[D any] struct {
+type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
@@ -30,7 +30,7 @@ type Writer[D any] struct {
 
 // Set creates or updates a status within the DB. If the Status already has a key and
 // an existing Status already exists with that key, the existing status will be updated.
-func (w Writer[D]) Set(ctx context.Context, s *Status[D]) error {
+func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 	return w.SetWithParent(ctx, s, ontology.ID{})
 }
 
@@ -40,7 +40,7 @@ func (w Writer[D]) Set(ctx context.Context, s *Status[D]) error {
 // the status already exists and no parent is provided, the existing parent relationship
 // will be preserved. If an empty parent is provided, the status will be created under
 // the top level "Statuses" group.
-func (w Writer[D]) SetWithParent(
+func (w Writer) SetWithParent[D any](
 	ctx context.Context,
 	s *Status[D],
 	parent ontology.ID,
@@ -99,7 +99,7 @@ func (w Writer[D]) SetWithParent(
 
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses
 // already exist, they will be updated.
-func (w Writer[D]) SetMany(
+func (w Writer) SetMany[D any](
 	ctx context.Context,
 	statuses *[]Status[D],
 ) error {
@@ -119,7 +119,7 @@ func (w Writer[D]) SetMany(
 // be created. If the status already exists and no parent is provided, the existing
 // parent relationship will be preserved. If an empty parent is provided, the status
 // will be created under the top level "Statuses" group.
-func (w Writer[D]) SetManyWithParent(
+func (w Writer) SetManyWithParent[D any](
 	ctx context.Context,
 	statuses *[]Status[D],
 	parent ontology.ID,
@@ -137,19 +137,19 @@ func (w Writer[D]) SetManyWithParent(
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
-func (w Writer[D]) Delete(ctx context.Context, keys ...Key) error {
-	if err := gorp.NewDelete[Key, Status[D]]().
-		Where(gorp.MatchKeys[Key, Status[D]](keys...)).
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := gorp.NewDelete[Key, Status[any]]().
+		Where(gorp.MatchKeys[Key, Status[any]](keys...)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
-func (w Writer[D]) validate(s Status[D]) error {
+func (w Writer) validate[D any](s Status[D]) error {
 	v := validate.New("status.status")
-	validate.NotEmptyString(v, "key", s.Key)
-	validate.Positive(v, "time", s.Time)
-	validate.NotEmptyString(v, "variant", s.Variant)
+	v.NotEmptyString("key", s.Key)
+	v.Positive("time", s.Time)
+	v.NotEmptyString("variant", s.Variant)
 	return v.Error()
 }

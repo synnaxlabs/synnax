@@ -331,7 +331,7 @@ func expectOutput[T telem.Sample](
 	DeferCleanup(h.Close)
 	h.Execute(ctx, key)
 	result := h.Output(key, 0)
-	Expect(telem.UnmarshalSeries[T](result)[0]).To(Equal(expected))
+	Expect(result.Unmarshal[T]()[0]).To(Equal(expected))
 }
 
 var _ = Describe("WASM", func() {
@@ -434,7 +434,7 @@ var _ = Describe("WASM", func() {
 				result := h.Output("add", 0)
 				Expect(result.Len()).To(Equal(int64(5)))
 				Expect(
-					telem.UnmarshalSeries[int64](result),
+					result.Unmarshal[int64](),
 				).To(Equal([]int64{11, 22, 13, 24, 15}))
 				Expect(
 					h.OutputTime("add", 0),
@@ -470,7 +470,7 @@ var _ = Describe("WASM", func() {
 			h.Execute(ctx, "multiply")
 			result := h.Output("multiply", 0)
 			Expect(result.Len()).To(Equal(int64(3)))
-			Expect(telem.UnmarshalSeries[int32](result)).To(Equal([]int32{10, 18, 28}))
+			Expect(result.Unmarshal[int32]()).To(Equal([]int32{10, 18, 28}))
 		})
 
 		It(
@@ -504,7 +504,7 @@ var _ = Describe("WASM", func() {
 				result := h.Output("subtract", 0)
 				Expect(result.Len()).To(Equal(int64(4)))
 				Expect(
-					telem.UnmarshalSeries[float32](result),
+					result.Unmarshal[float32](),
 				).To(Equal([]float32{75.0, 175.0, 275.0, 375.0}))
 			},
 		)
@@ -591,12 +591,12 @@ var _ = Describe("WASM", func() {
 
 				sumResult := h.Output("math_ops", 0)
 				Expect(
-					telem.UnmarshalSeries[int64](sumResult),
+					sumResult.Unmarshal[int64](),
 				).To(Equal([]int64{15, 25, 35}))
 
 				productResult := h.Output("math_ops", 1)
 				Expect(
-					telem.UnmarshalSeries[int64](productResult),
+					productResult.Unmarshal[int64](),
 				).To(Equal([]int64{50, 100, 150}))
 			},
 		)
@@ -616,19 +616,19 @@ var _ = Describe("WASM", func() {
 
 			h.NextChanged(ctx, n, "counter")
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
+				h.Output("counter", 0).Unmarshal[int64]()[0],
 			).To(Equal(int64(1)))
 
 			n.Reset()
 			h.NextChanged(ctx, n, "counter")
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
+				h.Output("counter", 0).Unmarshal[int64]()[0],
 			).To(Equal(int64(1)))
 
 			n.Reset()
 			h.NextChanged(ctx, n, "counter")
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("counter", 0))[0],
+				h.Output("counter", 0).Unmarshal[int64]()[0],
 			).To(Equal(int64(1)))
 		})
 
@@ -678,24 +678,24 @@ var _ = Describe("WASM", func() {
 
 				n1.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("c1", 0))[0],
+					h.Output("c1", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				n2.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("c2", 0))[0],
+					h.Output("c2", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(10)))
 
 				n1.Reset()
 				n1.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("c1", 0))[0],
+					h.Output("c1", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				n2.Reset()
 				n2.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("c2", 0))[0],
+					h.Output("c2", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(10)))
 			},
 		)
@@ -739,14 +739,14 @@ var _ = Describe("WASM", func() {
 				// First execution of counter_a should return 1
 				n1.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0],
+					h.Output("counter_a", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				// First execution of counter_b should ALSO return 1 (not 2!)
 				// because it has its own separate state
 				n2.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0],
+					h.Output("counter_b", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				// Reset re-initializes counter_a's own state, leaving counter_b's
@@ -754,24 +754,24 @@ var _ = Describe("WASM", func() {
 				n1.Reset()
 				n1.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0],
+					h.Output("counter_a", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				n2.Reset()
 				n2.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0],
+					h.Output("counter_b", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				n1.Reset()
 				n1.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0],
+					h.Output("counter_a", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				// counter_b was not reset or re-executed, so its output stands
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0],
+					h.Output("counter_b", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 			},
 		)
@@ -828,7 +828,7 @@ var _ = Describe("WASM", func() {
 				)
 				h.Execute(ctx, "add")
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("add", 0)),
+					h.Output("add", 0).Unmarshal[int64](),
 				).To(Equal([]int64{15, 25, 35}))
 			},
 		)
@@ -879,7 +879,7 @@ var _ = Describe("WASM", func() {
 			)
 			h.Execute(ctx, "compute")
 			Expect(
-				telem.UnmarshalSeries[int32](h.Output("compute", 0)),
+				h.Output("compute", 0).Unmarshal[int32](),
 			).To(Equal([]int32{13, 23}))
 		})
 
@@ -931,7 +931,7 @@ var _ = Describe("WASM", func() {
 			)
 			h.Execute(ctx, "scale")
 			Expect(
-				telem.UnmarshalSeries[float64](h.Output("scale", 0)),
+				h.Output("scale", 0).Unmarshal[float64](),
 			).To(Equal([]float64{25.0, 50.0}))
 		})
 
@@ -966,7 +966,7 @@ var _ = Describe("WASM", func() {
 				)
 				h.Execute(ctx, "add")
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("add", 0)),
+					h.Output("add", 0).Unmarshal[int64](),
 				).To(Equal([]int64{105}))
 			},
 		)
@@ -1021,7 +1021,7 @@ var _ = Describe("WASM", func() {
 				)
 				h.Execute(ctx, "scale")
 				Expect(
-					telem.UnmarshalSeries[float64](h.Output("scale", 0)),
+					h.Output("scale", 0).Unmarshal[float64](),
 				).To(Equal([]float64{30.0, 60.0}))
 			},
 		)
@@ -1060,7 +1060,7 @@ trigger_ch -> emit_period{period=1s}
 				)
 				h.Execute(ctx, "emit_period_0")
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("emit_period_0", 0)),
+					h.Output("emit_period_0", 0).Unmarshal[int64](),
 				).To(Equal([]int64{int64(telem.Second)}))
 			},
 		)
@@ -1101,7 +1101,7 @@ trigger_ch -> emit_period{period=1s}
 
 				result := h.Output("add", 0)
 				Expect(
-					telem.UnmarshalSeries[int64](result),
+					result.Unmarshal[int64](),
 				).To(Equal([]int64{11, 22, 33}))
 				Expect(result.Alignment).To(Equal(telem.Alignment(150)))
 				Expect(result.TimeRange.Start).To(Equal(5 * telem.SecondTS))
@@ -1223,13 +1223,13 @@ trigger_ch -> emit_period{period=1s}
 				// First call
 				h.NextChanged(ctx, n, "series_state")
 				Expect(
-					telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0],
+					h.Output("series_state", 0).Unmarshal[float64]()[0],
 				).To(Equal(float64(0.0)))
 
 				// Second call - state persists
 				h.NextChanged(ctx, n, "series_state")
 				Expect(
-					telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0],
+					h.Output("series_state", 0).Unmarshal[float64]()[0],
 				).To(Equal(float64(0.0)))
 			},
 		)
@@ -1559,7 +1559,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 			result := h.Output("pow_ci", 0)
-			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 27, 125}))
+			Expect(result.Unmarshal[int64]()).To(Equal([]int64{8, 27, 125}))
 		})
 
 		It("chan, const (f64)", func(ctx SpecContext) {
@@ -1592,7 +1592,7 @@ trigger_ch -> emit_period{period=1s}
 
 			result := h.Output("pow_cf", 0)
 			Expect(
-				telem.UnmarshalSeries[float64](result),
+				result.Unmarshal[float64](),
 			).To(Equal([]float64{4.0, 9.0, 16.0}))
 		})
 
@@ -1625,7 +1625,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 			result := h.Output("pow_ic", 0)
-			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{2, 4, 8, 16}))
+			Expect(result.Unmarshal[int64]()).To(Equal([]int64{2, 4, 8, 16}))
 		})
 
 		It("const, chan (f64)", func(ctx SpecContext) {
@@ -1658,7 +1658,7 @@ trigger_ch -> emit_period{period=1s}
 
 			result := h.Output("pow_fc", 0)
 			Expect(
-				telem.UnmarshalSeries[float64](result),
+				result.Unmarshal[float64](),
 			).To(Equal([]float64{3.0, 9.0, 27.0}))
 		})
 
@@ -1691,7 +1691,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 			result := h.Output("pow_cc_i", 0)
-			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 9, 10000}))
+			Expect(result.Unmarshal[int64]()).To(Equal([]int64{8, 9, 10000}))
 		})
 
 		It("chan, chan (f64)", func(ctx SpecContext) {
@@ -1723,7 +1723,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 			result := h.Output("pow_cc_f", 0)
-			values := telem.UnmarshalSeries[float64](result)
+			values := result.Unmarshal[float64]()
 			Expect(values[0]).To(BeNumerically("~", 2.0, 1e-9))
 			Expect(values[1]).To(BeNumerically("~", 3.0, 1e-9))
 		})
@@ -1787,7 +1787,7 @@ trigger_ch -> emit_period{period=1s}
 			changed := h.Execute(ctx, "neg_c")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("neg_c", 0)),
+				h.Output("neg_c", 0).Unmarshal[int64](),
 			).To(Equal([]int64{-10, 20, -30}))
 		})
 
@@ -1834,7 +1834,7 @@ trigger_ch -> emit_period{period=1s}
 			changed := h.Execute(ctx, "neg_cf")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[float64](h.Output("neg_cf", 0)),
+				h.Output("neg_cf", 0).Unmarshal[float64](),
 			).To(Equal([]float64{-1.5, 2.5, -3.5}))
 		})
 	})
@@ -1891,7 +1891,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 				result := h.Output("str_len", 0)
-				Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+				Expect(result.Unmarshal[int64]()).To(Equal([]int64{5, 6, 0}))
 			},
 		)
 
@@ -1946,7 +1946,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 				result := h.Output("qstr_len", 0)
-				Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+				Expect(result.Unmarshal[int64]()).To(Equal([]int64{5, 6, 0}))
 			},
 		)
 
@@ -2024,7 +2024,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 				result := h.Output("qstr_concat", 0)
-				Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{11}))
+				Expect(result.Unmarshal[int64]()).To(Equal([]int64{11}))
 			},
 		)
 	})
@@ -2198,7 +2198,7 @@ trigger_ch -> emit_period{period=1s}
 
 				result := h.Output("stringify", 0)
 				Expect(
-					telem.UnmarshalSeries[string](result),
+					result.Unmarshal[string](),
 				).To(Equal([]string{"1", "22", "333"}))
 			},
 		)
@@ -2259,10 +2259,10 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed.Contains("doubled")).To(BeTrue())
 
 				Expect(
-					telem.UnmarshalSeries[string](h.Output("labeler", 0)),
+					h.Output("labeler", 0).Unmarshal[string](),
 				).To(Equal([]string{"5", "10", "15"}))
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("labeler", 1)),
+					h.Output("labeler", 1).Unmarshal[int64](),
 				).To(Equal([]int64{10, 20, 30}))
 			},
 		)
@@ -2287,7 +2287,7 @@ trigger_ch -> emit_period{period=1s}
 				changed := h.NextChanged(ctx, n, "init_counter")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
+					h.Output("init_counter", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				// Second call - with no data inputs RefreshInputs never gates,
@@ -2295,7 +2295,7 @@ trigger_ch -> emit_period{period=1s}
 				changed = h.NextChanged(ctx, n, "init_counter")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
+					h.Output("init_counter", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(2)))
 
 				// Reset the node (simulating stage re-entry)
@@ -2306,7 +2306,7 @@ trigger_ch -> emit_period{period=1s}
 				changed = h.NextChanged(ctx, n, "init_counter")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0],
+					h.Output("init_counter", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 			},
 		)
@@ -2343,7 +2343,7 @@ trigger_ch -> emit_period{period=1s}
 				changed := h.NextChanged(ctx, n, "add")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("add", 0))[0],
+					h.Output("add", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(3)))
 
 				h.SetInput(
@@ -2364,7 +2364,7 @@ trigger_ch -> emit_period{period=1s}
 				changed = h.NextChanged(ctx, n, "add")
 				Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("add", 0))[0],
+					h.Output("add", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(30)))
 			},
 		)
@@ -2427,7 +2427,7 @@ trigger_ch -> emit_period{period=1s}
 
 			output := h.Output("add_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(15)))
+			Expect(output.Unmarshal[int64]()[0]).To(Equal(int64(15)))
 		})
 
 		It("Should handle multiple input parameters", func(ctx SpecContext) {
@@ -2490,7 +2490,7 @@ trigger_ch -> emit_period{period=1s}
 
 			output := h.Output("multi_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[int32](output)[0]).To(Equal(int32(18)))
+			Expect(output.Unmarshal[int32]()[0]).To(Equal(int32(18)))
 		})
 
 		It("Should handle float64 input parameters", func(ctx SpecContext) {
@@ -2548,7 +2548,7 @@ trigger_ch -> emit_period{period=1s}
 
 			output := h.Output("scale_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(25.0))
+			Expect(output.Unmarshal[float64]()[0]).To(Equal(25.0))
 		})
 
 		It("Should handle negative i64 input parameter", func(ctx SpecContext) {
@@ -2609,7 +2609,7 @@ trigger_ch -> emit_period{period=1s}
 
 			output := h.Output("offset_func", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(50)))
+			Expect(output.Unmarshal[int64]()[0]).To(Equal(int64(50)))
 		})
 
 		It("Should handle negative f64 input parameter", func(ctx SpecContext) {
@@ -2670,7 +2670,7 @@ trigger_ch -> emit_period{period=1s}
 
 			output := h.Output("scale_neg", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(-30.0))
+			Expect(output.Unmarshal[float64]()[0]).To(Equal(-30.0))
 		})
 	})
 
@@ -2739,7 +2739,7 @@ trigger_ch -> emit_period{period=1s}
 					Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](99))
 					Expect(fr.Get(101).Series).To(HaveLen(1))
 					Expect(fr.Get(101).Series[0].Len()).To(Equal(int64(1)))
-					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(101).Series[0])
+					ts := fr.Get(101).Series[0].Unmarshal[telem.TimeStamp]()
 					Expect(ts[0]).To(BeNumerically(">", 0))
 				},
 			)
@@ -2773,7 +2773,7 @@ trigger_ch -> emit_period{period=1s}
 					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 					Expect(changed).To(BeTrue())
 					Expect(fr.Get(201).Series).To(HaveLen(1))
-					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(201).Series[0])
+					ts := fr.Get(201).Series[0].Unmarshal[telem.TimeStamp]()
 					Expect(ts[0]).To(BeNumerically(">=", before))
 					Expect(ts[0]).To(BeNumerically("<=", after))
 				},
@@ -2855,9 +2855,7 @@ trigger_ch -> emit_period{period=1s}
 						n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 						fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 						Expect(changed).To(BeTrue())
-						ts := telem.UnmarshalSeries[telem.TimeStamp](
-							fr.Get(301).Series[0],
-						)
+						ts := fr.Get(301).Series[0].Unmarshal[telem.TimeStamp]()
 						timestamps[i] = ts[0]
 					}
 
@@ -3232,17 +3230,17 @@ trigger_ch -> emit_period{period=1s}
 
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
+					h.Output("expression_0", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
+					h.Output("expression_0", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(2)))
 
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
+					h.Output("expression_0", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(3)))
 			},
 		)
@@ -3267,13 +3265,13 @@ trigger_ch -> emit_period{period=1s}
 
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
+					h.Output("expression_0", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 				Expect(executions).To(Equal(1))
 
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
+					h.Output("expression_0", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(2)))
 				Expect(executions).To(Equal(2))
 
@@ -3282,7 +3280,7 @@ trigger_ch -> emit_period{period=1s}
 				n.Next(nCtx)
 				Expect(executions).To(Equal(3))
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0],
+					h.Output("expression_0", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(1)))
 			},
 		)
@@ -3343,7 +3341,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(100).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0],
+					outFr.Get(100).Series[0].Unmarshal[float32]()[0],
 				).To(Equal(float32(6.0)))
 			},
 		)
@@ -3449,7 +3447,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(100).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0],
+					outFr.Get(100).Series[0].Unmarshal[float32]()[0],
 				).To(Equal(float32(1.0)))
 
 				// Stay high: input=1, prev=1, no rising edge
@@ -3497,7 +3495,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(100).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0],
+					outFr.Get(100).Series[0].Unmarshal[float32]()[0],
 				).To(Equal(float32(2.0)))
 			},
 		)
@@ -3572,7 +3570,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(102).Series).To(HaveLen(1))
 			Expect(
-				telem.UnmarshalSeries[float32](outFr.Get(102).Series[0])[0],
+				outFr.Get(102).Series[0].Unmarshal[float32]()[0],
 			).To(BeNumerically("~", float32(126.8), 0.01))
 		})
 
@@ -3669,17 +3667,17 @@ trigger_ch -> emit_period{period=1s}
 
 				Expect(outFr.Get(202).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float64](outFr.Get(202).Series[0])[0],
+					outFr.Get(202).Series[0].Unmarshal[float64]()[0],
 				).To(Equal(float64(13.0)))
 
 				Expect(outFr.Get(203).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float64](outFr.Get(203).Series[0])[0],
+					outFr.Get(203).Series[0].Unmarshal[float64]()[0],
 				).To(Equal(float64(7.0)))
 
 				Expect(outFr.Get(204).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float64](outFr.Get(204).Series[0])[0],
+					outFr.Get(204).Series[0].Unmarshal[float64]()[0],
 				).To(Equal(float64(30.0)))
 			},
 		)
@@ -3745,7 +3743,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(301).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0],
+					outFr.Get(301).Series[0].Unmarshal[float32]()[0],
 				).To(Equal(float32(49.0)))
 
 				// Test: value=0.5, expect squared=0.25
@@ -3757,7 +3755,7 @@ trigger_ch -> emit_period{period=1s}
 				Expect(changed).To(BeTrue())
 				Expect(outFr.Get(301).Series).To(HaveLen(1))
 				Expect(
-					telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0],
+					outFr.Get(301).Series[0].Unmarshal[float32]()[0],
 				).To(Equal(float32(0.25)))
 			},
 		)
@@ -3866,7 +3864,7 @@ trigger_ch -> emit_period{period=1s}
 				)
 				h.Execute(ctx, "tolerance_check")
 				result := h.Output("tolerance_check", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 
 				// Test 2: value=115 (above upper limit), count=1, should return 0
 				fr = telem.Frame[uint32]{}
@@ -3880,7 +3878,7 @@ trigger_ch -> emit_period{period=1s}
 				)
 				h.Execute(ctx, "tolerance_check")
 				result = h.Output("tolerance_check", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 
 				// Test 3: value=115 again, count=2, should return 0
 				fr = telem.Frame[uint32]{}
@@ -3894,7 +3892,7 @@ trigger_ch -> emit_period{period=1s}
 				)
 				h.Execute(ctx, "tolerance_check")
 				result = h.Output("tolerance_check", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 
 				// Test 4: value=115 again, count=3 >= samples, should return 1 (alarm!)
 				fr = telem.Frame[uint32]{}
@@ -3908,7 +3906,7 @@ trigger_ch -> emit_period{period=1s}
 				)
 				h.Execute(ctx, "tolerance_check")
 				result = h.Output("tolerance_check", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(1)))
 			},
 		)
 
@@ -3991,7 +3989,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				)
 				h.Execute(ctx, "tolerance_alarm_0")
 				result := h.Output("tolerance_alarm_0", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 
 				// Test 2: value=115 (above upper=110), count=1, should return 0
 				fr = telem.Frame[uint32]{}
@@ -4005,7 +4003,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				)
 				h.Execute(ctx, "tolerance_alarm_0")
 				result = h.Output("tolerance_alarm_0", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 
 				// Test 3: value=115 again, count=2, should return 0
 				fr = telem.Frame[uint32]{}
@@ -4019,7 +4017,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				)
 				h.Execute(ctx, "tolerance_alarm_0")
 				result = h.Output("tolerance_alarm_0", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 
 				// Test 4: value=115 again, count=3 >= samples, should return 1 (alarm!)
 				fr = telem.Frame[uint32]{}
@@ -4033,7 +4031,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				)
 				h.Execute(ctx, "tolerance_alarm_0")
 				result = h.Output("tolerance_alarm_0", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(1)))
 
 				// Test 5: Change set_point to 200.0, value=198 now within limits
 				// upper = 200.0 + 10.0 = 210.0
@@ -4053,7 +4051,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				)
 				h.Execute(ctx, "tolerance_alarm_0")
 				result = h.Output("tolerance_alarm_0", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 			},
 		)
 
@@ -4435,7 +4433,7 @@ input_ch -> checker{} -> output_ch
 				)
 				h.Execute(ctx, "checker_0")
 				result := h.Output("checker_0", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(1)))
 
 				// Test with value=40 (below threshold), should return 0
 				h.SetInput(
@@ -4446,7 +4444,7 @@ input_ch -> checker{} -> output_ch
 				)
 				h.Execute(ctx, "checker_0")
 				result = h.Output("checker_0", 0)
-				Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
+				Expect(result.Unmarshal[uint8]()[0]).To(Equal(uint8(0)))
 			},
 		)
 
@@ -4541,13 +4539,13 @@ input_2 -> increment{counter=counter_2} -> sink_2
 					outFr.Get(201).Series,
 				).To(HaveLen(1), "counter_1 should have been written")
 				Expect(
-					telem.UnmarshalSeries[float32](outFr.Get(201).Series[0])[0],
+					outFr.Get(201).Series[0].Unmarshal[float32]()[0],
 				).To(Equal(float32(1.0)))
 				Expect(
 					outFr.Get(202).Series,
 				).To(HaveLen(1), "counter_2 should have been written")
 				Expect(
-					telem.UnmarshalSeries[float32](outFr.Get(202).Series[0])[0],
+					outFr.Get(202).Series[0].Unmarshal[float32]()[0],
 				).To(Equal(float32(1.0)))
 			},
 		)
@@ -5156,19 +5154,19 @@ input_ch -> count_local{} -> sink_ch
 
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
+					h.Output("loop_state", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(3)))
 
 				n.Reset()
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
+					h.Output("loop_state", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(3)))
 
 				n.Reset()
 				n.Next(nCtx)
 				Expect(
-					telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0],
+					h.Output("loop_state", 0).Unmarshal[int64]()[0],
 				).To(Equal(int64(3)))
 			})
 		})
@@ -5189,7 +5187,7 @@ var _ = Describe("Graph function variable parity", func() {
 			DeferCleanup(h.Close)
 			h.Execute(ctx, "calc")
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("calc", 0))[0],
+				h.Output("calc", 0).Unmarshal[int64]()[0],
 			).To(Equal(int64(30)))
 		},
 	)
@@ -5206,7 +5204,7 @@ var _ = Describe("Graph function variable parity", func() {
 		for range 3 {
 			h.NextChanged(ctx, n, "fresh")
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("fresh", 0))[0],
+				h.Output("fresh", 0).Unmarshal[int64]()[0],
 			).To(Equal(int64(1)))
 			n.Reset()
 		}
@@ -5221,7 +5219,7 @@ var _ = Describe("Graph function variable parity", func() {
 		DeferCleanup(h.Close)
 		h.Execute(ctx, "greet")
 		Expect(
-			telem.UnmarshalSeries[string](h.Output("greet", 0))[0],
+			h.Output("greet", 0).Unmarshal[string]()[0],
 		).To(Equal("hello"))
 	})
 
@@ -5239,12 +5237,12 @@ var _ = Describe("Graph function variable parity", func() {
 			n := h.CreateNode(ctx, "acc")
 			h.NextChanged(ctx, n, "acc")
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("acc", 0))[0],
+				h.Output("acc", 0).Unmarshal[int64]()[0],
 			).To(Equal(int64(3)))
 			n.Reset()
 			h.NextChanged(ctx, n, "acc")
 			Expect(
-				telem.UnmarshalSeries[int64](h.Output("acc", 0))[0],
+				h.Output("acc", 0).Unmarshal[int64]()[0],
 			).To(Equal(int64(3)))
 		},
 	)

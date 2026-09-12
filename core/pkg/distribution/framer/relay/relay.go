@@ -118,13 +118,13 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("relay")
-	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "host_resolver", c.HostResolver)
-	validate.NotNil(v, "ts", c.TS)
-	validate.NotNil(v, "free_writes", c.FreeWrites)
-	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
-	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
-	validate.Positive(v, "demand_buffer_size", c.DemandBufferSize)
+	v.NotNil("transport", c.Transport)
+	v.NotNil("host_resolver", c.HostResolver)
+	v.NotNil("ts", c.TS)
+	v.NotNil("free_writes", c.FreeWrites)
+	v.Positive("slow_consumer_timeout", c.SlowConsumerTimeout)
+	v.Positive("response_buffer_size", c.ResponseBufferSize)
+	v.Positive("demand_buffer_size", c.DemandBufferSize)
 	return v.Error()
 }
 

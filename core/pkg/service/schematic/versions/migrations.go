@@ -22,4 +22,5 @@ var Migrations = []migrate.Migration{
 	v0.Migration,
 	v7.Migration,
 	v8.Migration,
+	v8.ScaleMigration,
 }

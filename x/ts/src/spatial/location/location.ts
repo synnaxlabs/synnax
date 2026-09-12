@@ -110,6 +110,19 @@ export function swap(cl: Crude): Location {
 /** @returns the edge a quarter turn from the given one, in the given direction. */
 export const rotate = (loc: Outer, dir: AngularDirection): Outer => ROTATIONS[loc][dir];
 
+const AXIS_SWAPPED: Record<Outer, Outer> = {
+  top: "left",
+  left: "top",
+  right: "bottom",
+  bottom: "right",
+};
+
+/**
+ * @returns the edge on the other axis facing the same way: right pairs with bottom, and
+ * left with top. Rotating a shape carries its edges across with this.
+ */
+export const swapAxis = (loc: Outer): Outer => AXIS_SWAPPED[loc];
+
 /** @returns the axis a location sits on. */
 export const direction = (cl: Crude): Direction => {
   const l = construct(cl);

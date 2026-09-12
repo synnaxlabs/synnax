@@ -98,7 +98,7 @@ describe("auth guard", () => {
       <Session.SettledProvider>
         <Auth.Guard>
           <Auth.ConnectionGuard>
-            <Core.ConnectionBadge />
+            <Core.Badge />
             <span>authenticated content</span>
           </Auth.ConnectionGuard>
         </Auth.Guard>

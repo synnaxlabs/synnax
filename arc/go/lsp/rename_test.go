@@ -50,13 +50,8 @@ var _ = Describe("Rename", func() {
 
 			result := MustSucceed(
 				server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position: protocol.Position{
-							Line:      1,
-							Character: 4,
-						}, // x| i32
-					},
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 4},
 				}),
 			)
 			Expect(result).ToNot(BeNil())
@@ -74,12 +69,12 @@ var _ = Describe("Rename", func() {
 
 			result := MustSucceed(
 				server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position: protocol.Position{
-							Line:      1,
-							Character: 5,
-						}, // ret|urn
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
+					},
+					Position: protocol.Position{
+						Line:      1,
+						Character: 5,
 					},
 				}),
 			)
@@ -101,12 +96,12 @@ var _ = Describe("Rename", func() {
 
 			result := MustSucceed(
 				server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position: protocol.Position{
-							Line:      1,
-							Character: 12,
-						}, // myGl|obal
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
+					},
+					Position: protocol.Position{
+						Line:      1,
+						Character: 12,
 					},
 				}),
 			)
@@ -136,11 +131,11 @@ var _ = Describe("Rename", func() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 4}, // x| i32
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
-				NewName: "value",
+				Position: protocol.Position{Line: 1, Character: 4},
+				NewName:  "value",
 			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
@@ -159,11 +154,11 @@ var _ = Describe("Rename", func() {
 
 			// Click on 'x' in return statement
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 11}, // x| * y
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
-				NewName: "first",
+				Position: protocol.Position{Line: 1, Character: 11},
+				NewName:  "first",
 			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
@@ -190,12 +185,12 @@ func second() {
 
 				// Rename x in first function
 				result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position: protocol.Position{
-							Line:      1,
-							Character: 4,
-						}, // x| in first()
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
+					},
+					Position: protocol.Position{
+						Line:      1,
+						Character: 4,
 					},
 					NewName: "value",
 				}))
@@ -222,12 +217,12 @@ func second() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      1,
-						Character: 4,
-					}, // count| u32 $= 0
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      1,
+					Character: 4,
 				},
 				NewName: "total",
 			}))
@@ -252,11 +247,11 @@ func main() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 6}, // func a|dd
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
 				},
-				NewName: "sum",
+				Position: protocol.Position{Line: 0, Character: 6},
+				NewName:  "sum",
 			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
@@ -281,12 +276,12 @@ func main() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      1,
-						Character: 12,
-					}, // myGl|obal
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      1,
+					Character: 12,
 				},
 				NewName: "renamed",
 			}))
@@ -311,12 +306,12 @@ func main() {
 			OpenArcDocument(server, ctx, uri, content)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      1,
-						Character: 0,
-					}, // Empty line
+				TextDocument: protocol.TextDocumentIdentifier{
+					URI: uri,
+				},
+				Position: protocol.Position{
+					Line:      1,
+					Character: 0,
 				},
 				NewName: "newName",
 			}))
@@ -372,12 +367,12 @@ func main() {
 				OpenArcDocument(server, ctx, uri, channelContent)
 
 				result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position: protocol.Position{
-							Line:      1,
-							Character: 14,
-						}, // sensor
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
+					},
+					Position: protocol.Position{
+						Line:      1,
+						Character: 14,
 					},
 					NewName: "renamed_sensor",
 				}))
@@ -458,11 +453,11 @@ func main() {
 }`)
 
 				result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-						Position:     protocol.Position{Line: 1, Character: 4}, // x
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: uri,
 					},
-					NewName: "value",
+					Position: protocol.Position{Line: 1, Character: 4},
+					NewName:  "value",
 				}))
 				Expect(result).ToNot(BeNil())
 				Expect(callCount).To(Equal(1))
@@ -484,12 +479,12 @@ func main() {
 
 				prepared := MustSucceed(
 					server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-						TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-							TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-							Position: protocol.Position{
-								Line:      1,
-								Character: 14,
-							}, // internal_sensor
+						TextDocument: protocol.TextDocumentIdentifier{
+							URI: uri,
+						},
+						Position: protocol.Position{
+							Line:      1,
+							Character: 14,
 						},
 					}),
 				)

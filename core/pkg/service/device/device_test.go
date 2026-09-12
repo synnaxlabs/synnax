@@ -291,7 +291,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d2)).To(Succeed())
 
 				var deviceStatus device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
@@ -321,7 +321,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
 				var deviceStatus device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&deviceStatus).
 					Exec(ctx, tx)).To(Succeed())
@@ -392,9 +392,9 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 
-				Expect(status.NewWriter[device.StatusDetails](stat, tx).
+				Expect(stat.NewWriter(tx).
 					Delete(ctx, d.OntologyID().String())).To(Succeed())
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
@@ -409,7 +409,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &reconfigured)).To(Succeed())
 
 				var healed device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&healed).
 					Exec(ctx, tx)).To(Succeed())
@@ -446,7 +446,7 @@ var _ = Describe("Device", func() {
 				Expect(w.Create(ctx, &reconfigured)).To(Succeed())
 
 				var preserved device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&preserved).
 					Exec(ctx, tx)).To(Succeed())
@@ -887,7 +887,7 @@ var _ = Describe("Device", func() {
 				).
 					To(MatchError(query.ErrNotFound))
 				var deletedStatus device.Status
-				Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Expect(stat.NewRetrieve[device.StatusDetails]().
 					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&deletedStatus).
 					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
@@ -974,7 +974,7 @@ var _ = Describe("Device", func() {
 
 				Eventually(func(g Gomega) {
 					var deviceStatus device.Status
-					g.Expect(status.NewRetrieve[device.StatusDetails](stat).
+					g.Expect(stat.NewRetrieve[device.StatusDetails]().
 						Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 						Entry(&deviceStatus).
 						Exec(ctx, nil)).To(Succeed())

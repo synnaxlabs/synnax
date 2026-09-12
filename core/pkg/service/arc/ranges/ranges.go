@@ -132,10 +132,10 @@ type ModuleConfig struct {
 
 func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	v := validate.New("arc.ranges")
-	validate.NotNil(v, "ranger", cfg.Ranger)
-	validate.NotNil(v, "reporter", cfg.Reporter)
+	v.NotNil("ranger", cfg.Ranger)
+	v.NotNil("reporter", cfg.Reporter)
 	if cfg.Runtime != nil {
-		validate.NotNil(v, "strings", cfg.Strings)
+		v.NotNil("strings", cfg.Strings)
 	}
 	if err := v.Error(); err != nil {
 		return nil, err

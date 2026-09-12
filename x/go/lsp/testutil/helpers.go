@@ -47,8 +47,8 @@ func ChangeDocument(
 ) {
 	gomega.Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
-			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
-			Version:                version,
+			URI:     uri,
+			Version: version,
 		},
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{
 			&protocol.TextDocumentContentChangeWholeDocument{Text: content},

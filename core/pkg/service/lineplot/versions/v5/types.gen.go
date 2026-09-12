@@ -14,7 +14,7 @@ package v5
 import (
 	"strconv"
 
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -464,7 +464,6 @@ func (l *LinePlot) ApplyDefaults() {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	validate.NotEmptyString(v, "name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })

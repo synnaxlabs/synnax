@@ -105,9 +105,9 @@ func (c Config) Override(other Config) Config {
 // Validate implements the config.Properties interface.
 func (c Config) Validate() error {
 	v := validate.New("server")
-	validate.NotEmptySlice(v, "listeners", c.Listeners)
+	v.NotEmptySlice("listeners", c.Listeners)
 	for i, l := range c.Listeners {
-		validate.NotEmptyString(v, fmt.Sprintf("listeners[%d].address", i), l.Address)
+		v.NotEmptyString(fmt.Sprintf("listeners[%d].address", i), l.Address)
 	}
 	return v.Error()
 }

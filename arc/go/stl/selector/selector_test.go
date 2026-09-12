@@ -158,7 +158,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](true, true, true)
+			*source.Output(0) = telem.NewSeriesV(true, true, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
@@ -170,7 +170,7 @@ var _ = Describe("Select", func() {
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(3)))
-			trueVals := telem.UnmarshalSeries[uint8](*trueOut)
+			trueVals := trueOut.Unmarshal[uint8]()
 			Expect(trueVals).To(Equal([]uint8{1, 1, 1}))
 		})
 		It("Should split all false values", func(ctx SpecContext) {
@@ -179,7 +179,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](false, false, false, false)
+			*source.Output(0) = telem.NewSeriesV(false, false, false, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40)
 			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
@@ -191,7 +191,7 @@ var _ = Describe("Select", func() {
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(4)))
-			falseVals := telem.UnmarshalSeries[uint8](*falseOut)
+			falseVals := falseOut.Unmarshal[uint8]()
 			Expect(falseVals).To(Equal([]uint8{1, 1, 1, 1}))
 		})
 		It("Should split mixed true and false values", func(ctx SpecContext) {
@@ -200,7 +200,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
+			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
@@ -214,8 +214,8 @@ var _ = Describe("Select", func() {
 			falseOut := selectNode.Output(1)
 			Expect(trueOut.Len()).To(Equal(int64(3)))
 			Expect(falseOut.Len()).To(Equal(int64(2)))
-			trueVals := telem.UnmarshalSeries[uint8](*trueOut)
-			falseVals := telem.UnmarshalSeries[uint8](*falseOut)
+			trueVals := trueOut.Unmarshal[uint8]()
+			falseVals := falseOut.Unmarshal[uint8]()
 			Expect(trueVals).To(Equal([]uint8{1, 1, 1}))
 			Expect(falseVals).To(Equal([]uint8{1, 1}))
 		})
@@ -225,13 +225,13 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
+			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueTime := selectNode.OutputTime(0)
-			trueTimes := telem.UnmarshalSeries[telem.TimeStamp](*trueTime)
+			trueTimes := trueTime.Unmarshal[telem.TimeStamp]()
 			Expect(trueTimes).To(Equal([]telem.TimeStamp{
 				telem.SecondTS * 10,
 				telem.SecondTS * 30,
@@ -244,13 +244,13 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](true, false, true, false, true)
+			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseTime := selectNode.OutputTime(1)
-			falseTimes := telem.UnmarshalSeries[telem.TimeStamp](*falseTime)
+			falseTimes := falseTime.Unmarshal[telem.TimeStamp]()
 			Expect(falseTimes).To(Equal([]telem.TimeStamp{
 				telem.SecondTS * 20,
 				telem.SecondTS * 40,
@@ -262,7 +262,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](true)
+			*source.Output(0) = telem.NewSeriesV(true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
@@ -281,7 +281,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](false)
+			*source.Output(0) = telem.NewSeriesV(false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			n, _ := factory.Create(cfg)
 			outputs := make(set.Set[int])
@@ -322,14 +322,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](
-				false,
-				false,
-				true,
-				true,
-				true,
-				false,
-			)
+			*source.Output(0) = telem.NewSeriesV(false, false, true, true, true, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
@@ -337,7 +330,7 @@ var _ = Describe("Select", func() {
 			trueOut := selectNode.Output(0)
 			trueTime := selectNode.OutputTime(0)
 			Expect(trueOut.Len()).To(Equal(int64(3)))
-			trueTimes := telem.UnmarshalSeries[telem.TimeStamp](*trueTime)
+			trueTimes := trueTime.Unmarshal[telem.TimeStamp]()
 			Expect(trueTimes).To(Equal([]telem.TimeStamp{
 				telem.SecondTS * 3,
 				telem.SecondTS * 4,
@@ -350,14 +343,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			source := s.Node("source")
-			*source.Output(0) = telem.NewSeriesV[bool](
-				true,
-				true,
-				false,
-				false,
-				false,
-				true,
-			)
+			*source.Output(0) = telem.NewSeriesV(true, true, false, false, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			n, _ := factory.Create(cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
@@ -365,7 +351,7 @@ var _ = Describe("Select", func() {
 			falseOut := selectNode.Output(1)
 			falseTime := selectNode.OutputTime(1)
 			Expect(falseOut.Len()).To(Equal(int64(3)))
-			falseTimes := telem.UnmarshalSeries[telem.TimeStamp](*falseTime)
+			falseTimes := falseTime.Unmarshal[telem.TimeStamp]()
 			Expect(falseTimes).To(Equal([]telem.TimeStamp{
 				telem.SecondTS * 3,
 				telem.SecondTS * 4,
@@ -503,7 +489,7 @@ var _ = Describe("Select", func() {
 				}
 				source := s.Node("source")
 
-				inputSeries := telem.NewSeriesV[bool](true, false, true, false)
+				inputSeries := telem.NewSeriesV(true, false, true, false)
 				inputSeries.Alignment = 150
 				inputSeries.TimeRange = telem.TimeRange{
 					Start: 50 * telem.SecondTS,

@@ -223,9 +223,7 @@ var _ = Describe("DidChange", func() {
 
 		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 			TextDocument: protocol.VersionedTextDocumentIdentifier{
-				TextDocumentIdentifier: protocol.TextDocumentIdentifier{
-					URI: "file:///change.oracle",
-				},
+				URI:     "file:///change.oracle",
 				Version: 2,
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{
@@ -254,9 +252,7 @@ var _ = Describe("DidChange", func() {
 
 		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 			TextDocument: protocol.VersionedTextDocumentIdentifier{
-				TextDocumentIdentifier: protocol.TextDocumentIdentifier{
-					URI: "file:///empty-change.oracle",
-				},
+				URI:     "file:///empty-change.oracle",
 				Version: 2,
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{},

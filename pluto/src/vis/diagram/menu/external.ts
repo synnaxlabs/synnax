@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/vis/diagram/menu/ClipboardItems";
+export * from "@/vis/diagram/menu/GroupItems";
 export * from "@/vis/diagram/menu/ToggleEditItem";

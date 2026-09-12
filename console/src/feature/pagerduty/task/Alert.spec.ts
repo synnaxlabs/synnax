@@ -78,6 +78,13 @@ describe("PagerDuty Alert form", () => {
     await screen.findByText("Disable");
   });
 
+  it("should offer Reload Console from the alert context menu", async () => {
+    await renderAlert();
+    await addAlert();
+    fireEvent.contextMenu(screen.getByText("New alert"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should remove alerts through the context menu", async () => {
     await renderAlert();
     await addAlert();

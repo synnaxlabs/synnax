@@ -71,10 +71,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("auth")
-	validate.NotNil(v, "key_provider", c.KeyProvider)
-	validate.Positive(v, "expiration", c.Expiration)
-	validate.Positive(v, "refresh_threshold", c.RefreshThreshold)
-	validate.NotNil(v, "now", c.Now)
+	v.NotNil("key_provider", c.KeyProvider)
+	v.Positive("expiration", c.Expiration)
+	v.Positive("refresh_threshold", c.RefreshThreshold)
+	v.NotNil("now", c.Now)
 	return v.Error()
 }
 

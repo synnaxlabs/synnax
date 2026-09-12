@@ -68,7 +68,7 @@ var _ = Describe("Identifier Compilation", func() {
 				Expect(scopeB).ToNot(BeNil())
 				// Compile expression using both variables
 				expr := MustSucceed(parser.ParseExpression("a + b"))
-				exprType := MustSucceed(expression.Compile(ccontext.Child(ctx, expr)))
+				exprType := MustSucceed(expression.Compile(ctx.Child(expr)))
 				bytecode := ctx.Writer.Bytes()
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0, // Resolve 'a'
@@ -322,7 +322,7 @@ var _ = Describe("Identifier Compilation", func() {
 					Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
 				}))
 				expr := MustSucceed(parser.ParseExpression("shared"))
-				Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				Expect(expression.Compile(ctx.Child(expr))).Error().
 					To(MatchError(ContainSubstring("not a compile-time constant")))
 			},
 		)
@@ -411,7 +411,7 @@ var _ = Describe("Identifier Compilation", func() {
 					DefaultValue: value,
 				}))
 				expr := MustSucceed(parser.ParseExpression("shared"))
-				Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				Expect(expression.Compile(ctx.Child(expr))).Error().
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("string type, non-string value", types.String(), 5, "cannot fold"),
@@ -801,9 +801,7 @@ var _ = Describe("Identifier Compilation", func() {
 					analyzerCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				exprType := MustSucceed(
-					expression.Compile(ccontext.Child(compilerCtx, expr)),
-				)
+				exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 				Expect(exprType).To(Equal(types.TimeStamp()))
 				Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(OpCall, uint32(0)))
 			},

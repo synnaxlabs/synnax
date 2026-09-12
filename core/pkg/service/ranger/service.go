@@ -75,11 +75,11 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "label", c.Label)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
+	v.NotNil("label", c.Label)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -131,11 +131,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return s, nil
 	}
 	var sig io.Closer
-	if sig, err = signals.PublishFromGorp(
+	if sig, err = cfg.Signals.PublishFromGorp(
 		ctx,
-		cfg.Signals,
 		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+	); !ok(
+		err,
+		sig,
+	) {
 		return nil, err
 	}
 	return s, nil

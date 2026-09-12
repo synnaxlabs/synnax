@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// jsdom ships no IndexedDB; the session store uses it as the browser backend.
+import "zod/compile";
 import "fake-indexeddb/auto";
 
 import { configure } from "@testing-library/react";

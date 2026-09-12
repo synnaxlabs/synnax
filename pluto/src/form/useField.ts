@@ -45,11 +45,7 @@ export interface UseFieldReturn<I, O = I> extends FieldState<I> {
 interface UseField {
   <I, O = I>(
     path: string,
-    opts?: RequiredGetOptions & UseFieldOptions<I, O>,
-  ): UseFieldReturn<I, O>;
-  <I, O = I>(
-    path: string,
-    opts?: DefaultGetOptions<I> & UseFieldOptions<I, O>,
+    opts?: (RequiredGetOptions | DefaultGetOptions<I>) & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
   <I, O = I>(
     path: string,
@@ -57,6 +53,9 @@ interface UseField {
   ): UseFieldReturn<I, O> | null;
   <I, O = I>(
     path: string,
+    // ExtensionGetOptions also accepts `optional: true`, so this overload must stay
+    // below the optional one to keep that call returning null.
+    // eslint-disable-next-line @typescript-eslint/unified-signatures
     opts?: ExtensionGetOptions<I> & UseFieldOptions<I, O>,
   ): UseFieldReturn<I, O>;
 }
@@ -108,7 +107,7 @@ export const useField = (<I, O = I>(
 export interface UseFieldValue {
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: RequiredGetOptions & ContextOptions<Z>,
+    opts?: (RequiredGetOptions | DefaultGetOptions<I>) & ContextOptions<Z>,
   ): O;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
@@ -116,10 +115,9 @@ export interface UseFieldValue {
   ): O | null;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: DefaultGetOptions<I> & ContextOptions<Z>,
-  ): O;
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
+    // ExtensionGetOptions also accepts `optional: true`, so this overload must stay
+    // below the optional one to keep that call returning null.
+    // eslint-disable-next-line @typescript-eslint/unified-signatures
     opts?: ExtensionGetOptions<I> & ContextOptions<Z>,
   ): O;
 }
@@ -127,7 +125,7 @@ export interface UseFieldValue {
 export interface UseFieldState {
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: RequiredGetOptions & ContextOptions<Z>,
+    opts?: (RequiredGetOptions | DefaultGetOptions<I>) & ContextOptions<Z>,
   ): FieldState<O>;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
@@ -135,10 +133,9 @@ export interface UseFieldState {
   ): FieldState<O> | null;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: DefaultGetOptions<I> & ContextOptions<Z>,
-  ): FieldState<O>;
-  <I, O = I, Z extends z.ZodType = z.ZodType>(
-    path: string,
+    // ExtensionGetOptions also accepts `optional: true`, so this overload must stay
+    // below the optional one to keep that call returning null.
+    // eslint-disable-next-line @typescript-eslint/unified-signatures
     opts?: ExtensionGetOptions<I> & ContextOptions<Z>,
   ): FieldState<O>;
 }

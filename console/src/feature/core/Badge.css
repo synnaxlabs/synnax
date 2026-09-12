@@ -9,36 +9,37 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-connection-badge__dialog {
+.console-core-badge__user {
+    color: var(--pluto-text-color);
+}
+
+.console-core-badge__dialog {
     width: 300px;
 
-    .console-connection-badge__body {
+    .console-core-badge__body {
         padding: 1.5rem 2rem;
     }
 
-    .console-connection-badge__dot {
-        font-size: 2.25rem;
-    }
-
-    .console-connection-badge__address {
-        > p {
-            cursor: pointer;
-        }
-
+    .console-core-badge__name,
+    .console-core-badge__address {
         .pluto-btn {
             opacity: 0;
         }
 
-        &:hover .pluto-btn {
+        &:is(:hover, :focus-within) .pluto-btn {
             opacity: 1;
         }
     }
 
-    .console-connection-badge__state {
+    .console-core-badge__address > p {
+        cursor: pointer;
+    }
+
+    .console-core-badge__state {
         margin-left: auto;
     }
 
-    .console-connection-badge__actions {
+    .console-core-badge__actions {
         padding: 1rem;
 
         > * {

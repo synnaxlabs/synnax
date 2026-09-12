@@ -47,7 +47,7 @@ export const useClipboard = ({
       } = cached;
       return { nodes, edges, configs: inputs };
     },
-    apply: ({ nodes, edges, newKeys }) => {
+    apply: ({ nodes, edges, remap }) => {
       const actions: arc.Action[] = [];
       for (const { node, config } of nodes) {
         actions.push(arc.setNode({ node }));
@@ -57,7 +57,7 @@ export const useClipboard = ({
       for (const { edge } of edges)
         actions.push(arc.addEdge({ edge: { ...edge, key: uuid.create() } }));
       dispatch({ key, actions });
-      onPaste?.(newKeys);
+      onPaste?.(Object.values(remap));
     },
     remove: ({ nodes, edges }) => {
       dispatch({

@@ -291,7 +291,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 	// The ticker's t=0 startup tick fires entry nodes; an input-driven program
 	// would otherwise not fire them until the first input is received.
 	ticker := &tickerRuntime{dataRuntime: drt}
-	plumber.SetSegment(pipeline, runtimeAddr, ticker)
+	pipeline.SetSegment(runtimeAddr, ticker)
 
 	var (
 		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
@@ -306,13 +306,8 @@ func (t *impl) open(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		plumber.SetSegment(pipeline, streamerAddr, streamer)
-		plumber.MustConnect[framer.StreamerResponse](
-			pipeline,
-			streamerAddr,
-			runtimeAddr,
-			10,
-		)
+		pipeline.SetSegment(streamerAddr, streamer)
+		pipeline.MustConnect[framer.StreamerResponse](streamerAddr, runtimeAddr, 10)
 		streamer.InFrom(streamerRequests)
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
 	} else {
@@ -344,8 +339,8 @@ func (t *impl) open(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		plumber.SetSegment(pipeline, writerAddr, wrt)
-		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
+		pipeline.SetSegment(writerAddr, wrt)
+		pipeline.MustConnect[framer.WriterRequest](runtimeAddr, writerAddr, 10)
 		writerResponses := &confluence.UnarySink[framer.WriterResponse]{
 			Sink: func(ctx context.Context, res framer.WriterResponse) error {
 				if res.Err != nil {
@@ -373,13 +368,8 @@ func (t *impl) open(ctx context.Context) (err error) {
 				return nil
 			},
 		}
-		plumber.SetSink(pipeline, writerResponsesAddr, writerResponses)
-		plumber.MustConnect[framer.WriterResponse](
-			pipeline,
-			writerAddr,
-			writerResponsesAddr,
-			10,
-		)
+		pipeline.SetSink(writerResponsesAddr, writerResponses)
+		pipeline.MustConnect[framer.WriterResponse](writerAddr, writerResponsesAddr, 10)
 	}
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
@@ -582,19 +572,12 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			if err := r.next(ctx, res, runReason); err != nil {
 				return err
 			}
-			// Drain the timer channel before resetting to avoid stale
-			// values from a simultaneous fire during the select.
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
+			timer.Stop()
 			deadline := r.scheduler.NextDeadline()
 			elapsed := telem.Since(r.startTime)
 			if deadline == telem.TimeSpanMax {
-				// No active timers. Timer stays stopped (from the
-				// drain above). We'll only wake on channel input.
+				// No active timers. Timer stays stopped, so we only wake on channel
+				// input.
 			} else if deadline > elapsed {
 				timer.Reset((deadline - elapsed).Duration())
 			} else {

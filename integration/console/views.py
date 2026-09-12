@@ -9,18 +9,10 @@
 
 """View strip helper for Console UI automation."""
 
-import re
-
 from playwright.sync_api import Locator, expect
 
 from console.base import ResourceClient
 from console.layout import LayoutClient
-
-STRIP_SELECTOR = ".console-view__views"
-ITEM_SELECTOR = ".pluto-select-btn"
-# Every list item names its text element after its key, per List.itemNameID.
-ITEM_LABEL_SELECTOR = "[id$='-name']"
-SELECTED_CLASS = "pluto--selected"
 
 
 class ViewsClient(ResourceClient):
@@ -55,17 +47,16 @@ class ViewsClient(ResourceClient):
     # ── Private Helpers ───────────────────────────────────────────────────
 
     def _strip(self) -> Locator:
-        """Return the view strip locator."""
-        return self.page.locator(STRIP_SELECTOR).first
+        """Return the view strip locator.
+
+        The name separates the strip from the panel tab strip, which is the other
+        tablist on the page.
+        """
+        return self.page.get_by_role("tablist", name="Views").first
 
     def _search_input(self) -> Locator:
         """Return the explorer search input locator."""
         return self.page.get_by_placeholder(self.search_placeholder)
-
-    def _item_label(self, name: str) -> Locator:
-        """Return an exact-name label filter, relative to whatever it is nested in."""
-        pattern = re.compile(rf"^{re.escape(name)}$")
-        return self.page.locator(ITEM_LABEL_SELECTOR).filter(has_text=pattern)
 
     # ── View Items ────────────────────────────────────────────────────────
 
@@ -74,15 +65,15 @@ class ViewsClient(ResourceClient):
 
         :param name: Exact name of the view.
         """
-        return self._strip().locator(ITEM_SELECTOR).filter(has=self._item_label(name))
+        return self._strip().get_by_role("tab", name=name, exact=True)
 
     def get_view_items(self) -> list[str]:
         """Return the names of every view in the strip, in display order."""
-        return self._strip().locator(ITEM_LABEL_SELECTOR).all_inner_texts()
+        return self._strip().get_by_role("tab").all_inner_texts()
 
     def wait_for_static_view(self) -> None:
         """Wait for the built-in view to show, marking the explorer as loaded."""
-        self.page.get_by_text(self.static_view_name).wait_for(
+        self.get_view_item(self.static_view_name).wait_for(
             state="visible", timeout=5000
         )
 
@@ -108,13 +99,13 @@ class ViewsClient(ResourceClient):
         item = self.get_view_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click()
-        expect(item).to_have_class(re.compile(SELECTED_CLASS), timeout=5000)
+        expect(item).to_have_attribute("aria-selected", "true", timeout=5000)
 
     def get_selected(self) -> str:
         """Return the name of the currently selected view."""
-        selected = self._strip().locator(f"{ITEM_SELECTOR}.{SELECTED_CLASS}").first
+        selected = self._strip().get_by_role("tab", selected=True).first
         selected.wait_for(state="visible", timeout=5000)
-        return selected.locator(ITEM_LABEL_SELECTOR).inner_text()
+        return selected.inner_text()
 
     def is_selected(self, name: str) -> bool:
         """Check whether the named view is the selected one."""
@@ -131,9 +122,9 @@ class ViewsClient(ResourceClient):
         """
         self.enable_editing()
         self.page.get_by_role("button", name="Create view", exact=True).first.click()
-        modal = self.page.locator(LayoutClient.MODAL_SELECTOR)
+        modal = self.layout.dialog
         modal.wait_for(state="visible", timeout=5000)
-        modal.locator("input[placeholder='Name']").fill(name)
+        modal.get_by_placeholder("Name", exact=True).fill(name)
         modal.get_by_role("button", name="Save", exact=True).click(timeout=5000)
         modal.wait_for(state="hidden", timeout=5000)
         self.wait_for(name)

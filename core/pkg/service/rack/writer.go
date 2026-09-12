@@ -32,7 +32,7 @@ type Writer struct {
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
 	// status is used to write status updates.
-	status status.Writer[StatusDetails]
+	status status.Writer
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 }

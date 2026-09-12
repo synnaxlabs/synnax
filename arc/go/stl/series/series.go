@@ -250,14 +250,14 @@ func bindBool(
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() {
-				telem.SetValueAt[bool](ser, int(index), value != 0)
+				ser.SetValueAt(int(index), bool(value != 0))
 			}
 			return handle
 		}).Export("set_element_bool")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
 			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() &&
-				telem.ValueAt[bool](ser, int(index)) {
+				ser.ValueAt[bool](int(index)) {
 				return 1
 			}
 			return 0
@@ -343,7 +343,7 @@ func bindI32Type[T i32Scalar](
 		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					telem.SetValueAt[T](ser, int(index), T(value))
+					ser.SetValueAt(int(index), T(value))
 				}
 			}
 			return handle
@@ -352,7 +352,7 @@ func bindI32Type[T i32Scalar](
 		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					return uint32(telem.ValueAt[T](ser, int(index)))
+					return uint32(ser.ValueAt[T](int(index)))
 				}
 			}
 			return 0
@@ -581,7 +581,7 @@ func bindI64Type[T uint64 | int64](
 		WithFunc(func(_ context.Context, handle, index uint32, value uint64) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					telem.SetValueAt[T](ser, int(index), T(value))
+					ser.SetValueAt(int(index), T(value))
 				}
 			}
 			return handle
@@ -590,7 +590,7 @@ func bindI64Type[T uint64 | int64](
 		WithFunc(func(_ context.Context, handle, index uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					return uint64(telem.ValueAt[T](ser, int(index)))
+					return uint64(ser.ValueAt[T](int(index)))
 				}
 			}
 			return 0
@@ -706,7 +706,7 @@ func bindFloatType[T float32 | float64](
 		WithFunc(func(_ context.Context, handle, index uint32, value T) uint32 {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					telem.SetValueAt[T](ser, int(index), value)
+					ser.SetValueAt(int(index), value)
 				}
 			}
 			return handle
@@ -715,7 +715,7 @@ func bindFloatType[T float32 | float64](
 		WithFunc(func(_ context.Context, handle, index uint32) T {
 			if ser, ok := s.Get(handle); ok {
 				if int64(index) < ser.Len() {
-					return telem.ValueAt[T](ser, int(index))
+					return ser.ValueAt[T](int(index))
 				}
 			}
 			return 0
@@ -822,7 +822,7 @@ func bindU8(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type[uint8](builder, s, "u8", seriesOps[uint8]{
+	return bindI32Type(builder, s, "u8", seriesOps[uint8]{
 		dt:        telem.Uint8T,
 		addScalar: op.AddScalarU8, subScalar: op.SubtractScalarU8,
 		mulScalar: op.MultiplyScalarU8, divScalar: op.DivideScalarU8,
@@ -845,7 +845,7 @@ func bindU16(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type[uint16](builder, s, "u16", seriesOps[uint16]{
+	return bindI32Type(builder, s, "u16", seriesOps[uint16]{
 		dt:        telem.Uint16T,
 		addScalar: op.AddScalarU16, subScalar: op.SubtractScalarU16,
 		mulScalar: op.MultiplyScalarU16, divScalar: op.DivideScalarU16,
@@ -868,7 +868,7 @@ func bindU32(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type[uint32](builder, s, "u32", seriesOps[uint32]{
+	return bindI32Type(builder, s, "u32", seriesOps[uint32]{
 		dt:        telem.Uint32T,
 		addScalar: op.AddScalarU32, subScalar: op.SubtractScalarU32,
 		mulScalar: op.MultiplyScalarU32, divScalar: op.DivideScalarU32,
@@ -891,7 +891,7 @@ func bindI8(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type[int8](builder, s, "i8", seriesOps[int8]{
+	return bindI32Type(builder, s, "i8", seriesOps[int8]{
 		dt:        telem.Int8T,
 		addScalar: op.AddScalarI8, subScalar: op.SubtractScalarI8,
 		mulScalar: op.MultiplyScalarI8, divScalar: op.DivideScalarI8,
@@ -915,7 +915,7 @@ func bindI16(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type[int16](builder, s, "i16", seriesOps[int16]{
+	return bindI32Type(builder, s, "i16", seriesOps[int16]{
 		dt:        telem.Int16T,
 		addScalar: op.AddScalarI16, subScalar: op.SubtractScalarI16,
 		mulScalar: op.MultiplyScalarI16, divScalar: op.DivideScalarI16,
@@ -939,7 +939,7 @@ func bindI32(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI32Type[int32](builder, s, "i32", seriesOps[int32]{
+	return bindI32Type(builder, s, "i32", seriesOps[int32]{
 		dt:        telem.Int32T,
 		addScalar: op.AddScalarI32, subScalar: op.SubtractScalarI32,
 		mulScalar: op.MultiplyScalarI32, divScalar: op.DivideScalarI32,
@@ -963,7 +963,7 @@ func bindU64(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI64Type[uint64](builder, s, "u64", telem.Uint64T, seriesOps[uint64]{
+	return bindI64Type(builder, s, "u64", telem.Uint64T, seriesOps[uint64]{
 		dt:        telem.Uint64T,
 		addScalar: op.AddScalarU64, subScalar: op.SubtractScalarU64,
 		mulScalar: op.MultiplyScalarU64, divScalar: op.DivideScalarU64,
@@ -986,7 +986,7 @@ func bindI64(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindI64Type[int64](builder, s, "i64", telem.Int64T, seriesOps[int64]{
+	return bindI64Type(builder, s, "i64", telem.Int64T, seriesOps[int64]{
 		dt:        telem.Int64T,
 		addScalar: op.AddScalarI64, subScalar: op.SubtractScalarI64,
 		mulScalar: op.MultiplyScalarI64, divScalar: op.DivideScalarI64,
@@ -1010,7 +1010,7 @@ func bindF32(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindFloatType[float32](builder, s, "f32", telem.Float32T, seriesOps[float32]{
+	return bindFloatType(builder, s, "f32", telem.Float32T, seriesOps[float32]{
 		dt:        telem.Float32T,
 		addScalar: op.AddScalarF32, subScalar: op.SubtractScalarF32,
 		mulScalar: op.MultiplyScalarF32, divScalar: op.DivideScalarF32,
@@ -1034,7 +1034,7 @@ func bindF64(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 ) wazero.HostModuleBuilder {
-	return bindFloatType[float64](builder, s, "f64", telem.Float64T, seriesOps[float64]{
+	return bindFloatType(builder, s, "f64", telem.Float64T, seriesOps[float64]{
 		dt:        telem.Float64T,
 		addScalar: op.AddScalarF64, subScalar: op.SubtractScalarF64,
 		mulScalar: op.MultiplyScalarF64, divScalar: op.DivideScalarF64,

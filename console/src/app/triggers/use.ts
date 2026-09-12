@@ -25,6 +25,9 @@ const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
   Palette.COMMAND_TRIGGER,
   ["Control", "MouseLeft"],
   PPanel.CLOSE_TRIGGER,
+  // Browsers bind Ctrl+U to view-source and Ctrl+G to find-next.
+  Triggers.GROUP,
+  Triggers.UNGROUP,
 ];
 
 export const PROVIDER_PROPS: Triggers.ProviderProps = {

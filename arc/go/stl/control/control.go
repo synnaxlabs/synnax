@@ -128,8 +128,8 @@ func (s *setAuthority) Next(node.Context) {
 	}
 	s.initialized = true
 	var channelKey *uint32
-	if key := node.NumericInput[uint32](s.State, "channel"); key != 0 {
+	if key := s.NumericInput[uint32]("channel"); key != 0 {
 		channelKey = &key
 	}
-	s.auth.Set(channelKey, node.NumericInput[uint8](s.State, "value"))
+	s.auth.Set(channelKey, s.NumericInput[uint8]("value"))
 }

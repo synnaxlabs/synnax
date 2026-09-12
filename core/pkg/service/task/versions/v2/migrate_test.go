@@ -110,9 +110,7 @@ var _ = Describe("Migrations", func() {
 					"cmd":     "start",
 				},
 			}
-			Expect(
-				status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus),
-			).To(Succeed())
+			Expect(stat.NewWriter(nil).Set(ctx, &legacyStatus)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
@@ -140,7 +138,7 @@ var _ = Describe("Migrations", func() {
 			Expect(migrated.ConfigHash).ToNot(BeEmpty())
 
 			var restoredStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
+			Expect(stat.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(migrated.Key).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())

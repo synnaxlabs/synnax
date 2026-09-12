@@ -12,7 +12,6 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
@@ -240,7 +239,7 @@ var _ = Describe("Format String Compilation", func() {
 				Type: types.Series(types.Bool()),
 			}))
 			expr := MustSucceed(parser.ParseExpression(`f"{s}"`))
-			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+			Expect(expression.Compile(ctx.Child(expr))).Error().
 				To(MatchError(ContainSubstring(
 					"only numeric, string, and bool types are supported",
 				)))
@@ -256,7 +255,7 @@ var _ = Describe("Format String Compilation", func() {
 				// error branch in compileRawStringLiteral.
 				expr := MustSucceed(parser.ParseExpression(`f"{"`))
 				ctx := NewContext(bCtx)
-				_, err := expression.Compile(ccontext.Child(ctx, expr))
+				_, err := expression.Compile(ctx.Child(expr))
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("unmatched"))
 			},

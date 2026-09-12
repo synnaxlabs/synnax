@@ -44,8 +44,8 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("control")
-	validate.NotNil(v, "control", c.Control)
-	validate.NotNil(v, "signals", c.Signals)
+	v.NotNil("control", c.Control)
+	v.NotNil("signals", c.Signals)
 	return v.Error()
 }
 
@@ -76,9 +76,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.shutdown, err = signals.PublishJSON(
+	if s.shutdown, err = cfg.Signals.PublishJSON(
 		ctx,
-		cfg.Signals,
 		signals.JSONPublisherConfig[Update]{
 			Observable: cfg.Control,
 			SetName:    channelName,

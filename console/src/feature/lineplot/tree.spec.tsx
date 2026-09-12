@@ -228,6 +228,16 @@ describe("lineplot/ontology", () => {
 });
 
 describe("permission to write the line plot", () => {
+  it("should offer Reload Console", async () => {
+    const plot = await createLinePlot();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [createResource(clientLineplot.ontologyID(plot.key), plot.name)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should withhold rename, grouping, and delete from a viewer", async () => {
     const plot = await createLinePlot();
     assertDefined(Item.ContextMenu);

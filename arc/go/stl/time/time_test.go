@@ -367,7 +367,7 @@ var _ = Describe("Time", func() {
 
 			outputTime := intervalNode.OutputTime(0)
 			Expect(outputTime.Len()).To(Equal(int64(1)))
-			ts := telem.ValueAt[telem.TimeStamp](*outputTime, 0)
+			ts := outputTime.ValueAt[telem.TimeStamp](0)
 			Expect(ts).To(BeNumerically(">=", before))
 			Expect(ts).To(BeNumerically("<=", after))
 		})
@@ -705,7 +705,7 @@ var _ = Describe("Time", func() {
 
 			outputTime := waitNode.OutputTime(0)
 			Expect(outputTime.Len()).To(Equal(int64(1)))
-			ts := telem.ValueAt[telem.TimeStamp](*outputTime, 0)
+			ts := outputTime.ValueAt[telem.TimeStamp](0)
 			Expect(ts).To(BeNumerically(">=", before))
 			Expect(ts).To(BeNumerically("<=", after))
 		})
@@ -2037,7 +2037,7 @@ var _ = Describe("Time", func() {
 				Expect(changedOutputs[0]).To(Equal(0))
 				output := nowNode.Output(0)
 				Expect(output.Len()).To(Equal(int64(1)))
-				ts := telem.ValueAt[telem.TimeStamp](*output, 0)
+				ts := output.ValueAt[telem.TimeStamp](0)
 				Expect(ts).To(BeNumerically(">=", before))
 				Expect(ts).To(BeNumerically("<=", after))
 			},
@@ -2111,8 +2111,8 @@ var _ = Describe("Time", func() {
 			outputTime := nowNode.OutputTime(0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(outputTime.Len()).To(Equal(int64(1)))
-			ts := telem.ValueAt[telem.TimeStamp](*output, 0)
-			tsTime := telem.ValueAt[telem.TimeStamp](*outputTime, 0)
+			ts := output.ValueAt[telem.TimeStamp](0)
+			tsTime := outputTime.ValueAt[telem.TimeStamp](0)
 			Expect(ts).To(Equal(tsTime))
 		})
 		It("Should work after reset", func(ctx SpecContext) {

@@ -461,6 +461,9 @@ export interface EditorProps
   extends Omit<Flex.BoxProps, "value" | "onChange" | "ref">, UseProps {
   ref?: Ref<EditorHandle>;
   loading?: ReactNode;
+  /** extraMenuItems are appended to the context menu, so a consumer can add
+   * app-specific entries (e.g. "Reload Console"). */
+  extraMenuItems?: ReactNode;
 }
 
 const MENU_EDITOR_ACTIONS: Record<string, string> = {
@@ -484,6 +487,7 @@ const EditorInternal = ({
   placeholder,
   autoFocus,
   background = 1,
+  extraMenuItems,
   ...rest
 }: Omit<EditorProps, "loading">) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
@@ -576,9 +580,10 @@ const EditorInternal = ({
           Format
         </Menu.Item>
         <Menu.Divider />
+        {extraMenuItems}
       </Menu.Menu>
     );
-  }, [createMenuAction, cursorRenameable]);
+  }, [createMenuAction, cursorRenameable, extraMenuItems]);
 
   return (
     <Flex.Box

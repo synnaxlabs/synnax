@@ -34,7 +34,7 @@ interface RenderPropertiesParams {
   nodeKeys: string[];
   sessionState?: Partial<Session.Schematic.State>;
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
-  createConfig?: () => Record<string, unknown>;
+  createConfig?: (key: string) => Record<string, unknown>;
 }
 
 const renderProperties = async ({
@@ -44,7 +44,7 @@ const renderProperties = async ({
   createConfig = createValveConfig,
 }: RenderPropertiesParams) => {
   const configs: Record<string, unknown> = {};
-  nodeKeys.forEach((key) => (configs[key] = createConfig()));
+  nodeKeys.forEach((key) => (configs[key] = createConfig(key)));
   const Harness = (): ReactElement => (
     <>
       <Schematic.Toolbar />
@@ -118,6 +118,76 @@ describe("Schematic toolbar Properties", () => {
       ).toBeDefined();
       expect(screen.getByText("Or create a symbol in:")).toBeDefined();
       expect(isPlutoDisabled(findButton("Create symbol"))).toBe(true);
+    });
+  });
+
+  describe("grouped selection", () => {
+    const nodeKeys = ["g1", "n1", "n2", "n3"];
+    const createGroupedConfig = (key: string): Record<string, unknown> =>
+      key === "g1"
+        ? {
+            ...(PSchematic.Node.resolveSpec("groupBox").defaultConfig(theme) as Record<
+              string,
+              unknown
+            >),
+            members: ["n1", "n2"],
+          }
+        : createValveConfig();
+
+    it("routes a grouped member plus a loose symbol to the multi form", async () => {
+      await renderProperties({
+        nodeKeys,
+        createConfig: createGroupedConfig,
+        sessionState: { selected: ["n1", "n3"] },
+      });
+      await screen.findByText("Align");
+    });
+
+    const createLockedConfig = (key: string): Record<string, unknown> =>
+      key === "g1"
+        ? { ...createGroupedConfig(key), locked: true }
+        : createGroupedConfig(key);
+
+    it("skips a locked group's members when rotating", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        sessionState: { selected: nodeKeys },
+      });
+      await screen.findByText("Align");
+      fireEvent.click(getIconButton(result.container, "rotate-group-cw"));
+      await expect
+        .poll(async () => (await retrieveConfig(key, "n3")).orientation)
+        .toEqual(location.rotate("left", "clockwise"));
+      expect((await retrieveConfig(key, "n1")).orientation).toBe("left");
+    });
+
+    it("skips a locked group's members when applying label props", async () => {
+      const { key, result } = await renderProperties({
+        nodeKeys,
+        createConfig: createLockedConfig,
+        sessionState: { selected: nodeKeys },
+      });
+      await screen.findByText("Align");
+      const input = getInputByItemLabel(result.container, "Label wrap width");
+      fireEvent.change(input, { target: { value: "200" } });
+      fireEvent.blur(input);
+      await expect
+        .poll(async () => (await retrieveConfig(key, "n3")).label)
+        .toMatchObject({ maxInlineSize: 200 });
+      expect((await retrieveConfig(key, "n1")).label).not.toMatchObject({
+        maxInlineSize: 200,
+      });
+    });
+
+    it("routes a group selected with its members to the multi form", async () => {
+      await renderProperties({
+        nodeKeys,
+        createConfig: createGroupedConfig,
+        sessionState: { selected: ["g1", "n1", "n2"] },
+      });
+      await screen.findByText("Align");
+      expect(screen.queryByText("Groups have no editable properties.")).toBeNull();
     });
   });
 

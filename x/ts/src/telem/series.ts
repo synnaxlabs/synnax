@@ -1455,9 +1455,6 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * as the existing series in this collection.
    * @throws Error if the series being added has a different data type
    */
-  push(series: Series<T>): void;
-  push(series: MultiSeries<T>): void;
-
   push(series: Series<T> | MultiSeries<T>): void {
     const invalidDataTypeError = () =>
       new Error(

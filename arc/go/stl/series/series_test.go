@@ -928,7 +928,7 @@ var _ = Describe("Series", func() {
 			rh := callU32(ctx, "negate_f32", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
-			Expect(telem.ValueAt[float32](ser, 0)).To(BeNumerically("~", -3.14, 0.001))
+			Expect(ser.ValueAt[float32](0)).To(BeNumerically("~", -3.14, 0.001))
 		})
 
 		It("Should negate f64", func(ctx SpecContext) {
@@ -943,7 +943,7 @@ var _ = Describe("Series", func() {
 			rh := callU32(ctx, "negate_f64", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
-			Expect(telem.ValueAt[float64](ser, 0)).To(BeNumerically("~", -3.14, 0.001))
+			Expect(ser.ValueAt[float64](0)).To(BeNumerically("~", -3.14, 0.001))
 		})
 	})
 
@@ -1019,8 +1019,8 @@ var _ = Describe("Series", func() {
 			rh := callU32(ctx, "not", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
-			Expect(telem.ValueAt[bool](ser, 0)).To(BeTrue())
-			Expect(telem.ValueAt[bool](ser, 1)).To(BeFalse())
+			Expect(ser.ValueAt[bool](0)).To(BeTrue())
+			Expect(ser.ValueAt[bool](1)).To(BeFalse())
 		})
 	})
 
@@ -1049,7 +1049,7 @@ var _ = Describe("Series", func() {
 				)
 				ser := MustBeOk(ss.Get(out))
 				for i, e := range expected {
-					Expect(telem.ValueAt[bool](ser, i)).To(Equal(e != 0), "index %d", i)
+					Expect(ser.ValueAt[bool](i)).To(Equal(e != 0), "index %d", i)
 				}
 			},
 			Entry("and truth table", "and",
@@ -1069,7 +1069,7 @@ var _ = Describe("Series", func() {
 				)
 				ser := MustBeOk(ss.Get(out))
 				for i, e := range expected {
-					Expect(telem.ValueAt[bool](ser, i)).To(Equal(e != 0), "index %d", i)
+					Expect(ser.ValueAt[bool](i)).To(Equal(e != 0), "index %d", i)
 				}
 			},
 			Entry("and true is identity", "and_scalar",
@@ -1166,8 +1166,8 @@ var _ = Describe("Series", func() {
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
 			Expect(ser.Len()).To(Equal(int64(2)))
-			Expect(telem.ValueAt[int32](ser, 0)).To(Equal(int32(20)))
-			Expect(telem.ValueAt[int32](ser, 1)).To(Equal(int32(30)))
+			Expect(ser.ValueAt[int32](0)).To(Equal(int32(20)))
+			Expect(ser.ValueAt[int32](1)).To(Equal(int32(30)))
 		})
 
 		It("Should return 0 for invalid handle", func(ctx SpecContext) {

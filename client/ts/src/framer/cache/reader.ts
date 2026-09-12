@@ -172,9 +172,11 @@ export class Reader {
           if (existing == null) grouped.set(key, [s]);
           else existing.push(s);
         });
-        channels.forEach((key) =>
-          cache.get(key).writeStatic(new MultiSeries(grouped.get(key) ?? [])),
-        );
+        channels.forEach((key) => {
+          const unary = cache.get(key);
+          unary.writeStatic(new MultiSeries(grouped.get(key) ?? []));
+          unary.markFetched(gap);
+        });
       }
     } catch (err) {
       failure = err;

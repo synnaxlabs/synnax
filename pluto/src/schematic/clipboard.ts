@@ -11,6 +11,7 @@ import { query, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { type RefObject } from "react";
 
+import { Group } from "@/schematic/group";
 import { useSingleDispatch } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
 import { Synnax } from "@/synnax";
@@ -45,17 +46,19 @@ export const useClipboard = ({
       const { nodes, edges, configs } = cached;
       return { nodes, edges, configs };
     },
-    apply: ({ nodes, edges, newKeys }) => {
+    apply: ({ nodes, edges, remap }) => {
       const actions: schematic.Action[] = [];
       for (const { node, config } of nodes)
-        actions.push(schematic.setNode({ node, config }));
+        actions.push(
+          schematic.setNode({ node, config: Group.remapMembers(config, remap) }),
+        );
       for (const { edge, config } of edges) {
         const edgeKey = uuid.create();
         actions.push(schematic.addEdge({ edge: { ...edge, key: edgeKey } }));
         if (config != null) actions.push(schematic.setConfig({ key: edgeKey, config }));
       }
       dispatch(actions);
-      if (actions.length > 0) onPaste?.(newKeys);
+      if (actions.length > 0) onPaste?.(Object.values(remap));
     },
     remove: ({ nodes, edges }) => {
       // removeNode does not cascade, so cut unselected connected edges too;

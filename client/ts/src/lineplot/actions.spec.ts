@@ -406,6 +406,74 @@ describe("lineplot reducer", () => {
     });
   });
 
+  describe("setCustomRange", () => {
+    const dynamic: lineplot.CustomRange = { variant: "dynamic", span: 60e9 };
+    const staticRange: lineplot.CustomRange = {
+      variant: "static",
+      start: "0",
+      end: "1000",
+    };
+
+    it("should set the custom window", () => {
+      const out = apply(createEmpty(), lineplot.setCustomRange({ custom: dynamic }));
+      expect(out.ranges.custom).toEqual(dynamic);
+    });
+
+    it("should replace a dynamic window with a static one", () => {
+      const state = createEmpty({ ranges: { x1: [], x2: [], custom: dynamic } });
+      const out = apply(state, lineplot.setCustomRange({ custom: staticRange }));
+      expect(out.ranges.custom).toEqual(staticRange);
+    });
+
+    it("should preserve int64 precision in static endpoints", () => {
+      const custom: lineplot.CustomRange = {
+        variant: "static",
+        start: "1788000000000000123",
+        end: "1788000000000000456",
+      };
+      const out = apply(createEmpty(), lineplot.setCustomRange({ custom }));
+      expect(out.ranges.custom).toEqual(custom);
+    });
+
+    it("should coerce numeric static endpoints to strings", () => {
+      const out = apply(
+        createEmpty(),
+        lineplot.setCustomRange({
+          custom: { variant: "static", start: 0, end: 1000 },
+        }),
+      );
+      expect(out.ranges.custom).toEqual(staticRange);
+    });
+
+    it("should clear the window when custom is omitted", () => {
+      const state = createEmpty({ ranges: { x1: [], x2: [], custom: dynamic } });
+      const out = apply(state, lineplot.setCustomRange({}));
+      expect(out.ranges.custom).toBeUndefined();
+    });
+
+    it("should round-trip the previous window through its inverse", () => {
+      const state = createEmpty({ ranges: { x1: [], x2: [], custom: dynamic } });
+      expect(
+        roundTrip(state, lineplot.setCustomRange({ custom: staticRange })).ranges
+          .custom,
+      ).toEqual(dynamic);
+    });
+
+    it("should round-trip an unset window through its inverse", () => {
+      const state = createEmpty();
+      expect(
+        roundTrip(state, lineplot.setCustomRange({ custom: dynamic })).ranges.custom,
+      ).toBeUndefined();
+    });
+
+    it("should target the custom range key", () => {
+      const { targets } = lineplot.reduceAll(createEmpty(), [
+        lineplot.setCustomRange({ custom: dynamic }),
+      ]);
+      expect(targets).toEqual(["range:custom"]);
+    });
+  });
+
   describe("eager line creation", () => {
     const r1 = "00000000-0000-0000-0000-000000000001";
     const r2 = "00000000-0000-0000-0000-000000000002";

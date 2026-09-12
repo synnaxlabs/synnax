@@ -12,7 +12,6 @@ package calculation
 import (
 	"context"
 	"fmt"
-	"go/types"
 	"sync"
 
 	"github.com/samber/lo"
@@ -74,10 +73,10 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "writer", c.Writer)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "status", c.Status)
+	v.NotNil("framer", c.Framer)
+	v.NotNil("writer", c.Writer)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
@@ -100,7 +99,7 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
-	statusWriter status.Writer[types.Nil]
+	statusWriter status.Writer
 }
 
 // OpenService opens the service with the provided configuration. The service must be
@@ -120,7 +119,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	s := &Service{
 		cfg:          cfg,
-		statusWriter: status.NewWriter[types.Nil](cfg.Status, nil),
+		statusWriter: cfg.Status.NewWriter(nil),
 	}
 	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
 	s.mu.graph = g

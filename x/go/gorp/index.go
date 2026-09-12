@@ -333,7 +333,7 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			return resolved[K, E]{keys: keys, build: indexedKeyMembership[K]}, nil
+			return resolved[K, E]{keys: keys, build: indexedKeyMembership}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return slices.Contains(captured, l.extract(e)), nil
@@ -587,7 +587,7 @@ func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 				return resolved[K, E]{}, err
 			}
 			keys, _ := s.Get(tx, captured...)
-			return resolved[K, E]{keys: keys, build: indexedKeyMembership[K]}, nil
+			return resolved[K, E]{keys: keys, build: indexedKeyMembership}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return slices.Contains(captured, s.extract(e)), nil

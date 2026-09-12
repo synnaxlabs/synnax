@@ -377,7 +377,7 @@ func analyzeFlowNode(
 ) (flowNodeResult, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
 		return analyzeIdentifierByRole(
-			acontext.Child(ctx, id),
+			ctx.Child(id),
 			kg,
 			shell,
 			isFirst,
@@ -385,11 +385,11 @@ func analyzeFlowNode(
 		)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
-		r, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg, shell)
+		r, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell)
 		return flowNodeResult{node: r}, ok
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		r, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, !isFirst)
+		r, ok := analyzeExpression(ctx.Child(expr), kg, shell, !isFirst)
 		return flowNodeResult{node: r}, ok
 	}
 	if ctx.AST.NEXT() != nil {
@@ -656,7 +656,7 @@ func collectBranch[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) bool {
-	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
+	res, ok := analyzeExpression(ctx.Child(expr), kg, shell, false)
 	if !ok {
 		return false
 	}
@@ -687,7 +687,7 @@ func lowerDerivation[T antlr.ParserRuleContext](
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) bool {
-	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
+	res, ok := analyzeExpression(ctx.Child(expr), kg, shell, false)
 	if !ok {
 		return false
 	}
@@ -799,7 +799,7 @@ func lowerAssignment(
 			Kind:   ir.EdgeKindContinuous,
 		}}, true
 	}
-	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
+	res, ok := analyzeExpression(ctx.Child(expr), kg, shell, false)
 	if !ok {
 		return nil, nil, false
 	}
@@ -1194,7 +1194,7 @@ func analyzeFunctionNode(
 	}
 	var ok bool
 	n.Inputs, ok = extractInputValues(
-		acontext.Child(ctx, ctx.AST.InputValues()), n.Inputs, n, sym, shell,
+		ctx.Child(ctx.AST.InputValues()), n.Inputs, n, sym, shell,
 	)
 	if !ok {
 		return nodeResult{}, false
@@ -1446,12 +1446,12 @@ func Analyze(
 
 	for _, item := range t.AST.AllTopLevelItem() {
 		if decl := item.VariableDeclaration(); decl != nil {
-			if !lowerExprReadDecl(acontext.Child(aCtx, decl), kg, shell) {
+			if !lowerExprReadDecl(aCtx.Child(decl), kg, shell) {
 				return i, aCtx.Diagnostics
 			}
 		} else if flow := item.FlowStatement(); flow != nil {
 			nodes, edges, inlineMembers, _, ok := analyzeFlow(
-				acontext.Child(aCtx, flow),
+				aCtx.Child(flow),
 				kg,
 				shell,
 			)
@@ -1466,7 +1466,7 @@ func Analyze(
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			seqScope, nodes, edges, ok := analyzeSequence(
-				acontext.Child(aCtx, seqDecl),
+				aCtx.Child(seqDecl),
 				kg,
 				shell,
 			)
@@ -1478,7 +1478,7 @@ func Analyze(
 			i.Edges = append(i.Edges, edges...)
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			stgScope, nodes, edges, ok := analyzeTopLevelStage(
-				acontext.Child(aCtx, stageDecl),
+				aCtx.Child(stageDecl),
 				kg,
 				shell,
 			)
@@ -1688,7 +1688,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 
 	isFirst := p.prevNode == nil
 	result, ok := analyzeFlowNode(
-		acontext.Child(p.ctx, flowNode), p.kg, p.shell, isFirst, isSink,
+		p.ctx.Child(flowNode), p.kg, p.shell, isFirst, isSink,
 	)
 	if !ok {
 		return false
@@ -1781,7 +1781,7 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 		return false
 	}
 	newNodes, newEdges, inlineMembers, ok := analyzeOutputRoutingTable(
-		acontext.Child(p.ctx, rt),
+		p.ctx.Child(rt),
 		*p.prevNode,
 		p.kg,
 		p.shell,
@@ -2025,11 +2025,11 @@ func processInlineBody(
 	switch decl := synth.AST.(type) {
 	case parser.IStageDeclarationContext:
 		scope, nodes, edges, ok = analyzeTopLevelStage(
-			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell,
+			ctx.Child(decl).WithScope(synth.Parent), kg, shell,
 		)
 	case parser.ISequenceDeclarationContext:
 		scope, nodes, edges, ok = analyzeSequence(
-			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell,
+			ctx.Child(decl).WithScope(synth.Parent), kg, shell,
 		)
 	}
 	if !ok {
@@ -2103,7 +2103,7 @@ func analyzeOutputRoutingTable(
 			isSink := isLast && flowNode.Identifier() != nil
 
 			result, ok := analyzeFlowNode(
-				acontext.Child(ctx, flowNode), kg, shell, false, isSink,
+				ctx.Child(flowNode), kg, shell, false, isSink,
 			)
 			if !ok {
 				return nil, nil, nil, false
@@ -2278,7 +2278,7 @@ func analyzeSequence(
 	for _, item := range items {
 		if decl := item.VariableDeclaration(); decl != nil {
 			if !lowerExprReadDecl(
-				acontext.Child(ctx, decl).WithScope(seqScope), kg, shell,
+				ctx.Child(decl).WithScope(seqScope), kg, shell,
 			) {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -2309,7 +2309,7 @@ func analyzeSequence(
 		item := si.item
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			stgScope, nodes, edges, ok := analyzeStage(
-				acontext.Child(ctx, stageDecl).WithScope(seqScope),
+				ctx.Child(stageDecl).WithScope(seqScope),
 				kg,
 				shell,
 			)
@@ -2329,7 +2329,7 @@ func analyzeSequence(
 
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			nodes, edges, inlineMembers, transitionEmitted, ok := analyzeFlow(
-				acontext.Child(ctx, flowStmt).WithScope(seqScope),
+				ctx.Child(flowStmt).WithScope(seqScope),
 				kg,
 				shell,
 			)
@@ -2355,7 +2355,7 @@ func analyzeSequence(
 
 		if assign := item.Assignment(); assign != nil {
 			aNodes, aEdges, ok := lowerAssignment(
-				acontext.Child(ctx, assign).WithScope(seqScope),
+				ctx.Child(assign).WithScope(seqScope),
 				kg,
 				shell,
 			)
@@ -2374,7 +2374,7 @@ func analyzeSequence(
 
 		if single := item.SingleInvocation(); single != nil {
 			node, ok := analyzeSingleInvocation(
-				acontext.Child(ctx, single).WithScope(seqScope),
+				ctx.Child(single).WithScope(seqScope),
 				kg,
 				shell,
 			)
@@ -2390,7 +2390,7 @@ func analyzeSequence(
 
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
 			nestedScope, nodes, edges, ok := analyzeSequence(
-				acontext.Child(ctx, nestedSeqDecl).WithScope(seqScope),
+				ctx.Child(nestedSeqDecl).WithScope(seqScope),
 				kg,
 				shell,
 			)
@@ -2473,14 +2473,14 @@ func analyzeStage(
 	}
 	for _, item := range stageBody.AllStageItem() {
 		if decl := item.VariableDeclaration(); decl != nil {
-			if !lowerExprReadDecl(acontext.Child(ctx, decl), kg, shell) {
+			if !lowerExprReadDecl(ctx.Child(decl), kg, shell) {
 				return ir.Scope{}, nil, nil, false
 			}
 			continue
 		}
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			itemNodes, itemEdges, inlineMembers, _, ok := analyzeFlow(
-				acontext.Child(ctx, flowStmt),
+				ctx.Child(flowStmt),
 				kg,
 				shell,
 			)
@@ -2497,7 +2497,7 @@ func analyzeStage(
 		}
 		if assign := item.Assignment(); assign != nil {
 			aNodes, aEdges, ok := lowerAssignment(
-				acontext.Child(ctx, assign),
+				ctx.Child(assign),
 				kg,
 				shell,
 			)
@@ -2512,7 +2512,7 @@ func analyzeStage(
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
-			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg, shell)
+			node, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -2522,7 +2522,7 @@ func analyzeStage(
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
 			subScope, subNodes, subEdges, ok := analyzeSequence(
-				acontext.Child(ctx, nestedSeqDecl), kg, shell,
+				ctx.Child(nestedSeqDecl), kg, shell,
 			)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
@@ -2547,14 +2547,14 @@ func analyzeSingleInvocation(
 	shell *shellBuilder,
 ) (ir.Node, bool) {
 	if fn := ctx.AST.Function(); fn != nil {
-		result, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg, shell)
+		result, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell)
 		if !ok {
 			return ir.Node{}, false
 		}
 		return result.node, true
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		result, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
+		result, ok := analyzeExpression(ctx.Child(expr), kg, shell, false)
 		if !ok {
 			return ir.Node{}, false
 		}

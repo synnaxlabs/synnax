@@ -98,9 +98,9 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 // not.
 func (c Channel) Validate() error {
 	v := validate.New("meta")
-	validate.Positive(v, "key", c.Key)
-	validate.NotEmptyString(v, "data_type", c.DataType)
-	validate.NotEmptyString(v, "name", c.Name)
+	v.Positive("key", c.Key)
+	v.NotEmptyString("data_type", c.DataType)
+	v.NotEmptyString("name", c.Name)
 	if c.Virtual {
 		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
 	} else {

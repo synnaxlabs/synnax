@@ -63,8 +63,8 @@ export interface PastedEdge<E extends ClipboardEdge> {
 export interface PasteResult<N extends ClipboardNode, E extends ClipboardEdge> {
   nodes: PastedNode<N>[];
   edges: PastedEdge<E>[];
-  /** newKeys are the freshly generated node keys, e.g. to select what was pasted. */
-  newKeys: string[];
+  /** remap maps copied node keys to their fresh replacements. */
+  remap: Record<string, string>;
 }
 
 /** SelectionKeys identifies clipboard items by key, split by kind. */
@@ -283,7 +283,7 @@ export const useClipboard = <N extends ClipboardNode, E extends ClipboardEdge>({
       });
     }
     if (nodes.length === 0 && edges.length === 0) return;
-    apply({ nodes, edges, newKeys: Object.values(remap) });
+    apply({ nodes, edges, remap });
   }, []);
 
   return { onCopy, onCut, onPaste, copy, cut, paste };

@@ -261,7 +261,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	env := imex.Envelope{
 		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
 	}
-	if err = imex.Encode(&env, v); err != nil {
+	if err = env.Encode(v); err != nil {
 		return imex.Envelope{}, err
 	}
 	return env, nil
@@ -376,7 +376,7 @@ func chainArms(
 		var b strings.Builder
 		cur := fmt.Sprintf("t%d", k)
 		fmt.Fprintf(
-			&b, "\t\t%s, err := imex.Decode[%s.%s](ctx, env)\n",
+			&b, "\t\t%s, err := env.Decode[%s.%s](ctx)\n",
 			cur, versioning.Dir(k), goName,
 		)
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
@@ -475,7 +475,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, erro
 {{.Body}}
 {{- end}}
 	case {{.CurrentPkg}}.Version:
-		return imex.Decode[{{.Type}}](ctx, env)
+		return env.Decode[{{.Type}}](ctx)
 	}
 	return {{.Type}}{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

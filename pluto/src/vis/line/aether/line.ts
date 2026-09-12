@@ -59,7 +59,7 @@ const safelyGetDataValue = (
 export type State = z.input<typeof stateZ>;
 export type ParsedState = z.infer<typeof stateZ>;
 
-const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
+export const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
 export interface FindResult {
   key: string;
@@ -305,6 +305,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.xTelem.cleanup?.();
     i.yTelem.cleanup?.();
     i.requestRender("layout");
+  }
+
+  get loading(): boolean {
+    const { xTelem, yTelem } = this.internal;
+    return (xTelem.loading?.() ?? false) || (yTelem.loading?.() ?? false);
   }
 
   xBounds(): bounds.Bounds {

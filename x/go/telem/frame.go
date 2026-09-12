@@ -19,6 +19,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bit"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/vmihailenco/msgpack/v5"
@@ -47,11 +48,11 @@ type Frame[K types.SizedNumeric] struct {
 	}
 }
 
-// UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type.
-// This method performs no static type checking and is unsafe. Caveat emptor.
-func UnsafeReinterpretFrameKeysAs[I, O types.SizedNumeric](f Frame[I]) Frame[O] {
+// UnsafeReinterpretKeysAs reinterprets the keys of the frame as a different type.
+// UnsafeReinterpretKeysAs does no static type checking and is unsafe. Caveat emptor.
+func (f Frame[K]) UnsafeReinterpretKeysAs[O types.SizedNumeric]() Frame[O] {
 	return Frame[O]{
-		keys:   unsafe.ReinterpretSlice[I, O](f.keys),
+		keys:   unsafe.ReinterpretSlice[K, O](f.keys),
 		series: f.series,
 		mask:   f.mask,
 	}
@@ -480,10 +481,10 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 	return Frame[K]{keys: keys, series: series, mask: f.mask}
 }
 
-// KeepKeys filters the frame to only include the keys in the given slice, returning
-// a shallow copy of the filtered frame.
-func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
-	return f.filter(keys, lo.Contains)
+// KeepKeys filters the frame to only include the keys in the given set, returning a
+// shallow copy of the filtered frame.
+func (f Frame[K]) KeepKeys(keys set.Set[K]) Frame[K] {
+	return f.filter(keys, len(keys), set.Set[K].Contains)
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
@@ -496,25 +497,25 @@ func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
 	if len(keys) == 0 {
 		return f
 	}
-	return f.filter(keys, notContains)
+	return f.filter(keys, len(keys), notContains)
 }
 
-func (f Frame[K]) filter(keys []K, keep func([]K, K) bool) Frame[K] {
+func (f Frame[K]) filter[S any](src S, count int, keep func(S, K) bool) Frame[K] {
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
-			if !keep(keys, key) {
+			if !keep(src, key) {
 				f.mask.Mask128 = f.mask.Set(i, true)
 			}
 		}
 		return f
 	}
 	var (
-		fKeys   = make([]K, 0, len(keys))
-		fSeries = make([]Series, 0, len(keys))
+		fKeys   = make([]K, 0, count)
+		fSeries = make([]Series, 0, count)
 	)
 	for k, s := range f.Entries() {
-		if keep(keys, k) {
+		if keep(src, k) {
 			fKeys = append(fKeys, k)
 			fSeries = append(fSeries, s)
 		}

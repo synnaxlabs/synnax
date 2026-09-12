@@ -383,7 +383,7 @@ var _ = Describe("Analyzer Integration", func() {
 				funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 				block := funcDecl.Block()
 				progCtx := context.NewRoot(bCtx, prog, nil)
-				blockCtx := context.Child(progCtx, block)
+				blockCtx := progCtx.Child(block)
 				analyzer.AnalyzeBlock(blockCtx)
 				Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
 			},
@@ -399,7 +399,7 @@ var _ = Describe("Analyzer Integration", func() {
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			block := funcDecl.Block()
 			progCtx := context.NewRoot(bCtx, prog, nil)
-			blockCtx := context.Child(progCtx, block)
+			blockCtx := progCtx.Child(block)
 			analyzer.AnalyzeBlock(blockCtx)
 			Expect(blockCtx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*blockCtx.Diagnostics).To(HaveLen(1))
@@ -420,7 +420,7 @@ var _ = Describe("Analyzer Integration", func() {
 				funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 				block := funcDecl.Block()
 				progCtx := context.NewRoot(bCtx, prog, nil)
-				blockCtx := context.Child(progCtx, block)
+				blockCtx := progCtx.Child(block)
 				analyzer.AnalyzeBlock(blockCtx)
 				Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
 			},
