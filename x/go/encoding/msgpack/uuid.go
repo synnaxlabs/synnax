@@ -38,7 +38,7 @@ func init() {
 				return err
 			}
 			var u uuid.UUID
-			if len(b) == len(u) {
+			if len(b) == 16 {
 				u = uuid.UUID(b)
 			} else if u, err = uuid.Parse(string(b)); err != nil {
 				return errors.Wrapf(err, "failed to decode uuid from %d bytes", len(b))
