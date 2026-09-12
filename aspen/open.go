@@ -15,14 +15,18 @@ package aspen
 
 import (
 	"context"
+	"net"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func Open(
@@ -38,6 +42,12 @@ func Open(
 		cleanup, ok = service.NewOpener(ctx, &db.closer)
 	)
 	defer func() { err = cleanup(err) }()
+	if o.transport.owned == nil && o.lis != nil {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"cannot serve a transport provided with WithTransport on a listener",
+		)
+	}
 	// Register the owned gRPC client pool first so it closes LAST. The transport (added
 	// below) and any cluster goroutines that hold it must stop using the pool before
 	// pool.Close runs.
@@ -52,14 +62,24 @@ func Open(
 		}
 	}
 	o.cluster.Storage = o.kv.Engine
-	// configureTransport binds the address, so the transport must be registered as a
-	// closer here to release it on any later failures.
-	if err = configureTransport(o); !ok(err, o.transport) {
-		return nil, err
+	wireTransport(o)
+	var lis net.Listener
+	if o.transport.owned != nil {
+		// The listener is the first point at which an operating system assigned port is
+		// known, so bind before the cluster advertises the host address.
+		lis, o.cluster.HostAddress, err = openListener(o)
+		// Serve releases the listener when it stops, so the closer must tolerate a
+		// listener the transport already closed.
+		if !ok(err, xio.CloserFunc(func() error {
+			return errors.Skip(lis.Close(), net.ErrClosed)
+		})) {
+			return nil, err
+		}
+		err = o.transport.owned.Configure(o.Instrumentation)
+		if !ok(err, o.transport.owned) {
+			return nil, err
+		}
 	}
-	// The transport binds in configureTransport, so this is the first point at which an
-	// operating system-assigned port is known.
-	o.cluster.HostAddress = o.transport.Address()
 	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(err, db.Cluster) {
 		return nil, err
 	}
@@ -67,19 +87,38 @@ func Open(
 	if db.DB, err = kv.Open(ctx, o.kv); !ok(err, db.DB) {
 		return nil, err
 	}
-	if err = o.transport.Serve(); !ok(err, nil) {
-		return nil, err
+	if o.transport.owned != nil {
+		if err = o.transport.owned.Serve(lis); !ok(err, nil) {
+			return nil, err
+		}
 	}
 
 	return db, err
 }
 
-func configureTransport(o *options) error {
-	if err := o.transport.Configure(
-		o.addr, o.Instrumentation, o.transport.external, o.lis,
-	); err != nil {
-		return err
+// openListener opens the listener the owned transport serves on, and returns it with
+// the address the host advertises. A listener from WithListener is used as is, and
+// stays the caller's to close when it is not bound to a TCP address.
+func openListener(o *options) (net.Listener, address.Address, error) {
+	lis := o.lis
+	if lis == nil {
+		var err error
+		if lis, err = net.Listen("tcp", o.addr.String()); err != nil {
+			return nil, "", err
+		}
 	}
+	tcp, ok := lis.Addr().(*net.TCPAddr)
+	if !ok {
+		return nil, "", errors.Wrapf(
+			validate.ErrValidation,
+			"listener address %q is not a TCP address",
+			lis.Addr(),
+		)
+	}
+	return lis, address.Newf("%s:%d", o.addr.Host(), tcp.Port), nil
+}
+
+func wireTransport(o *options) {
 	o.cluster.Gossip.TransportClient = o.transport.GossipClient()
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
 	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()
@@ -92,7 +131,6 @@ func configureTransport(o *options) error {
 	o.kv.FeedbackTransportClient = o.transport.FeedbackClient()
 	o.kv.RecoveryTransportServer = o.transport.RecoveryServer()
 	o.kv.RecoveryTransportClient = o.transport.RecoveryClient()
-	return nil
 }
 
 func openKV(o *options) (xkv.DB, error) {

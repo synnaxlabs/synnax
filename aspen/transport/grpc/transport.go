@@ -25,10 +25,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	falamos "github.com/synnaxlabs/freighter/alamos"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -276,12 +273,9 @@ type Transport struct {
 	feedbackClient *feedbackClient
 	recServer      *recoveryServer
 	recClient      *recoveryClient
-	server         *grpc.Server
-	// lis is the listener Configure bound. It is nil for an external transport.
-	lis net.Listener
-	// addr is the configured address with the port lis bound to, which differs from the
-	// configured port when the caller asked for an operating system assigned one.
-	addr     address.Address
+	// server is the gRPC server Configure builds. It is nil until then.
+	server *grpc.Server
+	// shutdown stops the goroutine Serve started. It is nil until then.
 	shutdown io.Closer
 }
 
@@ -337,16 +331,10 @@ func (t *Transport) Use(middleware ...freighter.Middleware) {
 
 func (t *Transport) Report() alamos.Report { return t.pledgeServer.Report() }
 
-func (t *Transport) Configure(
-	addr address.Address,
-	ins alamos.Instrumentation,
-	external bool,
-	lis net.Listener,
-) error {
-	t.addr = addr
-	if external {
-		return nil
-	}
+// Configure prepares the Transport to be served on a gRPC server of its own,
+// instrumented with ins. A caller that serves the Transport on a server it owns binds
+// with BindTo instead, and must not call Configure, Serve, or Close.
+func (t *Transport) Configure(ins alamos.Instrumentation) error {
 	t.server = grpc.NewServer(
 		grpc.ChainUnaryInterceptor(fgrpc.RecoveryUnaryServerInterceptor(ins)),
 		grpc.ChainStreamInterceptor(fgrpc.RecoveryStreamServerInterceptor(ins)),
@@ -357,41 +345,19 @@ func (t *Transport) Configure(
 		return err
 	}
 	t.Use(mw)
-	// Bind last so no failure can leak the listener before the caller owns it.
-	if lis == nil {
-		if lis, err = net.Listen("tcp", addr.String()); err != nil {
-			return err
-		}
-	}
-	var port string
-	if _, port, err = net.SplitHostPort(lis.Addr().String()); err != nil {
-		// Configure owns the listener even on this path, so release it instead of
-		// returning an error that leaves the address bound.
-		return errors.Combine(errors.Wrapf(
-			validate.ErrValidation,
-			"listener address %q has no port",
-			lis.Addr(),
-		), lis.Close())
-	}
-	t.lis = lis
-	t.addr = address.Newf("%s:%s", addr.Host(), port)
 	return nil
 }
 
-// Address returns the configured address with the port lis bound to, which differs from
-// the configured port when the caller asked for an operating system assigned one.
-func (t *Transport) Address() address.Address { return t.addr }
-
-func (t *Transport) Serve() error {
-	if t.server == nil {
-		return nil
-	}
+// Serve starts accepting connections on lis, taking ownership of it. Configure must run
+// first, and every handler must be bound before Serve to prevent data races. Close
+// stops serving.
+func (t *Transport) Serve(lis net.Listener) error {
 	sCtx, cancel := signal.WithCancel(context.Background())
 	t.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(func(ctx context.Context) error {
 		errC := make(chan error, 1)
 		go func() {
-			errC <- t.server.Serve(t.lis)
+			errC <- t.server.Serve(lis)
 		}()
 		defer t.server.Stop()
 		select {
@@ -409,14 +375,11 @@ func (t *Transport) Serve() error {
 	return nil
 }
 
+// Close stops serving and releases the listener Serve took ownership of. It is a no-op
+// for a Transport that never reached Serve.
 func (t *Transport) Close() error {
 	if t.shutdown == nil {
-		// Configure bound the listener, so a transport that never reached Serve still
-		// holds the address.
-		if t.lis == nil {
-			return nil
-		}
-		return t.lis.Close()
+		return nil
 	}
 	return t.shutdown.Close()
 }

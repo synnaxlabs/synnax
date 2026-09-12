@@ -10,38 +10,17 @@
 package transport
 
 import (
-	"net"
-
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/address"
 )
 
 // Transport aggregates the client and server transports an aspen DB uses to reach its
-// peers, and manages the underlying network resources.
+// peers. The DB binds a handler to every server, so the caller must serve them on a
+// network for its peers to reach the host.
 type Transport interface {
 	freighter.Transport
-	// Configure prepares the transport for serving: it registers gRPC services and
-	// binds the address. It does not start accepting connections. A non-nil lis is a
-	// pre-bound listener to serve on instead of binding addr.
-	Configure(
-		addr address.Address,
-		ins alamos.Instrumentation,
-		external bool,
-		lis net.Listener,
-	) error
-	// Address returns the configured address with the bound port substituted. It is
-	// only valid after Configure. An address configured with port 0 binds to a port
-	// the operating system chooses, so the two differ.
-	Address() address.Address
-	// Serve starts accepting connections on the bound address. All handlers must be
-	// bound before calling Serve to prevent data races.
-	Serve() error
-	// Close gracefully stops the transport.
-	Close() error
 	// PledgeServer returns the server transport for node pledge requests.
 	PledgeServer() pledge.TransportServer
 	// PledgeClient returns the client transport for node pledge requests.

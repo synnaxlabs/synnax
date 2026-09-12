@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
+	transportmock "github.com/synnaxlabs/aspen/transport/mock"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -61,10 +62,10 @@ var _ = Describe("Open", func() {
 	})
 })
 
-// portlessListener reports an address without a port, like a unix socket listener.
-type portlessListener struct{ net.Listener }
+// unixListener reports a unix socket address, which carries no port.
+type unixListener struct{ net.Listener }
 
-func (p portlessListener) Addr() net.Addr {
+func (unixListener) Addr() net.Addr {
 	return &net.UnixAddr{Name: "aspen.sock", Net: "unix"}
 }
 
@@ -90,11 +91,9 @@ var _ = Describe("WithListener", func() {
 		},
 	)
 	It(
-		"Should reject and close a listener whose address has no port",
+		"Should reject a listener that is not bound to a TCP address",
 		func(ctx SpecContext) {
-			lis := portlessListener{
-				Listener: MustSucceed(net.Listen("tcp", "localhost:0")),
-			}
+			lis := unixListener{Listener: MustSucceed(net.Listen("tcp", "localhost:0"))}
 			Expect(aspen.Open(
 				ctx,
 				"",
@@ -103,10 +102,27 @@ var _ = Describe("WithListener", func() {
 				aspen.Bootstrap(),
 				aspen.InMemory(),
 				aspen.WithListener(lis),
-			)).Error().To(MatchError(validate.ErrValidation))
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("is not a TCP address")),
+			))
 
-			By("Releasing the listener instead of leaving the address bound")
-			Expect(lis.Close()).To(MatchError(net.ErrClosed))
+			By("Leaving the listener for the caller to close")
+			Expect(lis.Close()).To(Succeed())
 		},
 	)
+	It("Should reject a listener alongside a custom transport", func(ctx SpecContext) {
+		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+		Expect(aspen.Open(
+			ctx,
+			"",
+			"localhost:0",
+			[]address.Address{},
+			aspen.Bootstrap(),
+			aspen.InMemory(),
+			aspen.WithTransport(transportmock.NewNetwork().NewTransport("localhost:0")),
+			aspen.WithListener(lis),
+		)).Error().To(MatchError(validate.ErrValidation))
+		Expect(lis.Close()).To(Succeed())
+	})
 })

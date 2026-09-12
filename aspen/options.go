@@ -42,13 +42,14 @@ type options struct {
 	// setting overrides all other transport settings in sub-configs.
 	transport struct {
 		Transport
-		// external is a boolean flag indicating whether the caller provided an external
-		// transport they control themselves.
-		external bool
-		// ownedPool is the gRPC client pool that defaultOptions created when the caller
-		// did not pass a custom transport. It is non-nil only when aspen is responsible
-		// for closing it. External transports are expected to come with their own pool
-		// lifecycle management.
+		// owned is the default transport that mergeDefaultOptions created when the
+		// caller did not pass one. It is non-nil only when aspen is responsible for
+		// instrumenting, serving, and closing the transport. A caller that passes their
+		// own transport keeps those responsibilities.
+		owned *grpct.Transport
+		// ownedPool is the gRPC client pool that mergeDefaultOptions created alongside
+		// owned. It is non-nil only when aspen is responsible for closing it. External
+		// transports are expected to come with their own pool lifecycle management.
 		ownedPool *fgrpc.Pool
 	}
 	// dirname is the directory where aspen will store its data. This option is ignored
@@ -56,8 +57,8 @@ type options struct {
 	dirname string
 	// addr sets the address for the host node.
 	addr address.Address
-	// lis is a pre-bound listener for the default transport to serve on. When nil, the
-	// transport binds addr itself.
+	// lis is a pre-bound listener to serve the owned transport on. When nil, Open binds
+	// addr itself.
 	lis net.Listener
 	// kv gives the configuration for key-value options.
 	kv kv.Config
@@ -94,19 +95,18 @@ func WithEngine(engine xkv.DB) Option {
 	return func(o *options) { o.externalKV = true; o.kv.Engine = engine }
 }
 
-// WithTransport sets a custom network transport.
+// WithTransport sets a custom network transport. The caller keeps responsibility for
+// instrumenting, serving, and closing it.
 func WithTransport(transport Transport) Option {
-	return func(o *options) {
-		o.transport.external = true
-		o.transport.Transport = transport
-	}
+	return func(o *options) { o.transport.Transport = transport }
 }
 
-// WithListener sets a pre-bound listener for the default transport to serve on. Aspen
-// takes ownership of the listener and closes it on shutdown. The host address keeps its
-// configured host with the listener's port substituted; Open returns a validation error
-// if the listener's address has no port. It has no effect on an external transport set
-// with WithTransport.
+// WithListener sets a pre-bound listener to serve on, letting the caller learn the
+// address before Open returns. Aspen takes ownership of the listener on success and
+// closes it on shutdown; on failure the listener stays the caller's to close. The host
+// address keeps its configured host with the listener's port substituted. Open returns
+// a validation error if the listener is not bound to a TCP address, or if the caller
+// also passes a transport with WithTransport.
 func WithListener(lis net.Listener) Option { return func(o *options) { o.lis = lis } }
 
 // WithInstrumentation sets the instrumentation for Aspen.
@@ -199,7 +199,8 @@ func mergeDefaultOptions(o *options) {
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		o.transport.ownedPool = pool
-		o.transport.Transport = grpct.New(pool)
+		o.transport.owned = grpct.New(pool)
+		o.transport.Transport = o.transport.owned
 	}
 	o.Instrumentation = override.Zero(def.Instrumentation, o.Instrumentation)
 	o.cluster.Instrumentation = o.Child("cluster")
