@@ -11,7 +11,6 @@ package json_test
 
 import (
 	"bytes"
-	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"strings"
 	"time"
@@ -122,29 +121,44 @@ type wireShapes struct {
 	Duration   time.Duration  `json:"duration"`
 }
 
-var _ = Describe("Wire compatibility", func() {
-	It("Should encode the same bytes as v1 where the v2 defaults differ", func(
+var _ = Describe("Wire format", func() {
+	It("Should encode a nil slice and a nil map as empty, not null", func(
 		ctx SpecContext,
 	) {
-		v := wireShapes{
-			EmptySlice: []int{},
-			Bytes:      []byte("hi"),
-			EmptyPtr:   &toEncode{},
-			Duration:   time.Second,
+		type shape struct {
+			Slice []int          `json:"slice"`
+			Map   map[string]int `json:"map"`
 		}
-		Expect(json.Codec.Encode(ctx, v)).To(Equal(MustSucceed(jsonv1.Marshal(v))))
+		Expect(MustSucceed(json.Codec.Encode(ctx, shape{}))).
+			To(MatchJSON(`{"slice":[],"map":{}}`))
 	})
-	It("Should match object names case-insensitively", func(ctx SpecContext) {
+	It("Should match object names case-sensitively", func(ctx SpecContext) {
 		var d toEncode
 		Expect(json.Codec.Decode(ctx, []byte(`{"value":7}`), &d)).To(Succeed())
-		Expect(d).To(Equal(toEncode{7}))
+		Expect(d).To(Equal(toEncode{}))
 	})
-	It("Should take the last of a repeated object name", func(ctx SpecContext) {
+	It("Should reject a repeated object name", func(ctx SpecContext) {
 		var d toEncode
-		Expect(
-			json.Codec.Decode(ctx, []byte(`{"Value":1,"Value":2}`), &d),
-		).To(Succeed())
-		Expect(d).To(Equal(toEncode{2}))
+		Expect(json.Codec.Decode(ctx, []byte(`{"Value":1,"Value":2}`), &d)).
+			To(MatchError(ContainSubstring("failed to decode")))
+	})
+	It("Should order map members deterministically", func(ctx SpecContext) {
+		m := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
+		first := MustSucceed(json.Codec.Encode(ctx, m))
+		for range 8 {
+			Expect(json.Codec.Encode(ctx, m)).To(Equal(first))
+		}
+		Expect(string(first)).To(Equal(`{"a":2,"b":4,"m":3,"q":5,"z":1}`))
+	})
+	It("Should encode a duration as nanoseconds", func(ctx SpecContext) {
+		Expect(MustSucceed(json.Codec.Encode(ctx, wireShapes{Duration: time.Second}))).
+			To(ContainSubstring(`"duration":1000000000`))
+	})
+	It("Should decode a duration from nanoseconds", func(ctx SpecContext) {
+		var v wireShapes
+		Expect(json.Codec.Decode(ctx, []byte(`{"duration":1500000000}`), &v)).
+			To(Succeed())
+		Expect(v.Duration).To(Equal(1500 * time.Millisecond))
 	})
 })
 
@@ -153,6 +167,23 @@ var _ = Describe("NewCodec", func() {
 		b := MustSucceed(json.NewCodec().Encode(ctx, toEncode{1}))
 		Expect(string(b)).To(Equal(`{"Value":1}`))
 	})
+	Describe("WithCaseInsensitiveNames", func() {
+		loose := json.NewCodec(json.WithCaseInsensitiveNames())
+
+		It("Should match an object name differing only in case", func(
+			ctx SpecContext,
+		) {
+			var d toEncode
+			Expect(loose.Decode(ctx, []byte(`{"value":7}`), &d)).To(Succeed())
+			Expect(d).To(Equal(toEncode{7}))
+		})
+
+		It("Should still write the field's declared name", func(ctx SpecContext) {
+			Expect(MustSucceed(loose.Encode(ctx, toEncode{7}))).
+				To(MatchJSON(`{"Value":7}`))
+		})
+	})
+
 	Describe("WithoutHTMLEscaping", func() {
 		plain := json.NewCodec(json.WithoutHTMLEscaping())
 

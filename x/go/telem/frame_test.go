@@ -3880,7 +3880,9 @@ var _ = Describe("Frame", func() {
 				buf := MustSucceed(codec.Encode(ctx, original))
 				var decoded telem.Frame[int32]
 				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
-				Expect(decoded).To(Equal(original))
+				Expect(decoded.Empty()).To(BeTrue())
+				Expect(decoded.Count()).To(Equal(0))
+				Expect(decoded.Len()).To(Equal(int64(0)))
 			})
 		}
 	})

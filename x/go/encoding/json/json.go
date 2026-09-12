@@ -12,11 +12,11 @@ package json
 import (
 	"bytes"
 	"context"
-	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	json "encoding/json/v2"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
@@ -26,17 +26,14 @@ import (
 // Codec is a JSON implementation of http.FileCodec with compact encoding.
 var Codec = NewCodec()
 
-// legacyWireSemantics holds the codec to the v1 wire format that released clients and
-// stored files depend on. v2 changes more than a dozen defaults, among them encoding a
-// nil slice as [] rather than null, so the whole v1 set is pinned rather than a chosen
-// few.
-var legacyWireSemantics = jsonv1.DefaultOptionsV1()
-
 type codec struct {
 	// indent is the per-level indentation for encoded output; empty means compact.
 	indent string
 	// escapeHTML is whether <, >, and & are escaped in encoded string values.
 	escapeHTML bool
+	// caseInsensitiveNames is whether decoding matches an object name to a field whose
+	// name differs only in case.
+	caseInsensitiveNames bool
 	// opts configures both directions of the underlying codec.
 	opts json.Options
 }
@@ -48,13 +45,47 @@ func NewCodec(opts ...Option) http.FileCodec {
 	for _, opt := range opts {
 		opt(c)
 	}
-	all := []json.Options{legacyWireSemantics, jsontext.EscapeForHTML(c.escapeHTML)}
+	all := []json.Options{
+		// Map members are written in sorted order. This is not a v1 carry-over: an
+		// exported file must be byte-stable across runs, and Go randomizes map
+		// iteration.
+		json.Deterministic(true),
+		json.WithMarshalers(durationMarshaler),
+		json.WithUnmarshalers(durationUnmarshaler),
+		// U+2028 and U+2029 stay escaped whatever WithoutHTMLEscaping says, so encoded
+		// output is always safe to embed in a script.
+		jsontext.EscapeForJS(true),
+		jsontext.EscapeForHTML(c.escapeHTML),
+		json.MatchCaseInsensitiveNames(c.caseInsensitiveNames),
+	}
 	if c.indent != "" {
 		all = append(all, jsontext.WithIndent(c.indent))
 	}
 	c.opts = json.JoinOptions(all...)
 	return c
 }
+
+// v2 has no default representation for time.Duration and rejects the `format` tag on
+// it, so the codec supplies one. Nanoseconds keep durations a plain JSON number, which
+// every client already reads. See go.dev/issue/71631.
+var (
+	durationMarshaler = json.MarshalToFunc(
+		func(enc *jsontext.Encoder, d time.Duration) error {
+			return enc.WriteToken(jsontext.Int(int64(d)))
+		},
+	)
+	durationUnmarshaler = json.UnmarshalFromFunc(
+		func(dec *jsontext.Decoder, d *time.Duration) error {
+			digits, err := readDigits(dec)
+			if err != nil {
+				return err
+			}
+			n, err := strconv.ParseInt(digits, 10, 64)
+			*d = time.Duration(n)
+			return err
+		},
+	)
+)
 
 // Option configures a codec built by NewCodec.
 type Option func(*codec)
@@ -71,6 +102,15 @@ func WithIndent(indent string) Option { return func(c *codec) { c.indent = inden
 // The escape only guards bytes placed into an HTML document without a parse, so drop it
 // only where that cannot happen.
 func WithoutHTMLEscaping() Option { return func(c *codec) { c.escapeHTML = false } }
+
+// WithCaseInsensitiveNames matches an object name to a field whose name differs only
+// in case, for reading documents written before a field carried an explicit name. New
+// documents are unaffected: encoding always writes the field's declared name. Reach for
+// it only where such documents exist, because a decoder that ignores case cannot tell
+// two fields apart when their names collide.
+func WithCaseInsensitiveNames() Option {
+	return func(c *codec) { c.caseInsensitiveNames = true }
+}
 
 func (*codec) ContentType() string { return "application/json" }
 
@@ -117,10 +157,8 @@ func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 func (*codec) Extension() string { return ".json" }
 
 // Validate reports the first defect in data under strict JSON rules: malformed syntax,
-// a duplicate object name, or invalid UTF-8. The codec accepts the last two for
-// backward compatibility, so a caller reading a document from outside the Core runs
-// this first rather than silently taking the last of a repeated name. The error names
-// the offending location as a JSON Pointer.
+// a duplicate object name, or invalid UTF-8. The error names the offending location as
+// a JSON Pointer.
 func Validate(data []byte) error {
 	return jsontext.NewDecoder(bytes.NewReader(data)).SkipValue()
 }
