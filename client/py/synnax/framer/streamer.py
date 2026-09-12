@@ -26,6 +26,7 @@ from freighter.websocket import Message
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
+from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan
 
@@ -85,6 +86,7 @@ class Streamer:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
     ) -> None:
+        validate_downsample_factor(downsample_factor)
         self._adapter = adapter
         client = client.with_codec(WSStreamerCodec(self._adapter.codec))
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
@@ -222,6 +224,7 @@ class AsyncStreamer:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
     ) -> None:
+        validate_downsample_factor(downsample_factor)
         self._client = client
         self._adapter = adapter
         self._downsample_factor = downsample_factor

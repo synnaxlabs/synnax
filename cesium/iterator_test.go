@@ -851,6 +851,51 @@ var _ = Describe("Iterator Behavior", func() {
 				})
 			})
 
+			Describe("Downsampling", func() {
+				It("Should keep every n-th sample of each channel", func(
+					ctx SpecContext,
+				) {
+					idxKey, dataKey := GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idxKey,
+							Name:     "Shackleton",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      dataKey,
+							Name:     "Cook",
+							Index:    idxKey,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					Expect(db.Write(ctx, telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{idxKey, dataKey},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6),
+							telem.NewSeriesV[int64](10, 20, 30, 40, 50, 60),
+						},
+					))).To(Succeed())
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+						Bounds:           telem.TimeRangeMax,
+						Channels:         []cesium.ChannelKey{idxKey, dataKey},
+						DownsampleFactor: 3,
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(10 * telem.Second)).To(BeTrue())
+					f := i.Value()
+					Expect(
+						f.Get(idxKey).Series[0].Unmarshal[telem.TimeStamp](),
+					).To(Equal([]telem.TimeStamp{telem.SecondTS, 4 * telem.SecondTS}))
+					Expect(f.Get(dataKey).Series[0].Unmarshal[int64]()).To(
+						Equal([]int64{10, 40}),
+					)
+					Expect(i.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Open", func() {
 				It(
 					"Should return an error when attempting to open an iterator on a virtual channel",

@@ -395,14 +395,14 @@ class TestIterator:
             result = i.value.get(data_ch.key).to_numpy()
             assert np.array_equal(result, np.array([1.0, 4.0, 7.0]))
 
-    @pytest.mark.parametrize("factor", [0, 1, -1])
+    @pytest.mark.parametrize("factor", [0, 1])
     def test_no_downsample_when_factor_lte_1(
         self,
         factor: int,
         indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
     ):
-        """Test that downsampling does not occur when factor is 0, 1, or negative."""
+        """Test that downsampling does not occur when factor is 0 or 1."""
         idx_ch, data_ch = indexed_pair
         time_data = seconds_linspace(1, 4)
         data = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
@@ -416,6 +416,23 @@ class TestIterator:
             assert i.next(sy.framer.AUTO_SPAN)
             result = i.value.get(data_ch.key).to_numpy()
             assert np.array_equal(result, np.array([1.0, 2.0, 3.0, 4.0]))
+
+    def test_downsample_negative(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Test that a negative factor is rejected.
+
+        The wire field is unsigned, so a negative one would reach the Core as a very
+        large factor rather than as an error.
+        """
+        _, data_ch = indexed_pair
+        with pytest.raises(sy.ValidationError):
+            with client.open_iterator(
+                sy.TimeRange.MAX, data_ch.key, downsample_factor=-1
+            ):
+                ...
 
     def test_downsample_multiple_domains(self, client: sy.Synnax):
         """Test downsampling across multiple domains."""
