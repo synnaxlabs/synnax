@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/service"
@@ -70,7 +70,7 @@ func Open(
 		lis, o.cluster.HostAddress, err = openListener(o)
 		// Serve releases the listener when it stops, so the closer must tolerate a
 		// listener the transport already closed.
-		if !ok(err, xio.CloserFunc(func() error {
+		if !ok(err, io.CloserFunc(func() error {
 			return errors.Skip(lis.Close(), net.ErrClosed)
 		})) {
 			return nil, err

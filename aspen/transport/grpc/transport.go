@@ -273,10 +273,8 @@ type Transport struct {
 	feedbackClient *feedbackClient
 	recServer      *recoveryServer
 	recClient      *recoveryClient
-	// server is the gRPC server Configure builds. It is nil until then.
-	server *grpc.Server
-	// shutdown stops the goroutine Serve started. It is nil until then.
-	shutdown io.Closer
+	server         *grpc.Server
+	shutdown       io.Closer
 }
 
 var _ transport.Transport = (*Transport)(nil)

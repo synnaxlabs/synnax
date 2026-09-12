@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	grpct "github.com/synnaxlabs/aspen/transport/grpc"
+	transportgrpc "github.com/synnaxlabs/aspen/transport/grpc"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/address"
 	xkv "github.com/synnaxlabs/x/kv"
@@ -43,16 +43,16 @@ type options struct {
 	transport struct {
 		Transport
 		// owned is the default transport that mergeDefaultOptions created when the
-		// caller did not pass one. It is non-nil only when aspen is responsible for
+		// caller did not pass one. It is non-nil only when Aspen is responsible for
 		// instrumenting, serving, and closing the transport. A caller that passes their
 		// own transport keeps those responsibilities.
-		owned *grpct.Transport
+		owned *transportgrpc.Transport
 		// ownedPool is the gRPC client pool that mergeDefaultOptions created alongside
-		// owned. It is non-nil only when aspen is responsible for closing it. External
+		// owned. It is non-nil only when Aspen is responsible for closing it. External
 		// transports are expected to come with their own pool lifecycle management.
 		ownedPool *fgrpc.Pool
 	}
-	// dirname is the directory where aspen will store its data. This option is ignored
+	// dirname is the directory where Aspen will store its data. This option is ignored
 	// if a custom kv.ServiceConfig.Engine is set.
 	dirname string
 	// addr sets the address for the host node.
@@ -199,7 +199,7 @@ func mergeDefaultOptions(o *options) {
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		o.transport.ownedPool = pool
-		o.transport.owned = grpct.New(pool)
+		o.transport.owned = transportgrpc.New(pool)
 		o.transport.Transport = o.transport.owned
 	}
 	o.Instrumentation = override.Zero(def.Instrumentation, o.Instrumentation)

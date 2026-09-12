@@ -30,10 +30,10 @@ var _ = Describe("Transport", func() {
 			Expect(tr.Serve(lis)).To(Succeed())
 			Eventually(func() error {
 				conn, err := net.Dial("tcp", lis.Addr().String())
-				if err == nil {
-					Expect(conn.Close()).To(Succeed())
+				if err != nil {
+					return err
 				}
-				return err
+				return conn.Close()
 			}).Should(Succeed())
 
 			By("Releasing the listener on Close")
