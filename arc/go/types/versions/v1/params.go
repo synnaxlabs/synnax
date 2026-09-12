@@ -10,24 +10,11 @@
 package v1
 
 import (
-	"encoding/json/jsontext"
-	json "encoding/json/v2"
 	"fmt"
 	"strings"
 
 	"github.com/samber/lo"
 )
-
-var _ json.MarshalerTo = Params(nil)
-
-// MarshalJSONTo implements json.MarshalerTo, encoding a nil Params as an empty array.
-func (p Params) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if p == nil {
-		return json.MarshalEncode(enc, []Param{})
-	}
-	type params []Param
-	return json.MarshalEncode(enc, params(p))
-}
 
 // Get retrieves a parameter by name. Returns the parameter and true if found, otherwise
 // returns a zero Param and false.
