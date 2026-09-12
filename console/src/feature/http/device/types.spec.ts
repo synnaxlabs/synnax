@@ -22,6 +22,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: false,
         timeoutMs: 500,
+        maxConcurrentRequests: 6,
         auth: { type: "none" },
         healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
@@ -37,6 +38,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: { type: "bearer", token: "my-token" },
         healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
@@ -52,6 +54,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: { type: "bearer", token: "" },
         read: {},
         version: 1,
@@ -65,6 +68,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: { type: "basic", username: "user", password: "pass" },
         healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
         write: {},
@@ -84,6 +88,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: { type: "basic", username: "", password: "pass" },
         read: {},
         version: 1,
@@ -97,6 +102,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: { type: "basic", username: "user", password: "" },
         read: {},
         version: 1,
@@ -110,6 +116,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: {
           type: "api_key",
           sendAs: "header",
@@ -135,6 +142,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: { type: "api_key", sendAs: "header", header: "", key: "secret" },
         read: {},
         version: 1,
@@ -148,6 +156,7 @@ describe("HTTP Device Properties", () => {
         secure: false,
         verifySsl: false,
         timeoutMs: 200,
+        maxConcurrentRequests: 6,
         auth: {
           type: "api_key",
           sendAs: "query_param",
@@ -173,6 +182,7 @@ describe("HTTP Device Properties", () => {
         secure: true,
         verifySsl: true,
         timeoutMs: 100,
+        maxConcurrentRequests: 6,
         auth: {
           type: "api_key",
           sendAs: "query_param",
@@ -197,6 +207,77 @@ describe("HTTP Device Properties", () => {
       };
       const result = HTTP.Device.propertiesZ.safeParse(config);
       expect(result.success).toBe(false);
+    });
+
+    it("should default max concurrent requests to 6 when absent", () => {
+      const config = {
+        secure: true,
+        verifySsl: true,
+        timeoutMs: 100,
+        auth: { type: "none" },
+        read: {},
+        version: 1,
+      };
+      const result = HTTP.Device.propertiesZ.parse(config);
+      expect(result.maxConcurrentRequests).toBe(6);
+    });
+
+    it("should keep an explicit max concurrent requests", () => {
+      const config = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        maxConcurrentRequests: 12,
+      };
+      const result = HTTP.Device.propertiesZ.parse(config);
+      expect(result.maxConcurrentRequests).toBe(12);
+    });
+
+    it("should reject zero max concurrent requests", () => {
+      const config = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        maxConcurrentRequests: 0,
+      };
+      const result = HTTP.Device.propertiesZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject fractional max concurrent requests", () => {
+      const config = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        maxConcurrentRequests: 2.5,
+      };
+      const result = HTTP.Device.propertiesZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject negative max concurrent requests", () => {
+      const config = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        maxConcurrentRequests: -1,
+      };
+      const result = HTTP.Device.propertiesZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-numeric max concurrent requests", () => {
+      const config = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        maxConcurrentRequests: "6",
+      };
+      const result = HTTP.Device.propertiesZ.safeParse(config);
+      expect(result.success).toBe(false);
+    });
+
+    it("should accept a max concurrent requests of 1", () => {
+      const config = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        maxConcurrentRequests: 1,
+      };
+      const result = HTTP.Device.propertiesZ.parse(config);
+      expect(result.maxConcurrentRequests).toBe(1);
+    });
+
+    it("should set max concurrent requests to 6 in ZERO_PROPERTIES", () => {
+      expect(HTTP.Device.ZERO_PROPERTIES.maxConcurrentRequests).toBe(6);
     });
   });
 
@@ -317,6 +398,78 @@ describe("HTTP Device Properties", () => {
       });
       expect(result.success).toBe(false);
     });
+
+    it("should default a missing validateResponse to false without a response", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        healthCheck: { method: "GET", path: "/health" },
+      });
+      expect(result.healthCheck.validateResponse).toBe(false);
+    });
+
+    it("should default a missing validateResponse to true with a response", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        healthCheck: {
+          method: "GET",
+          path: "/health",
+          response: {
+            pointer: "/status",
+            expectedValueType: "string",
+            expectedValue: "ok",
+          },
+        },
+      });
+      expect(result.healthCheck.validateResponse).toBe(true);
+      if (result.healthCheck.validateResponse)
+        expect(result.healthCheck.response.pointer).toBe("/status");
+    });
+
+    it("should keep an explicit validateResponse over the default", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        healthCheck: { method: "POST", path: "/health", validateResponse: false },
+      });
+      expect(result.healthCheck.validateResponse).toBe(false);
+    });
+
+    it("should default a v1 config with no health check to ZERO_HEALTH_CHECK", () => {
+      const { healthCheck: _, ...rest } = HTTP.Device.ZERO_PROPERTIES;
+      const result = HTTP.Device.propertiesZ.parse(rest);
+      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_HEALTH_CHECK);
+    });
+  });
+
+  describe("read endpoint properties", () => {
+    it("should keep a numeric index", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        read: { "/data": { index: 42, channels: { "/temperature": 7 } } },
+      });
+      expect(result.read["/data"].index).toBe(42);
+    });
+
+    it("should read a null index as zero", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        read: { "/data": { index: null, channels: { "/temperature": 7 } } },
+      });
+      expect(result.read["/data"].index).toBe(0);
+      expect(result.read["/data"].channels).toEqual({ "/temperature": 7 });
+    });
+
+    it("should read a field uuid index as zero", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        read: {
+          "/data": {
+            index: "1f3c1c1e-3f1a-4d2b-9c8e-0d8a1d2e3f4a",
+            channels: {},
+          },
+        },
+      });
+      expect(result.read["/data"].index).toBe(0);
+    });
   });
 
   describe("v0 migration", () => {
@@ -331,6 +484,7 @@ describe("HTTP Device Properties", () => {
       const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.version).toBe(1);
       expect(result.auth).toEqual({ type: "none" });
+      expect(result.maxConcurrentRequests).toBe(6);
     });
 
     it("should migrate v0 bearer auth to v1", () => {
@@ -438,6 +592,16 @@ describe("HTTP Device Properties", () => {
       expect(result.timeoutMs).toBeGreaterThan(0);
     });
 
+    it("should migrate v0 to a health check without response validation", () => {
+      const v0Config = {
+        auth: { type: "none" },
+        readIndexes: {},
+      };
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
+      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_HEALTH_CHECK);
+      expect(result.write).toEqual({});
+    });
+
     it("should migrate v0 readIndexes to v1 read", () => {
       const v0Config = {
         secure: true,
@@ -482,6 +646,15 @@ describe("HTTP Device Properties", () => {
       };
       const result = HTTP.Device.propertiesZ.parse(v0Config);
       expect(result.healthCheck).toEqual(HTTP.Device.ZERO_HEALTH_CHECK);
+    });
+
+    it("should set max concurrent requests to 6 on migration", () => {
+      const v0Config = {
+        auth: { type: "none" },
+        readIndexes: {},
+      };
+      const result = HTTP.Device.propertiesZ.parse(v0Config);
+      expect(result.maxConcurrentRequests).toBe(6);
     });
   });
 

@@ -298,6 +298,35 @@ TEST(ConnectionConfigTest, ZeroTimeoutErrors) {
     EXPECT_FALSE(parser.ok());
 }
 
+TEST(ConnectionConfigTest, MaxConcurrentRequestsDefault) {
+    x::json::json j = {{"base_url", "http://localhost"}};
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(config.max_concurrent_requests, DEFAULT_MAX_CONCURRENT_REQUESTS);
+}
+
+TEST(ConnectionConfigTest, MaxConcurrentRequestsParsed) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"max_concurrent_requests", 2},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_TRUE(parser.ok());
+    EXPECT_EQ(config.max_concurrent_requests, 2);
+}
+
+TEST(ConnectionConfigTest, ZeroMaxConcurrentRequestsErrors) {
+    x::json::json j = {
+        {"base_url", "http://localhost"},
+        {"max_concurrent_requests", 0},
+    };
+    x::json::Parser parser(j);
+    ConnectionConfig config(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
 TEST(ConnectionConfigTest, EmptyJSONErrors) {
     x::json::json j = x::json::json::object();
     x::json::Parser parser(j);
@@ -362,6 +391,21 @@ TEST(BuildRequestTest, MergesURLAndPath) {
     EXPECT_EQ(r.method, Method::GET);
     EXPECT_EQ(r.timeout, conn.timeout);
     EXPECT_EQ(r.verify_ssl, true);
+}
+
+TEST(BuildRequestTest, CarriesBaseURLAndCap) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(
+            json{
+                {"base_url", "http://example.com"},
+                {"max_concurrent_requests", 3},
+            }
+        )
+    );
+    RequestConfig req{.method = Method::GET, .path = "/api/data"};
+    auto r = build_request(conn, req);
+    EXPECT_EQ(r.base_url, "http://example.com");
+    EXPECT_EQ(r.max_concurrent_requests, 3);
 }
 
 TEST(BuildRequestTest, PreservesDoubleSlashInPath) {
