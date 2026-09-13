@@ -80,8 +80,9 @@ func Open(
 		if !ok(err, lisCloser) {
 			return nil, err
 		}
-		err = o.transport.owned.Configure(o.Instrumentation)
-		if !ok(err, o.transport.owned) {
+		if err = o.transport.owned.Configure(
+			o.Instrumentation,
+		); !ok(err, o.transport.owned) {
 			return nil, err
 		}
 	}
