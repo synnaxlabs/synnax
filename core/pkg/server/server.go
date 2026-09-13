@@ -117,6 +117,8 @@ func (c Config) Validate() error {
 // It can also serve secure branches behind a TLS listener.
 type Server struct {
 	shutdown io.Closer
+	// addresses holds the resolved address of each Listener, in configuration order.
+	addresses []address.Address
 	Config
 }
 
@@ -141,6 +143,7 @@ func (s *Server) start() (err error) {
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	s.initBranches()
 	opened := make([]net.Listener, 0, len(s.Listeners))
+	s.addresses = make([]address.Address, 0, len(s.Listeners))
 	for _, l := range s.Listeners {
 		lis, err := net.Listen("tcp", l.Address.PortString())
 		if err != nil {
@@ -153,6 +156,9 @@ func (s *Server) start() (err error) {
 			return err
 		}
 		opened = append(opened, lis)
+		s.addresses = append(s.addresses, address.Newf(
+			"%s:%d", l.Address.Host(), lis.Addr().(*net.TCPAddr).Port,
+		))
 		sCtx.Go(func(ctx context.Context) error {
 			mux := cmux.New(lis)
 			if *s.Security.Insecure {
@@ -163,6 +169,11 @@ func (s *Server) start() (err error) {
 	}
 	return nil
 }
+
+// Addresses returns the address each Listener bound to, in configuration order. A
+// Listener configured with port 0 binds to a port the operating system chooses, so its
+// resolved address is only available here.
+func (s *Server) Addresses() []address.Address { return s.addresses }
 
 // Close stops the server gracefully, waiting for all branches to stop serving requests.
 // If the server exits abnormally, the error can be discovered through the return value

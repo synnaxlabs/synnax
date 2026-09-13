@@ -20,14 +20,11 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/freighter/test"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Recovery (wire)", func() {
 	It("should contain a handler panic and keep serving", func(ctx context.Context) {
-		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		app := newFiberApp(fiber.Config{})
 		app.Get(
 			"/health",
@@ -47,12 +44,7 @@ var _ = Describe("Recovery (wire)", func() {
 			},
 		)
 		router.BindTo(app)
-		go func() {
-			defer GinkgoRecover()
-			Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-				DisableStartupMessage: true,
-			})).To(Succeed())
-		}()
+		addr := serveApp(app)
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		Eventually(func(g Gomega) {
 			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())

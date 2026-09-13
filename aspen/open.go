@@ -7,22 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// All included pebble code is copyrighted by the cockroachdb team, and is licensed
-// under the BSD 3-Clause License. See the repository file license/BSD-3-Clause.txt for
+// All included Pebble code is copyrighted by the CockroachDB team, and is licensed
+// under the BSD 3-Clause License. See the repository file licenses/BSD-3-Clause.txt for
 // more information.
 
 package aspen
 
 import (
 	"context"
+	"net"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/io"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func Open(
@@ -37,12 +41,16 @@ func Open(
 		o           = newOptions(dirname, addr, peers, opts...)
 		cleanup, ok = service.NewOpener(ctx, &db.closer)
 	)
-	defer func() {
-		err = cleanup(err)
-	}()
-	// Register the owned grpc client pool first so it closes LAST. The
-	// transport (added below) and any cluster goroutines that hold it must
-	// stop using the pool before pool.Close runs.
+	defer func() { err = cleanup(err) }()
+	if o.transport.owned == nil && o.lis != nil {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"cannot serve a transport provided with WithTransport on a listener",
+		)
+	}
+	// Register the owned gRPC client pool first so it closes LAST. The transport (added
+	// below) and any cluster goroutines that hold it must stop using the pool before
+	// pool.Close runs.
 	if o.transport.ownedPool != nil {
 		if !ok(nil, o.transport.ownedPool) {
 			return nil, ctx.Err()
@@ -54,8 +62,29 @@ func Open(
 		}
 	}
 	o.cluster.Storage = o.kv.Engine
-	if err = configureTransport(o); !ok(err, nil) {
-		return nil, err
+	wireTransport(o)
+	var lis net.Listener
+	if o.transport.owned != nil {
+		// The listener is the first point at which an operating system assigned port is
+		// known, so bind before the cluster advertises the host address.
+		lis, o.cluster.HostAddress, err = openListener(o)
+		// Release only a listener Open bound itself: one from WithListener stays the
+		// caller's. Serve releases it when it stops, so tolerate an already closed
+		// listener.
+		lisCloser := io.NopCloser
+		if o.lis == nil {
+			lisCloser = io.CloserFunc(func() error {
+				return errors.Skip(lis.Close(), net.ErrClosed)
+			})
+		}
+		if !ok(err, lisCloser) {
+			return nil, err
+		}
+		if err = o.transport.owned.Configure(
+			o.Instrumentation,
+		); !ok(err, o.transport.owned) {
+			return nil, err
+		}
 	}
 	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(err, db.Cluster) {
 		return nil, err
@@ -64,19 +93,38 @@ func Open(
 	if db.DB, err = kv.Open(ctx, o.kv); !ok(err, db.DB) {
 		return nil, err
 	}
-	if err = o.transport.Serve(); !ok(err, o.transport) {
-		return nil, err
+	if o.transport.owned != nil {
+		if err = o.transport.owned.Serve(lis); !ok(err, nil) {
+			return nil, err
+		}
 	}
 
 	return db, err
 }
 
-func configureTransport(o *options) error {
-	if err := o.transport.Configure(
-		o.addr, o.Instrumentation, o.transport.external,
-	); err != nil {
-		return err
+// openListener opens the listener the owned transport serves on, and returns it with
+// the address the host advertises. A listener from WithListener is used as is, and
+// stays the caller's to close when it is not bound to a TCP address.
+func openListener(o *options) (net.Listener, address.Address, error) {
+	lis := o.lis
+	if lis == nil {
+		var err error
+		if lis, err = net.Listen("tcp", o.addr.String()); err != nil {
+			return nil, "", err
+		}
 	}
+	tcp, ok := lis.Addr().(*net.TCPAddr)
+	if !ok {
+		return nil, "", errors.Wrapf(
+			validate.ErrValidation,
+			"listener address %q is not a TCP address",
+			lis.Addr(),
+		)
+	}
+	return lis, address.Newf("%s:%d", o.addr.Host(), tcp.Port), nil
+}
+
+func wireTransport(o *options) {
 	o.cluster.Gossip.TransportClient = o.transport.GossipClient()
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
 	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()
@@ -89,7 +137,6 @@ func configureTransport(o *options) error {
 	o.kv.FeedbackTransportClient = o.transport.FeedbackClient()
 	o.kv.RecoveryTransportServer = o.transport.RecoveryServer()
 	o.kv.RecoveryTransportClient = o.transport.RecoveryClient()
-	return nil
 }
 
 func openKV(o *options) (xkv.DB, error) {

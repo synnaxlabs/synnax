@@ -7,22 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package net
+package grpc_test
 
-import "net"
+import (
+	"testing"
 
-// FindOpenPort finds an open port on the local machine.
-func FindOpenPort() (int, error) {
-	a, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-	l, err := net.ListenTCP("tcp", a)
-	defer func() {
-		_ = l.Close()
-	}()
-	if err != nil {
-		return 0, err
-	}
-	return l.Addr().(*net.TCPAddr).Port, nil
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestGRPC(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Aspen gRPC Transport Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
