@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
@@ -67,15 +66,16 @@ func (w *Module) newBatchCall(
 		len(cfg.Node.Inputs) != len(irFn.Inputs) {
 		return nil
 	}
-	outDensity, ok := fixedDensity(irFn.Outputs[0].Type)
-	if !ok {
+	if !irFn.Outputs[0].Type.IsFixedWidth() {
 		return nil
 	}
+	outDensity := irFn.Outputs[0].Type.Density()
 	densities := make([]int, len(irFn.Inputs))
 	for i, inp := range irFn.Inputs {
-		if densities[i], ok = fixedDensity(inp.Type); !ok {
+		if !inp.Type.IsFixedWidth() {
 			return nil
 		}
+		densities[i] = inp.Type.Density()
 	}
 	if w.arena == nil {
 		w.arena = &arena{mem: w.Memory}
@@ -88,17 +88,6 @@ func (w *Module) newBatchCall(
 		samples:    make([]uint32, len(irFn.Inputs)),
 		densities:  densities,
 		outDensity: outDensity,
-	}
-}
-
-func fixedDensity(t types.Type) (int, bool) {
-	switch t.Kind {
-	case types.KindU8, types.KindU16, types.KindU32, types.KindU64,
-		types.KindI8, types.KindI16, types.KindI32, types.KindI64,
-		types.KindF32, types.KindF64, types.KindBool:
-		return t.Density(), true
-	default:
-		return 0, false
 	}
 }
 
@@ -118,8 +107,7 @@ func putValue(dst []byte, density int, v uint64) {
 }
 
 // runBatch computes the whole output series in one guest call, reporting false when
-// the node's series do not fit the wrapper's fixed-width layout. A trap aborts every
-// remaining sample, where the per-sample path would carry on.
+// the node's series do not fit the wrapper's fixed-width layout.
 func (n *nodeImpl) runBatch(
 	ctx node.Context,
 	count int64,

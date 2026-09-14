@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -115,6 +116,59 @@ var _ = Describe("Batched execution", func() {
 		Expect(values[0]).To(Equal(0.5))
 		Expect(values[count-1]).To(Equal(float64(count-1) + 0.5))
 	})
+
+	// Both paths owe the same contract: a trap ends the cycle and the node emits
+	// nothing, so output never depends on where in the series the trap landed.
+	divGraph := binaryOpGraph(
+		"div", "num", "den", types.I64(), types.I64(), `{ return lhs / rhs }`,
+	)
+	// Two outputs never qualify for the wrapper, so this graph stays per-sample even
+	// over a long series.
+	divPairGraph := binaryTwoOutputGraph(
+		"div", "num", "den", types.I64(), types.I64(), "quot", "same",
+		`{
+			quot = lhs / rhs
+			same = lhs
+		}`,
+	)
+
+	DescribeTable(
+		"Should emit nothing when a sample traps",
+		func(ctx SpecContext, g arc.Graph, num, den telem.Series) {
+			h := newHarness(ctx, g, nil)
+			DeferCleanup(h.Close)
+			h.SetInput("num", 0, num, stamps(num.Len()))
+			h.SetInput("den", 0, den, stamps(den.Len()))
+			Expect(h.Execute(ctx, "div")).To(BeEmpty())
+			for i := range h.Outputs("div") {
+				Expect(h.Output("div", i).Len()).To(Equal(int64(0)))
+				Expect(h.OutputTime("div", i).Len()).To(Equal(int64(0)))
+			}
+			Expect(h.Errors()).To(HaveLen(1))
+			Expect(h.Errors()[0]).To(MatchError(ContainSubstring("node div")))
+		},
+		Entry("batched, trap on the first sample", divGraph,
+			telem.NewSeriesV[int64](1, 2, 3, 4),
+			telem.NewSeriesV[int64](0, 1, 1, 1)),
+		Entry("batched, trap mid-series", divGraph,
+			telem.NewSeriesV[int64](1, 2, 3, 4),
+			telem.NewSeriesV[int64](1, 1, 0, 1)),
+		Entry("batched, trap on the last sample", divGraph,
+			telem.NewSeriesV[int64](1, 2, 3, 4),
+			telem.NewSeriesV[int64](1, 1, 1, 0)),
+		Entry("per-sample, single sample", divGraph,
+			telem.NewSeriesV[int64](1),
+			telem.NewSeriesV[int64](0)),
+		Entry(
+			"per-sample, trap mid-series discards the samples before it",
+			divPairGraph,
+			telem.NewSeriesV[int64](1, 2, 3, 4),
+			telem.NewSeriesV[int64](1, 1, 0, 1),
+		),
+		Entry("per-sample, trap on the last sample", divPairGraph,
+			telem.NewSeriesV[int64](1, 2, 3, 4),
+			telem.NewSeriesV[int64](1, 1, 1, 0)),
+	)
 
 	It("Should stamp each output sample with its input time", func(ctx SpecContext) {
 		h := newHarness(ctx, binaryOpGraph(

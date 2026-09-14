@@ -42,26 +42,15 @@ type batchTarget struct {
 // handles, so a guest-side loop cannot index them out of linear memory.
 func batchTargetFor(fn ir.Function) (batchTarget, bool) {
 	out, ok := fn.Outputs.Get(ir.DefaultOutputParam)
-	if !ok || len(fn.Outputs) != 1 || !batchable(out.Type) {
+	if !ok || len(fn.Outputs) != 1 || !out.Type.IsFixedWidth() {
 		return batchTarget{}, false
 	}
 	for _, in := range fn.Inputs {
-		if !batchable(in.Type) {
+		if !in.Type.IsFixedWidth() {
 			return batchTarget{}, false
 		}
 	}
 	return batchTarget{key: fn.Key, inputs: fn.Inputs, output: out.Type}, true
-}
-
-func batchable(t types.Type) bool {
-	switch t.Kind {
-	case types.KindU8, types.KindU16, types.KindU32, types.KindU64,
-		types.KindI8, types.KindI16, types.KindI32, types.KindI64,
-		types.KindF32, types.KindF64, types.KindBool:
-		return true
-	default:
-		return false
-	}
 }
 
 // compileBatchWrapper emits the wrapper exported under t.key + BatchSuffix.

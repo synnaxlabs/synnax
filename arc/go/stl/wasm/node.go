@@ -242,6 +242,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		res, err := n.call(ctx.Context)
 		if err != nil {
+			// A trap ends the cycle. Emitting the samples that already succeeded
+			// would make the output depend on where in the series the trap landed.
 			ctx.ReportError(errors.Wrapf(
 				err,
 				"WASM execution failed in node %s at sample %d/%d",
@@ -249,7 +251,13 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				i,
 				maxLength,
 			))
-			continue
+			for j := range n.offsets {
+				n.offsets[j] = 0
+			}
+			for j := range stringResults {
+				stringResults[j] = stringResults[j][:0]
+			}
+			break
 		}
 		var ts uint64
 		if clockStamp {
