@@ -11,7 +11,7 @@ package compiler
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	ccontext "github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
@@ -66,7 +66,7 @@ func batchable(t types.Type) bool {
 
 // compileBatchWrapper emits the wrapper exported under t.key + BatchSuffix.
 func compileBatchWrapper(
-	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	rootCtx context.Context[antlr.ParserRuleContext],
 	t batchTarget,
 ) compiledFunction {
 	ctx := rootCtx.WithNewWriter()
