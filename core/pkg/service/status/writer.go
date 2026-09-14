@@ -100,10 +100,7 @@ func (w Writer) SetWithParent[D any](
 
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses
 // already exist, they will be updated.
-func (w Writer) SetMany[D any](
-	ctx context.Context,
-	statuses *[]Status[D],
-) error {
+func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
 	return w.SetManyWithParent(ctx, statuses, ontology.ID{})
 }
 

@@ -23,8 +23,6 @@ import (
 // last status the instance sent so a command that needs no work can be answered by
 // re-sending it, without reading the server. Safe for concurrent use.
 type StatusHandler struct {
-	// db opens the transaction each write runs in. A status write is never part of a
-	// caller's transaction, so the handler owns one per write.
 	db  *gorp.DB
 	svc *status.Service
 	mu  sync.Mutex
