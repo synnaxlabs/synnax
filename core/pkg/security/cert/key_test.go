@@ -55,11 +55,11 @@ var _ = Describe("KeyAlgorithm", func() {
 			Entry("ML-DSA-87", cert.KeyAlgorithmMLDSA87, mldsa.MLDSA87()),
 		)
 
-		It("should return ErrUnsupportedKeyAlgorithm for an unknown algorithm", func() {
+		It("should return a validation error for an unknown algorithm", func() {
 			Expect(cert.KeyAlgorithm("dilithium").GenerateKey(2048)).Error().
 				To(SatisfyAll(
-					MatchError(cert.ErrUnsupportedKeyAlgorithm),
 					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("unsupported key algorithm")),
 					MatchError(ContainSubstring("dilithium")),
 				))
 		})
@@ -126,7 +126,10 @@ var _ = Describe("Factory key algorithms", func() {
 		Expect(cert.NewFactory(cert.FactoryConfig{
 			FS:           xfs.NewMem(),
 			KeyAlgorithm: cert.KeyAlgorithm("dilithium"),
-		})).Error().To(MatchError(cert.ErrUnsupportedKeyAlgorithm))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("unsupported key algorithm")),
+		))
 	})
 })
 

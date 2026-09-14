@@ -11,6 +11,7 @@ package cert
 
 import (
 	"crypto"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -152,13 +153,15 @@ func (f *Factory) CreateCAPair() error {
 
 // CreateTokenKeyIfMissing creates the key a Core signs authentication tokens with, if
 // it does not already exist. A Core whose certificate uses a post-quantum algorithm
-// needs it, because ML-DSA has no JWT signing method.
+// needs it, because ML-DSA has no JWT signing method. Ed25519 is fixed rather than
+// configurable: the key never appears in a certificate, so it needs no agreement with a
+// peer, and EdDSA keeps tokens small.
 func (f *Factory) CreateTokenKeyIfMissing() error {
 	exists, err := f.FS.Exists(f.TokenKeyPath)
 	if err != nil || exists {
 		return err
 	}
-	key, err := generateTokenKey()
+	_, key, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}

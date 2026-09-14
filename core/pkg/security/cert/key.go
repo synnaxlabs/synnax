@@ -35,9 +35,10 @@ const (
 	KeyAlgorithmMLDSA87 KeyAlgorithm = "ml-dsa-87"
 )
 
-// ErrUnsupportedKeyAlgorithm is returned when a KeyAlgorithm is not one of the
-// constants declared in this package.
-var ErrUnsupportedKeyAlgorithm = errors.Wrap(
+// errUnsupportedKeyAlgorithm is returned when a KeyAlgorithm is not one of the
+// constants declared in this package. It wraps validate.ErrValidation, which is what
+// callers match on.
+var errUnsupportedKeyAlgorithm = errors.Wrap(
 	validate.ErrValidation,
 	"unsupported key algorithm",
 )
@@ -53,19 +54,19 @@ func (a KeyAlgorithm) PostQuantum() bool {
 	return false
 }
 
-// validate returns ErrUnsupportedKeyAlgorithm if the algorithm is not one of the
-// constants declared in this package.
+// validate returns validate.ErrValidation if the algorithm is not one of the constants
+// declared in this package.
 func (a KeyAlgorithm) validate() error {
 	switch a {
 	case KeyAlgorithmRSA, KeyAlgorithmMLDSA44, KeyAlgorithmMLDSA65, KeyAlgorithmMLDSA87:
 		return nil
 	}
-	return errors.Wrapf(ErrUnsupportedKeyAlgorithm, "%q", a)
+	return errors.Wrapf(errUnsupportedKeyAlgorithm, "%q", a)
 }
 
 // GenerateKey generates a private key for the algorithm. keySize sizes an RSA key and
 // is ignored by the ML-DSA parameter sets, whose key sizes are fixed by FIPS 204. It
-// returns ErrUnsupportedKeyAlgorithm if the algorithm is not recognized.
+// returns validate.ErrValidation if the algorithm is not recognized.
 func (a KeyAlgorithm) GenerateKey(keySize int) (crypto.Signer, error) {
 	switch a {
 	case KeyAlgorithmRSA:
@@ -77,7 +78,7 @@ func (a KeyAlgorithm) GenerateKey(keySize int) (crypto.Signer, error) {
 	case KeyAlgorithmMLDSA87:
 		return mldsa.GenerateKey(mldsa.MLDSA87())
 	}
-	return nil, errors.Wrapf(ErrUnsupportedKeyAlgorithm, "%q", a)
+	return nil, errors.Wrapf(errUnsupportedKeyAlgorithm, "%q", a)
 }
 
 // SignsJWT reports whether key's algorithm has a JWT signing method. ML-DSA does not:
@@ -89,12 +90,4 @@ func SignsJWT(key crypto.PrivateKey) bool {
 		return true
 	}
 	return false
-}
-
-// generateTokenKey generates the key a Core signs authentication tokens with. Ed25519
-// is fixed rather than configurable: the key never appears in a certificate, so it
-// needs no agreement with a peer, and EdDSA keeps tokens small.
-func generateTokenKey() (ed25519.PrivateKey, error) {
-	_, key, err := ed25519.GenerateKey(rand.Reader)
-	return key, err
 }
