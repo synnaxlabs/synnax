@@ -199,6 +199,22 @@ func (f *Factory) CreateCAPairIfMissing() error {
 	return f.CreateCAPair()
 }
 
+// CreateAll creates everything a Core needs to serve securely: the CA pair if it does
+// not exist, the token signing key if the configured algorithm cannot sign JWTs, and
+// the node pair if it is missing or does not cover every host in Hosts. Callers that do
+// not own the files on disk must not use it.
+func (f *Factory) CreateAll() error {
+	if err := f.CreateCAPairIfMissing(); err != nil {
+		return err
+	}
+	if f.cfg.KeyAlgorithm.PostQuantum() {
+		if err := f.CreateTokenKeyIfMissing(); err != nil {
+			return err
+		}
+	}
+	return f.CreateNodePairIfStale()
+}
+
 // CreateNodePairIfStale creates the node certificate and its private key if they do not
 // exist, and replaces them when the existing certificate does not cover every host in
 // Hosts. A covering certificate is left untouched. Callers that do not own the files on

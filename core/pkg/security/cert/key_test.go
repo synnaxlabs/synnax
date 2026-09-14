@@ -76,6 +76,54 @@ var _ = Describe("KeyAlgorithm", func() {
 			Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65, true),
 			Entry("ML-DSA-87", cert.KeyAlgorithmMLDSA87, true),
 		)
+
+		DescribeTable("should agree with SignsJWT on the key it generates",
+			func(algo cert.KeyAlgorithm) {
+				key := MustSucceed(algo.GenerateKey(mock.SmallKeySize))
+				Expect(cert.SignsJWT(key)).To(Equal(!algo.PostQuantum()))
+			},
+			Entry("RSA", cert.KeyAlgorithmRSA),
+			Entry("ML-DSA-44", cert.KeyAlgorithmMLDSA44),
+			Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65),
+			Entry("ML-DSA-87", cert.KeyAlgorithmMLDSA87),
+		)
+	})
+})
+
+var _ = Describe("CreateAll", func() {
+	DescribeTable("should create the token key only when the node key cannot sign JWTs",
+		func(algo cert.KeyAlgorithm, expectTokenKey bool) {
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				FS:           xfs.NewMem(),
+				Hosts:        []address.Address{"synnaxlabs.com"},
+				KeySize:      mock.SmallKeySize,
+				KeyAlgorithm: algo,
+			}))
+			Expect(f.CreateAll()).To(Succeed())
+			node, _ := MustSucceed2(f.Loader.LoadNodePair())
+			Expect(node.DNSNames).To(ConsistOf("synnaxlabs.com"))
+			if !expectTokenKey {
+				Expect(f.Loader.LoadTokenKey()).Error().To(MatchError(fs2.ErrNotExist))
+				return
+			}
+			Expect(MustSucceed(f.Loader.LoadTokenKey())).
+				To(BeAssignableToTypeOf(ed25519.PrivateKey{}))
+		},
+		Entry("RSA", cert.KeyAlgorithmRSA, false),
+		Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65, true),
+	)
+
+	It("should leave a covering node pair untouched", func() {
+		f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+			FS:      xfs.NewMem(),
+			Hosts:   []address.Address{"synnaxlabs.com"},
+			KeySize: mock.SmallKeySize,
+		}))
+		Expect(f.CreateAll()).To(Succeed())
+		before, _ := MustSucceed2(f.Loader.LoadNodePair())
+		Expect(f.CreateAll()).To(Succeed())
+		after, _ := MustSucceed2(f.Loader.LoadNodePair())
+		Expect(after.SerialNumber).To(Equal(before.SerialNumber))
 	})
 })
 
