@@ -21,10 +21,8 @@ import (
 
 // secureProvider implements the Provider interface for use in a secure cluster.
 type secureProvider struct {
-	loader *cert.Loader
-	tls    *tls.Certificate
-	// tokenKey signs authentication tokens. It is tls.PrivateKey unless that key's
-	// algorithm has no JWT signing method.
+	loader   *cert.Loader
+	tls      *tls.Certificate
 	tokenKey crypto.PrivateKey
 	certPool *x509.CertPool
 	ProviderConfig
@@ -84,17 +82,14 @@ var defaultCipherSuites = []uint16{
 	tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
 }
 
-// TLSConfigFor implements TLSProvider.
 func (p *secureProvider) TLSConfigFor(src cert.Source) *tls.Config {
 	return p.baseTLSConfig(src.GetCertificate)
 }
 
-// NodeClientConfig implements TLSProvider.
 func (p *secureProvider) NodeClientConfig() *tls.Config {
 	return p.baseTLSConfig(p.getNodeCert)
 }
 
-// VerifyCertHost implements TLSProvider.
 func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
 	leaf, _, err := chainOf(src)
 	if err != nil {
@@ -103,7 +98,6 @@ func (p *secureProvider) VerifyCertHost(src cert.Source, host string) error {
 	return leaf.VerifyHostname(host)
 }
 
-// VerifyCertCoreCA implements TLSProvider.
 func (p *secureProvider) VerifyCertCoreCA(src cert.Source) error {
 	leaf, intermediates, err := chainOf(src)
 	if err != nil {
@@ -116,7 +110,6 @@ func (p *secureProvider) VerifyCertCoreCA(src cert.Source) error {
 	return err
 }
 
-// VerifyCertTrustAnchors implements TLSProvider.
 func (p *secureProvider) VerifyCertTrustAnchors(src cert.Source) error {
 	leaf, intermediates, err := chainOf(src)
 	if err != nil {
@@ -172,7 +165,6 @@ func (p *secureProvider) baseTLSConfig(
 	}
 }
 
-// TokenPrivate implements KeyProvider.
 func (p *secureProvider) TokenPrivate() crypto.PrivateKey { return p.tokenKey }
 
 func (p *secureProvider) getNodeCert(*tls.ClientHelloInfo) (*tls.Certificate, error) {

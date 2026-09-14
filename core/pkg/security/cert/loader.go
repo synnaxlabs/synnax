@@ -64,54 +64,54 @@ var (
 )
 
 // AbsoluteCAKeyPath returns the path to the CA private key, CertsDir included.
-func (l LoaderConfig) AbsoluteCAKeyPath() string {
-	return path.Join(l.CertsDir, l.CAKeyPath)
+func (lc LoaderConfig) AbsoluteCAKeyPath() string {
+	return path.Join(lc.CertsDir, lc.CAKeyPath)
 }
 
 // AbsoluteCACertPath returns the path to the CA certificate, CertsDir included.
-func (l LoaderConfig) AbsoluteCACertPath() string {
-	return path.Join(l.CertsDir, l.CACertPath)
+func (lc LoaderConfig) AbsoluteCACertPath() string {
+	return path.Join(lc.CertsDir, lc.CACertPath)
 }
 
 // AbsoluteNodeKeyPath returns the path to the node private key, CertsDir included.
-func (l LoaderConfig) AbsoluteNodeKeyPath() string {
-	return path.Join(l.CertsDir, l.NodeKeyPath)
+func (lc LoaderConfig) AbsoluteNodeKeyPath() string {
+	return path.Join(lc.CertsDir, lc.NodeKeyPath)
 }
 
 // AbsoluteNodeCertPath returns the path to the node certificate, CertsDir included.
-func (l LoaderConfig) AbsoluteNodeCertPath() string {
-	return path.Join(l.CertsDir, l.NodeCertPath)
+func (lc LoaderConfig) AbsoluteNodeCertPath() string {
+	return path.Join(lc.CertsDir, lc.NodeCertPath)
 }
 
 // AbsoluteTokenKeyPath returns the path to the authentication token signing key,
 // CertsDir included.
-func (l LoaderConfig) AbsoluteTokenKeyPath() string {
-	return path.Join(l.CertsDir, l.TokenKeyPath)
+func (lc LoaderConfig) AbsoluteTokenKeyPath() string {
+	return path.Join(lc.CertsDir, lc.TokenKeyPath)
 }
 
 // Override implements [config.Config].
-func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
-	l.CertsDir = override.String(l.CertsDir, other.CertsDir)
-	l.CAKeyPath = override.String(l.CAKeyPath, other.CAKeyPath)
-	l.CACertPath = override.String(l.CACertPath, other.CACertPath)
-	l.NodeKeyPath = override.String(l.NodeKeyPath, other.NodeKeyPath)
-	l.NodeCertPath = override.String(l.NodeCertPath, other.NodeCertPath)
-	l.TokenKeyPath = override.String(l.TokenKeyPath, other.TokenKeyPath)
-	l.FS = override.Nil(l.FS, other.FS)
-	l.Instrumentation = override.Zero(l.Instrumentation, other.Instrumentation)
-	return l
+func (lc LoaderConfig) Override(other LoaderConfig) LoaderConfig {
+	lc.CertsDir = override.String(lc.CertsDir, other.CertsDir)
+	lc.CAKeyPath = override.String(lc.CAKeyPath, other.CAKeyPath)
+	lc.CACertPath = override.String(lc.CACertPath, other.CACertPath)
+	lc.NodeKeyPath = override.String(lc.NodeKeyPath, other.NodeKeyPath)
+	lc.NodeCertPath = override.String(lc.NodeCertPath, other.NodeCertPath)
+	lc.TokenKeyPath = override.String(lc.TokenKeyPath, other.TokenKeyPath)
+	lc.FS = override.Nil(lc.FS, other.FS)
+	lc.Instrumentation = override.Zero(lc.Instrumentation, other.Instrumentation)
+	return lc
 }
 
 // Validate implements [config.Config].
-func (l LoaderConfig) Validate() error {
+func (lc LoaderConfig) Validate() error {
 	v := validate.New("cert.loader")
-	v.NotEmptyString("certs_dir", l.CertsDir)
-	v.NotEmptyString("ca_key_path", l.CAKeyPath)
-	v.NotEmptyString("ca_cert_path", l.CACertPath)
-	v.NotEmptyString("node_key_path", l.NodeKeyPath)
-	v.NotEmptyString("node_cert_path", l.NodeCertPath)
-	v.NotEmptyString("token_key_path", l.TokenKeyPath)
-	v.NotNil("fs", l.FS)
+	v.NotEmptyString("certs_dir", lc.CertsDir)
+	v.NotEmptyString("ca_key_path", lc.CAKeyPath)
+	v.NotEmptyString("ca_cert_path", lc.CACertPath)
+	v.NotEmptyString("node_key_path", lc.NodeKeyPath)
+	v.NotEmptyString("node_cert_path", lc.NodeCertPath)
+	v.NotEmptyString("token_key_path", lc.TokenKeyPath)
+	v.NotNil("fs", lc.FS)
 	return v.Error()
 }
 
@@ -127,8 +127,10 @@ func NewLoader(configs ...LoaderConfig) (*Loader, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.FS, err = cfg.FS.Sub(cfg.CertsDir)
-	return &Loader{cfg: cfg}, err
+	if cfg.FS, err = cfg.FS.Sub(cfg.CertsDir); err != nil {
+		return nil, err
+	}
+	return &Loader{cfg: cfg}, nil
 }
 
 // Config returns the configuration the Loader was built with. The returned copy is
@@ -141,8 +143,10 @@ func (l *Loader) LoadCAPair() (*x509.Certificate, crypto.PrivateKey, error) {
 	c, k, err := l.loadX509(l.cfg.CACertPath, l.cfg.CAKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil, errors.Wrap(err, "CA certificate not found")
+	} else if err != nil {
+		return nil, nil, err
 	}
-	return c, k, err
+	return c, k, nil
 }
 
 // LoadCAs loads every CA certificate in the CA certificate file, in file order. Bytes
@@ -171,8 +175,10 @@ func (l *Loader) LoadNodePair() (*x509.Certificate, crypto.PrivateKey, error) {
 	c, k, err := l.loadX509(l.cfg.NodeCertPath, l.cfg.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil, errors.Wrap(err, "node certificate not found")
+	} else if err != nil {
+		return nil, nil, err
 	}
-	return c, k, err
+	return c, k, nil
 }
 
 // LoadNodeTLS loads the node TLS certificate.
@@ -180,8 +186,10 @@ func (l *Loader) LoadNodeTLS() (*tls.Certificate, error) {
 	c, err := l.loadTLS(l.cfg.NodeCertPath, l.cfg.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, errors.Wrap(err, "node certificate not found")
+	} else if err != nil {
+		return nil, err
 	}
-	return c, err
+	return c, nil
 }
 
 // LoadTokenKey loads the dedicated key a Core signs authentication tokens with. It
