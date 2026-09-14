@@ -277,7 +277,7 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // and performs no reads, so a Delete stages the same mutation whether or not the entry
 // exists. Mutations are staged against the Table's secondary indexes.
 func (t *Table[K, E]) NewWriter(tx Tx) *Writer[K, E] {
-	return wrapWriter[K, E](tx, t.keyPrefix, t.indexes)
+	return wrapWriter(tx, t.keyPrefix, t.indexes)
 }
 
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
