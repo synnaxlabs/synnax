@@ -76,6 +76,7 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 		Status:       statusSvc,
 	}))
 	return framer.ServiceConfig{
+		DB:      n.DB,
 		Framer:  n.Framer,
 		Channel: channelSvc,
 		Status:  statusSvc,

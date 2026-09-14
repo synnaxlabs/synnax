@@ -96,13 +96,12 @@ func (w Writer) CreateMany(
 
 // Delete deletes the logs with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	deleted, err := w.
+	if err := w.
 		table.
 		NewDelete().
 		Where(gorp.MatchKeys[Key, Log](keys...)).
-		ExecKeys(ctx, w.tx)
-	if err != nil {
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

@@ -18,31 +18,15 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create and update statuses within the DB.
+// Writer is used to create and update statuses within the DB. Every write touches both
+// the status entry and its ontology resource, so the transaction the Writer is opened
+// with must span the whole operation the caller is performing.
 type Writer struct {
-	db *gorp.DB
-	// tx is the caller-provided transaction. Nil means withTx opens one per call.
-	tx    gorp.Tx
-	table *gorp.Table[Key, Status[any]]
-	// otgWriter is bound to the transaction the current call runs in.
+	tx        gorp.Tx
+	table     *gorp.Table[Key, Status[any]]
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
-}
-
-// withTx runs f against a Writer bound to a transaction. A Writer opened without one
-// gets a transaction per call, so a status entry and its ontology resource always
-// commit together.
-func (w Writer) withTx(ctx context.Context, f func(w Writer) error) error {
-	if w.tx != nil {
-		w.otgWriter = w.otg.NewWriter(w.tx)
-		return f(w)
-	}
-	return w.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w.tx = tx
-		w.otgWriter = w.otg.NewWriter(tx)
-		return f(w)
-	})
 }
 
 // Set creates or updates a status within the DB. If the Status already has a key and
@@ -58,16 +42,6 @@ func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 // will be preserved. If an empty parent is provided, the status will be created under
 // the top level "Statuses" group.
 func (w Writer) SetWithParent[D any](
-	ctx context.Context,
-	s *Status[D],
-	parent ontology.ID,
-) error {
-	return w.withTx(ctx, func(w Writer) error {
-		return w.setWithParent(ctx, s, parent)
-	})
-}
-
-func (w Writer) setWithParent[D any](
 	ctx context.Context,
 	s *Status[D],
 	parent ontology.ID,
@@ -148,28 +122,23 @@ func (w Writer) SetManyWithParent[D any](
 	if statuses == nil {
 		return nil
 	}
-	return w.withTx(ctx, func(w Writer) error {
-		for i, s := range *statuses {
-			if err := w.setWithParent(ctx, &s, parent); err != nil {
-				return err
-			}
-			(*statuses)[i] = s
+	for i, s := range *statuses {
+		if err := w.SetWithParent(ctx, &s, parent); err != nil {
+			return err
 		}
-		return nil
-	})
+		(*statuses)[i] = s
+	}
+	return nil
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	return w.withTx(ctx, func(w Writer) error {
-		deleted, err := w.table.NewDelete().
-			Where(gorp.MatchKeys[Key, Status[any]](keys...)).
-			ExecKeys(ctx, w.tx)
-		if err != nil {
-			return err
-		}
-		return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
-	})
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Status[any]](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
 func (w Writer) validate[D any](s Status[D]) error {

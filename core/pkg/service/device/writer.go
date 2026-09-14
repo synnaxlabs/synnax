@@ -152,14 +152,11 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
-	deleted, err := w.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Device](key)).
-		ExecKeys(ctx, w.tx)
-	if err != nil {
+	if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
-	if err = w.otg.DeleteResources(ctx, OntologyIDs(deleted)...); err != nil {
+	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, OntologyID(key).String())
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Device](key)).Exec(ctx, w.tx)
 }

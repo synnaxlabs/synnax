@@ -221,13 +221,12 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 			}
 		}
 	}
-	deleted, err := w.table.NewDelete().
+	if err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Task](key)).
-		ExecKeys(ctx, w.tx)
-	if err != nil {
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err = w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())

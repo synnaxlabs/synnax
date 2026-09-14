@@ -94,10 +94,9 @@ func (w Writer) CreateMany(
 
 // Delete deletes the tables with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	deleted, err := w.tbl.NewDelete().
-		Where(gorp.MatchKeys[Key, Table](keys...)).ExecKeys(ctx, w.tx)
-	if err != nil {
+	if err := w.tbl.NewDelete().
+		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

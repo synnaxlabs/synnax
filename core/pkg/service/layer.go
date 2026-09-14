@@ -339,6 +339,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		framer.ServiceConfig{
 			Instrumentation: cfg.Child("framer"),
+			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,
@@ -684,6 +685,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
 		Instrumentation: cfg.Child("arc.task"),
+		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
@@ -695,6 +697,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	pdFactory, err := pdruntime.NewFactory(pdruntime.FactoryConfig{
 		Instrumentation: cfg.Child("pagerduty"),
+		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
 	})
 	if !ok(err, nil) {

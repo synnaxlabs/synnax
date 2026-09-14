@@ -107,6 +107,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open writer service: %v", err)
 	}
 	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
+		DB:      node.DB,
 		Framer:  node.Framer,
 		Writer:  writerSvc,
 		Channel: channelSvc,

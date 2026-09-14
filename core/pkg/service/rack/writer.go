@@ -129,14 +129,13 @@ func (w Writer) DeleteGuard(
 	key Key,
 	guard gorp.GuardFunc[Key, Rack],
 ) error {
-	deleted, err := w.table.NewDelete().
+	if err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Rack](key)).
 		Guard(guard).
-		ExecKeys(ctx, w.tx)
-	if err != nil {
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err = w.otg.DeleteResources(ctx, OntologyIDs(deleted)...); err != nil {
+	if err := w.otg.DeleteResources(ctx, key.OntologyID()); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, key.OntologyID().String())

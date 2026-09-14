@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -74,6 +75,10 @@ const (
 // ServiceConfig is the configuration for opening a framer Service. All fields are
 // required except the embedded Instrumentation.
 type ServiceConfig struct {
+	// DB opens the transactions that calculation status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Framer is the distribution-layer framer service this service extends.
 	//
 	// [REQUIRED]
@@ -97,6 +102,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
+	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
@@ -106,6 +112,7 @@ func (c ServiceConfig) Validate() error {
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
@@ -143,6 +150,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation: cfg.Child("calculation"),
+		DB:              cfg.DB,
 		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
 		Writer:          s.writer,

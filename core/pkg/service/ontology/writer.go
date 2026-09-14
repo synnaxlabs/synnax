@@ -62,7 +62,8 @@ func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
 	if err != nil {
 		return err
 	}
-	return w.resourceTable.NewWriter(w.tx).Delete(ctx, keys...)
+	return w.resourceTable.NewDelete().
+		Where(gorp.MatchKeys[string, Resource](keys...)).Exec(ctx, w.tx)
 }
 
 // DefineRelationships defines a directional relationship of type t from the resource

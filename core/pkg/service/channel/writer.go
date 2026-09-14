@@ -620,7 +620,7 @@ func (w Writer) validateChannelNames(
 }
 
 func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
-	deleted, err := w.svc.table.NewDelete().
+	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
 			if c.Internal && !allowInternal {
@@ -632,20 +632,19 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 			}
 			return nil
 		}).
-		ExecKeys(ctx, w.tx)
-	if err != nil {
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err = w.otg.DeleteResources(ctx, OntologyIDsFromKeys(deleted)...); err != nil {
+	if err := w.otg.DeleteResources(ctx, OntologyIDsFromKeys(keys)...); err != nil {
 		return err
 	}
 	// Storage deletion goes last, as it is the only operation that can fail without an
 	// atomic guarantee.
-	if err = w.svc.cfg.Channel.Delete(ctx, deleted); err != nil {
+	if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
 		return err
 	}
 	w.svc.mu.Lock()
-	w.svc.mu.externalNonVirtualSet.Remove(deleted...)
+	w.svc.mu.externalNonVirtualSet.Remove(keys...)
 	w.svc.mu.Unlock()
 	return nil
 }

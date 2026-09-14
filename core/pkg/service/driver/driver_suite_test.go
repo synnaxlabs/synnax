@@ -97,6 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		DB:      node.DB,
 		Framer:  node.Framer,
 		Channel: channelSvc,
 		Status:  statusSvc,
@@ -153,15 +154,16 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	}
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmdKey
-	Expect(statusSvc.NewWriter(nil).
-		Set(ctx, &task.Status{
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
 			Key:     t.OntologyID().String(),
 			Name:    t.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantError,
 			Message: err.Error(),
 			Details: details,
-		})).To(Succeed())
+		})
+	})).To(Succeed())
 }
 
 func (f *mockFactory) Name() string { return f.name }

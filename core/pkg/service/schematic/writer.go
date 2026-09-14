@@ -160,11 +160,11 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	deleted, err := w.table.NewDelete().
+	err := w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Schematic](keys...)).
-		ExecKeys(ctx, w.tx)
+		Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

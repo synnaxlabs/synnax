@@ -203,14 +203,14 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		}
 		frontier = nextFrontier
 	}
-	deleted, err := w.table.
+	allKeys := toDelete.Slice()
+	if err := w.table.
 		NewDelete().
-		Where(gorp.MatchKeys[Key, Range](toDelete.Slice()...)).
-		ExecKeys(ctx, w.tx)
-	if err != nil {
+		Where(gorp.MatchKeys[Key, Range](allKeys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(allKeys)...)
 }
 
 func (w Writer) validate(r Range) error {

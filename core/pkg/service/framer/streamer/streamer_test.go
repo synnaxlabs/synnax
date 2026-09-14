@@ -79,6 +79,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Channel: channelSvc,
 		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:      node.DB,
 			Framer:  node.Framer,
 			Writer:  writerSvc,
 			Channel: channelSvc,

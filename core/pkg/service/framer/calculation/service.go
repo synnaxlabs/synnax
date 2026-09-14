@@ -44,6 +44,10 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Framer is the underlying frame service used to stream cached channel values.
 	//
 	// [REQUIRED]
@@ -73,6 +77,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
+	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("writer", c.Writer)
 	v.NotNil("channel", c.Channel)
@@ -83,6 +88,7 @@ func (c ServiceConfig) Validate() error {
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -99,7 +105,6 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
-	statusWriter status.Writer
 }
 
 // OpenService opens the service with the provided configuration. The service must be
@@ -117,10 +122,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
-	s := &Service{
-		cfg:          cfg,
-		statusWriter: cfg.Status.NewWriter(nil),
-	}
+	s := &Service{cfg: cfg}
 	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
@@ -155,13 +157,15 @@ func (s *Service) setStatus(
 		}
 		s.cfg.L.Warn(st.String())
 		statusKey := calculation.StatusKey(chKey)
-		if err = s.statusWriter.Set(ctx, &Status{
-			Key:         statusKey,
-			Name:        st.Name,
-			Variant:     st.Variant,
-			Message:     st.Message,
-			Description: st.Description,
-			Time:        telem.Now(),
+		if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.cfg.Status.NewWriter(tx).Set(ctx, &Status{
+				Key:         statusKey,
+				Name:        st.Name,
+				Variant:     st.Variant,
+				Message:     st.Message,
+				Description: st.Description,
+				Time:        telem.Now(),
+			})
 		}); err != nil {
 			s.cfg.L.Error(
 				"failed to set status",

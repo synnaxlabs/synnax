@@ -790,16 +790,16 @@ var _ = Describe("Rack", Ordered, func() {
 				r := rack.Rack{Name: "active test rack"}
 				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
-				Expect(
-					stat.NewWriter(nil).Set(ctx, &rack.Status{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return stat.NewWriter(tx).Set(ctx, &rack.Status{
 						Key:     r.OntologyID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
 						Details: rack.StatusDetails{Rack: r.Key},
-					}),
-				).To(Succeed())
+					})
+				})).To(Succeed())
 
 				Consistently(func(g Gomega) {
 					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
@@ -870,16 +870,16 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Eventually(getCount).Should(Equal(1))
 
-				Expect(
-					stat.NewWriter(nil).Set(ctx, &rack.Status{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return stat.NewWriter(tx).Set(ctx, &rack.Status{
 						Key:     r.OntologyID().String(),
 						Name:    r.Name,
 						Time:    telem.Now(),
 						Variant: status.VariantSuccess,
 						Message: "Running",
 						Details: rack.StatusDetails{Rack: r.Key},
-					}),
-				).To(Succeed())
+					})
+				})).To(Succeed())
 
 				countAfterRecovery := getCount()
 				Eventually(

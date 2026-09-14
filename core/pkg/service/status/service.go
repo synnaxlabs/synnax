@@ -207,15 +207,16 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
-// NewWriter opens a Writer for statuses. Pass a nil tx to give each call its own
-// transaction against the service's DB.
+// NewWriter opens a Writer for statuses against the given transaction. A status write
+// spans the status entry and its ontology resource, so tx must be non-nil and must span
+// the caller's whole operation.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		db:    s.cfg.DB,
-		tx:    tx,
-		table: s.table,
-		otg:   s.cfg.Ontology,
-		group: s.group,
+		tx:        tx,
+		table:     s.table,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
+		group:     s.group,
 	}
 }
 

@@ -242,73 +242,81 @@ func (g *Graph) handleChanges(
 	ctx context.Context,
 	reader gorp.TxReader[channel.Key, channel.Channel],
 ) {
-	g.mu.Lock()
-	analyzer := g.newAnalyzer(nil)
-	queued := make(set.Set[channel.Key])
-	var unresolvedNames []string
 	var updates []channel.Channel
-	for chg := range reader {
-		ch := chg.Value
-		if chg.Variant == change.VariantDelete {
-			g.L.Debug("channel deleted, removing node and re-inspecting dependents",
-				zap.Stringer("channel", chg.Key),
-			)
-			if _, tracked := g.mu.nodes[chg.Key]; tracked {
-				g.clearNodeStatus(ctx, nil, chg.Key)
-			}
-			g.removeNode(chg.Key)
-			if ch.Name != "" {
-				unresolvedNames = append(unresolvedNames, ch.Name)
-			}
-			g.enqueueDependents(chg.Key, queued)
-			continue
-		}
-		if ch.IsCalculated() {
-			nd, err := g.inspectNode(ctx, nil, ch, analyzer)
-			if err != nil {
-				g.L.Info("calculated channel has invalid expression",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("name", ch.Name),
-					zap.Error(err),
+	// One change batch commits its statuses together: a status and its ontology
+	// resource must not land in separate transactions.
+	if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		analyzer := g.newAnalyzer(tx)
+		queued := make(set.Set[channel.Key])
+		var unresolvedNames []string
+		for chg := range reader {
+			ch := chg.Value
+			if chg.Variant == change.VariantDelete {
+				g.L.Debug("channel deleted, removing node and re-inspecting dependents",
+					zap.Stringer("channel", chg.Key),
 				)
-				g.setNodeStatus(
-					ctx,
-					nil,
-					calculation.StatusFromError(
-						ch.Key(),
-						ch.Name,
-						fmt.Sprintf("invalid expression for %s", ch.Name),
-						err,
-					),
-				)
-			} else {
-				g.L.Debug("calculated channel inspected",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("name", ch.Name),
-					zap.Stringers("deps", nd.deps),
-				)
-				g.clearNodeStatus(ctx, nil, ch.Key())
+				if _, tracked := g.mu.nodes[chg.Key]; tracked {
+					g.clearNodeStatus(ctx, tx, chg.Key)
+				}
+				g.removeNode(chg.Key)
+				if ch.Name != "" {
+					unresolvedNames = append(unresolvedNames, ch.Name)
+				}
+				g.enqueueDependents(chg.Key, queued)
+				continue
 			}
-			if !nd.invalid && nd.DataType != ch.DataType {
-				g.L.Debug("calculated channel DataType changed",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("old", string(ch.DataType)),
-					zap.String("new", string(nd.DataType)),
-				)
-				updates = append(updates, nd.Channel)
+			if ch.IsCalculated() {
+				nd, err := g.inspectNode(ctx, tx, ch, analyzer)
+				if err != nil {
+					g.L.Info("calculated channel has invalid expression",
+						zap.Stringer("channel", ch.Key()),
+						zap.String("name", ch.Name),
+						zap.Error(err),
+					)
+					g.setNodeStatus(
+						ctx,
+						tx,
+						calculation.StatusFromError(
+							ch.Key(),
+							ch.Name,
+							fmt.Sprintf("invalid expression for %s", ch.Name),
+							err,
+						),
+					)
+				} else {
+					g.L.Debug("calculated channel inspected",
+						zap.Stringer("channel", ch.Key()),
+						zap.String("name", ch.Name),
+						zap.Stringers("deps", nd.deps),
+					)
+					g.clearNodeStatus(ctx, tx, ch.Key())
+				}
+				if !nd.invalid && nd.DataType != ch.DataType {
+					g.L.Debug("calculated channel DataType changed",
+						zap.Stringer("channel", ch.Key()),
+						zap.String("old", string(ch.DataType)),
+						zap.String("new", string(nd.DataType)),
+					)
+					updates = append(updates, nd.Channel)
+				}
+				g.upsertNode(nd)
+				g.enqueueDependents(ch.Key(), queued)
+				continue
 			}
-			g.upsertNode(nd)
 			g.enqueueDependents(ch.Key(), queued)
-			continue
+			unresolvedNames = append(unresolvedNames, ch.Name)
 		}
-		g.enqueueDependents(ch.Key(), queued)
-		unresolvedNames = append(unresolvedNames, ch.Name)
+		updates = append(
+			updates,
+			g.reconcileQueued(ctx, tx, queued, unresolvedNames, analyzer)...,
+		)
+		return nil
+	}); err != nil {
+		g.L.Error("failed to apply calculated channel changes", zap.Error(err))
+		return
 	}
-	updates = append(
-		updates,
-		g.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...,
-	)
-	g.mu.Unlock()
 	if len(updates) > 0 {
 		g.L.Info("updating channel data types", zap.Int("count", len(updates)))
 		w := g.svc.NewWriter(nil)

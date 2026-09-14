@@ -206,14 +206,13 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 				"cannot delete a group with children",
 			)
 		}
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+			return err
+		}
 	}
-	deleted, err := w.table.NewDelete().
+	return w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Group](keys...)).
-		ExecKeys(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(deleted)...)
+		Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.

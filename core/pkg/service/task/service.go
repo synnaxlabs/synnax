@@ -294,8 +294,9 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Details:     details,
 		}
 	}
-	if err := s.cfg.Status.NewWriter(nil).
-		SetMany(ctx, &statuses); err != nil {
+	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
+	}); err != nil {
 		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
 	}
 }
