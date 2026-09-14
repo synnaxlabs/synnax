@@ -95,8 +95,8 @@ func NewFactory(configs ...FactoryConfig) (*Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.LoaderConfig = loader.LoaderConfig
-	cfg.FS = loader.FS
+	cfg.LoaderConfig = loader.cfg
+	cfg.FS = loader.cfg.FS
 	return &Factory{FactoryConfig: cfg, Loader: *loader}, nil
 }
 

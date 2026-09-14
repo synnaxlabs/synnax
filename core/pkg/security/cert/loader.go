@@ -17,6 +17,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -64,28 +65,28 @@ var (
 
 // AbsoluteCAKeyPath returns the path to the CA private key, CertsDir included.
 func (l LoaderConfig) AbsoluteCAKeyPath() string {
-	return l.CertsDir + "/" + l.CAKeyPath
+	return path.Join(l.CertsDir, l.CAKeyPath)
 }
 
 // AbsoluteCACertPath returns the path to the CA certificate, CertsDir included.
 func (l LoaderConfig) AbsoluteCACertPath() string {
-	return l.CertsDir + "/" + l.CACertPath
+	return path.Join(l.CertsDir, l.CACertPath)
 }
 
 // AbsoluteNodeKeyPath returns the path to the node private key, CertsDir included.
 func (l LoaderConfig) AbsoluteNodeKeyPath() string {
-	return l.CertsDir + "/" + l.NodeKeyPath
+	return path.Join(l.CertsDir, l.NodeKeyPath)
 }
 
 // AbsoluteNodeCertPath returns the path to the node certificate, CertsDir included.
 func (l LoaderConfig) AbsoluteNodeCertPath() string {
-	return l.CertsDir + "/" + l.NodeCertPath
+	return path.Join(l.CertsDir, l.NodeCertPath)
 }
 
 // AbsoluteTokenKeyPath returns the path to the authentication token signing key,
 // CertsDir included.
 func (l LoaderConfig) AbsoluteTokenKeyPath() string {
-	return l.CertsDir + "/" + l.TokenKeyPath
+	return path.Join(l.CertsDir, l.TokenKeyPath)
 }
 
 // Override implements [config.Config].
@@ -116,7 +117,7 @@ func (l LoaderConfig) Validate() error {
 
 // Loader reads the certificates and keys a Core serves and signs with from the
 // filesystem. It never writes; Factory creates the files it reads.
-type Loader struct{ LoaderConfig }
+type Loader struct{ cfg LoaderConfig }
 
 // NewLoader creates a new Loader using the given configuration. Returns an error if the
 // configuration is invalid. If the directory at LoaderConfig.CertsDir does not exist,
@@ -127,13 +128,17 @@ func NewLoader(configs ...LoaderConfig) (*Loader, error) {
 		return nil, err
 	}
 	cfg.FS, err = cfg.FS.Sub(cfg.CertsDir)
-	return &Loader{LoaderConfig: cfg}, err
+	return &Loader{cfg: cfg}, err
 }
+
+// Config returns the configuration the Loader was built with. The returned copy is
+// inert: changing it does not change where the Loader reads from.
+func (l *Loader) Config() LoaderConfig { return l.cfg }
 
 // LoadCAPair loads the CA certificate and its private key. If multiple certificates are
 // found in the CA certificate file, the first one is used.
 func (l *Loader) LoadCAPair() (*x509.Certificate, crypto.PrivateKey, error) {
-	c, k, err := l.loadX509(l.CACertPath, l.CAKeyPath)
+	c, k, err := l.loadX509(l.cfg.CACertPath, l.cfg.CAKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil, errors.Wrap(err, "CA certificate not found")
 	}
@@ -143,7 +148,7 @@ func (l *Loader) LoadCAPair() (*x509.Certificate, crypto.PrivateKey, error) {
 // LoadCAs loads every CA certificate in the CA certificate file, in file order. Bytes
 // that are not a PEM block are ignored.
 func (l *Loader) LoadCAs() ([]*x509.Certificate, error) {
-	certBytes, err := l.readAll(l.CACertPath)
+	certBytes, err := l.readAll(l.cfg.CACertPath)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +168,7 @@ func (l *Loader) LoadCAs() ([]*x509.Certificate, error) {
 
 // LoadNodePair loads the node certificate and its private key.
 func (l *Loader) LoadNodePair() (*x509.Certificate, crypto.PrivateKey, error) {
-	c, k, err := l.loadX509(l.NodeCertPath, l.NodeKeyPath)
+	c, k, err := l.loadX509(l.cfg.NodeCertPath, l.cfg.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil, errors.Wrap(err, "node certificate not found")
 	}
@@ -172,7 +177,7 @@ func (l *Loader) LoadNodePair() (*x509.Certificate, crypto.PrivateKey, error) {
 
 // LoadNodeTLS loads the node TLS certificate.
 func (l *Loader) LoadNodeTLS() (*tls.Certificate, error) {
-	c, err := l.loadTLS(l.NodeCertPath, l.NodeKeyPath)
+	c, err := l.loadTLS(l.cfg.NodeCertPath, l.cfg.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, errors.Wrap(err, "node certificate not found")
 	}
@@ -182,7 +187,7 @@ func (l *Loader) LoadNodeTLS() (*tls.Certificate, error) {
 // LoadTokenKey loads the dedicated key a Core signs authentication tokens with. It
 // wraps fs.ErrNotExist when the key has not been created.
 func (l *Loader) LoadTokenKey() (crypto.PrivateKey, error) {
-	b, err := l.readAll(l.TokenKeyPath)
+	b, err := l.readAll(l.cfg.TokenKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, errors.Wrap(err, "token signing key not found")
 	}
@@ -191,7 +196,7 @@ func (l *Loader) LoadTokenKey() (crypto.PrivateKey, error) {
 	}
 	block, _ := pem.Decode(b)
 	if block == nil {
-		return nil, errors.Newf("no PEM block in %s", l.AbsoluteTokenKeyPath())
+		return nil, errors.Newf("no PEM block in %s", l.cfg.AbsoluteTokenKeyPath())
 	}
 	return xpem.ToPrivateKey(block)
 }
@@ -202,8 +207,8 @@ func (l *Loader) LoadTokenKey() (crypto.PrivateKey, error) {
 // accepts a chain to any of them. It returns validate.ErrValidation if neither exists.
 func (l *Loader) TrustAnchorsPEM() ([]byte, error) {
 	var anchors []byte
-	for _, p := range []string{l.CACertPath, l.NodeCertPath} {
-		exists, err := l.FS.Exists(p)
+	for _, p := range []string{l.cfg.CACertPath, l.cfg.NodeCertPath} {
+		exists, err := l.cfg.FS.Exists(p)
 		if err != nil {
 			return nil, err
 		}
@@ -220,7 +225,7 @@ func (l *Loader) TrustAnchorsPEM() ([]byte, error) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"no trust anchors found in %s",
-			l.CertsDir,
+			l.cfg.CertsDir,
 		)
 	}
 	return anchors, nil
@@ -256,14 +261,18 @@ func (l *Loader) loadTLS(certPath, keyPath string) (*tls.Certificate, error) {
 	return &c, nil
 }
 
-func (l *Loader) readAll(path string) ([]byte, error) {
-	f, err := l.FS.Open(path, os.O_RDONLY)
+func (l *Loader) readAll(name string) ([]byte, error) {
+	f, err := l.cfg.FS.Open(name, os.O_RDONLY)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			l.L.Error("failed to close file", zap.String("path", path), zap.Error(err))
+			l.cfg.L.Error(
+				"failed to close file",
+				zap.String("path", name),
+				zap.Error(err),
+			)
 		}
 	}()
 	return io.ReadAll(f)
