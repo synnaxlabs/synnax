@@ -33,8 +33,6 @@ const (
 	blockTypeCertificate     = "CERTIFICATE"
 )
 
-// errUnsupportedKey is returned when a key algorithm or block type has no encoding in
-// this package. It wraps validate.ErrValidation, which is what callers match on.
 var errUnsupportedKey = errors.Wrap(validate.ErrValidation, "unsupported key type")
 
 // FromPrivateKey encodes key as a PEM block. It accepts RSA, ECDSA, Ed25519 and ML-DSA

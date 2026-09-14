@@ -18,11 +18,11 @@ import (
 	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
-	stdpem "encoding/pem"
+	"encoding/pem"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding/pem"
+	xpem "github.com/synnaxlabs/x/encoding/pem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -35,9 +35,9 @@ var _ = Describe("PEM", func() {
 		DescribeTable("should round trip through PEM",
 			func(generate func() crypto.Signer, expectedBlockType string) {
 				key := generate()
-				block := MustSucceed(pem.FromPrivateKey(key))
+				block := MustSucceed(xpem.FromPrivateKey(key))
 				Expect(block.Type).To(Equal(expectedBlockType))
-				decoded := MustSucceed(pem.ToPrivateKey(block))
+				decoded := MustSucceed(xpem.ToPrivateKey(block))
 				Expect(decoded.(crypto.Signer).Public()).To(Equal(key.Public()))
 			},
 			Entry("RSA", func() crypto.Signer {
@@ -64,7 +64,7 @@ var _ = Describe("PEM", func() {
 		It(
 			"should return a validation error when the algorithm has no encoding",
 			func() {
-				Expect(pem.FromPrivateKey("not-a-key")).Error().To(SatisfyAll(
+				Expect(xpem.FromPrivateKey("not-a-key")).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("unsupported key type")),
 				))
@@ -72,8 +72,8 @@ var _ = Describe("PEM", func() {
 		)
 
 		It("should return a validation error when the block type is unknown", func() {
-			block := &stdpem.Block{Type: "NONSENSE", Bytes: []byte("x")}
-			Expect(pem.ToPrivateKey(block)).Error().To(SatisfyAll(
+			block := &pem.Block{Type: "NONSENSE", Bytes: []byte("x")}
+			Expect(xpem.ToPrivateKey(block)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("NONSENSE")),
 			))
@@ -83,14 +83,14 @@ var _ = Describe("PEM", func() {
 	Describe("Write and Read", func() {
 		It("should read back the first of many written blocks", func() {
 			key := MustSucceed(mldsa.GenerateKey(mldsa.MLDSA65()))
-			block := MustSucceed(pem.FromPrivateKey(key))
-			cert := pem.FromCertBytes([]byte("a-certificate"))
+			block := MustSucceed(xpem.FromPrivateKey(key))
+			cert := xpem.FromCertBytes([]byte("a-certificate"))
 			buf := &bytes.Buffer{}
-			Expect(pem.Write(buf, block, cert)).To(Succeed())
-			Expect(MustSucceed(pem.Read(bytes.NewReader(buf.Bytes()))).Type).
+			Expect(xpem.Write(buf, block, cert)).To(Succeed())
+			Expect(MustSucceed(xpem.Read(bytes.NewReader(buf.Bytes()))).Type).
 				To(Equal("PRIVATE KEY"))
 			Expect(
-				MustSucceed(pem.ReadMany(bytes.NewReader(buf.Bytes()))),
+				MustSucceed(xpem.ReadMany(bytes.NewReader(buf.Bytes()))),
 			).To(HaveLen(2))
 		})
 	})
