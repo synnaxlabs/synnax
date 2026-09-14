@@ -134,14 +134,11 @@ var _ = Describe("Factory key algorithms", func() {
 })
 
 var _ = Describe("Token key", func() {
-	var (
-		fs xfs.FS
-		f  *cert.Factory
-	)
+	var f *cert.Factory
+
 	BeforeEach(func() {
-		fs = xfs.NewMem()
 		f = MustSucceed(cert.NewFactory(cert.FactoryConfig{
-			FS:      fs,
+			FS:      xfs.NewMem(),
 			Hosts:   []address.Address{"synnaxlabs.com"},
 			KeySize: mock.SmallKeySize,
 		}))
@@ -168,7 +165,7 @@ var _ = Describe("Token key", func() {
 	})
 
 	It("should resolve the key's absolute path", func() {
-		Expect(f.AbsoluteTokenKeyPath()).To(HaveSuffix("/token.key"))
+		Expect(f.Config().AbsoluteTokenKeyPath()).To(HaveSuffix("/token.key"))
 	})
 })
 

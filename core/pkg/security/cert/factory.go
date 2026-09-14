@@ -82,7 +82,7 @@ func (f FactoryConfig) Validate() error {
 type Factory struct {
 	// Loader reads back the certificates and keys the Factory writes.
 	Loader Loader
-	FactoryConfig
+	cfg    FactoryConfig
 }
 
 // NewFactory creates a new Factory.
@@ -97,8 +97,12 @@ func NewFactory(configs ...FactoryConfig) (*Factory, error) {
 	}
 	cfg.LoaderConfig = loader.cfg
 	cfg.FS = loader.cfg.FS
-	return &Factory{FactoryConfig: cfg, Loader: *loader}, nil
+	return &Factory{cfg: cfg, Loader: *loader}, nil
 }
+
+// Config returns the configuration the Factory was built with. The returned copy is
+// inert: changing it does not change what the Factory generates.
+func (f *Factory) Config() FactoryConfig { return f.cfg }
 
 // CreateCAPair creates a new CA certificate and its private key.
 func (f *Factory) CreateCAPair() error {
@@ -119,18 +123,18 @@ func (f *Factory) CreateCAPair() error {
 	if err != nil {
 		return err
 	}
-	return f.writePEM(f.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
+	return f.writePEM(f.cfg.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
 }
 
 // caKey generates the CA private key and writes it to CAKeyPath, or reads back the key
 // already there when AllowKeyReuse permits it.
 func (f *Factory) caKey() (crypto.Signer, error) {
-	exists, err := f.FS.Exists(f.CACertPath)
+	exists, err := f.cfg.FS.Exists(f.cfg.CACertPath)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		key, err := f.KeyAlgorithm.GenerateKey(f.KeySize)
+		key, err := f.cfg.KeyAlgorithm.GenerateKey(f.cfg.KeySize)
 		if err != nil {
 			return nil, err
 		}
@@ -138,15 +142,15 @@ func (f *Factory) caKey() (crypto.Signer, error) {
 		if err != nil {
 			return nil, err
 		}
-		return key, f.writePEM(f.CAKeyPath, p /* multi */, false)
+		return key, f.writePEM(f.cfg.CAKeyPath, p /* multi */, false)
 	}
-	if !*f.AllowKeyReuse {
+	if !*f.cfg.AllowKeyReuse {
 		return nil, errors.Newf(
 			"CA key %s already exists, but reuse is not allowed",
-			f.CAKeyPath,
+			f.cfg.CAKeyPath,
 		)
 	}
-	p, err := f.readPEM(f.CAKeyPath)
+	p, err := f.readPEM(f.cfg.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +160,7 @@ func (f *Factory) caKey() (crypto.Signer, error) {
 	}
 	signer, ok := key.(crypto.Signer)
 	if !ok {
-		return nil, errors.Newf("CA key %s cannot sign certificates", f.CAKeyPath)
+		return nil, errors.Newf("CA key %s cannot sign certificates", f.cfg.CAKeyPath)
 	}
 	return signer, nil
 }
@@ -167,7 +171,7 @@ func (f *Factory) caKey() (crypto.Signer, error) {
 // configurable: the key never appears in a certificate, so it needs no agreement with a
 // peer, and EdDSA keeps tokens small.
 func (f *Factory) CreateTokenKeyIfMissing() error {
-	exists, err := f.FS.Exists(f.TokenKeyPath)
+	exists, err := f.cfg.FS.Exists(f.cfg.TokenKeyPath)
 	if err != nil || exists {
 		return err
 	}
@@ -179,13 +183,13 @@ func (f *Factory) CreateTokenKeyIfMissing() error {
 	if err != nil {
 		return err
 	}
-	return f.writePEM(f.TokenKeyPath, p /* multi */, false)
+	return f.writePEM(f.cfg.TokenKeyPath, p /* multi */, false)
 }
 
 // CreateCAPairIfMissing creates the CA certificate and its private key if the
 // certificate does not already exist. An existing pair is left untouched.
 func (f *Factory) CreateCAPairIfMissing() error {
-	exists, err := f.FS.Exists(f.CACertPath)
+	exists, err := f.cfg.FS.Exists(f.cfg.CACertPath)
 	if err != nil {
 		return err
 	}
@@ -200,7 +204,7 @@ func (f *Factory) CreateCAPairIfMissing() error {
 // Hosts. A covering certificate is left untouched. Callers that do not own the files on
 // disk must not use it.
 func (f *Factory) CreateNodePairIfStale() error {
-	exists, err := f.FS.Exists(f.NodeCertPath)
+	exists, err := f.cfg.FS.Exists(f.cfg.NodeCertPath)
 	if err != nil {
 		return err
 	}
@@ -215,33 +219,33 @@ func (f *Factory) CreateNodePairIfStale() error {
 	if len(uncovered) == 0 {
 		return nil
 	}
-	f.L.Info(
+	f.cfg.L.Info(
 		"replacing node certificate and key: they do not cover every configured listener",
 		zap.Strings("uncovered_hosts", uncovered),
-		zap.String("cert", f.AbsoluteNodeCertPath()),
-		zap.String("key", f.AbsoluteNodeKeyPath()),
+		zap.String("cert", f.cfg.AbsoluteNodeCertPath()),
+		zap.String("key", f.cfg.AbsoluteNodeKeyPath()),
 	)
-	certPath, keyPath := f.NodeCertPath+nextSuffix, f.NodeKeyPath+nextSuffix
-	if err = f.FS.Remove(certPath); err != nil {
+	certPath, keyPath := f.cfg.NodeCertPath+nextSuffix, f.cfg.NodeKeyPath+nextSuffix
+	if err = f.cfg.FS.Remove(certPath); err != nil {
 		return err
 	}
-	if err = f.FS.Remove(keyPath); err != nil {
+	if err = f.cfg.FS.Remove(keyPath); err != nil {
 		return err
 	}
 	if err = f.writeNodePair(certPath, keyPath); err != nil {
 		return err
 	}
-	if err = f.FS.Rename(keyPath, f.NodeKeyPath); err != nil {
+	if err = f.cfg.FS.Rename(keyPath, f.cfg.NodeKeyPath); err != nil {
 		return err
 	}
-	return f.FS.Rename(certPath, f.NodeCertPath)
+	return f.cfg.FS.Rename(certPath, f.cfg.NodeCertPath)
 }
 
 // uncoveredHosts returns the hosts in Hosts that c is not valid for, using the same
 // matcher a client applies during a handshake.
 func (f *Factory) uncoveredHosts(c *x509.Certificate) []string {
 	var uncovered []string
-	for _, h := range f.Hosts {
+	for _, h := range f.cfg.Hosts {
 		if c.VerifyHostname(h.Host()) != nil {
 			uncovered = append(uncovered, h.Host())
 		}
@@ -251,17 +255,17 @@ func (f *Factory) uncoveredHosts(c *x509.Certificate) []string {
 
 // CreateNodePair creates a new node certificate and its private key.
 func (f *Factory) CreateNodePair() error {
-	return f.writeNodePair(f.NodeCertPath, f.NodeKeyPath)
+	return f.writeNodePair(f.cfg.NodeCertPath, f.cfg.NodeKeyPath)
 }
 
 // writeNodePair generates a key, signs a certificate for Hosts with the CA, and writes
 // both to the given paths.
 func (f *Factory) writeNodePair(certPath, keyPath string) error {
-	nodeKey, err := f.KeyAlgorithm.GenerateKey(f.KeySize)
+	nodeKey, err := f.cfg.KeyAlgorithm.GenerateKey(f.cfg.KeySize)
 	if err != nil {
 		return err
 	}
-	b, err := f.signNodeCert(nodeKey, f.Hosts)
+	b, err := f.signNodeCert(nodeKey, f.cfg.Hosts)
 	if err != nil {
 		return err
 	}
@@ -279,7 +283,7 @@ func (f *Factory) writeNodePair(certPath, keyPath string) error {
 // without touching the filesystem. The caller supplies the hosts because they vary per
 // listener; the factory supplies the CA the certificate chains to.
 func (f *Factory) SignNodeCert(hosts []address.Address) (*tls.Certificate, error) {
-	nodeKey, err := f.KeyAlgorithm.GenerateKey(f.KeySize)
+	nodeKey, err := f.cfg.KeyAlgorithm.GenerateKey(f.cfg.KeySize)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +349,7 @@ func (f *Factory) writePEM(p string, block *pem.Block, multi bool) error {
 }
 
 func (f *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err error) {
-	file, err := f.FS.Open(p, flag)
+	file, err := f.cfg.FS.Open(p, flag)
 	if err != nil {
 		return err
 	}
@@ -357,7 +361,7 @@ func (f *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err 
 }
 
 func (f *Factory) writeFlag() int {
-	if *f.AllowKeyReuse {
+	if *f.cfg.AllowKeyReuse {
 		return os.O_CREATE | os.O_RDWR
 	}
 	return os.O_CREATE | os.O_RDWR | os.O_EXCL
