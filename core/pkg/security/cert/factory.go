@@ -49,7 +49,7 @@ type FactoryConfig struct {
 
 var (
 	_ config.Config[FactoryConfig] = FactoryConfig{}
-	// DefaultFactoryConfig returns the default configuration for a Factory.
+	// DefaultFactoryConfig is the default configuration for a Factory.
 	DefaultFactoryConfig = FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
@@ -80,6 +80,7 @@ func (f FactoryConfig) Validate() error {
 
 // Factory generates self-signed certificates.
 type Factory struct {
+	// Loader reads back the certificates and keys the Factory writes.
 	Loader Loader
 	FactoryConfig
 }
@@ -91,64 +92,73 @@ func NewFactory(configs ...FactoryConfig) (*Factory, error) {
 		return nil, err
 	}
 	loader, err := NewLoader(cfg.LoaderConfig)
+	if err != nil {
+		return nil, err
+	}
 	cfg.LoaderConfig = loader.LoaderConfig
 	cfg.FS = loader.FS
-	return &Factory{FactoryConfig: cfg, Loader: *loader}, err
+	return &Factory{FactoryConfig: cfg, Loader: *loader}, nil
 }
 
 // CreateCAPair creates a new CA certificate and its private key.
 func (f *Factory) CreateCAPair() error {
-	exists, err := f.FS.Exists(f.CACertPath)
+	key, err := f.caKey()
 	if err != nil {
 		return err
 	}
-
-	var key crypto.PrivateKey
-	if !exists {
-		key, err = f.KeyAlgorithm.GenerateKey(f.KeySize)
-		if err != nil {
-			return err
-		}
-		p, err := xpem.FromPrivateKey(key)
-		if err != nil {
-			return err
-		}
-		if err := f.writePEM(f.CAKeyPath, p /* multi */, false); err != nil {
-			return err
-		}
-	} else {
-		if !*f.AllowKeyReuse {
-			return errors.Newf(
-				"CA key %s already exists, but reuse is not allowed",
-				f.CAKeyPath,
-			)
-		}
-		p, err := f.readPEM(f.CAKeyPath)
-		if err != nil {
-			return err
-		}
-		key, err = xpem.ToPrivateKey(p)
-		if err != nil {
-			return err
-		}
-	}
-
 	base, err := newBasex509()
 	if err != nil {
 		return err
 	}
-
 	base.BasicConstraintsValid = true
 	base.IsCA = true
 	base.MaxPathLen = 1
 	base.KeyUsage |= x509.KeyUsageCertSign
 	base.KeyUsage |= x509.KeyUsageContentCommitment
-
-	b, err := x509.CreateCertificate(nil, base, base, key.(crypto.Signer).Public(), key)
+	b, err := x509.CreateCertificate(rand.Reader, base, base, key.Public(), key)
 	if err != nil {
 		return err
 	}
-	return f.writePEM(f.CACertPath, xpem.FromCertBytes(b) /*multi */, true)
+	return f.writePEM(f.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
+}
+
+// caKey generates the CA private key and writes it to CAKeyPath, or reads back the key
+// already there when AllowKeyReuse permits it.
+func (f *Factory) caKey() (crypto.Signer, error) {
+	exists, err := f.FS.Exists(f.CACertPath)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		key, err := f.KeyAlgorithm.GenerateKey(f.KeySize)
+		if err != nil {
+			return nil, err
+		}
+		p, err := xpem.FromPrivateKey(key)
+		if err != nil {
+			return nil, err
+		}
+		return key, f.writePEM(f.CAKeyPath, p /* multi */, false)
+	}
+	if !*f.AllowKeyReuse {
+		return nil, errors.Newf(
+			"CA key %s already exists, but reuse is not allowed",
+			f.CAKeyPath,
+		)
+	}
+	p, err := f.readPEM(f.CAKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	key, err := xpem.ToPrivateKey(p)
+	if err != nil {
+		return nil, err
+	}
+	signer, ok := key.(crypto.Signer)
+	if !ok {
+		return nil, errors.Newf("CA key %s cannot sign certificates", f.CAKeyPath)
+	}
+	return signer, nil
 }
 
 // CreateTokenKeyIfMissing creates the key a Core signs authentication tokens with, if
@@ -172,6 +182,8 @@ func (f *Factory) CreateTokenKeyIfMissing() error {
 	return f.writePEM(f.TokenKeyPath, p /* multi */, false)
 }
 
+// CreateCAPairIfMissing creates the CA certificate and its private key if the
+// certificate does not already exist. An existing pair is left untouched.
 func (f *Factory) CreateCAPairIfMissing() error {
 	exists, err := f.FS.Exists(f.CACertPath)
 	if err != nil {
@@ -293,7 +305,7 @@ func (f *Factory) signNodeCert(
 	if err != nil {
 		return nil, err
 	}
-	base.Subject = pkix.Name{CommonName: nodeCommonName}
+	base.Subject = pkix.Name{CommonName: "Synnax Node"}
 	base.ExtKeyUsage = []x509.ExtKeyUsage{
 		x509.ExtKeyUsageServerAuth,
 		x509.ExtKeyUsageClientAuth,
@@ -318,14 +330,14 @@ func (f *Factory) readPEM(p string) (b *pem.Block, err error) {
 func (f *Factory) writePEM(p string, block *pem.Block, multi bool) error {
 	return f.withFile(p, f.writeFlag(), func(file xfs.File) error {
 		blocks, err := xpem.ReadMany(file)
+		if err != nil {
+			return err
+		}
 		if len(blocks) > 0 && !multi {
 			return errors.Newf(
 				"file %s already contains a PEM block, and multi is false",
 				p,
 			)
-		}
-		if err != nil {
-			return err
 		}
 		blocks = append(blocks, block)
 		return xpem.Write(file, blocks...)

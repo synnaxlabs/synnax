@@ -62,27 +62,33 @@ var (
 	}
 )
 
+// AbsoluteCAKeyPath returns the path to the CA private key, CertsDir included.
 func (l LoaderConfig) AbsoluteCAKeyPath() string {
 	return l.CertsDir + "/" + l.CAKeyPath
 }
 
+// AbsoluteCACertPath returns the path to the CA certificate, CertsDir included.
 func (l LoaderConfig) AbsoluteCACertPath() string {
 	return l.CertsDir + "/" + l.CACertPath
 }
 
+// AbsoluteNodeKeyPath returns the path to the node private key, CertsDir included.
 func (l LoaderConfig) AbsoluteNodeKeyPath() string {
 	return l.CertsDir + "/" + l.NodeKeyPath
 }
 
+// AbsoluteNodeCertPath returns the path to the node certificate, CertsDir included.
 func (l LoaderConfig) AbsoluteNodeCertPath() string {
 	return l.CertsDir + "/" + l.NodeCertPath
 }
 
+// AbsoluteTokenKeyPath returns the path to the authentication token signing key,
+// CertsDir included.
 func (l LoaderConfig) AbsoluteTokenKeyPath() string {
 	return l.CertsDir + "/" + l.TokenKeyPath
 }
 
-// Override implements Properties.
+// Override implements [config.Config].
 func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	l.CertsDir = override.String(l.CertsDir, other.CertsDir)
 	l.CAKeyPath = override.String(l.CAKeyPath, other.CAKeyPath)
@@ -95,7 +101,7 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	return l
 }
 
-// Validate implements Properties.
+// Validate implements [config.Config].
 func (l LoaderConfig) Validate() error {
 	v := validate.New("cert.loader")
 	v.NotEmptyString("certs_dir", l.CertsDir)
@@ -108,7 +114,8 @@ func (l LoaderConfig) Validate() error {
 	return v.Error()
 }
 
-// Loader is a certificate Loader.
+// Loader reads the certificates and keys a Core serves and signs with from the
+// filesystem. It never writes; Factory creates the files it reads.
 type Loader struct{ LoaderConfig }
 
 // NewLoader creates a new Loader using the given configuration. Returns an error if the
@@ -123,51 +130,51 @@ func NewLoader(configs ...LoaderConfig) (*Loader, error) {
 	return &Loader{LoaderConfig: cfg}, err
 }
 
-// LoadCAPair loads the CA certificate and its private key. If multiple
-// certificates are found in the CA certificate file, the first one is used.
-func (l *Loader) LoadCAPair() (c *x509.Certificate, k crypto.PrivateKey, err error) {
-	c, k, err = l.loadX509(l.CACertPath, l.CAKeyPath)
+// LoadCAPair loads the CA certificate and its private key. If multiple certificates are
+// found in the CA certificate file, the first one is used.
+func (l *Loader) LoadCAPair() (*x509.Certificate, crypto.PrivateKey, error) {
+	c, k, err := l.loadX509(l.CACertPath, l.CAKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
-		err = errors.Wrapf(err, "CA certificate not found")
+		return nil, nil, errors.Wrap(err, "CA certificate not found")
 	}
 	return c, k, err
 }
 
-// LoadCAs loads all CA certificates from the CA certificate file.
+// LoadCAs loads every CA certificate in the CA certificate file, in file order. Bytes
+// that are not a PEM block are ignored.
 func (l *Loader) LoadCAs() ([]*x509.Certificate, error) {
 	certBytes, err := l.readAll(l.CACertPath)
 	if err != nil {
 		return nil, err
 	}
-	var (
-		certs []*x509.Certificate
-		block *pem.Block
-	)
-	for len(certBytes) > 0 {
-		block, certBytes = pem.Decode(certBytes)
+	var certs []*x509.Certificate
+	for {
+		var block *pem.Block
+		if block, certBytes = pem.Decode(certBytes); block == nil {
+			return certs, nil
+		}
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
 			return nil, err
 		}
 		certs = append(certs, cert)
 	}
-	return certs, nil
 }
 
 // LoadNodePair loads the node certificate and its private key.
-func (l *Loader) LoadNodePair() (c *x509.Certificate, k crypto.PrivateKey, err error) {
-	c, k, err = l.loadX509(l.NodeCertPath, l.NodeKeyPath)
+func (l *Loader) LoadNodePair() (*x509.Certificate, crypto.PrivateKey, error) {
+	c, k, err := l.loadX509(l.NodeCertPath, l.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
-		err = errors.Wrapf(err, "node certificate not found")
+		return nil, nil, errors.Wrap(err, "node certificate not found")
 	}
 	return c, k, err
 }
 
 // LoadNodeTLS loads the node TLS certificate.
-func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
-	c, err = l.loadTLS(l.NodeCertPath, l.NodeKeyPath)
+func (l *Loader) LoadNodeTLS() (*tls.Certificate, error) {
+	c, err := l.loadTLS(l.NodeCertPath, l.NodeKeyPath)
 	if errors.Is(err, fs.ErrNotExist) {
-		err = errors.Wrapf(err, "node certificate not found")
+		return nil, errors.Wrap(err, "node certificate not found")
 	}
 	return c, err
 }
@@ -176,10 +183,10 @@ func (l *Loader) LoadNodeTLS() (c *tls.Certificate, err error) {
 // wraps fs.ErrNotExist when the key has not been created.
 func (l *Loader) LoadTokenKey() (crypto.PrivateKey, error) {
 	b, err := l.readAll(l.TokenKeyPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, errors.Wrap(err, "token signing key not found")
+	}
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			err = errors.Wrapf(err, "token signing key not found")
-		}
 		return nil, err
 	}
 	block, _ := pem.Decode(b)
@@ -246,7 +253,7 @@ func (l *Loader) loadTLS(certPath, keyPath string) (*tls.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &c, err
+	return &c, nil
 }
 
 func (l *Loader) readAll(path string) ([]byte, error) {
