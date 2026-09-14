@@ -19,7 +19,7 @@ import (
 
 func TestPEM(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PEM Suite")
+	RunSpecs(t, "Encoding PEM Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

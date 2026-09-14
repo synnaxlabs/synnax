@@ -20,10 +20,10 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
+	xpem "github.com/synnaxlabs/x/encoding/pem"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
-	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )

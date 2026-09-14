@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/pem"
+	"github.com/synnaxlabs/x/encoding/pem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -42,39 +42,39 @@ var _ = Describe("PEM", func() {
 			},
 			Entry("RSA", func() crypto.Signer {
 				return MustSucceed(rsa.GenerateKey(rand.Reader, rsaKeySize))
-			}, pem.BlockTypeRSAPrivateKey),
+			}, "RSA PRIVATE KEY"),
 			Entry("ECDSA", func() crypto.Signer {
 				return MustSucceed(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-			}, pem.BlockTypeECPrivateKey),
+			}, "EC PRIVATE KEY"),
 			Entry("Ed25519", func() crypto.Signer {
 				_, priv := MustSucceed2(ed25519.GenerateKey(rand.Reader))
 				return priv
-			}, pem.BlockTypePKCS8PrivateKey),
+			}, "PRIVATE KEY"),
 			Entry("ML-DSA-44", func() crypto.Signer {
 				return MustSucceed(mldsa.GenerateKey(mldsa.MLDSA44()))
-			}, pem.BlockTypePKCS8PrivateKey),
+			}, "PRIVATE KEY"),
 			Entry("ML-DSA-65", func() crypto.Signer {
 				return MustSucceed(mldsa.GenerateKey(mldsa.MLDSA65()))
-			}, pem.BlockTypePKCS8PrivateKey),
+			}, "PRIVATE KEY"),
 			Entry("ML-DSA-87", func() crypto.Signer {
 				return MustSucceed(mldsa.GenerateKey(mldsa.MLDSA87()))
-			}, pem.BlockTypePKCS8PrivateKey),
+			}, "PRIVATE KEY"),
 		)
 
 		It(
-			"should return ErrUnsupportedKey when the algorithm has no encoding",
+			"should return a validation error when the algorithm has no encoding",
 			func() {
 				Expect(pem.FromPrivateKey("not-a-key")).Error().To(SatisfyAll(
-					MatchError(pem.ErrUnsupportedKey),
 					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("unsupported key type")),
 				))
 			},
 		)
 
-		It("should return ErrUnsupportedKey when the block type is unknown", func() {
+		It("should return a validation error when the block type is unknown", func() {
 			block := &stdpem.Block{Type: "NONSENSE", Bytes: []byte("x")}
 			Expect(pem.ToPrivateKey(block)).Error().To(SatisfyAll(
-				MatchError(pem.ErrUnsupportedKey),
+				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("NONSENSE")),
 			))
 		})
@@ -88,7 +88,7 @@ var _ = Describe("PEM", func() {
 			buf := &bytes.Buffer{}
 			Expect(pem.Write(buf, block, cert)).To(Succeed())
 			Expect(MustSucceed(pem.Read(bytes.NewReader(buf.Bytes()))).Type).
-				To(Equal(pem.BlockTypePKCS8PrivateKey))
+				To(Equal("PRIVATE KEY"))
 			Expect(
 				MustSucceed(pem.ReadMany(bytes.NewReader(buf.Bytes()))),
 			).To(HaveLen(2))
