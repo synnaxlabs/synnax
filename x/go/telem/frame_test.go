@@ -3839,10 +3839,7 @@ var _ = Describe("Frame", func() {
 	})
 
 	Describe("Encode + Decode", func() {
-		codecs := []encoding.Codec{
-			json.Codec,
-			msgpack.Codec,
-		}
+		codecs := []encoding.Codec{json.Codec, msgpack.Codec}
 		for _, codec := range codecs {
 			It("Should encode and decode a frame", func(ctx SpecContext) {
 				original := telem.MultiFrame(
@@ -3884,8 +3881,8 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int64](3),
 					},
 				)
-				// A receiver carrying a mask from an earlier value must not filter
-				// what it decodes next.
+				// A receiver carrying a mask from an earlier value must not filter what
+				// it decodes next.
 				decoded := full.KeepKeys(set.New[int32](1))
 				Expect(decoded.Count()).To(Equal(1))
 				buf := MustSucceed(codec.Encode(ctx, full))

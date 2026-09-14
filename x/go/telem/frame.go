@@ -289,8 +289,8 @@ func (f Frame[K]) MarshalJSONTo(enc *jsontext.Encoder) error {
 	})
 }
 
-// UnmarshalJSONFrom implements json.UnmarshalerFrom. It replaces the receiver whole,
-// so a mask left over from an earlier value cannot filter the decoded entries.
+// UnmarshalJSONFrom implements json.UnmarshalerFrom. It replaces the receiver whole, so
+// a mask left over from an earlier value cannot filter the decoded entries.
 func (f *Frame[K]) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var frame serializableFrame[K]
 	if err := json.UnmarshalDecode(dec, &frame); err != nil {

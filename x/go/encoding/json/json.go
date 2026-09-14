@@ -204,7 +204,10 @@ func UnmarshalStringUint32From(dec *jsontext.Decoder) (uint32, error) {
 		return 0, err
 	}
 	n, err := strconv.ParseUint(digits, 10, 32)
-	return uint32(n), err
+	if err != nil {
+		return 0, err
+	}
+	return uint32(n), nil
 }
 
 // UnmarshalStringUint64From reads a uint64 from dec, accepting a JSON number or a JSON

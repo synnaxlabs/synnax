@@ -77,8 +77,8 @@ func BenchmarkKeepKeys(b *testing.B) {
 }
 
 // BenchmarkEncodeMsgpack measures encoding a frame unmasked and after KeepKeys has
-// masked it. The masked branch encodes element by element rather than handing the
-// whole slice to the encoder.
+// masked it. The masked branch encodes element by element rather than handing the whole
+// slice to the encoder.
 func BenchmarkEncodeMsgpack(b *testing.B) {
 	for _, c := range []struct {
 		name            string
