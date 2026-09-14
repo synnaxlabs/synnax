@@ -102,8 +102,9 @@ func WithTransport(transport Transport) Option {
 }
 
 // WithListener sets a pre-bound listener to serve on, letting the caller learn the
-// address before Open returns. Aspen takes ownership of the listener on success and
-// closes it on shutdown; on failure the listener stays the caller's to close. The host
+// address before Open returns. Aspen takes ownership once it starts serving, and closes
+// the listener on shutdown or on a failure after that point. A caller can always close
+// the listener after a failed Open: a second close returns net.ErrClosed. The host
 // address keeps its configured host with the listener's port substituted. Open returns
 // a validation error if the listener is not bound to a TCP address, or if the caller
 // also passes a transport with WithTransport.
