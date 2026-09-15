@@ -412,12 +412,13 @@ func flowSourceType(
 		if err != nil || fnSym.Kind != symbol.KindFunction {
 			return types.Type{}, ""
 		}
-		// A polymorphic func has one output type shared by all of its calls;
-		// checking it here would lock it to this sink's type for every call.
-		out, ok := fnSym.Type.Outputs.Get(ir.DefaultOutputParam)
-		if ok && out.Type.Kind != types.KindVariable {
+		// Same key as parseFunction, so the sink check binds this call's own variable.
+		fresh := types.Freshen(fnSym.Type, freshenKey(prevFn, fnName))
+		if out, ok := fresh.Outputs.Get(ir.DefaultOutputParam); ok {
 			return out.Type, fmt.Sprintf(
-				"func %s output type %s", fnName, out.Type,
+				"func %s output type %s",
+				fnName,
+				ctx.Constraints.ApplySubstitutions(out.Type),
 			)
 		}
 	}
