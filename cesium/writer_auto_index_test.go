@@ -268,23 +268,21 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						// Start defaults to the clock at open, so explicit is read
-						// after the writer opens to keep it inside the writer's domain.
 						explicit := telem.Now() + 10*telem.MillisecondTS
-						MustSucceed(w.Write(telem.MultiFrame(
+						Expect(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesV(explicit),
 								telem.NewSeriesV[float64](1),
 							},
-						)))
+						))).To(BeTrue())
 						Eventually(telem.Now).Should(BeNumerically(">", explicit))
 						afterExplicit := telem.Now()
-						MustSucceed(
+						Expect(
 							w.Write(
 								telem.UnaryFrame(data, telem.NewSeriesV[float64](2)),
 							),
-						)
+						).To(BeTrue())
 						MustSucceed(w.Commit())
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
