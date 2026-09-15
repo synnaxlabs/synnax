@@ -59,6 +59,8 @@ type nodeImpl struct {
 	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
+	// batch is nil when the node's signature does not admit vectorization.
+	batch *batchCall
 }
 
 func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
@@ -219,7 +221,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
-	for i := int64(0); i < maxLength; i++ {
+	batched := n.batch != nil && maxLength > 1 &&
+		n.runBatch(ctx, maxLength, longestInputTime, clockStamp)
+	for i := int64(0); !batched && i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
 				continue
@@ -238,6 +242,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		res, err := n.call(ctx.Context)
 		if err != nil {
+			// A trap ends the cycle. Emitting the samples that already succeeded
+			// would make the output depend on where in the series the trap landed.
 			ctx.ReportError(errors.Wrapf(
 				err,
 				"WASM execution failed in node %s at sample %d/%d",
@@ -245,7 +251,13 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				i,
 				maxLength,
 			))
-			continue
+			for j := range n.offsets {
+				n.offsets[j] = 0
+			}
+			for j := range stringResults {
+				stringResults[j] = stringResults[j][:0]
+			}
+			break
 		}
 		var ts uint64
 		if clockStamp {
