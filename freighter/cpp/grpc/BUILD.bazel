@@ -17,8 +17,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp:freighter",
-        "//x/cpp/fs",
-        "@abseil-cpp//absl/log",
         "@grpc//:grpc++",
     ],
 )

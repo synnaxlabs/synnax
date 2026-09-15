@@ -26,7 +26,6 @@
 #include "client/cpp/view/view.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
-#include "x/cpp/path/path.h"
 
 #include "core/pkg/version/version.h"
 
@@ -55,20 +54,8 @@ struct Config {
     std::string username = "synnax";
     /// @brief the password to use when authenticating with the node.
     std::string password = "seldon";
-    /// @brief path to the CA certificate file to use when connecting to a secure
-    /// node. This is only required if the node is configured to use TLS.
-    std::string ca_cert_file;
-    /// @brief path to the client certificate file to use when connecting to a
-    /// secure node and using client authentication. This is not required when in
-    /// insecure mode or using username/password authentication.
-    std::string client_cert_file;
-    /// @brief path to the client key file to use when connecting to a secure node
-    /// and using client authentication. This is not required when in insecure mode
-    /// or using username/password authentication.
-    std::string client_key_file;
-    /// @brief use TLS encryption. When true without a ca_cert_file, the system trust
-    /// store verifies the server. Defaults to true when overridden from config that
-    /// predates this field but names a certificate.
+    /// @brief use TLS encryption. The system trust store verifies the node's
+    /// certificate.
     bool secure = false;
     /// @brief sets the clock skew threshold at which a warning will be logged.
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
@@ -81,17 +68,7 @@ struct Config {
         this->port = parser.field("port", this->port);
         this->username = parser.field("username", this->username);
         this->password = parser.field("password", this->password);
-        this->client_cert_file = parser.field(
-            "client_cert_file",
-            this->client_cert_file
-        );
-        this->client_key_file = parser.field("client_key_file", this->client_key_file);
-        this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
-        this->secure = parser.field(
-            "secure",
-            !this->ca_cert_file.empty() ||
-                (!this->client_cert_file.empty() && !this->client_key_file.empty())
-        );
+        this->secure = parser.field("secure", this->secure);
         this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
@@ -108,13 +85,6 @@ struct Config {
            << x::log::sensitive_string(cfg.password) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
            << x::log::bool_to_str(cfg.secure);
-        if (!cfg.secure) return os;
-        os << "\n  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
-           << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.client_cert_file) << "\n"
-           << "  " << x::log::SHALE() << "client_key_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.client_key_file);
         return os;
     }
 
@@ -130,9 +100,6 @@ struct Config {
             {"port", this->port},
             {"username", this->username},
             {"password", this->password},
-            {"ca_cert_file", this->ca_cert_file},
-            {"client_cert_file", this->client_cert_file},
-            {"client_key_file", this->client_key_file},
             {"secure", this->secure},
             {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
             {"max_retries", this->max_retries}
@@ -171,12 +138,7 @@ public:
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg):
-        t(cfg.port,
-          cfg.host,
-          cfg.ca_cert_file,
-          cfg.client_cert_file,
-          cfg.client_key_file,
-          cfg.secure),
+        t(cfg.port, cfg.host, cfg.secure),
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth([&]() -> std::shared_ptr<auth::Middleware> {
             auto mw = std::make_shared<auth::Middleware>(

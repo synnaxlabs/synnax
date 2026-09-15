@@ -40,10 +40,14 @@ import (
 // certificates it verifies the Core against.
 const trustAnchorFileName = "trust-anchors.pem"
 
+// grpcRootsEnv is the gRPC environment variable that replaces the system trust store
+// with a PEM file.
+const grpcRootsEnv = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"
+
 // Config is the configuration for opening an embedded Driver.
 type Config struct {
 	// Insecure sets whether not to use TLS for communication. If insecure is set to
-	// true, TrustAnchorsPEM, ClientCertFile, and ClientKeyFile are ignored.
+	// true, TrustAnchorsPEM is ignored.
 	Insecure *bool `json:"insecure"`
 	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
@@ -56,14 +60,8 @@ type Config struct {
 	Credentials auth.Credentials
 	// TrustAnchorsPEM holds the PEM certificates the Driver verifies the Core against.
 	// Not required if the Core serves a certificate the system trust store already
-	// recognizes. The Driver writes them to its own working directory.
+	// recognizes. When set, they replace the system trust store for the Driver.
 	TrustAnchorsPEM []byte `json:"trust_anchors_pem"`
-	// ClientCertFile sets the path to the client cert file to use for
-	// authenticated/encrypted communication.
-	ClientCertFile string `json:"client_cert_file"`
-	// ClientKeyFile sets the secret key file used for authenticated/encrypted
-	// communication between the Driver and the Core.
-	ClientKeyFile string `json:"client_key_file"`
 	// Address is the reachable address of the Core for the Driver to connect to.
 	Address address.Address `json:"address"`
 	// ParentDirname is the parent directory in which the Driver will create a 'driver'
@@ -109,22 +107,14 @@ type Config struct {
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
-// format renders the Driver's config file. trustAnchorFile is the path the Driver reads
-// its trust anchors from, empty when the Core has none to give.
-func (c Config) format(trustAnchorFile string) map[string]any {
-	if *c.Insecure {
-		trustAnchorFile = ""
-		c.ClientCertFile = ""
-		c.ClientKeyFile = ""
-	}
+// format renders the Driver's config file.
+func (c Config) format() map[string]any {
 	return map[string]any{
 		"connection": map[string]any{
-			"host":             c.Address.Host(),
-			"port":             c.Address.Port(),
-			"credentials":      c.Credentials,
-			"ca_cert_file":     trustAnchorFile,
-			"client_cert_file": c.ClientCertFile,
-			"client_key_file":  c.ClientKeyFile,
+			"host":        c.Address.Host(),
+			"port":        c.Address.Port(),
+			"credentials": c.Credentials,
+			"secure":      !*c.Insecure,
 		},
 		"retry": map[string]any{
 			"base_interval": 1,
@@ -183,8 +173,6 @@ func (c Config) Override(other Config) Config {
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.TrustAnchorsPEM = override.Slice(c.TrustAnchorsPEM, other.TrustAnchorsPEM)
-	c.ClientCertFile = override.String(c.ClientCertFile, other.ClientCertFile)
-	c.ClientKeyFile = override.String(c.ClientKeyFile, other.ClientKeyFile)
 	c.Credentials = override.Zero(c.Credentials, other.Credentials)
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
@@ -498,7 +486,7 @@ func (d *Driver) setupCmd(
 		}
 		tempFiles = append(tempFiles, trustAnchorFile)
 	}
-	b, err := json.Marshal(d.cfg.format(trustAnchorFile))
+	b, err := json.Marshal(d.cfg.format())
 	if err != nil {
 		return nil, tempFiles, "", err
 	}
@@ -521,6 +509,9 @@ func (d *Driver) setupCmd(
 	}
 	flags = append(flags, "--config", cfgFile)
 	cmd := exec.CommandContext(ctx, extractedBinary, flags...)
+	if trustAnchorFile != "" {
+		cmd.Env = append(os.Environ(), grpcRootsEnv+"="+trustAnchorFile)
+	}
 	configureSysProcAttr(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {

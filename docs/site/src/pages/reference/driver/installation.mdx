@@ -221,13 +221,30 @@ output:
 
 ```
 synnax-driver login
-host (default: localhost): 10.0.0.45
-port (default: 9090): 9090
+host [localhost]: 10.0.0.45
+port [9090]: 9090
+Secure (Y/N) [N]: N
 username: synnax
 password:
 I20250318 04:57:06.681439 25261 login.cpp:47] connecting to Synnax at 10.0.0.45:9090
 I20250318 04:57:06.792840 25261 login.cpp:53] successfully logged in!
 I20250318 04:57:06.793918 25261 login.cpp:59] credentials saved successfully
+```
+
+### Connecting to a secure Core
+
+Answer `Y` to the `Secure` prompt when the Core uses TLS. The Driver verifies the Core's
+certificate against the operating system's trust store, so a certificate from a public
+authority such as Let's Encrypt needs no further setup. Connect using the host name the
+certificate was issued for, not an IP address.
+
+A Core started with `--auto-cert` serves a self-signed certificate. Install its CA
+certificate on the Driver's machine by following the
+[installing certificates](/reference/core/installing-certificates) guide. On a machine
+where you can't change the trust store, point gRPC at the CA file instead:
+
+```bash
+export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
 ```
 
 <Divider.Divider x />
@@ -288,18 +305,8 @@ file with the following format:
     "username": "synnax",
     // The password to use when logging in to the Synnax Core.
     "password": "password",
-    // The path to the CA certificate file to use when connecting
-    // to the Synnax Core. This is only required if the Core
-    // is configured to use TLS.
-    "ca_cert_file": "/path/to/ca.crt",
-    // The path to the client certificate file to use when connecting
-    // to the Synnax Core. This is only required when the Core is
-    // configured to use TLS and client certificates for authentication.
-    "client_cert_file": "/path/to/client.crt",
-    // The path to the client key file to use when connecting to the
-    // Synnax Core. This is only required when the Core is configured
-    // to use TLS and client certificates for authentication.
-    "client_key_file": "/path/to/client.key"
+    // Whether to connect to the Synnax Core over TLS.
+    "secure": false
   },
   "timing": {
     // Enable automatic skew correction for the Driver.
@@ -316,9 +323,7 @@ file with the following format:
     "worker_count": 4
   },
   // List of device integrations to enable (overrides defaults).
-  "enable_integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"],
-  // List of device integrations to disable.
-  "disable_integrations": []
+  "integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"]
 }
 ```
 
@@ -335,19 +340,8 @@ export SYNNAX_DRIVER_PORT=9090
 export SYNNAX_DRIVER_USERNAME=synnax
 # The password to use when logging in to the Synnax Core.
 export SYNNAX_DRIVER_PASSWORD=password
-# The path to the CA certificate file to use when
-# connecting to the Synnax Core. This is only required
-# if the Core is configured to use TLS.
-export SYNNAX_DRIVER_CA_CERT_FILE=/path/to/ca.crt
-# The path to the client certificate file to use when
-# connecting to the Synnax Core. This is only required when
-# the Core is configured to use TLS and client certificates
-# for authentication.
-export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
-# The path to the client key file to use when connecting to
-# the Synnax Core. This is only required when the Core is
-# configured to use TLS and client certificates for authentication.
-export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
+# Whether to connect to the Synnax Core over TLS.
+export SYNNAX_DRIVER_SECURE=false
 # Enable automatic clock skew correction for the Driver.
 export SYNNAX_DRIVER_CORRECT_SKEW=true
 # Duration in seconds before reporting stuck task operations.
@@ -358,10 +352,6 @@ export SYNNAX_DRIVER_POLL_INTERVAL=1
 export SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
 # Number of worker threads for task operations (1-64).
 export SYNNAX_DRIVER_WORKER_COUNT=4
-# Comma-separated list of device integrations to enable.
-export SYNNAX_DRIVER_ENABLE_INTEGRATIONS=labjack,ni,opc
-# Comma-separated list of device integrations to disable.
-export SYNNAX_DRIVER_DISABLE_INTEGRATIONS=modbus
 ```
 
 <Divider.Divider x />
@@ -436,22 +426,10 @@ synnax-driver start --standalone
       description: "The password to use when logging in to the Synnax Core.",
     },
     {
-      option: "--ca-cert-file",
-      default: '""',
+      option: "--secure",
+      default: "false",
       description:
-        "The path to the CA certificate file to use when connecting to the Synnax Core.",
-    },
-    {
-      option: "--client-cert-file",
-      default: '""',
-      description:
-        "The path to the client certificate file to use when connecting to the Synnax Core.",
-    },
-    {
-      option: "--client-key-file",
-      default: '""',
-      description:
-        "The path to the client key file to use when connecting to the Synnax Core.",
+        "Whether to connect to the Synnax Core over TLS. Pass a value, as in <code>--secure=true</code>.",
     },
     {
       option: "--correct-skew",
@@ -534,8 +512,9 @@ output:
 
 ```
 synnax-driver login
-host (default: localhost): 10.0.0.45
-port (default: 9090): 9090
+host [localhost]: 10.0.0.45
+port [9090]: 9090
+Secure (Y/N) [N]: N
 username: synnax
 password:
 ```
