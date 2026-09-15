@@ -13,7 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/jsontext"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"io"
 	"strconv"
 	"time"
@@ -25,6 +25,13 @@ import (
 
 // Codec is a JSON implementation of http.FileCodec with compact encoding.
 var Codec = NewCodec()
+
+// codecOptions is the option set Codec was built with.
+var codecOptions = Codec.(*codec).opts
+
+// Marshal encodes value with the options Codec uses, for a caller holding no Codec and
+// no context. Output matches what Codec writes for the same value.
+func Marshal(value any) ([]byte, error) { return json.Marshal(value, codecOptions) }
 
 type codec struct {
 	// indent is the per-level indentation for encoded output; empty means compact.

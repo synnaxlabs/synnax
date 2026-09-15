@@ -268,6 +268,22 @@ var _ = Describe("NewCodec", func() {
 	})
 })
 
+var _ = Describe("Marshal", func() {
+	It("Should match what Codec encodes", func(ctx SpecContext) {
+		v := wireShapes{Duration: time.Second}
+		Expect(json.Marshal(v)).To(Equal(MustSucceed(json.Codec.Encode(ctx, v))))
+	})
+	It("Should encode a duration as nanoseconds", func() {
+		Expect(MustSucceed(json.Marshal(wireShapes{Duration: time.Second}))).
+			To(ContainSubstring(`"duration":1000000000`))
+	})
+	It("Should order map members deterministically", func() {
+		m := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
+		Expect(MustSucceed(json.Marshal(m))).
+			To(Equal([]byte(`{"a":2,"b":4,"m":3,"q":5,"z":1}`)))
+	})
+})
+
 var _ = Describe("Validate", func() {
 	It("Should accept a well-formed document", func() {
 		Expect(json.Validate([]byte(`{"a":[1,{"b":null}]}`))).To(Succeed())
