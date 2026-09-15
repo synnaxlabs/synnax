@@ -11,8 +11,6 @@ import socket
 import threading
 
 
-# A bare close sends no FIN while the pump is blocked in recv, so an idle peer never
-# learns the link is gone. Shutdown ends it at once.
 def _shutdown(s: socket.socket) -> None:
     try:
         s.shutdown(socket.SHUT_RDWR)
