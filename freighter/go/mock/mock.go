@@ -11,16 +11,10 @@ package mock
 
 import "github.com/synnaxlabs/alamos"
 
-const (
-	protocol = "golang-mock"
-	encoding = "in-memory"
-)
+const protocol = "golang-mock"
 
-// reporter describes the mock protocol. Every transport in this package embeds it, so
-// a constructor cannot leave a transport without a report.
 type reporter struct{}
 
-// Report implements alamos.ReportProvider.
 func (reporter) Report() alamos.Report {
-	return alamos.Report{"protocol": protocol, "encodings": []string{encoding}}
+	return alamos.Report{"protocol": protocol, "encodings": []string{"in-memory"}}
 }

@@ -21,13 +21,18 @@ import (
 // scenarios. It serves as a factory for freighter.Stream and freighter.Unary.
 type Network[RQ, RS freighter.Payload] struct {
 	mu struct {
-		entries      []NetworkEntry[RQ, RS]
-		unaryRoutes  map[address.Address]*UnaryServer[RQ, RS]
+		// entries records every unary exchange the network has carried, in order.
+		entries []NetworkEntry[RQ, RS]
+		// unaryRoutes holds the unary server hosted at each address.
+		unaryRoutes map[address.Address]*UnaryServer[RQ, RS]
+		// streamRoutes holds the stream server hosted at each address.
 		streamRoutes map[address.Address]*StreamServer[RQ, RS]
 		sync.RWMutex
 	}
 }
 
+// Entries returns a copy of every unary exchange the network has carried, oldest first.
+// Streams are not recorded.
 func (n *Network[RQ, RS]) Entries() []NetworkEntry[RQ, RS] {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
@@ -36,37 +41,43 @@ func (n *Network[RQ, RS]) Entries() []NetworkEntry[RQ, RS] {
 	return cp
 }
 
+// EntryCount returns how many unary exchanges the network has carried. It avoids the
+// copy Entries makes when only the count is needed.
 func (n *Network[RQ, RS]) EntryCount() int {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 	return len(n.mu.entries)
 }
 
-// NetworkEntry is a single entry in the network's history. NetworkEntry
+// NetworkEntry is a single unary exchange in the network's history.
 type NetworkEntry[RQ, RS freighter.Payload] struct {
-	Request  RQ
+	// Request is what the client sent.
+	Request RQ
+	// Response is what the handler returned. Zero valued when Error is not nil.
 	Response RS
-	Error    error
-	Host     address.Address
-	Target   address.Address
+	// Error is what the handler returned, nil on success.
+	Error error
+	// Target is the address the client dialed.
+	Target address.Address
 }
 
-// UnaryServer returns a new freighter.Unary hosted at the given address. This transport
-// is not reachable by other hosts in the network until freighter.UnaryServer.ServeHTTP
-// is called.
+// UnaryServer returns a new freighter.UnaryServer hosted at the given address. An empty
+// host takes the next free localhost port. The server is not reachable until
+// BindHandler is called.
 func (n *Network[RQ, RS]) UnaryServer(host address.Address) *UnaryServer[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	pHost := n.parseTarget(host)
-	s := &UnaryServer[RQ, RS]{Network: n, Address: pHost}
+	s := &UnaryServer[RQ, RS]{network: n, address: pHost}
 	n.mu.unaryRoutes[pHost] = s
 	return s
 }
 
+// UnaryClient returns a new freighter.UnaryClient that dials servers on this network.
 func (n *Network[RQ, RS]) UnaryClient() *UnaryClient[RQ, RS] {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	return &UnaryClient[RQ, RS]{Network: n}
+	return &UnaryClient[RQ, RS]{network: n}
 }
 
 func (n *Network[RQ, RS]) resolveUnaryTarget(
@@ -78,9 +89,10 @@ func (n *Network[RQ, RS]) resolveUnaryTarget(
 	return t, ok
 }
 
-// StreamServer returns a new freighter.Stream hosted at the given address.
-// This transport is not reachable by other hosts in the network until
-// freighter.Stream.ServeHTTP is called.
+// StreamServer returns a new freighter.StreamServer hosted at the given address. An
+// empty host takes the next free localhost port. Buffer sets the capacity of the
+// response channel given to each stream. The server is not reachable until BindHandler
+// is called.
 func (n *Network[RQ, RS]) StreamServer(
 	host address.Address,
 	buffer ...int,
@@ -94,6 +106,8 @@ func (n *Network[RQ, RS]) StreamServer(
 	return s
 }
 
+// StreamClient returns a new freighter.StreamClient that dials servers on this network.
+// Buffers sets the capacity of the request channel given to each stream.
 func (n *Network[RQ, RS]) StreamClient(buffers ...int) *StreamClient[RQ, RS] {
 	b, _ := parseBuffers(buffers)
 	return &StreamClient[RQ, RS]{network: n, bufferSize: b}

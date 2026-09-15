@@ -60,6 +60,19 @@ var _ = Describe("Unary", func() {
 	})
 
 	DescribeTable(
+		"Should report the address the network assigned to the server",
+		func(host address.Address, match OmegaMatcher) {
+			Expect(net.UnaryServer(host).Address()).To(match)
+		},
+		Entry(
+			"named host",
+			address.Address("localhost:1"),
+			Equal(address.Address("localhost:1")),
+		),
+		Entry("empty host", address.Address(""), Not(BeEmpty())),
+	)
+
+	DescribeTable(
 		"Should return a target not found error",
 		func(ctx SpecContext, target address.Address, bind bool) {
 			server := net.UnaryServer("localhost:1")
