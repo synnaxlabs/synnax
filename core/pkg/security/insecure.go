@@ -17,30 +17,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 )
 
-// insecureProvider is an implementation of Provider for use in insecure clusters.
-type insecureProvider struct {
-	nodeSecret *rsa.PrivateKey
-}
+type insecureProvider struct{ *rsa.PrivateKey }
 
 func newInsecureProvider(cfg ProviderConfig) (Provider, error) {
 	key, err := rsa.GenerateKey(nil, cfg.KeySize)
-	return &insecureProvider{nodeSecret: key}, err
+	if err != nil {
+		return nil, err
+	}
+	return &insecureProvider{PrivateKey: key}, nil
 }
 
-// TLSConfigFor implements TLSProvider.
-func (p *insecureProvider) TLSConfigFor(cert.Source) *tls.Config { return nil }
+func (*insecureProvider) TLSConfigFor(cert.Source) *tls.Config { return nil }
 
-// NodeClientConfig implements TLSProvider.
-func (p *insecureProvider) NodeClientConfig() *tls.Config { return nil }
+func (*insecureProvider) NodeClientConfig() *tls.Config { return nil }
 
-// VerifyCertHost implements TLSProvider.
-func (p *insecureProvider) VerifyCertHost(cert.Source, string) error { return nil }
+func (*insecureProvider) VerifyCertHost(cert.Source, string) error { return nil }
 
-// VerifyCertCoreCA implements TLSProvider.
-func (p *insecureProvider) VerifyCertCoreCA(cert.Source) error { return nil }
+func (*insecureProvider) VerifyCertCoreCA(cert.Source) error { return nil }
 
-// VerifyCertTrustAnchors implements TLSProvider.
-func (p *insecureProvider) VerifyCertTrustAnchors(cert.Source) error { return nil }
+func (*insecureProvider) VerifyCertTrustAnchors(cert.Source) error { return nil }
 
-// NodePrivate implements KeyProvider.
-func (p *insecureProvider) NodePrivate() crypto.PrivateKey { return p.nodeSecret }
+func (p *insecureProvider) TokenPrivate() crypto.PrivateKey { return p.PrivateKey }

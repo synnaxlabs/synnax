@@ -19,8 +19,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/restart"

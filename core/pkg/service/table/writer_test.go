@@ -10,7 +10,8 @@
 package table_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
@@ -67,7 +68,7 @@ var _ = Describe("Writer", func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).To(Succeed())
-			Expect(t.Key).ToNot(Equal(uuid.Nil))
+			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It(
@@ -81,8 +82,8 @@ var _ = Describe("Writer", func() {
 
 		It("Should create a Table without a project", func(ctx SpecContext) {
 			t := table.Table{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &t)).To(Succeed())
-			Expect(t.Key).ToNot(Equal(uuid.Nil))
+			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &t)).To(Succeed())
+			Expect(t.Key).ToNot(Equal(uuid.Nil()))
 		})
 	})
 

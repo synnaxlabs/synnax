@@ -14,8 +14,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -120,7 +120,7 @@ func (s *testService) Import(
 	if err != nil {
 		return ontology.ID{}, err
 	}
-	key := uuid.NewString()
+	key := uuid.New().String()
 	e := testEntry{Key: key, Name: env.Name, FieldOne: r.FieldOne, FieldTwo: r.FieldTwo}
 	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
 		return ontology.ID{}, err

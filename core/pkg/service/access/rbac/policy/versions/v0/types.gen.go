@@ -13,8 +13,8 @@ package v0
 
 import (
 	"strconv"
+	"uuid"
 
-	"github.com/google/uuid"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/validate"

@@ -43,10 +43,12 @@ type TLSProvider interface {
 	VerifyCertTrustAnchors(src cert.Source) error
 }
 
-// KeyProvider provides information of private keys for the node.
+// KeyProvider provides the private keys the node signs with.
 type KeyProvider interface {
-	// NodePrivate returns the private key of the node's TLS certificate.
-	NodePrivate() crypto.PrivateKey
+	// TokenPrivate returns the key the node signs authentication tokens with. It is the
+	// node's TLS key when that key's algorithm has a JWT signing method, and the
+	// dedicated key at LoaderConfig.TokenKeyPath otherwise.
+	TokenPrivate() crypto.PrivateKey
 }
 
 // Provider provides security information and services for the node. It's important to
@@ -66,35 +68,30 @@ type ProviderConfig struct {
 	KeySize int
 }
 
-var (
-	_ config.Config[ProviderConfig] = ProviderConfig{}
-	// DefaultProviderConfig is the default configuration for the security
-	// Provider.
-	DefaultProviderConfig = ProviderConfig{
-		LoaderConfig: cert.DefaultLoaderConfig,
-		Insecure:     new(true),
-		KeySize:      cert.DefaultFactoryConfig.KeySize,
-	}
-)
+var _ config.Config[ProviderConfig] = ProviderConfig{}
 
-// Override implements Properties.
-func (s ProviderConfig) Override(other ProviderConfig) ProviderConfig {
-	s.LoaderConfig = s.LoaderConfig.Override(other.LoaderConfig)
-	s.Insecure = override.Nil(s.Insecure, other.Insecure)
-	return s
+// Override implements [config.Config].
+func (pc ProviderConfig) Override(other ProviderConfig) ProviderConfig {
+	pc.LoaderConfig = pc.LoaderConfig.Override(other.LoaderConfig)
+	pc.Insecure = override.Nil(pc.Insecure, other.Insecure)
+	return pc
 }
 
-// Validate implements Properties.
-func (s ProviderConfig) Validate() error {
+// Validate implements [config.Config].
+func (pc ProviderConfig) Validate() error {
 	v := validate.New("security.provider")
-	v.NotNil("insecure", s.Insecure)
-	v.Exec(s.LoaderConfig.Validate)
+	v.NotNil("insecure", pc.Insecure)
+	v.Exec(pc.LoaderConfig.Validate)
 	return v.Error()
 }
 
 // NewProvider opens a new security Provider using the given configuration.
 func NewProvider(configs ...ProviderConfig) (Provider, error) {
-	cfg, err := config.New(DefaultProviderConfig, configs...)
+	cfg, err := config.New(ProviderConfig{
+		LoaderConfig: cert.DefaultLoaderConfig,
+		Insecure:     new(true),
+		KeySize:      cert.DefaultFactoryConfig.KeySize,
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}

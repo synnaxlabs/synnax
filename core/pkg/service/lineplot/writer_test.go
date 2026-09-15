@@ -10,7 +10,8 @@
 package lineplot_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
@@ -37,7 +38,7 @@ var _ = Describe("Writer", func() {
 		It("Should create a LinePlot", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
-			Expect(plot.Key).ToNot(Equal(uuid.Nil))
+			Expect(plot.Key).ToNot(Equal(uuid.Nil()))
 		})
 		It(
 			"Should return a validation error when the name is empty",
@@ -602,8 +603,8 @@ var _ = Describe("Writer", func() {
 			It("Should append and remove ranges on an x-axis", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
-				r1 := uuid.NewString()
-				r2 := uuid.NewString()
+				r1 := uuid.New().String()
+				r2 := uuid.New().String()
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewAddRangeAction(lineplot.AddRangePayload{
@@ -639,7 +640,7 @@ var _ = Describe("Writer", func() {
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewAddRangeAction(lineplot.AddRangePayload{
 								AxisKey: lineplot.XAxisKey("y1"),
-								Range:   uuid.NewString(),
+								Range:   uuid.New().String(),
 							}),
 						}),
 					).Error().
@@ -650,7 +651,12 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should replace an x-axis's whole range set via SetRanges",
 				func(ctx SpecContext) {
-					r1, r2, r3 := uuid.NewString(), uuid.NewString(), uuid.NewString()
+					r1, r2, r3 := uuid.New().
+						String(),
+						uuid.New().
+							String(),
+						uuid.New().
+							String()
 					plot := lineplot.LinePlot{
 						Name:   "test",
 						Ranges: lineplot.Ranges{X1: []string{r1, r2}},
@@ -720,7 +726,7 @@ var _ = Describe("Writer", func() {
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
 								AxisKey: lineplot.XAxisKey("y1"),
-								Ranges:  []string{uuid.NewString()},
+								Ranges:  []string{uuid.New().String()},
 							}),
 						}),
 					).Error().
@@ -1090,7 +1096,7 @@ var _ = Describe("Writer", func() {
 			It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
-				r := uuid.NewString()
+				r := uuid.New().String()
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{

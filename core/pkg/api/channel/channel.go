@@ -11,9 +11,8 @@ package channel
 
 import (
 	"context"
-	"go/types"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -201,7 +200,7 @@ func (s *Service) Retrieve(
 	)
 
 	var resRng ranger.Range
-	if req.RangeKey != uuid.Nil {
+	if req.RangeKey != uuid.Nil() {
 		err := s.ranger.NewRetrieve().
 			Where(ranger.MatchKeys(req.RangeKey)).
 			Entry(&resRng).
@@ -272,7 +271,7 @@ func (s *Service) Retrieve(
 		)
 	}
 	oChannels := translateChannelsForward(resChannels)
-	if resRng.Key != uuid.Nil {
+	if resRng.Key != uuid.Nil() {
 		aliasReader := s.alias.NewReader(nil)
 		for i, ch := range resChannels {
 			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
@@ -284,8 +283,8 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		ids := channel.OntologyIDsFromChannels(resChannels)
 		statuses := make([]Status, 0, len(resChannels))
-		if err := s.status.NewRetrieve[types.Nil]().
-			Where(status.MatchKeys[types.Nil](ontology.IDsToKeys(ids)...)).
+		if err := s.status.NewRetrieve[struct{}]().
+			Where(status.MatchKeys[struct{}](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
@@ -366,7 +365,7 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	w := s.internal.NewWriter(tx)
 	if len(req.Keys) > 0 {
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -374,10 +373,10 @@ func (s *Service) Delete(
 			Action:  access.ActionDelete,
 			Objects: channel.OntologyIDsFromKeys(req.Keys),
 		}); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 	}
 	if len(req.Names) > 0 {
@@ -386,18 +385,18 @@ func (s *Service) Delete(
 			Where(channel.MatchNames(req.Names...)).
 			Entries(&res).
 			Exec(ctx, tx); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionDelete,
 			Objects: channel.OntologyIDsFromChannels(res),
 		}); err != nil {
-			return types.Nil{}, err
+			return struct{}{}, err
 		}
-		return types.Nil{}, w.DeleteManyByNames(ctx, req.Names, false)
+		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
 	}
-	return types.Nil{}, nil
+	return struct{}{}, nil
 }
 
 type RenameRequest struct {
@@ -409,15 +408,15 @@ func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: channel.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).RenameMany(
+	return struct{}{}, s.internal.NewWriter(tx).RenameMany(
 		ctx, req.Keys, req.Names, false,
 	)
 }

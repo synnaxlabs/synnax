@@ -12,7 +12,8 @@ package format
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"sync"
@@ -160,7 +161,11 @@ func (c *Cache) Save() error {
 	if err := os.MkdirAll(filepath.Dir(c.path), 0o755); err != nil {
 		return errors.Wrap(err, "create cache dir")
 	}
-	raw, err := json.MarshalIndent(c.data, "", "  ")
+	// Deterministic keeps the entry and stamp maps in a stable order, so a save
+	// that changes nothing rewrites the same bytes.
+	raw, err := json.Marshal(
+		c.data, jsontext.WithIndent("  "), json.Deterministic(true),
+	)
 	if err != nil {
 		return errors.Wrap(err, "marshal cache")
 	}

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/json/jsontext"
 	"reflect"
 	"strconv"
 	"strings"
@@ -38,23 +39,37 @@ import (
 // exports wrote.
 type Version uint64
 
-// UnmarshalJSON decodes a Version from the numeric JSON form or a legacy "N.0.0" semver
-// string.
-func (v *Version) UnmarshalJSON(b []byte) error {
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		*v = Version(n)
-		return nil
+// UnmarshalJSONFrom decodes a Version from the numeric JSON form or a legacy "N.0.0"
+// semver string.
+func (v *Version) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	kind := dec.PeekKind()
+	if kind != '0' && kind != '"' {
+		if err := dec.SkipValue(); err != nil {
+			return err
+		}
+		// A JSON null leaves the receiver untouched, per the Unmarshaler convention.
+		if kind == 'n' {
+			return nil
+		}
+		return errors.Newf("version must be a number or semver string, got %s", kind)
 	}
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return errors.Newf("version must be a number or semver string, got %s", b)
-	}
-	parsed, err := legacyToNumeric(s)
+	tok, err := dec.ReadToken()
 	if err != nil {
 		return err
 	}
-	*v = parsed
+	if kind == '"' {
+		parsed, err := legacyToNumeric(tok.String())
+		if err != nil {
+			return err
+		}
+		*v = parsed
+		return nil
+	}
+	n, err := tok.Uint()
+	if err != nil {
+		return errors.Wrapf(err, "invalid version number %q", tok.String())
+	}
+	*v = Version(n)
 	return nil
 }
 
@@ -121,8 +136,12 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes
 // for a later Decode. Numbers decode in UseNumber mode so the Version keeps full int64
-// precision.
+// precision. A duplicate object name or invalid UTF-8 fails the read: an import file
+// comes from outside the Core, so a defect there is corruption, not a value to guess.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
+	if err := xjson.Validate(b); err != nil {
+		return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
+	}
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.UseNumber()
 	var m map[string]any

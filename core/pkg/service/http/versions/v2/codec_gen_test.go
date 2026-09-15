@@ -12,8 +12,8 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -172,7 +172,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.ReadConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
@@ -303,7 +303,7 @@ var _ = Describe("Codec", func() {
 				Disabled: true,
 			}),
 			Entry("zero values", v2.ScanConfig{
-				Key:      uuid.Nil,
+				Key:      uuid.Nil(),
 				Rate:     telem.Rate(0),
 				Disabled: false,
 			}),
@@ -352,7 +352,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.WriteConfig{
-				Key:       uuid.Nil,
+				Key:       uuid.Nil(),
 				AutoStart: false,
 				Device:    "",
 				Endpoints: nil,
@@ -1061,7 +1061,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
@@ -1285,7 +1285,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			Key:      uuid.Nil,
+			Key:      uuid.Nil(),
 			Rate:     telem.Rate(0),
 			Disabled: false,
 		}
@@ -1358,7 +1358,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			Key:       uuid.Nil,
+			Key:       uuid.Nil(),
 			AutoStart: false,
 			Device:    "",
 			Endpoints: nil,

@@ -13,8 +13,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"

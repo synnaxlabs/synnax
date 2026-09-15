@@ -13,7 +13,8 @@ package pb
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
+	"uuid"
+
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"

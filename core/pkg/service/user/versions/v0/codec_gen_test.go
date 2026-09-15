@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -43,7 +43,7 @@ var _ = Describe("Codec", func() {
 				RootUser:  true,
 			}),
 			Entry("zero values", v0.User{
-				Key:       uuid.Nil,
+				Key:       uuid.Nil(),
 				Username:  "",
 				FirstName: "",
 				LastName:  "",
@@ -93,7 +93,7 @@ func FuzzDecodeUser(f *testing.F) {
 	}
 	{
 		seed := v0.User{
-			Key:       uuid.Nil,
+			Key:       uuid.Nil(),
 			Username:  "",
 			FirstName: "",
 			LastName:  "",

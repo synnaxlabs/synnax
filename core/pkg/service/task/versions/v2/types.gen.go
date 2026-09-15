@@ -12,7 +12,8 @@
 package v2
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"

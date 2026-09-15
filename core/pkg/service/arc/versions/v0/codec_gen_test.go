@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -127,7 +127,7 @@ var _ = Describe("Codec", func() {
 				}),
 			}),
 			Entry("zero values", v0.Arc{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Mode: v0.Mode(""),
 				Graph: graph.Graph{
@@ -330,7 +330,7 @@ func FuzzDecodeArc(f *testing.F) {
 	}
 	{
 		seed := v0.Arc{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Mode: v0.Mode(""),
 			Graph: graph.Graph{

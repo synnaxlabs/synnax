@@ -15,7 +15,7 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -54,7 +54,7 @@ type Edge struct {
 	// TargetHandle is the optional target handle identifier.
 	TargetHandle *string `json:"targetHandle,omitempty"`
 	// Data is ReactFlow's opaque per-edge data bag.
-	Data json.RawMessage `json:"data,omitempty"`
+	Data jsontext.Value `json:"data,omitempty"`
 }
 
 // Data is the persisted per-schematic state at version 0. Props values are kept as raw
@@ -69,5 +69,5 @@ type Data struct {
 	// Edges are the schematic edges.
 	Edges []Edge `json:"edges"`
 	// Props holds per-symbol configuration keyed by node key.
-	Props map[string]json.RawMessage `json:"props"`
+	Props map[string]jsontext.Value `json:"props"`
 }

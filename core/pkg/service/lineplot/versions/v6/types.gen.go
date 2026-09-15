@@ -12,7 +12,8 @@
 package v6
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
@@ -114,58 +115,53 @@ type CustomRange struct {
 	Variant CustomRangeVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u CustomRange) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t CustomRangeType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u CustomRange) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case DynamicCustomRange:
-		t = DynamicCustomRangeType
+		return json.MarshalEncode(enc, struct {
+			Type CustomRangeType `json:"variant"`
+			DynamicCustomRange
+		}{Type: DynamicCustomRangeType, DynamicCustomRange: v})
 	case StaticCustomRange:
-		t = StaticCustomRangeType
+		return json.MarshalEncode(enc, struct {
+			Type CustomRangeType `json:"variant"`
+			StaticCustomRange
+		}{Type: StaticCustomRangeType, StaticCustomRange: v})
 	default:
-		return nil, errors.Newf("CustomRange: nil or unknown variant %T", u.Variant)
+		return errors.Newf("CustomRange: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *CustomRange) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type CustomRangeType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case DynamicCustomRangeType:
 		var v DynamicCustomRange
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StaticCustomRangeType:
 		var v StaticCustomRange
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v

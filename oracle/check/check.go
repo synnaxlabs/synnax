@@ -25,7 +25,7 @@ package check
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"sort"
 	"time"
 
@@ -76,10 +76,10 @@ func (s Severity) String() string {
 	}
 }
 
-// MarshalJSON serializes Severity as its lower-case string form so the JSON report is
+// MarshalJSONTo serializes Severity as its lower-case string form so the JSON report is
 // consumable without an out-of-band enum table.
-func (s Severity) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String())
+func (s Severity) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteToken(jsontext.String(s.String()))
 }
 
 // Status is the outcome of a single gate.
@@ -109,9 +109,9 @@ func (s Status) String() string {
 	}
 }
 
-// MarshalJSON serializes Status as its lower-case string form.
-func (s Status) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String())
+// MarshalJSONTo serializes Status as its lower-case string form.
+func (s Status) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteToken(jsontext.String(s.String()))
 }
 
 // Finding is one observation produced by a Checker. The driver renders findings; gates

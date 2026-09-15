@@ -13,8 +13,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -121,7 +121,7 @@ var _ = Describe("Signals", func() {
 			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 			var keys []uuid.UUID
 			for sample := range res.Frame.SeriesAt(0).Samples() {
-				keys = append(keys, MustSucceed(uuid.FromBytes(sample)))
+				keys = append(keys, uuid.UUID(sample))
 			}
 			Expect(keys).To(ContainElement(p.Key))
 		},

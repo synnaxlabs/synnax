@@ -83,8 +83,8 @@ var _ = Describe("MultiListener", func() {
 		autoSrc := MustSucceed(auto.NewSource(ca, autoAddr))
 		fileSrc := MustSucceed(file.NewSource(
 			fs,
-			l.AbsoluteNodeCertPath(),
-			l.AbsoluteNodeKeyPath(),
+			l.Config().AbsoluteNodeCertPath(),
+			l.Config().AbsoluteNodeKeyPath(),
 		))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{
@@ -101,7 +101,9 @@ var _ = Describe("MultiListener", func() {
 		Expect(handshake(fileAddr, anchors)).To(Succeed())
 		// The node certificate anchors only itself, so on its own it cannot verify the
 		// separate certificate the auto source signs for its listener.
-		nodeOnly := certPool(MustSucceed(readFile(fs, l.AbsoluteNodeCertPath())))
+		nodeOnly := certPool(
+			MustSucceed(readFile(fs, l.Config().AbsoluteNodeCertPath())),
+		)
 		Expect(handshake(autoAddr, nodeOnly)).
 			To(MatchError(ContainSubstring("certificate signed by unknown authority")))
 		Expect(s.Close()).To(Succeed())
@@ -116,9 +118,9 @@ var _ = Describe("MultiListener", func() {
 		foreign := xfs.NewMem()
 		mock.GenerateCerts(foreign)
 		foreignL := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: foreign}))
-		writeFile(fs, l.AbsoluteCACertPath(), MustSucceed(readFile(
+		writeFile(fs, l.Config().AbsoluteCACertPath(), MustSucceed(readFile(
 			foreign,
-			foreignL.AbsoluteCACertPath(),
+			foreignL.Config().AbsoluteCACertPath(),
 		)))
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
@@ -128,8 +130,8 @@ var _ = Describe("MultiListener", func() {
 		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		src := MustSucceed(file.NewSource(
 			fs,
-			l.AbsoluteNodeCertPath(),
-			l.AbsoluteNodeKeyPath(),
+			l.Config().AbsoluteNodeCertPath(),
+			l.Config().AbsoluteNodeKeyPath(),
 		))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{{Address: addr, TLS: prov.TLSConfigFor(src)}},

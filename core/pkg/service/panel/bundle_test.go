@@ -11,8 +11,8 @@ package panel_test
 
 import (
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -174,10 +174,10 @@ var _ = Describe("DecodeBundle", func() {
 		env := MustSucceed(panel.EncodeBundle(p, encodeRefs))
 		minted := map[string]ontology.ID{
 			"chamber_pressure.json": {
-				Type: ontology.ResourceTypeLineplot, Key: uuid.NewString(),
+				Type: ontology.ResourceTypeLineplot, Key: uuid.New().String(),
 			},
 			"propulsion/pressurization.json": {
-				Type: ontology.ResourceTypeSchematic, Key: uuid.NewString(),
+				Type: ontology.ResourceTypeSchematic, Key: uuid.New().String(),
 			},
 		}
 		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), minted))
@@ -244,7 +244,7 @@ var _ = Describe("DecodeBundle", func() {
 			"root": map[string]any{
 				"variant": "leaf",
 				"tabs": []any{map[string]any{
-					"key":      uuid.NewString(),
+					"key":      uuid.New().String(),
 					"variant":  "resource",
 					"resource": 42,
 				}},
@@ -259,7 +259,7 @@ var _ = Describe("DecodeBundle", func() {
 
 var _ = Describe("ResourceRefs", func() {
 	taskID := func() ontology.ID {
-		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.NewString()}
+		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.New().String()}
 	}
 	taskTab := func(id ontology.ID) panel.Tab {
 		return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}

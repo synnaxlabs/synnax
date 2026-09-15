@@ -13,6 +13,7 @@ package naming
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -120,6 +121,21 @@ func LowerFirst(s string) string {
 // DerivePackageName extracts the package name from an output path.
 // Example: "core/pkg/service/user" -> "user"
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
+
+// majorVersion matches a module major-version path segment ("v2", "v12").
+var majorVersion = regexp.MustCompile(`^v\d+$`)
+
+// AssumedImportName returns the name goimports binds an import path to without an
+// explicit alias: the last segment, or the one before it when the last is a major
+// version. An alias equal to this is redundant, and goimports strips it from
+// hand-written code; one that differs is required, and goimports adds it back.
+func AssumedImportName(path string) string {
+	base := filepath.Base(path)
+	if majorVersion.MatchString(base) {
+		return filepath.Base(filepath.Dir(path))
+	}
+	return base
+}
 
 // DerivePackageAlias creates a unique alias for an imported package to avoid
 // conflicts. Version packages (e.g., "spatial/types/v0") alias to the resource

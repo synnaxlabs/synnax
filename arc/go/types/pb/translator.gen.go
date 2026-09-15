@@ -13,6 +13,7 @@ package pb
 
 import (
 	"encoding/json"
+
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )

@@ -12,8 +12,8 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -107,7 +107,7 @@ var _ = Describe("Codec", func() {
 				ReceiptTimestampHidden: false,
 			}),
 			Entry("zero values", v2.Log{
-				Key:                    uuid.Nil,
+				Key:                    uuid.Nil(),
 				Name:                   "",
 				Channels:               nil,
 				TimestampPrecision:     0,
@@ -338,7 +338,7 @@ func FuzzDecodeLog(f *testing.F) {
 	}
 	{
 		seed := v2.Log{
-			Key:                    uuid.Nil,
+			Key:                    uuid.Nil(),
 			Name:                   "",
 			Channels:               nil,
 			TimestampPrecision:     0,

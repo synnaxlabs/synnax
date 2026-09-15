@@ -11,7 +11,6 @@ package grpc
 
 import (
 	"context"
-	"go/types"
 	"io"
 	"net"
 	"time"
@@ -71,25 +70,25 @@ type (
 	leaseClient = fgrpc.UnaryClient[
 		kv.TxRequest,
 		*aspenv1.TxRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	leaseServer = fgrpc.UnaryServer[
 		kv.TxRequest,
 		*aspenv1.TxRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	feedbackClient = fgrpc.UnaryClient[
 		kv.FeedbackMessage,
 		*aspenv1.FeedbackMessage,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	feedbackServer = fgrpc.UnaryServer[
 		kv.FeedbackMessage,
 		*aspenv1.FeedbackMessage,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 	recoveryClient = fgrpc.StreamClient[

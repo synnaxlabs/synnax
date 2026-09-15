@@ -14,8 +14,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/unsafe"
 )
@@ -436,7 +436,10 @@ func castToUUID(value any) uuid.UUID {
 	case string:
 		return uuid.MustParse(v)
 	case []byte:
-		return lo.Must(uuid.FromBytes(v))
+		if len(v) != len(uuid.UUID{}) {
+			panic(fmt.Sprintf("cannot cast %d bytes to uuid.UUID", len(v)))
+		}
+		return uuid.UUID(v)
 	default:
 		panic(fmt.Sprintf("cannot cast %T to uuid.UUID", value))
 	}

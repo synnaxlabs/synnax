@@ -11,7 +11,6 @@ package group
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -107,15 +106,15 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: group.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type RenameRequest struct {
@@ -127,13 +126,13 @@ func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }

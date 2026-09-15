@@ -15,7 +15,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -274,9 +273,6 @@ type importEntry struct {
 	Alias string
 }
 
-// versionDir matches version sub-directory names ("v0", "v12").
-var versionDir = regexp.MustCompile(`/v\d+$`)
-
 func sortedImports(m map[string]string) []importEntry {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -286,10 +282,8 @@ func sortedImports(m map[string]string) []importEntry {
 	entries := make([]importEntry, 0, len(keys))
 	for _, k := range keys {
 		alias := m[k]
-		// Version directories always import under an explicit alias so the
-		// qualifier's origin stays visible.
-		if alias == "" && versionDir.MatchString(k) {
-			alias = filepath.Base(k)
+		if alias == naming.AssumedImportName(k) {
+			alias = ""
 		}
 		entries = append(entries, importEntry{Path: k, Alias: alias})
 	}

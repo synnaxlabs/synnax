@@ -16,8 +16,8 @@ import (
 	"maps"
 	"slices"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -208,7 +208,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	createVirtualCh := func(ctx context.Context, prefix string, dataType telem.DataType) *channel.Channel {
 		ch := &channel.Channel{
-			Name:     prefix + "_" + uuid.NewString()[:8],
+			Name:     prefix + "_" + uuid.New().String()[:8],
 			Virtual:  true,
 			DataType: dataType,
 		}
@@ -393,7 +393,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
+			Expect(stat.Message).To(ContainSubstring("invalid uuid"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -426,7 +426,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write no status for a successful configure driven by a command",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "config_status_test_ch_" + uuid.NewString()[:8],
+					Name:     "config_status_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -454,7 +454,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should attribute a start acknowledgment to the command and name it",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "start_ack_test_ch_" + uuid.NewString()[:8],
+					Name:     "start_ack_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -490,7 +490,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should auto-start task and set running status when auto_start is true",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "auto_start_test_ch_" + uuid.NewString()[:8],
+					Name:     "auto_start_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -524,7 +524,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a terminal status when stopped silently",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "silent_stop_test_ch_" + uuid.NewString()[:8],
+					Name:     "silent_stop_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -638,7 +638,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when configured successfully at boot",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "boot_silent_test_ch_" + uuid.NewString()[:8],
+					Name:     "boot_silent_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -664,7 +664,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should auto-start at boot when auto_start is true", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     "boot_auto_start_test_ch_" + uuid.NewString()[:8],
+				Name:     "boot_auto_start_test_ch_" + uuid.New().String()[:8],
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
@@ -772,7 +772,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     "lifecycle_test_ch_" + uuid.NewString()[:8],
+				Name:     "lifecycle_test_ch_" + uuid.New().String()[:8],
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
@@ -966,7 +966,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Sequence with consecutive status.set steps", func() {
 		It("Should advance through every status.set step", func(ctx SpecContext) {
 			trig := createVirtualCh(ctx, "seq_status_trig", telem.Uint8T)
-			base := "seq_status_" + uuid.NewString()[:8]
+			base := "seq_status_" + uuid.New().String()[:8]
 			prog := arc.Text{Raw: fmt.Sprintf(`
 				import status
 
@@ -1031,7 +1031,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should create exactly one status for an untriggered status.set in a stage",
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "entry_status_trig", telem.Uint8T)
-				name := "entry_status_" + uuid.NewString()[:8]
+				name := "entry_status_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1093,7 +1093,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should create exactly one range for an untriggered ranges.create in a stage",
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "entry_range_trig", telem.Uint8T)
-				name := "entry_range_" + uuid.NewString()[:8]
+				name := "entry_range_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1154,7 +1154,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_status_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_status_out", telem.StringT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1218,7 +1218,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "route_status_var_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_status_var_data", telem.BooleanT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1294,7 +1294,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_status_alias_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_status_alias_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_status_alias_out", telem.StringT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1369,7 +1369,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_range_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1434,7 +1434,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "route_range_var_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_var_data", telem.BooleanT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1511,7 +1511,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_alias_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_alias_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_alias_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1586,7 +1586,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1650,7 +1650,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				probe := createVirtualCh(ctx, "route_range_val_probe", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1726,7 +1726,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1807,15 +1807,23 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
-				dupName := "dup_alarm_" + uuid.NewString()[:8]
+				dupName := "dup_alarm_" + uuid.New().String()[:8]
 				w := statusSvc.NewWriter(nil)
 				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "first", Time: telem.Now(),
+					Key: uuid.New().
+						String(),
+					Name:    dupName,
+					Variant: status.VariantInfo,
+					Message: "first",
+					Time:    telem.Now(),
 				})).To(Succeed())
 				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "second", Time: telem.Now(),
+					Key: uuid.New().
+						String(),
+					Name:    dupName,
+					Variant: status.VariantInfo,
+					Message: "second",
+					Time:    telem.Now(),
 				})).To(Succeed())
 
 				reportNodes, reportConfigs := buildGraphNodes(
@@ -1888,13 +1896,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Interval Timing", func() {
 		It("Should fire intervals without any streaming data", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
-				Name:     "interval_idx_" + uuid.NewString()[:8],
+				Name:     "interval_idx_" + uuid.New().String()[:8],
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
-				Name:       "interval_data_" + uuid.NewString()[:8],
+				Name:       "interval_data_" + uuid.New().String()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
@@ -1942,13 +1950,13 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should stamp wall-clock index timestamps for interval -> channel flows",
 			func(ctx SpecContext) {
 				idxCh := &channel.Channel{
-					Name:     "timer_wall_idx_" + uuid.NewString()[:8],
+					Name:     "timer_wall_idx_" + uuid.New().String()[:8],
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
 				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
 				dataCh := &channel.Channel{
-					Name:       "timer_wall_data_" + uuid.NewString()[:8],
+					Name:       "timer_wall_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Uint8T,
 				}
@@ -2340,13 +2348,13 @@ var _ = Describe("Task", Ordered, func() {
 				create: func(ctx context.Context, prefix string) writeCh {
 					GinkgoHelper()
 					idx := &channel.Channel{
-						Name:     prefix + "_time_" + uuid.NewString()[:8],
+						Name:     prefix + "_time_" + uuid.New().String()[:8],
 						IsIndex:  true,
 						DataType: telem.TimestampT,
 					}
 					Expect(channelWriter.Create(ctx, idx)).To(Succeed())
 					ch := &channel.Channel{
-						Name:       prefix + "_" + uuid.NewString()[:8],
+						Name:       prefix + "_" + uuid.New().String()[:8],
 						LocalIndex: idx.LocalKey,
 						DataType:   telem.Uint8T,
 					}
@@ -3423,7 +3431,7 @@ var _ = Describe("Task", Ordered, func() {
 		// while-watching entry covers the injection ordering after entry.
 		DescribeTable("fires channel-triggered transitions across writer sessions",
 			func(ctx SpecContext, rogueSessions int, roguesAfterEntry bool) {
-				suffix := uuid.NewString()[:8]
+				suffix := uuid.New().String()[:8]
 				idxCh := &channel.Channel{
 					Name:     "trig_align_idx_" + suffix,
 					IsIndex:  true,

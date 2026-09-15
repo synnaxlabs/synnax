@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
 	program "github.com/synnaxlabs/arc/program/versions/v0"
 	text "github.com/synnaxlabs/arc/text/versions/v0"

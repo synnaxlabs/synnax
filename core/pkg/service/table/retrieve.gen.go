@@ -13,6 +13,7 @@ package table
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/gorp"
 )
 

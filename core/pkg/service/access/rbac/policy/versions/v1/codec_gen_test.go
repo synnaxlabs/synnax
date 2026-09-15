@@ -12,8 +12,8 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -45,7 +45,7 @@ var _ = Describe("Codec", func() {
 				Internal: true,
 			}),
 			Entry("zero values", v1.Policy{
-				Key:      uuid.Nil,
+				Key:      uuid.Nil(),
 				Name:     "",
 				Objects:  nil,
 				Actions:  nil,
@@ -102,7 +102,7 @@ func FuzzDecodePolicy(f *testing.F) {
 	}
 	{
 		seed := v1.Policy{
-			Key:      uuid.Nil,
+			Key:      uuid.Nil(),
 			Name:     "",
 			Objects:  nil,
 			Actions:  nil,

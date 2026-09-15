@@ -11,7 +11,6 @@ package view
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -124,13 +123,13 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: view.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

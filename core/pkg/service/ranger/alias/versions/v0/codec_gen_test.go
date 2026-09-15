@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -42,7 +42,7 @@ var _ = Describe("Codec", func() {
 				Alias:   "test_3",
 			}),
 			Entry("zero values", v0.Alias{
-				Range:   uuid.Nil,
+				Range:   uuid.Nil(),
 				Channel: channel.Key(0),
 				Alias:   "",
 			}),
@@ -86,7 +86,7 @@ func FuzzDecodeAlias(f *testing.F) {
 	}
 	{
 		seed := v0.Alias{
-			Range:   uuid.Nil,
+			Range:   uuid.Nil(),
 			Channel: channel.Key(0),
 			Alias:   "",
 		}

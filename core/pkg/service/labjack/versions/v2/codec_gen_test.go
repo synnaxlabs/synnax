@@ -12,8 +12,8 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -149,7 +149,7 @@ var _ = Describe("Codec", func() {
 				LjmScanBacklogWarnOnCount:    15,
 			}),
 			Entry("zero values", v2.ReadConfig{
-				Key:                          uuid.Nil,
+				Key:                          uuid.Nil(),
 				AutoStart:                    false,
 				DataSavingDisabled:           false,
 				SampleRate:                   telem.Rate(0),
@@ -211,7 +211,7 @@ var _ = Describe("Codec", func() {
 				TCPScanMultiplier: 5,
 			}),
 			Entry("zero values", v2.ScanConfig{
-				Key:               uuid.Nil,
+				Key:               uuid.Nil(),
 				Rate:              telem.Rate(0),
 				Disabled:          false,
 				TCPScanMultiplier: 0,
@@ -253,7 +253,7 @@ var _ = Describe("Codec", func() {
 				Channels:           []v2.WriteChannel{{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 			}),
 			Entry("zero values", v2.WriteConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
@@ -623,7 +623,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			Key:                          uuid.Nil,
+			Key:                          uuid.Nil(),
 			AutoStart:                    false,
 			DataSavingDisabled:           false,
 			SampleRate:                   telem.Rate(0),
@@ -747,7 +747,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			Key:               uuid.Nil,
+			Key:               uuid.Nil(),
 			Rate:              telem.Rate(0),
 			Disabled:          false,
 			TCPScanMultiplier: 0,
@@ -837,7 +837,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",

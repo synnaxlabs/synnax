@@ -12,8 +12,8 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -49,7 +49,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v0.Range{
-				Key:       uuid.Nil,
+				Key:       uuid.Nil(),
 				Name:      "",
 				TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
 				Color: color.Color{
@@ -111,7 +111,7 @@ func FuzzDecodeRange(f *testing.F) {
 	}
 	{
 		seed := v0.Range{
-			Key:       uuid.Nil,
+			Key:       uuid.Nil(),
 			Name:      "",
 			TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
 			Color: color.Color{

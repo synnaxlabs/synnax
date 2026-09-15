@@ -11,7 +11,6 @@ package symbol
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -149,15 +148,15 @@ func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{symbol.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 // DeleteRequest carries the keys of the symbols to delete.
@@ -171,15 +170,15 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: symbol.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 // RetrieveGroupRequest is empty. The permanent symbol group is a singleton.
@@ -317,7 +316,7 @@ func (s *Service) DeleteGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteGroupRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	var (
 		enforcer = s.access.NewEnforcer(tx)
 		subject  = auth.GetSubject(ctx)
@@ -327,20 +326,20 @@ func (s *Service) DeleteGroup(
 		Action:  access.ActionDelete,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	// Read through tx so the symbols enforced on and the symbols deleted come from one
 	// snapshot.
 	symbols, err := s.internal.RetrieveGroupSymbols(ctx, tx, req.Key)
 	if err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionDelete,
 		Objects: symbols,
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.DeleteGroup(ctx, tx, req.Key, symbols)
+	return struct{}{}, s.internal.DeleteGroup(ctx, tx, req.Key, symbols)
 }

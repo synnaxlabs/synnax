@@ -23,6 +23,11 @@ import (
 
 type Option func(*options)
 
+// defaultMetaCodec reads and writes each channel's meta.json. It matches object names
+// case-insensitively because databases written before Channel.Virtual and
+// Channel.Concurrency carried json tags stored them under their Go field names.
+var defaultMetaCodec = json.NewCodec(json.WithCaseInsensitiveNames())
+
 type options struct {
 	alamos.Instrumentation
 	fs               xfs.FS
@@ -56,7 +61,7 @@ func newOptions(dirname string, opts ...Option) (*options, error) {
 }
 
 func mergeAndValidateOptions(o *options) error {
-	o.metaCodec = override.Nil[encoding.Codec](json.Codec, o.metaCodec)
+	o.metaCodec = override.Nil[encoding.Codec](defaultMetaCodec, o.metaCodec)
 	o.fs = override.Nil(xfs.Default, o.fs)
 	gcCfg := GCConfig{
 		MaxGoroutine: 10,

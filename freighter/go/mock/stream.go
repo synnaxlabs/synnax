@@ -11,7 +11,6 @@ package mock
 
 import (
 	"context"
-	"go/types"
 	"sync"
 
 	"github.com/synnaxlabs/freighter"
@@ -20,10 +19,10 @@ import (
 )
 
 var (
-	_ freighter.StreamClient[int, types.Nil] = (*StreamClient[int, types.Nil])(nil)
-	_ freighter.StreamServer[types.Nil, int] = (*StreamServer[types.Nil, int])(nil)
-	_ freighter.ServerStream[int, types.Nil] = (*ServerStream[int, types.Nil])(nil)
-	_ freighter.ClientStream[int, types.Nil] = (*ClientStream[int, types.Nil])(nil)
+	_ freighter.StreamClient[int, struct{}] = (*StreamClient[int, struct{}])(nil)
+	_ freighter.StreamServer[struct{}, int] = (*StreamServer[struct{}, int])(nil)
+	_ freighter.ServerStream[int, struct{}] = (*ServerStream[int, struct{}])(nil)
+	_ freighter.ClientStream[int, struct{}] = (*ClientStream[int, struct{}])(nil)
 )
 
 // NewStreamPair creates a new stream client and server pair that are directly linked to
