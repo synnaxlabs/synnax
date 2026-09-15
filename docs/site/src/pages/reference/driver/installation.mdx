@@ -18,16 +18,14 @@ import DriverMoveCommand from "@/components/driver/MoveCommand.astro";
 import DriverVersionOutput from "@/components/driver/VersionOutput.astro";
 export const components = mdxOverrides;
 
-The Synnax Driver can also be installed as a separate binary, making it possible to
-integrate data acquisition hardware from multiple host machines into a single Synnax
-deployment.
+The Synnax Driver can also run as a separate binary on its own machine. This lets one
+Synnax deployment integrate data acquisition hardware from many host machines.
 
 <Divider.Divider x />
 
 ## <Step step="1" level="h2">Installation</Step>
 
-To get started, you'll need to install the Synnax Driver. Choose your operating system
-below to see the installation instructions:
+Choose your operating system below to see the installation instructions:
 
 <Driver.Tabs exclude={["docker"]} client:load>
 <Fragment slot="ni-linux-rt">
@@ -53,25 +51,21 @@ guide.
 
 #### SSH Access
 
-The easiest way to install the Driver is to use an SSH connection to the cRIO. Once the
-Driver is installed, SSH can be disabled, although we recommend keeping it enabled to
-install updates and manage the Driver.
+The Driver is installed over an SSH connection to the cRIO. You can disable SSH after
+installation, but keeping it enabled makes updates and management easier.
 
 #### Network Available Synnax Core
 
-In order to function properly, the Driver must be able to connect to a Synnax Core
-running on the same network. Make sure you have a
-[Core running](/reference/core/quick-start) and have the connection parameters on hand.
+The Driver must be able to reach a Synnax Core over the network. Make sure you have a
+[Core running](/reference/core/quick-start) and its connection parameters on hand.
 
 ### Install and Run the Driver
 
-Installing the Driver is as simple as opening an SSH connection to the cRIO and running
-the following command:
+Open an SSH connection to the cRIO and run:
 
 <DriverDownloadURL os="ni-linux-rt" />
 
-This will download, install, and start the Driver. Once the Driver is installed, we'll
-need to configure it to connect to your Core.
+This downloads, installs, and starts the Driver. Next, connect it to your Core.
 
 </Fragment>
 <Fragment slot="Linux">
@@ -83,38 +77,34 @@ need to configure it to connect to your Core.
 
 ### Install and Run the Driver
 
-To install the Synnax Driver on a Linux distribution, run the following command to
-download the latest binary:
+Download the latest binary:
 
 <DriverDownloadURL os="linux" />
 
-We recommend you move the binary into a directory that is in your `PATH`. Most of our
-users use `/usr/local/bin`:
+Move the binary into a directory on your `PATH`. Most of our users use `/usr/local/bin`:
 
 <DriverMoveCommand os="linux" />
 
-Next, give execution permissions to the binary:
+Give the binary execute permission. You may need `sudo` for this command:
 
 ```bash
 chmod +x /usr/local/bin/synnax-driver
 ```
 
-You may need to use `sudo` to run the above command if you do not have the necessary
-permissions.
-
 If running `synnax-driver` returns "command not found", make sure the directory you
 chose is on your `PATH`.
 
-Then install and start the Driver as a systemd service:
+Install and start the Driver as a systemd service:
 
 ```bash
 sudo synnax-driver install
 sudo synnax-driver start
 ```
 
-This creates a `synnax` system user and registers the `synnax-driver` service.
+The `install` command copies the binary to `/usr/local/bin` if it is not already there,
+creates a `synnax` system user, and registers the `synnax-driver` service.
 
-To verify that the installation was successful, run:
+To verify the installation, run:
 
 ```bash
 synnax-driver version
@@ -146,7 +136,7 @@ system's `PATH`:
 5. Click "New" and add the directory containing `synnax-driver.exe`
 6. Click "OK" to save
 
-To verify that the installation was successful, open a new PowerShell terminal and run:
+To verify the installation, open a new PowerShell terminal and run:
 
 ```powershell
 synnax-driver version
@@ -163,29 +153,24 @@ synnax-driver start --standalone
 
 ### Install and Run the Driver
 
-To install the Synnax Driver on macOS, run the following command to download the latest
-binary:
+Download the latest binary:
 
 <DriverDownloadURL os="macos" />
 
-We recommend you move the binary into a directory that is in your `PATH`. Most of our
-users use `/usr/local/bin`:
+Move the binary into a directory on your `PATH`. Most of our users use `/usr/local/bin`:
 
 <DriverMoveCommand os="macos" />
 
-Next, give execution permissions to the binary:
+Give the binary execute permission. You may need `sudo` for this command:
 
 ```bash
 chmod +x /usr/local/bin/synnax-driver
 ```
 
-You may need to use `sudo` to run the above command if you do not have the necessary
-permissions.
-
 If running `synnax-driver` returns "command not found", make sure the directory you
 chose is on your `PATH`.
 
-To verify that the installation was successful, run:
+To verify the installation, run:
 
 ```bash
 synnax-driver version
@@ -208,30 +193,30 @@ synnax-driver start --standalone
 
 ## <Step step="2" level="h2">Connect to the Synnax Core</Step>
 
-To connect to a Core, you'll need to know the Core's IP address, port, username, and
-password. Then run the `synnax-driver login` command, with `sudo` on Linux:
+To connect to a Core, you need its address, port, username, and password. Run the
+`synnax-driver login` command, with `sudo` on Linux:
 
 ```bash
 synnax-driver login
 ```
 
-This will prompt you to enter the Core's connection parameters. Once you've entered the
-parameters, the Driver will automatically connect to the Core. Here's an example of the
-output:
+The command prompts for the Core's connection parameters, checks that the Core is
+reachable, then logs in and saves the credentials:
 
 ```
 synnax-driver login
-host [localhost]: 10.0.0.45
-port [9090]: 9090
+Host [localhost]: 10.0.0.45
+Port [9090]: 9090
 Secure (Y/N) [N]: N
-username: synnax
-password:
-I20250318 04:57:06.681439 25261 login.cpp:47] connecting to Synnax at 10.0.0.45:9090
-I20250318 04:57:06.792840 25261 login.cpp:53] successfully logged in!
-I20250318 04:57:06.793918 25261 login.cpp:59] credentials saved successfully
+I20260915 10:12:04.118427 41820 login.cpp:32] connection established.
+Username: synnax
+Password:
+I20260915 10:12:09.601240 41820 login.cpp:43] successfully logged in!
+I20260915 10:12:09.602113 41820 login.cpp:48] credentials saved successfully!
+I20260915 10:12:09.602150 41820 login.cpp:50] start driver: synnax-driver start -s
 ```
 
-### Connecting to a secure Core
+### Connecting to a Secure Core
 
 Answer `Y` to the `Secure` prompt when the Core uses TLS. The Driver verifies the Core's
 certificate against the operating system's trust store, so a certificate from a public
@@ -251,18 +236,16 @@ export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
 
 ## <Step step="3" level="h2">Check the Driver Status</Step>
 
-As a final step, you can check the Driver's status by running the `synnax-driver status`
-command:
+As a final step, check the Driver's status:
 
 ```bash
 synnax-driver status
 ```
 
-This will print the Driver's status to the console. Here's an example of the output:
+On Linux this prints the `systemctl status` of the `synnax-driver` service. On NI Linux
+Real-Time it prints whether the Driver is running and its process ID:
 
 ```
-I20250318 05:07:04.312907  5935 daemon_nilinuxrt.cpp:490] Checking service status
-I20250318 05:07:04.346398  5937 version.cpp:21] Synnax Driver v0.39.0 (2025-03-16 00:08:18)
 Synnax Driver is running (PID: 28191)
 ```
 
@@ -273,14 +256,12 @@ status.
 
 ## Configuration Methods
 
-In addition to using the `synnax-driver login` command, the Synnax Driver also allows
-you to configure parameters for the Driver via a configuration file and/or environment
-variables.
+Besides the `synnax-driver login` command, the Driver reads its configuration from
+command line flags, environment variables, and a configuration file.
 
 ### Precedence
 
-The precedence of the different configuration methods is as follows, with earlier
-methods taking precedence over later ones:
+Earlier sources override later ones:
 
 1. Command line arguments (Highest)
 2. Environment variables
@@ -297,55 +278,44 @@ identity of the rack the Driver last attached to. It lives at
 
 ### Configuration File
 
-The Synnax Driver can optionally read connection parameters from a JSON configuration
-file with the following format:
+Pass a JSON file with the `--config` flag. Every key is optional and has the same
+meaning as the flag of the same name in the [CLI reference](#cli-reference). The file
+must not contain comments.
 
 ```json
 {
-  // Connection parameters
   "connection": {
-    // The host of the Synnax Core.
     "host": "localhost",
-    // The port of the Synnax Core.
     "port": 9090,
-    // The username to use when logging in to the Synnax Core.
     "username": "synnax",
-    // The password to use when logging in to the Synnax Core.
     "password": "password",
-    // Whether to connect to the Synnax Core over TLS.
     "secure": false
   },
   "timing": {
-    // Enable automatic skew correction for the Driver.
     "correct_skew": true
   },
   "manager": {
-    // Duration in seconds before reporting stuck task operations.
     "op_timeout": 60,
-    // Interval in seconds between task timeout checks.
     "poll_interval": 1,
-    // Maximum time in seconds to wait for task workers during shutdown.
     "shutdown_timeout": 30,
-    // Number of worker threads for task operations (1-64).
     "worker_count": 4
   },
-  // The rack the Driver attaches to. Omit this block to let the Driver create
-  // a rack on first start and remember it in the persisted state file.
   "remote_info": {
-    // The key of an existing rack in the Core.
     "rack_key": 0,
-    // The key of the Core that owns the rack. A different key makes the
-    // Driver create a new rack.
     "cluster_key": ""
   },
-  // List of device integrations to enable (overrides defaults).
   "integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"]
 }
 ```
 
+The `integrations` list replaces the default set. Omit `remote_info` to let the Driver
+create a rack on first start and remember it in the persisted state file.
+
 ### Environment Variables
 
-The Synnax Driver also supports setting connection parameters via environment variables.
+Every configuration key is also readable from an environment variable named
+`SYNNAX_DRIVER_` followed by the key in upper case. Integrations can't be set from the
+environment.
 
 ```bash
 # The host of the Synnax Core.
@@ -413,7 +383,7 @@ synnax-driver start --standalone
     {
       option: "--standalone/-s",
       default: "false",
-      description: "Run the Driver directly within the terminal process.",
+      description: "Run the Driver in the foreground instead of as a service.",
     },
     {
       option: "--config",
@@ -550,8 +520,8 @@ synnax-driver restart
 
 ### Login
 
-The `login` command logs in to a Synnax Core. On Linux, run it with `sudo`. If the
-Driver is already running, restart it to apply the new credentials.
+The `login` command saves the connection parameters for a Synnax Core. On Linux, run it
+with `sudo`. If the Driver is already running, restart it to apply the new credentials.
 
 #### Example Usage
 
@@ -559,17 +529,15 @@ Driver is already running, restart it to apply the new credentials.
 synnax-driver login
 ```
 
-This will prompt you to enter the Core's connection parameters. Once you've entered the
-parameters, the Driver will automatically connect to the Core. Here's an example of the
-output:
+The command prompts for the Core's connection parameters:
 
 ```
 synnax-driver login
-host [localhost]: 10.0.0.45
-port [9090]: 9090
+Host [localhost]: 10.0.0.45
+Port [9090]: 9090
 Secure (Y/N) [N]: N
-username: synnax
-password:
+Username: synnax
+Password:
 ```
 
 ### Clear
@@ -607,7 +575,7 @@ synnax-driver uninstall
 
 ### Logs
 
-The `logs` command prints the Driver's logs to the console.
+The `logs` command streams the Driver's logs to the console until you press Ctrl+C.
 
 #### Example Usage
 
