@@ -21,14 +21,19 @@ import (
 // scenarios. It serves as a factory for freighter.Stream and freighter.Unary.
 type Network[RQ, RS freighter.Payload] struct {
 	mu struct {
-		// entries records every unary exchange the network has carried, in order.
-		entries []NetworkEntry[RQ, RS]
-		// unaryRoutes holds the unary server hosted at each address.
-		unaryRoutes map[address.Address]*UnaryServer[RQ, RS]
-		// streamRoutes holds the stream server hosted at each address.
+		entries      []NetworkEntry[RQ, RS]
+		unaryRoutes  map[address.Address]*UnaryServer[RQ, RS]
 		streamRoutes map[address.Address]*StreamServer[RQ, RS]
 		sync.RWMutex
 	}
+}
+
+// NewNetwork returns a new network that can exchange the provided message types.
+func NewNetwork[RQ, RS freighter.Payload]() *Network[RQ, RS] {
+	n := &Network[RQ, RS]{}
+	n.mu.unaryRoutes = make(map[address.Address]*UnaryServer[RQ, RS])
+	n.mu.streamRoutes = make(map[address.Address]*StreamServer[RQ, RS])
+	return n
 }
 
 // Entries returns a copy of every unary exchange the network has carried, oldest first.
@@ -145,12 +150,4 @@ func (n *Network[RQ, RS]) appendEntry(
 		Response: res,
 		Error:    err,
 	})
-}
-
-// NewNetwork returns a new network that can exchange the provided message types.
-func NewNetwork[RQ, RS freighter.Payload]() *Network[RQ, RS] {
-	n := &Network[RQ, RS]{}
-	n.mu.unaryRoutes = make(map[address.Address]*UnaryServer[RQ, RS])
-	n.mu.streamRoutes = make(map[address.Address]*StreamServer[RQ, RS])
-	return n
 }
