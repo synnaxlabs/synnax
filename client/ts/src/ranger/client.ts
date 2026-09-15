@@ -635,17 +635,12 @@ export class Client extends query.Retriever<
     return this.sugarOne(next);
   }
 
-  /** Writes a created range and its included labels and parent relationship. */
   private writeThrough(range: Range): void {
     this.store.set(range);
     if (range.labels != null) this.cfg.labels.store.set(range.labels);
     this.writeRelationships(range);
   }
 
-  /**
-   * Hydrates a fetched range and its included labels and parent relationship. A range
-   * deleted since the fetch left stays deleted.
-   */
   private hydrate(range: Range): void {
     if (this.store.status(range.key) === "tombstoned") return;
     this.store.ingest(range);
@@ -680,7 +675,6 @@ export class Client extends query.Retriever<
     }
   }
 
-  /** Hydrates a fetch response as one batch per table, so each table flushes once. */
   private hydrateMany(ranges: Range[]): void {
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>

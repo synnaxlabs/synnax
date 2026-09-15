@@ -302,10 +302,10 @@ export class Table<
   }
 
   /**
-   * Writes fetched records into the table under its declared hydrate mode, or the
-   * given one: "set" overwrites entries, "if-absent" leaves existing entries untouched.
-   * A tombstoned key is skipped: the fetch may predate the delete, and only a
-   * {@link set} revives a deleted record.
+   * Writes fetched records into the table under its declared hydrate mode, or the given
+   * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
+   * tombstoned key is skipped: the fetch may predate the delete, and only a {@link set}
+   * revives a deleted record.
    * @returns A rollback that undoes the entries this call wrote.
    */
   ingest(
@@ -364,9 +364,9 @@ export class Table<
    * through the table's fetch, hydrating results under the declared mode. With refresh,
    * every key is fetched regardless of presence and cached entries the fetch omits are
    * tombstoned. A key deleted while the fetch was in flight stays deleted either way.
-   * Returns the table's entries for the found keys in input order,
-   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
-   * serve cached entries only.
+   * Returns the table's entries for the found keys in input order, deduplicated; keys
+   * the cluster no longer has are omitted. Tables without a fetch serve cached entries
+   * only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {

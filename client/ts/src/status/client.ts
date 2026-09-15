@@ -285,10 +285,6 @@ export class Client extends query.Retriever<
     return { ...cached, labels };
   }
 
-  /**
-   * Hydrates a fetched status and its included label relationships. A status deleted
-   * since the fetch left stays deleted.
-   */
   private writeThrough(status: Status): void {
     if (this.store.status(status.key) === "tombstoned") return;
     this.store.ingest(status);

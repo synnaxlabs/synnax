@@ -750,19 +750,16 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Writes a created or copied task and its included status. */
   private writeThrough(task: Task): void {
     this.store.set(task);
     if (task.status != null) this.cfg.statusStore.set(task.status);
   }
 
-  /** Hydrates a fetched task and its included status; a deleted task stays deleted. */
   private hydrate(task: Task): void {
     this.store.ingest(task);
     if (task.status != null) this.cfg.statusStore.ingest(task.status);
   }
 
-  /** Fetches tasks with statuses and hydrates the statuses. */
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
     const tasks = await this.execRetrieve({ ...req, includeStatus: true });
     tasks.forEach((t) => {
