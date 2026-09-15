@@ -204,8 +204,11 @@ describe("range/Explorer", () => {
       await waitFor(() =>
         expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
       );
+      // The Explorer's search re-fetch can land after the delete and put the range back
+      // in the shared client's cache, which retrieve serves without asking the Core.
+      const reader = createTestClient();
       await waitFor(async () => {
-        await expect(client.ranges.retrieve(rng.key)).rejects.toSatisfy((e) =>
+        await expect(reader.ranges.retrieve(rng.key)).rejects.toSatisfy((e) =>
           NotFoundError.matches(e),
         );
       });
