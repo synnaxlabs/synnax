@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -134,15 +135,16 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes
-// for a later Decode. Numbers decode precisely so the Version keeps full int64
-// precision. A duplicate object name or invalid UTF-8 fails the read: an import file
-// comes from outside the Core, so a defect there is corruption, not a value to guess.
+// for a later Decode. Only the headers come from this decode; Decode reads the payload
+// from the raw bytes, so a value past float64's mantissa keeps every bit. A duplicate
+// object name or invalid UTF-8 fails the read: an import file comes from outside the
+// Core, so a defect there is corruption, not a value to guess.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
 	if err := xjson.Validate(b); err != nil {
 		return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
 	}
 	var m map[string]any
-	if err := json.Unmarshal(b, &m, xjson.PreciseNumbers); err != nil {
+	if err := json.Unmarshal(b, &m); err != nil {
 		return err
 	}
 	// A JSON null decodes to a nil map rather than an error.
@@ -268,20 +270,18 @@ func (env *Envelope) Encode[T any](data T) error {
 	return nil
 }
 
-// versionFromAny converts a generic Go value (as produced by a precise-number decode
-// into map[string]any) to a Version. Accepts the JSON number forms and legacy "N.0.0"
-// semver strings.
+// versionFromAny converts a generic Go value (as produced by a decode into
+// map[string]any) to a Version. Accepts a JSON number and legacy "N.0.0" semver
+// strings.
 func versionFromAny(v any) (Version, error) {
 	switch x := v.(type) {
-	case int64:
-		if x < 0 {
-			return 0, errors.Newf("invalid version number %d", x)
+	case float64:
+		if x < 0 || x != math.Trunc(x) {
+			return 0, errors.Newf(
+				"invalid version number %v: must be a non-negative integer", x,
+			)
 		}
 		return Version(x), nil
-	case uint64:
-		return Version(x), nil
-	case float64:
-		return 0, errors.Newf("invalid version number %v: must be an integer", x)
 	case string:
 		n, err := legacyToNumeric(x)
 		if err != nil {

@@ -179,7 +179,7 @@ var _ = Describe("ImEx", func() {
 			It("Should error when the input is a bare JSON number", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`34`), &env)).To(
-					MatchError(ContainSubstring("cannot unmarshal JSON number")),
+					MatchError(ContainSubstring("unmarshal JSON number")),
 				)
 			})
 
