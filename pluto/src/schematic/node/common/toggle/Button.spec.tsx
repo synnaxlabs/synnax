@@ -127,6 +127,38 @@ describe("Toggle.Button", () => {
     });
   });
 
+  describe("keyboard activation", () => {
+    it.each([" ", "Enter"])(
+      "should prevent the default keydown and keyup for %j",
+      (key) => {
+        const { container } = render(<Toggle.Button />);
+        const btn = getButton(container);
+        expect(fireEvent.keyDown(btn, { key })).toBe(false);
+        expect(fireEvent.keyUp(btn, { key })).toBe(false);
+      },
+    );
+
+    it("should leave other keys untouched", () => {
+      const { container } = render(<Toggle.Button />);
+      const btn = getButton(container);
+      expect(fireEvent.keyDown(btn, { key: "a" })).toBe(true);
+      expect(fireEvent.keyUp(btn, { key: "a" })).toBe(true);
+    });
+
+    it("should still forward onKeyDown and onKeyUp", () => {
+      const onKeyDown = vi.fn();
+      const onKeyUp = vi.fn();
+      const { container } = render(
+        <Toggle.Button onKeyDown={onKeyDown} onKeyUp={onKeyUp} />,
+      );
+      const btn = getButton(container);
+      fireEvent.keyDown(btn, { key: " " });
+      fireEvent.keyUp(btn, { key: " " });
+      expect(onKeyDown).toHaveBeenCalledTimes(1);
+      expect(onKeyUp).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("classes and modifiers", () => {
     it("should add the delayed modifier when delay is non-zero", () => {
       const { container } = render(<Toggle.Button onClickDelay={250} />);

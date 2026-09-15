@@ -10,6 +10,7 @@
 import { color, type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
+  type KeyboardEventHandler,
   type MouseEventHandler,
   type ReactElement,
   useMemo,
@@ -31,6 +32,8 @@ export interface ButtonBaseProps extends Omit<
 
 export interface ButtonProps extends ButtonBaseProps, OrientableProps {}
 
+const isActivationKey = (key: string): boolean => key === " " || key === "Enter";
+
 export const Button = ({
   className,
   enabled = false,
@@ -40,6 +43,8 @@ export const Button = ({
   onClickDelay = 0,
   onClick,
   onMouseDown,
+  onKeyDown,
+  onKeyUp,
   style,
   ...rest
 }: ButtonProps): ReactElement => {
@@ -67,6 +72,18 @@ export const Button = ({
     }, parsedDelay.milliseconds);
   };
 
+  // A clicked button keeps focus, so a later Space or Enter would actuate it through
+  // the browser's synthetic click. Enter clicks on keydown and Space on keyup.
+  const handleKeyDown: KeyboardEventHandler<HTMLButtonElement> = (e) => {
+    onKeyDown?.(e);
+    if (isActivationKey(e.key)) e.preventDefault();
+  };
+
+  const handleKeyUp: KeyboardEventHandler<HTMLButtonElement> = (e) => {
+    onKeyUp?.(e);
+    if (isActivationKey(e.key)) e.preventDefault();
+  };
+
   const pStyle = useMemo(() => {
     if (parsedDelay.isZero) return style;
     return {
@@ -89,6 +106,8 @@ export const Button = ({
       color={color.cssString(colorVal)}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
       style={pStyle}
       {...rest}
     />
