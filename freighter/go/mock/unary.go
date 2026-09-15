@@ -95,21 +95,21 @@ type UnaryClient[RQ, RS freighter.Payload] struct {
 // Send implements the freighter.UnaryClient interface. It returns an
 // address.ErrNotFound error when no server on the network hosts the target or the
 // server there has no handler bound.
-func (c *UnaryClient[RQ, RS]) Send(
+func (uc *UnaryClient[RQ, RS]) Send(
 	ctx context.Context,
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
-	_, err = c.Exec(
+	_, err = uc.Exec(
 		freighter.Context{Context: ctx, Target: target, Protocol: protocol},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var oMD freighter.Context
-			route, ok := c.network.resolveUnaryTarget(target)
+			route, ok := uc.network.resolveUnaryTarget(target)
 			if !ok || route.boundHandler() == nil {
 				return oMD, address.NewTargetNotFoundError(target)
 			}
 			res, oMD, err = route.exec(ctx, req)
-			c.network.appendEntry(target, req, res, err)
+			uc.network.appendEntry(target, req, res, err)
 			return oMD, err
 		}),
 	)
