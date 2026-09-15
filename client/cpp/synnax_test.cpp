@@ -137,8 +137,8 @@ public:
     }
 };
 
-/// @brief the connectivity check skips client middleware so it can probe a
-/// cluster before authenticating.
+/// @brief the connectivity check skips client middleware so it can probe a Core before
+/// authenticating.
 TEST(TransportMiddleware, ConnectivityCheckSkipsMiddleware) {
     synnax::details::Transport t(1, "localhost", false);
     auto mw = std::make_shared<CountingMiddleware>();
@@ -174,9 +174,9 @@ TEST(TransportMiddleware, MiddlewareRunsPerCall) {
     EXPECT_EQ(mw->calls, 2);
 }
 
-/// @brief the full client probes connectivity against an unreachable cluster
-/// without needing credentials, mirroring the login flow.
-TEST(SynnaxConnectivity, ProbeFailsAgainstUnreachableCluster) {
+/// @brief the full client probes connectivity against an unreachable Core without
+/// needing credentials, mirroring the login flow.
+TEST(SynnaxConnectivity, ProbeFailsAgainstUnreachableCore) {
     synnax::Config cfg;
     cfg.port = 1;
     cfg.username = "";

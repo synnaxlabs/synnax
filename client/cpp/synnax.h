@@ -32,8 +32,8 @@
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
 namespace details {
-/// @brief Does a best effort check to ensure the machine is little endian, and
-/// warns the user if it is not.
+/// @brief Does a best effort check to ensure the machine is little endian, and warns
+/// the user if it is not.
 inline void check_little_endian() {
     int num = 1;
     if (*reinterpret_cast<char *>(&num) == 1) return;
@@ -46,15 +46,15 @@ inline void check_little_endian() {
 /// @brief Configuration for opening a Synnax client.
 /// @see Synnax
 struct Config {
-    /// @brief the host of a node in the cluster.
+    /// @brief the host of a Core to connect to.
     std::string host = "localhost";
     /// @brief the port for the specified host.
     std::uint16_t port = 9090;
-    /// @brief the username to use when authenticating with the node.
+    /// @brief the username to use when authenticating with the Core.
     std::string username = "synnax";
-    /// @brief the password to use when authenticating with the node.
+    /// @brief the password to use when authenticating with the Core.
     std::string password = "seldon";
-    /// @brief use TLS encryption. The system trust store verifies the node's
+    /// @brief use TLS encryption. The system trust store verifies the Core's
     /// certificate.
     bool secure = false;
     /// @brief sets the clock skew threshold at which a warning will be logged.
@@ -88,7 +88,7 @@ struct Config {
         return os;
     }
 
-    /// @brief returns the address of the cluster in the form "host:port".
+    /// @brief returns the address of the Core in the form "host:port".
     [[nodiscard]]
     std::string address() const {
         return this->host + ":" + std::to_string(this->port);
@@ -107,21 +107,21 @@ struct Config {
     }
 };
 
-/// @brief Client to perform operations against a Synnax cluster.
+/// @brief Client to perform operations against a Synnax Core.
 class Synnax {
     details::Transport t;
 
 public:
-    /// @brief Client for creating and retrieving channels in a cluster.
+    /// @brief Client for creating and retrieving channels from the Core.
     channel::Client channels;
     std::shared_ptr<auth::Middleware> auth;
-    /// @brief Connectivity checker that polls the cluster for health and clock skew.
+    /// @brief Connectivity checker that polls the Core for health and clock skew.
     std::shared_ptr<connection::Checker> connectivity;
-    /// @brief Client for creating, retrieving, and performing operations on ranges
-    /// in a cluster.
+    /// @brief Client for creating, retrieving, and performing operations on ranges from
+    /// the Core.
     ranger::Client ranges;
     task::Client tasks;
-    /// @brief Client for reading and writing telemetry to a cluster.
+    /// @brief Client for reading and writing telemetry to the Core.
     framer::Client telem;
     /// @brief Client for managing racks.
     rack::Client racks;
