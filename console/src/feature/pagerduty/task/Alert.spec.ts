@@ -20,13 +20,18 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-const renderAlert = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(PagerDuty.Task.Alert, {
+const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
+
+// The form renders read-only until the update grant lands, and a preview text field
+// renders no input, so wait for the routing key before querying the form.
+const renderAlert = async (options: RenderTaskFormTabOptions = {}) => {
+  const result = await renderTaskFormTab(PagerDuty.Task.Alert, {
     task: ZERO_DRAFT,
     ...options,
   });
-
-const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
+  await screen.findByPlaceholderText(ROUTING_KEY_PLACEHOLDER);
+  return result;
+};
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<PagerDuty.Task.AlertSchemas> = {
