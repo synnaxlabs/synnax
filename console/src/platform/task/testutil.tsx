@@ -463,6 +463,18 @@ export const selectFromDropdown = async (
 };
 
 /**
+ * Waits for the task form to leave preview mode. The form renders read-only until the
+ * update grant lands, and a preview field renders a value in place of its input, so a
+ * spec that queries an input on the first render races the grant.
+ */
+export const awaitEditableForm = async (): Promise<void> => {
+  await waitFor(() => {
+    const input = document.body.querySelector(".pluto-field__name input");
+    assertDefined(input, "task form is still in preview");
+  });
+};
+
+/**
  * Finds the input rendered inside the Input.Item labeled by label. Item labels carry no
  * htmlFor, so this walks the item container instead of using getByLabelText.
  * @throws if no item or input renders for the label.
