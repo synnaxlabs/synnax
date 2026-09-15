@@ -18,7 +18,7 @@ import (
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	msgpack "github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.

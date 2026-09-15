@@ -12,10 +12,10 @@ package imports
 
 import (
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -149,18 +149,10 @@ type InternalImportData struct {
 	Alias string
 }
 
-// versionDir matches version sub-directory names ("v0", "v12").
-var versionDir = regexp.MustCompile(`^v\d+$`)
-
-// NeedsAlias returns true if the import renders with an explicit alias.
-// Version directories always do (v6 "…/types/v6"), even when the alias
-// matches the package name, so the qualifier's origin stays visible.
+// NeedsAlias returns true if the import renders with an explicit alias, which is only
+// when the alias differs from the name the path is already assumed to bind.
 func (i InternalImportData) NeedsAlias() bool {
-	if i.Alias == "" {
-		return false
-	}
-	base := filepath.Base(i.Path)
-	return i.Alias != base || versionDir.MatchString(base)
+	return i.Alias != "" && i.Alias != naming.AssumedImportName(i.Path)
 }
 
 // InternalImports returns sorted internal imports, excluding any that are already

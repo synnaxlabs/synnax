@@ -11,7 +11,7 @@ package v0
 
 import (
 	"encoding/json/jsontext"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"strconv"
 	"strings"

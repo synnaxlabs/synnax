@@ -99,7 +99,7 @@ func generateEncoderCodecFile(
 		fo.FlexMethods = flexBuf.String()
 		fo.HasFlex = true
 		fo.NeedsJSONText = true
-		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = "msgpack"
+		fo.ExtraImports["github.com/vmihailenco/msgpack/v5"] = ""
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/msgpack"] = "xmsgpack"
 		fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
 	}

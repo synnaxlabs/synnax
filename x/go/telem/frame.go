@@ -11,7 +11,7 @@ package telem
 
 import (
 	"encoding/json/jsontext"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"iter"
 	"slices"
