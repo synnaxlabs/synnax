@@ -11,7 +11,7 @@ package project
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"

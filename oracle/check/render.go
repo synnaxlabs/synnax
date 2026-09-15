@@ -10,7 +10,9 @@
 package check
 
 import (
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"strings"
@@ -41,9 +43,14 @@ func Render(w io.Writer, r *Report, f Format, verbose bool) error {
 }
 
 func renderJSON(w io.Writer, r *Report) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(r)
+	// Elapsed is a time.Duration, which v2 has no default representation for.
+	if err := json.MarshalWrite(
+		w, r, jsontext.WithIndent("  "), jsonv1.FormatDurationAsNano(true),
+	); err != nil {
+		return err
+	}
+	_, err := w.Write([]byte{'\n'})
+	return err
 }
 
 var (

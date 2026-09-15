@@ -11,7 +11,7 @@ package http
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"slices"
 	"strings"
 	"sync"
