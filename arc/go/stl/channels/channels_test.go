@@ -1883,3 +1883,118 @@ var _ = Describe("Construction validation", func() {
 		},
 	)
 })
+
+// The write node is the production path for series writes: it carries its
+// input's data and time into the channel state and stamps the index channel.
+var _ = Describe("Sink Node", func() {
+	var (
+		progState    *rnode.ProgramState
+		channelState *channels.ProgramState
+		factory      rnode.Factory
+	)
+	BeforeEach(func(ctx SpecContext) {
+		g := graph.Graph{
+			Nodes: []graph.Node{{Key: "producer"}, {Key: "writer"}},
+			Inputs: map[string]msgpack.EncodedJSON{
+				"producer": {"type": "producer"},
+				"writer":   {"type": "write"},
+			},
+			Edges: graph.Edges{{
+				Source: ir.Handle{Node: "producer", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "writer", Param: ir.DefaultInputParam},
+			}},
+			Functions: []ir.Function{
+				{
+					Key: "producer",
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.F32()},
+					},
+				},
+				{
+					Key: "write",
+					Inputs: types.Params{
+						{Name: ir.DefaultInputParam, Type: types.F32()},
+					},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				},
+			},
+		}
+		inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+		Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		channelState = channels.NewProgramState([]channels.Digest{
+			{Key: 10, DataType: telem.Float32T, Index: 11},
+			{Key: 20, DataType: telem.Float32T},
+		})
+		progState = rnode.New(inter)
+		factory = MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
+	})
+	newWriter := func(key uint32) rnode.Node {
+		GinkgoHelper()
+		return MustSucceed(factory.Create(rnode.Config{
+			Node: ir.Node{
+				Type: "write",
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.F32()},
+					{Name: "channel", Type: types.U32(), Value: key},
+				},
+			},
+			State: progState.Node("writer"),
+		}))
+	}
+	produce := func(data, time telem.Series) {
+		*progState.Node("producer").Output(0) = data
+		*progState.Node("producer").OutputTime(0) = time
+	}
+	run := func(ctx SpecContext, n rnode.Node) bool {
+		changed := false
+		n.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
+		return changed
+	}
+
+	It(
+		"Should write the input's data and time to an indexed channel",
+		func(ctx SpecContext) {
+			w := newWriter(10)
+			produce(
+				telem.NewSeriesV[float32](1.0, 2.0),
+				telem.NewSeriesSecondsTSV(100, 101),
+			)
+			Expect(run(ctx, w)).To(BeTrue())
+			fr, changed := channelState.Flush(telem.Frame[uint32]{})
+			Expect(changed).To(BeTrue())
+			Expect(fr.Get(10).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesV[float32](1.0, 2.0)),
+			)
+			Expect(fr.Get(11).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 101)),
+			)
+		},
+	)
+
+	It("Should not write time for a channel without an index", func(ctx SpecContext) {
+		w := newWriter(20)
+		produce(telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(100))
+		Expect(run(ctx, w)).To(BeTrue())
+		fr, _ := channelState.Flush(telem.Frame[uint32]{})
+		Expect(fr.Get(20).Series).To(HaveLen(1))
+		Expect(fr.Get(0).Series).To(BeEmpty())
+	})
+
+	It("Should merge time ranges across writes in a cycle", func(ctx SpecContext) {
+		w := newWriter(20)
+		first := telem.NewSeriesV[float32](1.0)
+		first.TimeRange = telem.TimeRange{Start: 100, End: 200}
+		produce(first, telem.NewSeriesSecondsTSV(100))
+		Expect(run(ctx, w)).To(BeTrue())
+		second := telem.NewSeriesV[float32](2.0)
+		second.TimeRange = telem.TimeRange{Start: 50, End: 300}
+		produce(second, telem.NewSeriesSecondsTSV(101))
+		Expect(run(ctx, w)).To(BeTrue())
+		fr, _ := channelState.Flush(telem.Frame[uint32]{})
+		Expect(fr.Get(20).Series[0].TimeRange).To(
+			Equal(telem.TimeRange{Start: 50, End: 300}),
+		)
+	})
+})

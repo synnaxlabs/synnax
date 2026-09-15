@@ -10,45 +10,67 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/x/telem"
 )
 
-func benchmarkChannelStateForWrites(indexed bool) *channels.ProgramState {
-	digest := channels.Digest{Key: 1}
-	if indexed {
-		digest.Index = 2
+// benchmarkWriter binds a channel state to its host bindings and returns it with a
+// function that writes one u8 sample through write_u8.
+func benchmarkWriter(
+	b *testing.B,
+	digests []channels.Digest,
+) (*channels.ProgramState, func(key uint32, v uint8)) {
+	ctx := context.Background()
+	rt := testutil.NewRuntime(ctx)
+	ps := channels.NewProgramState(digests)
+	if _, err := channels.NewHost(
+		ctx, rt.Underlying(), ps, strings.NewProgramState(),
+	); err != nil {
+		b.Fatal(err)
 	}
-	return channels.NewProgramState([]channels.Digest{digest})
+	rt.Passthrough(ctx, "channels")
+	b.Cleanup(func() {
+		if err := rt.Close(ctx); err != nil {
+			b.Error(err)
+		}
+	})
+	return ps, func(key uint32, v uint8) {
+		rt.CallVoid(
+			ctx, "channels", "write_u8", testutil.U32(key), testutil.U32(uint32(v)),
+		)
+	}
 }
 
-func BenchmarkWriteSampleU8Indexed(b *testing.B) {
-	s := benchmarkChannelStateForWrites(true)
+func BenchmarkWriteU8Indexed(b *testing.B) {
+	_, write := benchmarkWriter(b, []channels.Digest{{Key: 1, Index: 2}})
 	b.ReportAllocs()
 	for i := 0; b.Loop(); i++ {
-		channels.WriteSample(s, 1, uint8(i))
+		write(1, uint8(i))
 	}
 }
 
-func BenchmarkWriteSampleU8NoIndex(b *testing.B) {
-	s := benchmarkChannelStateForWrites(false)
+func BenchmarkWriteU8NoIndex(b *testing.B) {
+	_, write := benchmarkWriter(b, []channels.Digest{{Key: 1}})
 	b.ReportAllocs()
 	for i := 0; b.Loop(); i++ {
-		channels.WriteSample(s, 1, uint8(i))
+		write(1, uint8(i))
 	}
 }
 
-func BenchmarkWriteSampleU8SameKeyFlush(b *testing.B) {
+func BenchmarkWriteU8SameKeyFlush(b *testing.B) {
 	const writesPerCycle = 128
-	s := benchmarkChannelStateForWrites(true)
+	ps, write := benchmarkWriter(b, []channels.Digest{{Key: 1, Index: 2}})
 	b.ReportAllocs()
 	for b.Loop() {
 		for j := range writesPerCycle {
-			channels.WriteSample(s, 1, uint8(j))
+			write(1, uint8(j))
 		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
+		_, _ = ps.Flush(telem.Frame[uint32]{})
 	}
 }
 
@@ -58,12 +80,12 @@ func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
 	for i := range keys {
 		digests[i] = channels.Digest{Key: uint32(i + 1)}
 	}
-	s := channels.NewProgramState(digests)
+	ps, write := benchmarkWriter(b, digests)
 	b.ReportAllocs()
 	for b.Loop() {
 		for k := range keys {
-			channels.WriteSample(s, uint32(k+1), uint8(k))
+			write(uint32(k+1), uint8(k))
 		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
+		_, _ = ps.Flush(telem.Frame[uint32]{})
 	}
 }
