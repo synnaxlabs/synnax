@@ -107,7 +107,6 @@ type Config struct {
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
-// format renders the Driver's config file.
 func (c Config) format() map[string]any {
 	return map[string]any{
 		"connection": map[string]any{
@@ -163,7 +162,7 @@ var (
 	}
 )
 
-// Override implements config.Config.
+// Override implements [config.Config.Override].
 func (c Config) Override(other Config) Config {
 	c.Enabled = override.Nil(c.Enabled, other.Enabled)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -195,7 +194,7 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements [config.Config.Validate].
 func (c Config) Validate() error {
 	v := validate.New("driver.embedded")
 	v.NotNil("enabled", c.Enabled)
@@ -237,7 +236,6 @@ const restartScale = 1.1
 // "driver" build tag or because Enabled was set to false — Open returns a Driver whose
 // methods are no-ops.
 type Driver struct {
-	// cfg holds the validated configuration for the Driver.
 	cfg Config
 	// started is closed once the subprocess prints "started successfully". Open blocks
 	// on this channel to know when startup is complete.
