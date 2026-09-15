@@ -302,6 +302,10 @@ func (c *ClientStream[RQ, RS]) Receive() (res RS, err error) {
 	if c.receiveErr != nil {
 		return res, c.receiveErr
 	}
+	// A buffered response would otherwise win the race against an earlier cancel.
+	if c.ctx.Err() != nil {
+		return res, c.ctx.Err()
+	}
 	select {
 	case <-c.ctx.Done():
 		return res, c.ctx.Err()
