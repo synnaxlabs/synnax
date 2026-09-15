@@ -38,8 +38,8 @@ class Pool {
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
 
 public:
-    /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify
-    /// the server against the system trust store.
+    /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify the
+    /// server against the system trust store.
     explicit Pool(const bool secure = false):
         credentials(
             secure ? ::grpc::SslCredentials(::grpc::SslCredentialsOptions())
@@ -77,15 +77,15 @@ public:
     }
 };
 
-/// @brief An implementation of UnaryClient that uses gRPC as the backing
-/// transport. Safe to be shared between threads.
+/// @brief An implementation of UnaryClient that uses gRPC as the backing transport.
+/// Safe to be shared between threads.
 /// @implements UnaryClient
 /// @see UnaryClient
 template<typename RQ, typename RS, typename RPC>
 class UnaryClient final : public freighter::UnaryClient<RQ, RS>, Finalizer<RQ, RS> {
     /// Middleware collector.
     MiddlewareCollector<RQ, RS> mw;
-    /// GRPCPool to pool connections across clients.
+    /// Pool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
     const x::url::URL base_target;
@@ -135,7 +135,7 @@ public:
     }
 };
 
-/// @brief freighter stream object.
+/// @brief Freighter stream object.
 template<typename RQ, typename RS, typename RPC>
 class Stream final : public freighter::Stream<RQ, RS>,
                      Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
@@ -144,7 +144,7 @@ class Stream final : public freighter::Stream<RQ, RS>,
 
     /// @brief the underlying gRPC stream.
     std::unique_ptr<::grpc::ClientReaderWriter<RQ, RS>> stream;
-    /// gRPC requires us to keep these around so the stream doesn't die.
+    /// gRPC requires us to keep the context around so the stream doesn't die.
     ::grpc::ClientContext grpc_ctx;
     /// @brief the RPC stub used to instantiate the connection.
     const std::unique_ptr<typename RPC::Stub> stub;
@@ -220,7 +220,7 @@ template<typename RQ, typename RS, typename RPC>
 class StreamClient final
     : public freighter::StreamClient<RQ, RS>,
       Finalizer<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
-    /// GRPCPool to pool connections across clients.
+    /// Pool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
     const x::url::URL base_target;
