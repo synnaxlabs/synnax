@@ -20,14 +20,14 @@ import (
 
 const pageSize = 65536
 
-// arena carves scratch regions out of guest linear memory by growing it past
-// everything the compiler reserved. A region is never returned; a node that outgrows
-// one takes a larger one.
-type arena struct{ mem api.Memory }
+// arena carves scratch regions out of guest linear memory by growing it past everything
+// the compiler reserved. A region is never returned; a node that outgrows one takes a
+// larger one.
+type arena struct{ api.Memory }
 
 func (a *arena) alloc(size uint32) (base, capacity uint32, ok bool) {
 	pages := (size + pageSize - 1) / pageSize
-	prev, ok := a.mem.Grow(pages)
+	prev, ok := a.Grow(pages)
 	if !ok {
 		return 0, 0, false
 	}
@@ -78,7 +78,7 @@ func (w *Module) newBatchCall(
 		densities[i] = inp.Type.Density()
 	}
 	if w.arena == nil {
-		w.arena = &arena{mem: w.Memory}
+		w.arena = &arena{w.Memory}
 	}
 	return &batchCall{
 		fn:         fn,
@@ -135,8 +135,8 @@ func (n *nodeImpl) runBatch(
 		size += align8(samples * uint32(b.densities[i]))
 	}
 	if size > b.capacity {
-		// Doubling bounds what a node abandons as its series grow: ever-longer
-		// batches cost a logarithmic number of grows, not one each.
+		// Doubling bounds what a node abandons as its series grow: ever-longer batches
+		// cost a logarithmic number of grows, not one each.
 		base, capacity, ok := b.arena.alloc(max(size, 2*b.capacity))
 		if !ok {
 			return false

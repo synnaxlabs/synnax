@@ -83,8 +83,7 @@ type testHarness struct {
 	prog         program.Program
 	analyzed     ir.IR
 	graph        arc.Graph
-	// errors collects what the node reported during the most recent NextChanged.
-	errors []error
+	errors       []error
 }
 
 func (h *testHarness) ChannelState() *channels.ProgramState { return h.channelState }
@@ -189,11 +188,8 @@ func (h *testHarness) NextChanged(
 	return changed
 }
 
-// Errors returns what the node reported during the most recent Execute or
-// NextChanged call.
 func (h *testHarness) Errors() []error { return h.errors }
 
-// Outputs returns the named node's output params.
 func (h *testHarness) Outputs(nodeKey string) types.Params {
 	return h.analyzed.Nodes.Get(nodeKey).Outputs
 }
