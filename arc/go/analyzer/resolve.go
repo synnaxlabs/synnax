@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -56,12 +58,19 @@ func ResolveNodeTypes(
 		if !ok {
 			continue
 		}
+		edgeDesc := fmt.Sprintf(
+			"edge from '%s' output '%s' to '%s' input '%s'",
+			sourceNode.Type,
+			edge.Source.Param,
+			targetNode.Type,
+			edge.Target.Param,
+		)
 		if err := atypes.Check(
 			cs,
-			sourceParam.Type,
 			targetParam.Type,
+			sourceParam.Type,
 			nil,
-			"",
+			edgeDesc,
 		); err != nil {
 			diag.Add(diagnostics.Error(err, nil))
 			return false
