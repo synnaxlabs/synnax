@@ -22,8 +22,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// bound is a channel state reached through its WASM host bindings, the only path
-// a program reads or writes it through.
+// bound is a channel state reached through its WASM host bindings, the only path a
+// program reads or writes it through.
 type bound struct {
 	rt *testutil.Runtime
 	ps *channels.ProgramState

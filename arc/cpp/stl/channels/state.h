@@ -38,8 +38,8 @@ class State {
     std::unordered_map<types::ChannelKey, Series> writes;
     std::vector<types::ChannelKey> active_write_keys;
     ::x::telem::MonoClock clock;
-    /// @brief first channel a host read found without a buffered value since the
-    /// last take_missing_read.
+    /// @brief first channel a host read found without a buffered value since the last
+    /// take_missing_read.
     std::optional<types::ChannelKey> missing_read;
 
     template<typename T>
@@ -83,12 +83,12 @@ public:
 
     std::pair<x::telem::MultiSeries, bool> read_value(types::ChannelKey key);
 
-    /// @brief records that a host read of key found no buffered value. Only the
-    /// first miss since the last take_missing_read is kept.
+    /// @brief records that a host read of key found no buffered value. Only the first
+    /// miss since the last take_missing_read is kept.
     void note_missing_read(types::ChannelKey key);
 
-    /// @brief returns and clears the channel a host read found empty since the
-    /// last call, or nullopt when every read hit.
+    /// @brief returns and clears the channel a host read found empty since the last
+    /// call, or nullopt when every read hit.
     std::optional<types::ChannelKey> take_missing_read();
 
     void write_value(types::ChannelKey key, const Series &data, const Series &time);

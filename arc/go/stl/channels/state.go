@@ -29,18 +29,18 @@ type ProgramState struct {
 	writes          map[uint32]telem.Series
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
-	// clock provides monotonically increasing timestamps for indexed
-	// channel writes, avoiding duplicate timestamps on platforms with
-	// coarse clock resolution (e.g. Windows).
+	// clock provides monotonically increasing timestamps for indexed channel writes,
+	// avoiding duplicate timestamps on platforms with coarse clock resolution (e.g.
+	// Windows).
 	clock telem.MonoClock
-	// missingRead is the first channel a host read found without a buffered
-	// value since the last TakeMissingRead; valid when hasMissingRead is set.
+	// missingRead is the first channel a host read found without a buffered value since
+	// the last TakeMissingRead; valid when hasMissingRead is set.
 	missingRead    uint32
 	hasMissingRead bool
 }
 
-// noteMissingRead records that a host read of key found no buffered value. Only
-// the first miss since the last TakeMissingRead is kept.
+// noteMissingRead records that a host read of key found no buffered value. Only the
+// first miss since the last TakeMissingRead is kept.
 func (ps *ProgramState) noteMissingRead(key uint32) {
 	if ps.hasMissingRead {
 		return
@@ -48,8 +48,8 @@ func (ps *ProgramState) noteMissingRead(key uint32) {
 	ps.missingRead, ps.hasMissingRead = key, true
 }
 
-// TakeMissingRead returns and clears the channel a host read found empty since
-// the last call. ok is false when every read hit.
+// TakeMissingRead returns and clears the channel a host read found empty since the last
+// call. ok is false when every read hit.
 func (ps *ProgramState) TakeMissingRead() (key uint32, ok bool) {
 	key, ok = ps.missingRead, ps.hasMissingRead
 	ps.missingRead, ps.hasMissingRead = 0, false
@@ -79,8 +79,8 @@ func (ps *ProgramState) Ingest(fr telem.Frame[uint32]) {
 	}
 }
 
-// Flush extracts buffered channel writes into a frame and clears the write
-// buffer. Only channels written in the current cycle are flushed.
+// Flush extracts buffered channel writes into a frame and clears the write buffer. Only
+// channels written in the current cycle are flushed.
 func (ps *ProgramState) Flush(
 	fr telem.Frame[uint32],
 ) (telem.Frame[uint32], bool) {
@@ -104,14 +104,13 @@ func (ps *ProgramState) Flush(
 	return fr, flushed
 }
 
-// clearReadsReallocThreshold is the backing array capacity above which
-// ClearReads allocates a fresh slice instead of re-slicing in place. Below
-// this threshold, slices.Delete zeroes old references (allowing GC) without
-// allocating.
+// clearReadsReallocThreshold is the backing array capacity above which ClearReads
+// allocates a fresh slice instead of re-slicing in place. Below this threshold,
+// slices.Delete zeroes old references (allowing GC) without allocating.
 const clearReadsReallocThreshold = 64
 
-// ClearReads clears accumulated channel read buffers while preserving the
-// latest series for each channel.
+// ClearReads clears accumulated channel read buffers while preserving the latest series
+// for each channel.
 func (ps *ProgramState) ClearReads() {
 	for key, ser := range ps.reads {
 		if len(ser.Series) <= 1 {
@@ -143,8 +142,8 @@ func (ps *ProgramState) writeValue(key uint32, value telem.Series) {
 	ps.writeIndexedTimestamp(key)
 }
 
-// writeSample appends one fixed-size sample to key's write buffer and stamps its
-// index channel when it has one.
+// writeSample appends one fixed-size sample to key's write buffer and stamps its index
+// channel when it has one.
 func writeSample[T telem.FixedSample](ps *ProgramState, key uint32, v T) {
 	appendFixedWriteSample(ps, key, v)
 	ps.writeIndexedTimestamp(key)

@@ -299,8 +299,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			}
 		}
 	}
-	// A read of a channel with no value yet cannot evaluate honestly. Drop the
-	// pass, keep the inputs armed, and retry on the next cycle.
+	// A read of a channel with no value yet cannot evaluate honestly. Drop the pass,
+	// keep the inputs armed, and retry on the next cycle.
 	if missing {
 		for j := range n.offsets {
 			n.offsets[j] = 0

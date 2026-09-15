@@ -10,7 +10,6 @@
 package channels_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -25,7 +24,7 @@ func benchmarkWriter(
 	b *testing.B,
 	digests []channels.Digest,
 ) (*channels.ProgramState, func(key uint32, v uint8)) {
-	ctx := context.Background()
+	ctx := b.Context()
 	rt := testutil.NewRuntime(ctx)
 	ps := channels.NewProgramState(digests)
 	if _, err := channels.NewHost(

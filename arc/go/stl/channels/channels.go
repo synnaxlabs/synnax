@@ -173,8 +173,8 @@ type nodeInputs struct {
 	Channel uint32 `json:"channel"`
 }
 
-// boundKey returns the channel a node currently targets: the binding edge's
-// latest key when present, otherwise the configured key.
+// boundKey returns the channel a node currently targets: the binding edge's latest key
+// when present, otherwise the configured key.
 func boundKey(s *node.State, channelIdx int, configured uint32) uint32 {
 	if t := s.RefInput(channelIdx); t.Len() > 0 {
 		return t.ValueAt[uint32](-1)
@@ -193,10 +193,10 @@ type source struct {
 	clock         telem.MonoClock
 }
 
-func (s *source) Init(node.Context) {}
+func (*source) Init(node.Context) {}
 
-// rebindTo re-points the source at key. A rebind is not a value:
-// only values arriving afterward fire
+// rebindTo re-points the source at key. A rebind is not a value: only values arriving
+// afterward fire
 func (s *source) rebindTo(key uint32) {
 	s.currKey = key
 	s.highWaterMark = 0
@@ -214,9 +214,9 @@ func (s *source) raiseWaterMark() {
 	}
 }
 
-// Reset advances the high water mark to the current channel alignment,
-// ensuring that when a stage is (re-)activated it only responds to
-// data that arrives after activation rather than stale pre-existing data.
+// Reset advances the high water mark to the current channel alignment, ensuring that
+// when a stage is (re-)activated it only responds to data that arrives after activation
+// rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
 	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
@@ -286,8 +286,8 @@ func (s *sink) Next(ctx node.Context) {
 	}
 	key := boundKey(s.State, s.channelIdx, s.key)
 	time := s.InputTime(s.inputIdx)
-	// A length disagreement is an upstream aligner bug. Refuse the write instead
-	// of persisting a corrupt index.
+	// A length disagreement is an upstream aligner bug. Refuse the write instead of
+	// persisting a corrupt index.
 	if time.Len() != data.Len() {
 		ctx.ReportError(errors.Newf(
 			"write to channel %d: sample count %d does not match timestamp count %d",
@@ -312,8 +312,8 @@ func (s *sink) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// hostRead returns the latest series on key for a host read. A channel with no
-// buffered value records a miss and returns false.
+// hostRead returns the latest series on key for a host read. A channel with no buffered
+// value records a miss and returns false.
 func hostRead(ps *ProgramState, key uint32) (telem.Series, bool) {
 	series, ok := ps.readValue(key)
 	if !ok || series.Len() == 0 {

@@ -1884,8 +1884,8 @@ var _ = Describe("Construction validation", func() {
 	)
 })
 
-// The write node is the production path for series writes: it carries its
-// input's data and time into the channel state and stamps the index channel.
+// The write node is the production path for series writes: it carries its input's data
+// and time into the channel state and stamps the index channel.
 var _ = Describe("Sink Node", func() {
 	var (
 		progState    *rnode.ProgramState

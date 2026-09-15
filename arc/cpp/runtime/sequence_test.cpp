@@ -2814,8 +2814,8 @@ TEST(VariableCaptureDispatchTest, ExecutesAOneShotCaptureChainExactlyOnce) {
     EXPECT_EQ(count_of(out, h.key("fp_out"), "parent"), 0);
 }
 
-// A body read of a channel with no value yet must not evaluate as zero. The node
-// skips the pass, warns once, and retries when a value arrives.
+// A body read of a channel with no value yet must not evaluate as zero. The node skips
+// the pass, warns once, and retries when a value arrives.
 TEST(MissingReadTest, SkipsAPolledTransitionUntilEveryChannelHasAValue) {
     Sequence h(
         R"(import time

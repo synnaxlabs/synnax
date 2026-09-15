@@ -45,8 +45,8 @@ class Node : public node::Node {
     /// evaluation succeeds.
     bool warned_missing = false;
 
-    /// @brief returns the program's name for key, or the key itself when the node
-    /// does not declare it.
+    /// @brief returns the program's name for key, or the key itself when the node does
+    /// not declare it.
     [[nodiscard]] std::string channel_name(const types::ChannelKey key) const {
         if (const auto it = this->ir.channels.read.find(key);
             it != this->ir.channels.read.end())
