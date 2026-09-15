@@ -16,6 +16,7 @@ import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
+import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -93,6 +94,8 @@ export const Setpoint = ({
           variant="filled"
           className={CSS.B("symbol-button")}
           onClick={() => onChange(currValue)}
+          onKeyDown={Keyboard.blockActivation}
+          onKeyUp={Keyboard.blockActivation}
         >
           Set
         </BaseButton.Button>

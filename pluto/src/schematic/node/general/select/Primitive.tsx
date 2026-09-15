@@ -16,6 +16,7 @@ import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
+import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -104,6 +105,8 @@ export const Select = ({
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
+            onKeyDown={Keyboard.blockActivation}
+            onKeyUp={Keyboard.blockActivation}
             disabled={disabled}
           >
             Send

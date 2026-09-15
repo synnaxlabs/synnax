@@ -16,6 +16,7 @@ import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
+import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -65,6 +66,8 @@ export const Input = ({
           variant="filled"
           className={CSS.B("symbol-button")}
           onClick={() => onSend?.(value)}
+          onKeyDown={Keyboard.blockActivation}
+          onKeyUp={Keyboard.blockActivation}
         >
           Send
         </BaseButton.Button>
