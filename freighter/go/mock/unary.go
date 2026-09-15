@@ -79,7 +79,7 @@ func (us *UnaryServer[RQ, RS]) exec(
 		),
 	)
 	if err != nil {
-		return types.Zero[RS](), freighter.Context{}, err
+		return types.Zero[RS](), oMD, err
 	}
 	return res, oMD, nil
 }
