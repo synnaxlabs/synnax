@@ -148,6 +148,21 @@ export const getLabeledDialogTrigger = (labelText: string): HTMLElement =>
   getBySelector<HTMLElement>(getInputItem(labelText), ".pluto-dialog__trigger");
 
 /**
+ * Waits for the dialog-select trigger whose current value renders as the given text.
+ * Select triggers carry no role, accessible name, or ARIA popup state, so the shown
+ * value is the only handle. Prefer a role query wherever the target has one.
+ */
+export const findDialogTriggerByText = async (text: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const triggers = Array.from(
+      document.querySelectorAll<HTMLElement>(".pluto-dialog__trigger"),
+    );
+    const match = triggers.find((t) => t.textContent?.includes(text));
+    if (match == null) throw new Error(`dialog trigger showing "${text}" not found`);
+    return match;
+  });
+
+/**
  * Reports whether a pluto element is rendered in its disabled state. Pluto marks
  * disabled buttons with a class rather than the disabled attribute.
  */
