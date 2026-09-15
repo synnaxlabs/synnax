@@ -128,11 +128,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	if err := cfg.Channel.NewWriter(nil).DeleteManyByNames(
-		ctx,
-		legacyStatusChannels,
-		true,
-	); err != nil {
+	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
+			ctx,
+			legacyStatusChannels,
+			true,
+		)
+	}); err != nil {
 		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
 	}
 

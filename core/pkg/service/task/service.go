@@ -199,11 +199,13 @@ func OpenService(
 			Virtual:  true,
 			Internal: true,
 		}
-		if err = cfg.Channel.NewWriter(nil).Create(
-			ctx,
-			&cmdCh,
-			channel.RetrieveIfNameExists(),
-		); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Channel.NewWriter(tx).Create(
+				ctx,
+				&cmdCh,
+				channel.RetrieveIfNameExists(),
+			)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 		s.commandChannelKey = cmdCh.Key()

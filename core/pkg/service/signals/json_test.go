@@ -98,6 +98,7 @@ var _ = Describe("JSON", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			sigs := MustSucceed(signals.New(signals.Config{
+				DB:      db,
 				Channel: channelSvc,
 				Framer:  framerSvc,
 			}))

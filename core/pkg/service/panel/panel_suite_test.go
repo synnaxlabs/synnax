@@ -88,6 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	sigs := MustSucceed(signals.New(signals.Config{
+		DB:      db,
 		Channel: channelSvc,
 		Framer:  framerSvc,
 	}))

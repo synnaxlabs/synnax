@@ -165,6 +165,7 @@ var _ = Describe("OpenService", func() {
 			Status:  statusSvc,
 		}))
 		sigs := MustSucceed(signals.New(signals.Config{
+			DB:      db,
 			Channel: channelSvc,
 			Framer:  framerSvc,
 		}))

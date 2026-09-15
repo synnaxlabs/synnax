@@ -87,14 +87,18 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 			Embedded:     true,
 			Integrations: integrations,
 		}
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	} else if !ok(err, nil) {
 		return nil, err
 	} else {
 		d.rack.Integrations = integrations
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}

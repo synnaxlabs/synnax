@@ -348,6 +348,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Signals, err = signals.New(signals.Config{
+		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Instrumentation: cfg.Child("signals"),

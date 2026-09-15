@@ -76,6 +76,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
+		DB:      node.DB,
 		Channel: channelSvc,
 		Framer:  framerSvc,
 	}))
