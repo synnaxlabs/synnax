@@ -10,7 +10,7 @@
 package v0_test
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"

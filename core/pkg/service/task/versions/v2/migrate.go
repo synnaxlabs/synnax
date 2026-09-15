@@ -11,7 +11,7 @@ package v2
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"strconv"
 	"strings"

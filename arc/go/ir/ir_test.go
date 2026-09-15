@@ -10,7 +10,7 @@
 package ir_test
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"

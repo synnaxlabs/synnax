@@ -11,7 +11,7 @@ package log_test
 
 import (
 	"bytes"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"io"
 	"os"
 	"strings"

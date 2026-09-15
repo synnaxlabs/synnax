@@ -12,7 +12,7 @@ package v5_test
 import (
 	"embed"
 	"encoding/json/jsontext"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"strings"

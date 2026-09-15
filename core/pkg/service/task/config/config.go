@@ -11,7 +11,7 @@ package config
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"

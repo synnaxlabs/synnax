@@ -10,7 +10,7 @@
 package telem_test
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"testing"
 

@@ -10,7 +10,7 @@
 package crdt_test
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"

@@ -11,7 +11,7 @@ package symbol_test
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"io"
 	"maps"
 	"os"

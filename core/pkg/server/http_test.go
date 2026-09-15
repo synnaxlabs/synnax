@@ -12,7 +12,7 @@ package server_test
 import (
 	"bytes"
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"io"
 	"net/http"
 	"time"

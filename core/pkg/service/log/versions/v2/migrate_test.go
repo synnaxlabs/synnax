@@ -10,7 +10,7 @@
 package v2_test
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"os"
 	"uuid"
 

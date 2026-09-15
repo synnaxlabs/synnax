@@ -11,7 +11,7 @@ package pagerduty_test
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"sync"
 	"sync/atomic"
 	"testing"

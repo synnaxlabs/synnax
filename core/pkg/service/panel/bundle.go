@@ -11,7 +11,7 @@ package panel
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"

@@ -105,7 +105,7 @@ func (s *Service) Login(
 
 type ChangePasswordRequest struct {
 	Credentials
-	NewPassword string `json:"new_password" msgpack:"new_password" validate:"required"`
+	NewPassword string `json:"new_password" msgpack:"new_password"`
 }
 
 // ChangePassword changes the password for the user with the provided credentials.

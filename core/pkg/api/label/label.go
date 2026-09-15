@@ -158,8 +158,8 @@ func (s *Service) Delete(
 }
 
 type AddRequest struct {
-	ID      ontology.ID `json:"id"      msgpack:"id"      validate:"required"`
-	Labels  []label.Key `json:"labels"  msgpack:"labels"  validate:"required"`
+	ID      ontology.ID `json:"id"      msgpack:"id"`
+	Labels  []label.Key `json:"labels"  msgpack:"labels"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
 
@@ -185,8 +185,8 @@ func (s *Service) Add(
 }
 
 type RemoveRequest struct {
-	ID     ontology.ID `json:"id"     msgpack:"id"     validate:"required"`
-	Labels []label.Key `json:"labels" msgpack:"labels" validate:"required"`
+	ID     ontology.ID `json:"id"     msgpack:"id"`
+	Labels []label.Key `json:"labels" msgpack:"labels"`
 }
 
 func (s *Service) Remove(

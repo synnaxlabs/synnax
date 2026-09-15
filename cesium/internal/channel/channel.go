@@ -50,7 +50,11 @@ type Channel struct {
 	// existing, valid index channel.
 	//
 	// [OPTIONAL]
-	IsIndex bool
+	//
+	// The tag spells the Go field name because databases written before this field
+	// carried one stored it that way. Renaming it to is_index would be unreadable by
+	// any Core that case-folds without ignoring the underscore.
+	IsIndex bool `json:"IsIndex" msgpack:"IsIndex"`
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
 	// any data and do not require an index.
 	//

@@ -11,7 +11,7 @@ package arc
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"uuid"
 
 	"github.com/synnaxlabs/arc/text"

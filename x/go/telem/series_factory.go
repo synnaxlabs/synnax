@@ -11,7 +11,7 @@ package telem
 
 import (
 	"encoding/binary"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"math"
 	"uuid"

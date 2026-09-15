@@ -12,7 +12,7 @@ package driver_test
 import (
 	"bytes"
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"io/fs"
 	"os"
 	"path/filepath"

@@ -46,7 +46,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	RetrieveRequest struct {
 		SearchTerm          string                  `json:"search_term"            msgpack:"search_term"`
-		IDs                 []ontology.ID           `json:"ids"                    msgpack:"ids"                    validate:"required"`
+		IDs                 []ontology.ID           `json:"ids"                    msgpack:"ids"`
 		Types               []ontology.ResourceType `json:"types"                  msgpack:"types"`
 		Limit               int                     `json:"limit"                  msgpack:"limit"`
 		Offset              int                     `json:"offset"                 msgpack:"offset"`
@@ -121,8 +121,8 @@ func (s *Service) Retrieve(
 }
 
 type AddChildrenRequest struct {
-	ID       ontology.ID   `json:"id"       msgpack:"id"       validate:"required"`
-	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+	ID       ontology.ID   `json:"id"       msgpack:"id"`
+	Children []ontology.ID `json:"children" msgpack:"children"`
 }
 
 func (s *Service) AddChildren(
@@ -149,8 +149,8 @@ func (s *Service) AddChildren(
 }
 
 type RemoveChildrenRequest struct {
-	ID       ontology.ID   `json:"id"       msgpack:"id"       validate:"required"`
-	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+	ID       ontology.ID   `json:"id"       msgpack:"id"`
+	Children []ontology.ID `json:"children" msgpack:"children"`
 }
 
 func (s *Service) RemoveChildren(
@@ -178,9 +178,9 @@ func (s *Service) RemoveChildren(
 }
 
 type MoveChildrenRequest struct {
-	From     ontology.ID   `json:"from"     msgpack:"from"     validate:"required"`
-	To       ontology.ID   `json:"to"       msgpack:"to"       validate:"required"`
-	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+	From     ontology.ID   `json:"from"     msgpack:"from"`
+	To       ontology.ID   `json:"to"       msgpack:"to"`
+	Children []ontology.ID `json:"children" msgpack:"children"`
 }
 
 func (s *Service) MoveChildren(

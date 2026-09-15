@@ -10,7 +10,7 @@
 package task
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"

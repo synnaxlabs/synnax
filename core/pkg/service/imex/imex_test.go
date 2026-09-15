@@ -11,7 +11,7 @@ package imex_test
 
 import (
 	"encoding/json/jsontext"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

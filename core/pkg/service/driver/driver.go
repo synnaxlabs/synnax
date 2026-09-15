@@ -11,7 +11,7 @@ package driver
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"sync"
 	"time"

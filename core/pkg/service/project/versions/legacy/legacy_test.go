@@ -10,7 +10,7 @@
 package legacy_test
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"maps"
 
 	. "github.com/onsi/ginkgo/v2"

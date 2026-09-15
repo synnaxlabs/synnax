@@ -11,7 +11,7 @@ package validate
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"strings"
 
 	"github.com/samber/lo"

@@ -64,9 +64,9 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type DeleteRequest struct {
-	Keys   channel.Keys    `json:"keys"   msgpack:"keys"   validate:"required"`
-	Names  []string        `json:"names"  msgpack:"names"  validate:"names"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
+	Keys   channel.Keys    `json:"keys"   msgpack:"keys"`
+	Names  []string        `json:"names"  msgpack:"names"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 }
 
 func (s *Service) Delete(

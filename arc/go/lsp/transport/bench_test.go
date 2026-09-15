@@ -11,7 +11,7 @@ package transport_test
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"testing"
 	"time"
 

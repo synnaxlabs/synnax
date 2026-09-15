@@ -11,7 +11,7 @@ package v1_test
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"

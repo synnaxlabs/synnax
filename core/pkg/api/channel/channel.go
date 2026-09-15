@@ -357,8 +357,8 @@ func translateChannelsBackward(
 }
 
 type DeleteRequest struct {
-	Keys  channel.Keys `json:"keys"  msgpack:"keys"  validate:"required"`
-	Names []string     `json:"names" msgpack:"names" validate:"required"`
+	Keys  channel.Keys `json:"keys"  msgpack:"keys"`
+	Names []string     `json:"names" msgpack:"names"`
 }
 
 func (s *Service) Delete(
@@ -400,8 +400,8 @@ func (s *Service) Delete(
 }
 
 type RenameRequest struct {
-	Keys  channel.Keys `json:"keys"  msgpack:"keys"  validate:"required"`
-	Names []string     `json:"names" msgpack:"names" validate:"required"`
+	Keys  channel.Keys `json:"keys"  msgpack:"keys"`
+	Names []string     `json:"names" msgpack:"names"`
 }
 
 func (s *Service) Rename(

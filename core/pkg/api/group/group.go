@@ -41,7 +41,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Parent ontology.ID `json:"parent" msgpack:"parent"`
-		Name   string      `json:"name"   msgpack:"name"   validate:"required"`
+		Name   string      `json:"name"   msgpack:"name"`
 		Key    group.Key   `json:"key"    msgpack:"key"`
 	}
 	CreateResponse struct {
@@ -70,7 +70,7 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
+		Keys []group.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
 		Groups []group.Group `json:"groups" msgpack:"groups"`
@@ -99,7 +99,7 @@ func (s *Service) Retrieve(
 }
 
 type DeleteRequest struct {
-	Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
+	Keys []group.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(
@@ -118,8 +118,8 @@ func (s *Service) Delete(
 }
 
 type RenameRequest struct {
-	Name string    `json:"name" msgpack:"name" validate:"required"`
-	Key  group.Key `json:"key"  msgpack:"key"  validate:"required"`
+	Name string    `json:"name" msgpack:"name"`
+	Key  group.Key `json:"key"  msgpack:"key"`
 }
 
 func (s *Service) Rename(

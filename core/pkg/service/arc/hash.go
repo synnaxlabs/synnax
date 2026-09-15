@@ -11,7 +11,7 @@ package arc
 
 import (
 	"cmp"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 	"slices"
 

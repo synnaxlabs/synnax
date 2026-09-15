@@ -11,7 +11,7 @@ package actions_test
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"sync"
 	"sync/atomic"
 	"uuid"

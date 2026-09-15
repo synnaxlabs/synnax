@@ -10,7 +10,7 @@
 package pb
 
 import (
-	json "encoding/json/v2"
+	"encoding/json/v2"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"

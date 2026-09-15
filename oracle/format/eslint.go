@@ -11,7 +11,7 @@ package format
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"path/filepath"
 
 	"github.com/synnaxlabs/x/errors"

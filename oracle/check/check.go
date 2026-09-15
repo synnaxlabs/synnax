@@ -118,8 +118,8 @@ func (s Status) MarshalJSONTo(enc *jsontext.Encoder) error {
 // do not print directly.
 type Finding struct {
 	Path     string   `json:"path,omitempty"`
-	Line     int      `json:"line,omitempty"`
-	Col      int      `json:"col,omitempty"`
+	Line     int      `json:"line,omitzero"`
+	Col      int      `json:"col,omitzero"`
 	Severity Severity `json:"severity"`
 	Message  string   `json:"message"`
 	// FixHint is a one-line suggestion shown to the user (e.g. "run `oracle sync`").

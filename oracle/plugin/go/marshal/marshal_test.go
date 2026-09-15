@@ -718,7 +718,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain(
-						"json.Marshal(s.Details)",
+						"json.Marshal(s.Details, xjson.PreserveNil)",
 						"json.Unmarshal(b, &s.Details)",
 					)
 					content.ToNotContain(

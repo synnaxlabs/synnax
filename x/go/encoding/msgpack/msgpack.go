@@ -11,7 +11,7 @@ package msgpack
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"io"
 	"math"
 	"strconv"

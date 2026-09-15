@@ -11,7 +11,7 @@ package v3
 
 import (
 	"context"
-	json "encoding/json/v2"
+	"encoding/json/v2"
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"

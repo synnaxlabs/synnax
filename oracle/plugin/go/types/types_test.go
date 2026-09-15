@@ -12,7 +12,7 @@ package types_test
 import (
 	"context"
 	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json/v2"
 	"go/parser"
 	"go/token"
 	"os"
@@ -3187,7 +3187,7 @@ func (u rtScale) MarshalJSONTo(enc *jsontext.Encoder) error {
 	case nil:
 		return enc.WriteToken(jsontext.Null)
 	case rtLinearScale:
-		return jsonv2.MarshalEncode(enc, struct {
+		return json.MarshalEncode(enc, struct {
 			Type rtScaleType `json:"type"`
 			rtLinearScale
 		}{Type: rtLinearScaleType, rtLinearScale: v})
@@ -3209,13 +3209,13 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := jsonv2.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtLinearScaleType:
 		var v rtLinearScale
-		if err := jsonv2.Unmarshal(data, &v, opts); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -3254,7 +3254,7 @@ func (u rtChan) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if !ok {
 		return gotesterrors.Newf("rtChan: unknown variant %T", u.Variant)
 	}
-	return jsonv2.MarshalEncode(enc, struct {
+	return json.MarshalEncode(enc, struct {
 		Type rtChanType `json:"type"`
 		rtChanV
 	}{Type: rtChanTypeV, rtChanV: v})
@@ -3262,7 +3262,7 @@ func (u rtChan) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 func (u *rtChan) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var v rtChanV
-	if err := jsonv2.UnmarshalDecode(dec, &v); err != nil {
+	if err := json.UnmarshalDecode(dec, &v); err != nil {
 		return err
 	}
 	u.Variant = v
@@ -3276,9 +3276,9 @@ var _ = Describe("Union codec round trip", func() {
 			MinVal: -10,
 			Scale:  rtScale{Variant: rtLinearScale{rtLinearParams{Slope: 1.5}}},
 		}}
-		data := MustSucceed(jsonv2.Marshal(in))
+		data := MustSucceed(json.Marshal(in))
 		var m map[string]any
-		Expect(jsonv2.Unmarshal(data, &m)).To(Succeed())
+		Expect(json.Unmarshal(data, &m)).To(Succeed())
 		Expect(m).To(SatisfyAll(
 			HaveKeyWithValue("type", "v"),
 			HaveKey("port"),
@@ -3286,7 +3286,7 @@ var _ = Describe("Union codec round trip", func() {
 			HaveKeyWithValue("custom_scale", HaveKeyWithValue("type", "linear")),
 		))
 		var out rtChan
-		Expect(jsonv2.Unmarshal(data, &out)).To(Succeed())
+		Expect(json.Unmarshal(data, &out)).To(Succeed())
 		got := out.Variant.(rtChanV)
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
