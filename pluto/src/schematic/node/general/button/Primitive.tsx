@@ -19,6 +19,7 @@ import {
 import { Button as Base } from "@/button";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
+import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -63,6 +64,8 @@ export const Button = ({
         className={CSS.cls(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
         style={style}
         {...handlers}
+        onKeyDown={Keyboard.blockActivation}
+        onKeyUp={Keyboard.blockActivation}
         size={size}
         level={level}
         direction={label?.direction}

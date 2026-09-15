@@ -33,6 +33,10 @@ const parseTextColor = (
   return textColor;
 };
 
+// WebKit toggles a checkbox on a secondary-button click and reports it only as an
+// auxclick, which React's onChange never sees, so the controlled value cannot restore.
+const preventDefault = (e: React.SyntheticEvent): void => e.preventDefault();
+
 /**
  * Base Boolean input component for switch and checkbox variants.
  */
@@ -105,6 +109,7 @@ export const Boolean = ({
             value=""
             disabled={disabled}
             onClick={onClick}
+            onAuxClick={preventDefault}
             {...rest}
             aria-labelledby={ariaLabelledBy}
           />

@@ -15,6 +15,7 @@ import { type CSSProperties, type MouseEventHandler, type ReactElement } from "r
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
+import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -46,7 +47,13 @@ export const Switch = ({
       )}
       style={style}
     >
-      <BaseInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
+      <BaseInput.Switch
+        value={enabled}
+        onClick={onClick}
+        onChange={() => {}}
+        onKeyDown={Keyboard.blockActivation}
+        onKeyUp={Keyboard.blockActivation}
+      />
       <Handle.Linear orientation={orientation} left={0} right={100} />
     </Primitive.Div>
   );

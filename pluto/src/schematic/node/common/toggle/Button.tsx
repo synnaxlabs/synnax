@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
+import { Keyboard } from "@/schematic/node/common/keyboard";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface ButtonBaseProps extends Omit<
@@ -31,8 +32,6 @@ export interface ButtonBaseProps extends Omit<
 }
 
 export interface ButtonProps extends ButtonBaseProps, OrientableProps {}
-
-const isActivationKey = (key: string): boolean => key === " " || key === "Enter";
 
 export const Button = ({
   className,
@@ -57,7 +56,7 @@ export const Button = ({
 
   const handleMouseDown: MouseEventHandler<HTMLButtonElement> = (e) => {
     onMouseDown?.(e);
-    if (parsedDelay.isZero) return;
+    if (parsedDelay.isZero || e.button !== 0) return;
     document.addEventListener(
       "mouseup",
       () => {
@@ -72,16 +71,14 @@ export const Button = ({
     }, parsedDelay.milliseconds);
   };
 
-  // A clicked button keeps focus, so a later Space or Enter would actuate it through
-  // the browser's synthetic click. Enter clicks on keydown and Space on keyup.
   const handleKeyDown: KeyboardEventHandler<HTMLButtonElement> = (e) => {
     onKeyDown?.(e);
-    if (isActivationKey(e.key)) e.preventDefault();
+    Keyboard.blockActivation(e);
   };
 
   const handleKeyUp: KeyboardEventHandler<HTMLButtonElement> = (e) => {
     onKeyUp?.(e);
-    if (isActivationKey(e.key)) e.preventDefault();
+    Keyboard.blockActivation(e);
   };
 
   const pStyle = useMemo(() => {

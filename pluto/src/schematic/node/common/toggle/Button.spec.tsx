@@ -91,6 +91,16 @@ describe("Toggle.Button", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should ignore a secondary-button press", () => {
+      const onClick = vi.fn();
+      const { container } = render(
+        <Toggle.Button onClick={onClick} onClickDelay={500} />,
+      );
+      fireEvent.mouseDown(getButton(container), { button: 2 });
+      vi.advanceTimersByTime(1000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
     it("should still call onMouseDown immediately even though onClick is deferred", () => {
       const onClick = vi.fn();
       const onMouseDown = vi.fn();
