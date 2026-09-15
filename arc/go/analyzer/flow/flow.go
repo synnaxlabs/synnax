@@ -216,7 +216,7 @@ func resolveUpstreamType(
 		return atypes.InferFromExpression(ctx.Child(prevExpr)).Unwrap(), true
 	}
 	if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
-		if hasRoutingTableBetween(ctx) {
+		if isFedByRoutingTable(ctx) {
 			return types.Type{}, false
 		}
 		prevFuncType, prevFuncName := resolveFunc(ctx, prevFuncNode)
@@ -269,24 +269,6 @@ func isFedByRoutingTable(ctx context.Context[parser.IFunctionContext]) bool {
 		}
 	}
 	return false
-}
-
-// hasRoutingTableBetween reports whether the flow statement enclosing the func
-// node also contains a routing table.
-func hasRoutingTableBetween(ctx context.Context[parser.IFunctionContext]) bool {
-	parent := ctx.AST.GetParent()
-	if parent == nil {
-		return false
-	}
-	grandparent := parent.GetParent()
-	if grandparent == nil {
-		return false
-	}
-	flowStmt, ok := grandparent.(parser.IFlowStatementContext)
-	if !ok {
-		return false
-	}
-	return len(flowStmt.AllRoutingTable()) > 0
 }
 
 // consultTrigger type-checks an upstream wire's value against funcType's trigger
