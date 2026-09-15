@@ -32,8 +32,8 @@ func NewStreamPair[RQ, RS freighter.Payload](
 	buffers ...int,
 ) (*StreamServer[RQ, RS], *StreamClient[RQ, RS]) {
 	inB, outB := parseBuffers(buffers)
-	s := &StreamServer[RQ, RS]{bufferSize: outB, Reporter: reporter}
-	return s, &StreamClient[RQ, RS]{bufferSize: inB, server: s, Reporter: reporter}
+	s := &StreamServer[RQ, RS]{bufferSize: outB}
+	return s, &StreamClient[RQ, RS]{bufferSize: inB, server: s}
 }
 
 // NewStreams creates a set of directly linked client and server streams that can be
@@ -73,7 +73,7 @@ type StreamServer[RQ, RS freighter.Payload] struct {
 	// address is where the server is reachable on its Network. Empty for a server
 	// built by NewStreamPair, which has no network.
 	address address.Address
-	freighter.Reporter
+	reporter
 	freighter.MiddlewareCollector
 	// bufferSize is the capacity of the response channel given to each stream.
 	bufferSize int
@@ -117,7 +117,7 @@ func (s *StreamServer[RQ, RS]) exec(
 			go srv.exec(ctx, h)
 			return freighter.Context{
 				Target:   s.address,
-				Protocol: s.Protocol,
+				Protocol: protocol,
 				Params:   make(freighter.Params),
 			}, nil
 		}),
@@ -132,7 +132,7 @@ type StreamClient[RQ, RS freighter.Payload] struct {
 	network *Network[RQ, RS]
 	// server is dialed for every target. Nil for a client built from a Network.
 	server *StreamServer[RQ, RS]
-	freighter.Reporter
+	reporter
 	freighter.MiddlewareCollector
 	// bufferSize is the capacity of the request channel given to each stream.
 	bufferSize int
@@ -147,7 +147,7 @@ func (c *StreamClient[RQ, RS]) Stream(
 		freighter.Context{
 			Context:  ctx,
 			Target:   target,
-			Protocol: c.Protocol,
+			Protocol: protocol,
 			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(

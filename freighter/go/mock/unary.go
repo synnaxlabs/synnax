@@ -26,20 +26,18 @@ var (
 // UnaryServer implements the freighter.UnaryServer interface using go channels as
 // the transport.
 type UnaryServer[RQ, RS freighter.Payload] struct {
-	// Network is the network the server is listening on. In the case where a server
-	// is directly connected to a client (i.e. via NewUnaryPair), this is nil.
+	// Network is the network the server is listening on.
 	Network *Network[RQ, RS]
-	// Address of the server on the network. This field is only defined if network is
-	// not nil.
+	// Address of the server on the network.
 	Address address.Address
 	// Handler is the handler that is called when a request is received.
 	Handler freighter.UnaryHandler[RQ, RS]
 	mu      sync.RWMutex
-	freighter.Reporter
+	reporter
 	freighter.MiddlewareCollector
 }
 
-// BindHandler implements the freighter.Unary interface.
+// BindHandler implements the freighter.UnaryServer interface.
 func (s *UnaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -61,7 +59,7 @@ func (s *UnaryServer[RQ, RS]) exec(
 				return freighter.Context{
 					Context:  ctx,
 					Target:   s.Address,
-					Protocol: s.Protocol,
+					Protocol: protocol,
 					Params:   make(freighter.Params),
 				}, err
 			},
@@ -70,52 +68,37 @@ func (s *UnaryServer[RQ, RS]) exec(
 	return res, oMD, err
 }
 
-// UnaryClient implements the freighter.UnaryCLinet interface using go channels as the
+// UnaryClient implements the freighter.UnaryClient interface using go channels as the
 // transport.
 type UnaryClient[RQ, RS freighter.Payload] struct {
-	// Network is the network the client is connected to. In the case where a client
-	// is directly connected to a server (i.e. via NewUnaryPair), this is nil.
+	// Network is the network the client is connected to.
 	Network *Network[RQ, RS]
-	server  *UnaryServer[RQ, RS]
-	freighter.Reporter
+	reporter
 	freighter.MiddlewareCollector
 }
 
-// Send implements the freighter.Unary interface.
+// Send implements the freighter.UnaryClient interface.
 func (c *UnaryClient[RQ, RS]) Send(
 	ctx context.Context,
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
 	_, err = c.Exec(
-		freighter.Context{Context: ctx, Target: target, Protocol: c.Protocol},
+		freighter.Context{Context: ctx, Target: target, Protocol: protocol},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
-			var (
-				handler func(freighter.Context, RQ) (RS, freighter.Context, error)
-				oMD     freighter.Context
-			)
-
-			// A non nil server means we're tied up in a unary pair, so we can just
-			// use the server's handler.
-			if c.server != nil {
-				handler = c.server.exec
-			} else if c.Network != nil {
-				route, ok := c.Network.resolveUnaryTarget(target)
-				if !ok {
-					return oMD, address.NewTargetNotFoundError(target)
-				}
-				route.mu.RLock()
-				hasHandler := route.Handler != nil
-				route.mu.RUnlock()
-				if !hasHandler {
-					return oMD, address.NewTargetNotFoundError(target)
-				}
-				handler = route.exec
+			var oMD freighter.Context
+			route, ok := c.Network.resolveUnaryTarget(target)
+			if !ok {
+				return oMD, address.NewTargetNotFoundError(target)
 			}
-			res, oMD, err = handler(ctx, req)
-			if c.Network != nil {
-				c.Network.appendEntry(target, req, res, err)
+			route.mu.RLock()
+			hasHandler := route.Handler != nil
+			route.mu.RUnlock()
+			if !hasHandler {
+				return oMD, address.NewTargetNotFoundError(target)
 			}
+			res, oMD, err = route.exec(ctx, req)
+			c.Network.appendEntry(target, req, res, err)
 			return oMD, err
 		}),
 	)

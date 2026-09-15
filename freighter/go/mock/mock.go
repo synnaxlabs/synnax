@@ -9,9 +9,18 @@
 
 package mock
 
-import "github.com/synnaxlabs/freighter"
+import "github.com/synnaxlabs/alamos"
 
-var reporter = freighter.Reporter{
-	Protocol:  "golang-mock",
-	Encodings: []string{"in-memory"},
+const (
+	protocol = "golang-mock"
+	encoding = "in-memory"
+)
+
+// reporter describes the mock protocol. Every transport in this package embeds it, so
+// a constructor cannot leave a transport without a report.
+type reporter struct{}
+
+// Report implements alamos.ReportProvider.
+func (reporter) Report() alamos.Report {
+	return alamos.Report{"protocol": protocol, "encodings": []string{encoding}}
 }
