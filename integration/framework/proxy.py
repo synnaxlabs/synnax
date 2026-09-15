@@ -88,25 +88,31 @@ class SeverableProxy:
             for s in socks:
                 self._sockets.discard(s)
         for s in socks:
-            try:
-                s.close()
-            except OSError:
-                pass
+            self._shutdown(s)
+
+    # A bare close sends no FIN while the pump is blocked in recv, so an idle peer never
+    # learns the link is gone. Shutdown ends it at once.
+    @staticmethod
+    def _shutdown(s: socket.socket) -> None:
+        try:
+            s.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            s.close()
+        except OSError:
+            pass
 
     def sever(self) -> None:
         """Drop every live connection and refuse new ones, as if the Core died."""
         listener, self._listener = self._listener, None
         if listener is not None:
-            listener.close()
+            self._shutdown(listener)
         with self._lock:
             self._severed = True
             socks, self._sockets = list(self._sockets), set()
         for s in socks:
-            try:
-                s.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            s.close()
+            self._shutdown(s)
 
     def restore(self) -> None:
         """Accept connections again on the same port."""
