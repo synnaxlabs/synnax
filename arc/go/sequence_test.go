@@ -7311,22 +7311,22 @@ var _ = Describe("Sequence", func() {
 	Describe("Channel reads before the first value", func() {
 		const (
 			startCmd = 100
-			temp_a   = 101
-			temp_b   = 102
+			tempA    = 101
+			tempB    = 102
 			reached  = 103
 		)
 		newH := func(ctx SpecContext, src string) (*runtimeHarness, *[]error) {
 			GinkgoHelper()
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), startCmd},
-				"temp_a":    {types.F32(), temp_a},
-				"temp_b":    {types.F32(), temp_b},
+				"temp_a":    {types.F32(), tempA},
+				"temp_b":    {types.F32(), tempB},
 				"reached":   {types.U8(), reached},
 			})
 			h := newRuntimeHarness(ctx, src, resolver,
 				channels.Digest{Key: startCmd, DataType: telem.Uint8T},
-				channels.Digest{Key: temp_a, DataType: telem.Float32T},
-				channels.Digest{Key: temp_b, DataType: telem.Float32T},
+				channels.Digest{Key: tempA, DataType: telem.Float32T},
+				channels.Digest{Key: tempB, DataType: telem.Float32T},
 				channels.Digest{Key: reached, DataType: telem.Uint8T},
 			)
 			reported := &[]error{}
@@ -7373,14 +7373,14 @@ var _ = Describe("Sequence", func() {
 					MatchError(ContainSubstring("temp_a")),
 				))
 
-				push(h, ctx, temp_a, 3.0, 130*telem.Millisecond)
+				push(h, ctx, tempA, 3.0, 130*telem.Millisecond)
 				advance(h, ctx, 180*telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(
 					out.Get(reached).Series,
 				).To(BeEmpty(), "temp_b still has no value")
 
-				push(h, ctx, temp_b, 3.0, 190*telem.Millisecond)
+				push(h, ctx, tempB, 3.0, 190*telem.Millisecond)
 				advance(h, ctx, 240*telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
@@ -7406,8 +7406,8 @@ var _ = Describe("Sequence", func() {
 				advance(h, ctx, 60*telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(reached).Series).To(BeEmpty())
-				push(h, ctx, temp_a, 3.0, 70*telem.Millisecond)
-				push(h, ctx, temp_b, 3.0, 80*telem.Millisecond)
+				push(h, ctx, tempA, 3.0, 70*telem.Millisecond)
+				push(h, ctx, tempB, 3.0, 80*telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
 			},
@@ -7425,7 +7425,7 @@ var _ = Describe("Sequence", func() {
 			}
 			start_cmd => main`)
 			defer h.Close(ctx)
-			h.Ingest(temp_a, telem.NewSeriesV[float32](12.0))
+			h.Ingest(tempA, telem.NewSeriesV[float32](12.0))
 			trigger(h, ctx, startCmd)
 			advance(h, ctx, 60*telem.Millisecond)
 			out, _ := h.Flush()
@@ -7434,14 +7434,14 @@ var _ = Describe("Sequence", func() {
 				*reported,
 			).To(BeEmpty(), "a warm temp_a short-circuits before temp_b")
 
-			push(h, ctx, temp_a, 3.0, 70*telem.Millisecond)
+			push(h, ctx, tempA, 3.0, 70*telem.Millisecond)
 			advance(h, ctx, 120*telem.Millisecond)
 			out, _ = h.Flush()
 			Expect(out.Get(reached).Series).To(BeEmpty(), "temp_b still has no value")
 			Expect(*reported).To(HaveLen(1))
 			Expect((*reported)[0]).To(MatchError(ContainSubstring("temp_b")))
 
-			push(h, ctx, temp_b, 3.0, 130*telem.Millisecond)
+			push(h, ctx, tempB, 3.0, 130*telem.Millisecond)
 			advance(h, ctx, 180*telem.Millisecond)
 			out, _ = h.Flush()
 			Expect(lastU8(out, reached)).To(Equal(uint8(1)))
