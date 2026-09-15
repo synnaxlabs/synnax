@@ -89,17 +89,14 @@ func (n *Network[RQ, RS]) StreamServer(
 	defer n.mu.Unlock()
 	addr := n.parseTarget(host)
 	b, _ := parseBuffers(buffer)
-	s := &StreamServer[RQ, RS]{Reporter: reporter, BufferSize: b, Address: addr}
+	s := &StreamServer[RQ, RS]{Reporter: reporter, bufferSize: b, address: addr}
 	n.mu.streamRoutes[addr] = s
 	return s
 }
 
 func (n *Network[RQ, RS]) StreamClient(buffers ...int) *StreamClient[RQ, RS] {
 	b, _ := parseBuffers(buffers)
-	return &StreamClient[RQ, RS]{
-		Network:    n,
-		BufferSize: b,
-	}
+	return &StreamClient[RQ, RS]{network: n, bufferSize: b}
 }
 
 func (n *Network[RQ, RS]) resolveStreamTarget(

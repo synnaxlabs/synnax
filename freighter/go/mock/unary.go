@@ -40,28 +40,28 @@ type UnaryServer[RQ, RS freighter.Payload] struct {
 }
 
 // BindHandler implements the freighter.Unary interface.
-func (u *UnaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	u.Handler = handler
+func (s *UnaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Handler = handler
 }
 
-func (u *UnaryServer[RQ, RS]) exec(
+func (s *UnaryServer[RQ, RS]) exec(
 	ctx freighter.Context,
 	req RQ,
 ) (res RS, oMD freighter.Context, err error) {
-	u.mu.RLock()
-	h := u.Handler
-	u.mu.RUnlock()
-	oMD, err = u.Exec(
+	s.mu.RLock()
+	h := s.Handler
+	s.mu.RUnlock()
+	oMD, err = s.Exec(
 		ctx,
 		freighter.FinalizerFunc(
 			func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 				res, err = h(ctx, req)
 				return freighter.Context{
 					Context:  ctx,
-					Target:   u.Address,
-					Protocol: u.Protocol,
+					Target:   s.Address,
+					Protocol: s.Protocol,
 					Params:   make(freighter.Params),
 				}, err
 			},
@@ -82,13 +82,13 @@ type UnaryClient[RQ, RS freighter.Payload] struct {
 }
 
 // Send implements the freighter.Unary interface.
-func (u *UnaryClient[RQ, RS]) Send(
+func (c *UnaryClient[RQ, RS]) Send(
 	ctx context.Context,
 	target address.Address,
 	req RQ,
 ) (res RS, err error) {
-	_, err = u.Exec(
-		freighter.Context{Context: ctx, Target: target, Protocol: u.Protocol},
+	_, err = c.Exec(
+		freighter.Context{Context: ctx, Target: target, Protocol: c.Protocol},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var (
 				handler func(freighter.Context, RQ) (RS, freighter.Context, error)
@@ -97,10 +97,10 @@ func (u *UnaryClient[RQ, RS]) Send(
 
 			// A non nil server means we're tied up in a unary pair, so we can just
 			// use the server's handler.
-			if u.server != nil {
-				handler = u.server.exec
-			} else if u.Network != nil {
-				route, ok := u.Network.resolveUnaryTarget(target)
+			if c.server != nil {
+				handler = c.server.exec
+			} else if c.Network != nil {
+				route, ok := c.Network.resolveUnaryTarget(target)
 				if !ok {
 					return oMD, address.NewTargetNotFoundError(target)
 				}
@@ -113,8 +113,8 @@ func (u *UnaryClient[RQ, RS]) Send(
 				handler = route.exec
 			}
 			res, oMD, err = handler(ctx, req)
-			if u.Network != nil {
-				u.Network.appendEntry(target, req, res, err)
+			if c.Network != nil {
+				c.Network.appendEntry(target, req, res, err)
 			}
 			return oMD, err
 		}),

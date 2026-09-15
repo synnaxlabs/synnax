@@ -11,19 +11,19 @@ package mock
 
 import (
 	"context"
-	"go/types"
 	"sync"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
-	_ freighter.StreamClient[int, types.Nil] = (*StreamClient[int, types.Nil])(nil)
-	_ freighter.StreamServer[types.Nil, int] = (*StreamServer[types.Nil, int])(nil)
-	_ freighter.ServerStream[int, types.Nil] = (*ServerStream[int, types.Nil])(nil)
-	_ freighter.ClientStream[int, types.Nil] = (*ClientStream[int, types.Nil])(nil)
+	_ freighter.StreamClient[any, any] = (*StreamClient[any, any])(nil)
+	_ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
+	_ freighter.ServerStream[any, any] = (*ServerStream[any, any])(nil)
+	_ freighter.ClientStream[any, any] = (*ClientStream[any, any])(nil)
 )
 
 // NewStreamPair creates a new stream client and server pair that are directly linked to
@@ -32,16 +32,15 @@ func NewStreamPair[RQ, RS freighter.Payload](
 	buffers ...int,
 ) (*StreamServer[RQ, RS], *StreamClient[RQ, RS]) {
 	inB, outB := parseBuffers(buffers)
-	ss := &StreamServer[RQ, RS]{BufferSize: outB, Reporter: reporter}
-	sc := &StreamClient[RQ, RS]{BufferSize: inB, Server: ss, Reporter: reporter}
-	return ss, sc
+	s := &StreamServer[RQ, RS]{bufferSize: outB, Reporter: reporter}
+	return s, &StreamClient[RQ, RS]{bufferSize: inB, server: s, Reporter: reporter}
 }
 
 // NewStreams creates a set of directly linked client and server streams that can be
 // used to exchange messages between each other. Buffers can be specified to set the
 // buffer size of the channels used to exchange messages. [1] will set the buffer size
-// to 1 for both the request and response streams, [1, 2] will set a buffer size of
-// 1 for the request stream and 2 for the response stream.
+// to 1 for both the request and response streams, [1, 2] will set a buffer size of 1
+// for the request stream and 2 for the response stream.
 func NewStreams[RQ, RS freighter.Payload](
 	ctx context.Context,
 	buffers ...int,
@@ -61,46 +60,54 @@ func NewStreams[RQ, RS freighter.Payload](
 			requests:     req,
 			responses:    res,
 			serverClosed: serverClosed,
-			clientClosed: clientClosed,
 		}
 }
 
-// StreamServer implements the freighter.StreamSever interface using go channels as
-// the transport.
+// StreamServer implements the freighter.StreamServer interface using go channels as the
+// transport.
 type StreamServer[RQ, RS freighter.Payload] struct {
-	Handler func(ctx context.Context, srv freighter.ServerStream[RQ, RS]) error
-	// mu guards Handler.
-	mu      sync.RWMutex
-	Address address.Address
+	// mu guards handler.
+	mu sync.RWMutex
+	// handler receives every stream opened against this server. Nil until BindHandler.
+	handler func(context.Context, freighter.ServerStream[RQ, RS]) error
+	// address is where the server is reachable on its Network. Empty for a server
+	// built by NewStreamPair, which has no network.
+	address address.Address
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	BufferSize int
+	// bufferSize is the capacity of the response channel given to each stream.
+	bufferSize int
 }
 
-// BindHandler implements the freighter.Stream interface.
+// BindHandler implements the freighter.StreamServer interface.
 func (s *StreamServer[RQ, RS]) BindHandler(handler func(
-	ctx context.Context,
-	srv freighter.ServerStream[RQ, RS]) error,
+	context.Context,
+	freighter.ServerStream[RQ, RS]) error,
 ) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Handler = handler
+	s.handler = handler
 }
 
-func (s *StreamServer[RQ, RS]) handler() func(
-	ctx context.Context,
-	srv freighter.ServerStream[RQ, RS],
+// Address returns where the server is reachable on its Network. It is empty for a
+// server built by NewStreamPair. Callers need it when they let Network.StreamServer
+// assign an address instead of naming one.
+func (s *StreamServer[RQ, RS]) Address() address.Address { return s.address }
+
+func (s *StreamServer[RQ, RS]) boundHandler() func(
+	context.Context,
+	freighter.ServerStream[RQ, RS],
 ) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.Handler
+	return s.handler
 }
 
 func (s *StreamServer[RQ, RS]) exec(
 	ctx freighter.Context,
 	srv *ServerStream[RQ, RS],
 ) (freighter.Context, error) {
-	h := s.handler()
+	h := s.boundHandler()
 	if h == nil {
 		return ctx, errors.New("no handler bound to stream server")
 	}
@@ -109,7 +116,7 @@ func (s *StreamServer[RQ, RS]) exec(
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			go srv.exec(ctx, h)
 			return freighter.Context{
-				Target:   s.Address,
+				Target:   s.address,
 				Protocol: s.Protocol,
 				Params:   make(freighter.Params),
 			}, nil
@@ -117,26 +124,30 @@ func (s *StreamServer[RQ, RS]) exec(
 	)
 }
 
-// StreamClient is a mock implementation of the freighter.Stream interface.
+// StreamClient implements the freighter.StreamClient interface using go channels as the
+// transport.
 type StreamClient[RQ, RS freighter.Payload] struct {
-	Network *Network[RQ, RS]
-	Server  *StreamServer[RQ, RS]
-	Address address.Address
+	// network resolves a dialed target to a server. Nil for a client built by
+	// NewStreamPair, which dials server directly.
+	network *Network[RQ, RS]
+	// server is dialed for every target. Nil for a client built from a Network.
+	server *StreamServer[RQ, RS]
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	BufferSize int
+	// bufferSize is the capacity of the request channel given to each stream.
+	bufferSize int
 }
 
-// Stream implements the freighter.Stream interface.
-func (s *StreamClient[RQ, RS]) Stream(
+// Stream implements the freighter.StreamClient interface.
+func (c *StreamClient[RQ, RS]) Stream(
 	ctx context.Context,
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], err error) {
-	_, err = s.Exec(
+	_, err = c.Exec(
 		freighter.Context{
 			Context:  ctx,
 			Target:   target,
-			Protocol: s.Protocol,
+			Protocol: c.Protocol,
 			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(
@@ -148,21 +159,21 @@ func (s *StreamClient[RQ, RS]) Stream(
 					targetBufferSize int
 					server           *StreamServer[RQ, RS]
 				)
-				if s.Server != nil {
-					server = s.Server
-					targetBufferSize = server.BufferSize
-				} else if s.Network != nil {
-					srv, ok := s.Network.resolveStreamTarget(target)
-					if !ok || srv.handler() == nil {
+				if c.server != nil {
+					server = c.server
+					targetBufferSize = server.bufferSize
+				} else if c.network != nil {
+					srv, ok := c.network.resolveStreamTarget(target)
+					if !ok || srv.boundHandler() == nil {
 						return oCtx, address.NewTargetNotFoundError(target)
 					}
 					server = srv
-					targetBufferSize = srv.BufferSize
+					targetBufferSize = srv.bufferSize
 				}
 				var serverStream *ServerStream[RQ, RS]
 				stream, serverStream = NewStreams[RQ, RS](
 					ctx,
-					s.BufferSize,
+					c.bufferSize,
 					targetBufferSize,
 				)
 				return server.exec(ctx, serverStream)
@@ -187,154 +198,181 @@ func parseBuffers(buffers []int) (int, int) {
 	return buffers[0], buffers[1]
 }
 
+// ServerStream implements the freighter.ServerStream interface using go channels as the
+// transport. Use NewStreams to construct one.
 type ServerStream[RQ, RS freighter.Payload] struct {
 	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a
 	// bad practice, but in this case we're essentially using it as a data container,
 	// and we have a very good grasp on how it's used.
-	ctx          context.Context
-	requests     <-chan message[RQ]
-	responses    chan<- message[RS]
+	ctx context.Context
+	// requests carries payloads from the client, and the client's EOF on CloseSend.
+	requests <-chan message[RQ]
+	// responses carries payloads to the client, and the handler's exit error.
+	responses chan<- message[RS]
+	// serverClosed is closed once the handler returns.
 	serverClosed chan struct{}
-	clientClosed <-chan struct{}
-	receiveErr   error
-	sendErr      error
+	// receiveErr is the terminal error every later Receive repeats.
+	receiveErr error
+	// sendErr is the terminal error every later Send repeats.
+	sendErr error
 }
 
-// Send implements the freighter.StreamSender interface.
-func (s *ServerStream[RQ, RS]) Send(res RS) error {
-	if s.sendErr != nil {
-		return s.sendErr
+// Send implements the freighter.ServerStream interface.
+func (ss *ServerStream[RQ, RS]) Send(res RS) error {
+	if ss.sendErr != nil {
+		return ss.sendErr
 	}
-
-	if s.ctx.Err() != nil {
-		return s.ctx.Err()
+	// A free buffer slot would otherwise win the race against an earlier cancel.
+	if ss.ctx.Err() != nil {
+		return ss.ctx.Err()
 	}
 	select {
-	case <-s.ctx.Done():
-		return s.ctx.Err()
-	case <-s.serverClosed:
+	case <-ss.ctx.Done():
+		return ss.ctx.Err()
+	case <-ss.serverClosed:
 		return freighter.ErrStreamClosed
-	case s.responses <- message[RS]{payload: res}:
+	case ss.responses <- message[RS]{payload: res}:
+		return nil
+	}
+}
+
+// Receive implements the freighter.ServerStream interface.
+func (ss *ServerStream[RQ, RS]) Receive() (RQ, error) {
+	if ss.receiveErr != nil {
+		return types.Zero[RQ](), ss.receiveErr
+	}
+	// A buffered request would otherwise win the race against an earlier cancel.
+	if ss.ctx.Err() != nil {
+		return types.Zero[RQ](), ss.ctx.Err()
+	}
+	select {
+	case <-ss.ctx.Done():
+		return types.Zero[RQ](), ss.ctx.Err()
+	case <-ss.serverClosed:
+		return types.Zero[RQ](), freighter.ErrStreamClosed
+	case msg := <-ss.requests:
+		// Any error message means the Stream should die.
+		if msg.err.Type != errors.TypeEmpty {
+			ss.receiveErr = errors.Decode(ss.ctx, msg.err)
+			return types.Zero[RQ](), ss.receiveErr
+		}
+		return msg.payload, nil
+	}
+}
+
+func (ss *ServerStream[RQ, RS]) exec(
+	ctx context.Context,
+	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
+) {
+	err := handler(ctx, ss)
+	errPayload := errors.Encode(ctx, err, true)
+	if errPayload.Type == errors.TypeNil {
+		errPayload = errors.Encode(ctx, freighter.EOF, true)
+	}
+	close(ss.serverClosed)
+	// A client that abandons the stream stops receiving, so the final error can have
+	// nowhere to go. Drop it rather than parking this goroutine for good.
+	select {
+	case ss.responses <- message[RS]{err: errPayload}:
+	case <-ss.ctx.Done():
+	}
+}
+
+// ClientStream implements the freighter.ClientStream interface using go channels as the
+// transport. Use NewStreams to construct one.
+type ClientStream[RQ, RS freighter.Payload] struct {
+	// ctx is the context the ClientStream was started with. Yes, Yes! I know this is a
+	// bad practice, but in this case we're essentially using it as a data container,
+	// and we have a very good grasp on how it's used.
+	ctx context.Context
+	// requests carries payloads to the server, and this stream's EOF on CloseSend.
+	requests chan<- message[RQ]
+	// responses carries payloads from the server, and the handler's exit error.
+	responses <-chan message[RS]
+	// serverClosed is closed once the server's handler returns.
+	serverClosed chan struct{}
+	// clientClosed is closed by CloseSend.
+	clientClosed chan struct{}
+	// sendErr is the terminal error every later Send repeats.
+	sendErr error
+	// receiveErr is the terminal error every later Receive repeats.
+	receiveErr error
+}
+
+// Send implements the freighter.ClientStream interface.
+func (cs *ClientStream[RQ, RS]) Send(req RQ) error {
+	if cs.sendErr != nil {
+		return cs.sendErr
+	}
+	if cs.receiveErr != nil {
+		return freighter.EOF
+	}
+	// A free buffer slot would otherwise win the race against an earlier cancel.
+	if cs.ctx.Err() != nil {
+		return cs.ctx.Err()
+	}
+	select {
+	case <-cs.ctx.Done():
+		return cs.ctx.Err()
+	case <-cs.clientClosed:
+		return freighter.ErrStreamClosed
+	case <-cs.serverClosed:
+		// If the server was serverClosed, we set the sendErr to EOF and let
+		// the client discover the server error by calling Receive.
+		cs.sendErr = freighter.EOF
+		return cs.sendErr
+	case cs.requests <- message[RQ]{payload: req}:
 		return nil
 	}
 }
 
 // Receive implements the freighter.ClientStream interface.
-func (s *ServerStream[RQ, RS]) Receive() (req RQ, err error) {
-	if s.receiveErr != nil {
-		return req, s.receiveErr
-	}
-	if s.ctx.Err() != nil {
-		return req, s.ctx.Err()
-	}
-	select {
-	case <-s.ctx.Done():
-		return req, s.ctx.Err()
-	case <-s.serverClosed:
-		return req, freighter.ErrStreamClosed
-	case msg := <-s.requests:
-		// Any error message means the Stream should die.
-		if msg.error.Type != errors.TypeEmpty {
-			s.receiveErr = errors.Decode(s.ctx, msg.error)
-			return req, s.receiveErr
-		}
-		return msg.payload, nil
-	}
-}
-
-func (s *ServerStream[RQ, RS]) exec(
-	ctx context.Context,
-	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error,
-) {
-	err := handler(ctx, s)
-	errPayload := errors.Encode(ctx, err, true)
-	if errPayload.Type == errors.TypeNil {
-		errPayload = errors.Encode(ctx, freighter.EOF, true)
-	}
-	close(s.serverClosed)
-	// A client that abandons the stream stops receiving, so the final error can have
-	// nowhere to go. Drop it rather than parking this goroutine for good.
-	select {
-	case s.responses <- message[RS]{error: errPayload}:
-	case <-s.ctx.Done():
-	}
-}
-
-type ClientStream[RQ, RS freighter.Payload] struct {
-	// ctx is the context the ServerStream was started with. Yes, Yes! I know this is a
-	// bad practice, but in this case we're essentially using it as a data container,
-	// and we have a very good grasp on how it's used.
-	ctx          context.Context
-	requests     chan<- message[RQ]
-	responses    <-chan message[RS]
-	serverClosed chan struct{}
-	clientClosed chan struct{}
-	sendErr      error
-	receiveErr   error
-}
-
-func (c *ClientStream[RQ, RS]) Send(req RQ) error {
-	if c.sendErr != nil {
-		return c.sendErr
-	}
-	if c.receiveErr != nil {
-		return freighter.EOF
-	}
-	if c.ctx.Err() != nil {
-		return c.ctx.Err()
-	}
-	select {
-	case <-c.ctx.Done():
-		return c.ctx.Err()
-	case <-c.clientClosed:
-		return freighter.ErrStreamClosed
-	case <-c.serverClosed:
-		// If the server was serverClosed, we set the sendErr to EOF and let
-		// the client discover the server error by calling Receive.
-		c.sendErr = freighter.EOF
-		return c.sendErr
-	case c.requests <- message[RQ]{payload: req}:
-		return nil
-	}
-}
-
-func (c *ClientStream[RQ, RS]) Receive() (res RS, err error) {
-	if c.receiveErr != nil {
-		return res, c.receiveErr
+func (cs *ClientStream[RQ, RS]) Receive() (RS, error) {
+	if cs.receiveErr != nil {
+		return types.Zero[RS](), cs.receiveErr
 	}
 	// A buffered response would otherwise win the race against an earlier cancel.
-	if c.ctx.Err() != nil {
-		return res, c.ctx.Err()
+	if cs.ctx.Err() != nil {
+		return types.Zero[RS](), cs.ctx.Err()
 	}
 	select {
-	case <-c.ctx.Done():
-		return res, c.ctx.Err()
-	case msg := <-c.responses:
+	case <-cs.ctx.Done():
+		return types.Zero[RS](), cs.ctx.Err()
+	case msg := <-cs.responses:
 		// If our message contains an error, that means the server serverClosed the
 		// stream (i.e. serverClosed chan is serverClosed), so we don't need explicitly
 		// listen for its closure.
-		if msg.error.Type != errors.TypeEmpty {
-			if c.receiveErr == nil {
-				c.receiveErr = errors.Decode(c.ctx, msg.error)
+		if msg.err.Type != errors.TypeEmpty {
+			if cs.receiveErr == nil {
+				cs.receiveErr = errors.Decode(cs.ctx, msg.err)
 			}
-			return res, c.receiveErr
+			return types.Zero[RS](), cs.receiveErr
 		}
 		return msg.payload, nil
 	}
 }
 
-// CloseSend implements the freighter.StreamCloser interface.
-func (c *ClientStream[RQ, RS]) CloseSend() error {
-	if c.sendErr != nil {
+// CloseSend implements the freighter.ClientStream interface.
+func (cs *ClientStream[RQ, RS]) CloseSend() error {
+	if cs.sendErr != nil {
 		return nil
 	}
-	c.sendErr = freighter.ErrStreamClosed
-	c.requests <- message[RQ]{error: errors.Encode(c.ctx, freighter.EOF, true)}
-	close(c.clientClosed)
+	cs.sendErr = freighter.ErrStreamClosed
+	defer close(cs.clientClosed)
+	// A returned server or a cancelled context leaves the EOF nowhere to go. Drop it
+	// rather than parking the caller for good on a full request buffer.
+	select {
+	case cs.requests <- message[RQ]{err: errors.Encode(cs.ctx, freighter.EOF, true)}:
+	case <-cs.serverClosed:
+	case <-cs.ctx.Done():
+	}
 	return nil
 }
 
+// message is one unit of transport traffic: either a payload or a terminal error.
 type message[P freighter.Payload] struct {
+	// payload is the user message, set when err is empty.
 	payload P
-	error   errors.Payload
+	// err ends the stream in this direction when it is not empty.
+	err errors.Payload
 }
