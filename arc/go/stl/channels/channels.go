@@ -89,32 +89,32 @@ type Host struct {
 	strings *strings.ProgramState
 }
 
-// NewHost registers the channels module's WASM host bindings with rt. cs
+// NewHost registers the channels module's WASM host bindings with rt. ps
 // is the channels ProgramState; stringState is the strings ProgramState
 // (used by the read_str / write_str bindings).
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
-	cs *ProgramState,
+	ps *ProgramState,
 	stringState *strings.ProgramState,
 ) (*Host, error) {
-	h := &Host{state: cs, strings: stringState}
+	h := &Host{state: ps, strings: stringState}
 	if rt == nil {
 		return h, nil
 	}
 	builder := rt.NewHostModuleBuilder(Name)
-	builder = bindI32[uint8](builder, cs, "u8")
-	builder = bindI32[uint16](builder, cs, "u16")
-	builder = bindI32[uint32](builder, cs, "u32")
-	builder = bindI32[int8](builder, cs, "i8")
-	builder = bindI32[int16](builder, cs, "i16")
-	builder = bindI32[int32](builder, cs, "i32")
-	builder = bindI64[uint64](builder, cs, "u64")
-	builder = bindI64[int64](builder, cs, "i64")
-	builder = bindBool(builder, cs)
-	builder = bindF32(builder, cs)
-	builder = bindF64(builder, cs)
-	builder = bindStr(builder, cs, stringState)
+	builder = bindI32[uint8](builder, ps, "u8")
+	builder = bindI32[uint16](builder, ps, "u16")
+	builder = bindI32[uint32](builder, ps, "u32")
+	builder = bindI32[int8](builder, ps, "i8")
+	builder = bindI32[int16](builder, ps, "i16")
+	builder = bindI32[int32](builder, ps, "i32")
+	builder = bindI64[uint64](builder, ps, "u64")
+	builder = bindI64[int64](builder, ps, "i64")
+	builder = bindBool(builder, ps)
+	builder = bindF32(builder, ps)
+	builder = bindF64(builder, ps)
+	builder = bindStr(builder, ps, stringState)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -315,11 +315,11 @@ func (s *sink) Next(ctx node.Context) {
 }
 
 // hostRead returns the latest series on key for a host read, recording a miss on
-// cs when the channel has no buffered value.
-func hostRead(cs *ProgramState, key uint32) (telem.Series, bool) {
-	series, ok := cs.ReadValue(key)
+// ps when the channel has no buffered value.
+func hostRead(ps *ProgramState, key uint32) (telem.Series, bool) {
+	series, ok := ps.ReadValue(key)
 	if !ok || series.Len() == 0 {
-		cs.noteMissingRead(key)
+		ps.noteMissingRead(key)
 		return series, false
 	}
 	return series, true
@@ -331,12 +331,12 @@ type i32Compatible interface {
 
 func bindI32[T i32Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := hostRead(cs, chID)
+			series, ok := hostRead(ps, chID)
 			if !ok {
 				return 0
 			}
@@ -344,8 +344,8 @@ func bindI32[T i32Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
+			appendFixedWriteSample(ps, chID, T(val))
+			ps.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -356,12 +356,12 @@ type i64Compatible interface {
 
 func bindI64[T i64Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint64 {
-			series, ok := hostRead(cs, chID)
+			series, ok := hostRead(ps, chID)
 			if !ok {
 				return 0
 			}
@@ -369,19 +369,19 @@ func bindI64[T i64Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
-			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
+			appendFixedWriteSample(ps, chID, T(val))
+			ps.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
 	return builder
 }
 
 func bindBool(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := hostRead(cs, chID)
+			series, ok := hostRead(ps, chID)
 			if !ok {
 				return 0
 			}
@@ -392,19 +392,19 @@ func bindBool(
 		}).Export("read_bool")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(cs, chID, val != 0)
-			cs.writeIndexedTimestamp(chID)
+			appendFixedWriteSample(ps, chID, val != 0)
+			ps.writeIndexedTimestamp(chID)
 		}).Export("write_bool")
 	return builder
 }
 
 func bindF32(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float32 {
-			series, ok := hostRead(cs, chID)
+			series, ok := hostRead(ps, chID)
 			if !ok {
 				return 0
 			}
@@ -412,18 +412,18 @@ func bindF32(
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
-			cs.WriteChannelF32(chID, val)
+			ps.WriteChannelF32(chID, val)
 		}).Export("write_f32")
 	return builder
 }
 
 func bindF64(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float64 {
-			series, ok := hostRead(cs, chID)
+			series, ok := hostRead(ps, chID)
 			if !ok {
 				return 0
 			}
@@ -431,19 +431,19 @@ func bindF64(
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
-			cs.WriteChannelF64(chID, val)
+			ps.WriteChannelF64(chID, val)
 		}).Export("write_f64")
 	return builder
 }
 
 func bindStr(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	ss *strings.ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := hostRead(cs, chID)
+			series, ok := hostRead(ps, chID)
 			if !ok {
 				return 0
 			}
@@ -459,7 +459,7 @@ func bindStr(
 			if !ok {
 				return
 			}
-			cs.writeValue(chID, telem.NewSeriesV(str))
+			ps.writeValue(chID, telem.NewSeriesV(str))
 		}).Export("write_str")
 	return builder
 }
