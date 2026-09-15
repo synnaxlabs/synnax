@@ -9,7 +9,7 @@
 
 import { type KeyboardEvent } from "react";
 
-const ACTIVATION_KEYS = new Set([" ", "Enter"]);
+const ACTIVATION_KEYS = [" ", "Enter"];
 
 /**
  * Cancels the browser's synthetic click for Space and Enter so a focused schematic
@@ -17,5 +17,5 @@ const ACTIVATION_KEYS = new Set([" ", "Enter"]);
  * clicks on keydown and Space on keyup.
  */
 export const blockActivation = (e: KeyboardEvent<HTMLElement>): void => {
-  if (ACTIVATION_KEYS.has(e.key)) e.preventDefault();
+  if (ACTIVATION_KEYS.includes(e.key)) e.preventDefault();
 };
