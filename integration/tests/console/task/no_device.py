@@ -76,8 +76,6 @@ class NoDevice(HardwareCase, ConsoleCase):
         """Configure without defining channels"""
         ni_ai.deploy(expect=None)
 
-        # The device created a moment ago pops its own "connected" toast at an
-        # unpredictable time, so match the error by text instead of by position.
         msg_expected = "Failed to start task"
         assert self.console.notifications.wait_for(msg_expected), (
             f"No <{msg_expected}> notification appeared"
