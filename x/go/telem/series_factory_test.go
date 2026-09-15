@@ -259,7 +259,7 @@ var _ = Describe("SeriesFactory", func() {
 		It("Should return an error for invalid JSON", func() {
 			data := []chan int{make(chan int)}
 			Expect(telem.NewJSONSeries(data)).Error().
-				To(MatchError(ContainSubstring("cannot marshal from Go chan int")))
+				To(MatchError(ContainSubstring("marshal from Go chan int")))
 		})
 	})
 
@@ -287,7 +287,7 @@ var _ = Describe("SeriesFactory", func() {
 
 		It("Should return an error for invalid JSON", func() {
 			Expect(telem.NewJSONSeriesV(make(chan int))).Error().
-				To(MatchError(ContainSubstring("cannot marshal from Go chan int")))
+				To(MatchError(ContainSubstring("marshal from Go chan int")))
 		})
 	})
 
@@ -313,7 +313,7 @@ var _ = Describe("SeriesFactory", func() {
 			s := MustSucceed(telem.NewJSONSeriesV([]int{1, 2, 3}))
 			Expect(s.DecodeJSON[string]()).Error().
 				To(MatchError(ContainSubstring(
-					"cannot unmarshal JSON array into Go string",
+					"unmarshal JSON array into Go string",
 				)))
 		})
 	})
