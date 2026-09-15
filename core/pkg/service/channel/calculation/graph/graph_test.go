@@ -1175,6 +1175,51 @@ var _ = Describe("Graph", func() {
 		})
 
 		It(
+			"Should keep a status it did not set when re-inspecting a valid channel",
+			func(ctx SpecContext) {
+				openGraph(ctx)
+				createDep(ctx, "st_keep_dep")
+				mid := channel.Channel{
+					Name: "st_keep_mid", DataType: telem.Int64T, Virtual: true,
+					Expression: "return st_keep_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &mid)).To(Succeed())
+				calc := channel.Channel{
+					Name: "st_keep", DataType: telem.Int64T, Virtual: true,
+					Expression: "return st_keep_mid * 2",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				eventuallyExpectNoStatus(ctx, calc.Key())
+
+				By("Writing a runtime status the way the calculation framer does")
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &calculation.Status{
+					Key:     calculation.StatusKey(calc.Key()),
+					Name:    "st_keep",
+					Variant: status.VariantInfo,
+					Message: "calculating",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				expectRuntimeStatusHeld := func() {
+					GinkgoHelper()
+					Consistently(func() bool {
+						st, ok := fetchStatus(ctx, calc.Key())
+						return ok && st.Variant == status.VariantInfo
+					}, 300*time.Millisecond, 10*time.Millisecond).Should(BeTrue(),
+						"expected the runtime status to survive re-inspection")
+				}
+
+				By("Renaming the channel so the graph re-inspects a still-valid node")
+				Expect(channelWriter.Rename(ctx, calc.Key(), "st_keep_renamed", false)).
+					To(Succeed())
+				expectRuntimeStatusHeld()
+
+				By("Retyping the upstream node so the graph reconciles a dependent")
+				makeStale(ctx, mid, telem.Float64T)
+				expectRuntimeStatusHeld()
+			},
+		)
+
+		It(
 			"Should not create any status entry for valid channels",
 			func(ctx SpecContext) {
 				base := channel.Channel{

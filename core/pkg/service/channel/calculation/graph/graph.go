@@ -291,7 +291,12 @@ func (g *Graph) handleChanges(
 						zap.String("name", ch.Name),
 						zap.Stringers("deps", nd.deps),
 					)
-					g.clearNodeStatus(ctx, tx, ch.Key())
+					// Only an invalid -> valid transition clears. The calculation
+					// framer writes runtime statuses to this same key, so an
+					// unconditional clear deletes them.
+					if prev, ok := g.mu.nodes[ch.Key()]; ok && prev.invalid {
+						g.clearNodeStatus(ctx, tx, ch.Key())
+					}
 				}
 				if !nd.invalid && nd.DataType != ch.DataType {
 					g.L.Debug("calculated channel DataType changed",
@@ -437,7 +442,9 @@ func (g *Graph) reconcileQueued(
 				)
 				continue
 			}
-			g.clearNodeStatus(ctx, tx, key)
+			if oldInvalid {
+				g.clearNodeStatus(ctx, tx, key)
+			}
 			if oldInvalid || oldType != newNode.DataType {
 				if oldType != newNode.DataType {
 					g.L.Debug(
