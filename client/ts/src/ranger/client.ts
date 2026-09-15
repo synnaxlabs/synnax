@@ -675,6 +675,7 @@ export class Client extends query.Retriever<
     }
   }
 
+  // One batch per table, so each table flushes once.
   private hydrateMany(ranges: Range[]): void {
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>

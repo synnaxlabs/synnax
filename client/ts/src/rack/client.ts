@@ -273,6 +273,8 @@ export class Client extends query.Retriever<
     return this.sugar({ ...cached, status: st });
   }
 
+  // Only the "rack:<key>" row is the rack's status. Task statuses name their rack in
+  // their details, and matching on that would let them take the rack's status over.
   private statusOf(key: Key): Status | undefined {
     const parsed = statusZ.safeParse(this.cfg.statusStore.get(statusKey(key)));
     return parsed.success ? parsed.data : undefined;
