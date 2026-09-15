@@ -18,8 +18,8 @@ import DriverMoveCommand from "@/components/driver/MoveCommand.astro";
 import DriverVersionOutput from "@/components/driver/VersionOutput.astro";
 export const components = mdxOverrides;
 
-The Synnax Driver can also run as a separate binary on its own machine. This lets one
-Synnax deployment integrate data acquisition hardware from many host machines.
+The Synnax Driver can run as a separate binary on its own machine. This lets one Synnax
+deployment integrate data acquisition hardware from many host machines.
 
 <Divider.Divider x />
 
@@ -32,7 +32,7 @@ Choose your operating system below to see the installation instructions:
 
 ### Prerequisites
 
-#### Supported Hardware & Software
+#### Supported Hardware and Software
 
 The Synnax Driver supports the cRIO-904x and cRIO-905x families of controllers running
 NI Linux Real-Time 2024 Q1 and later.
@@ -54,7 +54,7 @@ guide.
 The Driver is installed over an SSH connection to the cRIO. You can disable SSH after
 installation, but keeping it enabled makes updates and management easier.
 
-#### Network Available Synnax Core
+#### Network Access to a Synnax Core
 
 The Driver must be able to reach a Synnax Core over the network. Make sure you have a
 [Core running](/reference/core/quick-start) and its connection parameters on hand.
@@ -123,11 +123,9 @@ Download the latest Synnax Driver executable for Windows:
 
 <DriverDownloadURL os="windows" />
 
-After downloading, move the `synnax-driver.exe` file to a location on your system, such
-as `C:\Program Files\Synnax\`.
+Move `synnax-driver.exe` to a permanent location, such as `C:\Program Files\Synnax\`.
 
-To make the Driver accessible from any command prompt, add the directory to your
-system's `PATH`:
+To run the Driver from any terminal, add that directory to your system's `PATH`:
 
 1. Open the Start menu and search for "Environment Variables"
 2. Click "Edit the system environment variables"
@@ -226,7 +224,7 @@ certificate was issued for, not an IP address.
 A Core started with `--auto-cert` serves a self-signed certificate. Install its CA
 certificate on the Driver's machine by following the
 [installing certificates](/reference/core/installing-certificates) guide. On a machine
-where you can't change the trust store, point gRPC at the CA file instead:
+where you can't change the trust store, point the Driver at the CA file instead:
 
 ```bash
 export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
@@ -263,11 +261,11 @@ command line flags, environment variables, and a configuration file.
 
 Earlier sources override later ones:
 
-1. Command line arguments (Highest)
+1. Command line arguments
 2. Environment variables
 3. Configuration file
 4. Persisted state, written by `synnax-driver login` and by the Driver itself
-5. Internal defaults (Lowest)
+5. Internal defaults
 
 The persisted state file holds the connection parameters saved by `login` and the
 identity of the rack the Driver last attached to. It lives at
@@ -509,8 +507,7 @@ synnax-driver stop
 
 ### Restart
 
-The `restart` command restarts the Driver. This is equivalent to stopping and then
-starting the Driver.
+The `restart` command stops and then starts the Driver service.
 
 #### Example Usage
 
