@@ -89,9 +89,9 @@ type Host struct {
 	strings *strings.ProgramState
 }
 
-// NewHost registers the channels module's WASM host bindings with rt. ps
-// is the channels ProgramState; stringState is the strings ProgramState
-// (used by the read_str / write_str bindings).
+// NewHost registers the channels module's WASM host bindings with rt and returns
+// the node factory for `on` and `write`. String reads and writes go through
+// stringState.
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
@@ -314,8 +314,8 @@ func (s *sink) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// hostRead returns the latest series on key for a host read, recording a miss on
-// ps when the channel has no buffered value.
+// hostRead returns the latest series on key for a host read. A channel with no
+// buffered value records a miss and returns false.
 func hostRead(ps *ProgramState, key uint32) (telem.Series, bool) {
 	series, ok := ps.ReadValue(key)
 	if !ok || series.Len() == 0 {
