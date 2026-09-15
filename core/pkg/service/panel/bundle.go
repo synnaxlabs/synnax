@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -100,12 +99,12 @@ func DecodeBundle(
 	if err != nil {
 		return Panel{}, err
 	}
-	data, err := json.Marshal(resolved, xjson.V1Options)
+	data, err := json.Marshal(resolved)
 	if err != nil {
 		return Panel{}, err
 	}
 	var root Node
-	if err := json.Unmarshal(data, &root, xjson.V1Options); err != nil {
+	if err := json.Unmarshal(data, &root); err != nil {
 		return Panel{}, errors.Wrap(validate.ErrValidation, err.Error())
 	}
 	return Panel{Name: env.Name, Root: root}, nil

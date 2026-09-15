@@ -30,7 +30,7 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.String(d.Name)
 	w.Bool(d.Configured)
 	{
-		b, err := json.Marshal(d.Properties, xjson.V1Options)
+		b, err := json.Marshal(d.Properties, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &d.Properties, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &d.Properties); err != nil {
 			return err
 		}
 	}

@@ -16,12 +16,12 @@ import (
 	"os"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -56,7 +56,7 @@ func (g GeneratedGate) Run(
 	p *pipeline.Result,
 	env Env,
 ) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 
 	all := make([]plugin.File, 0)
@@ -94,7 +94,7 @@ func (g GeneratedGate) Run(
 			Severity: SeverityError,
 			Message:  "generated gate aborted: " + err.Error(),
 		})
-		r.Elapsed = time.Since(start)
+		r.Elapsed = telem.Since(start)
 		return r
 	}
 	for _, f := range findings {
@@ -106,7 +106,7 @@ func (g GeneratedGate) Run(
 	if len(r.Findings) > 0 {
 		r.Status = StatusFail
 	}
-	r.Elapsed = time.Since(start)
+	r.Elapsed = telem.Since(start)
 	return r
 }
 

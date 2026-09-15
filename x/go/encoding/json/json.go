@@ -12,7 +12,6 @@ package json
 import (
 	"bytes"
 	"context"
-	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"io"
@@ -30,13 +29,13 @@ var Codec = NewCodec()
 // codecOptions is the option set Codec was built with.
 var codecOptions = Codec.(*codec).opts
 
-// V1Options is the option set that reproduces the encoding behavior of the v1
-// encoding/json package: sorted map members, HTML escaping, nil slices and maps as
-// null, case-insensitive name matching, and nanosecond durations.
-//
-// Pass it to a v2 call whose bytes are hashed, persisted, or read by a client that has
-// only ever seen the v1 shape. Dropping it there is a format change, not a cleanup.
-var V1Options = jsonv1.DefaultOptionsV1()
+// PreserveNil encodes a nil slice or map as null rather than as an empty array or
+// object, so decoding returns nil and an encode-decode round trip is an identity. Pass
+// it where the bytes are decoded back into the Go value they came from.
+var PreserveNil = json.JoinOptions(
+	json.FormatNilSliceAsNull(true),
+	json.FormatNilMapAsNull(true),
+)
 
 // Marshal encodes value with the options Codec uses, for a caller holding no Codec and
 // no context. Output matches what Codec writes for the same value.

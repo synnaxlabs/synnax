@@ -29,7 +29,7 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Description)
 	w.Int64(int64(s.Time))
 	{
-		b, err := json.Marshal(s.Details, xjson.V1Options)
+		b, err := json.Marshal(s.Details, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Details, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &s.Details); err != nil {
 			return err
 		}
 	}

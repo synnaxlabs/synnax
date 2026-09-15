@@ -12,13 +12,13 @@ package check
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/pipeline"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // PersistenceGate warns when a persisted type at a version-laid-out path is absent
@@ -42,10 +42,10 @@ func (g PersistenceGate) Run(
 	p *pipeline.Result,
 	_ Env,
 ) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	if p.Resolutions == nil {
-		r.Elapsed = time.Since(start)
+		r.Elapsed = telem.Since(start)
 		return r
 	}
 	severity := SeverityWarning
@@ -56,7 +56,7 @@ func (g PersistenceGate) Run(
 	entries, members, err := gotypes.Survey(ctx, p.Resolutions, p.Versions)
 	if err != nil {
 		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
-		r.Elapsed = time.Since(start)
+		r.Elapsed = telem.Since(start)
 		return r
 	}
 	versionedPaths := make(set.Set[string], len(entries))
@@ -84,7 +84,7 @@ func (g PersistenceGate) Run(
 			r.Status = StatusFail
 		}
 	}
-	r.Elapsed = time.Since(start)
+	r.Elapsed = telem.Since(start)
 	return r
 }
 

@@ -13,10 +13,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // CacheGate validates that the sync cache is internally consistent with
@@ -48,11 +48,11 @@ func NewCacheGate(cache *format.Cache) *CacheGate {
 func (CacheGate) Name() string { return "cache" }
 
 func (g CacheGate) Run(_ context.Context, p *pipeline.Result, env Env) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	if g.cache == nil {
 		r.Status = StatusSkipped
-		r.Elapsed = time.Since(start)
+		r.Elapsed = telem.Since(start)
 		return r
 	}
 
@@ -89,6 +89,6 @@ func (g CacheGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepor
 	if len(r.Findings) > 0 {
 		r.Status = StatusFail
 	}
-	r.Elapsed = time.Since(start)
+	r.Elapsed = telem.Since(start)
 	return r
 }

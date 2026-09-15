@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -123,15 +122,15 @@ var _ = Describe("NewMigration", func() {
 
 			// The hash must follow the frozen rule — xxhash64 of the JSON
 			// encoding of the canonical record without its key — or drivers
-			// see phantom config drift after the upgrade. V1Options holds the
-			// member order the frozen rule was defined against.
+			// see phantom config drift after the upgrade. Deterministic holds
+			// the member order the frozen rule was defined against.
 			content := make(map[string]any, len(record))
 			for k, v := range record {
 				if k != "key" {
 					content[k] = v
 				}
 			}
-			b := MustSucceed(json.Marshal(content, xjson.V1Options))
+			b := MustSucceed(json.Marshal(content, json.Deterministic(true)))
 			Expect(migrated.ConfigHash).To(
 				Equal(fmt.Sprintf("%016x", xxhash.Sum64(b))),
 			)

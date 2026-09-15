@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -100,7 +99,7 @@ func migrateEdge(e legacy.Edge) (Edge, msgpack.EncodedJSON, error) {
 		return out, nil, nil
 	}
 	var bag map[string]any
-	if err := json.Unmarshal(e.Data, &bag, xjson.V1Options); err != nil {
+	if err := json.Unmarshal(e.Data, &bag); err != nil {
 		return out, nil, errors.Wrap(err, "decode edge data bag")
 	}
 	if bag == nil {
@@ -237,7 +236,7 @@ func migrateProps(
 			continue
 		}
 		var m map[string]any
-		if err := json.Unmarshal(raw, &m, xjson.V1Options); err != nil {
+		if err := json.Unmarshal(raw, &m); err != nil {
 			return nil, errors.Wrapf(err, "decode props[%q]", k)
 		}
 		// Mirrors the Console v6 migrateProps: variant is always set from the legacy

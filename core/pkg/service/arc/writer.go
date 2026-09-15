@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/debounce"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -197,13 +196,12 @@ func (w Writer) writeTask(
 ) (*task.Task, error) {
 	b, err := json.Marshal(
 		taskversions.Config{ArcKey: a.Key, Hash: hash},
-		xjson.V1Options,
 	)
 	if err != nil {
 		return nil, err
 	}
 	var cfg msgpack.EncodedJSON
-	if err = json.Unmarshal(b, &cfg, xjson.V1Options); err != nil {
+	if err = json.Unmarshal(b, &cfg); err != nil {
 		return nil, err
 	}
 	tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: cfg}

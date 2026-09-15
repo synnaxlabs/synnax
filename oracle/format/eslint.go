@@ -14,7 +14,6 @@ import (
 	json "encoding/json/v2"
 	"path/filepath"
 
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -91,7 +90,7 @@ func (e *ESLint) Format(
 		)
 	}
 	var reports []eslintReport
-	if err := json.Unmarshal(stdout, &reports, xjson.V1Options); err != nil {
+	if err := json.Unmarshal(stdout, &reports); err != nil {
 		return nil, errors.Wrapf(
 			err,
 			"parse eslint output for %s: %s",

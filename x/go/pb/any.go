@@ -12,7 +12,6 @@ package pb
 import (
 	json "encoding/json/v2"
 
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -53,7 +52,7 @@ func AnyFromPBAny(a *anypb.Any) (any, error) {
 
 	// Parse JSON into a map
 	var result map[string]any
-	if err := json.Unmarshal(jsonBytes, &result, xjson.V1Options); err != nil {
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
 		return nil, err
 	}
 
@@ -80,12 +79,12 @@ func AnyToPBAny(v any) (*anypb.Any, error) {
 
 	val, err := structpb.NewValue(v)
 	if err != nil {
-		jsonBytes, marshalErr := json.Marshal(v, xjson.V1Options)
+		jsonBytes, marshalErr := json.Marshal(v)
 		if marshalErr != nil {
 			return nil, marshalErr
 		}
 		var decoded any
-		if err := json.Unmarshal(jsonBytes, &decoded, xjson.V1Options); err != nil {
+		if err := json.Unmarshal(jsonBytes, &decoded); err != nil {
 			return nil, err
 		}
 		if val, err = structpb.NewValue(decoded); err != nil {

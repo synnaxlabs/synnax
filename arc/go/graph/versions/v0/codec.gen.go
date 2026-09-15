@@ -122,7 +122,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	w.String(nv.Type)
 	{
-		b, err := json.Marshal(nv.Config, xjson.V1Options)
+		b, err := json.Marshal(nv.Config, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &nv.Config, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &nv.Config); err != nil {
 			return err
 		}
 	}

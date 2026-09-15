@@ -14,12 +14,12 @@ import (
 	"context"
 	json "encoding/json/v2"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type fixedGate struct {
@@ -39,7 +39,7 @@ func (g *fixedGate) Run(
 		Gate:     g.name,
 		Status:   g.status,
 		Findings: g.findings,
-		Elapsed:  time.Millisecond,
+		Elapsed:  telem.Millisecond,
 	}
 }
 
@@ -157,16 +157,16 @@ var _ = Describe("Report.FirstExitCode", func() {
 var _ = Describe("Render", func() {
 	r := &check.Report{
 		Gates: []check.GateReport{
-			{Gate: "format", Status: check.StatusPass, Elapsed: time.Millisecond},
+			{Gate: "format", Status: check.StatusPass, Elapsed: telem.Millisecond},
 			{
-				Gate: "analyze", Status: check.StatusFail, Elapsed: time.Millisecond,
+				Gate: "analyze", Status: check.StatusFail, Elapsed: telem.Millisecond,
 				Findings: []check.Finding{{
 					Path: "schemas/x.oracle", Line: 10, Severity: check.SeverityError,
 					Message: "boom", FixHint: "fix it",
 				}},
 			},
 		},
-		TotalRun: 2, TotalPassed: 1, TotalFailed: 1, Elapsed: time.Millisecond,
+		TotalRun: 2, TotalPassed: 1, TotalFailed: 1, Elapsed: telem.Millisecond,
 	}
 
 	It("emits readable text", func() {
@@ -229,7 +229,7 @@ var _ = Describe("Render", func() {
 				{Gate: "cache", Status: check.StatusSkipped},
 				{
 					Gate: "generated", Status: check.StatusFail,
-					Elapsed: 2 * time.Second,
+					Elapsed: 2 * telem.Second,
 					Findings: []check.Finding{
 						{
 							Path: "out/x.gen.go", Line: 3, Col: 7,

@@ -17,7 +17,6 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/unsafe"
 )
 
@@ -113,7 +112,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 	byteSlices := make([][]byte, len(data))
 	var err error
 	for i, v := range data {
-		if byteSlices[i], err = json.Marshal(v, xjson.V1Options); err != nil {
+		if byteSlices[i], err = json.Marshal(v); err != nil {
 			return Series{}, err
 		}
 	}
@@ -226,7 +225,7 @@ func (s Series) DecodeJSON[T any]() ([]T, error) {
 	byteSlices := s.Unmarshal[[]byte]()
 	data := make([]T, len(byteSlices))
 	for i, b := range byteSlices {
-		if err := json.Unmarshal(b, &data[i], xjson.V1Options); err != nil {
+		if err := json.Unmarshal(b, &data[i]); err != nil {
 			return nil, err
 		}
 	}

@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -27,7 +26,7 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
-	b, err := json.Marshal(map[string]any(config), xjson.V1Options)
+	b, err := json.Marshal(map[string]any(config), json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrap(err, "failed to hash task config")
 	}

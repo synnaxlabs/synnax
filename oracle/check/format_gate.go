@@ -13,11 +13,11 @@ import (
 	"context"
 	"os"
 	"sort"
-	"time"
 
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // FormatGate fails when any schema's on-disk source bytes differ from its
@@ -33,7 +33,7 @@ func NewFormatGate() *FormatGate { return &FormatGate{} }
 func (FormatGate) Name() string { return "format" }
 
 func (g FormatGate) Run(_ context.Context, p *pipeline.Result, env Env) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	for _, rel := range p.Schemas {
 		g.compare(&r, env, rel, string(p.Sources[rel]), string(p.FormattedSources[rel]))
@@ -62,7 +62,7 @@ func (g FormatGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepo
 	if len(r.Findings) > 0 {
 		r.Status = StatusFail
 	}
-	r.Elapsed = time.Since(start)
+	r.Elapsed = telem.Since(start)
 	return r
 }
 

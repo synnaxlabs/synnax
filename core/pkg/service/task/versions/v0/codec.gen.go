@@ -27,7 +27,7 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.String(t.Name)
 	w.String(t.Type)
 	{
-		b, err := json.Marshal(t.Config, xjson.V1Options)
+		b, err := json.Marshal(t.Config, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &t.Config, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &t.Config); err != nil {
 			return err
 		}
 	}

@@ -15,10 +15,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"charm.land/lipgloss/v2"
-	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Format selects an output renderer.
@@ -43,10 +42,7 @@ func Render(w io.Writer, r *Report, f Format, verbose bool) error {
 }
 
 func renderJSON(w io.Writer, r *Report) error {
-	// Elapsed is a time.Duration, which v2 has no default representation for.
-	if err := json.MarshalWrite(
-		w, r, jsontext.WithIndent("  "), xjson.V1Options,
-	); err != nil {
+	if err := json.MarshalWrite(w, r, jsontext.WithIndent("  ")); err != nil {
 		return err
 	}
 	_, err := w.Write([]byte{'\n'})
@@ -178,10 +174,9 @@ func renderSummary(w io.Writer, r *Report) error {
 	return err
 }
 
-func fmtDuration(d time.Duration) string {
-	ms := d.Milliseconds()
-	if ms < 1000 {
+func fmtDuration(d telem.TimeSpan) string {
+	if ms := d.Duration().Milliseconds(); ms < 1000 {
 		return fmt.Sprintf("(%dms)", ms)
 	}
-	return fmt.Sprintf("(%.1fs)", d.Seconds())
+	return fmt.Sprintf("(%.1fs)", d.Duration().Seconds())
 }

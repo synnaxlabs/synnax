@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -65,7 +64,7 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
-	b, err := json.Marshal(map[string]any(config), xjson.V1Options)
+	b, err := json.Marshal(map[string]any(config), json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrap(err, "failed to hash task config")
 	}
@@ -188,12 +187,12 @@ func stageAndRemove(
 	otgW ontology.Writer,
 	t v2.Task,
 ) error {
-	b, err := json.Marshal(t, xjson.V1Options)
+	b, err := json.Marshal(t, json.Deterministic(true))
 	if err != nil {
 		marshalErr := err
 		stripped := t
 		stripped.Config = nil
-		if b, err = json.Marshal(stripped, xjson.V1Options); err != nil {
+		if b, err = json.Marshal(stripped, json.Deterministic(true)); err != nil {
 			return err
 		}
 		ins.L.Warn(

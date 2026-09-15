@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -64,7 +63,9 @@ var _ = Describe("Released wire format", func() {
 		var lp v5.LinePlot
 		Expect(orc.Codec.Decode(ctx, releasedWire(), &lp)).To(Succeed())
 		pretty := append(
-			MustSucceed(json.Marshal(lp, jsontext.WithIndent("  "), xjson.V1Options)),
+			MustSucceed(
+				json.Marshal(lp, jsontext.WithIndent("  "), json.Deterministic(true)),
+			),
 			'\n',
 		)
 		p := filepath.Join("testdata", "v5_released.decoded.json")

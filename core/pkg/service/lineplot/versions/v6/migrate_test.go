@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -171,7 +170,9 @@ var _ = Describe("v6 wire format", func() {
 		var lp v6.LinePlot
 		Expect(orc.Codec.Decode(ctx, loadWire("v6_initial.hex"), &lp)).To(Succeed())
 		pretty := append(
-			MustSucceed(json.Marshal(lp, jsontext.WithIndent("  "), xjson.V1Options)),
+			MustSucceed(
+				json.Marshal(lp, jsontext.WithIndent("  "), json.Deterministic(true)),
+			),
 			'\n',
 		)
 		p := filepath.Join("testdata", "v6_initial.decoded.json")

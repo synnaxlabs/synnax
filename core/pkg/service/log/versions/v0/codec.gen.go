@@ -23,7 +23,7 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Write(lv.Key[:])
 	w.String(lv.Name)
 	{
-		b, err := json.Marshal(lv.Data, xjson.V1Options)
+		b, err := json.Marshal(lv.Data, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &lv.Data, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &lv.Data); err != nil {
 			return err
 		}
 	}

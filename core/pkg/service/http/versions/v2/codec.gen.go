@@ -666,7 +666,7 @@ func (wf WriteField) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.JSONType))
 		{
-			b, err := json.Marshal(v.Value, xjson.V1Options)
+			b, err := json.Marshal(v.Value, xjson.PreserveNil)
 			if err != nil {
 				return err
 			}
@@ -714,7 +714,7 @@ func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			if err = json.Unmarshal(b, &v.Value, xjson.V1Options); err != nil {
+			if err = json.Unmarshal(b, &v.Value); err != nil {
 				return err
 			}
 		}

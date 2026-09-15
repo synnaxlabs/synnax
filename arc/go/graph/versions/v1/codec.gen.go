@@ -90,7 +90,7 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 		for key, val := range g.Inputs {
 			w.String(key)
 			{
-				b, err := json.Marshal(val, xjson.V1Options)
+				b, err := json.Marshal(val, xjson.PreserveNil)
 				if err != nil {
 					return err
 				}
@@ -179,7 +179,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 					if err != nil {
 						return err
 					}
-					if err = json.Unmarshal(b, &val, xjson.V1Options); err != nil {
+					if err = json.Unmarshal(b, &val); err != nil {
 						return err
 					}
 				}

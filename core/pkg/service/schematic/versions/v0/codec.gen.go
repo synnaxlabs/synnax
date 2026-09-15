@@ -23,7 +23,7 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	{
-		b, err := json.Marshal(s.Data, xjson.V1Options)
+		b, err := json.Marshal(s.Data, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -47,7 +47,7 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Data, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &s.Data); err != nil {
 			return err
 		}
 	}

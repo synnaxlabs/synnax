@@ -11,10 +11,10 @@ package check
 
 import (
 	"context"
-	"time"
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/telem"
 	"go.lsp.dev/protocol"
 )
 
@@ -40,7 +40,7 @@ func NewAnalyzeGate(warningsAsErrors bool) *AnalyzeGate {
 func (AnalyzeGate) Name() string { return "analyze" }
 
 func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	if p.Diagnostics != nil {
 		p.Diagnostics.Each(func(file string, d diagnostics.Diagnostic) {
@@ -65,7 +65,7 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 			}
 		})
 	}
-	r.Elapsed = time.Since(start)
+	r.Elapsed = telem.Since(start)
 	return r
 }
 

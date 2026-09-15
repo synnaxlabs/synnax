@@ -23,7 +23,7 @@ func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 	w.Write(lp.Key[:])
 	w.String(lp.Name)
 	{
-		b, err := json.Marshal(lp.Data, xjson.V1Options)
+		b, err := json.Marshal(lp.Data, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &lp.Data, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &lp.Data); err != nil {
 			return err
 		}
 	}

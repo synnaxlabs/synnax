@@ -23,7 +23,7 @@ func (t Table) EncodeOrc(w *orc.Writer) error {
 	w.Write(t.Key[:])
 	w.String(t.Name)
 	{
-		b, err := json.Marshal(t.Data, xjson.V1Options)
+		b, err := json.Marshal(t.Data, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (t *Table) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &t.Data, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &t.Data); err != nil {
 			return err
 		}
 	}

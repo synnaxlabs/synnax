@@ -19,7 +19,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -27,6 +26,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // VersionsGate verifies the explicitly managed version chains: the live file's
@@ -41,9 +41,9 @@ func (VersionsGate) Name() string { return "versions" }
 func (g VersionsGate) Run(
 	ctx context.Context, p *pipeline.Result, env Env,
 ) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
-	defer func() { r.Elapsed = time.Since(start) }()
+	defer func() { r.Elapsed = telem.Since(start) }()
 	if p.Resolutions == nil {
 		return r
 	}

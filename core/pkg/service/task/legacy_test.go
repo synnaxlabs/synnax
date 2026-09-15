@@ -39,7 +39,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/set"
@@ -500,7 +499,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			// The trailing newline keeps regenerated goldens Prettier-clean.
 			goldenBytes := append(
 				MustSucceed(
-					json.Marshal(canonical, jsontext.WithIndent("  "), xjson.V1Options),
+					json.Marshal(
+						canonical,
+						jsontext.WithIndent("  "),
+						json.Deterministic(true),
+					),
 				),
 				'\n',
 			)

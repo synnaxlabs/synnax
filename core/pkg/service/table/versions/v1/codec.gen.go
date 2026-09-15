@@ -23,7 +23,7 @@ func (c Cell) EncodeOrc(w *orc.Writer) error {
 	w.String(c.Key)
 	w.String(c.Variant)
 	{
-		b, err := json.Marshal(c.Props, xjson.V1Options)
+		b, err := json.Marshal(c.Props, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (c *Cell) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &c.Props, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &c.Props); err != nil {
 			return err
 		}
 	}

@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -282,7 +281,6 @@ func readRecentLogs(filePath string, maxEntries int) (_ []string, err error) {
 		if jsonErr := json.Unmarshal(
 			[]byte(line),
 			&entry,
-			xjson.V1Options,
 		); jsonErr != nil {
 			continue // Skip non-JSON lines
 		}

@@ -24,7 +24,7 @@ func (wv Workspace) EncodeOrc(w *orc.Writer) error {
 	w.String(wv.Name)
 	w.Write(wv.Author[:])
 	{
-		b, err := json.Marshal(wv.Layout, xjson.V1Options)
+		b, err := json.Marshal(wv.Layout, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ func (wv *Workspace) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &wv.Layout, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &wv.Layout); err != nil {
 			return err
 		}
 	}

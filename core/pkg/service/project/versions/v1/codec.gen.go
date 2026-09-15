@@ -23,7 +23,7 @@ func (p Project) EncodeOrc(w *orc.Writer) error {
 	w.Write(p.Key[:])
 	w.String(p.Name)
 	{
-		b, err := json.Marshal(p.Layout, xjson.V1Options)
+		b, err := json.Marshal(p.Layout, xjson.PreserveNil)
 		if err != nil {
 			return err
 		}
@@ -46,7 +46,7 @@ func (p *Project) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &p.Layout, xjson.V1Options); err != nil {
+		if err = json.Unmarshal(b, &p.Layout); err != nil {
 			return err
 		}
 	}

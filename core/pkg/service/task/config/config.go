@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	xconfig "github.com/synnaxlabs/x/config"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -160,14 +159,14 @@ func (s *Service[E]) Write(
 	key uuid.UUID,
 	data msgpack.EncodedJSON,
 ) error {
-	b, err := json.Marshal(data, xjson.V1Options)
+	b, err := json.Marshal(data)
 	if err != nil {
 		return errors.Wrapf(
 			validate.ErrValidation, "encoding %s config: %s", s.cfg.Type, err,
 		)
 	}
 	var e E
-	if err := json.Unmarshal(b, &e, xjson.V1Options); err != nil {
+	if err := json.Unmarshal(b, &e); err != nil {
 		return errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
@@ -198,12 +197,12 @@ func (s *Service[E]) Read(
 	if err != nil {
 		return nil, err
 	}
-	b, err := json.Marshal(e, xjson.V1Options)
+	b, err := json.Marshal(e)
 	if err != nil {
 		return nil, err
 	}
 	var data msgpack.EncodedJSON
-	if err := json.Unmarshal(b, &data, xjson.V1Options); err != nil {
+	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
 	return data, nil

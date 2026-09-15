@@ -27,10 +27,10 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"sort"
-	"time"
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Checker is one validation gate. Name is a stable identifier used for flag selection
@@ -131,19 +131,19 @@ type Finding struct {
 
 // GateReport is the per-gate result, carried back to the driver.
 type GateReport struct {
-	Gate     string        `json:"gate"`
-	Status   Status        `json:"status"`
-	Findings []Finding     `json:"findings,omitempty"`
-	Elapsed  time.Duration `json:"elapsed_ns"`
+	Gate     string         `json:"gate"`
+	Status   Status         `json:"status"`
+	Findings []Finding      `json:"findings,omitempty"`
+	Elapsed  telem.TimeSpan `json:"elapsed_ns"`
 }
 
 // Report aggregates every GateReport produced in one check run.
 type Report struct {
-	Gates       []GateReport  `json:"gates"`
-	TotalRun    int           `json:"total_run"`
-	TotalPassed int           `json:"total_passed"`
-	TotalFailed int           `json:"total_failed"`
-	Elapsed     time.Duration `json:"elapsed_ns"`
+	Gates       []GateReport   `json:"gates"`
+	TotalRun    int            `json:"total_run"`
+	TotalPassed int            `json:"total_passed"`
+	TotalFailed int            `json:"total_failed"`
+	Elapsed     telem.TimeSpan `json:"elapsed_ns"`
 }
 
 // FailureCodes is the per-gate exit-code contract. CI consumers can branch on these to
@@ -192,7 +192,7 @@ func Run(
 ) *Report {
 	want := set.New(gates...)
 	report := &Report{}
-	start := time.Now()
+	start := telem.Now()
 	for _, c := range checkers {
 		gr := GateReport{Gate: c.Name(), Status: StatusSkipped}
 		if len(want) == 0 || want.Contains(c.Name()) {
@@ -209,7 +209,7 @@ func Run(
 			report.TotalFailed++
 		}
 	}
-	report.Elapsed = time.Since(start)
+	report.Elapsed = telem.Since(start)
 	return report
 }
 
