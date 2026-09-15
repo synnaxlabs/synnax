@@ -115,6 +115,7 @@ func newRuntimeHarness(
 			Memory:        guest.Memory(),
 			Strings:       stringsState,
 			NodeKeySetter: statefulMod,
+			Channels:      channelState,
 		})
 	}
 

@@ -251,6 +251,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 			Memory:        guest.Memory(),
 			Strings:       drt.state.strings,
 			NodeKeySetter: statefulMod,
+			Channels:      drt.state.channel,
 		})
 	}
 

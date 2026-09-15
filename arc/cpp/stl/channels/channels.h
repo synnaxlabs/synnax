@@ -300,13 +300,14 @@ private:
                 MODULE_NAME,
                 "read_" + suffix,
                 [ch](uint32_t channel_id) -> W {
-                    auto [multi_series, ok] = ch->read_value(
-                        static_cast<types::ChannelKey>(channel_id)
-                    );
-                    if (!ok || multi_series.series.empty()) return W{};
-                    const auto &last = multi_series.series.back();
-                    if (last.size() == 0) return W{};
-                    return static_cast<W>(last.at<T>(-1));
+                    const auto key = static_cast<types::ChannelKey>(channel_id);
+                    auto [multi_series, ok] = ch->read_value(key);
+                    if (!ok || multi_series.series.empty() ||
+                        multi_series.series.back().size() == 0) {
+                        ch->note_missing_read(key);
+                        return W{};
+                    }
+                    return static_cast<W>(multi_series.series.back().at<T>(-1));
                 }
             )
             .unwrap();
@@ -332,13 +333,14 @@ private:
                 MODULE_NAME,
                 "read_bool",
                 [ch](uint32_t channel_id) -> uint32_t {
-                    auto [multi_series, ok] = ch->read_value(
-                        static_cast<types::ChannelKey>(channel_id)
-                    );
-                    if (!ok || multi_series.series.empty()) return 0;
-                    const auto &last = multi_series.series.back();
-                    if (last.size() == 0) return 0;
-                    return last.at<uint8_t>(-1) != 0 ? 1 : 0;
+                    const auto key = static_cast<types::ChannelKey>(channel_id);
+                    auto [multi_series, ok] = ch->read_value(key);
+                    if (!ok || multi_series.series.empty() ||
+                        multi_series.series.back().size() == 0) {
+                        ch->note_missing_read(key);
+                        return 0;
+                    }
+                    return multi_series.series.back().at<uint8_t>(-1) != 0 ? 1 : 0;
                 }
             )
             .unwrap();
@@ -366,10 +368,12 @@ private:
                 "read_str",
                 [ch, ss](uint32_t channel_id) -> uint32_t {
                     auto [multi_series, ok] = ch->read_value(channel_id);
-                    if (!ok || multi_series.series.empty()) return 0;
-                    const auto &last = multi_series.series.back();
-                    if (last.size() == 0) return 0;
-                    return ss->create(last.at<std::string>(-1));
+                    if (!ok || multi_series.series.empty() ||
+                        multi_series.series.back().size() == 0) {
+                        ch->note_missing_read(channel_id);
+                        return 0;
+                    }
+                    return ss->create(multi_series.series.back().at<std::string>(-1));
                 }
             )
             .unwrap();

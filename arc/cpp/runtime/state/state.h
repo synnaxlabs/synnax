@@ -205,6 +205,14 @@ public:
     /// so only writes after this call re-fire the node.
     void absorb_inputs();
 
+    /// @brief marks every data input unconsumed so the next refresh_inputs re-runs
+    /// the node over the inputs it already holds.
+    void rearm_inputs();
+
+    /// @brief returns and clears the channel a host read found empty since the
+    /// last call, or nullopt when every read hit.
+    [[nodiscard]] std::optional<types::ChannelKey> take_missing_read() const;
+
     /// @brief returns input i's unconsumed data, marking it consumed. ok is
     /// false when input i is a reference or has no new data.
     [[nodiscard]] std::pair<Series, bool> consume_input(size_t i);

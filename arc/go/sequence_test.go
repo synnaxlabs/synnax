@@ -10,9 +10,13 @@
 package arc_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -7300,5 +7304,143 @@ var _ = Describe("Sequence", func() {
 					"a fired wait must stay quiet")
 			},
 		)
+	})
+
+	// A body read of a channel with no value yet must not evaluate as zero. The
+	// node skips the pass, warns once, and retries when a value arrives.
+	Describe("Channel reads before the first value", func() {
+		const (
+			startCmd = 100
+			tstill   = 101
+			t4k      = 102
+			reached  = 103
+		)
+		newH := func(ctx SpecContext, src string) (*runtimeHarness, *[]error) {
+			GinkgoHelper()
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), startCmd},
+				"tstill":    {types.F32(), tstill},
+				"t4k":       {types.F32(), t4k},
+				"reached":   {types.U8(), reached},
+			})
+			h := newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: startCmd, DataType: telem.Uint8T},
+				channels.Digest{Key: tstill, DataType: telem.Float32T},
+				channels.Digest{Key: t4k, DataType: telem.Float32T},
+				channels.Digest{Key: reached, DataType: telem.Uint8T},
+			)
+			reported := &[]error{}
+			h.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(
+				func(_ context.Context, _ string, err error) {
+					*reported = append(*reported, err)
+				},
+			))
+			return h, reported
+		}
+		push := func(
+			h *runtimeHarness,
+			ctx SpecContext,
+			key uint32,
+			v float32,
+			at telem.TimeSpan,
+		) {
+			h.Ingest(key, telem.NewSeriesV[float32](v))
+			advance(h, ctx, at)
+		}
+
+		It(
+			"skips a polled transition until every channel has a value",
+			func(ctx SpecContext) {
+				h, reported := newH(ctx, `import time
+			sequence main {
+			    stage wait_flanges_cold {
+			        time.interval{50ms} -> tstill < 4.0 and t4k < 5.0 => precondense_hold
+			    }
+			    stage precondense_hold {
+			        1 -> reached
+			    }
+			}
+			start_cmd => main`)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				advance(h, ctx, 120*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty())
+				Expect(*reported).To(HaveLen(1))
+				Expect((*reported)[0]).To(SatisfyAll(
+					MatchError(wasm.ErrNoValue),
+					MatchError(ContainSubstring("tstill")),
+				))
+
+				push(h, ctx, tstill, 3.0, 130*telem.Millisecond)
+				advance(h, ctx, 180*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty(), "t4k still has no value")
+
+				push(h, ctx, t4k, 3.0, 190*telem.Millisecond)
+				advance(h, ctx, 240*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
+				Expect(*reported).To(HaveLen(1), "one warning per silent stretch")
+			},
+		)
+
+		It(
+			"retries a one-shot wait transition when the values arrive later",
+			func(ctx SpecContext) {
+				h, _ := newH(ctx, `import time
+			sequence main {
+			    stage wait_flanges_cold {
+			        time.wait{50ms} -> tstill < 4.0 and t4k < 5.0 => precondense_hold
+			    }
+			    stage precondense_hold {
+			        1 -> reached
+			    }
+			}
+			start_cmd => main`)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty())
+				push(h, ctx, tstill, 3.0, 70*telem.Millisecond)
+				push(h, ctx, t4k, 3.0, 80*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
+			},
+		)
+
+		It("keeps a warm value from passing a cold check", func(ctx SpecContext) {
+			h, reported := newH(ctx, `import time
+			sequence main {
+			    stage wait_flanges_cold {
+			        time.interval{50ms} -> tstill < 4.0 and t4k < 5.0 => precondense_hold
+			    }
+			    stage precondense_hold {
+			        1 -> reached
+			    }
+			}
+			start_cmd => main`)
+			defer h.Close(ctx)
+			h.Ingest(tstill, telem.NewSeriesV[float32](12.0))
+			trigger(h, ctx, startCmd)
+			advance(h, ctx, 60*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(reached).Series).To(BeEmpty())
+			Expect(*reported).To(BeEmpty(), "a warm tstill short-circuits before t4k")
+
+			push(h, ctx, tstill, 3.0, 70*telem.Millisecond)
+			advance(h, ctx, 120*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(reached).Series).To(BeEmpty(), "t4k still has no value")
+			Expect(*reported).To(HaveLen(1))
+			Expect((*reported)[0]).To(MatchError(ContainSubstring("t4k")))
+
+			push(h, ctx, t4k, 3.0, 130*telem.Millisecond)
+			advance(h, ctx, 180*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, reached)).To(Equal(uint8(1)))
+		})
 	})
 })

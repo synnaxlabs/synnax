@@ -22,6 +22,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/testutil/harness.h"
@@ -54,12 +55,19 @@ class Sequence {
     testutil::Harness harness;
 
 public:
+    /// @brief errors and warnings the nodes reported while running.
+    std::vector<x::errors::Error> reported;
+
     Sequence(
         const std::string &source,
         const std::vector<testutil::ChannelSpec> &specs
     ):
         channels(this->client, specs),
-        harness(this->client, this->channels.substitute(source)) {}
+        harness(
+            this->client,
+            this->channels.substitute(source),
+            [this](const x::errors::Error &err) { this->reported.push_back(err); }
+        ) {}
 
     [[nodiscard]] types::ChannelKey key(const std::string &name) const {
         return this->channels.key(name);
@@ -2804,5 +2812,73 @@ TEST(VariableCaptureDispatchTest, ExecutesAOneShotCaptureChainExactlyOnce) {
         h.advance(x::telem::MILLISECOND);
     out = h.flush();
     EXPECT_EQ(count_of(out, h.key("fp_out"), "parent"), 0);
+}
+
+// A body read of a channel with no value yet must not evaluate as zero. The node
+// skips the pass, warns once, and retries when a value arrives.
+TEST(MissingReadTest, SkipsAPolledTransitionUntilEveryChannelHasAValue) {
+    Sequence h(
+        R"(import time
+    sequence main {
+        stage wait_flanges_cold {
+            time.interval{50ms} -> %tstill% < 4.0 and %t4k% < 5.0 => precondense_hold
+        }
+        stage precondense_hold {
+            1 -> %reached%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"tstill", x::telem::FLOAT32_T},
+         {"t4k", x::telem::FLOAT32_T},
+         {"reached", x::telem::UINT8_T}}
+    );
+    h.trigger("start_cmd");
+    h.advance(60 * x::telem::MILLISECOND);
+    h.advance(120 * x::telem::MILLISECOND);
+    auto out = h.flush();
+    EXPECT_FALSE(out.contains(h.key("reached")));
+    ASSERT_EQ(h.reported.size(), 1);
+    ASSERT_MATCHES(h.reported[0], errors::MISSING_READ);
+
+    h.ingest("tstill", x::telem::Series(3.0f));
+    h.advance(130 * x::telem::MILLISECOND);
+    out = h.flush();
+    EXPECT_FALSE(out.contains(h.key("reached"))) << "t4k still has no value";
+
+    h.ingest("t4k", x::telem::Series(3.0f));
+    h.advance(140 * x::telem::MILLISECOND);
+    out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("reached")), 1);
+    EXPECT_EQ(h.reported.size(), 1) << "one warning per silent stretch";
+}
+
+TEST(MissingReadTest, RetriesAOneShotWaitTransitionWhenValuesArriveLater) {
+    Sequence h(
+        R"(import time
+    sequence main {
+        stage wait_flanges_cold {
+            time.wait{50ms} -> %tstill% < 4.0 and %t4k% < 5.0 => precondense_hold
+        }
+        stage precondense_hold {
+            1 -> %reached%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"tstill", x::telem::FLOAT32_T},
+         {"t4k", x::telem::FLOAT32_T},
+         {"reached", x::telem::UINT8_T}}
+    );
+    h.trigger("start_cmd");
+    h.advance(60 * x::telem::MILLISECOND);
+    auto out = h.flush();
+    EXPECT_FALSE(out.contains(h.key("reached")));
+    h.ingest("tstill", x::telem::Series(3.0f));
+    h.advance(70 * x::telem::MILLISECOND);
+    h.ingest("t4k", x::telem::Series(3.0f));
+    h.advance(80 * x::telem::MILLISECOND);
+    out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("reached")), 1);
 }
 }

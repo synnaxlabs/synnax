@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -39,6 +41,18 @@ class Node : public node::Node {
     static constexpr size_t NO_SEL = ~size_t{0};
     size_t sel_idx = NO_SEL;
     x::telem::MonoClock clock;
+    /// @brief set once a skipped evaluation has been reported; cleared when an
+    /// evaluation succeeds.
+    bool warned_missing = false;
+
+    /// @brief returns the program's name for key, or the key itself when the node
+    /// does not declare it.
+    [[nodiscard]] std::string channel_name(const types::ChannelKey key) const {
+        if (const auto it = this->ir.channels.read.find(key);
+            it != this->ir.channels.read.end())
+            return it->second;
+        return std::to_string(key);
+    }
 
     /// @brief reports whether any input other than $sel has unconsumed data.
     [[nodiscard]] bool data_fresh() const {
@@ -182,6 +196,7 @@ public:
 
         this->state.set_current_node_key(this->ir.key);
 
+        std::optional<types::ChannelKey> missing_key;
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
                 if (!this->ir.inputs[j].value.is_null() || this->chan_inputs[j] ||
@@ -211,6 +226,10 @@ public:
                 );
                 continue;
             }
+            if (const auto missing = this->state.take_missing_read()) {
+                missing_key = missing;
+                break;
+            }
 
             x::telem::TimeStamp ts;
             if (clock_stamp)
@@ -234,6 +253,28 @@ public:
                 this->offsets[j]++;
             }
         }
+
+        // A read of a channel with no value yet cannot evaluate honestly. Drop the
+        // pass, keep the inputs armed, and retry on the next cycle.
+        if (missing_key.has_value()) {
+            for (auto &offset: this->offsets)
+                offset = 0;
+            for (auto &r: string_results)
+                r.clear();
+            this->state.rearm_inputs();
+            ctx.mark_self_changed();
+            if (!this->warned_missing) {
+                this->warned_missing = true;
+                ctx.report_error(
+                    x::errors::Error(
+                        errors::MISSING_READ,
+                        "channel " + this->channel_name(*missing_key) +
+                            " has no value yet"
+                    )
+                );
+            }
+        } else
+            this->warned_missing = false;
 
         for (size_t j = 0; j < this->ir.outputs.size(); j++) {
             const auto off = this->offsets[j];

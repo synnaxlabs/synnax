@@ -11,6 +11,7 @@ package wasm
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
@@ -59,6 +60,19 @@ type nodeImpl struct {
 	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
+	channels      MissingReads
+	// warnedMissing is set once a skipped evaluation has been reported and
+	// cleared when an evaluation succeeds.
+	warnedMissing bool
+}
+
+// channelName returns the program's name for key, or the key itself when the
+// node does not declare it.
+func (n *nodeImpl) channelName(key uint32) string {
+	if name, ok := n.ir.Channels.Read[key]; ok {
+		return name
+	}
+	return strconv.FormatUint(uint64(key), 10)
 }
 
 func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
@@ -219,6 +233,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
+	var (
+		missing    bool
+		missingKey uint32
+	)
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
@@ -246,6 +264,12 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				maxLength,
 			))
 			continue
+		}
+		if n.channels != nil {
+			if key, ok := n.channels.TakeMissingRead(); ok {
+				missing, missingKey = true, key
+				break
+			}
 		}
 		var ts uint64
 		if clockStamp {
@@ -281,6 +305,26 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				n.offsets[j]++
 			}
 		}
+	}
+	// A read of a channel with no value yet cannot evaluate honestly. Drop the
+	// pass, keep the inputs armed, and retry on the next cycle.
+	if missing {
+		for j := range n.offsets {
+			n.offsets[j] = 0
+		}
+		for j := range stringResults {
+			stringResults[j] = stringResults[j][:0]
+		}
+		n.Rearm()
+		ctx.MarkSelfChanged()
+		if !n.warnedMissing {
+			n.warnedMissing = true
+			ctx.ReportError(errors.Wrapf(
+				ErrNoValue, "channel %s", n.channelName(missingKey),
+			))
+		}
+	} else {
+		n.warnedMissing = false
 	}
 	for j := range n.ir.Outputs {
 		if n.stringOutputs[j] {

@@ -314,6 +314,17 @@ func (s *sink) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
+// hostRead returns the latest series on key for a host read, recording a miss on
+// cs when the channel has no buffered value.
+func hostRead(cs *ProgramState, key uint32) (telem.Series, bool) {
+	series, ok := cs.ReadValue(key)
+	if !ok || series.Len() == 0 {
+		cs.noteMissingRead(key)
+		return series, false
+	}
+	return series, true
+}
+
 type i32Compatible interface {
 	uint8 | uint16 | uint32 | int8 | int16 | int32
 }
@@ -325,8 +336,8 @@ func bindI32[T i32Compatible](
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(cs, chID)
+			if !ok {
 				return 0
 			}
 			return uint32(series.ValueAt[T](-1))
@@ -350,8 +361,8 @@ func bindI64[T i64Compatible](
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint64 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(cs, chID)
+			if !ok {
 				return 0
 			}
 			return uint64(series.ValueAt[T](-1))
@@ -370,8 +381,8 @@ func bindBool(
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(cs, chID)
+			if !ok {
 				return 0
 			}
 			if series.ValueAt[bool](-1) {
@@ -393,8 +404,8 @@ func bindF32(
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(cs, chID)
+			if !ok {
 				return 0
 			}
 			return series.ValueAt[float32](-1)
@@ -412,8 +423,8 @@ func bindF64(
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float64 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(cs, chID)
+			if !ok {
 				return 0
 			}
 			return series.ValueAt[float64](-1)
@@ -432,8 +443,8 @@ func bindStr(
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(cs, chID)
+			if !ok {
 				return 0
 			}
 			unmarshaled := series.Unmarshal[string]()

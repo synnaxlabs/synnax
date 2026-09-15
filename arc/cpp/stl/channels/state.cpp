@@ -35,6 +35,16 @@ std::pair<x::telem::MultiSeries, bool> State::read_value(const types::ChannelKey
     return {std::move(ms), true};
 }
 
+void State::note_missing_read(const types::ChannelKey key) {
+    if (!this->missing_read.has_value()) this->missing_read = key;
+}
+
+std::optional<types::ChannelKey> State::take_missing_read() {
+    auto key = this->missing_read;
+    this->missing_read.reset();
+    return key;
+}
+
 static void append_to_write_buffer(Series &dest, const Series &src) {
     if (src == nullptr || src->empty()) return;
     if (dest == nullptr) {
@@ -161,6 +171,7 @@ void State::reset() {
     this->reads.clear();
     this->writes.clear();
     this->active_write_keys.clear();
+    this->missing_read.reset();
 }
 
 }

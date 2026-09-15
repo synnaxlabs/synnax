@@ -279,6 +279,16 @@ func (s *State) Reset() {
 	}
 }
 
+// Rearm marks every data input unconsumed so the next RefreshInputs re-runs the
+// node over the inputs it already holds.
+func (s *State) Rearm() {
+	for i := range s.accumulated {
+		if !s.isReference[i] {
+			s.accumulated[i].consumed = false
+		}
+	}
+}
+
 // RefreshInputs performs temporal alignment of node inputs and returns whether
 // the node should execute.
 func (s *State) RefreshInputs() (recalculate bool) {

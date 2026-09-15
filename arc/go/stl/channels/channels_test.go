@@ -230,6 +230,21 @@ var _ = Describe("Channel", func() {
 				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
 				Expect(testutil.AsU32(result[0])).To(Equal(uint32(0)))
 			})
+
+			It("Should record the first miss until it is taken", func(ctx SpecContext) {
+				rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
+				rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
+				Expect(MustBeOk(cs.TakeMissingRead())).To(Equal(uint32(1)))
+				_, ok := cs.TakeMissingRead()
+				Expect(ok).To(BeFalse())
+			})
+
+			It("Should not record a read that hits", func(ctx SpecContext) {
+				cs.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV(2.5)))
+				rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
+				_, ok := cs.TakeMissingRead()
+				Expect(ok).To(BeFalse())
+			})
 		})
 	})
 

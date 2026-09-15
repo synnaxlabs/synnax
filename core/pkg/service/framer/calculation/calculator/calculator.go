@@ -175,6 +175,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 			Memory:        guest.Memory(),
 			Strings:       cs.strings,
 			NodeKeySetter: statefulMod,
+			Channels:      cs.channel,
 		})
 	}
 

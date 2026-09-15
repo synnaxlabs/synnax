@@ -22,11 +22,23 @@ import (
 	"go.uber.org/zap"
 )
 
+// ErrNoValue is reported when a node reads a channel that has no value yet. The
+// evaluation is skipped and retried each cycle until a value arrives.
+var ErrNoValue = errors.New("no value received yet")
+
+// MissingReads reports the channel a host read found empty since the last take.
+type MissingReads interface {
+	TakeMissingRead() (key uint32, ok bool)
+}
+
 type Module struct {
 	Module        api.Module
 	Memory        api.Memory
 	Strings       *stlstrings.ProgramState
 	NodeKeySetter NodeKeySetter
+	// Channels gates evaluation on channel reads; a nil value evaluates missing
+	// reads as zero.
+	Channels MissingReads
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
@@ -126,6 +138,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		varInputs:     varInputs,
 		stringOutputs: stringOutputs,
 		strings:       w.Strings,
+		channels:      w.Channels,
 	}
 	return n, nil
 }
