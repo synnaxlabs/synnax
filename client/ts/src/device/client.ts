@@ -391,11 +391,11 @@ export class Client extends query.Retriever<
     return { ...cached, status: parsed.data };
   }
 
-  /** Writes fetched devices and their included statuses. */
+  /** Hydrates fetched devices and their included statuses; deleted ones stay deleted. */
   private writeThrough(devices: Device[]): void {
-    this.store.set(devices.map(stripStatus));
+    this.store.ingest(devices.map(stripStatus));
     devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.ingest(st);
     });
   }
 

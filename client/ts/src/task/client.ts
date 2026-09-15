@@ -750,17 +750,23 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Writes a fetched task and its included status. */
+  /** Writes a created or copied task and its included status. */
   private writeThrough(task: Task): void {
     this.store.set(task);
     if (task.status != null) this.cfg.statusStore.set(task.status);
   }
 
-  /** Fetches tasks with statuses and writes the statuses through. */
+  /** Hydrates a fetched task and its included status; a deleted task stays deleted. */
+  private hydrate(task: Task): void {
+    this.store.ingest(task);
+    if (task.status != null) this.cfg.statusStore.ingest(task.status);
+  }
+
+  /** Fetches tasks with statuses and hydrates the statuses. */
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
     const tasks = await this.execRetrieve({ ...req, includeStatus: true });
     tasks.forEach((t) => {
-      if (t.status != null) this.cfg.statusStore.set(t.status);
+      if (t.status != null) this.cfg.statusStore.ingest(t.status);
     });
     return tasks;
   }
@@ -782,7 +788,7 @@ export class Client extends query.Retriever<
     }
     const tasks = await this.execRetrieve({ ...q, includeStatus: true });
     checkForMultipleOrNoResults("Task", q, tasks, true);
-    this.writeThrough(tasks[0]);
+    this.hydrate(tasks[0]);
     return tasks[0];
   }
 

@@ -281,11 +281,11 @@ export class Client extends query.Retriever<
     return parsed.success ? parsed.data : undefined;
   }
 
-  /** Writes fetched racks and their included statuses. */
+  /** Hydrates fetched racks and their included statuses; deleted ones stay deleted. */
   private writeThrough(racks: Payload[]): void {
-    this.store.set(racks.map(stripStatus));
+    this.store.ingest(racks.map(stripStatus));
     racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.ingest(st);
     });
   }
 

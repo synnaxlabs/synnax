@@ -443,7 +443,7 @@ export class Client extends query.Retriever<
     }
     const prev = this.store.get(a.key);
     if (prev != null && deep.equal(prev, a)) return prev;
-    this.store.set(a);
+    this.store.ingest(a, "set");
     return a;
   }
 
