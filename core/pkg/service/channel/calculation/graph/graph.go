@@ -12,6 +12,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -30,6 +31,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Changes is a batch of channel changes the Graph reconciles as a unit.
+type Changes = gorp.TxReader[channel.Key, channel.Channel]
+
 type node struct {
 	channel.Channel
 	deps       channel.Keys
@@ -40,11 +44,17 @@ type node struct {
 // Graph tracks all calculated channels, their dependency edges, and their inferred
 // DataTypes. It subscribes to the channel observable and reactively re-inspects
 // affected nodes when channels are created, updated, or deleted.
+//
+// The Graph is the sole writer of calculated channel statuses. The calculation runtime
+// reports through SetRuntimeStatus instead of writing the record itself.
 type Graph struct {
 	alamos.Instrumentation
-	db         *gorp.DB
-	svc        *channel.Service
-	status     *status.Service
+	db     *gorp.DB
+	svc    *channel.Service
+	status *status.Service
+	// obs fires with the change batch the Graph just reconciled, after the batch
+	// commits.
+	obs        observe.Observer[Changes]
 	disconnect observe.Disconnect
 	mu         struct {
 		nodes            map[channel.Key]node
@@ -113,6 +123,7 @@ func Open(
 		db:              cfg.DB,
 		svc:             cfg.Channel,
 		status:          cfg.Status,
+		obs:             observe.New[Changes](),
 	}
 	g.mu.nodes = make(map[channel.Key]node)
 	g.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
@@ -124,6 +135,26 @@ func Open(
 	}
 	g.disconnect = cfg.Channel.Observe().OnChange(g.handleChanges)
 	return g, nil
+}
+
+// Observe returns an observable that fires with a channel change batch after the Graph
+// has reconciled it and committed the resulting statuses and node state. Subscribers
+// that act on calculated channels must use this instead of the channel observable, so
+// that their work runs against a reconciled graph and their status reports land after
+// the Graph's own.
+func (g *Graph) Observe() observe.Observable[Changes] {
+	return g.obs
+}
+
+// SetRuntimeStatus persists a status reported by the calculation runtime for a
+// calculated channel. Routing runtime reports through the Graph keeps a single writer
+// on the status record, so a report and a validity clear apply in submission order.
+func (g *Graph) SetRuntimeStatus(ctx context.Context, st *calculation.Status) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return g.status.NewWriter(tx).Set(ctx, st)
+	})
 }
 
 // Close disconnects the graph from the channel observable.
@@ -238,20 +269,22 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-func (g *Graph) handleChanges(
-	ctx context.Context,
-	reader gorp.TxReader[channel.Key, channel.Channel],
-) {
-	var updates []channel.Channel
+func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
+	var (
+		updates []channel.Channel
+		batch   []change.Change[channel.Key, channel.Channel]
+	)
+	// The lock spans the commit, not just the transaction body, so a runtime status
+	// report cannot land between this batch's mutations and its commit.
+	g.mu.Lock()
 	// One change batch commits its statuses together: a status and its ontology
 	// resource must not land in separate transactions.
-	if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		g.mu.Lock()
-		defer g.mu.Unlock()
+	err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
 		for chg := range reader {
+			batch = append(batch, chg)
 			ch := chg.Value
 			if chg.Variant == change.VariantDelete {
 				g.L.Debug("channel deleted, removing node and re-inspecting dependents",
@@ -318,10 +351,13 @@ func (g *Graph) handleChanges(
 			g.reconcileQueued(ctx, tx, queued, unresolvedNames, analyzer)...,
 		)
 		return nil
-	}); err != nil {
+	})
+	g.mu.Unlock()
+	if err != nil {
 		g.L.Error("failed to apply calculated channel changes", zap.Error(err))
 		return
 	}
+	g.obs.Notify(ctx, slices.Values(batch))
 	if len(updates) > 0 {
 		g.L.Info("updating channel data types", zap.Int("count", len(updates)))
 		w := g.svc.NewWriter(nil)

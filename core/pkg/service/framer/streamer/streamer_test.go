@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -78,12 +79,17 @@ var _ = Describe("Streamer", Ordered, func() {
 			Framer:  node.Framer,
 			Channel: channelSvc,
 		}))
-		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:      node.DB,
-			Framer:  node.Framer,
-			Writer:  writerSvc,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Writer:       writerSvc,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			Framer:      node.Framer,

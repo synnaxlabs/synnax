@@ -1177,7 +1177,7 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should keep a status it did not set when re-inspecting a valid channel",
 			func(ctx SpecContext) {
-				openGraph(ctx)
+				g := openGraph(ctx)
 				createDep(ctx, "st_keep_dep")
 				mid := channel.Channel{
 					Name: "st_keep_mid", DataType: telem.Int64T, Virtual: true,
@@ -1191,8 +1191,8 @@ var _ = Describe("Graph", func() {
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
-				By("Writing a runtime status the way the calculation framer does")
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &calculation.Status{
+				By("Reporting a runtime status the way the calculation framer does")
+				Expect(g.SetRuntimeStatus(ctx, &calculation.Status{
 					Key:     calculation.StatusKey(calc.Key()),
 					Name:    "st_keep",
 					Variant: status.VariantInfo,
@@ -1235,6 +1235,87 @@ var _ = Describe("Graph", func() {
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				openGraph(ctx)
 				eventuallyExpectNoStatus(ctx, calc.Key())
+			},
+		)
+	})
+
+	Describe("Observe", func() {
+		It(
+			"Should fire with the batch once its statuses are committed",
+			func(ctx SpecContext) {
+				createDep(ctx, "obs_dep")
+				calc := channel.Channel{
+					Name: "obs_calc", DataType: telem.Int64T, Virtual: true,
+					Expression: "return obs_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				g := openGraph(ctx)
+				statusCommitted := make(chan bool, 16)
+				g.Observe().OnChange(func(ctx context.Context, r graph.Changes) {
+					for range r {
+					}
+					_, ok := fetchStatus(ctx, calc.Key())
+					statusCommitted <- ok
+				})
+
+				By("Deleting the dependency so the graph statuses the calculation")
+				deleteDep(ctx, "obs_dep")
+
+				Eventually(statusCommitted).Should(Receive(BeTrue()))
+			},
+		)
+	})
+
+	Describe("SetRuntimeStatus", func() {
+		It("Should persist the reported status", func(ctx SpecContext) {
+			g := openGraph(ctx)
+			createDep(ctx, "rt_set_dep")
+			calc := channel.Channel{
+				Name: "rt_set", DataType: telem.Int64T, Virtual: true,
+				Expression: "return rt_set_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+
+			Expect(g.SetRuntimeStatus(ctx, &calculation.Status{
+				Key:     calculation.StatusKey(calc.Key()),
+				Name:    "rt_set",
+				Variant: status.VariantError,
+				Message: "calculation for rt_set failed",
+				Time:    telem.Now(),
+			})).To(Succeed())
+
+			s := expectStatus(ctx, calc.Key())
+			Expect(s.Message).To(Equal("calculation for rt_set failed"))
+		})
+
+		It(
+			"Should keep a report made from an Observe subscriber on the same batch",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				calc := createBrokenCalc(ctx, "rt_keep", "rt_keep_dep")
+				expectStatus(ctx, calc.Key())
+				reports := make(chan error, 16)
+				g.Observe().OnChange(func(ctx context.Context, r graph.Changes) {
+					for range r {
+					}
+					reports <- g.SetRuntimeStatus(ctx, &calculation.Status{
+						Key:     calculation.StatusKey(calc.Key()),
+						Name:    "rt_keep",
+						Variant: status.VariantInfo,
+						Message: "calculating",
+						Time:    telem.Now(),
+					})
+				})
+
+				By("Restoring the dependency so the graph clears its own status")
+				createDep(ctx, "rt_keep_dep")
+
+				Eventually(reports).Should(Receive(BeNil()))
+				Consistently(func() bool {
+					st, ok := fetchStatus(ctx, calc.Key())
+					return ok && st.Variant == status.VariantInfo
+				}, 300*time.Millisecond, 10*time.Millisecond).Should(BeTrue(),
+					"expected the runtime report to survive the clear")
 			},
 		)
 	})

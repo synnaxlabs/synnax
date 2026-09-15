@@ -327,12 +327,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
-	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
+	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Status:          l.Status,
-	}); !ok(err, closer) {
+	})
+	if !ok(err, channelGraph) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(
@@ -342,7 +343,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
-			Status:          l.Status,
+			ChannelGraph:    channelGraph,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err

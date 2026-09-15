@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
+	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -62,10 +63,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Status is used for persisting calculation status updates.
+	// ChannelGraph reconciles calculated channel definitions. The service subscribes
+	// to it for channel changes and reports calculation statuses through it.
 	//
 	// [REQUIRED]
-	Status *status.Service
+	ChannelGraph *channelgraph.Graph
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -81,7 +83,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("framer", c.Framer)
 	v.NotNil("writer", c.Writer)
 	v.NotNil("channel", c.Channel)
-	v.NotNil("status", c.Status)
+	v.NotNil("channel_graph", c.ChannelGraph)
 	return v.Error()
 }
 
@@ -92,7 +94,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Status = override.Nil(c.Status, other.Status)
+	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	return c
 }
 
@@ -123,7 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	s := &Service{cfg: cfg}
-	s.disconnectFromChannelChanges = cfg.Channel.Observe().OnChange(s.handleChange)
+	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
@@ -159,15 +161,13 @@ func (s *Service) setStatus(
 		}
 		s.cfg.L.Warn(st.String())
 		statusKey := calculation.StatusKey(chKey)
-		if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return s.cfg.Status.NewWriter(tx).Set(ctx, &Status{
-				Key:         statusKey,
-				Name:        st.Name,
-				Variant:     st.Variant,
-				Message:     st.Message,
-				Description: st.Description,
-				Time:        telem.Now(),
-			})
+		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, &Status{
+			Key:         statusKey,
+			Name:        st.Name,
+			Variant:     st.Variant,
+			Message:     st.Message,
+			Description: st.Description,
+			Time:        telem.Now(),
 		}); err != nil {
 			s.cfg.L.Error(
 				"failed to set status",
@@ -178,10 +178,7 @@ func (s *Service) setStatus(
 	}
 }
 
-func (s *Service) handleChange(
-	ctx context.Context,
-	reader gorp.TxReader[channel.Key, channel.Channel],
-) {
+func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
 	for cg := range reader {
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be

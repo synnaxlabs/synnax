@@ -30,6 +30,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -122,11 +123,16 @@ var _ = Describe("Task", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
-		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:      node.DB,
-			Framer:  node.Framer,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -35,7 +36,7 @@ var (
 	node          mock.Node
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
-	statusSvc     *status.Service
+	channelGraph  *calcgraph.Graph
 	framerSvc     *framer.Service
 	validCfg      framer.ServiceConfig
 )
@@ -75,11 +76,16 @@ func newFramerConfig(ctx context.Context, n mock.Node) framer.ServiceConfig {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	return framer.ServiceConfig{
+	graph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      n.DB,
-		Framer:  n.Framer,
 		Channel: channelSvc,
 		Status:  statusSvc,
+	}))
+	return framer.ServiceConfig{
+		DB:           n.DB,
+		Framer:       n.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: graph,
 	}
 }
 
@@ -89,7 +95,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	validCfg = newFramerConfig(ctx, node)
 	channelSvc = validCfg.Channel
 	channelWriter = channelSvc.NewWriter(nil)
-	statusSvc = validCfg.Status
+	channelGraph = validCfg.ChannelGraph
 	framerSvc = MustOpen(framer.OpenService(ctx, validCfg))
 })
 

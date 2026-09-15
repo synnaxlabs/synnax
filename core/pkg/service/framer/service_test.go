@@ -79,9 +79,9 @@ var _ = Describe("Service", func() {
 				Entry("channel", func(c *framer.ServiceConfig) {
 					c.Channel = nil
 				}, "channel"),
-				Entry("status", func(c *framer.ServiceConfig) {
-					c.Status = nil
-				}, "status"),
+				Entry("channel graph", func(c *framer.ServiceConfig) {
+					c.ChannelGraph = nil
+				}, "channel_graph"),
 			)
 		})
 
@@ -91,14 +91,14 @@ var _ = Describe("Service", func() {
 				Expect(res.DB).To(Equal(node.DB))
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
-				Expect(res.Status).To(Equal(statusSvc))
+				Expect(res.ChannelGraph).To(Equal(channelGraph))
 			})
 			It("Should replace base values with non-nil overrides", func() {
 				res := framer.ServiceConfig{}.Override(validCfg)
 				Expect(res.DB).To(Equal(node.DB))
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
-				Expect(res.Status).To(Equal(statusSvc))
+				Expect(res.ChannelGraph).To(Equal(channelGraph))
 			})
 			It("Should override zero-value instrumentation", func() {
 				res := framer.ServiceConfig{}.Override(framer.ServiceConfig{

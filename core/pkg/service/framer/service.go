@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
@@ -87,10 +87,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Status is used for persisting calculation status updates.
+	// ChannelGraph reconciles calculated channel definitions and owns their statuses.
+	// The calculation service subscribes to it and reports through it.
 	//
 	// [REQUIRED]
-	Status *status.Service
+	ChannelGraph *channelgraph.Graph
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -105,7 +106,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
-	v.NotNil("status", c.Status)
+	v.NotNil("channel_graph", c.ChannelGraph)
 	return v.Error()
 }
 
@@ -115,7 +116,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Status = override.Nil(c.Status, other.Status)
+	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	return c
 }
 
@@ -154,7 +155,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
 		Writer:          s.writer,
-		Status:          cfg.Status,
+		ChannelGraph:    cfg.ChannelGraph,
 	}); !ok(err, calcSvc) {
 		return nil, err
 	}

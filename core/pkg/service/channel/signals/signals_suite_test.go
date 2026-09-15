@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -69,11 +70,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      node.DB,
-		Framer:  node.Framer,
 		Channel: channelSvc,
 		Status:  statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		DB:           node.DB,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: channelGraph,
 	}))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		DB:      node.DB,
