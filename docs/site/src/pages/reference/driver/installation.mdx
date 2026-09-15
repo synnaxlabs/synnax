@@ -285,8 +285,15 @@ methods taking precedence over later ones:
 1. Command line arguments (Highest)
 2. Environment variables
 3. Configuration file
-4. Parameters passed to the `synnax-driver login` command
+4. Persisted state, written by `synnax-driver login` and by the Driver itself
 5. Internal defaults (Lowest)
+
+The persisted state file holds the connection parameters saved by `login` and the
+identity of the rack the Driver last attached to. It lives at
+`/var/lib/synnax-driver/persisted-state.json` on Linux,
+`%LOCALAPPDATA%\synnax-driver\persisted-state.json` on Windows, and
+`~/Library/Application Support/synnax-driver/persisted-state.json` on macOS. Use the
+`--state-file` flag to move it.
 
 ### Configuration File
 
@@ -322,6 +329,15 @@ file with the following format:
     // Number of worker threads for task operations (1-64).
     "worker_count": 4
   },
+  // The rack the Driver attaches to. Omit this block to let the Driver create
+  // a rack on first start and remember it in the persisted state file.
+  "remote_info": {
+    // The key of an existing rack in the Core.
+    "rack_key": 0,
+    // The key of the Core that owns the rack. A different key makes the
+    // Driver create a new rack.
+    "cluster_key": ""
+  },
   // List of device integrations to enable (overrides defaults).
   "integrations": ["arc", "ethercat", "http", "labjack", "modbus", "ni", "opc"]
 }
@@ -352,6 +368,10 @@ export SYNNAX_DRIVER_POLL_INTERVAL=1
 export SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
 # Number of worker threads for task operations (1-64).
 export SYNNAX_DRIVER_WORKER_COUNT=4
+# The key of an existing rack in the Core to attach to.
+export SYNNAX_DRIVER_RACK_KEY=0
+# The key of the Core that owns the rack.
+export SYNNAX_DRIVER_CLUSTER_KEY=
 ```
 
 <Divider.Divider x />
@@ -396,14 +416,37 @@ synnax-driver start --standalone
       description: "Run the Driver directly within the terminal process.",
     },
     {
-      option: "--config/-c",
-      default: '"config.json"',
-      description: "The path to the configuration file to use for the Driver.",
+      option: "--config",
+      default: '""',
+      description:
+        "The path to the configuration file to use for the Driver. No file is read when unset.",
+    },
+    {
+      option: "--state-file",
+      default: '""',
+      description:
+        "The path to the persisted state file. Defaults to a platform-specific location, see <a href='#precedence'>Precedence</a>.",
     },
     {
       option: "--debug",
       default: "false",
       description: "Enable debug logging.",
+    },
+    {
+      option: "--no-color",
+      default: "false",
+      description: "Disable color in log output.",
+    },
+    {
+      option: "--disable-sig-stop",
+      default: "false",
+      description: "Keep running when the process receives SIGINT or SIGTERM.",
+    },
+    {
+      option: "--disable-stdin-stop",
+      default: "false",
+      description:
+        "Stop reading stdin for a <code>STOP</code> line. Set this when the Driver runs without a terminal.",
     },
     {
       option: "--host",
@@ -457,6 +500,16 @@ synnax-driver start --standalone
       option: "--worker-count",
       default: "4",
       description: "Number of worker threads for task operations. Valid range is 1-64.",
+    },
+    {
+      option: "--rack-key",
+      default: "0",
+      description: "The key of an existing rack in the Core to attach to.",
+    },
+    {
+      option: "--cluster-key",
+      default: '""',
+      description: "The key of the Core that owns the rack.",
     },
     {
       option: "--enable-integrations",
@@ -521,8 +574,9 @@ password:
 
 ### Clear
 
-The `clear` command clears connection parameters configured through the `login` command.
-On Linux, run it with `sudo`.
+The `clear` command clears the persisted state file: the connection parameters saved by
+the `login` command and the cached rack identity. The next start creates a new rack. On
+Linux, run it with `sudo`.
 
 #### Example Usage
 
