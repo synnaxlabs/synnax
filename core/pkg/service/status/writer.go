@@ -19,8 +19,8 @@ import (
 )
 
 // Writer is used to create and update statuses within the DB. Every write touches both
-// the status entry and its ontology resource, so the transaction the Writer is opened
-// with must span the whole operation the caller is performing.
+// the status entry and its ontology resource, and the two land together only when the
+// Writer holds a transaction spanning them.
 type Writer struct {
 	tx        gorp.Tx
 	table     *gorp.Table[Key, Status[any]]

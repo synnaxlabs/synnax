@@ -207,10 +207,11 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
-// NewWriter opens a Writer for statuses against the given transaction. A status write
-// spans the status entry and its ontology resource, so tx must be non-nil and must span
-// the caller's whole operation.
+// NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
+// service's DB. A status write spans the entry and its ontology resource, so the two
+// land together only when tx does.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:        tx,
 		table:     s.table,
