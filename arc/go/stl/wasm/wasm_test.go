@@ -11,7 +11,6 @@ package wasm_test
 
 import (
 	"context"
-	"math"
 	"slices"
 	"strconv"
 
@@ -42,36 +41,6 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
-
-var _ = Describe("ConvertLiteralValue", func() {
-	DescribeTable("supported numeric and timestamp types",
-		func(v any, expected uint64) {
-			Expect(wasm.ConvertLiteralValue(v)).To(Equal(expected))
-		},
-		Entry("int8", int8(1), uint64(1)),
-		Entry("int16", int16(2), uint64(2)),
-		Entry("int32", int32(3), uint64(3)),
-		Entry("int64", int64(4), uint64(4)),
-		Entry("uint8", uint8(5), uint64(5)),
-		Entry("uint16", uint16(6), uint64(6)),
-		Entry("uint32", uint32(7), uint64(7)),
-		Entry("uint64", uint64(8), uint64(8)),
-		Entry("float32", float32(1.5), uint64(math.Float32bits(1.5))),
-		Entry("float64", float64(2.5), math.Float64bits(2.5)),
-		Entry("telem.TimeStamp", telem.TimeStamp(9), uint64(9)),
-		Entry("telem.TimeSpan", telem.TimeSpan(10), uint64(10)),
-		Entry("bool true", true, uint64(1)),
-		Entry("bool false", false, uint64(0)),
-	)
-
-	DescribeTable("unsupported types return an error instead of panicking",
-		func(v any) {
-			_, err := wasm.ConvertLiteralValue(v)
-			Expect(err).To(HaveOccurred())
-		},
-		Entry("string", "x"),
-	)
-})
 
 // testHarness encapsulates common test setup for wasm module tests.
 type testHarness struct {
@@ -122,11 +91,11 @@ func newHarness(
 
 	factory := node.CompoundFactory{
 		&wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       stringsState,
-			NodeKeySetter: statefulMod,
-			Channels:      channelState,
+			Module:   guest,
+			Memory:   guest.Memory(),
+			Strings:  stringsState,
+			Stateful: statefulMod,
+			Channels: channelState,
 		},
 		channelMod,
 		mathMod,
@@ -257,10 +226,10 @@ func buildTextHarness(
 	errorsMod.SetMemory(guest.Memory())
 
 	mod := &wasm.Module{
-		Module:        guest,
-		Memory:        guest.Memory(),
-		Strings:       stringsState,
-		NodeKeySetter: statefulMod,
+		Module:   guest,
+		Memory:   guest.Memory(),
+		Strings:  stringsState,
+		Stateful: statefulMod,
 	}
 	if gated {
 		mod.Channels = channelState
@@ -5340,7 +5309,7 @@ var _ = Describe("Channel reads before the first value", func() {
 		Expect(h.selfChanged).To(Equal(1))
 		Expect(h.reported).To(HaveLen(1))
 		Expect(h.reported[0]).To(SatisfyAll(
-			MatchError(wasm.ErrNoValue),
+			MatchError(ContainSubstring("no value received yet")),
 			MatchError(ContainSubstring("temp_ch")),
 		))
 	})

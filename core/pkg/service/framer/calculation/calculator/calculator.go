@@ -171,11 +171,11 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 			}),
 		)
 		f = append(f, &wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       cs.strings,
-			NodeKeySetter: statefulMod,
-			Channels:      cs.channel,
+			Module:   guest,
+			Memory:   guest.Memory(),
+			Strings:  cs.strings,
+			Stateful: statefulMod,
+			Channels: cs.channel,
 		})
 	}
 

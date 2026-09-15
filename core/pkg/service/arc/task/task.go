@@ -247,11 +247,11 @@ func (t *impl) open(ctx context.Context) (err error) {
 			return guest.Close(ctx)
 		}))
 		f = append(f, &wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       drt.state.strings,
-			NodeKeySetter: statefulMod,
-			Channels:      drt.state.channel,
+			Module:   guest,
+			Memory:   guest.Memory(),
+			Strings:  drt.state.strings,
+			Stateful: statefulMod,
+			Channels: drt.state.channel,
 		})
 	}
 

@@ -128,8 +128,8 @@ func (ps *ProgramState) ClearReads() {
 	}
 }
 
-// ReadValue reads a single value from a channel (for WASM runtime bindings).
-func (ps *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
+// readValue returns the latest series buffered on key.
+func (ps *ProgramState) readValue(key uint32) (telem.Series, bool) {
 	ms, ok := ps.reads[key]
 	if !ok || len(ms.Series) == 0 {
 		return telem.Series{}, false
@@ -143,52 +143,9 @@ func (ps *ProgramState) writeValue(key uint32, value telem.Series) {
 	ps.writeIndexedTimestamp(key)
 }
 
-func (ps *ProgramState) WriteChannelU8(key uint32, v uint8) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelU16(key uint32, v uint16) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelU32(key, v uint32) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelU64(key uint32, v uint64) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelI8(key uint32, v int8) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelI16(key uint32, v int16) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelI32(key uint32, v int32) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelI64(key uint32, v int64) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelF32(key uint32, v float32) {
-	appendFixedWriteSample(ps, key, v)
-	ps.writeIndexedTimestamp(key)
-}
-
-func (ps *ProgramState) WriteChannelF64(key uint32, v float64) {
+// writeSample appends one fixed-size sample to key's write buffer and stamps its
+// index channel when it has one.
+func writeSample[T telem.FixedSample](ps *ProgramState, key uint32, v T) {
 	appendFixedWriteSample(ps, key, v)
 	ps.writeIndexedTimestamp(key)
 }

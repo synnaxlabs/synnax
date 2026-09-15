@@ -11,16 +11,24 @@ package channels
 
 import "github.com/synnaxlabs/x/telem"
 
-func (cs *ProgramState) WriteValue(key uint32, value telem.Series) {
-	cs.writeValue(key, value)
+func (ps *ProgramState) WriteValue(key uint32, value telem.Series) {
+	ps.writeValue(key, value)
 }
 
-func (cs *ProgramState) ReadSeries(
+func (ps *ProgramState) ReadSeries(
 	key uint32,
 ) (data, time telem.MultiSeries, ok bool) {
-	return cs.readSeries(key)
+	return ps.readSeries(key)
 }
 
-func (cs *ProgramState) WriteChannel(key uint32, data, time telem.Series) {
-	cs.writeChannel(key, data, time)
+func (ps *ProgramState) WriteChannel(key uint32, data, time telem.Series) {
+	ps.writeChannel(key, data, time)
+}
+
+func (ps *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
+	return ps.readValue(key)
+}
+
+func WriteSample[T telem.FixedSample](ps *ProgramState, key uint32, v T) {
+	writeSample(ps, key, v)
 }

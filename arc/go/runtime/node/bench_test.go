@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
@@ -70,57 +69,5 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 		if !targetNode.RefreshInputs() {
 			b.Fatal("Failed to refresh inputs")
 		}
-	}
-}
-
-func benchmarkChannelStateForWrites(indexed bool) *channels.ProgramState {
-	digest := channels.Digest{Key: 1}
-	if indexed {
-		digest.Index = 2
-	}
-	return channels.NewProgramState([]channels.Digest{digest})
-}
-
-func BenchmarkWriteChannelU8Indexed(b *testing.B) {
-	s := benchmarkChannelStateForWrites(true)
-	b.ReportAllocs()
-	for i := 0; b.Loop(); i++ {
-		s.WriteChannelU8(1, uint8(i))
-	}
-}
-
-func BenchmarkWriteChannelU8NoIndex(b *testing.B) {
-	s := benchmarkChannelStateForWrites(false)
-	b.ReportAllocs()
-	for i := 0; b.Loop(); i++ {
-		s.WriteChannelU8(1, uint8(i))
-	}
-}
-
-func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
-	const writesPerCycle = 128
-	s := benchmarkChannelStateForWrites(true)
-	b.ReportAllocs()
-	for b.Loop() {
-		for j := range writesPerCycle {
-			s.WriteChannelU8(1, uint8(j))
-		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
-	}
-}
-
-func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
-	const keys = 256
-	digests := make([]channels.Digest, keys)
-	for i := range keys {
-		digests[i] = channels.Digest{Key: uint32(i + 1)}
-	}
-	s := channels.NewProgramState(digests)
-	b.ReportAllocs()
-	for b.Loop() {
-		for k := range keys {
-			s.WriteChannelU8(uint32(k+1), uint8(k))
-		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
 	}
 }

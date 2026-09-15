@@ -13,6 +13,8 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -22,23 +24,19 @@ import (
 	"go.uber.org/zap"
 )
 
-// ErrNoValue is reported when a node reads a channel that has no value yet. The
+// errNoValue is reported when a node reads a channel that has no value yet. The
 // evaluation is skipped and retried each cycle until a value arrives.
-var ErrNoValue = errors.New("no value received yet")
-
-// MissingReads reports the channel a host read found empty since the last take.
-type MissingReads interface {
-	TakeMissingRead() (key uint32, ok bool)
-}
+var errNoValue = errors.New("no value received yet")
 
 type Module struct {
-	Module        api.Module
-	Memory        api.Memory
-	Strings       *stlstrings.ProgramState
-	NodeKeySetter NodeKeySetter
+	Module  api.Module
+	Memory  api.Memory
+	Strings *stlstrings.ProgramState
+	// Stateful scopes stateful variables to the executing node; optional.
+	Stateful *stateful.Host
 	// Channels gates evaluation on channel reads; a nil value evaluates missing
 	// reads as zero.
-	Channels MissingReads
+	Channels *channels.ProgramState
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
@@ -74,7 +72,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 			params[i] = uint64(w.Strings.CreateLiteral(s))
 			continue
 		}
-		val, err := ConvertLiteralValue(param.Value)
+		val, err := convertLiteralValue(param.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +130,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		stack:         stack,
 		offsets:       make([]int, len(irFn.Outputs)),
 		selIdx:        selIdx,
-		nodeKeySetter: w.NodeKeySetter,
+		stateful:      w.Stateful,
 		stringInputs:  stringInputs,
 		chanInputs:    chanInputs,
 		varInputs:     varInputs,
@@ -143,8 +141,8 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 	return n, nil
 }
 
-// ConvertLiteralValue converts a literal value to uint64 for WASM function calls.
-func ConvertLiteralValue(v any) (uint64, error) {
+// convertLiteralValue converts a literal value to uint64 for WASM function calls.
+func convertLiteralValue(v any) (uint64, error) {
 	switch val := v.(type) {
 	case bool:
 		if val {

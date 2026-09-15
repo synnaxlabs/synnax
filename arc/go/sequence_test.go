@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/stl/channels"
-	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -7306,8 +7305,8 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	// A body read of a channel with no value yet must not evaluate as zero. The
-	// node skips the pass, warns once, and retries when a value arrives.
+	// A body read of a channel with no value yet must not evaluate as zero. The node
+	// skips the pass, warns once, and retries when a value arrives.
 	Describe("Channel reads before the first value", func() {
 		const (
 			startCmd = 100
@@ -7344,7 +7343,7 @@ var _ = Describe("Sequence", func() {
 			v float32,
 			at telem.TimeSpan,
 		) {
-			h.Ingest(key, telem.NewSeriesV[float32](v))
+			h.Ingest(key, telem.NewSeriesV(v))
 			advance(h, ctx, at)
 		}
 
@@ -7369,7 +7368,7 @@ var _ = Describe("Sequence", func() {
 				Expect(out.Get(reached).Series).To(BeEmpty())
 				Expect(*reported).To(HaveLen(1))
 				Expect((*reported)[0]).To(SatisfyAll(
-					MatchError(wasm.ErrNoValue),
+					MatchError(ContainSubstring("no value received yet")),
 					MatchError(ContainSubstring("temp_a")),
 				))
 

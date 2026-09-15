@@ -111,11 +111,11 @@ func newRuntimeHarness(
 			return guest.Close(ctx)
 		})
 		factory = append(factory, &wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       stringsState,
-			NodeKeySetter: statefulMod,
-			Channels:      channelState,
+			Module:   guest,
+			Memory:   guest.Memory(),
+			Strings:  stringsState,
+			Stateful: statefulMod,
+			Channels: channelState,
 		})
 	}
 

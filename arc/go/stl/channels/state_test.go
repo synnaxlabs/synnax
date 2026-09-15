@@ -411,9 +411,9 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
-	Describe("WriteChannelFixed", func() {
+	Describe("WriteSample", func() {
 		It("Should write all fixed numeric types and auto-index timestamps", func() {
-			s.WriteChannelI32(1, 42)
+			channels.WriteSample(s, 1, int32(42))
 			fr, changed := s.Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
@@ -423,7 +423,7 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should not write index for channels without one", func() {
-			s.WriteChannelI32(3, 10)
+			channels.WriteSample(s, 3, int32(10))
 			fr, _ := s.Flush(telem.Frame[uint32]{})
 			Expect(fr.Get(3).Series).To(HaveLen(1))
 			Expect(fr.Get(0).Series).To(BeEmpty())

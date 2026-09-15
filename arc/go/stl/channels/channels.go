@@ -25,15 +25,14 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
-// Name is the module name.
-const Name = "channels"
+const name = "channels"
 
-// NewSymbols returns a fresh slice of ambient prelude symbols this package
-// contributes: the channels module plus `on` and `write` as bare globals so
-// flow-mode programs can reference them without an import.
+// NewSymbols returns a fresh slice of ambient prelude symbols this package contributes:
+// the channels module plus `on` and `write` as bare globals so flow-mode programs can
+// reference them without an import.
 func NewSymbols() []*symbol.Symbol {
 	numConstraint := new(types.NumericConstraint())
-	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Internal: true}
 	mod.AddChild(
 		symbol.InternalHostFunc(
 			"read",
@@ -81,17 +80,16 @@ func NewSymbols() []*symbol.Symbol {
 	}
 }
 
-// Host is the runtime host-side support for the channels module: it
-// registers WASM host bindings (read/write per type) and acts as the node
-// factory for `on` (source) and `write` (sink) flow nodes.
+// Host is the runtime host-side support for the channels module: it registers WASM host
+// bindings (read/write per type) and acts as the node factory for `on` (source) and
+// `write` (sink) flow nodes.
 type Host struct {
 	state   *ProgramState
 	strings *strings.ProgramState
 }
 
-// NewHost registers the channels module's WASM host bindings with rt and returns
-// the node factory for `on` and `write`. String reads and writes go through
-// stringState.
+// NewHost registers the channels module's WASM host bindings with rt and returns the
+// node factory for `on` and `write`. String reads and writes go through stringState.
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
@@ -102,7 +100,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(Name)
+	builder := rt.NewHostModuleBuilder(name)
 	builder = bindI32[uint8](builder, ps, "u8")
 	builder = bindI32[uint16](builder, ps, "u16")
 	builder = bindI32[uint32](builder, ps, "u32")
@@ -317,7 +315,7 @@ func (s *sink) Next(ctx node.Context) {
 // hostRead returns the latest series on key for a host read. A channel with no
 // buffered value records a miss and returns false.
 func hostRead(ps *ProgramState, key uint32) (telem.Series, bool) {
-	series, ok := ps.ReadValue(key)
+	series, ok := ps.readValue(key)
 	if !ok || series.Len() == 0 {
 		ps.noteMissingRead(key)
 		return series, false
@@ -344,8 +342,7 @@ func bindI32[T i32Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(ps, chID, T(val))
-			ps.writeIndexedTimestamp(chID)
+			writeSample(ps, chID, T(val))
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -369,8 +366,7 @@ func bindI64[T i64Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
-			appendFixedWriteSample(ps, chID, T(val))
-			ps.writeIndexedTimestamp(chID)
+			writeSample(ps, chID, T(val))
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -392,8 +388,7 @@ func bindBool(
 		}).Export("read_bool")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(ps, chID, val != 0)
-			ps.writeIndexedTimestamp(chID)
+			writeSample(ps, chID, val != 0)
 		}).Export("write_bool")
 	return builder
 }
@@ -412,7 +407,7 @@ func bindF32(
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
-			ps.WriteChannelF32(chID, val)
+			writeSample(ps, chID, val)
 		}).Export("write_f32")
 	return builder
 }
@@ -431,7 +426,7 @@ func bindF64(
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
-			ps.WriteChannelF64(chID, val)
+			writeSample(ps, chID, val)
 		}).Export("write_f64")
 	return builder
 }

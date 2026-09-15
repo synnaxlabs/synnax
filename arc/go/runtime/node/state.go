@@ -279,8 +279,8 @@ func (s *State) Reset() {
 	}
 }
 
-// Rearm marks every data input unconsumed so the next RefreshInputs re-runs the
-// node over the inputs it already holds.
+// Rearm marks every data input unconsumed so the next RefreshInputs re-runs the node
+// over the inputs it already holds.
 func (s *State) Rearm() {
 	for i := range s.accumulated {
 		if !s.isReference[i] {

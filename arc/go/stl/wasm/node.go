@@ -16,6 +16,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -25,15 +27,6 @@ import (
 )
 
 var _ node.Node = (*nodeImpl)(nil)
-
-// NodeKeySetter is implemented by modules that need to know which node is
-// currently executing (e.g., stateful variable scoping). The runtime calls
-// SetNodeKey before each WASM invocation. This follows the same optional
-// interface pattern as MemorySetter.
-type NodeKeySetter interface {
-	SetNodeKey(key string)
-	ClearNode(key string)
-}
 
 type result struct {
 	Value   uint64
@@ -54,13 +47,13 @@ type nodeImpl struct {
 	offsets       []int
 	selIdx        int
 	clock         telem.MonoClock
-	nodeKeySetter NodeKeySetter
+	stateful      *stateful.Host
 	stringInputs  []bool
 	chanInputs    []bool
 	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
-	channels      MissingReads
+	channels      *channels.ProgramState
 	// warnedMissing is set once a skipped evaluation has been reported and
 	// cleared when an evaluation succeeds.
 	warnedMissing bool
@@ -230,8 +223,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
 	clockStamp := longestInputIdx < 0 || n.selIdx >= 0
-	if n.nodeKeySetter != nil {
-		n.nodeKeySetter.SetNodeKey(n.ir.Key)
+	if n.stateful != nil {
+		n.stateful.SetNodeKey(n.ir.Key)
 	}
 	var (
 		missing    bool
@@ -320,7 +313,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		if !n.warnedMissing {
 			n.warnedMissing = true
 			ctx.ReportError(errors.Wrapf(
-				ErrNoValue, "channel %s", n.channelName(missingKey),
+				errNoValue, "channel %s", n.channelName(missingKey),
 			))
 		}
 	} else {
@@ -342,8 +335,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 
 func (n *nodeImpl) Reset() {
 	n.State.Reset()
-	if n.nodeKeySetter != nil {
-		n.nodeKeySetter.ClearNode(n.ir.Key)
+	if n.stateful != nil {
+		n.stateful.ClearNode(n.ir.Key)
 	}
 }
 
