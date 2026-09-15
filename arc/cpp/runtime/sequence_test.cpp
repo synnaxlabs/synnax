@@ -2820,17 +2820,17 @@ TEST(MissingReadTest, SkipsAPolledTransitionUntilEveryChannelHasAValue) {
     Sequence h(
         R"(import time
     sequence main {
-        stage wait_flanges_cold {
-            time.interval{50ms} -> %tstill% < 4.0 and %t4k% < 5.0 => precondense_hold
+        stage wait_cold {
+            time.interval{50ms} -> %temp_a% < 4.0 and %temp_b% < 5.0 => hold
         }
-        stage precondense_hold {
+        stage hold {
             1 -> %reached%
         }
     }
     %start_cmd% => main)",
         {{"start_cmd", x::telem::UINT8_T},
-         {"tstill", x::telem::FLOAT32_T},
-         {"t4k", x::telem::FLOAT32_T},
+         {"temp_a", x::telem::FLOAT32_T},
+         {"temp_b", x::telem::FLOAT32_T},
          {"reached", x::telem::UINT8_T}}
     );
     h.trigger("start_cmd");
@@ -2841,12 +2841,12 @@ TEST(MissingReadTest, SkipsAPolledTransitionUntilEveryChannelHasAValue) {
     ASSERT_EQ(h.reported.size(), 1);
     ASSERT_MATCHES(h.reported[0], errors::MISSING_READ);
 
-    h.ingest("tstill", x::telem::Series(3.0f));
+    h.ingest("temp_a", x::telem::Series(3.0f));
     h.advance(130 * x::telem::MILLISECOND);
     out = h.flush();
-    EXPECT_FALSE(out.contains(h.key("reached"))) << "t4k still has no value";
+    EXPECT_FALSE(out.contains(h.key("reached"))) << "temp_b still has no value";
 
-    h.ingest("t4k", x::telem::Series(3.0f));
+    h.ingest("temp_b", x::telem::Series(3.0f));
     h.advance(140 * x::telem::MILLISECOND);
     out = h.flush();
     EXPECT_EQ(last<std::uint8_t>(out, h.key("reached")), 1);
@@ -2857,26 +2857,26 @@ TEST(MissingReadTest, RetriesAOneShotWaitTransitionWhenValuesArriveLater) {
     Sequence h(
         R"(import time
     sequence main {
-        stage wait_flanges_cold {
-            time.wait{50ms} -> %tstill% < 4.0 and %t4k% < 5.0 => precondense_hold
+        stage wait_cold {
+            time.wait{50ms} -> %temp_a% < 4.0 and %temp_b% < 5.0 => hold
         }
-        stage precondense_hold {
+        stage hold {
             1 -> %reached%
         }
     }
     %start_cmd% => main)",
         {{"start_cmd", x::telem::UINT8_T},
-         {"tstill", x::telem::FLOAT32_T},
-         {"t4k", x::telem::FLOAT32_T},
+         {"temp_a", x::telem::FLOAT32_T},
+         {"temp_b", x::telem::FLOAT32_T},
          {"reached", x::telem::UINT8_T}}
     );
     h.trigger("start_cmd");
     h.advance(60 * x::telem::MILLISECOND);
     auto out = h.flush();
     EXPECT_FALSE(out.contains(h.key("reached")));
-    h.ingest("tstill", x::telem::Series(3.0f));
+    h.ingest("temp_a", x::telem::Series(3.0f));
     h.advance(70 * x::telem::MILLISECOND);
-    h.ingest("t4k", x::telem::Series(3.0f));
+    h.ingest("temp_b", x::telem::Series(3.0f));
     h.advance(80 * x::telem::MILLISECOND);
     out = h.flush();
     EXPECT_EQ(last<std::uint8_t>(out, h.key("reached")), 1);
