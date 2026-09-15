@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -144,11 +145,17 @@ var _ = Describe("Calculation", Ordered, func() {
 			Framer:  dist.Framer,
 			Channel: channelSvc,
 		}))
-		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
-			Framer:  dist.Framer,
-			Writer:  writerSvc,
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:      dist.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:           dist.DB,
+			Framer:       dist.Framer,
+			Writer:       writerSvc,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 	})
 

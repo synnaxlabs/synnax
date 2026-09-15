@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -118,12 +119,15 @@ func NewSymbols() []*symbol.Symbol {
 }
 
 type module struct {
+	db     *gorp.DB
 	rng    *ranger.Service
 	report taskreporter.Reporter
 }
 
 // ModuleConfig wires the Arc ranges module into a wazero runtime.
 type ModuleConfig struct {
+	// DB opens the transactions that range writes run in.
+	DB       *gorp.DB
 	Ranger   *ranger.Service
 	Strings  *strings.ProgramState
 	Runtime  wazero.Runtime
@@ -132,6 +136,7 @@ type ModuleConfig struct {
 
 func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	v := validate.New("arc.ranges")
+	v.NotNil("db", cfg.DB)
 	v.NotNil("ranger", cfg.Ranger)
 	v.NotNil("reporter", cfg.Reporter)
 	if cfg.Runtime != nil {
@@ -140,7 +145,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	if err := v.Error(); err != nil {
 		return nil, err
 	}
-	m := &module{rng: cfg.Ranger, report: cfg.Reporter}
+	m := &module{db: cfg.DB, rng: cfg.Ranger, report: cfg.Reporter}
 	if cfg.Runtime == nil {
 		return m, nil
 	}
@@ -157,7 +162,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 				return 0
 			}
 			return heap.Create(
-				dispatchCreate(ctx, m.rng, m.report, name, parent, colorHex),
+				dispatchCreate(ctx, m.db, m.rng, m.report, name, parent, colorHex),
 			)
 		}).Export(createMemberName)
 	builder = builder.NewFunctionBuilder().
@@ -171,7 +176,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 				)
 				return 0
 			}
-			return heap.Create(dispatchEnd(ctx, m.rng, m.report, key))
+			return heap.Create(dispatchEnd(ctx, m.db, m.rng, m.report, key))
 		}).Export(endMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -185,13 +190,18 @@ func (m *module) Create(cfg node.Config) (node.Node, error) {
 		if err := createSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
 			return nil, errors.Wrap(err, "ranges.create inputs")
 		}
-		return &createNode{State: cfg.State, rng: m.rng, report: m.report}, nil
+		return &createNode{
+			State:  cfg.State,
+			db:     m.db,
+			rng:    m.rng,
+			report: m.report,
+		}, nil
 
 	case endMemberName:
 		if err := endSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
 			return nil, errors.Wrap(err, "ranges.end inputs")
 		}
-		return &endNode{State: cfg.State, rng: m.rng, report: m.report}, nil
+		return &endNode{State: cfg.State, db: m.db, rng: m.rng, report: m.report}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
@@ -205,12 +215,13 @@ var createSchema = zyn.Object(map[string]zyn.Schema{
 
 type createNode struct {
 	*node.State
+	db     *gorp.DB
 	rng    *ranger.Service
 	report taskreporter.Reporter
 }
 
 func (n *createNode) Next(ctx node.Context) {
-	key := dispatchCreate(ctx, n.rng, n.report,
+	key := dispatchCreate(ctx, n.db, n.rng, n.report,
 		n.StringInput("name"), n.StringInput("parent"), n.StringInput("color"))
 	*n.Output(0) = telem.NewSeriesV(key)
 	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
@@ -222,6 +233,7 @@ func (n *createNode) Next(ctx node.Context) {
 // range is created.
 func dispatchCreate(
 	ctx context.Context,
+	db *gorp.DB,
 	rng *ranger.Service,
 	report taskreporter.Reporter,
 	name, parent, colorHex string,
@@ -250,7 +262,9 @@ func dispatchCreate(
 		}
 		r.Parent = &ranger.Range{Key: uid}
 	}
-	if err := rng.NewWriter(nil).Create(ctx, &r); err != nil {
+	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rng.NewWriter(tx).Create(ctx, &r)
+	}); err != nil {
 		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.create: %v", err))
 		return ""
 	}
@@ -263,12 +277,13 @@ var endSchema = zyn.Object(map[string]zyn.Schema{
 
 type endNode struct {
 	*node.State
+	db     *gorp.DB
 	rng    *ranger.Service
 	report taskreporter.Reporter
 }
 
 func (n *endNode) Next(ctx node.Context) {
-	key := dispatchEnd(ctx, n.rng, n.report, n.StringInput("key"))
+	key := dispatchEnd(ctx, n.db, n.rng, n.report, n.StringInput("key"))
 	*n.Output(0) = telem.NewSeriesV(key)
 	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
 	ctx.MarkChanged(0)
@@ -278,6 +293,7 @@ func (n *endNode) Next(ctx node.Context) {
 // failures as warnings so the task keeps running.
 func dispatchEnd(
 	ctx context.Context,
+	db *gorp.DB,
 	rng *ranger.Service,
 	report taskreporter.Reporter,
 	key string,
@@ -291,7 +307,9 @@ func dispatchEnd(
 		)
 		return ""
 	}
-	if err := rng.NewWriter(nil).SetEnd(ctx, uid, telem.Now()); err != nil {
+	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		return rng.NewWriter(tx).SetEnd(ctx, uid, telem.Now())
+	}); err != nil {
 		report(ctx, status.VariantWarning, fmt.Sprintf("ranges.end: %v", err))
 		return ""
 	}

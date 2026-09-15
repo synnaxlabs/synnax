@@ -208,12 +208,15 @@ func (s *Service) SetByKeyOrName(
 }
 
 // NewWriter opens a Writer for statuses. Pass a nil tx to write directly against the
-// service's DB.
+// service's DB. A status write spans the entry and its ontology resource, so the two
+// land together only when tx does.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
+		tx:        tx,
+		table:     s.table,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
 		group:     s.group,
 	}
 }

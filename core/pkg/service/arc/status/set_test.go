@@ -340,7 +340,7 @@ var _ = Describe("setNode.Next", func() {
 	It("Should update an existing row by name (single match)", func(ctx SpecContext) {
 		name := "next_single_" + uuid.NewString()
 		existingKey := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     existingKey,
 			Name:    name,
 			Variant: status.VariantInfo,
@@ -364,7 +364,7 @@ var _ = Describe("setNode.Next", func() {
 
 	It("Should update an existing row by UUID key", func(ctx SpecContext) {
 		key := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "by_uuid",
 			Variant: status.VariantInfo,
@@ -435,14 +435,14 @@ var _ = Describe("setNode.Next", func() {
 		func(ctx SpecContext) {
 			name := "next_multi_" + uuid.NewString()
 			k1, k2 := uuid.NewString(), uuid.NewString()
-			Expect(writer.Set(ctx, &status.Status[any]{
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k1,
 				Name:    name,
 				Variant: status.VariantInfo,
 				Message: "first",
 				Time:    telem.Now(),
 			})).To(Succeed())
-			Expect(writer.Set(ctx, &status.Status[any]{
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k2,
 				Name:    name,
 				Variant: status.VariantInfo,
