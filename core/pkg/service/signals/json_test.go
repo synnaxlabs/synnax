@@ -10,7 +10,7 @@
 package signals_test
 
 import (
-	"encoding/json"
+	json "encoding/json/v2"
 	"io"
 	"math"
 	"time"

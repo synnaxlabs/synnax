@@ -12,9 +12,10 @@
 package pb
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/arc/types"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -208,7 +209,7 @@ func ParamToPB(r types.Param) (*Param, error) {
 	if err != nil {
 		return nil, err
 	}
-	valueVal, err := json.Marshal(r.Value)
+	valueVal, err := json.Marshal(r.Value, xjson.V1Options)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +232,7 @@ func ParamFromPB(pb *Param) (types.Param, error) {
 	if err != nil {
 		return types.Param{}, err
 	}
-	r.Value = func() any { var v any; _ = json.Unmarshal(pb.Value, &v); return v }()
+	r.Value = func() any { var v any; _ = json.Unmarshal(pb.Value, &v, xjson.V1Options); return v }()
 	r.Name = pb.Name
 	return r, nil
 }

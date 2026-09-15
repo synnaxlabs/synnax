@@ -12,8 +12,9 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -22,7 +23,7 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	{
-		b, err := json.Marshal(s.Data)
+		b, err := json.Marshal(s.Data, xjson.V1Options)
 		if err != nil {
 			return err
 		}
@@ -46,7 +47,7 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &s.Data); err != nil {
+		if err = json.Unmarshal(b, &s.Data, xjson.V1Options); err != nil {
 			return err
 		}
 	}

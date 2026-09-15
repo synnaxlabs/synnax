@@ -10,7 +10,8 @@
 package task_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/set"
@@ -497,7 +499,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			)
 			// The trailing newline keeps regenerated goldens Prettier-clean.
 			goldenBytes := append(
-				MustSucceed(json.MarshalIndent(canonical, "", "  ")), '\n',
+				MustSucceed(
+					json.Marshal(canonical, jsontext.WithIndent("  "), xjson.V1Options),
+				),
+				'\n',
 			)
 			if os.Getenv("UPDATE_LEGACY_GOLDENS") != "" {
 				Expect(os.WriteFile(goldenPath, goldenBytes, 0o644)).To(Succeed())

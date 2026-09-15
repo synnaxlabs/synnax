@@ -11,7 +11,8 @@ package v1_test
 
 import (
 	"embed"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -73,7 +75,7 @@ func migrateSeed(ctx SpecContext, seed v0.Table) v1.Table {
 // rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
 // json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v1.Table) {
-	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
+	pretty := MustSucceed(json.Marshal(got, jsontext.WithIndent("  "), xjson.V1Options))
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
 	p := filepath.Join("testdata", stem+".migrated.json")

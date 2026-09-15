@@ -12,7 +12,7 @@
 package pb
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"uuid"
 
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
@@ -20,6 +20,7 @@ import (
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -252,7 +253,7 @@ func StatusDetailsFromPBAny(a *anypb.Any) (arc.StatusDetails, error) {
 		return arc.StatusDetails{}, err
 	}
 	var result arc.StatusDetails
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+	if err := json.Unmarshal(jsonBytes, &result, xjson.V1Options); err != nil {
 		return arc.StatusDetails{}, err
 	}
 	return result, nil

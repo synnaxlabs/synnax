@@ -10,7 +10,8 @@
 package imex_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -144,8 +145,8 @@ var _ = Describe("ImEx", func() {
 
 			It("Should reject a duplicate object name", func() {
 				var env imex.Envelope
-				Expect(json.Unmarshal(
-					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
+				Expect(env.UnmarshalJSON(
+					[]byte(`{"version":1,"name":"a","name":"b"}`),
 				)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("duplicate object member name")),
@@ -154,8 +155,8 @@ var _ = Describe("ImEx", func() {
 
 			It("Should reject invalid UTF-8", func() {
 				var env imex.Envelope
-				Expect(json.Unmarshal(
-					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
+				Expect(env.UnmarshalJSON(
+					[]byte("{\"version\":1,\"name\":\"\xff\"}"),
 				)).To(MatchError(ContainSubstring("invalid UTF-8")))
 			})
 
@@ -178,7 +179,7 @@ var _ = Describe("ImEx", func() {
 			It("Should error when the input is a bare JSON number", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`34`), &env)).To(
-					MatchError(ContainSubstring("cannot unmarshal number")),
+					MatchError(ContainSubstring("cannot unmarshal JSON number")),
 				)
 			})
 
@@ -233,8 +234,9 @@ var _ = Describe("ImEx", func() {
 					).To(Succeed())
 					Expect(string(MustSucceed(env.MarshalJSON()))).
 						To(ContainSubstring(`"<svg id=\"a\"/>"`))
-					Expect(string(MustSucceed(json.Marshal(env)))).
-						To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
+					Expect(string(MustSucceed(
+						json.Marshal(env, jsontext.EscapeForHTML(true)),
+					))).To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
 				},
 			)
 
@@ -246,7 +248,7 @@ var _ = Describe("ImEx", func() {
 					// accidentally returns an empty Envelope surfaces the bug at the
 					// transport boundary rather than over the wire.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-					Expect(json.Marshal(env)).Error().
+					Expect(env.MarshalJSON()).Error().
 						To(MatchError(ContainSubstring("envelope has no body")))
 				},
 			)

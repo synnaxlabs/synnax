@@ -10,7 +10,7 @@
 package telem
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"iter"
 	"slices"
@@ -113,7 +113,7 @@ func (s *Series) validateVariable() error {
 			)
 		}
 		sample := s.Data[offset : offset+length]
-		if s.DataType == JSONT && !json.Valid(sample) {
+		if s.DataType == JSONT && !validJSONSample(sample) {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"sample %q is not valid JSON",
@@ -139,6 +139,16 @@ func (s *Series) validateVariable() error {
 	}
 	s.cachedLength = &count
 	return nil
+}
+
+// validJSONSample reports whether b holds one well-formed JSON value. Duplicate object
+// names and invalid UTF-8 pass: clients have always been able to write them, so
+// rejecting them here would fail writes that the Core already stores.
+func validJSONSample(b []byte) bool {
+	return jsontext.Value(b).IsValid(
+		jsontext.AllowDuplicateNames(true),
+		jsontext.AllowInvalidUTF8(true),
+	)
 }
 
 // Size returns the number of bytes in the Series.

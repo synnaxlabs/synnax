@@ -10,7 +10,8 @@
 package v6_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,17 +37,17 @@ var _ = Describe("CustomRange", func() {
 	Describe("MarshalJSON", func() {
 		It("Should tag the dynamic variant", func() {
 			b := MustSucceed(json.Marshal(dynamic))
-			var fields map[string]json.RawMessage
+			var fields map[string]jsontext.Value
 			Expect(json.Unmarshal(b, &fields)).To(Succeed())
-			Expect(fields).To(HaveKeyWithValue("variant", json.RawMessage(`"dynamic"`)))
+			Expect(fields).To(HaveKeyWithValue("variant", jsontext.Value(`"dynamic"`)))
 			Expect(fields).To(HaveKey("span"))
 		})
 
 		It("Should tag the static variant", func() {
 			b := MustSucceed(json.Marshal(static))
-			var fields map[string]json.RawMessage
+			var fields map[string]jsontext.Value
 			Expect(json.Unmarshal(b, &fields)).To(Succeed())
-			Expect(fields).To(HaveKeyWithValue("variant", json.RawMessage(`"static"`)))
+			Expect(fields).To(HaveKeyWithValue("variant", jsontext.Value(`"static"`)))
 			Expect(fields).To(HaveKey("start"))
 			Expect(fields).To(HaveKey("end"))
 		})
@@ -87,7 +88,7 @@ var _ = Describe("CustomRange", func() {
 		It("Should reject malformed JSON", func() {
 			var decoded v6.CustomRange
 			Expect(json.Unmarshal([]byte(`{`), &decoded)).
-				To(MatchError(ContainSubstring("unexpected end of JSON input")))
+				To(MatchError(ContainSubstring("unexpected EOF")))
 		})
 
 		DescribeTable("Should reject a variant with mistyped fields",

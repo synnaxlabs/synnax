@@ -13,8 +13,8 @@ import (
 	"bytes"
 	"cmp"
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"slices"
 	"strings"
 	"uuid"
@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -167,7 +168,7 @@ func scanStagedLayouts(
 	for iter.First(); iter.Valid(); iter.Next() {
 		key := bytes.Clone(iter.Key())
 		var slice legacySlice
-		if jerr := json.Unmarshal(iter.Value(), &slice); jerr != nil {
+		if jerr := json.Unmarshal(iter.Value(), &slice, xjson.V1Options); jerr != nil {
 			ins.L.Warn(
 				"skipping project with unparseable staged layout",
 				zap.String("key", string(key)),
@@ -346,7 +347,12 @@ func taskKeyCandidates(slice legacySlice, tabKey string) []string {
 		var args struct {
 			TaskKey string `json:"taskKey"`
 		}
-		if err := json.Unmarshal(l.Args, &args); err == nil && args.TaskKey != "" {
+		if err := json.Unmarshal(
+			l.Args,
+			&args,
+			xjson.V1Options,
+		); err == nil &&
+			args.TaskKey != "" {
 			candidates = append(candidates, args.TaskKey)
 		}
 	}

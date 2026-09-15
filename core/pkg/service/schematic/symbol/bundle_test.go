@@ -11,7 +11,7 @@ package symbol_test
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"io"
 	"maps"
 	"os"
@@ -125,7 +125,7 @@ var _ = Describe("ExportGroup", func() {
 		sym := createSymbol(ctx, g, "Inlet")
 		env := MustSucceed(svc.Export(ctx, symbol.OntologyID(sym.Key)))
 		Expect(exportFiles(ctx, g.Key)["Inlet.json"]).
-			To(Equal(MustSucceed(json.Marshal(env))))
+			To(Equal(MustSucceed(xjson.Codec.Encode(ctx, env))))
 	})
 	It("Should report every exported symbol as a member", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")

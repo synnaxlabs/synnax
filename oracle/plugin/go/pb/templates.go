@@ -682,7 +682,7 @@ func {{.TypeName}}FromPBAny(a *anypb.Any) ({{.GoType}}, error) {
 		return {{.GoType}}{}, err
 	}
 	var result {{.GoType}}
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+	if err := json.Unmarshal(jsonBytes, &result, xjson.V1Options); err != nil {
 		return {{.GoType}}{}, err
 	}
 	return result, nil

@@ -12,8 +12,9 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -205,7 +206,7 @@ func (tb *TabBase) DecodeOrc(r *orc.Reader) error {
 func (vv View) EncodeOrc(w *orc.Writer) error {
 	w.String(vv.Type)
 	{
-		b, err := json.Marshal(vv.Args)
+		b, err := json.Marshal(vv.Args, xjson.V1Options)
 		if err != nil {
 			return err
 		}
@@ -225,7 +226,7 @@ func (vv *View) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &vv.Args); err != nil {
+		if err = json.Unmarshal(b, &vv.Args, xjson.V1Options); err != nil {
 			return err
 		}
 	}

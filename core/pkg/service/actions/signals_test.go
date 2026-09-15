@@ -10,7 +10,7 @@
 package actions_test
 
 import (
-	"encoding/json"
+	json "encoding/json/v2"
 	"fmt"
 	"io"
 	"sync/atomic"

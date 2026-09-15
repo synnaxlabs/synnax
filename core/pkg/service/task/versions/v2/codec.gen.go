@@ -12,9 +12,10 @@
 package v2
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -25,7 +26,7 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.String(t.Name)
 	w.String(t.Type)
 	{
-		b, err := json.Marshal(t.Config)
+		b, err := json.Marshal(t.Config, xjson.V1Options)
 		if err != nil {
 			return err
 		}
@@ -61,7 +62,7 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &t.Config); err != nil {
+		if err = json.Unmarshal(b, &t.Config, xjson.V1Options); err != nil {
 			return err
 		}
 	}

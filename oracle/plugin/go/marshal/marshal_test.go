@@ -718,8 +718,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain(
-						"json.Marshal(s.Details)",
-						"json.Unmarshal(b, &s.Details)",
+						"json.Marshal(s.Details, xjson.V1Options)",
+						"json.Unmarshal(b, &s.Details, xjson.V1Options)",
 					)
 					content.ToNotContain(
 						"orc.SelfEncoder",

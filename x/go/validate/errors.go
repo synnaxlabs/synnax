@@ -11,10 +11,11 @@ package validate
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"strings"
 
 	"github.com/samber/lo"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -107,7 +108,7 @@ func encode(ctx context.Context, err error) (errors.Payload, bool) {
 			Data: string(lo.Must(json.Marshal(encodedPathError{
 				Error: internal,
 				Path:  errPath.Path,
-			}))),
+			}, xjson.V1Options))),
 		}, true
 	}
 	if errors.CheapIs(err, ErrValidation) {
@@ -122,7 +123,11 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 	}
 	if p.Type == pathErrorType {
 		var errDecodedPath encodedPathError
-		if err := json.Unmarshal([]byte(p.Data), &errDecodedPath); err != nil {
+		if err := json.Unmarshal(
+			[]byte(p.Data),
+			&errDecodedPath,
+			xjson.V1Options,
+		); err != nil {
 			return err, true
 		}
 		return PathError{

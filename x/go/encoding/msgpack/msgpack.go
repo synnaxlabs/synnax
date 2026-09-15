@@ -11,12 +11,13 @@ package msgpack
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"io"
 	"math"
 	"strconv"
 
 	"github.com/synnaxlabs/x/encoding"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
 	"github.com/vmihailenco/msgpack/v5"
@@ -87,7 +88,7 @@ func (e *EncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	case string:
 		m := make(map[string]any)
 		if len(val) != 0 {
-			if err = json.Unmarshal([]byte(val), &m); err != nil {
+			if err = json.Unmarshal([]byte(val), &m, xjson.V1Options); err != nil {
 				return errors.Wrapf(
 					err,
 					"failed to unmarshal JSON string into EncodedJSON",
@@ -115,11 +116,11 @@ func (e *EncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 
 // Unmarshal decodes the map into the provided struct using JSON marshal/unmarshal.
 func (e EncodedJSON) Unmarshal(into any) error {
-	b, err := json.Marshal(e)
+	b, err := json.Marshal(e, xjson.V1Options)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(b, into)
+	return json.Unmarshal(b, into, xjson.V1Options)
 }
 
 // UnmarshalUint32 decodes a MessagePack value into a uint32, handling type coercion

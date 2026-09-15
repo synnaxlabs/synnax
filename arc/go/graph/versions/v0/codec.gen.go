@@ -12,9 +12,10 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -121,7 +122,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	w.String(nv.Type)
 	{
-		b, err := json.Marshal(nv.Config)
+		b, err := json.Marshal(nv.Config, xjson.V1Options)
 		if err != nil {
 			return err
 		}
@@ -147,7 +148,7 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &nv.Config); err != nil {
+		if err = json.Unmarshal(b, &nv.Config, xjson.V1Options); err != nil {
 			return err
 		}
 	}

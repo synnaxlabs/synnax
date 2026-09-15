@@ -18,10 +18,9 @@
 package imex
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"reflect"
 	"strconv"
 	"strings"
@@ -118,34 +117,32 @@ type Envelope struct {
 // MarshalJSON emits the body built by Encode. It returns an error when the envelope has
 // no body, so a service that returns an empty Envelope from Export fails loudly instead
 // of sending null. The body keeps <, >, and & literal: the encoder that embeds this
-// output can add escapes but never remove them, so the choice belongs to it.
+// output can add escapes but never remove them, so the choice belongs to it. Members
+// are sorted, because the method sets its own options rather than inheriting the
+// caller's, and an exported file must be byte-stable across runs.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	if e.body == nil {
 		return nil, errors.New(
 			"envelope has no body; build one with Encode before marshaling",
 		)
 	}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(e.body); err != nil {
-		return nil, err
-	}
-	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+	return json.Marshal(
+		e.body,
+		jsontext.EscapeForHTML(false),
+		json.Deterministic(true),
+	)
 }
 
 // UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes
-// for a later Decode. Numbers decode in UseNumber mode so the Version keeps full int64
+// for a later Decode. Numbers decode precisely so the Version keeps full int64
 // precision. A duplicate object name or invalid UTF-8 fails the read: an import file
 // comes from outside the Core, so a defect there is corruption, not a value to guess.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
 	if err := xjson.Validate(b); err != nil {
 		return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
 	}
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.UseNumber()
 	var m map[string]any
-	if err := dec.Decode(&m); err != nil {
+	if err := json.Unmarshal(b, &m, xjson.PreciseNumbers); err != nil {
 		return err
 	}
 	// A JSON null decodes to a nil map rather than an error.
@@ -271,17 +268,20 @@ func (env *Envelope) Encode[T any](data T) error {
 	return nil
 }
 
-// versionFromAny converts a generic Go value (as produced by a UseNumber-mode decode
-// into map[string]any) to a Version. Accepts json.Number (the JSON number form,
-// preserving full integer precision) and legacy "N.0.0" semver strings.
+// versionFromAny converts a generic Go value (as produced by a precise-number decode
+// into map[string]any) to a Version. Accepts the JSON number forms and legacy "N.0.0"
+// semver strings.
 func versionFromAny(v any) (Version, error) {
 	switch x := v.(type) {
-	case json.Number:
-		n, err := strconv.ParseUint(x.String(), 10, 64)
-		if err != nil {
-			return 0, errors.Wrapf(err, "invalid version number %q", x.String())
+	case int64:
+		if x < 0 {
+			return 0, errors.Newf("invalid version number %d", x)
 		}
-		return Version(n), nil
+		return Version(x), nil
+	case uint64:
+		return Version(x), nil
+	case float64:
+		return 0, errors.Newf("invalid version number %v: must be an integer", x)
 	case string:
 		n, err := legacyToNumeric(x)
 		if err != nil {

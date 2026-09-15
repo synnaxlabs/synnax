@@ -11,12 +11,13 @@ package v0
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -66,7 +67,7 @@ var Migration = gorp.NewMigration(
 		}
 
 		userMappings := buildUserMappings(legacyPolicies)
-		mappingBytes, err := json.Marshal(userMappings)
+		mappingBytes, err := json.Marshal(userMappings, xjson.V1Options)
 		if err != nil {
 			return errors.Wrap(err, "failed to marshal legacy permission mapping")
 		}
@@ -132,7 +133,7 @@ func ReadLegacyMappings(ctx context.Context, tx gorp.Tx) ([]LegacyUserMapping, e
 		return nil, nil
 	}
 	var mappings []LegacyUserMapping
-	if err = json.Unmarshal(mappingBytes, &mappings); err != nil {
+	if err = json.Unmarshal(mappingBytes, &mappings, xjson.V1Options); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal legacy permission mapping")
 	}
 	return mappings, nil

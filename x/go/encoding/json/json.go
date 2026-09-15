@@ -12,6 +12,7 @@ package json
 import (
 	"bytes"
 	"context"
+	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"io"
@@ -28,6 +29,43 @@ var Codec = NewCodec()
 
 // codecOptions is the option set Codec was built with.
 var codecOptions = Codec.(*codec).opts
+
+// V1Options is the option set that reproduces the encoding behavior of the v1
+// encoding/json package: sorted map members, HTML escaping, nil slices and maps as
+// null, case-insensitive name matching, and nanosecond durations.
+//
+// Pass it to a v2 call whose bytes are hashed, persisted, or read by a client that has
+// only ever seen the v1 shape. Dropping it there is a format change, not a cleanup.
+var V1Options = jsonv1.DefaultOptionsV1()
+
+// PreciseNumbers decodes a JSON number held in an any as an int64, a uint64 when it
+// exceeds int64, or a float64 when it is not an integer. The default decodes every
+// number into an any as a float64, which silently rounds integers past 2^53.
+var PreciseNumbers = json.WithUnmarshalers(
+	json.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {
+		if dec.PeekKind() != '0' {
+			return errors.ErrUnsupported
+		}
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if i, err := tok.Int(); err == nil {
+			*v = i
+			return nil
+		}
+		if u, err := tok.Uint(); err == nil {
+			*v = u
+			return nil
+		}
+		f, err := tok.Float()
+		if err != nil {
+			return err
+		}
+		*v = f
+		return nil
+	}),
+)
 
 // Marshal encodes value with the options Codec uses, for a caller holding no Codec and
 // no context. Output matches what Codec writes for the same value.

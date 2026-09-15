@@ -11,7 +11,7 @@ package driver
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"io"
 	"io/fs"
 	"os"
@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -498,7 +499,7 @@ func (d *Driver) setupCmd(
 		}
 		tempFiles = append(tempFiles, trustAnchorFile)
 	}
-	b, err := json.Marshal(d.cfg.format(trustAnchorFile))
+	b, err := json.Marshal(d.cfg.format(trustAnchorFile), xjson.V1Options)
 	if err != nil {
 		return nil, tempFiles, "", err
 	}

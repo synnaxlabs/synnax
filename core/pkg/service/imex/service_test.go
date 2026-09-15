@@ -11,7 +11,7 @@ package imex_test
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"fmt"
 	"sync"
 	"uuid"

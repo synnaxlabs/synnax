@@ -11,12 +11,13 @@ package arc
 
 import (
 	"cmp"
-	"encoding/json"
+	json "encoding/json/v2"
 	"fmt"
 	"slices"
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/synnaxlabs/arc/ir"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -56,7 +57,7 @@ func Hash(a Arc) (string, error) {
 		slices.SortFunc(content.Edges, compareEdges)
 		content.Inputs = a.Graph.Inputs
 	}
-	b, err := json.Marshal(content)
+	b, err := json.Marshal(content, xjson.V1Options)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to hash arc %s", a.Key)
 	}

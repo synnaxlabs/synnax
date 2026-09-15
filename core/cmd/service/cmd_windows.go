@@ -13,7 +13,7 @@ package service
 
 import (
 	"bufio"
-	"encoding/json"
+	json "encoding/json/v2"
 	"os"
 	"path/filepath"
 	"time"
@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/version"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -278,7 +279,11 @@ func readRecentLogs(filePath string, maxEntries int) (_ []string, err error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		var entry logEntry
-		if jsonErr := json.Unmarshal([]byte(line), &entry); jsonErr != nil {
+		if jsonErr := json.Unmarshal(
+			[]byte(line),
+			&entry,
+			xjson.V1Options,
+		); jsonErr != nil {
 			continue // Skip non-JSON lines
 		}
 		if _, ok := importantLogLevels[entry.Level]; ok {

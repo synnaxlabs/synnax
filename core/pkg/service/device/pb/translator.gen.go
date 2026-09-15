@@ -12,12 +12,13 @@
 package pb
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -221,7 +222,7 @@ func StatusDetailsFromPBAny(a *anypb.Any) (device.StatusDetails, error) {
 		return device.StatusDetails{}, err
 	}
 	var result device.StatusDetails
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+	if err := json.Unmarshal(jsonBytes, &result, xjson.V1Options); err != nil {
 		return device.StatusDetails{}, err
 	}
 	return result, nil

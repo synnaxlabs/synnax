@@ -12,7 +12,7 @@ package codec_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"fmt"
 	"math/rand/v2"
 	"slices"

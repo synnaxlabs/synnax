@@ -11,7 +11,7 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"fmt"
 	"strconv"
 	"strings"
@@ -23,6 +23,7 @@ import (
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -66,7 +67,7 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
-	b, err := json.Marshal(map[string]any(config))
+	b, err := json.Marshal(map[string]any(config), xjson.V1Options)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to hash task config")
 	}

@@ -10,7 +10,7 @@
 package control_test
 
 import (
-	"encoding/json"
+	json "encoding/json/v2"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"

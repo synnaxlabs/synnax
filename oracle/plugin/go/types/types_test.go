@@ -11,7 +11,6 @@ package types_test
 
 import (
 	"context"
-	gojson "encoding/json"
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"go/parser"
@@ -3277,9 +3276,9 @@ var _ = Describe("Union codec round trip", func() {
 			MinVal: -10,
 			Scale:  rtScale{Variant: rtLinearScale{rtLinearParams{Slope: 1.5}}},
 		}}
-		data := MustSucceed(gojson.Marshal(in))
+		data := MustSucceed(jsonv2.Marshal(in))
 		var m map[string]any
-		Expect(gojson.Unmarshal(data, &m)).To(Succeed())
+		Expect(jsonv2.Unmarshal(data, &m)).To(Succeed())
 		Expect(m).To(SatisfyAll(
 			HaveKeyWithValue("type", "v"),
 			HaveKey("port"),
@@ -3287,7 +3286,7 @@ var _ = Describe("Union codec round trip", func() {
 			HaveKeyWithValue("custom_scale", HaveKeyWithValue("type", "linear")),
 		))
 		var out rtChan
-		Expect(gojson.Unmarshal(data, &out)).To(Succeed())
+		Expect(jsonv2.Unmarshal(data, &out)).To(Succeed())
 		got := out.Variant.(rtChanV)
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))

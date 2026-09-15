@@ -11,7 +11,7 @@ package driver
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 	"fmt"
 	"sync"
 	"time"
@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
@@ -170,7 +171,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 	var cmd task.Command
 	for series := range frame.Series() {
 		for s := range series.Samples() {
-			if err := json.Unmarshal(s, &cmd); err != nil {
+			if err := json.Unmarshal(s, &cmd, xjson.V1Options); err != nil {
 				d.cfg.L.Error("failed to unmarshal command", zap.Error(err))
 				continue
 			}

@@ -12,8 +12,9 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -23,7 +24,7 @@ func (wv Workspace) EncodeOrc(w *orc.Writer) error {
 	w.String(wv.Name)
 	w.Write(wv.Author[:])
 	{
-		b, err := json.Marshal(wv.Layout)
+		b, err := json.Marshal(wv.Layout, xjson.V1Options)
 		if err != nil {
 			return err
 		}
@@ -49,7 +50,7 @@ func (wv *Workspace) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &wv.Layout); err != nil {
+		if err = json.Unmarshal(b, &wv.Layout, xjson.V1Options); err != nil {
 			return err
 		}
 	}

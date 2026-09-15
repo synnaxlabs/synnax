@@ -12,7 +12,8 @@ package v5_test
 import (
 	"embed"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/jsontext"
+	json "encoding/json/v2"
 	"io"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -61,7 +63,10 @@ var _ = Describe("Released wire format", func() {
 	It("Should match the canonical decoded form", func(ctx SpecContext) {
 		var lp v5.LinePlot
 		Expect(orc.Codec.Decode(ctx, releasedWire(), &lp)).To(Succeed())
-		pretty := append(MustSucceed(json.MarshalIndent(lp, "", "  ")), '\n')
+		pretty := append(
+			MustSucceed(json.Marshal(lp, jsontext.WithIndent("  "), xjson.V1Options)),
+			'\n',
+		)
 		p := filepath.Join("testdata", "v5_released.decoded.json")
 		if os.Getenv("UPDATE_DECODED") == "1" {
 			Expect(os.WriteFile(p, pretty, 0o644)).To(Succeed())

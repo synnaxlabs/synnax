@@ -1344,10 +1344,12 @@ func (p *Plugin) generatePrimitiveConversion(
 		return fmt.Sprintf("string(%s)", goField),
 			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
 	case "any":
-		data.AddExternal("encoding/json")
-		return fmt.Sprintf("json.Marshal(%s)", goField),
+		data.AddExternal("encoding/json/v2")
+		data.AddInternal("xjson", "github.com/synnaxlabs/x/encoding/json")
+		return fmt.Sprintf("json.Marshal(%s, xjson.V1Options)", goField),
 			fmt.Sprintf(
-				"func() any { var v any; _ = json.Unmarshal(%s, &v); return v }()",
+				"func() any { var v any; "+
+					"_ = json.Unmarshal(%s, &v, xjson.V1Options); return v }()",
 				pbField,
 			), true, false
 	case "int8":
@@ -1576,7 +1578,8 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	data.AddExternal("google.golang.org/protobuf/types/known/structpb")
 	data.AddExternal("google.golang.org/protobuf/encoding/protojson")
 	data.AddExternal("google.golang.org/protobuf/proto")
-	data.AddExternal("encoding/json")
+	data.AddExternal("encoding/json/v2")
+	data.AddInternal("xjson", "github.com/synnaxlabs/x/encoding/json")
 
 	goName := naming.GetGoName(s)
 

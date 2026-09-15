@@ -12,10 +12,11 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -29,7 +30,7 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.String(d.Name)
 	w.Bool(d.Configured)
 	{
-		b, err := json.Marshal(d.Properties)
+		b, err := json.Marshal(d.Properties, xjson.V1Options)
 		if err != nil {
 			return err
 		}
@@ -87,7 +88,7 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &d.Properties); err != nil {
+		if err = json.Unmarshal(b, &d.Properties, xjson.V1Options); err != nil {
 			return err
 		}
 	}

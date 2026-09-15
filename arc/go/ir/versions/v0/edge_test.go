@@ -10,7 +10,7 @@
 package v0_test
 
 import (
-	"encoding/json"
+	json "encoding/json/v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

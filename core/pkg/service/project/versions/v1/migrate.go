@@ -11,12 +11,13 @@ package v1
 
 import (
 	"context"
-	"encoding/json"
+	json "encoding/json/v2"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
@@ -49,7 +50,7 @@ func migrateLayoutsToStaging(
 		return err
 	}
 	for _, p := range projects {
-		blob, err := json.Marshal(p.Layout)
+		blob, err := json.Marshal(p.Layout, xjson.V1Options)
 		if err != nil {
 			return errors.Wrapf(err, "marshal layout for project %s", p.Key)
 		}

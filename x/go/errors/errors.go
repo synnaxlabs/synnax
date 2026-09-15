@@ -128,6 +128,11 @@ func As(err error, target any) bool { return errors.As(err, target) }
 // correctness is preserved.
 func CheapIs(err, ref error) bool { return stderrors.Is(err, ref) }
 
+// ErrUnsupported reports that an operation cannot be performed because it is not
+// supported. It is the standard library's sentinel, re-exported so callers of APIs
+// that test for it (encoding/json/v2 unmarshalers, io/fs) need not import std errors.
+var ErrUnsupported = stderrors.ErrUnsupported
+
 // Skip returns nil if the error satisfied errors.Is for any of the reference errors.
 // Otherwise, it returns the error itself.
 func Skip(err error, refs ...error) error {

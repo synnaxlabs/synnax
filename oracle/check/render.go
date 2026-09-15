@@ -10,7 +10,6 @@
 package check
 
 import (
-	jsonv1 "encoding/json"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 )
 
 // Format selects an output renderer.
@@ -45,7 +45,7 @@ func Render(w io.Writer, r *Report, f Format, verbose bool) error {
 func renderJSON(w io.Writer, r *Report) error {
 	// Elapsed is a time.Duration, which v2 has no default representation for.
 	if err := json.MarshalWrite(
-		w, r, jsontext.WithIndent("  "), jsonv1.FormatDurationAsNano(true),
+		w, r, jsontext.WithIndent("  "), xjson.V1Options,
 	); err != nil {
 		return err
 	}
