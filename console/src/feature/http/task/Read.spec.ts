@@ -15,7 +15,9 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  createTestChannel,
   deployAndAwaitTask,
+  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -305,5 +307,102 @@ describe("HTTP Read form", () => {
       });
       expect(updated.properties.read["/data"].index).toBe(idxCh.key);
     });
+  });
+});
+
+describe("HTTP Read device map binding", () => {
+  const client = createTestClient();
+
+  const createEndpoint = (fields: HTTP.Task.ReadField[]): HTTP.Task.ReadEndpoint => ({
+    ...http.readEndpointZ.parse({}),
+    key: "ep1",
+    path: "/data",
+    fields,
+  });
+
+  const renderSelected = async (device: string, fields: HTTP.Task.ReadField[]) => {
+    const draft = await createDraft(
+      client,
+      createReadConfig(device, [createEndpoint(fields)]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText(/\/data/));
+  };
+
+  it("should bind a field that holds no channel from the device map", async () => {
+    const bound = await createTestChannel(client, "http_field");
+    const dev = await createHTTPDevice(client, {
+      properties: {
+        read: { "/data": { index: 0, channels: { "/temperature": bound.key } } },
+      },
+    });
+    await renderSelected(dev.key, [createReadField("f1", "/temperature")]);
+    await screen.findByText(bound.name);
+  });
+
+  it("should keep a field's own channel over the device map", async () => {
+    const own = await createTestChannel(client, "http_own");
+    const mapped = await createTestChannel(client, "http_mapped");
+    const dev = await createHTTPDevice(client, {
+      properties: {
+        read: { "/data": { index: 0, channels: { "/temperature": mapped.key } } },
+      },
+    });
+    await renderSelected(dev.key, [
+      createReadField("f1", "/temperature", { channel: own.key }),
+    ]);
+    await findDialogTriggerByText(dev.name);
+    await screen.findByText(own.name);
+    expect(screen.queryByText(mapped.name)).toBeNull();
+  });
+
+  it("should leave a field unbound when the device map lacks its pointer", async () => {
+    const other = await createTestChannel(client, "http_other");
+    const dev = await createHTTPDevice(client, {
+      properties: {
+        read: { "/data": { index: 0, channels: { "/other": other.key } } },
+      },
+    });
+    await renderSelected(dev.key, [createReadField("f1", "/temperature")]);
+    await findDialogTriggerByText(dev.name);
+    await screen.findByText("No channel");
+    expect(screen.queryByText(other.name)).toBeNull();
+  });
+
+  it("should leave a field unbound when the device map has no entry for its endpoint", async () => {
+    const other = await createTestChannel(client, "http_other");
+    const dev = await createHTTPDevice(client, {
+      properties: {
+        read: { "/elsewhere": { index: 0, channels: { "/temperature": other.key } } },
+      },
+    });
+    await renderSelected(dev.key, [createReadField("f1", "/temperature")]);
+    await findDialogTriggerByText(dev.name);
+    await screen.findByText("No channel");
+    expect(screen.queryByText(other.name)).toBeNull();
+  });
+
+  it("should give the endpoint's index field the index channel from the device map", async () => {
+    const index = await createTestChannel(client, "http_index");
+    const dev = await createHTTPDevice(client, {
+      properties: { read: { "/data": { index: index.key, channels: {} } } },
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        { ...createEndpoint([createReadField("f1", "/timestamp")]), index: "f1" },
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText(/\/data/));
+    await screen.findByText(index.name);
+  });
+
+  it("should keep a field's channel while no device is selected", async () => {
+    const own = await createTestChannel(client, "http_own");
+    await renderSelected("", [
+      createReadField("f1", "/temperature", { channel: own.key }),
+    ]);
+    await screen.findByText(own.name);
   });
 });

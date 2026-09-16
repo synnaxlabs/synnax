@@ -41,6 +41,8 @@ const renderMenuWithNames = async (
       <Task.WriteChannelNames
         cmdChannel={0}
         stateChannel={0}
+        device={undefined}
+        resolve={() => ({ command: 0, state: 0 })}
         cmdNamePath="config.cmdName"
         stateNamePath="config.stateName"
         itemKey="ch1"

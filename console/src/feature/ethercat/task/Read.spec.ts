@@ -23,6 +23,7 @@ import {
 } from "@/feature/ethercat/testutil";
 import {
   clickDeploy,
+  createTestChannel,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -251,5 +252,61 @@ describe("EtherCAT Read", () => {
       await awaitStatus(statuses, /Failed to/);
       await awaitStatus(statuses, /is not configured/);
     });
+  });
+});
+
+describe("EtherCAT Read device map binding", () => {
+  const createSlave = async (channels: Record<string, number> = {}) =>
+    await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+      read: { channels },
+    });
+
+  it("should show the channel the slave map binds to a row that holds none", async () => {
+    const bound = await createTestChannel(client, "ecat");
+    const slave = await createSlave({ auto_Status: bound.key });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status")],
+    });
+    await screen.findByText(bound.name);
+  });
+
+  it("should drop a row's stale channel when the slave map has no entry for its PDO", async () => {
+    const stale = await createTestChannel(client, "ecat");
+    const slave = await createSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status", { channel: stale.key })],
+    });
+    await screen.findByText("No channel");
+    expect(screen.queryByText(stale.name)).toBeNull();
+  });
+
+  it("should keep a row's channel while it names no slave", async () => {
+    const own = await createTestChannel(client, "ecat");
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel("", "Status", { channel: own.key })],
+    });
+    await screen.findByText(own.name);
+  });
+
+  it("should bind each row from its own slave", async () => {
+    const boundA = await createTestChannel(client, "ecat_a");
+    const boundB = await createTestChannel(client, "ecat_b");
+    const slaveA = await createSlave({ auto_Status: boundA.key });
+    const slaveB = await createSlave({ auto_Status: boundB.key });
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createAutoReadChannel(slaveA.key, "Status"),
+        createAutoReadChannel(slaveB.key, "Status"),
+      ],
+    });
+    await screen.findByText(boundA.name);
+    await screen.findByText(boundB.name);
   });
 });

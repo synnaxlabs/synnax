@@ -21,6 +21,7 @@ import {
 } from "@/feature/ni/task/testutil";
 import {
   clickDeploy,
+  createTestChannel,
   deployAndAwaitTask,
   selectFromDropdown,
 } from "@/platform/task/testutil";
@@ -188,5 +189,45 @@ describe("CounterRead", () => {
         /Cannot create task with channels from multiple racks/,
       );
     });
+  });
+});
+
+describe("CounterRead device map binding", () => {
+  const createMappedDevice = async (port: string, key: number) =>
+    await createNIDevice(client, {
+      properties: {
+        counterInput: { portCount: 0, index: 0, channels: { [port]: key } },
+      },
+    });
+
+  it("should show the channel the device map binds to a row that holds none", async () => {
+    const bound = await createTestChannel(client, "ci");
+    const dev = await createMappedDevice("2", bound.key);
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 2, { device: dev.key })]),
+    );
+    await screen.findByText(bound.name);
+  });
+
+  it("should drop a row's stale channel when its device map has no entry for its port", async () => {
+    const stale = await createTestChannel(client, "ci");
+    const dev = await createNIDevice(client);
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 2, { device: dev.key, channel: stale.key }),
+      ]),
+    );
+    await screen.findByText("No channel");
+    expect(screen.queryByText(stale.name)).toBeNull();
+  });
+
+  it("should keep a row's channel while it names no device", async () => {
+    const own = await createTestChannel(client, "ci");
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 2, { device: "", channel: own.key }),
+      ]),
+    );
+    await screen.findByText(own.name);
   });
 });

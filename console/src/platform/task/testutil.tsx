@@ -580,3 +580,14 @@ export const clickRedeploy = async (): Promise<void> => {
   });
   fireEvent.click(button);
 };
+
+/** Creates a virtual float32 channel with a unique name for a spec to bind rows to. */
+export const createTestChannel = async (
+  client: Client,
+  prefix: string = "chan",
+): Promise<channel.Channel> =>
+  await client.channels.create({
+    name: uniqueName(prefix),
+    dataType: "float32",
+    virtual: true,
+  });

@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  createTestChannel,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -183,5 +184,44 @@ describe("OPCUA.Read", () => {
     fireEvent.click(arrayModeSwitch);
     await screen.findByText("Stream rate");
     expect(screen.queryByText("Array size")).toBeNull();
+  });
+});
+
+describe("OPCUA.Read device map binding", () => {
+  it("should show the channel the device map binds to a node that holds none", async () => {
+    const bound = await createTestChannel(client, "opc");
+    const ch = createReadChannel();
+    const dev = await createOPCDevice(client, {
+      properties: { read: { indexes: [], channels: { [ch.nodeId]: bound.key } } },
+    });
+    const draft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+  });
+
+  it("should drop a node's stale channel when the device map has no entry for it", async () => {
+    const stale = await createTestChannel(client, "opc");
+    const ch = createReadChannel({ channel: stale.key });
+    const dev = await createOPCDevice(client);
+    const draft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText("No channel");
+    expect(screen.queryByText(stale.name)).toBeNull();
+  });
+
+  it("should bind only the node the device map names", async () => {
+    const bound = await createTestChannel(client, "opc");
+    const mapped = createReadChannel();
+    const unmapped = createReadChannel();
+    const dev = await createOPCDevice(client, {
+      properties: { read: { indexes: [], channels: { [mapped.nodeId]: bound.key } } },
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [mapped, unmapped]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+    await screen.findByText("No channel");
   });
 });

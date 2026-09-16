@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
-import { renderInTaskForm } from "@/platform/task/testutil";
+import {
+  createTestChannel,
+  renderInTaskFormWithClient,
+} from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
 import {
   getIconButton,
@@ -26,8 +31,9 @@ import {
 // layouts List as its listItem render prop.
 const renderItem = (
   extra: Partial<Parameters<typeof Task.Views.ListAndDetailsChannelItem>[0]> = {},
+  client: Synnax | null = null,
 ) =>
-  renderInTaskForm(
+  renderInTaskFormWithClient(
     <Task.Views.List<Channel>
       createChannel={() => null}
       listItem={Component.renderProp((p) => (
@@ -37,13 +43,15 @@ const renderItem = (
           portMaxChars={4}
           canTare
           channel={12}
+          device={undefined}
+          resolve={() => 0}
           path={`config.channels.${p.itemKey}`}
           hasTareButton
           {...extra}
         />
       ))}
     />,
-    { values: { config: { channels: [{ key: "a", disabled: false }] } } },
+    { client, values: { config: { channels: [{ key: "a", disabled: false }] } } },
   );
 
 describe("layouts.ListAndDetailsChannelItem", () => {
@@ -96,5 +104,72 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     await renderItem();
     await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
     expect(screen.queryByText("No command channel")).toBeNull();
+  });
+
+  describe("resolving from the device map", () => {
+    const client = createTestClient();
+
+    it("should show the channel the resolver picks for a read row", async () => {
+      const ch = await createTestChannel(client);
+      await renderItem({ channel: 0, device: {}, resolve: () => ch.key }, client);
+      await screen.findByText(ch.name);
+    });
+
+    it("should split a resolved pair across a write row's names", async () => {
+      const command = await createTestChannel(client, "cmd");
+      const state = await createTestChannel(client, "state");
+      await renderItem(
+        {
+          channel: 0,
+          stateChannel: 0,
+          device: {},
+          resolve: () => ({ command: command.key, state: state.key }),
+        },
+        client,
+      );
+      await screen.findByText(command.name);
+      await screen.findByText(state.name);
+    });
+
+    it("should treat a resolved key as the command of a write row", async () => {
+      const command = await createTestChannel(client, "cmd");
+      await renderItem(
+        { channel: 0, stateChannel: 0, device: {}, resolve: () => command.key },
+        client,
+      );
+      await screen.findByText(command.name);
+      await screen.findByText("No state channel");
+    });
+
+    it("should take the command of a resolved pair for a read row", async () => {
+      const command = await createTestChannel(client, "cmd");
+      const state = await createTestChannel(client, "state");
+      await renderItem(
+        {
+          channel: 0,
+          device: {},
+          resolve: () => ({ command: command.key, state: state.key }),
+        },
+        client,
+      );
+      await screen.findByText(command.name);
+      expect(screen.queryByText(state.name)).toBeNull();
+    });
+
+    it("should keep the row's channel while the device is undefined", async () => {
+      const ch = await createTestChannel(client);
+      await renderItem(
+        { channel: ch.key, device: undefined, resolve: () => 0 },
+        client,
+      );
+      await screen.findByText(ch.name);
+    });
+
+    it("should show no channel when the resolver finds none for a bound read row", async () => {
+      const stale = await createTestChannel(client);
+      await renderItem({ channel: stale.key, device: {}, resolve: () => 0 }, client);
+      await screen.findByText("No channel");
+      expect(screen.queryByText(stale.name)).toBeNull();
+    });
   });
 });

@@ -9,12 +9,14 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
+  createTestChannel,
   deployAndAwaitTask,
   renderTaskFormTab,
   reportTaskStopped,
@@ -140,5 +142,49 @@ describe("Modbus.Read", () => {
     );
     const matches = await client.channels.retrieve([`${dev.name}_coil_input_0`]);
     expect(matches).toHaveLength(1);
+  });
+});
+
+describe("Modbus.Read device map binding", () => {
+  const createCoil = (address: number, channel = 0): Modbus.Task.ReadChannel => ({
+    ...Modbus.Task.READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
+    key: id.create(),
+    address,
+    channel,
+  });
+
+  const createConfig = (device: string, channels: Modbus.Task.ReadChannel[]) => ({
+    ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+    device,
+    channels,
+  });
+
+  it("should show the channel the device map binds to a row that holds none", async () => {
+    const bound = await createTestChannel(client, "mb");
+    const dev = await createModbusDevice(client, {
+      properties: { read: { index: 0, channels: { "coil-input-4": bound.key } } },
+    });
+    const draft = await createDraft(client, createConfig(dev.key, [createCoil(4)]));
+    await renderTaskFormTab(Modbus.Task.Read, { client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+  });
+
+  it("should drop a row's stale channel when the device map has no entry for its address", async () => {
+    const stale = await createTestChannel(client, "mb");
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createCoil(4, stale.key)]),
+    );
+    await renderTaskFormTab(Modbus.Task.Read, { client, taskKey: draft.key });
+    await screen.findByText("No channel");
+    expect(screen.queryByText(stale.name)).toBeNull();
+  });
+
+  it("should keep a row's channel while no device is selected", async () => {
+    const own = await createTestChannel(client, "mb");
+    const draft = await createDraft(client, createConfig("", [createCoil(4, own.key)]));
+    await renderTaskFormTab(Modbus.Task.Read, { client, taskKey: draft.key });
+    await screen.findByText(own.name);
   });
 });

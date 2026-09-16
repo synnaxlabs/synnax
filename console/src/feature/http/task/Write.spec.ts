@@ -16,6 +16,7 @@ import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
   createChannelReadOnlyClient,
+  createTestChannel,
   deployAndAwaitTask,
   findDialogTriggerByText,
   renderTaskFormTab,
@@ -257,5 +258,65 @@ describe("HTTP Write form", () => {
       expect(updated.properties.write["/cmd"]).toBe(configuredCh.key);
       expect(updated.properties.write["/stored"]).toBe(storedCh.key);
     });
+  });
+});
+
+describe("HTTP Write device map binding", () => {
+  const client = createTestClient();
+
+  it("should bind an endpoint that holds no channel from the device map", async () => {
+    const bound = await createTestChannel(client, "http_cmd");
+    const dev = await createHTTPDevice(client, {
+      properties: { write: { "/cmd": bound.key } },
+    });
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [createWriteEndpoint("ep1", "/cmd")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+  });
+
+  it("should keep an endpoint's own channel over the device map", async () => {
+    const own = await createTestChannel(client, "http_own");
+    const mapped = await createTestChannel(client, "http_mapped");
+    const dev = await createHTTPDevice(client, {
+      properties: { write: { "/cmd": mapped.key } },
+    });
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [
+        createWriteEndpoint("ep1", "/cmd", { channel: own.key }),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await findDialogTriggerByText(dev.name);
+    await screen.findByText(own.name);
+    expect(screen.queryByText(mapped.name)).toBeNull();
+  });
+
+  it("should leave an endpoint unbound when the device map lacks its path", async () => {
+    const other = await createTestChannel(client, "http_other");
+    const dev = await createHTTPDevice(client, {
+      properties: { write: { "/other": other.key } },
+    });
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [createWriteEndpoint("ep1", "/cmd")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await findDialogTriggerByText(dev.name);
+    await screen.findByText("No channel");
+    expect(screen.queryByText(other.name)).toBeNull();
+  });
+
+  it("should keep an endpoint's channel while no device is selected", async () => {
+    const own = await createTestChannel(client, "http_own");
+    const draft = await createDraft(
+      client,
+      createWriteConfig("", [createWriteEndpoint("ep1", "/cmd", { channel: own.key })]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(own.name);
   });
 });

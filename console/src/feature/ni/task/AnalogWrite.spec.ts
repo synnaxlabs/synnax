@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import { deployAndAwaitTask, selectFromDropdown } from "@/platform/task/testutil";
+import {
+  createTestChannel,
+  deployAndAwaitTask,
+  selectFromDropdown,
+} from "@/platform/task/testutil";
 import { isSelectButtonSelected, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -216,5 +220,72 @@ describe("AnalogWrite", () => {
         );
       });
     });
+  });
+});
+
+describe("AnalogWrite device map binding", () => {
+  const createPair = async () => ({
+    command: await createTestChannel(client, "ao_cmd"),
+    state: await createTestChannel(client, "ao_state"),
+  });
+
+  const createMappedDevice = async (
+    port: string,
+    pair: Awaited<ReturnType<typeof createPair>>,
+  ) =>
+    await createNIDevice(client, {
+      properties: {
+        analogOutput: {
+          portCount: 0,
+          stateIndex: 0,
+          channels: { [port]: { command: pair.command.key, state: pair.state.key } },
+        },
+      },
+    });
+
+  it("should show the channels the device map binds to a row that holds none", async () => {
+    const pair = await createPair();
+    const dev = await createMappedDevice("2", pair);
+    await renderAnalogWrite(createConfig([createChannel("ao_voltage", 2)], dev.key));
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
+  });
+
+  it("should drop a row's stale channels when the device map has no entry for its port", async () => {
+    const pair = await createPair();
+    const dev = await createNIDevice(client);
+    await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_voltage", 2, {
+            cmdChannel: pair.command.key,
+            stateChannel: pair.state.key,
+            cmdChannelName: "",
+          }),
+        ],
+        dev.key,
+      ),
+    );
+    await screen.findByText("No command channel");
+    await screen.findByText("No state channel");
+    expect(screen.queryByText(pair.command.name)).toBeNull();
+    expect(screen.queryByText(pair.state.name)).toBeNull();
+  });
+
+  it("should keep a row's channels while no device is selected", async () => {
+    const pair = await createPair();
+    await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_voltage", 2, {
+            cmdChannel: pair.command.key,
+            stateChannel: pair.state.key,
+          }),
+        ],
+        "",
+      ),
+    );
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
   });
 });

@@ -18,10 +18,17 @@ import { Task } from "@/platform/task";
 import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
 
+const unresolved = { device: undefined, resolve: () => 0 };
+
 describe("ChannelName", () => {
   it("should render the default name when no channel is selected", async () => {
     await renderInTaskForm(
-      <Task.ChannelName channel={0} namePath="config.name" defaultName="No channel" />,
+      <Task.ChannelName
+        channel={0}
+        namePath="config.name"
+        defaultName="No channel"
+        {...unresolved}
+      />,
       { values: { config: { name: "" } } },
     );
     await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
@@ -29,7 +36,12 @@ describe("ChannelName", () => {
 
   it("should prefer the form name over the default when set", async () => {
     await renderInTaskForm(
-      <Task.ChannelName channel={0} namePath="config.name" defaultName="No channel" />,
+      <Task.ChannelName
+        channel={0}
+        namePath="config.name"
+        defaultName="No channel"
+        {...unresolved}
+      />,
       { values: { config: { name: "Manually Named" } } },
     );
     await waitFor(() => expect(screen.getByText("Manually Named")).toBeTruthy());
@@ -38,7 +50,12 @@ describe("ChannelName", () => {
   it("should write a committed rename to the form when no channel is bound", async () => {
     const editID = Task.getChannelNameID("unbound");
     const { form } = await renderInTaskForm(
-      <Task.ChannelName channel={0} namePath="config.name" id={editID} />,
+      <Task.ChannelName
+        channel={0}
+        namePath="config.name"
+        id={editID}
+        {...unresolved}
+      />,
       { values: { config: { name: "name_before" } } },
     );
     Text.edit(editID);
@@ -62,7 +79,7 @@ describe("ChannelName", () => {
     it("should resolve and display the name of a real channel", async () => {
       const ch = await createChannel();
       await renderInTaskFormWithClient(
-        <Task.ChannelName channel={ch.key} namePath="name" />,
+        <Task.ChannelName channel={ch.key} namePath="name" {...unresolved} />,
         { client, values: { name: "" } },
       );
       await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
@@ -72,7 +89,7 @@ describe("ChannelName", () => {
     // grace period, so the name has to hold through both the wait and the failure.
     it("should keep showing the form name for a channel that never resolves", async () => {
       await renderInTaskFormWithClient(
-        <Task.ChannelName channel={123456789} namePath="name" />,
+        <Task.ChannelName channel={123456789} namePath="name" {...unresolved} />,
         { client, values: { name: "form_name" } },
       );
       expect(screen.getByText("form_name")).toBeTruthy();
@@ -89,7 +106,12 @@ describe("ChannelName", () => {
       const ch = await createChannel();
       const editID = Task.getChannelNameID("live_ch");
       await renderInTaskFormWithClient(
-        <Task.ChannelName channel={ch.key} namePath="name" id={editID} />,
+        <Task.ChannelName
+          channel={ch.key}
+          namePath="name"
+          id={editID}
+          {...unresolved}
+        />,
         { client, values: { name: "" } },
       );
       await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
@@ -100,6 +122,96 @@ describe("ChannelName", () => {
       await waitFor(async () => {
         const renamed = await client.channels.retrieve(ch.key);
         expect(renamed.name).toBe(newName);
+      });
+    });
+
+    describe("resolving from the device map", () => {
+      it("should keep the row's channel while the device is undefined", async () => {
+        const ch = await createChannel();
+        const other = await createChannel();
+        await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={ch.key}
+            namePath="name"
+            device={undefined}
+            resolve={() => other.key}
+          />,
+          { client, values: { name: "" } },
+        );
+        await screen.findByText(ch.name);
+        expect(screen.queryByText(other.name)).toBeNull();
+      });
+
+      it("should show the channel the resolver picks over the row's own", async () => {
+        const stale = await createChannel();
+        const bound = await createChannel();
+        await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={stale.key}
+            namePath="name"
+            device={{}}
+            resolve={() => bound.key}
+          />,
+          { client, values: { name: "" } },
+        );
+        await screen.findByText(bound.name);
+        expect(screen.queryByText(stale.name)).toBeNull();
+      });
+
+      it("should show no channel when the resolver finds none, even if the row holds one", async () => {
+        const stale = await createChannel();
+        await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={stale.key}
+            namePath="name"
+            defaultName="No channel"
+            device={{}}
+            resolve={() => 0}
+          />,
+          { client, values: { name: "" } },
+        );
+        await screen.findByText("No channel");
+        expect(screen.queryByText(stale.name)).toBeNull();
+      });
+
+      it("should hand the resolver the device it was given", async () => {
+        const bound = await createChannel();
+        const dev = { map: { port: bound.key } };
+        await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={0}
+            namePath="name"
+            device={dev}
+            resolve={({ map }) => map.port}
+          />,
+          { client, values: { name: "" } },
+        );
+        await screen.findByText(bound.name);
+      });
+
+      it("should rename the resolved channel rather than the row's form name", async () => {
+        const bound = await createChannel();
+        const editID = Task.getChannelNameID("resolved_ch");
+        const { form } = await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={0}
+            namePath="name"
+            id={editID}
+            device={{}}
+            resolve={() => bound.key}
+          />,
+          { client, values: { name: "form_name" } },
+        );
+        await screen.findByText(bound.name);
+        Text.edit(editID);
+        const el = await awaitTextEditing(editID);
+        const newName = uniqueName("renamed");
+        act(() => commitTextEdit(el, newName));
+        await waitFor(async () => {
+          const renamed = await client.channels.retrieve(bound.key);
+          expect(renamed.name).toBe(newName);
+        });
+        expect(form.current?.get("name").value).toBe("form_name");
       });
     });
   });

@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
+import {
+  commitFieldInput,
+  createTestChannel,
+  deployAndAwaitTask,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -137,5 +141,53 @@ describe("DigitalRead", () => {
         );
       });
     });
+  });
+});
+
+describe("DigitalRead device map binding", () => {
+  const createMappedDevice = async (line: string, key: number) =>
+    await createNIDevice(client, {
+      properties: {
+        digitalInput: {
+          portCount: 0,
+          lineCounts: [],
+          index: 0,
+          channels: { [line]: key },
+        },
+      },
+    });
+
+  it("should show the channel the device map binds to a row that holds none", async () => {
+    const bound = await createTestChannel(client, "di");
+    const dev = await createMappedDevice("0l1", bound.key);
+    await renderDigitalRead(createConfig([createChannel(0, 1)], dev.key));
+    await screen.findByText(bound.name);
+  });
+
+  it("should drop a row's stale channel when the device map has no entry for its line", async () => {
+    const stale = await createTestChannel(client, "di");
+    const dev = await createNIDevice(client);
+    await renderDigitalRead(
+      createConfig([createChannel(0, 1, { channel: stale.key })], dev.key),
+    );
+    await screen.findByText("No channel");
+    expect(screen.queryByText(stale.name)).toBeNull();
+  });
+
+  it("should keep a row's channel while no device is selected", async () => {
+    const own = await createTestChannel(client, "di");
+    await renderDigitalRead(
+      createConfig([createChannel(0, 1, { channel: own.key })], ""),
+    );
+    await screen.findByText(own.name);
+  });
+
+  it("should rebind a row when its line is edited to one the device map holds", async () => {
+    const bound = await createTestChannel(client, "di");
+    const dev = await createMappedDevice("3l1", bound.key);
+    await renderDigitalRead(createConfig([createChannel(3, 0)], dev.key));
+    await screen.findByText("No channel");
+    commitFieldInput(screen.getByDisplayValue("0"), "1");
+    await screen.findByText(bound.name);
   });
 });

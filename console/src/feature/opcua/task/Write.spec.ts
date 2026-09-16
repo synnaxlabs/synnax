@@ -16,6 +16,7 @@ import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
   createChannelReadOnlyClient,
+  createTestChannel,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -168,5 +169,44 @@ describe("OPCUA.Write", () => {
     // below is read.
     expect(await screen.findByText("Remove")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
+  });
+});
+
+describe("OPCUA.Write device map binding", () => {
+  it("should show the channel the device map binds to a node that holds none", async () => {
+    const bound = await createTestChannel(client, "opc_cmd");
+    const ch = createWriteChannel();
+    const dev = await createOPCDevice(client, {
+      properties: { write: { channels: { [ch.nodeId]: bound.key } } },
+    });
+    const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+  });
+
+  it("should drop a node's stale channel when the device map has no entry for it", async () => {
+    const stale = await createTestChannel(client, "opc_cmd");
+    const ch = { ...createWriteChannel(), cmdChannel: stale.key };
+    const dev = await createOPCDevice(client);
+    const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText("No channel");
+    expect(screen.queryByText(stale.name)).toBeNull();
+  });
+
+  it("should bind only the node the device map names", async () => {
+    const bound = await createTestChannel(client, "opc_cmd");
+    const mapped = createWriteChannel();
+    const unmapped = createWriteChannel();
+    const dev = await createOPCDevice(client, {
+      properties: { write: { channels: { [mapped.nodeId]: bound.key } } },
+    });
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [mapped, unmapped]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+    await screen.findByText("No channel");
   });
 });

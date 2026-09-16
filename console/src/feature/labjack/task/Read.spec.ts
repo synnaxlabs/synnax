@@ -20,6 +20,7 @@ import {
   createThermocoupleReadChannel,
 } from "@/feature/labjack/testutil";
 import {
+  createTestChannel,
   deployAndAwaitTask,
   findChannelListItem,
   findDialogTriggerByText,
@@ -273,5 +274,45 @@ describe("LabJack Read", () => {
       const index = await client.channels.retrieve(updated.properties.readIndex);
       expect(index.isIndex).toBe(true);
     });
+  });
+});
+
+describe("LabJack Read device map binding", () => {
+  it("should show the channel the device map binds to a port that holds none", async () => {
+    const bound = await createTestChannel(client, "lj");
+    const dev = await createLabJackDevice(client, {
+      properties: { AI: { channels: { AIN0: bound.key } } },
+    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+  });
+
+  it("should drop a port's stale channel when the device map has no entry for it", async () => {
+    const stale = await createTestChannel(client, "lj");
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0", { channel: stale.key })]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText("No channel");
+    expect(screen.queryByText(stale.name)).toBeNull();
+  });
+
+  it("should bind a digital port from its own map", async () => {
+    const bound = await createTestChannel(client, "lj_di");
+    const dev = await createLabJackDevice(client, {
+      properties: { DI: { channels: { DIO4: bound.key } } },
+    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalReadChannel("DIO4")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
   });
 });

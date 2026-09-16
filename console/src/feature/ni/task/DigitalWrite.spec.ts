@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
+import {
+  commitFieldInput,
+  createTestChannel,
+  deployAndAwaitTask,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -169,5 +173,82 @@ describe("DigitalWrite", () => {
         );
       });
     });
+  });
+});
+
+describe("DigitalWrite device map binding", () => {
+  const createPair = async () => ({
+    command: await createTestChannel(client, "do_cmd"),
+    state: await createTestChannel(client, "do_state"),
+  });
+
+  const createMappedDevice = async (
+    line: string,
+    pair: Awaited<ReturnType<typeof createPair>>,
+  ) =>
+    await createNIDevice(client, {
+      properties: {
+        digitalOutput: {
+          portCount: 0,
+          lineCounts: [],
+          stateIndex: 0,
+          channels: { [line]: { command: pair.command.key, state: pair.state.key } },
+        },
+      },
+    });
+
+  it("should show the channels the device map binds to a row that holds none", async () => {
+    const pair = await createPair();
+    const dev = await createMappedDevice("0l1", pair);
+    await renderDigitalWrite(createConfig([createChannel(0, 1)], dev.key));
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
+  });
+
+  it("should drop a row's stale channels when the device map has no entry for its line", async () => {
+    const pair = await createPair();
+    const dev = await createNIDevice(client);
+    await renderDigitalWrite(
+      createConfig(
+        [
+          createChannel(0, 1, {
+            cmdChannel: pair.command.key,
+            stateChannel: pair.state.key,
+          }),
+        ],
+        dev.key,
+      ),
+    );
+    await screen.findByText("No command channel");
+    await screen.findByText("No state channel");
+    expect(screen.queryByText(pair.command.name)).toBeNull();
+    expect(screen.queryByText(pair.state.name)).toBeNull();
+  });
+
+  it("should keep a row's channels while no device is selected", async () => {
+    const pair = await createPair();
+    await renderDigitalWrite(
+      createConfig(
+        [
+          createChannel(0, 1, {
+            cmdChannel: pair.command.key,
+            stateChannel: pair.state.key,
+          }),
+        ],
+        "",
+      ),
+    );
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
+  });
+
+  it("should rebind a row when its line is edited to one the device map holds", async () => {
+    const pair = await createPair();
+    const dev = await createMappedDevice("3l1", pair);
+    await renderDigitalWrite(createConfig([createChannel(3, 0)], dev.key));
+    await screen.findByText("No command channel");
+    commitFieldInput(screen.getByDisplayValue("0"), "1");
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
   });
 });

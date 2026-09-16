@@ -23,6 +23,7 @@ import {
 } from "@/feature/ethercat/testutil";
 import {
   clickDeploy,
+  createTestChannel,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -227,5 +228,78 @@ describe("EtherCAT Write", () => {
       await awaitStatus(statuses, /Failed to/);
       await awaitStatus(statuses, /No network found/);
     });
+  });
+});
+
+describe("EtherCAT Write device map binding", () => {
+  const createPair = async () => ({
+    command: await createTestChannel(client, "ecat_cmd"),
+    state: await createTestChannel(client, "ecat_state"),
+  });
+
+  const createSlave = async (channels: Record<string, number> = {}) =>
+    await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+      write: { channels },
+    });
+
+  it("should show the channels the slave map binds to a row that holds none", async () => {
+    const pair = await createPair();
+    const slave = await createSlave({
+      auto_Control: pair.command.key,
+      auto_Control_state: pair.state.key,
+    });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createAutoWriteChannel(slave.key, "Control")],
+    });
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
+  });
+
+  it("should drop a row's stale channels when the slave map has no entry for its PDO", async () => {
+    const pair = await createPair();
+    const slave = await createSlave();
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [
+        createAutoWriteChannel(slave.key, "Control", {
+          cmdChannel: pair.command.key,
+          stateChannel: pair.state.key,
+        }),
+      ],
+    });
+    await screen.findByText("No command channel");
+    await screen.findByText("No state channel");
+    expect(screen.queryByText(pair.command.name)).toBeNull();
+    expect(screen.queryByText(pair.state.name)).toBeNull();
+  });
+
+  it("should show only the command channel when the slave map lacks the state entry", async () => {
+    const pair = await createPair();
+    const slave = await createSlave({ auto_Control: pair.command.key });
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createAutoWriteChannel(slave.key, "Control")],
+    });
+    await screen.findByText(pair.command.name);
+    await screen.findByText("No state channel");
+  });
+
+  it("should keep a row's channels while it names no slave", async () => {
+    const pair = await createPair();
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [
+        createAutoWriteChannel("", "Control", {
+          cmdChannel: pair.command.key,
+          stateChannel: pair.state.key,
+        }),
+      ],
+    });
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
   });
 });

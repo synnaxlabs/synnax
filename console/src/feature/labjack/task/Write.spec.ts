@@ -19,6 +19,7 @@ import {
   createLabJackDevice,
 } from "@/feature/labjack/testutil";
 import {
+  createTestChannel,
   deployAndAwaitTask,
   findDialogTriggerByText,
   renderTaskFormTab,
@@ -228,5 +229,67 @@ describe("LabJack Write", () => {
         firstTask.config.channels[0].stateChannel,
       );
     });
+  });
+});
+
+describe("LabJack Write device map binding", () => {
+  const createPair = async () => ({
+    command: await createTestChannel(client, "lj_cmd"),
+    state: await createTestChannel(client, "lj_state"),
+  });
+
+  it("should show the channels the device map binds to a port that holds none", async () => {
+    const pair = await createPair();
+    const dev = await createLabJackDevice(client, {
+      properties: {
+        DO: {
+          channels: { DIO4: { command: pair.command.key, state: pair.state.key } },
+        },
+      },
+    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
+  });
+
+  it("should drop a port's stale channels when the device map has no entry for it", async () => {
+    const pair = await createPair();
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createDigitalWriteChannel("DIO4", {
+          cmdChannel: pair.command.key,
+          stateChannel: pair.state.key,
+        }),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText("No command channel");
+    await screen.findByText("No state channel");
+    expect(screen.queryByText(pair.command.name)).toBeNull();
+    expect(screen.queryByText(pair.state.name)).toBeNull();
+  });
+
+  it("should bind an analog port from its own map", async () => {
+    const pair = await createPair();
+    const dev = await createLabJackDevice(client, {
+      properties: {
+        AO: {
+          channels: { DAC0: { command: pair.command.key, state: pair.state.key } },
+        },
+      },
+    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogWriteChannel("DAC0")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(pair.command.name);
+    await screen.findByText(pair.state.name);
   });
 });
