@@ -32,3 +32,20 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "tls_test",
+    size = "small",
+    srcs = ["tls_test.cpp"],
+    data = [
+        "//freighter/cpp/grpc/mock:test_cert.pem",
+        "//freighter/cpp/grpc/mock:test_key.pem",
+    ],
+    deps = [
+        "//freighter/cpp/grpc/mock:server",
+        "//freighter/cpp/grpc/mock:service_grpc",
+        "//x/cpp/env",
+        "//x/cpp/test",
+        "@googletest//:gtest",
+    ],
+)

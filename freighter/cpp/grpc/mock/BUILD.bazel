@@ -24,6 +24,14 @@ cpp_grpc_library(
     visibility = ["//visibility:public"],
 )
 
+exports_files(
+    [
+        "test_cert.pem",
+        "test_key.pem",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 cc_library(
     name = "server",
     srcs = [],
