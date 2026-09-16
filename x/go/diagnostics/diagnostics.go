@@ -55,11 +55,11 @@ type HintProvider interface {
 
 // Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
-	Code     ErrorCode                               `json:"code,omitempty"`
+	Code     ErrorCode                               `json:"code"`
 	Message  string                                  `json:"message"`
 	Severity protocol.DiagnosticSeverity             `json:"severity"`
 	Range    protocol.Range                          `json:"range"`
-	Notes    []protocol.DiagnosticRelatedInformation `json:"notes,omitempty"`
+	Notes    []protocol.DiagnosticRelatedInformation `json:"notes"`
 }
 
 // SetRange sets the Range from an ANTLR parser rule context.

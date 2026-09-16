@@ -42,13 +42,13 @@ type Edge struct {
 	// Target is the target node key.
 	Target string `json:"target"`
 	// SourceHandle is the optional source handle identifier.
-	SourceHandle *string `json:"sourceHandle,omitempty"`
+	SourceHandle *string `json:"sourceHandle"`
 	// TargetHandle is the optional target handle identifier.
-	TargetHandle *string `json:"targetHandle,omitempty"`
+	TargetHandle *string `json:"targetHandle"`
 	// Segments is the orthogonal connector path; empty for direct.
-	Segments []Segment `json:"segments,omitempty"`
+	Segments []Segment `json:"segments"`
 	// Data is ReactFlow's opaque per-edge data bag.
-	Data jsontext.Value `json:"data,omitempty"`
+	Data jsontext.Value `json:"data"`
 }
 
 // Data is the persisted per-schematic state at version 3.

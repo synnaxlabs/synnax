@@ -117,23 +117,23 @@ func (s Status) MarshalJSONTo(enc *jsontext.Encoder) error {
 // Finding is one observation produced by a Checker. The driver renders findings; gates
 // do not print directly.
 type Finding struct {
-	Path     string   `json:"path,omitempty"`
+	Path     string   `json:"path"`
 	Line     int      `json:"line,omitzero"`
 	Col      int      `json:"col,omitzero"`
 	Severity Severity `json:"severity"`
 	Message  string   `json:"message"`
 	// FixHint is a one-line suggestion shown to the user (e.g. "run `oracle sync`").
-	FixHint string `json:"fix_hint,omitempty"`
+	FixHint string `json:"fix_hint"`
 	// Diff is an optional unified-diff body for drift findings. Only populated when
 	// Env.IncludeDiffs is true.
-	Diff string `json:"diff,omitempty"`
+	Diff string `json:"diff"`
 }
 
 // GateReport is the per-gate result, carried back to the driver.
 type GateReport struct {
 	Gate     string         `json:"gate"`
 	Status   Status         `json:"status"`
-	Findings []Finding      `json:"findings,omitempty"`
+	Findings []Finding      `json:"findings"`
 	Elapsed  telem.TimeSpan `json:"elapsed_ns"`
 }
 
