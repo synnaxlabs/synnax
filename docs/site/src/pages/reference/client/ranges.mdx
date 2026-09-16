@@ -6,18 +6,23 @@ next: "Series & Frames"
 nextURL: "/reference/client/series-and-frames"
 prev: "Channels"
 prevURL: "/reference/client/channels"
-clients: ["python", "typescript"]
+clients: ["console", "python", "typescript"]
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Video, Image } from "@/components/media/Media";
+import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers working with Ranges - time-based categorizations of data with
-metadata. Ranges are useful for organizing telemetry into tests, runs, events, or other
-logical groupings.
+<Diagram preview>
+  <Image client:only="react" id="client/ranges/preview" />
+</Diagram>
+
+[Ranges](/reference/concepts/ranges) are named time intervals that organize telemetry
+into tests, runs, and events, and carry metadata about them.
 
 <Divider.Divider x />
 
@@ -100,13 +105,24 @@ const timeRange = new TimeRange(start, end);
 
 <Divider.Divider x />
 
-## Creating Ranges
+## Create a Range
 
-To create a range, use the `client.ranges.create` method:
+<Client.Tabs client:load exclude={["cpp"]}>
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="console">
+
+Click `Create` in the Ranges Toolbar and fill in the dialog, the `Create a range`
+command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette), or select
+a region on a plot.
+
+<Video client:only="react" id="client/ranges/create" />
+
+  </Fragment>
 
   <Fragment slot="python">
+
+To create a range, use the `client.ranges.create` method:
 
 ```python
 import synnax as sy
@@ -118,6 +134,7 @@ end = sy.TimeStamp("2023-02-12 14:30:00")
 my_range = client.ranges.create(
     name="My Range",
     time_range=sy.TimeRange(start=start, end=end),
+    retrieve_if_name_exists=True,  # Return the existing range instead of a duplicate
 )
 
 # Or use the convenience span_range method
@@ -132,6 +149,8 @@ my_range = client.ranges.create(
 
   <Fragment slot="typescript">
 
+To create a range, use the `client.ranges.create` method:
+
 ```typescript
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
@@ -142,6 +161,7 @@ const end = new TimeStamp("2023-02-12 14:30:00");
 const range = await client.ranges.create({
   name: "My Range",
   timeRange: new TimeRange(start, end),
+  // No retrieveIfNameExists option in TypeScript
 });
 
 // Or use the convenience span method
@@ -155,72 +175,23 @@ const range = await client.ranges.create({
   </Fragment>
 </Client.Tabs>
 
-Synnax will automatically generate a unique identifier for the range.
-
-### Only Create a Range if it Does Not Exist
-
-<Client.Tabs client:load exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-To create a range only if one with the same name doesn't already exist, pass in the
-`retrieve_if_name_exists` parameter:
-
-```python
-import synnax as sy
-
-client = sy.Client()
-
-start = sy.TimeStamp("2023-02-12 12:30:00")
-end = sy.TimeStamp("2023-02-12 14:30:00")
-
-my_range = client.ranges.create(
-    name="My Range",
-    time_range=sy.TimeRange(start=start, end=end),
-    retrieve_if_name_exists=True,
-)
-
-# In the event the range already exists, Synnax will return
-# the existing range instead of creating a new one.
-
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-TypeScript doesn't have a built-in `retrieveIfNameExists` parameter, but you can
-implement equivalent logic:
-
-```typescript
-import { NotFoundError, TimeRange, TimeStamp } from "@synnaxlabs/client";
-
-let myRange;
-try {
-  myRange = await client.ranges.retrieve("My Range");
-} catch (e) {
-  if (!(e instanceof NotFoundError)) throw e;
-  myRange = await client.ranges.create({
-    name: "My Range",
-    timeRange: new TimeRange(
-      new TimeStamp("2023-02-12 12:30:00"),
-      new TimeStamp("2023-02-12 14:30:00"),
-    ),
-  });
-}
-```
-
-  </Fragment>
-</Client.Tabs>
-
 <Divider.Divider x />
 
-### Creating Child Ranges
+### Create Child Ranges
 
-For more information on child ranges, see the
-[ranges](/reference/concepts/ranges#child-ranges) page.
+[Child ranges](/reference/concepts/ranges#child-ranges) segment a range into smaller
+intervals.
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Set the parent range field in the creation dialog, or click `Add Child Range` in the
+range overview page.
+
+<Video client:only="react" id="client/ranges/create-child" />
+
+  </Fragment>
 
   <Fragment slot="python">
 
@@ -282,11 +253,9 @@ await client.ranges.create([
 
 <Divider.Divider x />
 
-## Retrieving Ranges
+## Retrieve Ranges
 
-Fetch a range using the `client.ranges.retrieve` method.
-
-### Retrieving a Single Range
+### Single Range
 
 Retrieve a range by its name or key. Synnax will raise a `NotFoundError` if the range
 does not exist, and a `MultipleFoundError` if multiple ranges with the given name exist.
@@ -318,7 +287,7 @@ const myRange = await client.ranges.retrieve(myRange.key);
   </Fragment>
 </Client.Tabs>
 
-### Retrieving Multiple Ranges
+### Multiple Ranges
 
 Retrieve multiple ranges by passing a list of names or keys. When retrieving multiple
 ranges, Synnax will not raise an error if a range cannot be found. Instead, the missing
@@ -357,7 +326,7 @@ const ranges = await client.ranges.retrieve({ searchTerm: "Hotfire" });
   </Fragment>
 </Client.Tabs>
 
-### Retrieving Child Ranges
+### Child Ranges
 
 If a range has child ranges, you can retrieve them directly from the parent range.
 
@@ -380,7 +349,7 @@ const childRanges = await myRange.retrieveChildren();
   </Fragment>
 </Client.Tabs>
 
-### Retrieving a Parent Range
+### Parent Range
 
 Navigate up the hierarchy by retrieving a child range's parent.
 
@@ -405,7 +374,7 @@ const parentRange = await myRange.retrieveParent();
 
 <Divider.Divider x />
 
-## Updating a Range
+## Update a Range
 
 To update an existing range, use the same `client.ranges.create` method but specify the
 `key` of the range to update. This allows modification of the range's name, time range,
@@ -468,7 +437,7 @@ doesn't exist, Synnax will create a new range with that key instead of raising a
 
 <Divider.Divider x />
 
-## Attaching Metadata
+## Metadata
 
 Ranges can store metadata as key-value pairs. This is useful for attaching information
 like test configuration parameters, numeric results, or part numbers.
@@ -476,9 +445,15 @@ like test configuration parameters, numeric results, or part numbers.
 All metadata values are stored as strings. It's up to you to correctly cast the values
 to the appropriate type.
 
-### Setting Metadata
+### Set
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+<Video client:only="react" id="client/ranges/set-metadata" />
+
+  </Fragment>
 
   <Fragment slot="python">
 
@@ -523,7 +498,7 @@ await myRange.kv.set({
   </Fragment>
 </Client.Tabs>
 
-### Getting Metadata
+### Get
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -562,7 +537,7 @@ const allMetadata = await myRange.kv.list();
   </Fragment>
 </Client.Tabs>
 
-### Deleting Metadata
+### Delete
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -597,7 +572,58 @@ await myRange.kv.delete(["part_number", "test_configuration"]);
 
 <Divider.Divider x />
 
-## Reading from Ranges
+## Labels
+
+Labels categorize and filter ranges.
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+<Video client:only="react" id="client/ranges/labels" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+my_range = client.ranges.retrieve(name="My Range")
+
+# List the labels on the range
+for label in my_range.labels:
+    print(label.name)
+```
+
+<Note.Note variant="info">
+  Labels are read-only in the Python client.
+</Note.Note>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const myRange = await client.ranges.retrieve("My Range");
+
+// Create a label
+const label = await client.labels.create({ name: "Hotfire", color: "#FF0000" });
+
+// Add the label to the range
+await myRange.addLabel(label.key);
+
+// List the labels on the range
+const labels = await myRange.retrieveLabels();
+
+// Remove the label from the range
+await myRange.removeLabel(label.key);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Read from a Range
 
 Ranges provide a convenient way to read data without specifying exact time boundaries.
 Once you have a range, you can read channel data directly from it.
@@ -641,7 +667,7 @@ const celsius = data.map((v) => v - 273.15);
 
 <Divider.Divider x />
 
-## Writing to Ranges
+## Write to a Range
 
 Writing to a range removes the burden of needing to correctly align the timestamps for
 different channels. The write will assume that the timestamp of the first sample is the
@@ -667,18 +693,20 @@ my_range.write({
 
   <Fragment slot="typescript">
 
-<Note.Note variant="info">Writing to ranges is not supported in TypeScript.</Note.Note>
+<Note.Note variant="info">
+ Writing to ranges is not supported in TypeScript.
+</Note.Note>
 
   </Fragment>
 </Client.Tabs>
 
-## Working with Channels
+## Channel Aliases
 
 Ranges allow you to define aliases for channels that only apply within that range's
 context. This is useful when you want to give a channel a more descriptive name for a
 specific test or operation.
 
-### Channel Aliases
+### Set an Alias
 
 Channels must maintain their original names, but you may want to refer to a channel
 differently in the context of a particular range. For example, you might want to call
@@ -732,7 +760,7 @@ await burstTest.deleteAlias(channelKey);
   an aliased channel outside of the range, Synnax will not be able to find it.
 </Note.Note>
 
-### Accessing Aliased Channels
+### Read by Alias
 
 Once you've set an alias, you can access the channel using that alias.
 
@@ -779,7 +807,7 @@ const data2 = await burstTest.read("daq_analog_input_1");
 
 <Divider.Divider x />
 
-## Deleting Ranges
+## Delete a Range
 
 Delete a range by passing its key to the `client.ranges.delete` method.
 
