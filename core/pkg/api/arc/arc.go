@@ -137,7 +137,7 @@ type (
 	}
 	// SetRackResponse carries the arc's task, or a nil Task after an unbind.
 	SetRackResponse struct {
-		Task *task.Task `json:"task,omitempty" msgpack:"task,omitempty"`
+		Task *task.Task `json:"task,omitzero" msgpack:"task,omitzero"`
 	}
 )
 
@@ -185,7 +185,7 @@ type (
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Arcs []Arc `json:"arcs,omitzero" msgpack:"arcs,omitzero"`
+		Arcs []Arc `json:"arcs" msgpack:"arcs"`
 	}
 )
 

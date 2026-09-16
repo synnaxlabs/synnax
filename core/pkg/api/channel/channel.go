@@ -179,7 +179,7 @@ type RetrieveRequest struct {
 // RetrieveResponse is the response for a RetrieveRequest.
 type RetrieveResponse struct {
 	// Channels is a slice of Channels matching the request.
-	Channels []Channel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
 // Retrieve retrieves a Channel based on the parameters given in the request. If no

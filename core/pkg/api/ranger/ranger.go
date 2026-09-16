@@ -103,7 +103,7 @@ type (
 		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Ranges []Range `json:"ranges,omitzero" msgpack:"ranges,omitzero"`
+		Ranges []Range `json:"ranges" msgpack:"ranges"`
 	}
 )
 

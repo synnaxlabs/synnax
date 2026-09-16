@@ -96,7 +96,7 @@ type (
 		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Panels []panel.Panel `json:"panels,omitzero" msgpack:"panels,omitzero"`
+		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 	}
 )
 

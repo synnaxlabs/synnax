@@ -104,7 +104,7 @@ type (
 	// RetrieveResponse carries the matched symbols.
 	RetrieveResponse struct {
 		// Symbols are the matched symbols, left off the wire when there are none.
-		Symbols []symbol.Symbol `json:"symbols,omitzero" msgpack:"symbols,omitzero"`
+		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 )
 

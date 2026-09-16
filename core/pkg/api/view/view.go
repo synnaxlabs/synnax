@@ -78,7 +78,7 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Views []View `json:"views,omitzero" msgpack:"views,omitzero"`
+	Views []View `json:"views" msgpack:"views"`
 }
 
 func (s *Service) Retrieve(

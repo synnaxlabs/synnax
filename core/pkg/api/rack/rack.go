@@ -94,7 +94,7 @@ type (
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
-		Racks []rack.Rack `json:"racks,omitzero" msgpack:"racks,omitzero"`
+		Racks []rack.Rack `json:"racks" msgpack:"racks"`
 	}
 )
 

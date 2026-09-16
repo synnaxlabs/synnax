@@ -89,7 +89,7 @@ type RetrieveRequest struct {
 }
 
 type RetrieveResponse struct {
-	Devices []device.Device `json:"devices,omitzero" msgpack:"devices,omitzero"`
+	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
 func (s *Service) Retrieve(

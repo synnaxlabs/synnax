@@ -91,7 +91,7 @@ type (
 		IgnoreNotFoundError bool       `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Tasks []task.Task `json:"tasks,omitzero" msgpack:"tasks,omitzero"`
+		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
 	}
 )
 

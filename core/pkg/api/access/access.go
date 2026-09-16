@@ -72,7 +72,7 @@ type RetrievePolicyRequest struct {
 }
 
 type RetrievePolicyResponse struct {
-	Policies []policy.Policy `json:"policies,omitzero" msgpack:"policies,omitzero"`
+	Policies []policy.Policy `json:"policies" msgpack:"policies"`
 }
 
 func (s *Service) RetrievePolicy(
@@ -172,7 +172,7 @@ type (
 		Offset     int        `json:"offset"      msgpack:"offset"`
 	}
 	RetrieveRoleResponse struct {
-		Roles []role.Role `json:"roles,omitzero" msgpack:"roles,omitzero"`
+		Roles []role.Role `json:"roles" msgpack:"roles"`
 	}
 )
 

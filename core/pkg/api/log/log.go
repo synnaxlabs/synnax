@@ -100,7 +100,7 @@ type (
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Logs []log.Log `json:"logs,omitzero" msgpack:"logs,omitzero"`
+		Logs []log.Log `json:"logs" msgpack:"logs"`
 	}
 )
 

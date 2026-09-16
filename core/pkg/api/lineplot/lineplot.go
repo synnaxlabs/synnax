@@ -99,7 +99,7 @@ type (
 		IgnoreNotFoundError bool           `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		LinePlots []lineplot.LinePlot `json:"line_plots,omitzero" msgpack:"line_plots,omitzero"`
+		LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
 	}
 )
 

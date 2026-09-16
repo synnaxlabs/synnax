@@ -47,7 +47,7 @@ type (
 		Range ranger.Key `json:"range" msgpack:"range"`
 	}
 	GetResponse struct {
-		Pairs []kv.Pair `json:"pairs,omitzero" msgpack:"pairs,omitzero"`
+		Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
 	}
 )
 

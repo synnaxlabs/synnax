@@ -119,7 +119,7 @@ type (
 		IgnoreNotFoundError bool          `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
-		Projects []project.Project `json:"projects,omitzero" msgpack:"projects,omitzero"`
+		Projects []project.Project `json:"projects" msgpack:"projects"`
 	}
 )
 

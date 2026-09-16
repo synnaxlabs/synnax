@@ -168,7 +168,7 @@ type RetrieveRequest struct {
 
 type RetrieveResponse struct {
 	// Statuses are the statuses that were retrieved.
-	Statuses []status.Status[any] `json:"statuses,omitzero" msgpack:"statuses,omitzero"`
+	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
 }
 
 func (s *Service) Retrieve(
