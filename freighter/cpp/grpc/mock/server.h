@@ -30,6 +30,8 @@ namespace freighter::grpc::mock {
 inline std::mutex mut;
 inline std::condition_variable cond;
 inline bool end_session = false;
+/// @brief the number of servers currently accepting connections.
+inline int running = 0;
 
 /// @brief Implements .proto generated interface Unary.
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
@@ -80,7 +82,6 @@ inline void serve(
     const std::string &target,
     const std::shared_ptr<::grpc::ServerCredentials> &credentials
 ) {
-    end_session = false;
     unaryServiceImpl u_service;
     myStreamServiceImpl s_service;
 
@@ -92,12 +93,22 @@ inline void serve(
     std::unique_ptr<::grpc::Server> server(builder.BuildAndStart());
 
     std::unique_lock<std::mutex> lck(mut);
-    while (!end_session) {
+    running++;
+    cond.notify_all();
+    while (!end_session)
         cond.wait(lck);
-    }
+    running--;
+    // The last server to leave clears the stop flag for the next batch.
+    if (running == 0) end_session = false;
     lck.unlock();
     server->Shutdown();
-    end_session = false;
+}
+
+/// @brief blocks until count servers are accepting connections.
+inline void wait_for_servers(const int count = 1) {
+    std::unique_lock<std::mutex> lck(mut);
+    while (running < count)
+        cond.wait(lck);
 }
 
 /// @brief serves in plaintext on target until stop_servers is called.
@@ -124,9 +135,12 @@ inline void tls_server(
     serve(target, ::grpc::SslServerCredentials(opts));
 }
 
-/// @brief Abstraction of stopping servers.
+/// @brief stops every running server.
 inline void stop_servers() {
-    end_session = true;
+    {
+        std::lock_guard<std::mutex> lock(mut);
+        end_session = true;
+    }
     cond.notify_all();
 }
 }

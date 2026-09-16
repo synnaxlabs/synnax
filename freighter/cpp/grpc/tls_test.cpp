@@ -40,7 +40,7 @@ const std::string EXPECTED = "Read request: Sending to Server";
 /// in the configured root store.
 TEST(testTLS, secureClientReachesTLSServer) {
     std::thread s(mock::tls_server, TLS_TARGET, CERT_PATH, KEY_PATH);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    mock::wait_for_servers();
     const auto pool = std::make_shared<Pool>(true);
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, TLS_TARGET);
     auto req = message();
@@ -53,7 +53,7 @@ TEST(testTLS, secureClientReachesTLSServer) {
 /// @brief a plaintext pool cannot reach a TLS server.
 TEST(testTLS, insecureClientFailsAgainstTLSServer) {
     std::thread s(mock::tls_server, TLS_TARGET, CERT_PATH, KEY_PATH);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    mock::wait_for_servers();
     const auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, TLS_TARGET);
     auto req = message();
@@ -65,7 +65,7 @@ TEST(testTLS, insecureClientFailsAgainstTLSServer) {
 /// @brief a secure pool cannot reach a plaintext server.
 TEST(testTLS, secureClientFailsAgainstPlaintextServer) {
     std::thread s(mock::server, PLAIN_TARGET);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    mock::wait_for_servers();
     const auto pool = std::make_shared<Pool>(true);
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, PLAIN_TARGET);
     auto req = message();
