@@ -43,13 +43,10 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import { NI } from "@/feature/ni";
 import { renderNITaskForm } from "@/feature/ni/task/testutil";
-import {
-  commitFieldInput,
-  findDialogTriggerByText,
-  selectFromDropdown,
-} from "@/platform/task/testutil";
+import { commitFieldInput, selectFromDropdown } from "@/platform/task/testutil";
 import {
   fakePickedFile,
+  findDialogTriggerByText,
   getIconButton,
   getInputTable,
   interceptFilePicker,

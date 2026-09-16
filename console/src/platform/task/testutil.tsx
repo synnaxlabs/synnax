@@ -34,7 +34,6 @@ import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
-import { CSS } from "@/platform/css";
 import { type FormTabProps } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
@@ -43,7 +42,7 @@ import {
   createConsoleWrapper,
   createTestClientWithGrants,
   createTestStore,
-  getIconButton,
+  findDialogTriggerByText,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
@@ -404,14 +403,24 @@ export const renderTaskFormTab = async (
 };
 
 /**
+ * Waits for a wrapForm task form to leave preview mode. The form renders read-only
+ * until the update grant lands, and a preview field renders static text in place of
+ * its input, so a spec that queries a field on the first render races the grant. Call
+ * it from the render helper of any spec that queries form fields.
+ */
+export const awaitEditableForm = async (): Promise<void> => {
+  await screen.findByRole("textbox", { name: /^Name/u });
+};
+
+/**
  * Waits for the task form's start button to leave its loading/disabled state, then
  * clicks it to run the deploy pipeline. Pluto buttons swallow clicks while disabled,
  * so clicking without the wait races the form's initial query.
  */
-export const clickDeploy = async (container: ParentNode): Promise<void> => {
+export const clickDeploy = async (container: HTMLElement): Promise<void> => {
   const button = await waitFor(() => {
-    const b = getIconButton(container, "play");
-    if (b.classList.contains("pluto--disabled"))
+    const b = within(container).getByRole("button", { name: "Start" });
+    if (b.getAttribute("aria-disabled") === "true")
       throw new Error("start button is disabled");
     return b;
   });
@@ -425,28 +434,9 @@ export const clickDeploy = async (container: ParentNode): Promise<void> => {
 export const findChannelListItem = async (port: string): Promise<HTMLElement> =>
   await waitFor(() => {
     const match = screen
-      .getAllByText(port)
-      .find((el) => el.closest(`.${CSS.B("channel-item")}`) != null);
+      .getAllByRole("option")
+      .find((row) => within(row).queryByText(port) != null);
     assertDefined(match, `channel list item for port "${port}" not found`);
-    return match;
-  });
-
-/**
- * Finds the live dialog trigger of the mounted select whose current value renders as
- * text. Select triggers expose no accessible name, so this matches on the shown value.
- * A preview trigger opens nothing and so carries no popup, which also keeps it out of
- * this query: one holding no value renders the literal word "None", colliding with a
- * real selection of the same name while the form waits on its permission query.
- */
-export const findDialogTriggerByText = async (text: string): Promise<HTMLElement> =>
-  await waitFor(() => {
-    const match = screen
-      .getAllByRole("button")
-      .find(
-        (b) =>
-          b.getAttribute("aria-haspopup") === "dialog" && b.textContent?.includes(text),
-      );
-    assertDefined(match, `dialog trigger showing "${text}" not found`);
     return match;
   });
 
@@ -465,18 +455,6 @@ export const selectFromDropdown = async (
     return within(dialogs[dialogs.length - 1]).getByText(optionText);
   });
   fireEvent.click(option);
-};
-
-/**
- * Finds the input rendered inside the Input.Item labeled by label. Item labels carry no
- * htmlFor, so this walks the item container instead of using getByLabelText.
- * @throws if no item or input renders for the label.
- */
-export const getLabeledInput = (label: string): HTMLInputElement => {
-  const item = screen.getByText(label).closest(".pluto-input__item");
-  const input = item?.querySelector("input");
-  if (input == null) throw new Error(`no input found for label "${label}"`);
-  return input;
 };
 
 /**
@@ -518,7 +496,7 @@ export const awaitCommand = async (
  */
 export const deployAndAwaitTask = async <S extends task.Schemas = task.Schemas>(
   client: Client,
-  container: ParentNode,
+  container: HTMLElement,
   key: task.Key,
   schemas?: S,
 ): Promise<task.Task<S>> => {
@@ -550,14 +528,9 @@ export const reportTaskStopped = async (
   });
 };
 
-/** Finds the single non-checkbox input rendered by a task form field. */
-export const findFieldInput = (): HTMLInputElement => {
-  const input = document.body.querySelector<HTMLInputElement>(
-    "input:not([type='checkbox'])",
-  );
-  assertDefined(input, "form field input not found");
-  return input;
-};
+/** Finds the single text input rendered by a task form field. */
+export const findFieldInput = (): HTMLInputElement =>
+  screen.getByRole<HTMLInputElement>("textbox");
 
 /** Commits `value` into a text or numeric field input by changing and blurring it. */
 export const commitFieldInput = (input: HTMLInputElement, value: string): void => {
@@ -565,9 +538,12 @@ export const commitFieldInput = (input: HTMLInputElement, value: string): void =
   fireEvent.blur(input);
 };
 
-/** Whether the redeploy button is collapsed rather than revealed. */
+/**
+ * Whether the redeploy button is collapsed rather than revealed. A collapsed button
+ * stays mounted under aria-hidden, which drops it out of role queries.
+ */
 export const isRedeployHidden = (): boolean =>
-  screen.getByText("Redeploy").closest("[aria-hidden='true']") != null;
+  screen.queryByRole("button", { name: "Redeploy" }) == null;
 
 /**
  * Waits for the redeploy button to be revealed and enabled, then clicks it. The button
@@ -576,10 +552,8 @@ export const isRedeployHidden = (): boolean =>
  */
 export const clickRedeploy = async (): Promise<void> => {
   const button = await waitFor(() => {
-    if (isRedeployHidden()) throw new Error("redeploy button is hidden");
-    const b = screen.getByText("Redeploy").closest("button");
-    assertDefined(b, "redeploy button not found");
-    if (b.classList.contains("pluto--disabled"))
+    const b = screen.getByRole("button", { name: "Redeploy" });
+    if (b.getAttribute("aria-disabled") === "true")
       throw new Error("redeploy button is disabled");
     return b;
   });
