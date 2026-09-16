@@ -58,14 +58,14 @@ var _ = Describe("Cluster", func() {
 			pledgeNet := mock.NewNetwork[pledge.Request, pledge.Response]()
 			gossipServer := gossipNet.UnaryServer("")
 			return cluster.Config{
-				HostAddress: gossipServer.Address,
+				HostAddress: gossipServer.Address(),
 				Gossip: gossip.Config{
 					TransportClient: gossipNet.UnaryClient(),
 					TransportServer: gossipServer,
 				},
 				Pledge: pledge.Config{
 					TransportClient: pledgeNet.UnaryClient(),
-					TransportServer: pledgeNet.UnaryServer(gossipServer.Address),
+					TransportServer: pledgeNet.UnaryServer(gossipServer.Address()),
 				},
 			}
 		}
