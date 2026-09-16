@@ -111,10 +111,9 @@ const timeRange = new TimeRange(start, end);
 
   <Fragment slot="console">
 
-Click `Create` in the Ranges Toolbar and fill in the dialog, the `Create a range`
-command in the
-[Command Palette](/reference/console/ui-overview#search-and-command-palette), or select
-a region on a plot.
+Create a range via the toolbar,
+[Command Palette](/reference/console/ui-overview#search-and-command-palette), or a plot
+region.
 
 <Video client:only="react" id="client/ranges/create" />
 
@@ -594,9 +593,7 @@ for label in my_range.labels:
     print(label.name)
 ```
 
-<Note.Note variant="info">
-  Labels are read-only in the Python client.
-</Note.Note>
+<Note.Note variant="info">Labels are read-only in the Python client.</Note.Note>
 
   </Fragment>
 
@@ -693,9 +690,7 @@ my_range.write({
 
   <Fragment slot="typescript">
 
-<Note.Note variant="info">
- Writing to ranges is not supported in TypeScript.
-</Note.Note>
+<Note.Note variant="info">Writing to ranges is not supported in TypeScript.</Note.Note>
 
   </Fragment>
 </Client.Tabs>

@@ -75,7 +75,7 @@ if (wrap) className += " wrap";
             margin: 0;
         }
 
-        margin: 5rem 1.5rem;
+        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
         button {
             opacity: 0;
             position: absolute;
@@ -98,7 +98,7 @@ if (wrap) className += " wrap";
         }
 
         .astro-code {
-            padding: 3rem;
+            padding: var(--docs-block-padding);
             position: relative;
             border: var(--pluto-border);
             border-radius: 1rem;
@@ -133,13 +133,17 @@ if (wrap) className += " wrap";
     }
 
     /* The code block's own padding carries the gap under the tab strip. */
-    .pluto-tabs__content .astro-code-wrapper:first-child {
+    .pluto-tabs__content .astro-code-wrapper:first-child,
+    :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot) > p:first-child {
         margin-top: 0;
     }
 
-    @media (max-width: 800px) {
-        .astro-code-wrapper {
-            margin: 5rem 0;
-        }
+    /* A lead-in sentence owns the gap to the code block it introduces. */
+    p:has(+ .astro-code-wrapper) {
+        margin-bottom: 1rem;
+    }
+    p + .astro-code-wrapper,
+    .pluto-note + .astro-code-wrapper {
+        margin-top: 0;
     }
 </style>

@@ -144,7 +144,6 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 
         & video,
         img:not(.diagram img):not(.blog-author__photo) {
-            width: 100%;
             border-radius: 1rem;
             border: var(--pluto-border);
             box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
@@ -183,22 +182,34 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             vertical-align: middle;
         }
 
+        /* Padding carries the vertical space, so inline and block content match. */
         .pluto-note {
             display: block;
-            margin: 4rem 0;
-            padding: var(--note-padding-block, 0.5rem)
-                var(--note-padding-inline, 3.5rem);
-            & > * {
-                font-size: var(--pluto-small-size);
-                font-family: var(--pluto-font-family);
-                font-weight: 450;
-                line-height: calc(var(--pluto-small-line-height) * 1.2);
+            margin: var(--docs-block-gap) var(--docs-block-inset);
+            padding: var(--docs-block-padding) var(--note-padding-inline, 3.5rem);
+            font-size: var(--pluto-small-size);
+            font-family: var(--pluto-font-family);
+            font-weight: 450;
+            line-height: var(--pluto-small-line-height);
+            & :is(p, li) {
+                font: inherit;
+            }
+            & > :first-child {
+                margin-top: 0;
+            }
+            & > :last-child {
+                margin-bottom: 0;
             }
         }
 
         .pluto-note.compact {
-            --note-padding-block: 0.5rem;
             --note-padding-inline: 2rem;
+        }
+
+        /* Astro delivers tab slots inside a layout-transparent astro-slot. */
+        :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
+            > .pluto-note:first-child {
+            margin-top: 0;
         }
 
         table {
@@ -221,6 +232,7 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
                 text-wrap: balance;
             }
             img {
+                width: 100%;
                 margin-bottom: 2rem;
                 margin-top: -2rem;
             }

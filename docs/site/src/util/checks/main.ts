@@ -25,6 +25,7 @@ import { crawlPages, enumerateRoutes, normalizeRoute } from "./crawl.ts";
 import { createFetcher } from "./fetch.ts";
 import { links } from "./links.ts";
 import { media } from "./media.ts";
+import { notes } from "./notes.ts";
 import { tabs } from "./tabs.ts";
 
 const PORT = 4399;
@@ -50,7 +51,12 @@ for (let i = 0; i < argv.length; i++)
   } else names.push(argv[i]);
 
 const fullCrawl = prefixes.length === 0;
-const ALL: Check[] = [tabs(fullCrawl), links(fullCrawl), media(fullCrawl)];
+const ALL: Check[] = [
+  tabs(fullCrawl),
+  links(fullCrawl),
+  media(fullCrawl),
+  notes(fullCrawl),
+];
 const unknown = names.filter((name) => ALL.every((check) => check.name !== name));
 if (unknown.length > 0) {
   const valid = ALL.map((check) => check.name).join(", ");

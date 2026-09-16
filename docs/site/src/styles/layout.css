@@ -149,6 +149,11 @@ article {
         color: var(--pluto-gray-l10);
     }
 
+    /* Block flow collapses margins in a panel exactly as in the article body. */
+    .pluto-tabs__content {
+        display: block;
+    }
+
     .pluto-tabs__content h2:first-of-type {
         margin-top: 4rem;
     }
@@ -202,10 +207,28 @@ article {
         color: var(--docs-body-color);
     }
 
+    .diagram img,
+    .blog-author__photo {
+        margin: 5rem 0;
+    }
+
+    /* Media shares the note and code block geometry. */
     video,
     iframe,
-    img {
-        margin: 5rem 0;
+    img:not(.diagram img, .blog-author__photo, figure img) {
+        display: block;
+        width: calc(100% - 2 * var(--docs-block-inset));
+        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
+    }
+
+    /* The Video and Image components render inside an astro-island wrapper. */
+    p:has(+ :is(video, img), + astro-island > :is(video, img)) {
+        margin-bottom: 1rem;
+    }
+
+    p + :is(video, img),
+    p + astro-island > :is(video, img) {
+        margin-top: 0;
     }
 
     ul {
@@ -213,7 +236,6 @@ article {
     }
 
     .yt-video {
-        width: 100%;
         aspect-ratio: 3456 / 2240;
         border-radius: 1rem;
         border: var(--pluto-border);
