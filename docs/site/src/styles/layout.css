@@ -223,7 +223,7 @@ article {
 
     /* The Video and Image components render inside an astro-island wrapper. */
     p:has(+ :is(video, img), + astro-island > :is(video, img)) {
-        margin-bottom: 1rem;
+        margin-bottom: 2rem;
     }
 
     p + :is(video, img),
