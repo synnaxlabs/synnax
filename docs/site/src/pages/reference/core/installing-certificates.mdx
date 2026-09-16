@@ -49,10 +49,10 @@ sudo update-ca-trust
 ```
 
 On a machine where you can't change the trust store, point the Driver at the certificate
-file instead:
+file instead. The Driver service reads `/etc/synnax/driver.env` at start, so add:
 
 ```bash
-export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/tmp/synnax-ca.crt
+GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/tmp/synnax-ca.crt
 ```
 
 </Fragment>

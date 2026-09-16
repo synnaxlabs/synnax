@@ -224,10 +224,12 @@ certificate was issued for, not an IP address.
 A Core started with `--auto-cert` serves a self-signed certificate. Install its CA
 certificate on the Driver's machine by following the
 [installing certificates](/reference/core/installing-certificates) guide. On a machine
-where you can't change the trust store, point the Driver at the CA file instead:
+where you can't change the trust store, point the Driver at the CA file through its
+environment instead. For the Linux and NI Linux Real-Time service, add the line to
+`/etc/synnax/driver.env`:
 
 ```bash
-export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
+GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
 ```
 
 <Divider.Divider x />
@@ -314,6 +316,10 @@ create a rack on first start and remember it in the persisted state file.
 Every configuration key is also readable from an environment variable named
 `SYNNAX_DRIVER_` followed by the key in upper case. Integrations can't be set from the
 environment.
+
+The Linux and NI Linux Real-Time service does not inherit your shell. It reads
+`/etc/synnax/driver.env`, one `KEY=value` per line, each time it starts. Create the file
+with `sudo` and restart the service after editing it.
 
 ```bash
 # The host of the Synnax Core.
