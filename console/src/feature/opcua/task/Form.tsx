@@ -45,17 +45,26 @@ export interface ChannelKeyAndIDGetter<C extends Channel> {
   (channel: C): { id: string; key: channel.Key };
 }
 
+/** Returns the channel the device's saved map binds the row's node to. */
+export interface ChannelResolver<C extends Channel> {
+  (channel: C, device: Device.Device): channel.Key;
+}
+
 interface ChannelListItemProps<C extends Channel> extends Omit<
   Task.ChannelListItemProps,
   "children"
 > {
   children: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  resolve: ChannelResolver<C>;
+  device: Device.Device;
 }
 
 const ChannelListItem = <C extends Channel>({
   children,
   getChannelKeyAndID,
+  resolve,
+  device,
   ...rest
 }: ChannelListItemProps<C>) => {
   const path = `config.channels.${rest.itemKey}`;
@@ -78,6 +87,8 @@ const ChannelListItem = <C extends Channel>({
           color={10}
           level="p"
           channel={channel}
+          device={device}
+          resolve={(d) => resolve(item, d)}
           id={id}
           namePath={`${path}.name`}
         />
@@ -138,6 +149,7 @@ interface ChannelListProps<C extends Channel> extends Pick<
   device: Device.Device;
   convertHaulItemToChannel: (item: HaulItem) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  resolve: ChannelResolver<C>;
 }
 
 const ChannelList = <C extends Channel>({
@@ -145,6 +157,7 @@ const ChannelList = <C extends Channel>({
   children,
   convertHaulItemToChannel,
   getChannelKeyAndID,
+  resolve,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = PForm.useContext();
@@ -177,11 +190,17 @@ const ChannelList = <C extends Channel>({
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = useCallback(
     ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem<C> key={key} {...p} getChannelKeyAndID={getChannelKeyAndID}>
+      <ChannelListItem<C>
+        key={key}
+        {...p}
+        getChannelKeyAndID={getChannelKeyAndID}
+        resolve={resolve}
+        device={device}
+      >
         {children}
       </ChannelListItem>
     ),
-    [children],
+    [children, device],
   );
   return (
     <Task.ChannelList
@@ -205,6 +224,7 @@ export interface FormProps<C extends Channel> extends Required<
 > {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  resolve: ChannelResolver<C>;
 }
 
 interface BodyProps<C extends Channel>
@@ -215,6 +235,7 @@ const Body = <C extends Channel>({
   convertHaulItemToChannel,
   children = () => null,
   getChannelKeyAndID,
+  resolve,
   contextMenuItems,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
@@ -225,6 +246,7 @@ const Body = <C extends Channel>({
         device={device}
         convertHaulItemToChannel={convertHaulItemToChannel}
         getChannelKeyAndID={getChannelKeyAndID}
+        resolve={resolve}
         contextMenuItems={contextMenuItems}
       >
         {children}

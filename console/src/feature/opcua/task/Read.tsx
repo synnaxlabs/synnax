@@ -17,7 +17,11 @@ import { type FC, type ReactElement } from "react";
 import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import * as Device from "@/feature/opcua/device/types";
-import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
+import {
+  type ChannelKeyAndIDGetter,
+  type ChannelResolver,
+  createForm,
+} from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -108,9 +112,13 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
+const resolve: ChannelResolver<ReadChannel> = ({ nodeId }, { properties }) =>
+  getChannelByNodeID(properties, nodeId);
+
 const TaskForm: FC = createForm<ReadChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
+  resolve,
   contextMenuItems: Task.readChannelContextMenuItem,
   children: isIndexItem,
 });

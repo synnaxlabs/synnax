@@ -15,7 +15,11 @@ import { type FC } from "react";
 import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import * as Device from "@/feature/opcua/device/types";
-import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
+import {
+  type ChannelKeyAndIDGetter,
+  type ChannelResolver,
+  createForm,
+} from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
   WRITE_SCHEMAS,
@@ -44,6 +48,9 @@ const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
   dataType: data.dataType,
 });
 
+const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
+  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
+
 const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   cmdChannel,
   key,
@@ -51,6 +58,9 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   key: cmdChannel,
   id: Task.getChannelNameID(key, "cmd"),
 });
+
+const resolve: ChannelResolver<WriteChannel> = ({ nodeId }, { properties }) =>
+  getChannelByNodeID(properties, nodeId) ?? 0;
 
 interface ContextMenuItemProps extends Task.ContextMenuItemProps<WriteChannel> {}
 
@@ -74,11 +84,9 @@ const contextMenuItems = Component.renderProp(ContextMenuItem);
 const TaskForm: FC = createForm<WriteChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
+  resolve,
   contextMenuItems,
 });
-
-const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
-  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,

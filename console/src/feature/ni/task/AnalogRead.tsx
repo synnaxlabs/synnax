@@ -12,6 +12,7 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { useResult } from "@/feature/ni/device/queries";
 import * as Device from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
@@ -60,6 +61,9 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
   const value = PForm.useFieldValue<AIChannel>(path);
   const { type, channel, disabled } = value;
+  const device = useResult(
+    primitive.isNonZero(value.device) ? { key: value.device } : null,
+  ).data;
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
@@ -74,6 +78,10 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
+      device={device}
+      resolve={({ properties }) =>
+        properties.analogInput.channels[getAIChannelDeviceKey(value)] ?? 0
+      }
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />

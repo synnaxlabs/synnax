@@ -12,6 +12,7 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { useSelected } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
@@ -47,6 +48,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<AOChannel>(path);
+  const device = useSelected();
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
@@ -57,6 +59,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       hasTareButton={false}
       channel={cmdChannel}
       stateChannel={stateChannel}
+      device={device}
+      resolve={({ properties }) =>
+        properties.analogOutput.channels[port.toString()] ??
+        PlatformDevice.ZERO_COMMAND_STATE_PAIR
+      }
       portMaxChars={2}
       canTare={false}
       path={path}

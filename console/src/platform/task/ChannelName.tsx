@@ -31,7 +31,7 @@ import { CSS } from "@/platform/css";
 import { useIsPreview } from "@/platform/task/Form";
 import { Session } from "@/session";
 
-export interface ChannelNameProps extends optional.Optional<
+interface BoundProps extends optional.Optional<
   Omit<Text.MaybeEditableProps, "value">,
   "level"
 > {
@@ -40,7 +40,14 @@ export interface ChannelNameProps extends optional.Optional<
   namePath: string;
 }
 
-interface NameProps extends Omit<ChannelNameProps, "defaultName"> {
+export interface ChannelNameProps<D> extends BoundProps {
+  /** The device whose saved map binds the row, or undefined while it loads. */
+  device: D | undefined;
+  /** Returns the channel the device map binds the row to, or 0 when it has none. */
+  resolve: (device: D) => channel.Key;
+}
+
+interface NameProps extends Omit<BoundProps, "defaultName"> {
   name: string;
 }
 
@@ -78,13 +85,13 @@ const Unresolved = ({
   defaultName = "No channel",
   namePath,
   ...rest
-}: ChannelNameProps) => {
+}: BoundProps) => {
   const formName = Form.useFieldValue<string>(namePath, { optional: true });
   const name = primitive.isNonZero(formName) ? formName : defaultName;
   return <Name namePath={namePath} name={name} {...rest} />;
 };
 
-const Resolved = ({ channel, defaultName, namePath, ...rest }: ChannelNameProps) => {
+const Resolved = ({ channel, defaultName, namePath, ...rest }: BoundProps) => {
   const range = Session.Range.useSelectSelectedKey();
   const query = { key: channel, rangeKey: range ?? undefined };
   Channel.useEnsure(query);
@@ -127,7 +134,20 @@ const describe = (error: Error): Pick<MessageProps, "message" | "description"> =
   return { message: "Failed to retrieve channel", description: error.message };
 };
 
-export const ChannelName = (props: ChannelNameProps): ReactElement => {
+/**
+ * Shows a row's channel name. The device's saved map decides which channel is shown
+ * once the device resolves, since configure binds from it. The row's key stands in.
+ */
+export const ChannelName = <D,>({
+  device,
+  resolve,
+  channel,
+  ...rest
+}: ChannelNameProps<D>): ReactElement => {
+  const props: BoundProps = {
+    ...rest,
+    channel: device == null ? channel : resolve(device),
+  };
   // Through a ref so the fallback keeps its identity: a new component every render
   // would remount the name field and drop an edit in progress.
   const propsRef = useSyncedRef(props);

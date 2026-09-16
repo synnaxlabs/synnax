@@ -9,5 +9,7 @@
 
 import { type DigitalChannel } from "@/feature/ni/task/types";
 
-export const getDigitalChannelDeviceKey = ({ line, port }: DigitalChannel) =>
-  `${port}l${line}`;
+export const getDigitalChannelDeviceKey = ({
+  line,
+  port,
+}: Pick<DigitalChannel, "line" | "port">) => `${port}l${line}`;

@@ -19,15 +19,22 @@ import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName"
 import { EnableDisableButton } from "@/platform/task/EnableDisableButton";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { TareButton } from "@/platform/task/TareButton";
-import { WriteChannelNames } from "@/platform/task/WriteChannelNames";
+import {
+  type CommandStatePair,
+  WriteChannelNames,
+} from "@/platform/task/WriteChannelNames";
 
 export interface ListAndDetailsIconProps {
   icon: JSX.Element;
   name: string;
 }
 
+/** A read row binds to one channel, a write row to a command and state pair. */
+export type Binding = channel.Key | CommandStatePair;
+
 export interface ListAndDetailsChannelItemProps<
   K extends record.Key,
+  D,
 > extends List.ItemProps<K> {
   port: string | number;
   portMaxChars: number;
@@ -35,11 +42,21 @@ export interface ListAndDetailsChannelItemProps<
   canTare: boolean;
   channel: channel.Key;
   stateChannel?: channel.Key;
+  /** The device whose saved map binds the row, or undefined while it loads. */
+  device: D | undefined;
+  /** Returns what the device map binds the row to, 0 where it has nothing. */
+  resolve: (device: D) => Binding;
   onTare?: (channel: channel.Key) => void;
   path: string;
   hasTareButton: boolean;
   nameDirection?: direction.Direction;
 }
+
+const toPair = (binding: Binding): CommandStatePair =>
+  typeof binding === "number" ? { command: binding, state: 0 } : binding;
+
+const toKey = (binding: Binding): channel.Key =>
+  typeof binding === "number" ? binding : binding.command;
 
 const getChannelNameProps = (
   hasIcon: boolean,
@@ -54,7 +71,7 @@ const getChannelNameProps = (
   overflow: "ellipsis",
 });
 
-export const ListAndDetailsChannelItem = <K extends string>({
+export const ListAndDetailsChannelItem = <K extends string, D>({
   port,
   portMaxChars,
   canTare,
@@ -64,9 +81,11 @@ export const ListAndDetailsChannelItem = <K extends string>({
   channel,
   icon,
   stateChannel,
+  device,
+  resolve,
   nameDirection = "x",
   ...rest
-}: ListAndDetailsChannelItemProps<K>) => {
+}: ListAndDetailsChannelItemProps<K, D>) => {
   const { itemKey } = rest;
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
@@ -105,6 +124,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
               cmdNamePath={`${path}.cmdChannelName`}
               cmdChannel={channel}
               stateChannel={stateChannel}
+              device={device}
+              resolve={(d: D) => toPair(resolve(d))}
               itemKey={itemKey}
             />
           </Flex.Box>
@@ -112,6 +133,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
           <ChannelName
             {...channelNameProps}
             channel={channel}
+            device={device}
+            resolve={(d: D) => toKey(resolve(d))}
             namePath={`${path}.name`}
             id={getChannelNameID(itemKey)}
           />

@@ -13,29 +13,38 @@ import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 
-export interface WriteChannelNamesProps extends Omit<
-  ChannelNameProps,
-  "channel" | "defaultName" | "id" | "namePath"
+export interface CommandStatePair {
+  command: channel.Key;
+  state: channel.Key;
+}
+
+export interface WriteChannelNamesProps<D> extends Omit<
+  ChannelNameProps<D>,
+  "channel" | "defaultName" | "id" | "namePath" | "resolve"
 > {
   cmdChannel: channel.Key;
   cmdNamePath: string;
   stateChannel: channel.Key;
   stateNamePath: string;
   itemKey: string;
+  /** Returns the pair the device map binds the row to, 0 for each it lacks. */
+  resolve: (device: D) => CommandStatePair;
 }
 
-export const WriteChannelNames = ({
+export const WriteChannelNames = <D,>({
   cmdChannel,
   cmdNamePath,
   stateNamePath,
   stateChannel,
   itemKey,
+  resolve,
   ...rest
-}: WriteChannelNamesProps) => (
+}: WriteChannelNamesProps<D>) => (
   <>
     <ChannelName
       {...rest}
       channel={cmdChannel}
+      resolve={(device: D) => resolve(device).command}
       id={getChannelNameID(itemKey, "cmd")}
       defaultName="No command channel"
       namePath={cmdNamePath}
@@ -43,6 +52,7 @@ export const WriteChannelNames = ({
     <ChannelName
       {...rest}
       channel={stateChannel}
+      resolve={(device: D) => resolve(device).state}
       className={CSS.B("state-channel")}
       defaultName="No state channel"
       namePath={stateNamePath}

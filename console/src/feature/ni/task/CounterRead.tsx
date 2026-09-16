@@ -12,6 +12,7 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { useResult } from "@/feature/ni/device/queries";
 import * as Device from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
@@ -49,7 +50,9 @@ interface ChannelListItemProps extends Task.ChannelListItemProps {
 
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
-  const { port, type, channel, disabled } = PForm.useFieldValue<CIChannel>(path);
+  const { port, type, disabled, device, channel } =
+    PForm.useFieldValue<CIChannel>(path);
+  const dev = useResult(primitive.isNonZero(device) ? { key: device } : null).data;
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && !isSnapshot;
@@ -64,6 +67,10 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
+      device={dev}
+      resolve={({ properties }) =>
+        properties.counterInput.channels[port.toString()] ?? 0
+      }
       icon={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />

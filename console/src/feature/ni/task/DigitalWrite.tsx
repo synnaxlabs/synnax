@@ -12,6 +12,7 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { useSelected } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
@@ -52,9 +53,16 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
   > = rest;
   delete filteredRest.cmdChannelName;
   delete filteredRest.stateChannelName;
+  const { port, line } = rest;
+  const device = useSelected();
   return (
     <Task.WriteChannelNames
       {...rest}
+      device={device}
+      resolve={({ properties }) =>
+        properties.digitalOutput.channels[getDigitalChannelDeviceKey({ port, line })] ??
+        PlatformDevice.ZERO_COMMAND_STATE_PAIR
+      }
       cmdNamePath={`${path}.cmdChannelName`}
       stateNamePath={`${path}.stateChannelName`}
     />

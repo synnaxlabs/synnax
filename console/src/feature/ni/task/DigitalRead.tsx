@@ -12,6 +12,7 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { useSelected } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
@@ -46,14 +47,21 @@ const Properties = () => (
 
 interface NameComponentProps extends DigitalNameComponentProps<DIChannel> {}
 
-const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
-  <Task.ChannelName
-    channel={channel}
-    id={Task.getChannelNameID(itemKey)}
-    level="p"
-    namePath={`${path}.name`}
-  />
-);
+const NameComponent = ({ channel, itemKey, path, port, line }: NameComponentProps) => {
+  const device = useSelected();
+  return (
+    <Task.ChannelName
+      channel={channel}
+      device={device}
+      resolve={({ properties }) =>
+        properties.digitalInput.channels[getDigitalChannelDeviceKey({ port, line })] ?? 0
+      }
+      id={Task.getChannelNameID(itemKey)}
+      level="p"
+      namePath={`${path}.name`}
+    />
+  );
+};
 
 const name = Component.renderProp(NameComponent);
 

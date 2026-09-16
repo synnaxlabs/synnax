@@ -33,6 +33,7 @@ import {
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
+import { useSelected } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
@@ -100,6 +101,18 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const { itemKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
   const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
+  const pointer = PForm.useFieldValue<string>(`${path}.pointer`);
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
+  const epIndex = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
+  const device = useSelected();
+  // Configure keeps a bound channel before consulting the device map, where the
+  // endpoint's timing field takes the index channel.
+  const resolve = ({ properties }: Device.Device): channel.Key => {
+    if (fieldChannel !== 0) return fieldChannel;
+    const ep = properties.read[epPath];
+    if (ep == null) return 0;
+    return itemKey === epIndex ? ep.index : (ep.channels[pointer] ?? 0);
+  };
   const enumValues = PForm.useFieldValue<Record<string, number>[]>(
     `${path}.enumValues`,
     { defaultValue: [] },
@@ -134,6 +147,8 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={fieldChannel}
+          device={device}
+          resolve={resolve}
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />

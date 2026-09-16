@@ -65,19 +65,6 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           path={`${path}.port`}
           showLabel={false}
           hideIfNull
-          onChange={(value) => {
-            if (port === value) return;
-            const existingCommandStatePair =
-              device.properties[convertWriteChannelTypeToPortType(type)].channels[
-                value
-              ] ?? PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-            set(path, {
-              ...item,
-              cmdChannel: existingCommandStatePair.command,
-              stateChannel: existingCommandStatePair.state,
-              port: value,
-            });
-          }}
         >
           {({ value, onChange, preview }) => (
             <SelectPort
@@ -99,16 +86,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
                   if (type === value) return;
                   const portType = convertWriteChannelTypeToPortType(value);
                   const port = Device.PORTS[device.model][portType][0].key;
-                  const existingCommandStatePair =
-                    device.properties[portType].channels[port] ??
-                    PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-                  set(path, {
-                    ...item,
-                    cmdChannel: existingCommandStatePair.command,
-                    stateChannel: existingCommandStatePair.state,
-                    type: value,
-                    port,
-                  });
+                  set(path, { ...item, type: value, port });
                 }}
                 empty
               >
@@ -123,6 +101,11 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           cmdChannel={cmdChannel}
           itemKey={item.key}
           stateChannel={stateChannel}
+          device={device}
+          resolve={({ properties }) =>
+            properties[convertWriteChannelTypeToPortType(type)].channels[port] ??
+            PlatformDevice.ZERO_COMMAND_STATE_PAIR
+          }
           cmdNamePath={`${path}.cmdChannelName`}
           stateNamePath={`${path}.stateChannelName`}
         />
@@ -145,17 +128,12 @@ const getOpenChannel = (channels: WriteChannel[], device: Device.Device) => {
       : Device.DO_PORT_TYPE;
   const port = getOpenPort(channels, device.model, [preferredPortType, backupPortType]);
   if (port == null) return null;
-  const existingCommandStatePair =
-    device.properties[port.type].channels[port.key] ??
-    PlatformDevice.ZERO_COMMAND_STATE_PAIR;
   return {
     ...deep.copy(last),
     ...Task.WRITE_CHANNEL_OVERRIDE,
     type: convertPortTypeToWriteChannelType(port.type),
     key: id.create(),
     port: port.key,
-    cmdChannel: existingCommandStatePair.command,
-    stateChannel: existingCommandStatePair.state,
   };
 };
 

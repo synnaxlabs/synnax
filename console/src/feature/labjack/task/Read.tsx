@@ -62,10 +62,11 @@ const getRenderedPort = (
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
-  deviceModel: Device.Model;
+  device: Device.Device;
 }
 
-const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps) => {
+const ChannelListItem = ({ onTare, device, ...rest }: ChannelListItemProps) => {
+  const deviceModel = device.model;
   const path = `config.channels.${rest.itemKey}`;
   const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
   const port = PForm.useFieldValue<string>(`${path}.port`);
@@ -85,6 +86,10 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
+      device={device}
+      resolve={({ properties }) =>
+        properties[convertReadChannelTypeToPortType(type)].channels[port] ?? 0
+      }
       portMaxChars={5}
     />
   );
@@ -172,7 +177,6 @@ const getOpenChannel = (
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     port: port.key,
-    channel: device.properties[port.type].channels[port.key] ?? 0,
   };
 };
 
@@ -191,9 +195,9 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   );
   const listItem = useCallback(
     ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem {...p} onTare={tare} key={key} deviceModel={device.model} />
+      <ChannelListItem {...p} onTare={tare} key={key} device={device} />
     ),
-    [tare, device.model],
+    [tare, device],
   );
   const details = useCallback(
     (p: Task.Views.DetailsProps) => (

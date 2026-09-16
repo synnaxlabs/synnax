@@ -12,6 +12,7 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { WriteChannelDetails } from "@/feature/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
@@ -53,6 +54,10 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<WriteChannel>(path);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
+  const mapKey = channelMapKey(ch);
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -60,6 +65,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       path={path}
       channel={ch.cmdChannel}
       stateChannel={ch.stateChannel}
+      device={slave}
+      resolve={({ properties: { write } }) => ({
+        command: getChannelByMapKey(write.channels, mapKey),
+        state: getChannelByMapKey(write.channels, `${mapKey}_state`),
+      })}
       hasTareButton={false}
       canTare={false}
       nameDirection="y"

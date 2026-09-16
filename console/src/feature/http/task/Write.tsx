@@ -28,6 +28,7 @@ import {
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
+import { useSelected } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
@@ -100,17 +101,24 @@ const WriteEndpointListItem = (props: List.ItemProps<string>) => {
   const channel = PForm.useFieldValue<number>(
     `config.endpoints.${itemKey}.channel.channel`,
   );
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${itemKey}.path`);
+  const device = useSelected();
   const extraNode = useMemo(
     () => (
       <Task.ChannelName
         channel={channel}
+        device={device}
+        // Configure keeps a bound channel before consulting the device map.
+        resolve={({ properties }) =>
+          channel !== 0 ? channel : (properties.write[epPath] ?? 0)
+        }
         namePath={`config.endpoints.${itemKey}.channel.name`}
         id={getEndpointChannelNameID(itemKey)}
         weight={600}
         color={10}
       />
     ),
-    [channel, itemKey],
+    [channel, device, epPath, itemKey],
   );
   return <EndpointListItem {...props} extra={extraNode} y textProps={TEXT_PROPS} />;
 };

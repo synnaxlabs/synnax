@@ -12,6 +12,7 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { ReadChannelDetails } from "@/feature/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
@@ -47,6 +48,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<ReadChannel>(path);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -54,6 +58,10 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       port={getPortLabel(ch)}
       path={path}
       channel={ch.channel}
+      device={slave}
+      resolve={({ properties }) =>
+        getChannelByMapKey(properties.read.channels, channelMapKey(ch))
+      }
       hasTareButton={false}
       canTare={false}
       portMaxChars={10}

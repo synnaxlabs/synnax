@@ -14,6 +14,7 @@ import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
+import { useSelected } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
@@ -47,7 +48,9 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const { type, channel } = PForm.useFieldValue<ReadChannel>(path);
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const { type, channel } = ch;
+  const device = useSelected();
   return (
     <Select.ListItem
       {...props}
@@ -93,6 +96,8 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}
+          device={device}
+          resolve={({ properties }) => properties.read.channels[readMapKey(ch)] ?? 0}
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
