@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -24,8 +25,13 @@ import { getLabeledInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(OPCUA.Task.Read, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(OPCUA.Task.Read, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 interface CreateReadChannelOverrides extends Partial<OPCUA.Task.ReadChannel> {}
 
