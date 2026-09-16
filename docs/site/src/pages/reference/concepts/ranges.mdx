@@ -9,7 +9,7 @@ prev: "Channels"
 prevURL: "/reference/concepts/channels"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -20,6 +20,10 @@ stored within Synnax, and can be used to correlate metadata with channel telemet
 To create a range, you only need to specify a name, a starting timestamp, and an ending
 timestamp. While a range can be used to query the data within a channel, it is not
 necessary to specify the channels that belong within a range.
+
+<Note.Note variant="info" className="compact">
+  The interval is start-inclusive and end-exclusive.
+</Note.Note>
 
 <Divider.Divider x />
 
