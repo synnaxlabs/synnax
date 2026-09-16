@@ -23,19 +23,15 @@ import (
 
 // semanticContent is the hash input: the fields that change an arc's compiled
 // behavior. Node positions and edge identities are excluded, so layout edits and a
-// rebuilt-but-identical connection hash equally.
-//
-// The tags are omitempty rather than omitzero: the inactive mode's fields must vanish,
-// and Nodes and Edges are allocated even when the graph is empty, which omitzero would
-// serialize as []. Changing either spelling rehashes every stored arc, and a task whose
-// config hash moves is reconfigured by the driver as though its arc had been edited.
+// rebuilt-but-identical connection hash equally. Every field serializes, so the hash is
+// a function of all of them and the inactive mode's fields contribute their zero.
 type semanticContent struct {
 	Mode      Mode                           `json:"mode"`
-	Text      string                         `json:"text,omitempty"`
-	Functions ir.Functions                   `json:"functions,omitempty"`
-	Nodes     []string                       `json:"nodes,omitempty"`
-	Edges     []ir.Edge                      `json:"edges,omitempty"`
-	Inputs    map[string]msgpack.EncodedJSON `json:"inputs,omitempty"`
+	Text      string                         `json:"text"`
+	Functions ir.Functions                   `json:"functions"`
+	Nodes     []string                       `json:"nodes"`
+	Edges     []ir.Edge                      `json:"edges"`
+	Inputs    map[string]msgpack.EncodedJSON `json:"inputs"`
 }
 
 // Hash returns the xxhash64 of the arc's semantic content as 16 lowercase hex
