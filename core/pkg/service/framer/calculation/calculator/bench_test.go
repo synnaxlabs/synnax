@@ -142,6 +142,15 @@ func (e *benchEnv) openCalculator(
 	return c
 }
 
+// advanceAlignment moves every series in f past its own upper bound so the next call
+// to the calculator sees fresh data instead of skipping it as already consumed.
+func advanceAlignment(f frame.Frame) {
+	for i, ser := range f.RawSeries() {
+		ser.Alignment = ser.AlignmentBounds().Upper
+		f.SetRawSeriesAt(i, ser)
+	}
+}
+
 func BenchmarkCalculator_SingleInput(b *testing.B) {
 	env := newBenchEnv(b)
 	defer env.close(b)
@@ -168,6 +177,7 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		advanceAlignment(inputFrame)
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -208,6 +218,7 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		advanceAlignment(inputFrame)
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -252,6 +263,7 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		advanceAlignment(inputFrame)
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -291,6 +303,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, _ = group.Next(env.ctx, inputFrame)
+		advanceAlignment(inputFrame)
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -337,6 +350,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+				advanceAlignment(inputFrame)
 			}
 			b.StopTimer()
 			b.ReportMetric(float64(count*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -379,6 +393,7 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
+		advanceAlignment(inputFrame)
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -426,6 +441,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _, _ = group.Next(env.ctx, inputFrame)
+				advanceAlignment(inputFrame)
 			}
 			b.StopTimer()
 			b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
