@@ -31,6 +31,17 @@ interface ButtonProps extends Omit<Config, "variant"> {
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
 }
 
+// A context menu swallows the release of a secondary-button press, so momentary
+// would stay pressed. Only the primary button drives the raw press edges.
+const primaryOnly = (
+  handler?: MouseEventHandler<HTMLButtonElement>,
+): MouseEventHandler<HTMLButtonElement> | undefined =>
+  handler == null
+    ? undefined
+    : (e) => {
+        if (e.button === 0) handler(e);
+      };
+
 export const Button = ({
   onClick,
   onMouseDown,
@@ -53,9 +64,15 @@ export const Button = ({
   // the hold is the actuation, so a hold delay has no meaning there.
   const delayed = (delay ?? 0) > 0;
   let handlers: Pick<ButtonProps, "onClick" | "onMouseDown" | "onMouseUp">;
-  if (mode === "momentary") handlers = { onMouseDown, onMouseUp };
+  if (mode === "momentary")
+    handlers = {
+      onMouseDown: primaryOnly(onMouseDown),
+      onMouseUp: primaryOnly(onMouseUp),
+    };
   else if (mode === "pulse")
-    handlers = delayed ? { onClick: onMouseDown } : { onMouseDown };
+    handlers = delayed
+      ? { onClick: onMouseDown }
+      : { onMouseDown: primaryOnly(onMouseDown) };
   else handlers = { onClick };
   return (
     <Primitive.Div orientation={orientation}>

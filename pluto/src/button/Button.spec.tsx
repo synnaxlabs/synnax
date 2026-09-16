@@ -320,6 +320,18 @@ describe("Button", () => {
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
+
+    it("should ignore a secondary-button hold", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"), { button: 2 });
+      vi.advanceTimersByTime(10000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
   });
 
   describe("variant", () => {

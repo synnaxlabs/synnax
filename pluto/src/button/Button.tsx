@@ -168,7 +168,7 @@ const Base = <E extends ElementType = "button">({
     )
       e.preventDefault();
     onMouseDown?.(e);
-    if (isDisabled || preview === true || parsedDelay.isZero) return;
+    if (isDisabled || preview === true || parsedDelay.isZero || e.button !== 0) return;
     document.addEventListener(
       "mouseup",
       () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
