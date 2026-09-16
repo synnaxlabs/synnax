@@ -42,7 +42,7 @@ func baseConfigWithAddr(
 	return pledge.Config{
 		TransportServer: server,
 		TransportClient: n.UnaryClient(),
-	}, server.Address
+	}, server.Address()
 }
 
 func provisionCandidates(
@@ -181,7 +181,7 @@ var _ = Describe("Pledge", func() {
 					for range numTransports {
 						t := net.UnaryServer("")
 						t.BindHandler(handler)
-						peers = append(peers, t.Address)
+						peers = append(peers, t.Address())
 					}
 					Expect(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 						Instrumentation: ins.Child("no-nodes-responding"),
@@ -353,7 +353,7 @@ var _ = Describe("Pledge", func() {
 					juror := provisionFailingJuror(net)
 					jurors := node.Group{1: {
 						Key:     1,
-						Address: juror.Address,
+						Address: juror.Address(),
 						State:   node.StateHealthy,
 					}}
 					addr := arbitrateResponsible(
@@ -363,7 +363,7 @@ var _ = Describe("Pledge", func() {
 					)
 					Expect(sendPledge(ctx, net, addr)).Error().
 						To(MatchError(ContainSubstring(jurorFailure)))
-					Expect(countRequests(net, juror.Address)).To(Equal(maxProposals))
+					Expect(countRequests(net, juror.Address())).To(Equal(maxProposals))
 				},
 			)
 			It("Should let an infrastructure failure outweigh a concurrent rejection",
@@ -376,7 +376,7 @@ var _ = Describe("Pledge", func() {
 					failing := provisionFailingJuror(net)
 					nodes[1] = node.Node{
 						Key:     1,
-						Address: failing.Address,
+						Address: failing.Address(),
 						State:   node.StateHealthy,
 					}
 					client := net.UnaryClient()
@@ -394,7 +394,9 @@ var _ = Describe("Pledge", func() {
 					)
 					Expect(sendPledge(ctx, net, addr)).Error().
 						To(MatchError(ContainSubstring(jurorFailure)))
-					Expect(countRequests(net, failing.Address)).To(Equal(maxProposals))
+					Expect(
+						countRequests(net, failing.Address()),
+					).To(Equal(maxProposals))
 				},
 			)
 		})
@@ -430,7 +432,7 @@ var _ = Describe("Pledge", func() {
 					)
 					jurors := node.Group{1: {
 						Key:     1,
-						Address: juror.Address,
+						Address: juror.Address(),
 						State:   node.StateHealthy,
 					}}
 					addr := arbitrateResponsible(
@@ -447,7 +449,7 @@ var _ = Describe("Pledge", func() {
 					)).Error().To(MatchError(ContainSubstring(jurorFailure)))
 					// The cancellation lands during the first round, so the responsible
 					// abandons the remaining budget instead of spending it.
-					Expect(countRequests(net, juror.Address)).To(Equal(1))
+					Expect(countRequests(net, juror.Address())).To(Equal(1))
 				},
 			)
 		})

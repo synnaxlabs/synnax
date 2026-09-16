@@ -272,8 +272,8 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  // clearRack drops the deleted task from the cache so it is not served until
-  // the delete signal lands.
+  // Drops the deleted task from the cache so it is not served until the delete signal
+  // lands.
   private async clearRack(key: Key): Promise<void> {
     const tsk = await this.retrieveTask(key);
     await this.cfg.unary.send(
@@ -432,10 +432,10 @@ export class Client extends query.Retriever<
     return this.hydrate(arcs[0]);
   }
 
-  // Answers reuse the identical store doc so selector references stay
-  // stable; a fresher network doc replaces it and answers. While a locally
-  // replayed dispatch awaits its echo the replayed doc stays, but the
-  // network doc answers: it carries the server-materialized text.
+  // Answers reuse the identical store doc so selector references stay stable; a fresher
+  // network doc replaces it and answers. While a locally replayed dispatch awaits its
+  // echo the replayed doc stays, but the network doc answers: it carries the
+  // server-materialized text.
   private hydrate(a: Arc): Arc {
     if (this.dispatcher.hasOutstanding(a.key) === true) {
       this.store.ingest(a);
@@ -443,14 +443,12 @@ export class Client extends query.Retriever<
     }
     const prev = this.store.get(a.key);
     if (prev != null && deep.equal(prev, a)) return prev;
-    this.store.set(a);
+    this.store.ingest(a, "set");
     return a;
   }
 
-  /**
-   * Rebuilds a cached task with its cached status attached. The status is
-   * parsed because the status table holds every domain's statuses generically.
-   */
+  // The status is parsed because the status table holds every domain's statuses
+  // generically.
   private composeTask(cached: Omit<task.Task, "status">): task.Task {
     const cachedStatus = this.cfg.statusStore.get(task.statusKey(cached.key));
     const payload = cached.payload;

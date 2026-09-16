@@ -266,7 +266,6 @@ export class Client extends query.Retriever<
     return isSingle ? sugared[0] : sugared;
   }
 
-  /** Rebuilds a cached rack, attaching its cached status when requested. */
   private compose(cached: Omit<Payload, "status">, includeStatus: boolean): Rack {
     if (!includeStatus) return this.sugar(cached);
     const st = this.statusOf(cached.key);
@@ -281,11 +280,10 @@ export class Client extends query.Retriever<
     return parsed.success ? parsed.data : undefined;
   }
 
-  /** Writes fetched racks and their included statuses. */
   private writeThrough(racks: Payload[]): void {
-    this.store.set(racks.map(stripStatus));
+    this.store.ingest(racks.map(stripStatus));
     racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.ingest(st);
     });
   }
 
@@ -299,7 +297,6 @@ export class Client extends query.Retriever<
     return res.racks;
   }
 
-  /** Fetches racks and writes their included statuses through the caches. */
   private async fetchThrough(req: RetrieveRequest): Promise<Payload[]> {
     const racks = await this.execRetrieve(req);
     this.writeThrough(racks);

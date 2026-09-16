@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	falamos "github.com/synnaxlabs/freighter/alamos"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -106,16 +105,14 @@ type (
 	]
 )
 
-type recoveryServer struct {
-	recoveryServerCore
+type recoveryServer struct{ recoveryServerCore }
+
+func (rs *recoveryServer) Exec(server aspenv1.RecoveryService_ExecServer) error {
+	return rs.Handler(server.Context(), server)
 }
 
-func (w *recoveryServer) Exec(server aspenv1.RecoveryService_ExecServer) error {
-	return w.Handler(server.Context(), server)
-}
-
-func (w *recoveryServer) BindTo(reg grpc.ServiceRegistrar) {
-	aspenv1.RegisterRecoveryServiceServer(reg, w)
+func (rs *recoveryServer) BindTo(reg grpc.ServiceRegistrar) {
+	aspenv1.RegisterRecoveryServiceServer(reg, rs)
 }
 
 var (
@@ -141,10 +138,10 @@ var (
 	_ freighter.Transport                = (*Transport)(nil)
 )
 
-// New constructs a Transport that uses the supplied pool for client
-// connections. The Transport does NOT take ownership of the pool — closing
-// the Transport will not close the pool. The caller is responsible for
-// closing the pool after every Transport that references it has been closed.
+// New constructs a Transport that uses the supplied pool for client connections. The
+// Transport does NOT take ownership of the pool — closing the Transport will not close
+// the pool. The caller is responsible for closing the pool after every Transport that
+// references it has been closed.
 func New(pool *fgrpc.Pool) *Transport {
 	return &Transport{
 		pledgeClient: &pledgeClient{
@@ -277,7 +274,6 @@ type Transport struct {
 	recServer      *recoveryServer
 	recClient      *recoveryClient
 	server         *grpc.Server
-	addr           address.Address
 	shutdown       io.Closer
 }
 
@@ -331,24 +327,17 @@ func (t *Transport) Use(middleware ...freighter.Middleware) {
 	t.recClient.Use(middleware...)
 }
 
-func (t *Transport) Report() alamos.Report {
-	return t.pledgeServer.Report()
-}
+func (t *Transport) Report() alamos.Report { return t.pledgeServer.Report() }
 
-func (t *Transport) Configure(
-	addr address.Address,
-	ins alamos.Instrumentation,
-	external bool,
-) error {
-	if external {
-		return nil
-	}
+// Configure prepares the Transport to be served on a gRPC server of its own,
+// instrumented with ins. A caller that serves the Transport on a server it owns binds
+// with BindTo instead, and must not call Configure, Serve, or Close.
+func (t *Transport) Configure(ins alamos.Instrumentation) error {
 	t.server = grpc.NewServer(
 		grpc.ChainUnaryInterceptor(fgrpc.RecoveryUnaryServerInterceptor(ins)),
 		grpc.ChainStreamInterceptor(fgrpc.RecoveryStreamServerInterceptor(ins)),
 	)
 	t.BindTo(t.server)
-	t.addr = addr
 	mw, err := falamos.Middleware(falamos.Config{Instrumentation: ins})
 	if err != nil {
 		return err
@@ -357,14 +346,10 @@ func (t *Transport) Configure(
 	return nil
 }
 
-func (t *Transport) Serve() error {
-	if t.server == nil {
-		return nil
-	}
-	lis, err := net.Listen("tcp", t.addr.String())
-	if err != nil {
-		return err
-	}
+// Serve starts accepting connections on lis, taking ownership of it. Configure must run
+// first, and every handler must be bound before Serve to prevent data races. Close
+// stops serving.
+func (t *Transport) Serve(lis net.Listener) error {
 	sCtx, cancel := signal.WithCancel(context.Background())
 	t.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(func(ctx context.Context) error {
@@ -388,6 +373,8 @@ func (t *Transport) Serve() error {
 	return nil
 }
 
+// Close stops serving and releases the listener Serve took ownership of. It is a no-op
+// for a Transport that never reached Serve.
 func (t *Transport) Close() error {
 	if t.shutdown == nil {
 		return nil
