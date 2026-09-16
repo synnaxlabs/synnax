@@ -41,23 +41,23 @@ func newBound(ctx context.Context, digests ...channels.Digest) *bound {
 
 // readF32 returns the latest f32 on key. ok is false when the read missed.
 func (b *bound) readF32(ctx context.Context, key uint32) (float32, bool) {
+	ok := b.ps.HasValue(key)
 	v := b.rt.Call(ctx, "channels", "read_f32", testutil.U32(key))[0]
-	_, missed := b.ps.TakeMissingRead()
-	return testutil.AsF32(v), !missed
+	return testutil.AsF32(v), ok
 }
 
 // readF64 returns the latest f64 on key. ok is false when the read missed.
 func (b *bound) readF64(ctx context.Context, key uint32) (float64, bool) {
+	ok := b.ps.HasValue(key)
 	v := b.rt.Call(ctx, "channels", "read_f64", testutil.U32(key))[0]
-	_, missed := b.ps.TakeMissingRead()
-	return testutil.AsF64(v), !missed
+	return testutil.AsF64(v), ok
 }
 
 // readI32 returns the latest i32 on key. ok is false when the read missed.
 func (b *bound) readI32(ctx context.Context, key uint32) (int32, bool) {
+	ok := b.ps.HasValue(key)
 	v := b.rt.Call(ctx, "channels", "read_i32", testutil.U32(key))[0]
-	_, missed := b.ps.TakeMissingRead()
-	return int32(testutil.AsU32(v)), !missed
+	return int32(testutil.AsU32(v)), ok
 }
 
 func (b *bound) writeF32(ctx context.Context, key uint32, v float32) {

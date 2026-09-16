@@ -33,27 +33,12 @@ type ProgramState struct {
 	// avoiding duplicate timestamps on platforms with coarse clock resolution (e.g.
 	// Windows).
 	clock telem.MonoClock
-	// missingRead is the first channel a host read found without a buffered value since
-	// the last TakeMissingRead; valid when hasMissingRead is set.
-	missingRead    uint32
-	hasMissingRead bool
 }
 
-// noteMissingRead records that a host read of key found no buffered value. Only the
-// first miss since the last TakeMissingRead is kept.
-func (ps *ProgramState) noteMissingRead(key uint32) {
-	if ps.hasMissingRead {
-		return
-	}
-	ps.missingRead, ps.hasMissingRead = key, true
-}
-
-// TakeMissingRead returns and clears the channel a host read found empty since the last
-// call. ok is false when every read hit.
-func (ps *ProgramState) TakeMissingRead() (key uint32, ok bool) {
-	key, ok = ps.missingRead, ps.hasMissingRead
-	ps.missingRead, ps.hasMissingRead = 0, false
-	return key, ok
+// HasValue reports whether key holds a buffered value for a host read to return.
+func (ps *ProgramState) HasValue(key uint32) bool {
+	ms, ok := ps.reads[key]
+	return ok && len(ms.Series) > 0 && ms.Series[len(ms.Series)-1].Len() > 0
 }
 
 // NewProgramState creates a new ProgramState from channel digests.

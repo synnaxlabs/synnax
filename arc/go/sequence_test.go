@@ -7368,7 +7368,7 @@ var _ = Describe("Sequence", func() {
 				Expect(out.Get(reached).Series).To(BeEmpty())
 				Expect(*reported).To(HaveLen(1))
 				Expect((*reported)[0]).To(SatisfyAll(
-					MatchError(ContainSubstring("no value received yet")),
+					MatchError(ContainSubstring("has no value yet")),
 					MatchError(ContainSubstring("temp_a")),
 				))
 
@@ -7412,8 +7412,52 @@ var _ = Describe("Sequence", func() {
 			},
 		)
 
-		It("keeps a warm value from passing a cold check", func(ctx SpecContext) {
-			h, reported := newH(ctx, `import time
+		It(
+			"runs a body with side effects once the channel has a value",
+			func(ctx SpecContext) {
+				const counted = 105
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), startCmd},
+					"temp_a":    {types.F32(), tempA},
+					"counted":   {types.I64(), counted},
+				})
+				h := newRuntimeHarness(ctx, `import time
+			func cold_count{} (trigger u8) i64 {
+			    n i64 $= 0
+			    n = n + 1
+			    if temp_a < 4.0 {
+			        return n
+			    }
+			    return 0
+			}
+			sequence main {
+			    stage wait_cold {
+			        time.wait{50ms} -> cold_count{} -> counted
+			    }
+			}
+			start_cmd => main`, resolver,
+					channels.Digest{Key: startCmd, DataType: telem.Uint8T},
+					channels.Digest{Key: tempA, DataType: telem.Float32T},
+					channels.Digest{Key: counted, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				advance(h, ctx, 70*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(counted).Series).To(BeEmpty())
+				push(h, ctx, tempA, 3.0, 80*telem.Millisecond)
+				out, _ = h.Flush()
+				last := out.Get(counted).Series
+				Expect(last).To(HaveLen(1))
+				Expect(last[0].Unmarshal[int64]()).To(Equal([]int64{1}))
+			},
+		)
+
+		It(
+			"gates on a silent channel even when a warm operand short-circuits",
+			func(ctx SpecContext) {
+				h, reported := newH(ctx, `import time
 			sequence main {
 			    stage wait_cold {
 			        time.interval{50ms} -> temp_a < 4.0 and temp_b < 5.0 => hold
@@ -7423,27 +7467,26 @@ var _ = Describe("Sequence", func() {
 			    }
 			}
 			start_cmd => main`)
-			defer h.Close(ctx)
-			h.Ingest(tempA, telem.NewSeriesV[float32](12.0))
-			trigger(h, ctx, startCmd)
-			advance(h, ctx, 60*telem.Millisecond)
-			out, _ := h.Flush()
-			Expect(out.Get(reached).Series).To(BeEmpty())
-			Expect(
-				*reported,
-			).To(BeEmpty(), "a warm temp_a short-circuits before temp_b")
+				defer h.Close(ctx)
+				h.Ingest(tempA, telem.NewSeriesV[float32](12.0))
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty())
+				Expect(*reported).To(HaveLen(1))
+				Expect((*reported)[0]).To(MatchError(ContainSubstring("temp_b")))
 
-			push(h, ctx, tempA, 3.0, 70*telem.Millisecond)
-			advance(h, ctx, 120*telem.Millisecond)
-			out, _ = h.Flush()
-			Expect(out.Get(reached).Series).To(BeEmpty(), "temp_b still has no value")
-			Expect(*reported).To(HaveLen(1))
-			Expect((*reported)[0]).To(MatchError(ContainSubstring("temp_b")))
+				push(h, ctx, tempB, 3.0, 70*telem.Millisecond)
+				advance(h, ctx, 120*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty(), "temp_a is still warm")
+				Expect(*reported).To(HaveLen(1))
 
-			push(h, ctx, tempB, 3.0, 130*telem.Millisecond)
-			advance(h, ctx, 180*telem.Millisecond)
-			out, _ = h.Flush()
-			Expect(lastU8(out, reached)).To(Equal(uint8(1)))
-		})
+				push(h, ctx, tempA, 3.0, 130*telem.Millisecond)
+				advance(h, ctx, 180*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
+			},
+		)
 	})
 })

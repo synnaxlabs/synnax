@@ -303,10 +303,8 @@ private:
                     const auto key = static_cast<types::ChannelKey>(channel_id);
                     auto [multi_series, ok] = ch->read_value(key);
                     if (!ok || multi_series.series.empty() ||
-                        multi_series.series.back().size() == 0) {
-                        ch->note_missing_read(key);
+                        multi_series.series.back().size() == 0)
                         return W{};
-                    }
                     return static_cast<W>(multi_series.series.back().at<T>(-1));
                 }
             )
@@ -336,10 +334,8 @@ private:
                     const auto key = static_cast<types::ChannelKey>(channel_id);
                     auto [multi_series, ok] = ch->read_value(key);
                     if (!ok || multi_series.series.empty() ||
-                        multi_series.series.back().size() == 0) {
-                        ch->note_missing_read(key);
+                        multi_series.series.back().size() == 0)
                         return 0;
-                    }
                     return multi_series.series.back().at<uint8_t>(-1) != 0 ? 1 : 0;
                 }
             )
@@ -369,10 +365,8 @@ private:
                 [ch, ss](uint32_t channel_id) -> uint32_t {
                     auto [multi_series, ok] = ch->read_value(channel_id);
                     if (!ok || multi_series.series.empty() ||
-                        multi_series.series.back().size() == 0) {
-                        ch->note_missing_read(channel_id);
+                        multi_series.series.back().size() == 0)
                         return 0;
-                    }
                     return ss->create(multi_series.series.back().at<std::string>(-1));
                 }
             )

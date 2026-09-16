@@ -397,8 +397,8 @@ void Node::rearm_inputs() {
         if (!this->is_reference[i]) this->accumulated[i].consumed = false;
 }
 
-std::optional<types::ChannelKey> Node::take_missing_read() const {
-    return this->state.channel->take_missing_read();
+bool Node::has_channel_value(const types::ChannelKey key) const {
+    return this->state.channel->has_value(key);
 }
 
 void Node::absorb_input(const size_t i) {

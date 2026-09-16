@@ -2853,6 +2853,43 @@ TEST(MissingReadTest, SkipsAPolledTransitionUntilEveryChannelHasAValue) {
     EXPECT_EQ(h.reported.size(), 1) << "one warning per silent stretch";
 }
 
+// A skipped pass leaves no trace: the body never runs, so a stateful update
+// sequenced before the silent read cannot land.
+TEST(MissingReadTest, RunsABodyWithSideEffectsOnceTheChannelHasAValue) {
+    Sequence h(
+        R"(import time
+    func cold_count{} (trigger u8) i64 {
+        n i64 $= 0
+        n = n + 1
+        if %temp_a% < 4.0 {
+            return n
+        }
+        return 0
+    }
+    sequence main {
+        stage wait_cold {
+            time.wait{50ms} -> cold_count{} -> %counted%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"temp_a", x::telem::FLOAT32_T},
+         {"counted", x::telem::INT64_T}}
+    );
+    h.trigger("start_cmd");
+    h.advance(60 * x::telem::MILLISECOND);
+    h.advance(70 * x::telem::MILLISECOND);
+    auto out = h.flush();
+    EXPECT_FALSE(out.contains(h.key("counted")));
+    h.ingest("temp_a", x::telem::Series(3.0f));
+    h.advance(80 * x::telem::MILLISECOND);
+    out = h.flush();
+    EXPECT_EQ(
+        collect<std::int64_t>(out, h.key("counted")),
+        std::vector<std::int64_t>{1}
+    );
+}
+
 TEST(MissingReadTest, RetriesAOneShotWaitTransitionWhenValuesArriveLater) {
     Sequence h(
         R"(import time

@@ -1489,19 +1489,22 @@ TEST(BoolChannelTest, NormalizesNonzeroWriteToOne) {
     EXPECT_EQ(f.read_bool(4), 1);
 }
 
-TEST(StateTest, TakeMissingReadKeepsTheFirstMiss) {
+TEST(StateTest, HasValueTracksTheBufferedSample) {
     arc::stl::channels::State st;
-    EXPECT_FALSE(st.take_missing_read().has_value());
-    st.note_missing_read(7);
-    st.note_missing_read(9);
-    EXPECT_EQ(st.take_missing_read(), 7);
-    EXPECT_FALSE(st.take_missing_read().has_value());
+    EXPECT_FALSE(st.has_value(7));
+    x::telem::Frame fr(1);
+    fr.emplace(7, x::telem::Series(3.0f));
+    st.ingest(fr);
+    EXPECT_TRUE(st.has_value(7));
+    st.reset();
+    EXPECT_FALSE(st.has_value(7));
 }
 
-TEST(StateTest, ResetClearsTheMissingRead) {
+TEST(StateTest, HasValueIsFalseForAnEmptySeries) {
     arc::stl::channels::State st;
-    st.note_missing_read(7);
-    st.reset();
-    EXPECT_FALSE(st.take_missing_read().has_value());
+    x::telem::Frame fr(1);
+    fr.emplace(7, x::telem::Series(x::telem::FLOAT32_T, 0));
+    st.ingest(fr);
+    EXPECT_FALSE(st.has_value(7));
 }
 }

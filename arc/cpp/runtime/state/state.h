@@ -209,9 +209,8 @@ public:
     /// node over the inputs it already holds.
     void rearm_inputs();
 
-    /// @brief returns and clears the channel a host read found empty since the last
-    /// call, or nullopt when every read hit.
-    [[nodiscard]] std::optional<types::ChannelKey> take_missing_read() const;
+    /// @brief reports whether key holds a buffered value for a host read to return.
+    [[nodiscard]] bool has_channel_value(types::ChannelKey key) const;
 
     /// @brief returns input i's unconsumed data, marking it consumed. ok is
     /// false when input i is a reference or has no new data.

@@ -11,6 +11,7 @@ package wasm
 
 import (
 	"math"
+	"slices"
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -24,19 +25,31 @@ import (
 	"go.uber.org/zap"
 )
 
-// errNoValue is reported when a node reads a channel that has no value yet. The
-// evaluation is skipped and retried each cycle until a value arrives.
-var errNoValue = errors.New("no value received yet")
-
 type Module struct {
 	Module  api.Module
 	Memory  api.Memory
 	Strings *stlstrings.ProgramState
 	// Stateful scopes stateful variables to the executing node; optional.
 	Stateful *stateful.Host
-	// Channels gates evaluation on channel reads; a nil value evaluates missing
-	// reads as zero.
+	// Channels gates evaluation on the channels a node reads; a nil value evaluates a
+	// silent channel as zero.
 	Channels *channels.ProgramState
+}
+
+// gatedReads returns the channels a node's body reads by a fixed key and the
+// indices of the chan params it reads through a key bound at run time.
+func gatedReads(cfg node.Config) (keys []uint32, params []int) {
+	for i, p := range cfg.Node.Inputs {
+		if p.Type.Kind == types.KindChan && p.Value == nil &&
+			p.Type.ChanDirection.IsRead() {
+			params = append(params, i)
+		}
+	}
+	for k := range cfg.Node.Channels.Read {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys, params
 }
 
 func (w *Module) Create(cfg node.Config) (node.Node, error) {
@@ -117,6 +130,7 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 	if idx, err := cfg.State.ResolveInput("$sel"); err == nil {
 		selIdx = idx
 	}
+	gatedKeys, gatedParams := gatedReads(cfg)
 	n := &nodeImpl{
 		State:         cfg.State,
 		ir:            cfg.Node,
@@ -137,6 +151,8 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		stringOutputs: stringOutputs,
 		strings:       w.Strings,
 		channels:      w.Channels,
+		gatedKeys:     gatedKeys,
+		gatedParams:   gatedParams,
 	}
 	return n, nil
 }

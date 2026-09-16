@@ -5309,7 +5309,7 @@ var _ = Describe("Channel reads before the first value", func() {
 		Expect(h.selfChanged).To(Equal(1))
 		Expect(h.reported).To(HaveLen(1))
 		Expect(h.reported[0]).To(SatisfyAll(
-			MatchError(ContainSubstring("no value received yet")),
+			MatchError(ContainSubstring("has no value yet")),
 			MatchError(ContainSubstring("temp_ch")),
 		))
 	})
@@ -5355,4 +5355,94 @@ var _ = Describe("Channel reads before the first value", func() {
 			Expect(h.reported).To(BeEmpty())
 		},
 	)
+
+	// A skipped pass must leave no trace: the body never runs, so a stateful
+	// update sequenced before the silent read cannot land.
+	Describe("Side effects", func() {
+		counterChans := []symbol.Symbol{
+			{
+				Name: "go_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   goCh,
+			},
+			{
+				Name: "temp_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   tempCh,
+			},
+			{
+				Name: "out_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   outCh,
+			},
+		}
+		const counterSource = `
+func cold_count{} (trigger u8) i64 {
+    n i64 $= 0
+    n = n + 1
+    if temp_ch < 4.0 {
+        return n
+    }
+    return 0
+}
+go_ch -> cold_count{} -> out_ch`
+		const counterNode = "cold_count_0"
+		counterDigests := []channels.Digest{
+			{Key: goCh, DataType: telem.Uint8T},
+			{Key: tempCh, DataType: telem.Float32T},
+			{Key: outCh, DataType: telem.Int64T},
+		}
+
+		It("runs the body once, after the channel has a value", func(ctx SpecContext) {
+			h := newTextHarness(ctx, counterSource, counterChans, counterDigests...)
+			DeferCleanup(h.Close)
+			fire(h)
+			n := h.CreateNode(ctx, counterNode)
+			Expect(h.NextChanged(ctx, n, counterNode)).To(BeEmpty())
+			Expect(h.NextChanged(ctx, n, counterNode)).To(BeEmpty())
+			h.ChannelState().Ingest(
+				telem.UnaryFrame[uint32](tempCh, telem.NewSeriesV[float32](3.0)),
+			)
+			Expect(
+				h.NextChanged(ctx, n, counterNode),
+			).To(HaveKey(ir.DefaultOutputParam))
+			Expect(h.Output(counterNode, 0).Unmarshal[int64]()).To(Equal([]int64{1}))
+		})
+
+		It("counts every pass when no channel state is wired", func(ctx SpecContext) {
+			h := newUngatedTextHarness(
+				ctx,
+				counterSource,
+				counterChans,
+				counterDigests...,
+			)
+			DeferCleanup(h.Close)
+			fire(h)
+			n := h.CreateNode(ctx, counterNode)
+			h.NextChanged(ctx, n, counterNode)
+			h.SetInput(
+				"on_go_ch_0",
+				0,
+				telem.NewSeriesV[uint8](1),
+				telem.NewSeriesSecondsTSV(2),
+			)
+			h.NextChanged(ctx, n, counterNode)
+			h.ChannelState().Ingest(
+				telem.UnaryFrame[uint32](tempCh, telem.NewSeriesV[float32](3.0)),
+			)
+			h.SetInput(
+				"on_go_ch_0",
+				0,
+				telem.NewSeriesV[uint8](1),
+				telem.NewSeriesSecondsTSV(3),
+			)
+			Expect(
+				h.NextChanged(ctx, n, counterNode),
+			).To(HaveKey(ir.DefaultOutputParam))
+			Expect(h.Output(counterNode, 0).Unmarshal[int64]()).To(Equal([]int64{3}))
+		})
+	})
 })

@@ -321,9 +321,12 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	if expr != nil && ctx.AST.Type_() == nil {
 		childCtx := ctx.Child(expr)
 		if chanSym := getChannelSymbol(childCtx); chanSym != nil {
-			// Global channel - create a variable that holds the channel key
-			// Use KindVariable so it gets a WASM local assigned
+			// A bare channel initializer binds an alias: the variable holds the
+			// channel key in a WASM local and the initializer reads nothing.
 			sourceID := chanSym.ID
+			if chanSym.SourceID != nil {
+				sourceID = *chanSym.SourceID
+			}
 			chanType := chanSym.Type
 			chanType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
 			_, err := childCtx.Scope.Add(ctx, symbol.Symbol{
@@ -381,24 +384,19 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	}
 }
 
-// getChannelSymbol checks if an expression is a simple identifier referencing
-// a global channel symbol (KindChannel). Returns the symbol if so, nil otherwise.
+// getChannelSymbol returns the chan-typed symbol a bare identifier expression
+// names: a channel, a chan input param, or an alias of either. It returns nil for
+// any other expression.
 func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Symbol {
 	primary := parser.GetPrimaryExpression(ctx.AST)
 	if primary == nil || primary.IDENTIFIER() == nil {
 		return nil
 	}
 	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
-	if err != nil {
+	if err != nil || sym.Type.Kind != types.KindChan {
 		return nil
 	}
-	// Must be an actual channel symbol (KindChannel), not just a symbol with channel
-	// type. Input params with channel type (KindInput) should be read from, not
-	// aliased.
-	if sym.Kind == symbol.KindChannel && sym.Type.Kind == types.KindChan {
-		return sym
-	}
-	return nil
+	return sym
 }
 
 // getChannelSourceFromExpr extracts the source ID from an expression that references

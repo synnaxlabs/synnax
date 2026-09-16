@@ -1360,6 +1360,11 @@ func wireVarEdges(
 				Target: ir.Handle{Node: n.Key, Param: p.Name},
 				Kind:   ir.EdgeKindContinuous,
 			})
+			// The lifted param carries the value, so the body no longer reads
+			// the alias by key.
+			if name, ok := n.Channels.Read[channelKey(vsym)]; ok && name == vsym.Name {
+				delete(n.Channels.Read, channelKey(vsym))
+			}
 			continue
 		}
 		if triggered && e.deref == nil && e.register != nil {
@@ -1886,26 +1891,28 @@ func extractInputValues(
 					Target: ir.Handle{Node: node.Key, Param: paramName},
 					Kind:   ir.EdgeKindContinuous,
 				})
-				symbol.ResolveInputChannel(
-					&node.Channels, fnSym, paramName, channelKey(sym), sym.Name,
-				)
+				// The body reads and writes whatever key the register holds, so the
+				// candidate channels stream through the register and the param
+				// records how the body uses it.
+				dir := symbol.BindInputChannel(&node.Channels, fnSym, paramName)
+				paramType.ChanDirection = dir
+				if e.register.Channels.Read == nil {
+					e.register.Channels = types.NewChannels()
+				}
+				record := func(key uint32, name string) {
+					if dir.IsRead() {
+						e.register.Channels.Read[key] = name
+					}
+					if dir.IsWrite() {
+						e.register.Channels.Write[key] = name
+					}
+				}
+				record(channelKey(sym), sym.Name)
 				for key, name := range sym.Channels.Read {
-					symbol.ResolveInputChannel(
-						&node.Channels,
-						fnSym,
-						paramName,
-						key,
-						name,
-					)
+					record(key, name)
 				}
 				for key, name := range sym.Channels.Write {
-					symbol.ResolveInputChannel(
-						&node.Channels,
-						fnSym,
-						paramName,
-						key,
-						name,
-					)
+					record(key, name)
 				}
 				return nil, paramType, true
 			}

@@ -312,15 +312,11 @@ func (s *sink) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// hostRead returns the latest series on key for a host read. A channel with no buffered
-// value records a miss and returns false.
+// hostRead returns the latest series on key for a host read. ok is false when the
+// channel has no buffered value.
 func hostRead(ps *ProgramState, key uint32) (telem.Series, bool) {
 	series, ok := ps.readValue(key)
-	if !ok || series.Len() == 0 {
-		ps.noteMissingRead(key)
-		return series, false
-	}
-	return series, true
+	return series, ok && series.Len() > 0
 }
 
 type i32Compatible interface {

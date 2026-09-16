@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <algorithm>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,12 +43,27 @@ class Node : public node::Node {
     static constexpr size_t NO_SEL = ~size_t{0};
     size_t sel_idx = NO_SEL;
     x::telem::MonoClock clock;
+    /// @brief channels the body reads by a fixed key.
+    std::vector<types::ChannelKey> gated_keys;
+    /// @brief indices of the chan params the body reads through a bound key.
+    std::vector<size_t> gated_params;
     /// @brief set once a skipped evaluation has been reported; cleared when an
     /// evaluation succeeds.
     bool warned_missing = false;
 
-    /// @brief returns the program's name for key, or the key itself when the node does
-    /// not declare it.
+    /// @brief returns the first channel the body would read that has no value yet.
+    [[nodiscard]] std::optional<types::ChannelKey> silent_read() const {
+        for (const auto key: this->gated_keys)
+            if (!this->state.has_channel_value(key)) return key;
+        for (const auto i: this->gated_params)
+            if (const auto key = x::telem::cast<types::ChannelKey>(this->inputs[i]);
+                !this->state.has_channel_value(key))
+                return key;
+        return std::nullopt;
+    }
+
+    /// @brief returns the program's name for key, or the key itself when the node
+    /// does not declare it.
     [[nodiscard]] std::string channel_name(const types::ChannelKey key) const {
         if (const auto it = this->ir.channels.read.find(key);
             it != this->ir.channels.read.end())
@@ -92,6 +109,17 @@ public:
                                       types::Kind::String;
         if (const auto [idx, err] = this->state.resolve_input("$sel"); !err)
             this->sel_idx = idx;
+        // A chan param bound by an edge reads whatever key it holds at run time.
+        for (size_t i = 0; i < node.inputs.size(); i++) {
+            const auto &p = node.inputs[i];
+            const auto dir = static_cast<std::uint8_t>(p.type.chan_direction);
+            if (p.type.kind == types::Kind::Chan && p.value.is_null() &&
+                (dir & static_cast<std::uint8_t>(types::ChanDirection::Read)) != 0)
+                this->gated_params.push_back(i);
+        }
+        for (const auto &key: std::views::keys(node.channels.read))
+            this->gated_keys.push_back(key);
+        std::ranges::sort(this->gated_keys);
     }
 
     x::errors::Error next(node::Context &ctx) override {
@@ -125,6 +153,24 @@ public:
             else
                 this->inputs[i] = t->at(-1);
         }
+
+        // A read of a channel with no value yet cannot evaluate honestly. Skip the
+        // pass before the body runs, keep the inputs armed, and retry next cycle.
+        if (const auto silent = this->silent_read()) {
+            this->state.rearm_inputs();
+            ctx.mark_self_changed();
+            if (!this->warned_missing) {
+                this->warned_missing = true;
+                ctx.report_error(
+                    x::errors::Error(
+                        errors::MISSING_READ,
+                        "channel " + this->channel_name(*silent) + " has no value yet"
+                    )
+                );
+            }
+            return x::errors::NIL;
+        }
+        this->warned_missing = false;
 
         int64_t max_length = 0;
         int64_t longest_input_idx = -1;
@@ -196,7 +242,6 @@ public:
 
         this->state.set_current_node_key(this->ir.key);
 
-        std::optional<types::ChannelKey> missing_key;
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
                 if (!this->ir.inputs[j].value.is_null() || this->chan_inputs[j] ||
@@ -226,10 +271,6 @@ public:
                 );
                 continue;
             }
-            if (const auto missing = this->state.take_missing_read()) {
-                missing_key = missing;
-                break;
-            }
 
             x::telem::TimeStamp ts;
             if (clock_stamp)
@@ -253,28 +294,6 @@ public:
                 this->offsets[j]++;
             }
         }
-
-        // A read of a channel with no value yet cannot evaluate honestly. Drop the
-        // pass, keep the inputs armed, and retry on the next cycle.
-        if (missing_key.has_value()) {
-            for (auto &offset: this->offsets)
-                offset = 0;
-            for (auto &r: string_results)
-                r.clear();
-            this->state.rearm_inputs();
-            ctx.mark_self_changed();
-            if (!this->warned_missing) {
-                this->warned_missing = true;
-                ctx.report_error(
-                    x::errors::Error(
-                        errors::MISSING_READ,
-                        "channel " + this->channel_name(*missing_key) +
-                            " has no value yet"
-                    )
-                );
-            }
-        } else
-            this->warned_missing = false;
 
         for (size_t j = 0; j < this->ir.outputs.size(); j++) {
             const auto off = this->offsets[j];
