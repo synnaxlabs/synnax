@@ -14,17 +14,23 @@ import { describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-const renderAlert = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(PagerDuty.Task.Alert, {
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderAlert = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(PagerDuty.Task.Alert, {
     task: ZERO_DRAFT,
     ...options,
   });
+  await awaitEditableForm();
+  return rendered;
+};
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 

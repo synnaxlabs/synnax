@@ -754,6 +754,21 @@ describe("Answers", () => {
       expect(answers.getCached(qA)).toBeUndefined();
     });
 
+    it("rejects retrieve with NotFoundError when the record is deleted mid-fetch", async () => {
+      const table = newTable();
+      let release: () => void = () => {};
+      const answers = singleSpace(table, async () => {
+        await new Promise<void>((resolve) => (release = resolve));
+        return ["a"];
+      });
+      table.set("a", rec("a", 6));
+      const read = answers.retrieve(qA);
+      table.delete("a");
+      release();
+      await expect(read).rejects.toSatisfy((e) => NotFoundError.matches(e));
+      expect(expectDeleted(answers.getCached(qA)).corpse).toEqual(6);
+    });
+
     it("rejects retrieve with NotFoundError for a deleted answer", async () => {
       const table = newTable();
       const answers = singleSpace(table, async () => {

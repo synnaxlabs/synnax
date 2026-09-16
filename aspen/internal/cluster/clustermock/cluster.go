@@ -42,10 +42,10 @@ func (b *Builder) New(
 	cfgs ...cluster.Config,
 ) (*cluster.Cluster, error) {
 	gossipServer := b.GossipNet.UnaryServer("")
-	pledgeServer := b.PledgeNet.UnaryServer(gossipServer.Address)
+	pledgeServer := b.PledgeNet.UnaryServer(gossipServer.Address())
 	cfgs = append(b.Configs, cfgs...)
 	cfgs = append(cfgs, cluster.Config{
-		HostAddress: gossipServer.Address,
+		HostAddress: gossipServer.Address(),
 		Gossip: gossip.Config{
 			TransportClient: b.GossipNet.UnaryClient(),
 			TransportServer: gossipServer,
