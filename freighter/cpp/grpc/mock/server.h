@@ -112,8 +112,8 @@ inline std::string read_file(const std::string &path) {
     return buf.str();
 }
 
-/// @brief serves over TLS on target with the PEM certificate and key at the given
-/// paths until stop_servers is called.
+/// @brief serves over TLS on target with the PEM certificate and key at the given paths
+/// until stop_servers is called.
 inline void tls_server(
     const std::string &target,
     const std::string &cert_path,

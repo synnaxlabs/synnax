@@ -36,8 +36,8 @@ test::Message message() {
 
 const std::string EXPECTED = "Read request: Sending to Server";
 
-/// @brief a secure pool completes a request against a TLS server whose certificate
-/// is in the configured root store.
+/// @brief a secure pool completes a request against a TLS server whose certificate is
+/// in the configured root store.
 TEST(testTLS, secureClientReachesTLSServer) {
     std::thread s(mock::tls_server, TLS_TARGET, CERT_PATH, KEY_PATH);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
