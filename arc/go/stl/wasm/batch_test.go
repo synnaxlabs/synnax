@@ -16,8 +16,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -97,6 +99,51 @@ var _ = Describe("Batched execution", func() {
 		Entry("u8", types.U8(),
 			telem.NewSeriesV[uint8](250, 251, 252, 253),
 			telem.NewSeriesV[uint8](5)),
+	)
+
+	// A negative i8 literal must reach the guest as -1 on both paths, and so must a
+	// negative edge-fed sample.
+	DescribeTable("Should sign-extend narrow signed inputs on both paths",
+		func(ctx SpecContext, in telem.Series, expected []int8) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "div",
+						Inputs: types.Params{
+							{Name: "x", Type: types.I8()},
+							{Name: "d", Type: types.I8(), Value: int8(-1)},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I8()},
+						},
+						Body: ir.Body{Raw: `{ return x / d }`},
+					},
+					{
+						Key: "src",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I8()},
+						},
+						Body: ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{{Key: "src"}, {Key: "div"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"src": {"type": "src"},
+					"div": {"type": "div"},
+				},
+				Edges: graph.Edges{{
+					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "div", Param: "x"},
+				}},
+			}
+			h := newHarness(ctx, g, nil)
+			DeferCleanup(h.Close)
+			h.SetInput("src", 0, in, stamps(in.Len()))
+			h.Execute(ctx, "div")
+			Expect(h.Output("div", 0).Unmarshal[int8]()).To(Equal(expected))
+		},
+		Entry("per-sample", telem.NewSeriesV[int8](-4), []int8{4}),
+		Entry("batched", telem.NewSeriesV[int8](-4, 6, 0), []int8{4, -6, 0}),
 	)
 
 	It("Should grow guest memory to hold a long series", func(ctx SpecContext) {

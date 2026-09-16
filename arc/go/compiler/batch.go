@@ -108,13 +108,19 @@ func compileBatchWrapper(
 	}
 }
 
-// batchLoadOp widens narrow integers without sign, matching how a host marshals a
-// single sample onto the call stack.
+// batchLoadOp sign-extends narrow signed kinds: the body operates on them as signed
+// i32.
 func batchLoadOp(t types.Type) (wasm.Opcode, uint32) {
 	switch t.Density() {
 	case 1:
+		if t.Kind == types.KindI8 {
+			return wasm.OpI32Load8S, 0
+		}
 		return wasm.OpI32Load8U, 0
 	case 2:
+		if t.Kind == types.KindI16 {
+			return wasm.OpI32Load16S, 1
+		}
 		return wasm.OpI32Load16U, 1
 	case 4:
 		if t.Kind == types.KindF32 {

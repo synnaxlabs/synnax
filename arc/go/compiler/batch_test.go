@@ -91,6 +91,19 @@ var _ = Describe("Batch wrapper", func() {
 		Expect(MustBeOk(mem.Read(0x8000, 3))).To(Equal([]byte{8, 255, 0}))
 	})
 
+	It("Should sign-extend narrow signed samples", func(ctx SpecContext) {
+		mod, batch := instantiate(ctx, `
+		func half(x i8) i8 {
+			return x / 2
+		}
+		`, "half")
+		Expect(batch).ToNot(BeNil())
+		mem := mod.Memory()
+		Expect(mem.Write(0x8100, []byte{0xFE, 0xFF, 1})).To(BeTrue())
+		MustSucceed(batch.Call(ctx, 3, 0x8000, 0x8100, 1))
+		Expect(MustBeOk(mem.Read(0x8000, 3))).To(Equal([]byte{0xFF, 0, 0}))
+	})
+
 	DescribeTable("Should emit no wrapper for a non-vectorizable signature",
 		func(ctx SpecContext, source, key string) {
 			output := MustSucceed(compile(ctx, source, nil))

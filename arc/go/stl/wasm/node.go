@@ -330,13 +330,21 @@ func setValueAt(s telem.Series, i int, v uint64) {
 	}
 }
 
+// valueAt marshals one sample for the guest call stack. Narrow signed integers
+// sign-extend: the guest operates on them as signed i32.
 func valueAt(s telem.Series, i int) uint64 {
 	data := s.At(i)
 	density := s.DataType.Density()
 	switch density {
 	case telem.Bit8:
+		if s.DataType == telem.Int8T {
+			return uint64(int8(data[0]))
+		}
 		return uint64(data[0])
 	case telem.Bit16:
+		if s.DataType == telem.Int16T {
+			return uint64(int16(telem.ByteOrder.Uint16(data)))
+		}
 		return uint64(telem.ByteOrder.Uint16(data))
 	case telem.Bit32:
 		return uint64(telem.ByteOrder.Uint32(data))
