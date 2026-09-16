@@ -231,6 +231,15 @@ article {
         margin-top: 0;
     }
 
+    /* Leading media sits under the tab strip like a leading code block. */
+    :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
+        > :is(video, img):first-child,
+    :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
+        > astro-island:first-child
+        > :is(video, img) {
+        margin-top: 0;
+    }
+
     ul {
         padding-left: 5rem;
     }
