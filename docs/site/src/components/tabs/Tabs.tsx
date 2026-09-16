@@ -15,6 +15,10 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 const slotName = (key: string): string =>
   key.replace(/[-_]([a-z])/g, (_, c: string) => c.toUpperCase());
 
+// Islands and media in the panels above keep landing for about this long.
+const SETTLE_MS = 1000;
+const READER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"];
+
 export interface TabEntry {
   tabKey: string;
   name: string;
@@ -29,26 +33,33 @@ export interface TabsProps extends Record<string, ReactElement | any> {
 export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => {
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
   const frameRef = useRef<HTMLDivElement>(null);
-  const compensationFrame = useRef(0);
+  const settling = useRef<AbortController>(null);
 
-  // Synced blocks above this one resize on select, each in its own React root on
-  // its own schedule. Scroll away the drift over two frames to keep this block put.
+  // Synced blocks above this one resize after a select, so scroll their drift away.
   const compensateScroll = () => {
     const el = frameRef.current;
     if (el == null) return;
+    settling.current?.abort();
+    const controller = new AbortController();
+    settling.current = controller;
+    const { signal } = controller;
     const top = el.getBoundingClientRect().top;
-    const compensate = () => {
+    const observer = new ResizeObserver(() => {
       const delta = el.getBoundingClientRect().top - top;
       if (delta !== 0) window.scrollBy(0, delta);
-    };
-    cancelAnimationFrame(compensationFrame.current);
-    compensationFrame.current = requestAnimationFrame(() => {
-      compensate();
-      compensationFrame.current = requestAnimationFrame(compensate);
+    });
+    observer.observe(document.body);
+    const stop = () => controller.abort();
+    for (const event of READER_SCROLL_EVENTS)
+      window.addEventListener(event, stop, { signal });
+    const timer = setTimeout(stop, SETTLE_MS);
+    signal.addEventListener("abort", () => {
+      observer.disconnect();
+      clearTimeout(timer);
     });
   };
 
-  useEffect(() => () => cancelAnimationFrame(compensationFrame.current), []);
+  useEffect(() => () => settling.current?.abort(), []);
 
   const handleSelect = (tabKey: string) => {
     compensateScroll();
