@@ -62,9 +62,11 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
 
   useEffect(() => {
     if (queryParamKey == null) return;
+    // A block without a tab for the key keeps the tab it already shows.
     const updateFromURL = () => {
       const url = new URL(window.location.href);
-      setSelected(url.searchParams.get(queryParamKey) ?? tabs[0].tabKey);
+      const key = url.searchParams.get(queryParamKey) ?? tabs[0].tabKey;
+      if (tabs.some((tab) => tab.tabKey === key)) setSelected(key);
     };
     updateFromURL();
     window.addEventListener("popstate", updateFromURL);

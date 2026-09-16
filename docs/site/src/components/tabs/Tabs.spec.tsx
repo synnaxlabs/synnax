@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Tabs } from "@/components/tabs/Tabs";
@@ -35,9 +35,14 @@ describe("Tabs", () => {
     pending.forEach((cb) => cb(0));
   };
 
-  const renderTabs = (): void => {
+  const renderTabs = (queryParamKey?: string): void => {
     const { container } = render(
-      <Tabs tabs={TABS} python={<div>py</div>} typescript={<div>ts</div>} />,
+      <Tabs
+        tabs={TABS}
+        queryParamKey={queryParamKey}
+        python={<div>py</div>}
+        typescript={<div>ts</div>}
+      />,
     );
     const frame = container.querySelector(".pluto-tabs");
     assert(frame != null);
@@ -64,6 +69,7 @@ describe("Tabs", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    window.history.replaceState({}, "", window.location.pathname);
   });
 
   it("switches the selected tab and visible panel on click", () => {
@@ -75,6 +81,17 @@ describe("Tabs", () => {
     expect(screen.queryByText("py")).toBeNull();
     const tab = screen.getByText("TypeScript").closest('[role="tab"]');
     expect(tab?.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("keeps its tab when the url names one it lacks", () => {
+    renderTabs("client");
+    fireEvent.click(screen.getByText("TypeScript"));
+    const url = new URL(window.location.href);
+    url.searchParams.set("client", "console");
+    window.history.replaceState({}, "", url.toString());
+    act(() => window.dispatchEvent(new CustomEvent("urlchange")));
+    expect(screen.getByText("ts")).toBeDefined();
+    expect(screen.queryByText("py")).toBeNull();
   });
 
   it("scrolls away movement that lands before the first frame", () => {
