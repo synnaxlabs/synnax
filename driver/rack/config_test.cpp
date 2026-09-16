@@ -157,6 +157,27 @@ TEST_F(RackConfigTest, loadTimingConfigFromFile) {
     std::remove(config_path.c_str());
 }
 
+/// @brief it should load task manager configuration from config file.
+TEST_F(RackConfigTest, loadManagerConfigFromFile) {
+    const std::string config_path = "/tmp/rack-config-test/manager-config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"manager": {"worker_count": 8, "op_timeout": 15}})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<std::string>{
+            "program",
+            "--state-file",
+            "/tmp/rack-config-test/state.json",
+            "--config",
+            config_path
+        }
+    );
+    const auto cfg = ASSERT_NIL_P(Config::load(config_args, brk));
+    ASSERT_EQ(cfg.manager.worker_count, 8);
+    ASSERT_EQ(cfg.manager.op_timeout, 15 * x::telem::SECOND);
+}
+
 /// @brief it should load connection parameters from command line arguments.
 TEST_F(RackConfigTest, loadFromCommandLineArgs) {
     x::args::Parser args_with_config(
