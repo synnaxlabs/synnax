@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -25,8 +26,13 @@ import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil"
 
 const client = createTestClient();
 
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(OPCUA.Task.Write, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(OPCUA.Task.Write, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 const createWriteChannel = (): OPCUA.Task.WriteChannel => {
   // Underscore-free so the device-properties record keys survive the server's
