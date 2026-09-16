@@ -23,11 +23,15 @@ import {
   clickDeploy,
   commitFieldInput,
   deployAndAwaitTask,
-  findDialogTriggerByText,
-  getLabeledInput,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { getIconButton, getInputTable, uniqueName } from "@/testutil";
+import {
+  findDialogTriggerByText,
+  getIconButton,
+  getInputTable,
+  getLabeledInput,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 

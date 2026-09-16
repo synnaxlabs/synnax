@@ -1534,7 +1534,16 @@ describe("Tombstones", () => {
     expect(table.get("k1")).toEqual({ key: "k1", name: "b" });
   });
 
-  it("should clear the tombstone on an if-absent ingest", () => {
+  it("should keep the tombstone on an ingest", () => {
+    const table = newTable();
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    table.ingest({ key: "k1", name: "c" });
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(table.get("k1")).toBeUndefined();
+  });
+
+  it("should keep the tombstone on an if-absent ingest", () => {
     const table = new query.Table<string, Doc>({
       onError: noopError,
       hydrate: "if-absent",
@@ -1542,8 +1551,59 @@ describe("Tombstones", () => {
     table.set("k1", { key: "k1", name: "a" });
     table.delete("k1");
     table.ingest({ key: "k1", name: "c" });
-    expect(table.status("k1")).toBe("present");
-    expect(table.getTombstone("k1")).toBeUndefined();
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(table.get("k1")).toBeUndefined();
+  });
+
+  it("should keep the tombstone on an ingest with an explicit set mode", () => {
+    const table = new query.Table<string, Doc>({
+      onError: noopError,
+      hydrate: "if-absent",
+    });
+    table.set([
+      { key: "k1", name: "a" },
+      { key: "k2", name: "b" },
+    ]);
+    table.delete("k1");
+    table.ingest(
+      [
+        { key: "k1", name: "c" },
+        { key: "k2", name: "d" },
+      ],
+      "set",
+    );
+    expect(table.status("k1")).toBe("tombstoned");
+    expect(table.get("k2")).toEqual({ key: "k2", name: "d" });
+  });
+
+  it("should keep a key deleted during its retrieve deleted", async () => {
+    let release: (docs: Doc[]) => void = () => {};
+    const fetch = vi.fn(
+      async () => await new Promise<Doc[]>((resolve) => (release = resolve)),
+    );
+    const table = new query.Table<string, Doc>({ onError: noopError, fetch });
+    const read = table.retrieve(["k1"]);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    table.set("k1", { key: "k1", name: "a" });
+    table.delete("k1");
+    release([{ key: "k1", name: "a" }]);
+    expect(await read).toEqual([]);
+    expect(table.status("k1")).toBe("tombstoned");
+  });
+
+  it("should keep a key deleted during its refresh deleted", async () => {
+    let release: (docs: Doc[]) => void = () => {};
+    const fetch = vi.fn(
+      async () => await new Promise<Doc[]>((resolve) => (release = resolve)),
+    );
+    const table = new query.Table<string, Doc>({ onError: noopError, fetch });
+    table.set("k1", { key: "k1", name: "a" });
+    const read = table.retrieve(["k1"], { refresh: true });
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    table.delete("k1");
+    release([{ key: "k1", name: "a" }]);
+    expect(await read).toEqual([]);
+    expect(table.status("k1")).toBe("tombstoned");
   });
 
   it("should corpse entries deleted through a filter", () => {

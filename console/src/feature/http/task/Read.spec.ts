@@ -15,14 +15,23 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Read, { task: ZERO_DRAFT, ...options });
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(HTTP.Task.Read, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
+  await awaitEditableForm();
+  return rendered;
+};
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add endpoint"));

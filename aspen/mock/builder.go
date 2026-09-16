@@ -20,15 +20,13 @@ import (
 )
 
 type Builder struct {
-	TmpDirs         map[aspen.NodeKey]string
-	_addressFactory *address.Factory
-	Nodes           map[aspen.NodeKey]NodeInfo
-	DataDir         string
-	tmpDir          string
-	DefaultOptions  []aspen.Option
-	peerAddresses   []address.Address
-	PortRangeStart  int
-	memBacked       bool
+	TmpDirs        map[aspen.NodeKey]string
+	Nodes          map[aspen.NodeKey]NodeInfo
+	DataDir        string
+	tmpDir         string
+	DefaultOptions []aspen.Option
+	peerAddresses  []address.Address
+	memBacked      bool
 }
 
 type NodeInfo struct {
@@ -48,29 +46,24 @@ func (b *Builder) Dir() string {
 	return b.tmpDir
 }
 
-func (b *Builder) addressFactory() *address.Factory {
-	if b._addressFactory == nil {
-		b._addressFactory = address.NewLocalFactory(b.PortRangeStart)
-	}
-	return b._addressFactory
-}
-
+// New opens a node on a port the operating system chooses, peered with every node the
+// Builder opened before it. The first node bootstraps the cluster.
 func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, error) {
 	dir := filepath.Join(b.Dir(), strconv.Itoa(len(b.peerAddresses)))
 	if len(b.Nodes) == 0 {
 		opts = append(opts, aspen.Bootstrap())
 	}
-	addr := b.addressFactory().Next()
 	db, err := aspen.Open(
 		ctx,
 		dir,
-		addr,
+		"localhost:0",
 		b.peerAddresses,
 		append(b.DefaultOptions, opts...)...,
 	)
 	if err != nil {
 		return nil, err
 	}
+	addr := db.Cluster.Host().Address
 	b.Nodes[db.Cluster.HostKey()] = NodeInfo{
 		Addr: addr,
 		Dir:  dir,
