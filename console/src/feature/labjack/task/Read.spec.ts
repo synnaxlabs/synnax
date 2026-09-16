@@ -20,18 +20,23 @@ import {
   createThermocoupleReadChannel,
 } from "@/feature/labjack/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   findChannelListItem,
-  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(LabJack.Task.Read, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(LabJack.Task.Read, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 const createConfig = (
   device: string,
