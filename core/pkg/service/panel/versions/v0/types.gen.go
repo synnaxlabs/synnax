@@ -45,7 +45,7 @@ type View struct {
 	Type string `json:"type" msgpack:"type"`
 	// Args is an opaque, Console-owned configuration payload for the view. Core never
 	// interprets it; it round-trips as-is.
-	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
 type TabType string
@@ -177,7 +177,7 @@ type NodeVariant interface {
 // LeafNode is a leaf node in the panel tree displaying a tab strip.
 type LeafNode struct {
 	// Tabs is the ordered list of tabs in this leaf.
-	Tabs []Tab `json:"tabs,omitzero" msgpack:"tabs,omitzero"`
+	Tabs []Tab `json:"tabs" msgpack:"tabs"`
 }
 
 func (LeafNode) isNodeVariant() {}
@@ -306,7 +306,7 @@ type Panel struct {
 	// Parent is the parent resource for the panel in the ontology, required on create.
 	// Parenthood lives in the ontology graph, so the field is not persisted on the
 	// panel record and is absent on retrieve.
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitzero"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -113,9 +113,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitzero"`
 	// EnumValues maps string labels in the response to numeric channel values.
-	EnumValues []EnumEntry `json:"enum_values,omitzero" msgpack:"enum_values,omitzero"`
+	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -134,13 +134,13 @@ type ReadEndpoint struct {
 	// Path is the URL path appended to the device's base URL.
 	Path string `json:"path" msgpack:"path"`
 	// Headers contains additional headers merged into the request.
-	Headers []Header `json:"headers,omitzero" msgpack:"headers,omitzero"`
+	Headers []Header `json:"headers" msgpack:"headers"`
 	// QueryParams contains query parameters appended to the request URL.
-	QueryParams []QueryParam `json:"query_params,omitzero" msgpack:"query_params,omitzero"`
+	QueryParams []QueryParam `json:"query_params" msgpack:"query_params"`
 	// Body is a static body sent with each request. Empty sends no body.
 	Body string `json:"body" msgpack:"body"`
 	// Fields contains the values to extract from the response.
-	Fields []ReadField `json:"fields,omitzero" msgpack:"fields,omitzero"`
+	Fields []ReadField `json:"fields" msgpack:"fields"`
 	// Index is the key of the field whose channel indexes the others. Empty when the
 	// task stamps samples on arrival.
 	Index string `json:"index" msgpack:"index"`
@@ -173,7 +173,7 @@ type ReadConfig struct {
 	// Rate is the polling rate applied to all endpoints, in Hertz.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Endpoints contains the endpoints to poll.
-	Endpoints []ReadEndpoint `json:"endpoints,omitzero" msgpack:"endpoints,omitzero"`
+	Endpoints []ReadEndpoint `json:"endpoints" msgpack:"endpoints"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -251,10 +251,10 @@ type ChannelField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the output encoding when the command channel holds timestamps.
 	// Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitzero"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.
-	EnumValues []EnumEntry `json:"enum_values,omitzero" msgpack:"enum_values,omitzero"`
+	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -326,7 +326,7 @@ type GeneratedWriteField struct {
 	// Generator is the generator that produces a fresh value per request.
 	Generator GeneratorType `json:"generator" msgpack:"generator"`
 	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitzero"`
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}
@@ -444,13 +444,13 @@ type WriteEndpoint struct {
 	// Path is the URL path appended to the device's base URL.
 	Path string `json:"path" msgpack:"path"`
 	// Headers contains additional headers merged into the request.
-	Headers []Header `json:"headers,omitzero" msgpack:"headers,omitzero"`
+	Headers []Header `json:"headers" msgpack:"headers"`
 	// QueryParams contains query parameters appended to the request URL.
-	QueryParams []QueryParam `json:"query_params,omitzero" msgpack:"query_params,omitzero"`
+	QueryParams []QueryParam `json:"query_params" msgpack:"query_params"`
 	// Channel is the command channel whose writes trigger this endpoint.
 	Channel ChannelField `json:"channel" msgpack:"channel"`
 	// Fields contains additional static or generated body fields.
-	Fields []WriteField `json:"fields,omitzero" msgpack:"fields,omitzero"`
+	Fields []WriteField `json:"fields" msgpack:"fields"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -483,7 +483,7 @@ type WriteConfig struct {
 	// Device is the key of the HTTP server device to write to.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Endpoints contains the endpoints to write to.
-	Endpoints []WriteEndpoint `json:"endpoints,omitzero" msgpack:"endpoints,omitzero"`
+	Endpoints []WriteEndpoint `json:"endpoints" msgpack:"endpoints"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

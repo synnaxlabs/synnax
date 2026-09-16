@@ -146,10 +146,10 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
-				).To(ContainSubstring("Labels []uuid.UUID `json:\"labels,omitzero\" msgpack:\"labels,omitzero\"`"))
+				).To(ContainSubstring("Labels []uuid.UUID `json:\"labels\" msgpack:\"labels\"`"))
 				Expect(
 					content,
-				).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
+				).To(ContainSubstring("Tags []string `json:\"tags\" msgpack:\"tags\"`"))
 			})
 		})
 
@@ -1345,7 +1345,7 @@ var _ = Describe("Go Types Plugin", func() {
 			`
 					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
 					ExpectContent(resp, "types.gen.go").
-						ToContain("Port *string `json:\"port,omitempty\"").
+						ToContain("Port *string `json:\"port,omitzero\"").
 						ToNotContain("type Child struct {\n\tParent\n")
 				},
 			)
@@ -1622,7 +1622,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 		Context("optional fields", func() {
 			It(
-				"Should generate pointer type with omitempty for optional fields",
+				"Should generate pointer type with omitzero for optional fields",
 				func(ctx SpecContext) {
 					source := `
 				@go output "core/user"
@@ -1644,20 +1644,20 @@ var _ = Describe("Go Types Plugin", func() {
 					resp := MustSucceed(goPlugin.Generate(req))
 
 					content := string(resp.Files[0].Content)
-					// Required fields should not have omitempty
+					// Required fields carry no suffix
 					Expect(
 						content,
 					).To(ContainSubstring("Key uuid.UUID `json:\"key\" msgpack:\"key\"`"))
 					Expect(
 						content,
 					).To(ContainSubstring("Name string `json:\"name\" msgpack:\"name\"`"))
-					// Optional fields should have pointer type and omitempty
+					// Optional fields get a pointer and omitzero
 					Expect(
 						content,
-					).To(ContainSubstring("Nickname *string `json:\"nickname,omitempty\" msgpack:\"nickname,omitempty\"`"))
+					).To(ContainSubstring("Nickname *string `json:\"nickname,omitzero\" msgpack:\"nickname,omitzero\"`"))
 					Expect(
 						content,
-					).To(ContainSubstring("Age *int32 `json:\"age,omitempty\" msgpack:\"age,omitempty\"`"))
+					).To(ContainSubstring("Age *int32 `json:\"age,omitzero\" msgpack:\"age,omitzero\"`"))
 				},
 			)
 
@@ -1714,7 +1714,7 @@ var _ = Describe("Go Types Plugin", func() {
 			})
 
 			It(
-				"Should tag required slices and maps with omitzero but leave bytes untagged",
+				"Should leave required slices, maps and bytes untagged",
 				func(ctx SpecContext) {
 					source := `
 				@go output "core/config"
@@ -1737,10 +1737,10 @@ var _ = Describe("Go Types Plugin", func() {
 					content := string(resp.Files[0].Content)
 					Expect(
 						content,
-					).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
+					).To(ContainSubstring("Tags []string `json:\"tags\" msgpack:\"tags\"`"))
 					Expect(
 						content,
-					).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitzero\"`"))
+					).To(ContainSubstring("Settings map[string]string `json:\"settings\" msgpack:\"settings\"`"))
 					Expect(
 						content,
 					).To(ContainSubstring("Blob []byte `json:\"blob\" msgpack:\"blob\"`"))
@@ -1789,7 +1789,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(content).To(ContainSubstring(`json:"wasm"`))
 					Expect(
 						content,
-					).To(ContainSubstring(`json:"output_memory_bases,omitzero"`))
+					).To(ContainSubstring(`json:"output_memory_bases"`))
 					Expect(content).To(ContainSubstring(`json:"camel_case_field"`))
 					Expect(content).To(ContainSubstring(`json:"pascal_case_field"`))
 					Expect(content).To(ContainSubstring(`json:"already_snake_case"`))
@@ -3157,7 +3157,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 		func(ctx SpecContext) {
 			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
 			ExpectContent(resp, "types.gen.go").
-				ToContain("Scales []Scale `" + `json:"scales,omitzero" msgpack:"scales,omitzero"` + "`")
+				ToContain("Scales []Scale `" + `json:"scales" msgpack:"scales"` + "`")
 		},
 	)
 })

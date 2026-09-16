@@ -243,7 +243,16 @@ var _ = Describe("ImEx", func() {
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.Name).To(Equal("round-trip"))
-				Expect(res.Data).To(Equal(original.Data))
+				// A required collection always serializes, so states and handles come
+				// back allocated and empty rather than nil.
+				Expect(res.Data).To(Equal(symbol.Spec{
+					SVG:          "<svg/>",
+					Variant:      "valve",
+					StrokeScaled: true,
+					States:       []symbol.State{},
+					Handles:      []symbol.Handle{},
+					Scale:        original.Data.Scale,
+				}))
 			},
 		)
 	})

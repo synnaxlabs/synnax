@@ -886,21 +886,12 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
-	// Collection fields (arrays, maps, records) carry `,omitzero` so a nil ("not
-	// loaded") collection is omitted from the wire while an allocated empty
-	// collection still serializes as [] / {}. Receivers default an absent
-	// collection to its empty form, preserving the distinction between "not
-	// loaded" and "present but empty". CollectionKind sees through aliases and
-	// type-parameter constraints so a field typed as an array/map alias or a
-	// collection-constrained type parameter is tagged too.
-	_, isContainer := resolution.CollectionKind(field.Type, data.table)
 	return fieldData{
-		GoName:      naming.GetFieldName(field),
-		GoType:      goType,
-		JSONName:    casing.FieldSnake(field.Name),
-		IsOptional:  field.Optional,
-		IsContainer: isContainer,
-		Doc:         doc.Get(field.Domains),
+		GoName:     naming.GetFieldName(field),
+		GoType:     goType,
+		JSONName:   casing.FieldSnake(field.Name),
+		IsOptional: field.Optional,
+		Doc:        doc.Get(field.Domains),
 	}
 }
 
@@ -1046,23 +1037,20 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	GoName      string
-	GoType      string
-	JSONName    string
-	Doc         string
-	IsOptional  bool
-	IsContainer bool
+	GoName     string
+	GoType     string
+	JSONName   string
+	Doc        string
+	IsOptional bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field. Collection fields use
-// `,omitzero` so a nil collection is omitted while an allocated empty one serializes as
-// [] / {}. Other optional fields use `,omitempty`.
+// TagSuffix returns the JSON/msgpack tag suffix for the field. An optional field uses
+// `,omitzero` so its Go zero — a nil slice, map or pointer — is omitted while any
+// allocated value serializes, including an empty collection or a pointer to "". A
+// required field always serializes, because the schema says it always applies.
 func (f fieldData) TagSuffix() string {
-	if f.IsContainer {
-		return ",omitzero"
-	}
 	if f.IsOptional {
-		return ",omitempty"
+		return ",omitzero"
 	}
 	return ""
 }

@@ -67,9 +67,9 @@ type Arc struct {
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
 	// Program is the compiled module output including IR and WebAssembly bytecode.
-	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
+	Program *program.Program `json:"program,omitzero" msgpack:"program,omitzero"`
 	// Status is the current execution status of the module.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitzero"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

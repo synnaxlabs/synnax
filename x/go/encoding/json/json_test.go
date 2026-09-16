@@ -132,6 +132,27 @@ var _ = Describe("Wire format", func() {
 		Expect(MustSucceed(json.Codec.Encode(ctx, shape{}))).
 			To(MatchJSON(`{"slice":[],"map":{}}`))
 	})
+	It("Should drop a pointer to an empty string under omitempty", func(
+		ctx SpecContext,
+	) {
+		type shape struct {
+			Ptr *string `json:"ptr,omitempty"`
+			Zed *string `json:"zed,omitzero"`
+		}
+		empty := ""
+		Expect(MustSucceed(json.Codec.Encode(ctx, shape{Ptr: &empty, Zed: &empty}))).
+			To(MatchJSON(`{"zed":""}`))
+	})
+	It("Should keep an allocated empty collection under omitzero", func(
+		ctx SpecContext,
+	) {
+		type shape struct {
+			Nil   []int `json:"nil,omitzero"`
+			Empty []int `json:"empty,omitzero"`
+		}
+		Expect(MustSucceed(json.Codec.Encode(ctx, shape{Empty: []int{}}))).
+			To(MatchJSON(`{"empty":[]}`))
+	})
 	It("Should match object names case-sensitively", func(ctx SpecContext) {
 		var d toEncode
 		Expect(json.Codec.Decode(ctx, []byte(`{"value":7}`), &d)).To(Succeed())

@@ -662,9 +662,9 @@ func (m MapScale) Validate() error {
 // TableScale maps raw values to engineering units via a lookup table.
 type TableScale struct {
 	// PreScaledVals are the raw breakpoints, monotonically increasing.
-	PreScaledVals []float64 `json:"pre_scaled_vals,omitzero" msgpack:"pre_scaled_vals,omitzero"`
+	PreScaledVals []float64 `json:"pre_scaled_vals" msgpack:"pre_scaled_vals"`
 	// ScaledVals are the engineering-unit values at each breakpoint.
-	ScaledVals []float64 `json:"scaled_vals,omitzero" msgpack:"scaled_vals,omitzero"`
+	ScaledVals []float64 `json:"scaled_vals" msgpack:"scaled_vals"`
 	// PreScaledUnits are the units of the raw values before scaling.
 	PreScaledUnits Units `json:"pre_scaled_units" msgpack:"pre_scaled_units"`
 	// ScaledUnits are the units of the values after scaling.
@@ -694,9 +694,9 @@ func (t TableScale) Validate() error {
 // PolynomialScale maps raw values to engineering units with a polynomial.
 type PolynomialScale struct {
 	// ForwardCoeffs are the coefficients mapping pre-scaled to scaled values.
-	ForwardCoeffs []float64 `json:"forward_coeffs,omitzero" msgpack:"forward_coeffs,omitzero"`
+	ForwardCoeffs []float64 `json:"forward_coeffs" msgpack:"forward_coeffs"`
 	// ReverseCoeffs are the coefficients mapping scaled to pre-scaled values.
-	ReverseCoeffs []float64 `json:"reverse_coeffs,omitzero" msgpack:"reverse_coeffs,omitzero"`
+	ReverseCoeffs []float64 `json:"reverse_coeffs" msgpack:"reverse_coeffs"`
 	// PreScaledUnits are the units of the raw value before scaling.
 	PreScaledUnits Units `json:"pre_scaled_units" msgpack:"pre_scaled_units"`
 	// ScaledUnits are the units of the value after scaling.
@@ -975,9 +975,9 @@ func (b Bridge) Validate() error {
 // BridgePolynomial scales bridge electrical output to physical units with a polynomial.
 type BridgePolynomial struct {
 	// ForwardCoeffs are the coefficients mapping electrical to physical values.
-	ForwardCoeffs []float64 `json:"forward_coeffs,omitzero" msgpack:"forward_coeffs,omitzero"`
+	ForwardCoeffs []float64 `json:"forward_coeffs" msgpack:"forward_coeffs"`
 	// ReverseCoeffs are the coefficients mapping physical to electrical values.
-	ReverseCoeffs []float64 `json:"reverse_coeffs,omitzero" msgpack:"reverse_coeffs,omitzero"`
+	ReverseCoeffs []float64 `json:"reverse_coeffs" msgpack:"reverse_coeffs"`
 	// ElectricalUnits are the electrical output units of the bridge.
 	ElectricalUnits ElectricalUnits `json:"electrical_units" msgpack:"electrical_units"`
 }
@@ -1021,11 +1021,11 @@ func (r Resistance) Validate() error {
 // Table scales bridge electrical output to physical units with a lookup table.
 type Table struct {
 	// ElectricalVals are the electrical breakpoints of the calibration table.
-	ElectricalVals []float64 `json:"electrical_vals,omitzero" msgpack:"electrical_vals,omitzero"`
+	ElectricalVals []float64 `json:"electrical_vals" msgpack:"electrical_vals"`
 	// ElectricalUnits are the units of the electrical breakpoints.
 	ElectricalUnits ElectricalUnits `json:"electrical_units" msgpack:"electrical_units"`
 	// PhysicalVals are the physical values corresponding to each electrical breakpoint.
-	PhysicalVals []float64 `json:"physical_vals,omitzero" msgpack:"physical_vals,omitzero"`
+	PhysicalVals []float64 `json:"physical_vals" msgpack:"physical_vals"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -4131,7 +4131,7 @@ type DOChannel struct {
 type AnalogReadConfig struct {
 	task.ReadConfig
 	// Channels are the analog input channels the task acquires.
-	Channels []AIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []AIChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -4157,7 +4157,7 @@ func (a AnalogReadConfig) Validate() error {
 type CounterReadConfig struct {
 	task.ReadConfig
 	// Channels are the counter input channels the task acquires.
-	Channels []CIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []CIChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -4196,7 +4196,7 @@ func (w *WriteConfig) ApplyDefaults() {
 type AnalogWriteConfig struct {
 	WriteConfig
 	// Channels are the analog output channels the task drives.
-	Channels []AOChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []AOChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -4223,7 +4223,7 @@ type DigitalReadConfig struct {
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the digital input channels the task acquires.
-	Channels []DIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []DIChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -4235,7 +4235,7 @@ func (d *DigitalReadConfig) ApplyDefaults() {
 type DigitalWriteConfig struct {
 	WriteConfig
 	// Channels are the digital output channels the task drives.
-	Channels []DOChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []DOChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -4247,7 +4247,7 @@ func (d *DigitalWriteConfig) ApplyDefaults() {
 type ScanConfig struct {
 	task.ScanConfig
 	// IgnoredModels are regex patterns matching the device models the scan skips.
-	IgnoredModels []string `json:"ignored_models,omitzero" msgpack:"ignored_models,omitzero"`
+	IgnoredModels []string `json:"ignored_models" msgpack:"ignored_models"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

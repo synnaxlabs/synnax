@@ -43,5 +43,5 @@ type CellTemplate struct {
 	// Props is the variant-specific cell configuration. The shape is determined by the
 	// variant; the wire format intentionally stores it as an opaque record so new
 	// variants can be added without a schema migration.
-	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
+	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
 }

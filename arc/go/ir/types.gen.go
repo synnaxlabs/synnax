@@ -75,7 +75,7 @@ type Transition struct {
 	On Handle `json:"on" msgpack:"on"`
 	// TargetKey is the sibling step key to activate. Null when the transition exits the
 	// scope, yielding to the parent.
-	TargetKey *string `json:"target_key,omitempty" msgpack:"target_key,omitempty"`
+	TargetKey *string `json:"target_key,omitzero" msgpack:"target_key,omitzero"`
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -84,9 +84,9 @@ type Transition struct {
 type Member struct {
 	// NodeKey is the key of the referenced node in IR.nodes. Null when this member is a
 	// nested scope.
-	NodeKey *string `json:"node_key,omitempty" msgpack:"node_key,omitempty"`
+	NodeKey *string `json:"node_key,omitzero" msgpack:"node_key,omitzero"`
 	// Scope is set when this member is a nested scope.
-	Scope *Scope `json:"scope,omitempty" msgpack:"scope,omitempty"`
+	Scope *Scope `json:"scope,omitzero" msgpack:"scope,omitzero"`
 }
 
 // Members is an ordered collection of Scope members, one per position.
@@ -104,16 +104,16 @@ type Scope struct {
 	Liveness Liveness `json:"liveness" msgpack:"liveness"`
 	// Activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
-	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
+	Activation *Handle `json:"activation,omitzero" msgpack:"activation,omitzero"`
 	// Strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.
-	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
+	Strata []Members `json:"strata" msgpack:"strata"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`
+	Steps Members `json:"steps" msgpack:"steps"`
 	// Transitions contains state-transition rules for sequential scopes. Empty for
 	// parallel scopes.
-	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
+	Transitions []Transition `json:"transitions" msgpack:"transitions"`
 }
 
 // Node is a concrete instantiation of a function with typed parameters and values.
@@ -123,9 +123,9 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Inputs contains input parameter type signatures.
-	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs types.Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter type signatures.
-	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
@@ -136,20 +136,20 @@ type Nodes []Node
 // Authorities holds the static authority declarations from an Arc program.
 type Authorities struct {
 	// Default is the default authority for all write channels not explicitly listed.
-	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
+	Default *uint8 `json:"default,omitzero" msgpack:"default,omitzero"`
 	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels map[uint32]uint8 `json:"channels" msgpack:"channels"`
 }
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
 	// Functions contains function template definitions.
-	Functions Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
+	Functions Functions `json:"functions" msgpack:"functions"`
 	// Nodes contains node instantiations.
-	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
+	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 	// Edges contains dataflow connections.
-	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	Edges Edges `json:"edges" msgpack:"edges"`
 	// Authorities contains the static authority declarations for this program.
 	Authorities Authorities `json:"authorities" msgpack:"authorities"`
 	// Root is the top-level execution context. The root is always a parallel,

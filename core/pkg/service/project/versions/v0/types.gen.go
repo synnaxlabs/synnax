@@ -32,5 +32,5 @@ type Workspace struct {
 	Author user.Key `json:"author" msgpack:"author"`
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
-	Layout msgpack.EncodedJSON `json:"layout,omitzero" msgpack:"layout,omitzero"`
+	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
 }

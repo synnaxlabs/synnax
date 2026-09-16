@@ -124,18 +124,18 @@ type ForgetCharsPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
-	Create          *CreatePayload          `json:"create,omitempty" msgpack:"create,omitempty"`
-	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
-	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	SetNodeInputs   *SetNodeInputsPayload   `json:"set_node_inputs,omitempty" msgpack:"set_node_inputs,omitempty"`
-	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
-	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
-	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
-	ReconnectEdge   *ReconnectEdgePayload   `json:"reconnect_edge,omitempty" msgpack:"reconnect_edge,omitempty"`
-	InsertChar      *InsertCharPayload      `json:"insert_char,omitempty" msgpack:"insert_char,omitempty"`
-	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitempty" msgpack:"delete_char,omitempty"`
-	ForgetChars     *ForgetCharsPayload     `json:"forget_chars,omitempty" msgpack:"forget_chars,omitempty"`
+	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitzero"`
+	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitzero"`
+	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitzero"`
+	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitzero"`
+	SetNodeInputs   *SetNodeInputsPayload   `json:"set_node_inputs,omitzero" msgpack:"set_node_inputs,omitzero"`
+	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitzero"`
+	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitzero"`
+	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitzero"`
+	ReconnectEdge   *ReconnectEdgePayload   `json:"reconnect_edge,omitzero" msgpack:"reconnect_edge,omitzero"`
+	InsertChar      *InsertCharPayload      `json:"insert_char,omitzero" msgpack:"insert_char,omitzero"`
+	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitzero" msgpack:"delete_char,omitzero"`
+	ForgetChars     *ForgetCharsPayload     `json:"forget_chars,omitzero" msgpack:"forget_chars,omitzero"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on

@@ -183,8 +183,18 @@ var _ = Describe("ImEx", func() {
 					Entry(&res).
 					Exec(ctx, db)).To(Succeed())
 				Expect(res.Name).To(Equal("round-trip"))
-				Expect(res.Channels).To(Equal(original.Channels))
-				Expect(res.Ranges).To(Equal(original.Ranges))
+				// A required collection always serializes, so an axis left nil comes
+				// back allocated and empty rather than nil.
+				Expect(res.Channels).To(Equal(lineplot.Channels{
+					Y1: []channel.Key{4, 5},
+					Y2: []channel.Key{},
+					Y3: []channel.Key{},
+					Y4: []channel.Key{},
+				}))
+				Expect(res.Ranges).To(Equal(lineplot.Ranges{
+					X1: []string{"recent"},
+					X2: []string{},
+				}))
 			},
 		)
 	})

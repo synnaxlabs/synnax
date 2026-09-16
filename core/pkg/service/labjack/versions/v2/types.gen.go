@@ -581,7 +581,7 @@ type ReadConfig struct {
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the channels the task acquires.
-	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 	// DeviceScanBacklogWarnOnCount is the device-side scan backlog above which the task
 	// reports a skew warning. Zero lets the Driver pick two seconds of scans.
 	DeviceScanBacklogWarnOnCount uint32 `json:"device_scan_backlog_warn_on_count" msgpack:"device_scan_backlog_warn_on_count"`
@@ -614,7 +614,7 @@ type WriteConfig struct {
 	// StateRate is the rate at which output state is reported to Synnax, in Hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// Channels are the channels the task drives.
-	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

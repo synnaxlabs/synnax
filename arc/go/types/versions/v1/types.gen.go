@@ -57,9 +57,9 @@ const (
 // FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties struct {
 	// Inputs contains input parameter definitions.
-	Inputs Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter definitions.
-	Outputs Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs Params `json:"outputs" msgpack:"outputs"`
 }
 
 // Type is a type in Arc's type system with optional element type for compounds,
@@ -71,11 +71,11 @@ type Type struct {
 	// Name is the type name for variables and user-defined types.
 	Name string `json:"name" msgpack:"name"`
 	// Elem is the element type for compound types (chan, series).
-	Elem *Type `json:"elem,omitempty" msgpack:"elem,omitempty"`
+	Elem *Type `json:"elem,omitzero" msgpack:"elem,omitzero"`
 	// Unit is the physical unit metadata for dimensional analysis.
-	Unit *Unit `json:"unit,omitempty" msgpack:"unit,omitempty"`
+	Unit *Unit `json:"unit,omitzero" msgpack:"unit,omitzero"`
 	// Constraint is the type constraint for type variables.
-	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
+	Constraint *Type `json:"constraint,omitzero" msgpack:"constraint,omitzero"`
 	// ChanDirection indicates read/write direction for channel-typed parameters.
 	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }

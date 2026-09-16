@@ -177,11 +177,11 @@ type Ranges struct {
 	// rather than UUIDs because the console layers synthetic rolling-window ranges
 	// (e.g. "recent", "rolling1m") alongside persisted ranges; the server stores
 	// whatever the client sends.
-	X1 []string `json:"x1,omitzero" msgpack:"x1,omitzero"`
+	X1 []string `json:"x1" msgpack:"x1"`
 	// X2 are the range keys plotted against the x2 axis.
-	X2 []string `json:"x2,omitzero" msgpack:"x2,omitzero"`
+	X2 []string `json:"x2" msgpack:"x2"`
 	// Custom is the window the "custom" range key resolves to.
-	Custom *CustomRange `json:"custom,omitempty" msgpack:"custom,omitempty"`
+	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitzero"`
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
@@ -223,9 +223,9 @@ type LinePlot struct {
 	// Lines holds per-line styling and downsampling configuration. Each entry
 	// corresponds to one channel and range combination produced by the channels and
 	// ranges bindings.
-	Lines []Line `json:"lines,omitzero" msgpack:"lines,omitzero"`
+	Lines []Line `json:"lines" msgpack:"lines"`
 	// Rules holds annotation rules drawn over the plot.
-	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`
+	Rules []Rule `json:"rules" msgpack:"rules"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

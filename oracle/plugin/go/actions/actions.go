@@ -177,11 +177,11 @@ type fieldData struct {
 	IsOptional bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix that controls omitempty
-// emission for optional fields.
+// TagSuffix returns the JSON/msgpack tag suffix for the field. An optional field uses
+// `,omitzero` so its Go zero is omitted and any allocated value serializes.
 func (f fieldData) TagSuffix() string {
 	if f.IsOptional {
-		return ",omitempty"
+		return ",omitzero"
 	}
 	return ""
 }
@@ -234,7 +234,7 @@ type {{.Name}}Payload struct {
 type Action struct {
 	Type string ` + "`" + `json:"type" msgpack:"type"` + "`" + `
 {{- range .Actions}}
-	{{.Name}} *{{.Name}}Payload ` + "`" + `json:"{{.TypeName}},omitempty" msgpack:"{{.TypeName}},omitempty"` + "`" + `
+	{{.Name}} *{{.Name}}Payload ` + "`" + `json:"{{.TypeName}},omitzero" msgpack:"{{.TypeName}},omitzero"` + "`" + `
 {{- end}}
 }
 

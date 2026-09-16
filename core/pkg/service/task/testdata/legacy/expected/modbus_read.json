@@ -19,27 +19,27 @@
     },
     {
       "address": 1003,
+      "bytes_swapped": false,
       "channel": 8030,
       "data_type": "float32",
       "disabled": false,
       "key": "ch-mb-holding-in",
       "name": "fixture_mb_holding_register_input",
       "string_length": 0,
-      "bytes_swapped": false,
-      "words_swapped": false,
-      "type": "holding_register"
+      "type": "holding_register",
+      "words_swapped": false
     },
     {
       "address": 1004,
+      "bytes_swapped": false,
       "channel": 8040,
       "data_type": "int32",
       "disabled": false,
       "key": "ch-mb-register-in",
       "name": "fixture_mb_register_input",
       "string_length": 0,
-      "bytes_swapped": false,
-      "words_swapped": false,
-      "type": "input_register"
+      "type": "input_register",
+      "words_swapped": false
     }
   ],
   "data_saving_disabled": true,

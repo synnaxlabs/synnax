@@ -62,7 +62,7 @@ type Task struct {
 	Type string `json:"type" msgpack:"type"`
 	// Config is task-specific configuration stored as JSON. Structure varies by task
 	// type.
-	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 	// ConfigHash is the Core-assigned hash of config, rewritten on every write and
 	// ignored on writes from clients. Compare against a status's config_hash to detect
 	// drift.
@@ -72,7 +72,7 @@ type Task struct {
 	// Snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitzero"`
 }
 
 // KeyedConfig is the base for every stored task configuration record.

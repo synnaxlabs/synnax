@@ -316,7 +316,7 @@ var _ = Describe("Freighter Transport", func() {
 			) {
 				var msg transport.JSONRPCMessage
 				Expect(json.Unmarshal([]byte(`"raw string content"`), &msg)).
-					To(MatchError(ContainSubstring("cannot unmarshal")))
+					To(MatchError(ContainSubstring("unmarshal JSON string into Go")))
 			})
 			It("Should handle empty object", func(ctx SpecContext) {
 				var msg transport.JSONRPCMessage

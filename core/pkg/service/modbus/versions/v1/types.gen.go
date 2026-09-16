@@ -330,7 +330,7 @@ type ReadConfig struct {
 	// Device is the key of the device the task acquires from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Channels are the channels the task acquires.
-	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -345,7 +345,7 @@ func (r *ReadConfig) ApplyDefaults() {
 type WriteConfig struct {
 	task.WriteConfig
 	// Channels are the channels the task drives.
-	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

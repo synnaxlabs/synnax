@@ -50,7 +50,7 @@ type SetNodePositionPayload struct {
 // node's key in the schematic configs map.
 type SetNodePayload struct {
 	Node   Node                `json:"node" msgpack:"node"`
-	Config msgpack.EncodedJSON `json:"config,omitempty" msgpack:"config,omitempty"`
+	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
 }
 
 // RemoveNodePayload removes a node and any config stored under its key.
@@ -83,14 +83,14 @@ type SetConfigPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type            string                  `json:"type" msgpack:"type"`
-	Create          *CreatePayload          `json:"create,omitempty" msgpack:"create,omitempty"`
-	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
-	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
-	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
-	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
-	SetConfig       *SetConfigPayload       `json:"set_config,omitempty" msgpack:"set_config,omitempty"`
+	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitzero"`
+	Rename          *RenamePayload          `json:"rename,omitzero" msgpack:"rename,omitzero"`
+	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitzero"`
+	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitzero"`
+	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitzero"`
+	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitzero"`
+	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitzero"`
+	SetConfig       *SetConfigPayload       `json:"set_config,omitzero" msgpack:"set_config,omitzero"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on

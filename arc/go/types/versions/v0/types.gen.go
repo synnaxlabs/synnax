@@ -59,11 +59,11 @@ const (
 // FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties struct {
 	// Inputs contains input parameter definitions.
-	Inputs Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter definitions.
-	Outputs Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs Params `json:"outputs" msgpack:"outputs"`
 	// Config contains configuration parameter definitions.
-	Config Params `json:"config,omitzero" msgpack:"config,omitzero"`
+	Config Params `json:"config" msgpack:"config"`
 }
 
 // Type is a type in Arc's type system with optional element type for compounds,
@@ -77,11 +77,11 @@ type Type struct {
 	Name string `json:"name" msgpack:"name"`
 	// Elem is the element type for compound types (chan, series) and the value type of
 	// var_ref types.
-	Elem *Type `json:"elem,omitempty" msgpack:"elem,omitempty"`
+	Elem *Type `json:"elem,omitzero" msgpack:"elem,omitzero"`
 	// Unit is the physical unit metadata for dimensional analysis.
-	Unit *Unit `json:"unit,omitempty" msgpack:"unit,omitempty"`
+	Unit *Unit `json:"unit,omitzero" msgpack:"unit,omitzero"`
 	// Constraint is the type constraint for type variables.
-	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
+	Constraint *Type `json:"constraint,omitzero" msgpack:"constraint,omitzero"`
 	// ChanDirection indicates read/write direction for channel-typed config parameters.
 	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }
@@ -104,9 +104,9 @@ type Params []Param
 // channels.
 type Channels struct {
 	// Read contains readable channel indices mapped to parameter names.
-	Read map[uint32]string `json:"read,omitzero" msgpack:"read,omitzero"`
+	Read map[uint32]string `json:"read" msgpack:"read"`
 	// Write contains writable channel indices mapped to parameter names.
-	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
+	Write map[uint32]string `json:"write" msgpack:"write"`
 }
 
 // Dimensions contains dimension exponents for dimensional analysis.

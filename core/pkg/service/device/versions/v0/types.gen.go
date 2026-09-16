@@ -56,12 +56,12 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.
-	Properties msgpack.EncodedJSON `json:"properties,omitzero" msgpack:"properties,omitzero"`
+	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
 	// Status is the current operational status of the device.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitzero"`
 	// Parent is an optional parent resource ID for hierarchical device organization
 	// (e.g., NI chassis containing modules).
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitzero"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

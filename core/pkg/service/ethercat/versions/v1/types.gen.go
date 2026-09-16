@@ -293,7 +293,7 @@ func (u *WriteChannel) ApplyDefaults() {
 type ReadConfig struct {
 	task.ReadConfig
 	// Channels are the channels the task acquires.
-	Channels []ReadChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []ReadChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -313,7 +313,7 @@ type WriteConfig struct {
 	// ExecutionRate is the rate at which commands are applied to the bus, in Hertz.
 	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
 	// Channels are the channels the task drives.
-	Channels []WriteChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+	Channels []WriteChannel `json:"channels" msgpack:"channels"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
