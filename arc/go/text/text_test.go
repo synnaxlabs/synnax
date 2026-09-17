@@ -4824,6 +4824,120 @@ time.wait{duration=500ms} -> output`
 					Expect(alarm.Activation.Param).To(Equal(ir.DefaultOutputParam))
 				},
 			)
+
+			DescribeTable(
+				"Should report a non-bool func feeding select at the select node",
+				func(ctx SpecContext, op, retType, retValue string) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "log",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.String()),
+							ID:   10110,
+						},
+					}
+					source := `
+				func is_ready() ` + retType + ` {
+				    return ` + retValue + `
+				}
+
+				is_ready{} ` + op + ` select{} => {
+				    true: "ready" -> log,
+				    false: "not ready" -> log,
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					errs := diagnostics.Errors()
+					Expect(errs).To(HaveLen(1))
+					Expect(errs[0].Message).To(ContainSubstring(
+						"upstream value type " + retType +
+							" does not match func 'select'",
+					))
+					line := strings.Split(source, "\n")[errs[0].Range.Start.Line]
+					Expect(int(errs[0].Range.Start.Character)).To(
+						Equal(strings.Index(line, "select{}")),
+					)
+				},
+				Entry("u8 via ->", "->", "u8", "1"),
+				Entry("u8 via =>", "=>", "u8", "1"),
+				Entry("u16", "->", "u16", "1"),
+				Entry("u32", "->", "u32", "1"),
+				Entry("u64", "->", "u64", "1"),
+				Entry("i8", "->", "i8", "1"),
+				Entry("i16", "->", "i16", "1"),
+				Entry("i32", "->", "i32", "1"),
+				Entry("i64", "->", "i64", "1"),
+				Entry("str", "->", "str", `"yes"`),
+			)
+
+			It("Should accept a bool func feeding select", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "log",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+						ID:   10110,
+					},
+				}
+				source := `
+				func is_ready() bool {
+				    return true
+				}
+
+				is_ready{} -> select{} => {
+				    true: "ready" -> log,
+				    false: "not ready" -> log,
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, resolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			})
+
+			It(
+				"Should accept a matching func wire when the routing table is downstream",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "log_f",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10111,
+						},
+					}
+					source := `
+				func reading() f64 {
+				    return 1.0
+				}
+
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
+				}
+
+				reading{} -> demux{threshold=100.0} -> {
+				    high: 1.0 -> log_f,
+				    low: 2.0 -> log_f
+				}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				},
+			)
 		})
 
 		Context("Stratification", func() {
