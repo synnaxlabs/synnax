@@ -228,6 +228,43 @@ describe("HTTP Read form", () => {
       expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
     });
 
+    it("should keep a duplicated endpoint's timestamp bound to the index", async () => {
+      const dev = await createHTTPDevice(client);
+      const config = createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          index: "tf",
+          fields: [
+            createReadField("f1", "/temperature"),
+            createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
+          ],
+        },
+      ]);
+      const draft = await createDraft(client, config);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/data/ }));
+      fireEvent.click(await screen.findByText("Duplicate"));
+      await waitFor(() =>
+        expect(screen.getAllByRole("treeitem", { name: /\/data/ })).toHaveLength(2),
+      );
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.READ_SCHEMAS,
+      );
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: HTTP.Device.SCHEMAS,
+      });
+      const copy = created.config.endpoints[1];
+      const timing = copy.fields.find((f) => f.timeFormat != null);
+      expect(copy.index).toBe(timing?.key);
+      expect(timing?.channel).toBe(updated.properties.read["/data"].index);
+    });
+
     it("should reuse channels already stored on the device instead of creating new ones", async () => {
       const dev = await createHTTPDevice(client);
       const idxCh = await client.channels.create({

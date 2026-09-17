@@ -540,13 +540,15 @@ const Form: FC = () => {
         }
         next.push({ ...ep, fields });
         if (!chosen.has(ep.key)) continue;
+        const copiedKeys = new Map(ep.fields.map((f) => [f.key, id.create()]));
         const copy: ReadEndpoint = {
           ...ep,
           key: id.create(),
+          index: copiedKeys.get(ep.index) ?? ep.index,
           fields: ep.fields.map((f) => ({
             ...f,
             ...Task.READ_CHANNEL_OVERRIDE,
-            key: id.create(),
+            key: copiedKeys.get(f.key) ?? id.create(),
           })),
         };
         first ??= copy.key;
