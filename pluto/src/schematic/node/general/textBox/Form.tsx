@@ -14,7 +14,7 @@ import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { type Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
@@ -31,55 +31,53 @@ const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 export const TextBoxForm = (): ReactElement => {
   const autoFit = Base.useField<boolean>("autoFit", { optional: true });
   return (
-    <Form.Wrapper x align="stretch" grow>
-      <Flex.Box y grow>
-        <Flex.Box x align="stretch">
-          <Base.TextField path="value" label="Text" padHelpText={false} grow />
-          <Base.Field<text.Level> path="level" label="Text size" padHelpText={false}>
-            {({ value, onChange }) => (
-              <Select.Text.Level value={value} onChange={onChange} />
-            )}
-          </Base.Field>
-          <Base.Field<Flex.Alignment>
-            path="align"
-            label="Alignment"
-            padHelpText={false}
-            hideIfNull
-          >
-            {({ value, onChange }) => (
-              <Select.Flex.Alignment value={value} onChange={onChange} />
-            )}
-          </Base.Field>
-        </Flex.Box>
-        <Flex.Box x>
-          <Form.ColorField path="color" />
-          <Base.Field<number>
-            onChange={(_, { set }) => set("autoFit", false)}
-            path="width"
-            label="Wrap width"
-            padHelpText={false}
-          >
-            {(p) => (
-              <Input.Numeric {...p} {...WRAP_WIDTH_INPUT_PROPS}>
-                <Button.Button
-                  onClick={() => autoFit?.onChange(true)}
-                  disabled={autoFit?.value === true}
-                  variant="outlined"
-                  className={CSS.BE("text-box-form", "auto-fit-btn")}
-                  tooltip={
-                    autoFit?.value === true
-                      ? "Manually enter value to disable auto fit"
-                      : "Enable auto fit"
-                  }
-                >
-                  <Icon.AutoFitWidth />
-                </Button.Button>
-              </Input.Numeric>
-            )}
-          </Base.Field>
-        </Flex.Box>
-      </Flex.Box>
-      <Orientation.Field path="" />
-    </Form.Wrapper>
+    <Base.Sections x>
+      <Base.Section title="Text">
+        <Base.TextField path="value" label="Text" padHelpText={false} />
+        <Base.Field<text.Level> path="level" label="Size" padHelpText={false}>
+          {({ value, onChange }) => (
+            <Select.Text.Level value={value} onChange={onChange} />
+          )}
+        </Base.Field>
+        <Base.Field<Flex.Alignment>
+          path="align"
+          label="Alignment"
+          padHelpText={false}
+          hideIfNull
+        >
+          {({ value, onChange }) => (
+            <Select.Flex.Alignment value={value} onChange={onChange} />
+          )}
+        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="color" />
+        <Base.Field<number>
+          onChange={(_, { set }) => set("autoFit", false)}
+          path="width"
+          label="Wrap width"
+          padHelpText={false}
+        >
+          {(p) => (
+            <Input.Numeric {...p} {...WRAP_WIDTH_INPUT_PROPS}>
+              <Button.Button
+                onClick={() => autoFit?.onChange(true)}
+                disabled={autoFit?.value === true}
+                variant="outlined"
+                className={CSS.BE("text-box-form", "auto-fit-btn")}
+                tooltip={
+                  autoFit?.value === true
+                    ? "Manually enter value to disable auto fit"
+                    : "Enable auto fit"
+                }
+              >
+                <Icon.AutoFitWidth />
+              </Button.Button>
+            </Input.Numeric>
+          )}
+        </Base.Field>
+      </Base.Section>
+      <Orientation.Section path="" />
+    </Base.Sections>
   );
 };

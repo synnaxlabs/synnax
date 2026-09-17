@@ -9,34 +9,33 @@
 
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 export const CylinderForm = (): ReactElement => (
-  <Form.Wrapper x align="stretch">
-    <Flex.Box y grow>
+  <Base.Sections x>
+    <Base.Section title="Label">
       <Label.Form path="label" />
-      <Flex.Box x>
-        <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background color" />
-        <Base.NumericField
-          path="dimensions.width"
-          label="Width"
-          grow
-          defaultValue={200}
-          inputProps={Form.DIMENSIONS_INPUT_PROPS}
-        />
-        <Base.NumericField
-          path="dimensions.height"
-          label="Height"
-          grow
-          defaultValue={200}
-          inputProps={Form.DIMENSIONS_INPUT_PROPS}
-        />
-      </Flex.Box>
-    </Flex.Box>
-    <Orientation.Field path="" />
-  </Form.Wrapper>
+    </Base.Section>
+    <Base.Section title="Appearance">
+      <Form.ColorField path="color" />
+      <Form.ColorField path="backgroundColor" label="Background color" />
+    </Base.Section>
+    <Base.Section title="Dimensions">
+      <Base.NumericField
+        path="dimensions.width"
+        label="Width"
+        defaultValue={200}
+        inputProps={Form.DIMENSIONS_INPUT_PROPS}
+      />
+      <Base.NumericField
+        path="dimensions.height"
+        label="Height"
+        defaultValue={200}
+        inputProps={Form.DIMENSIONS_INPUT_PROPS}
+      />
+    </Base.Section>
+    <Orientation.Section path="" />
+  </Base.Sections>
 );
