@@ -135,9 +135,9 @@ type (
 		Key  arc.Key  `json:"key"  msgpack:"key"`
 		Rack rack.Key `json:"rack" msgpack:"rack"`
 	}
-	// SetRackResponse carries the arc's task, or a nil Task after an unbind.
+	// SetRackResponse carries the arc's task, or a null Task after an unbind.
 	SetRackResponse struct {
-		Task *task.Task `json:"task,omitzero" msgpack:"task,omitzero"`
+		Task *task.Task `json:"task" msgpack:"task"`
 	}
 )
 
