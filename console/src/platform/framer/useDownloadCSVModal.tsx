@@ -25,6 +25,7 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   type CrudeTimeRange,
+  type NumericTimeRange,
   numericTimeRangeZ,
   runtime,
   TimeRange,
@@ -68,6 +69,11 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
         channelNames,
       },
     });
+    const range = Form.useFieldValue<
+      NumericTimeRange,
+      NumericTimeRange,
+      typeof formSchema
+    >("timeRange", { ctx: form });
     const footer = (
       <>
         <Triggers.SaveHelpText action="Download" />
@@ -91,14 +97,30 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                   padHelpText={false}
                   label="From"
                 >
-                  {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
+                  {(p) => (
+                    <Input.DateTime
+                      level="h4"
+                      variant="text"
+                      role="start"
+                      anchors={{ end: range.end }}
+                      {...p}
+                    />
+                  )}
                 </Form.Field>
                 <Icon.Arrow.Right
                   className={CSS.BE("download-csv", "arrow")}
                   color={9}
                 />
                 <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-                  {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
+                  {(p) => (
+                    <Input.DateTime
+                      level="h4"
+                      variant="text"
+                      role="end"
+                      anchors={{ start: range.start }}
+                      {...p}
+                    />
+                  )}
                 </Form.Field>
               </Flex.Box>
               <Form.Field<channel.Key[]> path="channels">

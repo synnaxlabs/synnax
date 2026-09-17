@@ -96,6 +96,11 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
+  const timeRange = Form.useFieldValue<
+    NumericTimeRange,
+    NumericTimeRange,
+    typeof Ranger.formSchema
+  >("timeRange", { ctx: form });
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
@@ -201,14 +206,30 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
           <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
-            {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
+            {(p) => (
+              <Input.DateTime
+                level="h4"
+                variant="text"
+                role="start"
+                anchors={{ end: timeRange.end }}
+                {...p}
+              />
+            )}
           </Form.Field>
           <Icon.Arrow.Right
             className={CSS.BE("range-overview", "arrow-icon")}
             color={9}
           />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-            {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
+            {(p) => (
+              <Input.DateTime
+                level="h4"
+                variant="text"
+                role="end"
+                anchors={{ start: timeRange.start }}
+                {...p}
+              />
+            )}
           </Form.Field>
         </Flex.Box>
         <Flex.Box x>
