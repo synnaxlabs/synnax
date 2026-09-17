@@ -732,3 +732,11 @@ const (
 
 // Page identifies a page an off-page reference links to.
 type Page = v9.Page
+
+// StalenessConfig is the staleness detection shared by every symbol that reads a
+// channel.
+type StalenessConfig = v9.StalenessConfig
+
+// NumericTelemConfig is the numeric read and formatting shared by symbols that display
+// a channel's value as a number.
+type NumericTelemConfig = v9.NumericTelemConfig

@@ -493,6 +493,7 @@ func (c ControlStateConfig) Validate() error {
 // telemetry pair.
 type ToggleConfig struct {
 	LabeledConfig
+	StalenessConfig
 	// StateChannel is the channel whose value drives the symbol's active state.
 	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
 	// CommandChannel is the channel actuation commands are written to.
@@ -501,19 +502,12 @@ type ToggleConfig struct {
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
-	// StalenessTimeout is the duration in seconds after which the state is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the state is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *ToggleConfig) ApplyDefaults() {
-	if t.StalenessTimeout == 0 {
-		t.StalenessTimeout = 5
-	}
 	t.LabeledConfig.ApplyDefaults()
+	t.StalenessConfig.ApplyDefaults()
 	if t.Control != nil {
 		t.Control.ApplyDefaults()
 	}
@@ -1205,10 +1199,7 @@ func (f FlowmeterOrificeNodeConfig) Validate() error {
 
 // BoxNodeConfig is the configuration for box annotation symbols.
 type BoxNodeConfig struct {
-	// Label is the box's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the orientation of the box within the diagram.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+	LabeledConfig
 	// Color is the border color of the box.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the box.
@@ -1225,9 +1216,6 @@ func (BoxNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BoxNodeConfig) ApplyDefaults() {
-	if b.Orientation == "" {
-		b.Orientation = spatial.OuterLocationLeft
-	}
 	if b.Dimensions.Width == 0 {
 		b.Dimensions.Width = 125
 	}
@@ -1240,15 +1228,14 @@ func (b *BoxNodeConfig) ApplyDefaults() {
 	if b.StrokeWidth == 0 {
 		b.StrokeWidth = 2
 	}
-	b.Label.ApplyDefaults()
+	b.LabeledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BoxNodeConfig) Validate() error {
 	v := validate.New("BoxNodeConfig")
-	v.Ternaryf("orientation", !b.Orientation.IsValid(), "invalid orientation: %v", b.Orientation)
-	v.Exec(func() error { return validate.PathedError(b.Label.Validate(), "label") })
+	v.Exec(b.LabeledConfig.Validate)
 	return v.Error()
 }
 
@@ -1337,6 +1324,8 @@ func (c CircleNodeConfig) Validate() error {
 // GaugeNodeConfig is the configuration for gauge symbols.
 type GaugeNodeConfig struct {
 	LabeledConfig
+	NumericTelemConfig
+	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
 	// Color is the accent color of the gauge arc.
@@ -1345,25 +1334,12 @@ type GaugeNodeConfig struct {
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
 	BarWidth float64 `json:"bar_width" msgpack:"bar_width"`
-	// Channel is the channel whose value the gauge displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
-	// Notation is the numeric notation used to format the value.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Location is the anchor of the value within the gauge.
 	Location spatial.LocationXY `json:"location" msgpack:"location"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (GaugeNodeConfig) isNodeConfigVariant() {}
@@ -1375,12 +1351,6 @@ func (g *GaugeNodeConfig) ApplyDefaults() {
 	}
 	if g.BarWidth == 0 {
 		g.BarWidth = 10
-	}
-	if g.Precision == 0 {
-		g.Precision = 2
-	}
-	if g.Notation == "" {
-		g.Notation = "standard"
 	}
 	if g.Location.X == "" {
 		g.Location.X = spatial.XCenterLocationLeft
@@ -1394,19 +1364,18 @@ func (g *GaugeNodeConfig) ApplyDefaults() {
 	if g.Level == "" {
 		g.Level = text.LevelH5
 	}
-	if g.StalenessTimeout == 0 {
-		g.StalenessTimeout = 5
-	}
 	g.LabeledConfig.ApplyDefaults()
+	g.NumericTelemConfig.ApplyDefaults()
+	g.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (g GaugeNodeConfig) Validate() error {
 	v := validate.New("GaugeNodeConfig")
-	v.Ternaryf("notation", !g.Notation.IsValid(), "invalid notation: %v", g.Notation)
 	v.Ternaryf("level", !g.Level.IsValid(), "invalid level: %v", g.Level)
 	v.Exec(g.LabeledConfig.Validate)
+	v.Exec(g.NumericTelemConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -1456,27 +1425,21 @@ func (i InputNodeConfig) Validate() error {
 // LightNodeConfig is the configuration for indicator light symbols.
 type LightNodeConfig struct {
 	LabeledConfig
+	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (LightNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightNodeConfig) ApplyDefaults() {
-	if l.StalenessTimeout == 0 {
-		l.StalenessTimeout = 5
-	}
 	l.LabeledConfig.ApplyDefaults()
+	l.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1513,10 +1476,10 @@ func (l *LineNodeConfig) ApplyDefaults() {
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig struct {
+	// Label is the symbol's label configuration.
+	Label LabelConfig `json:"label" msgpack:"label"`
 	// Orientation is the direction the reference arrow points.
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Label is the label displayed inside the reference.
-	Label LabelConfig `json:"label" msgpack:"label"`
 	// Color is the fill color of the reference.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Page is the page this reference links to.
@@ -1639,13 +1602,7 @@ func (s SelectNodeConfig) Validate() error {
 
 // ScaleNodeConfig is the configuration for standalone scale symbols.
 type ScaleNodeConfig struct {
-	// Label is the symbol's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the axis the bar fills along: top for vertical, right for
-	// horizontal. Any other value reads as vertical.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale float64 `json:"scale" msgpack:"scale"`
+	LabeledConfig
 	// Position is the offset of the scale contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
 	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
@@ -1665,16 +1622,13 @@ func (s *ScaleNodeConfig) ApplyDefaults() {
 	if s.Orientation == "" {
 		s.Orientation = spatial.OuterLocationTop
 	}
-	if s.Scale == 0 {
-		s.Scale = 1
-	}
 	if s.Dimensions.Width == 0 {
 		s.Dimensions.Width = 34
 	}
 	if s.Dimensions.Height == 0 {
 		s.Dimensions.Height = 160
 	}
-	s.Label.ApplyDefaults()
+	s.LabeledConfig.ApplyDefaults()
 	s.Indicator.ApplyDefaults()
 }
 
@@ -1683,7 +1637,7 @@ func (s *ScaleNodeConfig) ApplyDefaults() {
 func (s ScaleNodeConfig) Validate() error {
 	v := validate.New("ScaleNodeConfig")
 	v.Ternaryf("orientation", !s.Orientation.IsValid(), "invalid orientation: %v", s.Orientation)
-	v.Exec(func() error { return validate.PathedError(s.Label.Validate(), "label") })
+	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(s.Indicator.Validate(), "indicator") })
 	return v.Error()
 }
@@ -1738,6 +1692,7 @@ func (s SetpointNodeConfig) Validate() error {
 // StateIndicatorNodeConfig is the configuration for multi-state indicator symbols.
 type StateIndicatorNodeConfig struct {
 	LabeledConfig
+	StalenessConfig
 	// Channel is the channel whose value selects the displayed state.
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	// Color is the fallback color when no state matches.
@@ -1746,11 +1701,6 @@ type StateIndicatorNodeConfig struct {
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (StateIndicatorNodeConfig) isNodeConfigVariant() {}
@@ -1760,10 +1710,8 @@ func (s *StateIndicatorNodeConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
 	}
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
-	}
 	s.LabeledConfig.ApplyDefaults()
+	s.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1777,6 +1725,7 @@ func (s StateIndicatorNodeConfig) Validate() error {
 // StringDisplayNodeConfig is the configuration for live string display symbols.
 type StringDisplayNodeConfig struct {
 	LabeledConfig
+	StalenessConfig
 	// Color is the background color of the display.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
@@ -1789,11 +1738,6 @@ type StringDisplayNodeConfig struct {
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	// Level is the typography level of the displayed text.
 	Level text.Level `json:"level" msgpack:"level"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (StringDisplayNodeConfig) isNodeConfigVariant() {}
@@ -1806,10 +1750,8 @@ func (s *StringDisplayNodeConfig) ApplyDefaults() {
 	if s.Level == "" {
 		s.Level = text.LevelH4
 	}
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
-	}
 	s.LabeledConfig.ApplyDefaults()
+	s.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1889,6 +1831,8 @@ func (t TextBoxNodeConfig) Validate() error {
 // ValueNodeConfig is the configuration for live telemetry value symbols.
 type ValueNodeConfig struct {
 	LabeledConfig
+	NumericTelemConfig
+	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
 	// Color is the background color of the value.
@@ -1903,21 +1847,8 @@ type ValueNodeConfig struct {
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
-	// Channel is the channel whose value the symbol displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
-	// Notation is the numeric notation used to format the value.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Location is the anchor of the value within the symbol.
 	Location spatial.LocationXY `json:"location" msgpack:"location"`
 }
@@ -1938,15 +1869,6 @@ func (va *ValueNodeConfig) ApplyDefaults() {
 	if va.Level == "" {
 		va.Level = text.LevelH4
 	}
-	if va.Precision == 0 {
-		va.Precision = 2
-	}
-	if va.StalenessTimeout == 0 {
-		va.StalenessTimeout = 5
-	}
-	if va.Notation == "" {
-		va.Notation = "standard"
-	}
 	if va.Location.X == "" {
 		va.Location.X = spatial.XCenterLocationLeft
 	}
@@ -1954,6 +1876,8 @@ func (va *ValueNodeConfig) ApplyDefaults() {
 		va.Location.Y = spatial.YCenterLocationCenter
 	}
 	va.LabeledConfig.ApplyDefaults()
+	va.NumericTelemConfig.ApplyDefaults()
+	va.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -1961,8 +1885,8 @@ func (va *ValueNodeConfig) ApplyDefaults() {
 func (va ValueNodeConfig) Validate() error {
 	v := validate.New("ValueNodeConfig")
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
-	v.Ternaryf("notation", !va.Notation.IsValid(), "invalid notation: %v", va.Notation)
 	v.Exec(va.LabeledConfig.Validate)
+	v.Exec(va.NumericTelemConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -5228,10 +5152,7 @@ func (f FlowmeterOrificeElementConfig) Validate() error {
 
 // BoxElementConfig is the configuration for box annotation symbols.
 type BoxElementConfig struct {
-	// Label is the box's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the orientation of the box within the diagram.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+	LabeledConfig
 	// Color is the border color of the box.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the box.
@@ -5248,9 +5169,6 @@ func (BoxElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *BoxElementConfig) ApplyDefaults() {
-	if b.Orientation == "" {
-		b.Orientation = spatial.OuterLocationLeft
-	}
 	if b.Dimensions.Width == 0 {
 		b.Dimensions.Width = 125
 	}
@@ -5263,15 +5181,14 @@ func (b *BoxElementConfig) ApplyDefaults() {
 	if b.StrokeWidth == 0 {
 		b.StrokeWidth = 2
 	}
-	b.Label.ApplyDefaults()
+	b.LabeledConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BoxElementConfig) Validate() error {
 	v := validate.New("BoxElementConfig")
-	v.Ternaryf("orientation", !b.Orientation.IsValid(), "invalid orientation: %v", b.Orientation)
-	v.Exec(func() error { return validate.PathedError(b.Label.Validate(), "label") })
+	v.Exec(b.LabeledConfig.Validate)
 	return v.Error()
 }
 
@@ -5360,6 +5277,8 @@ func (c CircleElementConfig) Validate() error {
 // GaugeElementConfig is the configuration for gauge symbols.
 type GaugeElementConfig struct {
 	LabeledConfig
+	NumericTelemConfig
+	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
 	// Color is the accent color of the gauge arc.
@@ -5368,25 +5287,12 @@ type GaugeElementConfig struct {
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
 	BarWidth float64 `json:"bar_width" msgpack:"bar_width"`
-	// Channel is the channel whose value the gauge displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
-	// Notation is the numeric notation used to format the value.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Location is the anchor of the value within the gauge.
 	Location spatial.LocationXY `json:"location" msgpack:"location"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (GaugeElementConfig) isElementConfigVariant() {}
@@ -5398,12 +5304,6 @@ func (g *GaugeElementConfig) ApplyDefaults() {
 	}
 	if g.BarWidth == 0 {
 		g.BarWidth = 10
-	}
-	if g.Precision == 0 {
-		g.Precision = 2
-	}
-	if g.Notation == "" {
-		g.Notation = "standard"
 	}
 	if g.Location.X == "" {
 		g.Location.X = spatial.XCenterLocationLeft
@@ -5417,19 +5317,18 @@ func (g *GaugeElementConfig) ApplyDefaults() {
 	if g.Level == "" {
 		g.Level = text.LevelH5
 	}
-	if g.StalenessTimeout == 0 {
-		g.StalenessTimeout = 5
-	}
 	g.LabeledConfig.ApplyDefaults()
+	g.NumericTelemConfig.ApplyDefaults()
+	g.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (g GaugeElementConfig) Validate() error {
 	v := validate.New("GaugeElementConfig")
-	v.Ternaryf("notation", !g.Notation.IsValid(), "invalid notation: %v", g.Notation)
 	v.Ternaryf("level", !g.Level.IsValid(), "invalid level: %v", g.Level)
 	v.Exec(g.LabeledConfig.Validate)
+	v.Exec(g.NumericTelemConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(g.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -5479,27 +5378,21 @@ func (i InputElementConfig) Validate() error {
 // LightElementConfig is the configuration for indicator light symbols.
 type LightElementConfig struct {
 	LabeledConfig
+	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	// Threshold is the value range within which the light is considered on.
 	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (LightElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LightElementConfig) ApplyDefaults() {
-	if l.StalenessTimeout == 0 {
-		l.StalenessTimeout = 5
-	}
 	l.LabeledConfig.ApplyDefaults()
+	l.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5536,10 +5429,10 @@ func (l *LineElementConfig) ApplyDefaults() {
 
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
 type OffPageReferenceElementConfig struct {
+	// Label is the symbol's label configuration.
+	Label LabelConfig `json:"label" msgpack:"label"`
 	// Orientation is the direction the reference arrow points.
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Label is the label displayed inside the reference.
-	Label LabelConfig `json:"label" msgpack:"label"`
 	// Color is the fill color of the reference.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Page is the page this reference links to.
@@ -5662,13 +5555,7 @@ func (s SelectElementConfig) Validate() error {
 
 // ScaleElementConfig is the configuration for standalone scale symbols.
 type ScaleElementConfig struct {
-	// Label is the symbol's label configuration.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Orientation is the axis the bar fills along: top for vertical, right for
-	// horizontal. Any other value reads as vertical.
-	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale float64 `json:"scale" msgpack:"scale"`
+	LabeledConfig
 	// Position is the offset of the scale contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
 	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
@@ -5688,16 +5575,13 @@ func (s *ScaleElementConfig) ApplyDefaults() {
 	if s.Orientation == "" {
 		s.Orientation = spatial.OuterLocationTop
 	}
-	if s.Scale == 0 {
-		s.Scale = 1
-	}
 	if s.Dimensions.Width == 0 {
 		s.Dimensions.Width = 34
 	}
 	if s.Dimensions.Height == 0 {
 		s.Dimensions.Height = 160
 	}
-	s.Label.ApplyDefaults()
+	s.LabeledConfig.ApplyDefaults()
 	s.Indicator.ApplyDefaults()
 }
 
@@ -5706,7 +5590,7 @@ func (s *ScaleElementConfig) ApplyDefaults() {
 func (s ScaleElementConfig) Validate() error {
 	v := validate.New("ScaleElementConfig")
 	v.Ternaryf("orientation", !s.Orientation.IsValid(), "invalid orientation: %v", s.Orientation)
-	v.Exec(func() error { return validate.PathedError(s.Label.Validate(), "label") })
+	v.Exec(s.LabeledConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(s.Indicator.Validate(), "indicator") })
 	return v.Error()
 }
@@ -5761,6 +5645,7 @@ func (s SetpointElementConfig) Validate() error {
 // StateIndicatorElementConfig is the configuration for multi-state indicator symbols.
 type StateIndicatorElementConfig struct {
 	LabeledConfig
+	StalenessConfig
 	// Channel is the channel whose value selects the displayed state.
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	// Color is the fallback color when no state matches.
@@ -5769,11 +5654,6 @@ type StateIndicatorElementConfig struct {
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (StateIndicatorElementConfig) isElementConfigVariant() {}
@@ -5783,10 +5663,8 @@ func (s *StateIndicatorElementConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
 	}
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
-	}
 	s.LabeledConfig.ApplyDefaults()
+	s.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5800,6 +5678,7 @@ func (s StateIndicatorElementConfig) Validate() error {
 // StringDisplayElementConfig is the configuration for live string display symbols.
 type StringDisplayElementConfig struct {
 	LabeledConfig
+	StalenessConfig
 	// Color is the background color of the display.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
@@ -5812,11 +5691,6 @@ type StringDisplayElementConfig struct {
 	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	// Level is the typography level of the displayed text.
 	Level text.Level `json:"level" msgpack:"level"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 func (StringDisplayElementConfig) isElementConfigVariant() {}
@@ -5829,10 +5703,8 @@ func (s *StringDisplayElementConfig) ApplyDefaults() {
 	if s.Level == "" {
 		s.Level = text.LevelH4
 	}
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
-	}
 	s.LabeledConfig.ApplyDefaults()
+	s.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5912,6 +5784,8 @@ func (t TextBoxElementConfig) Validate() error {
 // ValueElementConfig is the configuration for live telemetry value symbols.
 type ValueElementConfig struct {
 	LabeledConfig
+	NumericTelemConfig
+	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
 	// Color is the background color of the value.
@@ -5926,21 +5800,8 @@ type ValueElementConfig struct {
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
-	// Channel is the channel whose value the symbol displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
-	// Precision is the number of decimal places shown.
-	Precision float64 `json:"precision" msgpack:"precision"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
-	// Notation is the numeric notation used to format the value.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Location is the anchor of the value within the symbol.
 	Location spatial.LocationXY `json:"location" msgpack:"location"`
 }
@@ -5961,15 +5822,6 @@ func (va *ValueElementConfig) ApplyDefaults() {
 	if va.Level == "" {
 		va.Level = text.LevelH4
 	}
-	if va.Precision == 0 {
-		va.Precision = 2
-	}
-	if va.StalenessTimeout == 0 {
-		va.StalenessTimeout = 5
-	}
-	if va.Notation == "" {
-		va.Notation = "standard"
-	}
 	if va.Location.X == "" {
 		va.Location.X = spatial.XCenterLocationLeft
 	}
@@ -5977,6 +5829,8 @@ func (va *ValueElementConfig) ApplyDefaults() {
 		va.Location.Y = spatial.YCenterLocationCenter
 	}
 	va.LabeledConfig.ApplyDefaults()
+	va.NumericTelemConfig.ApplyDefaults()
+	va.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -5984,8 +5838,8 @@ func (va *ValueElementConfig) ApplyDefaults() {
 func (va ValueElementConfig) Validate() error {
 	v := validate.New("ValueElementConfig")
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
-	v.Ternaryf("notation", !va.Notation.IsValid(), "invalid notation: %v", va.Notation)
 	v.Exec(va.LabeledConfig.Validate)
+	v.Exec(va.NumericTelemConfig.Validate)
 	v.Exec(func() error { return validate.PathedError(va.Location.Validate(), "location") })
 	return v.Error()
 }
@@ -8863,10 +8717,8 @@ func (s Schematic) Validate() error {
 // ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
 // symbols that show a level against a numeric range.
 type ScaleIndicatorConfig struct {
-	// Channel is the channel whose value drives the indicator.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	NumericTelemConfig
+	StalenessConfig
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// Color is the color of the filled portion.
@@ -8877,10 +8729,6 @@ type ScaleIndicatorConfig struct {
 	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
-	// Notation is the numeric notation used to format tick labels.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
-	// Precision is the number of decimal places shown on tick labels.
-	Precision float64 `json:"precision" msgpack:"precision"`
 	// FillHidden hides the filled portion.
 	FillHidden bool `json:"fill_hidden" msgpack:"fill_hidden"`
 	// CaretHidden hides the caret marking the current value.
@@ -8893,23 +8741,12 @@ type ScaleIndicatorConfig struct {
 	CaretSide spatial.OuterLocation `json:"caret_side" msgpack:"caret_side"`
 	// Level is the typography level of the tick labels.
 	Level text.Level `json:"level" msgpack:"level"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScaleIndicatorConfig) ApplyDefaults() {
 	if s.Bounds.Upper == 0 {
 		s.Bounds.Upper = 100
-	}
-	if s.Notation == "" {
-		s.Notation = "standard"
-	}
-	if s.Precision == 0 {
-		s.Precision = 2
 	}
 	if s.Side == "" {
 		s.Side = spatial.OuterLocationRight
@@ -8920,19 +8757,18 @@ func (s *ScaleIndicatorConfig) ApplyDefaults() {
 	if s.Level == "" {
 		s.Level = text.LevelSmall
 	}
-	if s.StalenessTimeout == 0 {
-		s.StalenessTimeout = 5
-	}
+	s.NumericTelemConfig.ApplyDefaults()
+	s.StalenessConfig.ApplyDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (s ScaleIndicatorConfig) Validate() error {
 	v := validate.New("ScaleIndicatorConfig")
-	v.Ternaryf("notation", !s.Notation.IsValid(), "invalid notation: %v", s.Notation)
 	v.Ternaryf("side", !s.Side.IsValid(), "invalid side: %v", s.Side)
 	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	v.Exec(s.NumericTelemConfig.Validate)
 	return v.Error()
 }
 
@@ -8970,5 +8806,53 @@ type Page struct {
 func (p Page) Validate() error {
 	v := validate.New("Page")
 	v.Ternaryf("type", !p.Type.IsValid(), "invalid type: %v", p.Type)
+	return v.Error()
+}
+
+// StalenessConfig is the staleness detection shared by every symbol that reads a
+// channel.
+type StalenessConfig struct {
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *StalenessConfig) ApplyDefaults() {
+	if s.StalenessTimeout == 0 {
+		s.StalenessTimeout = 5
+	}
+}
+
+// NumericTelemConfig is the numeric read and formatting shared by symbols that display
+// a channel's value as a number.
+type NumericTelemConfig struct {
+	// Channel is the channel whose value the symbol displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision float64 `json:"precision" msgpack:"precision"`
+	// Notation is the numeric notation used to format the value.
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (n *NumericTelemConfig) ApplyDefaults() {
+	if n.Precision == 0 {
+		n.Precision = 2
+	}
+	if n.Notation == "" {
+		n.Notation = "standard"
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (n NumericTelemConfig) Validate() error {
+	v := validate.New("NumericTelemConfig")
+	v.Ternaryf("notation", !n.Notation.IsValid(), "invalid notation: %v", n.Notation)
 	return v.Error()
 }

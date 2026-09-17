@@ -137,6 +137,44 @@ LabeledConfig struct {
     @go marshal
 }
 
+StalenessConfig struct {
+    staleness_timeout float64 = 5 {
+        @doc value """
+            is the duration in seconds after which the value is considered stale.
+        """
+    }
+    staleness_color   color.Color? {
+        @doc value "is the color applied when the value is stale."
+    }
+
+    @doc value  """
+        is the staleness detection shared by every symbol that reads a channel.
+    """
+    @go marshal
+}
+
+NumericTelemConfig struct {
+    channel         channel.Key?      {
+        @doc value "is the channel whose value the symbol displays."
+    }
+    rolling_average int32?            {
+        @doc value "is the sample window for rolling-average smoothing."
+    }
+    precision       float64 = 2 {
+        @doc value    "is the number of decimal places shown."
+        @validate min 0
+    }
+    notation        notation.Notation = "standard" {
+        @doc value "is the numeric notation used to format the value."
+    }
+
+    @doc value  """
+        is the numeric read and formatting shared by symbols that display a channel's
+        value as a number.
+    """
+    @go marshal
+}
+
 ControlStateConfig struct {
     authority        uint8?           {
         @doc value """
@@ -165,26 +203,18 @@ ControlStateConfig struct {
     @go marshal
 }
 
-ToggleConfig struct extends LabeledConfig {
-    state_channel     channel.Key?        {
+ToggleConfig struct extends LabeledConfig, StalenessConfig {
+    state_channel   channel.Key?        {
         @doc value "is the channel whose value drives the symbol's active state."
     }
-    command_channel   channel.Key?        {
+    command_channel channel.Key?        {
         @doc value "is the channel actuation commands are written to."
     }
-    control           ControlStateConfig? {
+    control         ControlStateConfig? {
         @doc value "is the control state display configuration."
     }
-    on_click_delay    float64 = 0 {
+    on_click_delay  float64 = 0 {
         @doc value "is the debounce delay applied to clicks, in milliseconds."
-    }
-    staleness_timeout float64 = 5 {
-        @doc value """
-            is the duration in seconds after which the state is considered stale.
-        """
-    }
-    staleness_color   color.Color?        {
-        @doc value "is the color applied when the state is stale."
     }
 
     @doc value  """
@@ -229,60 +259,39 @@ DummyToggleSymbolConfig struct extends LabeledConfig {
     @go marshal
 }
 
-ScaleIndicatorConfig struct {
-    channel           channel.Key?          {
-        @doc value "is the channel whose value drives the indicator."
-    }
-    rolling_average   int32?                {
-        @doc value "is the sample window for rolling-average smoothing."
-    }
-    bounds            spatial.Bounds = { lower = 0, upper = 100 } {
+ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
+    bounds       spatial.Bounds = { lower = 0, upper = 100 } {
         @doc value "is the numeric range the indicator maps onto its extent."
     }
-    color             color.Color?          {
+    color        color.Color?          {
         @doc value "is the color of the filled portion."
     }
-    axis_color        color.Color?          {
+    axis_color   color.Color?          {
         @doc value "is the color of the scale axis and its ticks."
     }
-    text_color        color.Color?          {
+    text_color   color.Color?          {
         @doc value "is the color of the tick labels."
     }
-    units             string = "" {
+    units        string = "" {
         @doc value "is the unit suffix displayed after each tick label."
     }
-    notation          notation.Notation = "standard" {
-        @doc value "is the numeric notation used to format tick labels."
-    }
-    precision         float64 = 2 {
-        @doc value    "is the number of decimal places shown on tick labels."
-        @validate min 0
-    }
-    fill_hidden       bool = false {
+    fill_hidden  bool = false {
         @doc value "hides the filled portion."
     }
-    caret_hidden      bool = false {
+    caret_hidden bool = false {
         @doc value "hides the caret marking the current value."
     }
-    scale_hidden      bool = false {
+    scale_hidden bool = false {
         @doc value "hides the axis and its tick labels."
     }
-    side              spatial.OuterLocation = spatial.OuterLocationRight {
+    side         spatial.OuterLocation = spatial.OuterLocationRight {
         @doc value "is the edge the axis is drawn along."
     }
-    caret_side        spatial.OuterLocation = spatial.OuterLocationRight {
+    caret_side   spatial.OuterLocation = spatial.OuterLocationRight {
         @doc value "is the edge the value readout sits on."
     }
-    level             text.Level = text.LevelSmall {
+    level        text.Level = text.LevelSmall {
         @doc value "is the typography level of the tick labels."
-    }
-    staleness_timeout float64 = 5 {
-        @doc value """
-            is the duration in seconds after which the value is considered stale.
-        """
-    }
-    staleness_color   color.Color?          {
-        @doc value "is the color applied when the value is stale."
     }
 
     @doc value  """
@@ -369,17 +378,11 @@ NodeConfig union on variant {
     flowmeter_pulse                    StaticSymbolConfig
     flowmeter_float_sensor             StaticSymbolConfig
     flowmeter_orifice                  StaticSymbolConfig
-    box {
-        label            LabelConfig = {} {
-            @doc value "is the box's label configuration."
-        }
-        orientation      spatial.OuterLocation = spatial.OuterLocationLeft {
-            @doc value "is the orientation of the box within the diagram."
-        }
-        color            color.Color?          {
+    box extends LabeledConfig {
+        color            color.Color?       {
             @doc value "is the border color of the box."
         }
-        background_color color.Color?          {
+        background_color color.Color?       {
             @doc value "is the fill color of the box."
         }
         dimensions       spatial.Dimensions = { width = 125, height = 200 } {
@@ -435,52 +438,31 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for circle annotation symbols."
     }
-    gauge extends LabeledConfig {
-        position          spatial.XY?        {
+    gauge extends LabeledConfig, NumericTelemConfig, StalenessConfig {
+        position  spatial.XY?        {
             @doc value "is the offset of the gauge contents within the symbol."
         }
-        color             color.Color?       {
+        color     color.Color?       {
             @doc value "is the accent color of the gauge arc."
         }
-        bounds            spatial.Bounds = { lower = 0, upper = 100 } {
+        bounds    spatial.Bounds = { lower = 0, upper = 100 } {
             @doc value "is the numeric range displayed by the gauge."
         }
-        bar_width         float64 = 10 {
+        bar_width float64 = 10 {
             @doc value    "is the thickness of the gauge arc in pixels."
             @validate min 1
         }
-        channel           channel.Key?       {
-            @doc value "is the channel whose value the gauge displays."
-        }
-        rolling_average   int32?             {
-            @doc value "is the sample window for rolling-average smoothing."
-        }
-        precision         float64 = 2 {
-            @doc value    "is the number of decimal places shown."
-            @validate min 0
-        }
-        notation          notation.Notation = "standard" {
-            @doc value "is the numeric notation used to format the value."
-        }
-        location          spatial.LocationXY = {
+        location  spatial.LocationXY = {
             x = spatial.XCenterLocationLeft,
             y = spatial.YCenterLocationCenter
         } {
             @doc value "is the anchor of the value within the gauge."
         }
-        units             string = "RPM" {
+        units     string = "RPM" {
             @doc value "is the unit suffix displayed after the value."
         }
-        level             text.Level = text.LevelH5 {
+        level     text.Level = text.LevelH5 {
             @doc value "is the typography level of the displayed value."
-        }
-        staleness_timeout float64 = 5 {
-            @doc value """
-                is the duration in seconds after which the value is considered stale.
-            """
-        }
-        staleness_color   color.Color?       {
-            @doc value "is the color applied when the value is stale."
         }
 
         @doc value "is the configuration for gauge symbols."
@@ -507,23 +489,15 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for free-form input symbols."
     }
-    light extends LabeledConfig {
-        channel           channel.Key?    {
+    light extends LabeledConfig, StalenessConfig {
+        channel   channel.Key?    {
             @doc value "is the channel whose value drives the light's on state."
         }
-        threshold         spatial.Bounds? {
+        threshold spatial.Bounds? {
             @doc value "is the value range within which the light is considered on."
         }
-        color             color.Color?    {
+        color     color.Color?    {
             @doc value "is the illuminated color of the light."
-        }
-        staleness_timeout float64 = 5 {
-            @doc value """
-                is the duration in seconds after which the value is considered stale.
-            """
-        }
-        staleness_color   color.Color?    {
-            @doc value "is the color applied when the value is stale."
         }
 
         @doc value "is the configuration for indicator light symbols."
@@ -545,17 +519,15 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for straight line symbols."
     }
-    off_page_reference {
-        orientation            spatial.OuterLocation = spatial.OuterLocationRight {
+    off_page_reference extends LabeledConfig {
+        -scale
+        orientation            = spatial.OuterLocationRight {
             @doc value "is the direction the reference arrow points."
         }
-        label                  LabelConfig = {} {
-            @doc value "is the label displayed inside the reference."
-        }
-        color                  color.Color?          {
+        color                  color.Color? {
             @doc value "is the fill color of the reference."
         }
-        page                   Page?                 {
+        page                   Page?        {
             @doc value "is the page this reference links to."
         }
         dbl_click_nav_disabled bool = false {
@@ -615,20 +587,14 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for select symbols."
     }
-    scale {
-        label       LabelConfig = {} {
-            @doc value "is the symbol's label configuration."
-        }
-        orientation spatial.OuterLocation = spatial.OuterLocationTop {
+    scale extends LabeledConfig {
+        orientation = spatial.OuterLocationTop {
             @doc value """
                 is the axis the bar fills along: top for vertical, right for horizontal.
                 Any other value reads as vertical.
             """
         }
-        scale       float64 = 1 {
-            @doc value "is the rendered scale multiplier of the symbol."
-        }
-        position    spatial.XY?           {
+        position    spatial.XY?          {
             @doc value "is the offset of the scale contents within the symbol."
         }
         dimensions  spatial.Dimensions = { width = 34, height = 160 } {
@@ -637,7 +603,7 @@ NodeConfig union on variant {
                 to the rendered size.
             """
         }
-        color       color.Color?          {
+        color       color.Color?         {
             @doc value """
                 is the color of the fill, which is what the symbol reads as. The toolbar
                 recolors a selection through this field.
@@ -674,58 +640,42 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for numeric setpoint symbols."
     }
-    state_indicator extends LabeledConfig {
-        channel           channel.Key?   {
+    state_indicator extends LabeledConfig, StalenessConfig {
+        channel     channel.Key?   {
             @doc value "is the channel whose value selects the displayed state."
         }
-        color             color.Color?   {
+        color       color.Color?   {
             @doc value "is the fallback color when no state matches."
         }
-        inline_size       float64 = 100 {
+        inline_size float64 = 100 {
             @doc value    "is the inline size of the indicator in pixels."
             @validate min 1
         }
-        options           StateMapping[] = [] {
+        options     StateMapping[] = [] {
             @doc value "is the set of displayable states."
-        }
-        staleness_timeout float64 = 5 {
-            @doc value """
-                is the duration in seconds after which the value is considered stale.
-            """
-        }
-        staleness_color   color.Color?   {
-            @doc value "is the color applied when the value is stale."
         }
 
         @doc value "is the configuration for multi-state indicator symbols."
     }
-    string_display extends LabeledConfig {
-        color             color.Color? {
+    string_display extends LabeledConfig, StalenessConfig {
+        color       color.Color? {
             @doc value "is the background color of the display."
         }
-        text_color        color.Color? {
+        text_color  color.Color? {
             @doc value "is the color of the displayed text."
         }
-        tooltip           string[] = [] {
+        tooltip     string[] = [] {
             @doc value "is the list of tooltip lines shown on hover."
         }
-        inline_size       float64 = 100 {
+        inline_size float64 = 100 {
             @doc value    "is the inline size of the display in pixels."
             @validate min 1
         }
-        channel           channel.Key? {
+        channel     channel.Key? {
             @doc value "is the channel whose string value the symbol displays."
         }
-        level             text.Level = text.LevelH4 {
+        level       text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed text."
-        }
-        staleness_timeout float64 = 5 {
-            @doc value """
-                is the duration in seconds after which the value is considered stale.
-            """
-        }
-        staleness_color   color.Color? {
-            @doc value "is the color applied when the value is stale."
         }
 
         @doc value "is the configuration for live string display symbols."
@@ -754,54 +704,33 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for text box annotation symbols."
     }
-    value extends LabeledConfig {
-        position          spatial.XY?        {
+    value extends LabeledConfig, NumericTelemConfig, StalenessConfig {
+        position    spatial.XY?        {
             @doc value "is the offset of the value contents within the symbol."
         }
-        color             color.Color?       {
+        color       color.Color?       {
             @doc value "is the background color of the value."
         }
-        text_color        color.Color?       {
+        text_color  color.Color?       {
             @doc value "is the color of the displayed text."
         }
-        tooltip           string[] = [] {
+        tooltip     string[] = [] {
             @doc value "is the list of tooltip lines shown on hover."
         }
-        redline           Redline = { bounds = { lower = 0, upper = 1 }, gradient = [] } {
+        redline     Redline = { bounds = { lower = 0, upper = 1 }, gradient = [] } {
             @doc value "is the bounds-to-gradient mapping applied to the background."
         }
-        units             string = "psi" {
+        units       string = "psi" {
             @doc value "is the unit suffix displayed after the value."
         }
-        inline_size       float64 = 70 {
+        inline_size float64 = 70 {
             @doc value    "is the inline size of the value in pixels."
             @validate min 1
         }
-        channel           channel.Key?       {
-            @doc value "is the channel whose value the symbol displays."
-        }
-        rolling_average   int32?             {
-            @doc value "is the sample window for rolling-average smoothing."
-        }
-        level             text.Level = text.LevelH4 {
+        level       text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."
         }
-        precision         float64 = 2 {
-            @doc value    "is the number of decimal places shown."
-            @validate min 0
-        }
-        staleness_timeout float64 = 5 {
-            @doc value """
-                is the duration in seconds after which the value is considered stale.
-            """
-        }
-        staleness_color   color.Color?       {
-            @doc value "is the color applied when the value is stale."
-        }
-        notation          notation.Notation = "standard" {
-            @doc value "is the numeric notation used to format the value."
-        }
-        location          spatial.LocationXY = {
+        location    spatial.LocationXY = {
             x = spatial.XCenterLocationLeft,
             y = spatial.YCenterLocationCenter
         } {

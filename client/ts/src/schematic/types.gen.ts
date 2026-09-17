@@ -140,51 +140,6 @@ export const redlineZ = z.object({
 });
 export interface Redline extends z.infer<typeof redlineZ> {}
 
-/**
- * ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
- * symbols that show a level against a numeric range.
- */
-export const scaleIndicatorConfigZ = z.object({
-  /** channel is the channel whose value drives the indicator. */
-  channel: channel.keyZ.optional(),
-  /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().optional(),
-  /** bounds is the numeric range the indicator maps onto its extent. */
-  bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
-  /** color is the color of the filled portion. */
-  color: color.colorZ.optional(),
-  /** axisColor is the color of the scale axis and its ticks. */
-  axisColor: color.colorZ.optional(),
-  /** textColor is the color of the tick labels. */
-  textColor: color.colorZ.optional(),
-  /** units is the unit suffix displayed after each tick label. */
-  units: z.string().default(""),
-  /** notation is the numeric notation used to format tick labels. */
-  notation: notation.notationZ.default("standard"),
-  /** precision is the number of decimal places shown on tick labels. */
-  precision: z.number().default(2),
-  /** fillHidden hides the filled portion. */
-  fillHidden: z.boolean().default(false),
-  /** caretHidden hides the caret marking the current value. */
-  caretHidden: z.boolean().default(false),
-  /** scaleHidden hides the axis and its tick labels. */
-  scaleHidden: z.boolean().default(false),
-  /** side is the edge the axis is drawn along. */
-  side: spatial.outerLocationZ.default("right"),
-  /** caretSide is the edge the value readout sits on. */
-  caretSide: spatial.outerLocationZ.default("right"),
-  /** level is the typography level of the tick labels. */
-  level: text.levelZ.default("small"),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
-export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
-
 /** Page identifies a page an off-page reference links to. */
 export const pageZ = z.object({
   /** type is the kind of page referenced. */
@@ -193,6 +148,37 @@ export const pageZ = z.object({
   key: z.string(),
 });
 export interface Page extends z.infer<typeof pageZ> {}
+
+/**
+ * StalenessConfig is the staleness detection shared by every symbol that reads a
+ * channel.
+ */
+export const stalenessConfigZ = z.object({
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().default(5),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: color.colorZ.optional(),
+});
+export interface StalenessConfig extends z.infer<typeof stalenessConfigZ> {}
+
+/**
+ * NumericTelemConfig is the numeric read and formatting shared by symbols that display
+ * a channel's value as a number.
+ */
+export const numericTelemConfigZ = z.object({
+  /** channel is the channel whose value the symbol displays. */
+  channel: channel.keyZ.optional(),
+  /** rollingAverage is the sample window for rolling-average smoothing. */
+  rollingAverage: z.int32().optional(),
+  /** precision is the number of decimal places shown. */
+  precision: z.number().default(2),
+  /** notation is the numeric notation used to format the value. */
+  notation: notation.notationZ.default("standard"),
+});
+export interface NumericTelemConfig extends z.infer<typeof numericTelemConfigZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -230,6 +216,23 @@ export const labeledConfigZ = z.object({
   scale: z.number().default(1),
 });
 export interface LabeledConfig extends z.infer<typeof labeledConfigZ> {}
+
+export const scaleIndicatorConfigZ = numericTelemConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    color: color.colorZ.optional(),
+    axisColor: color.colorZ.optional(),
+    textColor: color.colorZ.optional(),
+    units: z.string().default(""),
+    fillHidden: z.boolean().default(false),
+    caretHidden: z.boolean().default(false),
+    scaleHidden: z.boolean().default(false),
+    side: spatial.outerLocationZ.default("right"),
+    caretSide: spatial.outerLocationZ.default("right"),
+    level: text.levelZ.default("small"),
+  });
+export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
@@ -312,13 +315,11 @@ export const EDGE_CONFIG_SCHEMAS: {
   data: dataEdgeConfigZ,
 };
 
-export const toggleConfigZ = labeledConfigZ.extend({
+export const toggleConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
   stateChannel: channel.keyZ.optional(),
   commandChannel: channel.keyZ.optional(),
   control: controlStateConfigZ.optional(),
   onClickDelay: z.number().default(0),
-  stalenessTimeout: z.number().default(5),
-  stalenessColor: color.colorZ.optional(),
 });
 export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
 
@@ -499,12 +500,8 @@ export interface FlowmeterOrificeNodeConfig extends z.infer<
 > {}
 
 /** BoxNodeConfig is the configuration for box annotation symbols. */
-export const boxNodeConfigZ = z.object({
+export const boxNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("box"),
-  /** label is the box's label configuration. */
-  label: labelConfigZ.prefault({}),
-  /** orientation is the orientation of the box within the diagram. */
-  orientation: spatial.outerLocationZ.default("left"),
   /** color is the border color of the box. */
   color: color.colorZ.optional(),
   /** backgroundColor is the fill color of the box. */
@@ -553,38 +550,26 @@ export const circleNodeConfigZ = labeledConfigZ.extend({
 export interface CircleNodeConfig extends z.infer<typeof circleNodeConfigZ> {}
 
 /** GaugeNodeConfig is the configuration for gauge symbols. */
-export const gaugeNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("gauge"),
-  /** position is the offset of the gauge contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /** color is the accent color of the gauge arc. */
-  color: color.colorZ.optional(),
-  /** bounds is the numeric range displayed by the gauge. */
-  bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
-  /** barWidth is the thickness of the gauge arc in pixels. */
-  barWidth: z.number().default(10),
-  /** channel is the channel whose value the gauge displays. */
-  channel: channel.keyZ.optional(),
-  /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().optional(),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
-  /** notation is the numeric notation used to format the value. */
-  notation: notation.notationZ.default("standard"),
-  /** location is the anchor of the value within the gauge. */
-  location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
-  /** units is the unit suffix displayed after the value. */
-  units: z.string().default("RPM"),
-  /** level is the typography level of the displayed value. */
-  level: text.levelZ.default("h5"),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
+export const gaugeNodeConfigZ = labeledConfigZ
+  .extend(numericTelemConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("gauge"),
+    /** position is the offset of the gauge contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /** color is the accent color of the gauge arc. */
+    color: color.colorZ.optional(),
+    /** bounds is the numeric range displayed by the gauge. */
+    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    /** barWidth is the thickness of the gauge arc in pixels. */
+    barWidth: z.number().default(10),
+    /** location is the anchor of the value within the gauge. */
+    location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
+    /** units is the unit suffix displayed after the value. */
+    units: z.string().default("RPM"),
+    /** level is the typography level of the displayed value. */
+    level: text.levelZ.default("h5"),
+  });
 export interface GaugeNodeConfig extends z.infer<typeof gaugeNodeConfigZ> {}
 
 /** InputNodeConfig is the configuration for free-form input symbols. */
@@ -606,7 +591,7 @@ export const inputNodeConfigZ = labeledConfigZ.extend({
 export interface InputNodeConfig extends z.infer<typeof inputNodeConfigZ> {}
 
 /** LightNodeConfig is the configuration for indicator light symbols. */
-export const lightNodeConfigZ = labeledConfigZ.extend({
+export const lightNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
   variant: z.literal("light"),
   /** channel is the channel whose value drives the light's on state. */
   channel: channel.keyZ.optional(),
@@ -614,13 +599,6 @@ export const lightNodeConfigZ = labeledConfigZ.extend({
   threshold: spatial.boundsZ().optional(),
   /** color is the illuminated color of the light. */
   color: color.colorZ.optional(),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
 });
 export interface LightNodeConfig extends z.infer<typeof lightNodeConfigZ> {}
 
@@ -639,12 +617,10 @@ export const lineNodeConfigZ = z.object({
 export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
 
 /** OffPageReferenceNodeConfig is the configuration for off-page reference symbols. */
-export const offPageReferenceNodeConfigZ = z.object({
+export const offPageReferenceNodeConfigZ = labeledConfigZ.omit({ scale: true }).extend({
   variant: z.literal("off_page_reference"),
   /** orientation is the direction the reference arrow points. */
   orientation: spatial.outerLocationZ.default("right"),
-  /** label is the label displayed inside the reference. */
-  label: labelConfigZ.prefault({}),
   /** color is the fill color of the reference. */
   color: color.colorZ.optional(),
   /** page is the page this reference links to. */
@@ -697,17 +673,13 @@ export const selectNodeConfigZ = labeledConfigZ.extend({
 export interface SelectNodeConfig extends z.infer<typeof selectNodeConfigZ> {}
 
 /** ScaleNodeConfig is the configuration for standalone scale symbols. */
-export const scaleNodeConfigZ = z.object({
+export const scaleNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("scale"),
-  /** label is the symbol's label configuration. */
-  label: labelConfigZ.prefault({}),
   /**
    * orientation is the axis the bar fills along: top for vertical, right for
    * horizontal. Any other value reads as vertical.
    */
   orientation: spatial.outerLocationZ.default("top"),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().default(1),
   /** position is the offset of the scale contents within the symbol. */
   position: spatial.xyZ.optional(),
   /**
@@ -746,54 +718,44 @@ export const setpointNodeConfigZ = labeledConfigZ.extend({
 export interface SetpointNodeConfig extends z.infer<typeof setpointNodeConfigZ> {}
 
 /** StateIndicatorNodeConfig is the configuration for multi-state indicator symbols. */
-export const stateIndicatorNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("state_indicator"),
-  /** channel is the channel whose value selects the displayed state. */
-  channel: channel.keyZ.optional(),
-  /** color is the fallback color when no state matches. */
-  color: color.colorZ.optional(),
-  /** inlineSize is the inline size of the indicator in pixels. */
-  inlineSize: z.number().default(100),
-  /** options is the set of displayable states. */
-  options: stateMappingZ.array().default(() => []),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
+export const stateIndicatorNodeConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("state_indicator"),
+    /** channel is the channel whose value selects the displayed state. */
+    channel: channel.keyZ.optional(),
+    /** color is the fallback color when no state matches. */
+    color: color.colorZ.optional(),
+    /** inlineSize is the inline size of the indicator in pixels. */
+    inlineSize: z.number().default(100),
+    /** options is the set of displayable states. */
+    options: stateMappingZ.array().default(() => []),
+  });
 export interface StateIndicatorNodeConfig extends z.infer<
   typeof stateIndicatorNodeConfigZ
 > {}
 
 /** StringDisplayNodeConfig is the configuration for live string display symbols. */
-export const stringDisplayNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("string_display"),
-  /** color is the background color of the display. */
-  color: color.colorZ.optional(),
-  /** textColor is the color of the displayed text. */
-  textColor: color.colorZ.optional(),
-  /** tooltip is the list of tooltip lines shown on hover. */
-  tooltip: z
-    .string()
-    .array()
-    .default(() => []),
-  /** inlineSize is the inline size of the display in pixels. */
-  inlineSize: z.number().default(100),
-  /** channel is the channel whose string value the symbol displays. */
-  channel: channel.keyZ.optional(),
-  /** level is the typography level of the displayed text. */
-  level: text.levelZ.default("h4"),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
+export const stringDisplayNodeConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("string_display"),
+    /** color is the background color of the display. */
+    color: color.colorZ.optional(),
+    /** textColor is the color of the displayed text. */
+    textColor: color.colorZ.optional(),
+    /** tooltip is the list of tooltip lines shown on hover. */
+    tooltip: z
+      .string()
+      .array()
+      .default(() => []),
+    /** inlineSize is the inline size of the display in pixels. */
+    inlineSize: z.number().default(100),
+    /** channel is the channel whose string value the symbol displays. */
+    channel: channel.keyZ.optional(),
+    /** level is the typography level of the displayed text. */
+    level: text.levelZ.default("h4"),
+  });
 export interface StringDisplayNodeConfig extends z.infer<
   typeof stringDisplayNodeConfigZ
 > {}
@@ -822,45 +784,33 @@ export const textBoxNodeConfigZ = labeledConfigZ.extend({
 export interface TextBoxNodeConfig extends z.infer<typeof textBoxNodeConfigZ> {}
 
 /** ValueNodeConfig is the configuration for live telemetry value symbols. */
-export const valueNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("value"),
-  /** position is the offset of the value contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /** color is the background color of the value. */
-  color: color.colorZ.optional(),
-  /** textColor is the color of the displayed text. */
-  textColor: color.colorZ.optional(),
-  /** tooltip is the list of tooltip lines shown on hover. */
-  tooltip: z
-    .string()
-    .array()
-    .default(() => []),
-  /** redline is the bounds-to-gradient mapping applied to the background. */
-  redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
-  /** units is the unit suffix displayed after the value. */
-  units: z.string().default("psi"),
-  /** inlineSize is the inline size of the value in pixels. */
-  inlineSize: z.number().default(70),
-  /** channel is the channel whose value the symbol displays. */
-  channel: channel.keyZ.optional(),
-  /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().optional(),
-  /** level is the typography level of the displayed value. */
-  level: text.levelZ.default("h4"),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-  /** notation is the numeric notation used to format the value. */
-  notation: notation.notationZ.default("standard"),
-  /** location is the anchor of the value within the symbol. */
-  location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
-});
+export const valueNodeConfigZ = labeledConfigZ
+  .extend(numericTelemConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("value"),
+    /** position is the offset of the value contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /** color is the background color of the value. */
+    color: color.colorZ.optional(),
+    /** textColor is the color of the displayed text. */
+    textColor: color.colorZ.optional(),
+    /** tooltip is the list of tooltip lines shown on hover. */
+    tooltip: z
+      .string()
+      .array()
+      .default(() => []),
+    /** redline is the bounds-to-gradient mapping applied to the background. */
+    redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
+    /** units is the unit suffix displayed after the value. */
+    units: z.string().default("psi"),
+    /** inlineSize is the inline size of the value in pixels. */
+    inlineSize: z.number().default(70),
+    /** level is the typography level of the displayed value. */
+    level: text.levelZ.default("h4"),
+    /** location is the anchor of the value within the symbol. */
+    location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
+  });
 export interface ValueNodeConfig extends z.infer<typeof valueNodeConfigZ> {}
 
 export const agitatorNodeConfigZ = toggleSymbolConfigZ.extend({
@@ -1915,12 +1865,8 @@ export interface FlowmeterOrificeElementConfig extends z.infer<
 > {}
 
 /** BoxElementConfig is the configuration for box annotation symbols. */
-export const boxElementConfigZ = z.object({
+export const boxElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("box"),
-  /** label is the box's label configuration. */
-  label: labelConfigZ.prefault({}),
-  /** orientation is the orientation of the box within the diagram. */
-  orientation: spatial.outerLocationZ.default("left"),
   /** color is the border color of the box. */
   color: color.colorZ.optional(),
   /** backgroundColor is the fill color of the box. */
@@ -1969,38 +1915,26 @@ export const circleElementConfigZ = labeledConfigZ.extend({
 export interface CircleElementConfig extends z.infer<typeof circleElementConfigZ> {}
 
 /** GaugeElementConfig is the configuration for gauge symbols. */
-export const gaugeElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("gauge"),
-  /** position is the offset of the gauge contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /** color is the accent color of the gauge arc. */
-  color: color.colorZ.optional(),
-  /** bounds is the numeric range displayed by the gauge. */
-  bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
-  /** barWidth is the thickness of the gauge arc in pixels. */
-  barWidth: z.number().default(10),
-  /** channel is the channel whose value the gauge displays. */
-  channel: channel.keyZ.optional(),
-  /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().optional(),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
-  /** notation is the numeric notation used to format the value. */
-  notation: notation.notationZ.default("standard"),
-  /** location is the anchor of the value within the gauge. */
-  location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
-  /** units is the unit suffix displayed after the value. */
-  units: z.string().default("RPM"),
-  /** level is the typography level of the displayed value. */
-  level: text.levelZ.default("h5"),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
+export const gaugeElementConfigZ = labeledConfigZ
+  .extend(numericTelemConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("gauge"),
+    /** position is the offset of the gauge contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /** color is the accent color of the gauge arc. */
+    color: color.colorZ.optional(),
+    /** bounds is the numeric range displayed by the gauge. */
+    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    /** barWidth is the thickness of the gauge arc in pixels. */
+    barWidth: z.number().default(10),
+    /** location is the anchor of the value within the gauge. */
+    location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
+    /** units is the unit suffix displayed after the value. */
+    units: z.string().default("RPM"),
+    /** level is the typography level of the displayed value. */
+    level: text.levelZ.default("h5"),
+  });
 export interface GaugeElementConfig extends z.infer<typeof gaugeElementConfigZ> {}
 
 /** InputElementConfig is the configuration for free-form input symbols. */
@@ -2022,22 +1956,17 @@ export const inputElementConfigZ = labeledConfigZ.extend({
 export interface InputElementConfig extends z.infer<typeof inputElementConfigZ> {}
 
 /** LightElementConfig is the configuration for indicator light symbols. */
-export const lightElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("light"),
-  /** channel is the channel whose value drives the light's on state. */
-  channel: channel.keyZ.optional(),
-  /** threshold is the value range within which the light is considered on. */
-  threshold: spatial.boundsZ().optional(),
-  /** color is the illuminated color of the light. */
-  color: color.colorZ.optional(),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
+export const lightElementConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("light"),
+    /** channel is the channel whose value drives the light's on state. */
+    channel: channel.keyZ.optional(),
+    /** threshold is the value range within which the light is considered on. */
+    threshold: spatial.boundsZ().optional(),
+    /** color is the illuminated color of the light. */
+    color: color.colorZ.optional(),
+  });
 export interface LightElementConfig extends z.infer<typeof lightElementConfigZ> {}
 
 /** LineElementConfig is the configuration for straight line symbols. */
@@ -2057,19 +1986,19 @@ export interface LineElementConfig extends z.infer<typeof lineElementConfigZ> {}
 /**
  * OffPageReferenceElementConfig is the configuration for off-page reference symbols.
  */
-export const offPageReferenceElementConfigZ = z.object({
-  variant: z.literal("off_page_reference"),
-  /** orientation is the direction the reference arrow points. */
-  orientation: spatial.outerLocationZ.default("right"),
-  /** label is the label displayed inside the reference. */
-  label: labelConfigZ.prefault({}),
-  /** color is the fill color of the reference. */
-  color: color.colorZ.optional(),
-  /** page is the page this reference links to. */
-  page: pageZ.optional(),
-  /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
-  dblClickNavDisabled: z.boolean().default(false),
-});
+export const offPageReferenceElementConfigZ = labeledConfigZ
+  .omit({ scale: true })
+  .extend({
+    variant: z.literal("off_page_reference"),
+    /** orientation is the direction the reference arrow points. */
+    orientation: spatial.outerLocationZ.default("right"),
+    /** color is the fill color of the reference. */
+    color: color.colorZ.optional(),
+    /** page is the page this reference links to. */
+    page: pageZ.optional(),
+    /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
+    dblClickNavDisabled: z.boolean().default(false),
+  });
 export interface OffPageReferenceElementConfig extends z.infer<
   typeof offPageReferenceElementConfigZ
 > {}
@@ -2115,17 +2044,13 @@ export const selectElementConfigZ = labeledConfigZ.extend({
 export interface SelectElementConfig extends z.infer<typeof selectElementConfigZ> {}
 
 /** ScaleElementConfig is the configuration for standalone scale symbols. */
-export const scaleElementConfigZ = z.object({
+export const scaleElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("scale"),
-  /** label is the symbol's label configuration. */
-  label: labelConfigZ.prefault({}),
   /**
    * orientation is the axis the bar fills along: top for vertical, right for
    * horizontal. Any other value reads as vertical.
    */
   orientation: spatial.outerLocationZ.default("top"),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().default(1),
   /** position is the offset of the scale contents within the symbol. */
   position: spatial.xyZ.optional(),
   /**
@@ -2166,54 +2091,44 @@ export interface SetpointElementConfig extends z.infer<typeof setpointElementCon
 /**
  * StateIndicatorElementConfig is the configuration for multi-state indicator symbols.
  */
-export const stateIndicatorElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("state_indicator"),
-  /** channel is the channel whose value selects the displayed state. */
-  channel: channel.keyZ.optional(),
-  /** color is the fallback color when no state matches. */
-  color: color.colorZ.optional(),
-  /** inlineSize is the inline size of the indicator in pixels. */
-  inlineSize: z.number().default(100),
-  /** options is the set of displayable states. */
-  options: stateMappingZ.array().default(() => []),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
+export const stateIndicatorElementConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("state_indicator"),
+    /** channel is the channel whose value selects the displayed state. */
+    channel: channel.keyZ.optional(),
+    /** color is the fallback color when no state matches. */
+    color: color.colorZ.optional(),
+    /** inlineSize is the inline size of the indicator in pixels. */
+    inlineSize: z.number().default(100),
+    /** options is the set of displayable states. */
+    options: stateMappingZ.array().default(() => []),
+  });
 export interface StateIndicatorElementConfig extends z.infer<
   typeof stateIndicatorElementConfigZ
 > {}
 
 /** StringDisplayElementConfig is the configuration for live string display symbols. */
-export const stringDisplayElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("string_display"),
-  /** color is the background color of the display. */
-  color: color.colorZ.optional(),
-  /** textColor is the color of the displayed text. */
-  textColor: color.colorZ.optional(),
-  /** tooltip is the list of tooltip lines shown on hover. */
-  tooltip: z
-    .string()
-    .array()
-    .default(() => []),
-  /** inlineSize is the inline size of the display in pixels. */
-  inlineSize: z.number().default(100),
-  /** channel is the channel whose string value the symbol displays. */
-  channel: channel.keyZ.optional(),
-  /** level is the typography level of the displayed text. */
-  level: text.levelZ.default("h4"),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-});
+export const stringDisplayElementConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("string_display"),
+    /** color is the background color of the display. */
+    color: color.colorZ.optional(),
+    /** textColor is the color of the displayed text. */
+    textColor: color.colorZ.optional(),
+    /** tooltip is the list of tooltip lines shown on hover. */
+    tooltip: z
+      .string()
+      .array()
+      .default(() => []),
+    /** inlineSize is the inline size of the display in pixels. */
+    inlineSize: z.number().default(100),
+    /** channel is the channel whose string value the symbol displays. */
+    channel: channel.keyZ.optional(),
+    /** level is the typography level of the displayed text. */
+    level: text.levelZ.default("h4"),
+  });
 export interface StringDisplayElementConfig extends z.infer<
   typeof stringDisplayElementConfigZ
 > {}
@@ -2242,45 +2157,33 @@ export const textBoxElementConfigZ = labeledConfigZ.extend({
 export interface TextBoxElementConfig extends z.infer<typeof textBoxElementConfigZ> {}
 
 /** ValueElementConfig is the configuration for live telemetry value symbols. */
-export const valueElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("value"),
-  /** position is the offset of the value contents within the symbol. */
-  position: spatial.xyZ.optional(),
-  /** color is the background color of the value. */
-  color: color.colorZ.optional(),
-  /** textColor is the color of the displayed text. */
-  textColor: color.colorZ.optional(),
-  /** tooltip is the list of tooltip lines shown on hover. */
-  tooltip: z
-    .string()
-    .array()
-    .default(() => []),
-  /** redline is the bounds-to-gradient mapping applied to the background. */
-  redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
-  /** units is the unit suffix displayed after the value. */
-  units: z.string().default("psi"),
-  /** inlineSize is the inline size of the value in pixels. */
-  inlineSize: z.number().default(70),
-  /** channel is the channel whose value the symbol displays. */
-  channel: channel.keyZ.optional(),
-  /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().optional(),
-  /** level is the typography level of the displayed value. */
-  level: text.levelZ.default("h4"),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
-  /**
-   * stalenessTimeout is the duration in seconds after which the value is considered
-   * stale.
-   */
-  stalenessTimeout: z.number().default(5),
-  /** stalenessColor is the color applied when the value is stale. */
-  stalenessColor: color.colorZ.optional(),
-  /** notation is the numeric notation used to format the value. */
-  notation: notation.notationZ.default("standard"),
-  /** location is the anchor of the value within the symbol. */
-  location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
-});
+export const valueElementConfigZ = labeledConfigZ
+  .extend(numericTelemConfigZ.shape)
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("value"),
+    /** position is the offset of the value contents within the symbol. */
+    position: spatial.xyZ.optional(),
+    /** color is the background color of the value. */
+    color: color.colorZ.optional(),
+    /** textColor is the color of the displayed text. */
+    textColor: color.colorZ.optional(),
+    /** tooltip is the list of tooltip lines shown on hover. */
+    tooltip: z
+      .string()
+      .array()
+      .default(() => []),
+    /** redline is the bounds-to-gradient mapping applied to the background. */
+    redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
+    /** units is the unit suffix displayed after the value. */
+    units: z.string().default("psi"),
+    /** inlineSize is the inline size of the value in pixels. */
+    inlineSize: z.number().default(70),
+    /** level is the typography level of the displayed value. */
+    level: text.levelZ.default("h4"),
+    /** location is the anchor of the value within the symbol. */
+    location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
+  });
 export interface ValueElementConfig extends z.infer<typeof valueElementConfigZ> {}
 
 export const agitatorElementConfigZ = toggleSymbolConfigZ.extend({
