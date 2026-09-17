@@ -17,6 +17,7 @@ import {
   nudge,
   parseTimeSpan,
   parseTimeStamp,
+  roundNumeric,
   unitAt,
 } from "@/input/time/grammar";
 
@@ -128,6 +129,30 @@ describe("parseTimeStamp", () => {
       ok: false,
       reason: "invalid",
     });
+  });
+
+  it("should reject dates and times that do not exist", () => {
+    const missing = [
+      "2026-02-31",
+      "2026-02-29 10:00",
+      "2026-13-01",
+      "25:00",
+      "12:99",
+      "12:30:60",
+      "13:00 pm",
+      "0:30 am",
+    ];
+    for (const text of missing)
+      expect(parseTimeStamp(text, anchors).ok, text).toBe(false);
+  });
+});
+
+describe("roundNumeric", () => {
+  it("should round to the nearest microsecond on either side of zero", () => {
+    expect(roundNumeric(1600)).toBe(2000n);
+    expect(roundNumeric(-1000)).toBe(-1000n);
+    expect(roundNumeric(-400)).toBe(0n);
+    expect(roundNumeric(-1600)).toBe(-2000n);
   });
 });
 
