@@ -299,6 +299,19 @@ var _ = Describe("Verification", func() {
 			g.Fp = []string{"0000", host[len(host)-1]}
 			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
 		})
+		It("should refuse hashes from a scheme this Core does not implement", func(
+			ctx SpecContext,
+		) {
+			host := svc.Retrieve().Host
+			if len(host) == 0 {
+				Skip("this machine has no hashable network interface")
+			}
+			g := grant()
+			g.Fs = 2
+			g.Fp = []string{host[0]}
+			Expect(svc.Activate(ctx, sign(g))).Error().
+				To(MatchError(verification.ErrHost))
+		})
 		It("should reject an invalid token", func(ctx SpecContext) {
 			Expect(svc.Activate(ctx, "nope")).Error().
 				To(MatchError(verification.ErrInvalid))

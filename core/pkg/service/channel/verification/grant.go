@@ -91,7 +91,11 @@ func Verify(anchors Anchors, token string) (Grant, error) {
 		return Grant{}, errors.Wrap(ErrInvalid, err.Error())
 	}
 	if c.V != claimsVersion {
-		return Grant{}, errors.Wrapf(ErrInvalid, "unsupported claim set version %d", c.V)
+		return Grant{}, errors.Wrapf(
+			ErrInvalid,
+			"unsupported claim set version %d",
+			c.V,
+		)
 	}
 	return c.Grant, nil
 }
