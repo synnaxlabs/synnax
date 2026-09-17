@@ -10,7 +10,7 @@
 import { capture, fixtures } from "@/index";
 
 /**
- * Docs `console/channels/create`: click the "+" action in the Channels
+ * Docs `console/channels/create_new`: click the "+" action in the Channels
  * toolbar, fill the dialog (name, data type, index), and submit; the new
  * channel appears in the toolbar.
  */

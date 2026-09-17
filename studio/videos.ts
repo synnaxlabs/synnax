@@ -16,52 +16,16 @@ import { manifest } from "@/index";
  */
 export default manifest.define([
   {
-    id: "console/ui-overview/open-toolbars",
-    script: "scripts/ui-overview-open-toolbars.ts",
-  },
-  {
-    id: "console/ui-overview/range-toolbar",
-    script: "scripts/ui-overview-range-toolbar.ts",
-  },
-  {
     id: "console/ui-overview/palette-search",
     script: "scripts/ui-overview-palette-search.ts",
   },
-  {
-    id: "console/ui-overview/palette-command",
-    script: "scripts/ui-overview-palette-command.ts",
-  },
-  {
-    id: "console/ui-overview/visualization-toolbar",
-    script: "scripts/ui-overview-visualization-toolbar.ts",
-  },
   { id: "console/line-plots/toolbar", script: "scripts/line-plot-toolbar.ts" },
-  { id: "console/line-plots/data-tab", script: "scripts/line-plot-data.ts" },
-  { id: "console/line-plots/lines-tab", script: "scripts/line-plot-lines.ts" },
-  { id: "console/line-plots/axes-tab", script: "scripts/line-plot-axes.ts" },
-  {
-    id: "console/line-plots/properties-tab",
-    script: "scripts/line-plot-properties.ts",
-  },
-  { id: "console/line-plots/zoom", script: "scripts/line-plot-zoom.ts" },
-  { id: "console/line-plots/pan", script: "scripts/line-plot-pan.ts" },
-  { id: "console/line-plots/select", script: "scripts/line-plot-select.ts" },
   { id: "console/line-plots/slope", script: "scripts/line-plot-slope.ts" },
-  {
-    id: "console/ui-overview/multiple-tabs",
-    script: "scripts/ui-overview-multiple-tabs.ts",
-  },
-  {
-    id: "console/ui-overview/close-toolbars",
-    script: "scripts/ui-overview-close-toolbars.ts",
-  },
   {
     id: "console/ui-overview/documentation",
     script: "scripts/ui-overview-documentation.ts",
   },
-  { id: "console/tables/create", script: "scripts/table-create.ts" },
   { id: "console/logs/example", script: "scripts/log-example.ts" },
-  { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
   {
     id: "console/schematics/connections",
     script: "scripts/schematic-connections.ts",
@@ -83,23 +47,15 @@ export default manifest.define([
     id: "console/schematics/symbol-import-svg",
     script: "scripts/schematic-symbol-import-svg.ts",
   },
-  { id: "console/schematics/download", script: "scripts/schematic-download.ts" },
-  { id: "console/schematics/upload", script: "scripts/schematic-upload.ts" },
   { id: "console/schematics/snapshot", script: "scripts/schematic-snapshot.ts" },
   { id: "console/schematics/valve", script: "scripts/schematic-valve.ts" },
-  // Both shots put the Core's address on screen, so they run on the port the
-  // docs quote.
-  {
-    id: "console/ui-overview/cluster-toolbar",
-    script: "scripts/ui-overview-cluster-toolbar.ts",
-    port: 9090,
-  },
+  // The shot puts the Core's address on screen, so it runs on the port the docs quote.
   {
     id: "console/clusters/connect",
     script: "scripts/clusters-connect.ts",
     port: 9090,
   },
-  { id: "console/channels/create", script: "scripts/channels-create.ts" },
+  { id: "console/channels/create_new", script: "scripts/channels-create.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
     id: "console/calculated-channels/create",
@@ -109,7 +65,6 @@ export default manifest.define([
     id: "console/calculated-channels/edit",
     script: "scripts/calculated-channels-edit.ts",
   },
-  { id: "console/ranges/toolbar-create", script: "scripts/ranges-toolbar-create.ts" },
   { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
   { id: "console/ranges/resources", script: "scripts/ranges-resources.ts" },
   { id: "console/ranges/palette", script: "scripts/ranges-palette.ts" },
@@ -120,10 +75,6 @@ export default manifest.define([
   {
     id: "console/users/modal-change-role",
     script: "scripts/users-modal-change-role.ts",
-  },
-  {
-    id: "console/users/drag-change-role",
-    script: "scripts/users-drag-change-role.ts",
   },
   { id: "console/ranges/plot-create", script: "scripts/ranges-plot-create.ts" },
   {

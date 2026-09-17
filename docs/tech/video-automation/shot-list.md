@@ -2,7 +2,7 @@
 
 Complete inventory of every `<Video id="..." />` under `docs/site/src/pages`.
 
-**Total: 84 unique ids** -> 81 under `reference/` (the docs-site tutorial set) plus 3
+**Total: 61 unique ids** under `reference/` (the docs-site tutorial set), plus the
 legacy clips under `releases/` (release-notes demos, listed in an addendum at the
 bottom). Shot descriptions marked "(inferred)" come from thin prose; the flow was
 reconstructed from the section heading and neighboring steps. Source paths are
@@ -11,44 +11,38 @@ relative to `docs/site/src/pages/`.
 ## Prerequisites legend
 
 - **Live telemetry** (a channel actively streaming data, e.g. the demo core or a sim
-  writer): `console/ui-overview/visualization-toolbar`, `console/ui-overview/multiple-tabs`,
-  `console/ranges/plot-create`, all `console/line-plots/*`, `console/tables/create`,
+  writer): `console/ranges/plot-create`, all `console/line-plots/*`,
   `console/logs/example`, `console/calculated-channels/create`,
   `console/calculated-channels/edit`, `console/schematics/value`,
   `console/schematics/valve`, `control/arc/get-started/deploy-automation`, all
   `client/resources/build-device-driver/*`, every `device-drivers/*/read-task/*` and
   `device-drivers/task/task-basic`.
-- **Pre-seeded ranges**: `console/ui-overview/range-toolbar`,
-  `console/ui-overview/palette-search`, `console/ranges/resources`,
-  `console/ranges/palette`, `console/ranges/create-child`,
+- **Pre-seeded ranges**: `console/ui-overview/palette-search`,
+  `console/ranges/resources`, `console/ranges/palette`, `console/ranges/create-child`,
   `console/ranges/add-meta-data`, `console/ranges/add-label`, `console/channels/alias`,
   `console/schematics/snapshot`.
-- **Pre-seeded users**: `console/users/modal-change-role`,
-  `console/users/drag-change-role` (need at least one non-root registered user).
-- **Pre-seeded channels** (index + data channels already created, with or without
-  data): `console/channels/alias`, `console/calculated-channels/create`,
-  `console/calculated-channels/edit`, `console/line-plots/data-tab`,
-  `console/logs/example`, `console/tables/create`, `console/schematics/value`,
-  `console/schematics/valve`, `control/arc/get-started/create-automation`.
+- **Pre-seeded users**: `console/users/modal-change-role`.
+- **Pre-seeded channels** (index + data channels already created, with or without data):
+  `console/channels/alias`, `console/calculated-channels/create`,
+  `console/calculated-channels/edit`, `console/logs/example`,
+  `console/schematics/value`, `console/schematics/valve`,
+  `control/arc/get-started/create-automation`.
 - **Pre-seeded workspaces/visualizations**: `console/workspaces/load`,
-  `console/schematics/download`, `console/schematics/snapshot`.
-- **Drag-and-drop**: `console/ui-overview/close-toolbars` (drawer resize-to-edge),
-  `console/ui-overview/multiple-tabs` (mosaic tab drag),
-  `console/users/drag-change-role`, `console/schematics/upload` (file drop option),
-  `console/schematics/connections`, `console/schematics/align-items`,
-  `console/schematics/change-color` (drag select box), symbol placement in any
-  schematic shot.
+  `console/schematics/snapshot`.
+- **Drag-and-drop**: `console/schematics/connections`, `console/schematics/align-items`,
+  `console/schematics/change-color` (drag select box), symbol placement in any schematic
+  shot.
 - **Context menus**: `console/channels/alias`, `console/calculated-channels/edit`,
-  `console/users/modal-change-role`, `console/schematics/download`,
-  `console/schematics/snapshot`, `device-drivers/task/toolbar`,
+  `console/users/modal-change-role`, `console/schematics/snapshot`,
+  `device-drivers/task/toolbar`,
   `device-drivers/ni/configure-device/ni-configure-device`,
   `device-drivers/labjack/configure-device/lj-configure`,
   `device-drivers/ethercat/configure-device/ethercat-configure`,
   `control/arc/get-started/create-automation` (one of the entry points).
 - **Hardware simulators / external services**: OPC UA server sim for
   `device-drivers/opc-ua/*`; Modbus TCP server sim for `device-drivers/modbus/*`; an
-  HTTP JSON server for `device-drivers/http/*`; real or simulated NI hardware
-  (NI-DAQmx + NI MAX) for `device-drivers/ni/*`; a LabJack device (Kipling) for
+  HTTP JSON server for `device-drivers/http/*`; real or simulated NI hardware (NI-DAQmx
+  + NI MAX) for `device-drivers/ni/*`; a LabJack device (Kipling) for
   `device-drivers/labjack/*`; an EtherCAT network for `device-drivers/ethercat/*`; a
   PagerDuty account + Events API key for `device-drivers/pagerduty/alert-task/create`;
   an Arduino on a serial port for `client/resources/build-device-driver/*`.
@@ -59,38 +53,12 @@ relative to `docs/site/src/pages/`.
 
 ## console/ui-overview
 
-- `console/ui-overview/range-toolbar` (reference/console/ui-overview.mdx) -> open the
-  Ranges Toolbar from the left rail -> show the list of favorited ranges and click
-  through one -> requires a couple of pre-seeded ranges. (inferred)
-- `console/ui-overview/task-toolbar` (reference/console/ui-overview.mdx) -> open the
-  Tasks Toolbar from the left rail -> show the list of tasks running on a driver and
-  pause/resume one -> requires a running driver with at least one task. (inferred)
-- `console/ui-overview/visualization-toolbar` (reference/console/ui-overview.mdx) ->
-  with a line plot (or schematic) open in the mosaic, click the visualize button to
-  open the bottom Visualization Toolbar -> edit a property and show the plot update ->
-  requires an existing visualization with channels selected. (inferred)
-- `console/ui-overview/cluster-toolbar` (reference/console/ui-overview.mdx) -> open
-  the Core Selector -> show the list of cores, switch the active core, and show the
-  connection badge update -> requires two saved core connections. (inferred)
-- `console/ui-overview/open-toolbars` (reference/console/ui-overview.mdx) -> start
-  from a clean mosaic -> click each toolbar icon on the side rails to open the drawers
-  one after another.
-- `console/ui-overview/close-toolbars` (reference/console/ui-overview.mdx) -> with
-  drawers open, close one by clicking its icon and close another by dragging its edge
-  until it collapses.
-- `console/ui-overview/multiple-tabs` (reference/console/ui-overview.mdx) -> with one
-  visualization open, create a second tab and drag it in the mosaic to split the view
-  -> end with two visualizations displayed side by side -> requires channels/data for
-  the visualizations to look real.
 - `console/ui-overview/documentation` (reference/console/ui-overview.mdx) -> click the
   question-mark icon -> the Synnax documentation site opens inside the Console.
 - `console/ui-overview/palette-search` (reference/console/ui-overview.mdx) -> open the
   palette with Cmd/Ctrl+P (or click the top search bar) -> type the name of an
   existing test range -> select the result and show it become the active range ->
   requires a pre-seeded range.
-- `console/ui-overview/palette-command` (reference/console/ui-overview.mdx) -> open
-  the palette in command mode (Cmd/Ctrl+Shift+P or typing `>`) -> run a command such
-  as toggling the color theme or creating a visualization -> show the effect.
 
 ## console/clusters
 
@@ -102,13 +70,13 @@ relative to `docs/site/src/pages/`.
 
 ## console/workspaces
 
-- `console/workspaces/create` (reference/console/workspaces.mdx) -> open the Workspace
-  Selector in the top-left corner -> create a new workspace via its create option and
-  name it -> the workspace becomes active in the selector. (inferred)
-- `console/workspaces/load` (reference/console/workspaces.mdx) -> locate an existing
-  workspace either in the Workspaces Toolbar on the left or in the Workspace Selector
-  -> click it -> the saved layout loads into the mosaic -> requires a pre-seeded
-  workspace with a saved layout.
+- `console/workspaces/create` (reference/console/projects.mdx) -> open the Project
+  Selector in the top-left corner -> create a new project and name it -> the project
+  becomes active in the selector.
+- `console/workspaces/load` (reference/console/projects.mdx) -> locate an existing
+  project in the Projects Toolbar on the left or in the Project Selector -> click it ->
+  its saved layout loads into the mosaic -> requires a pre-seeded project with a saved
+  layout.
 
 ## console/users
 
@@ -119,16 +87,12 @@ relative to `docs/site/src/pages/`.
   Toolbar -> right-click an existing user -> select "Assign to role" -> pick a role
   from the dropdown in the dialog and click "Assign" -> the user moves under the new
   role -> requires a pre-seeded non-root user.
-- `console/users/drag-change-role` (reference/console/users.mdx) -> in the Users
-  Toolbar resource tree, drag a user node onto a different role node -> drop -> the
-  user is reassigned to that role -> requires a pre-seeded non-root user.
 
 ## console/channels
 
-- `console/channels/create` (reference/console/channels.mdx) -> open the command
-  palette (type `>` or Cmd/Ctrl+Shift+P) -> run "Create Channel" -> fill name,
-  virtual/index flags, data type, and index channel in the dialog -> submit -> the
-  channel appears in the Channels Toolbar.
+- `console/channels/create_new` (reference/console/channels.mdx) -> click the "+"
+  action in the Channels Toolbar -> fill name, data type, and index channel in the
+  dialog -> submit -> the channel appears in the Channels Toolbar.
 - `console/channels/alias` (reference/console/channels.mdx) -> with a range active,
   open the Channels Toolbar -> right-click a channel -> choose the alias option and
   type a range-specific name (e.g. rename `digital_input_1` to `pressure_01`) -> show
@@ -149,9 +113,6 @@ relative to `docs/site/src/pages/`.
 
 ## console/ranges
 
-- `console/ranges/toolbar-create` (reference/console/ranges.mdx) -> open the Ranges
-  Toolbar -> click its **create** button -> fill name and from/to timestamps in the
-  dialog -> save -> the range appears in the toolbar.
 - `console/ranges/palette-create` (reference/console/ranges.mdx) -> open the command
   palette (`>` or Cmd/Ctrl+Shift+P) -> run the create-range command -> fill and save
   the range dialog.
@@ -162,6 +123,10 @@ relative to `docs/site/src/pages/`.
 - `console/ranges/resources` (reference/console/ranges.mdx) -> open the Ranges Toolbar
   on the left -> browse the core's ranges -> click one to load it into the toolbar as
   active -> requires pre-seeded ranges.
+- `console/ranges/explorer` (reference/console/ranges.mdx) -> open the Range Explorer
+  from the Ranges Toolbar -> the explorer tab lists every range on the Core -> type
+  into its search or pick a label filter to narrow the list -> requires pre-seeded
+  ranges.
 - `console/ranges/palette` (reference/console/ranges.mdx) -> click the Search and
   Command Palette at the top -> type the name of a permanently saved range ->
   arrow-key/click to select it -> the range loads -> requires a pre-seeded saved
@@ -183,37 +148,12 @@ All shots require channels with data (live streaming for the rolling-range ones)
 - `console/line-plots/toolbar` (reference/console/line-plots.mdx) -> with a line plot
   tab open, click the visualize button in the bottom-left corner -> the Visualization
   Toolbar opens showing the plot's tabs.
-- `console/line-plots/data-tab` (reference/console/line-plots.mdx) -> in the Data tab,
-  select Y1 channels, pick a range (including a rolling live range), and optionally
-  Y2/X1 -> show lines appearing on the plot as channels are selected.
-- `console/line-plots/lines-tab` (reference/console/line-plots.mdx) -> in the Lines
-  tab, change a line's label, width, downsampling, and color -> show the legend and
-  line style updating live.
-- `console/line-plots/axes-tab` (reference/console/line-plots.mdx) -> in the Axes tab,
-  set lower/upper bounds, tick spacing, and an axis label/direction/size -> show the
-  axes re-render.
-- `console/line-plots/properties-tab` (reference/console/line-plots.mdx) -> in the
-  Properties tab, change the plot title and toggle Show Title / Show Legend -> show
-  the plot header and legend appear and disappear.
-- `console/line-plots/zoom` (reference/console/line-plots.mdx) -> click the zoom
-  button (or hold Alt/Option) -> drag a box on the plot -> the axes rescale to the
-  boxed area.
-- `console/line-plots/pan` (reference/console/line-plots.mdx) -> click the pan button
-  (or hold Shift) -> drag on the plot -> the view translates along the data.
-- `console/line-plots/select` (reference/console/line-plots.mdx) -> click the
-  selection button -> drag a box over data -> right-click the selection and show the
-  menu: copy the time range (Python / TypeScript / ISO), create a range from it, or
-  download as CSV.
 - `console/line-plots/slope` (reference/console/line-plots.mdx) -> click the slope
   button -> click a first point, then press `2` and click a second point -> the
   overlay shows slope and x/y deltas between the two points.
 
 ## console/tables
 
-- `console/tables/create` (reference/console/tables.mdx) -> add a new tab in the
-  mosaic and select the table visualization (or run "Create a Table" from the command
-  palette) -> show an empty table appear and, ideally, a value cell hooked to a
-  channel updating -> requires channels with live data for a convincing end state.
 
 ## console/logs
 
@@ -224,17 +164,6 @@ All shots require channels with data (live streaming for the rolling-range ones)
 
 ## console/schematics
 
-- `console/schematics/create` (reference/console/schematics.mdx) -> add a new tab and
-  select the schematic visualization -> an empty schematic canvas opens in edit mode
-  with the symbols library at the bottom.
-- `console/schematics/download` (reference/console/schematics.mdx) -> find the
-  schematic under its workspace in the Workspaces Toolbar -> right-click and choose
-  "Download as JSON" -> the file saves -> requires an existing schematic in a
-  workspace.
-- `console/schematics/upload` (reference/console/schematics.mdx) -> import a schematic
-  JSON either by dragging the file from the file system onto the Console or by
-  right-clicking a workspace name in the Workspaces Toolbar and importing -> the
-  schematic opens as a new tab -> requires a schematic JSON file on disk.
 - `console/schematics/value` (reference/console/schematics.mdx) -> in edit mode,
   select a value symbol -> in the Telemetry tab of the Visualization Toolbar, pick an
   input channel and set precision/averaging -> the symbol starts displaying the
@@ -465,3 +394,5 @@ These sit outside the `reference/` tutorial set; listed for completeness.
   Console sessions editing the same schematic simultaneously, with one user's edits
   appearing live in the other's view -> requires two clients connected to the same
   core. (inferred)
+- `releases/0-57-0/panels` (releases/0-57-0.mdx) -> the release page's hero clip of the
+  panels shell; unthemed, so the CDN serves one file.

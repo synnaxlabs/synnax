@@ -29,13 +29,19 @@ describe("manifest.define", () => {
     ).toThrow("duplicate manifest id");
   });
 
-  it("should reject ids that are not slash-separated kebab-case", () => {
+  it("should reject ids that are not slash-separated lowercase segments", () => {
     expect(() => define([{ id: "single-segment", script: "a.ts" }])).toThrow(
-      "kebab-case",
+      "lowercase segments",
     );
     expect(() => define([{ id: "console/Line Plots/x", script: "a.ts" }])).toThrow(
-      "kebab-case",
+      "lowercase segments",
     );
+  });
+
+  it("should accept the underscores some docs ids carry", () => {
+    expect(() =>
+      define([{ id: "console/channels/create_new", script: "a.ts" }]),
+    ).not.toThrow();
   });
 });
 

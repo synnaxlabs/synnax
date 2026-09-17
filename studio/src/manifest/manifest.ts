@@ -20,8 +20,8 @@ export const entryZ = z.object({
   id: z
     .string()
     .regex(
-      /^[a-z0-9-]+(\/[a-z0-9-]+)+$/,
-      "ids are slash-separated kebab-case segments",
+      /^[a-z0-9_-]+(\/[a-z0-9_-]+)+$/,
+      "ids are slash-separated lowercase segments",
     ),
   /** Video script path, relative to the studio package root. */
   script: z.string().min(1),
