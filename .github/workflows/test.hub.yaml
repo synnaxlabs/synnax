@@ -7,21 +7,21 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Test - Docs
+name: Test - Hub
 
 on:
   pull_request:
     paths:
       - .github/actions/test-typescript/**
-      - .github/workflows/test.docs.yaml
+      - .github/workflows/test.hub.yaml
       - alamos/ts/**
       - arc/ts/**
       - client/ts/**
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
-      - docs/site/**
       - freighter/ts/**
+      - hub/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml
@@ -35,15 +35,15 @@ on:
       - rc
     paths:
       - .github/actions/test-typescript/**
-      - .github/workflows/test.docs.yaml
+      - .github/workflows/test.hub.yaml
       - alamos/ts/**
       - arc/ts/**
       - client/ts/**
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
-      - docs/site/**
       - freighter/ts/**
+      - hub/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml
@@ -74,9 +74,9 @@ jobs:
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
-          package: docs
-          coverage_flag: docs
-          directory: docs/site
+          package: hub
+          coverage_flag: hub
+          directory: hub
 
       - name: Diff Changes
         if: github.event_name == 'pull_request'
@@ -85,15 +85,15 @@ jobs:
         with:
           filters: |
             site:
-              - docs/site/**
+              - hub/**
 
       - name: Check Site
         if: >-
           github.event_name != 'pull_request' || github.base_ref == 'main' ||
           steps.filter.outputs.site == 'true'
         timeout-minutes: 15
-        working-directory: docs/site
+        working-directory: hub
         run: pnpm check-site:build && pnpm check-site
 
       - name: Build
-        run: pnpm build:docs
+        run: pnpm build:hub
