@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Form, Input, Select, state } from "@synnaxlabs/pluto";
+import { Form, Input, Select, state } from "@synnaxlabs/pluto";
 import { binary, type record } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { z } from "zod";
@@ -139,8 +139,8 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
             />
           </Input.Item>
           {colOptions.length > 0 && (
-            <Flex.Box x>
-              <Input.Item label="Raw column" padHelpText grow>
+            <>
+              <Input.Item label="Raw column" padHelpText>
                 <Select.Static
                   resourceName="raw column"
                   value={rawCol}
@@ -148,7 +148,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
                   data={colOptions}
                 />
               </Input.Item>
-              <Input.Item label="Scaled column" padHelpText grow>
+              <Input.Item label="Scaled column" padHelpText>
                 <Select.Static
                   resourceName="scaled column"
                   value={scaledCol}
@@ -156,7 +156,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
                   data={colOptions}
                 />
               </Input.Item>
-            </Flex.Box>
+            </>
           )}
         </>
       )}
@@ -171,6 +171,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
           onChange={handleRowsChange}
           createRow={createRow}
           preview={preview}
+          rowLabel={(index) => (index + 1).toString()}
         >
           <Input.TableColumn name="Pre-scaled" />
           <Input.TableColumn name="Scaled" />
