@@ -104,9 +104,11 @@ export const TimeSpan = ({
 
   const apply = useCallback(
     (span: XTimeSpan) => {
-      if (Number(span.valueOf()) !== value) onChange(Number(span.valueOf()));
+      const next = Number(span.valueOf());
+      // An elapsed readout ignores value, so any typed duration is a change.
+      if (elapsedSince != null || next !== value) onChange(next);
     },
-    [value, onChange],
+    [value, onChange, elapsedSince],
   );
 
   const finish = useCallback(() => {
