@@ -25,12 +25,14 @@ interface FieldExtraProps {
   showOuterCenter?: boolean;
 }
 
+export type FieldProps = Form.FieldProps<SymbolOrientation> & FieldExtraProps;
+
 export const Field = ({
   hideOuter,
   hideInner,
   showOuterCenter,
   ...rest
-}: Form.FieldProps<SymbolOrientation> & FieldExtraProps): ReactElement | null => {
+}: FieldProps): ReactElement | null => {
   if (hideInner && hideOuter) return null;
   return (
     <Form.Field<SymbolOrientation>
@@ -58,5 +60,20 @@ export const Field = ({
         />
       )}
     </Form.Field>
+  );
+};
+
+export type SectionProps = FieldProps & { title?: string };
+
+/** Section is the field in a titled form section, or nothing when both parts hide. */
+export const Section = ({
+  title = "Orientation",
+  ...rest
+}: SectionProps): ReactElement | null => {
+  if (rest.hideInner && rest.hideOuter) return null;
+  return (
+    <Form.Section title={title}>
+      <Field showLabel={false} {...rest} />
+    </Form.Section>
   );
 };

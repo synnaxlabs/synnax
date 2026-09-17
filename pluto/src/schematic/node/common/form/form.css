@@ -9,37 +9,65 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-symbol-form {
-    height: 100%;
-    overflow-y: auto;
+.pluto-state-mapping-list {
+    padding: 1rem 0;
 
-    & > div {
-        padding: 1.5rem 2rem;
+    & > .pluto-btn {
+        margin-left: 1rem;
     }
 
-    .pluto-state-mapping-list {
-        padding: 0;
-
-        & > .pluto-btn {
-            margin-left: 1rem;
-        }
-
-        .pluto-list__item {
-            min-height: unset;
-            padding: 1rem 2rem;
-        }
-
-        .pluto-state-mapping-list__value {
-            width: 80px;
-        }
+    .pluto-list__item {
+        min-height: unset;
+        padding: 1rem 2rem;
     }
 
-    .pluto-symbol-form__page-field {
-        min-width: 0;
-        overflow: hidden;
+    .pluto-state-mapping-list__value {
+        width: 80px;
     }
 }
 
-.pluto-label-form__wrap-width {
-    max-width: 125px;
+/* Sub-tabs sit in a rail on the left so the form keeps its full height. */
+.pluto-symbol-form-tabs {
+    height: 100%;
+
+    & > .pluto-tabs__selector.pluto-tabs__selector--default {
+        width: 20rem;
+        height: 100% !important;
+        padding: 1.5rem;
+        flex-shrink: 0;
+        overflow-y: auto;
+        border-right: var(--pluto-border-l6);
+        --pluto-tabs-tab-width: 100%;
+
+        .pluto-tabs__tab {
+            flex: none;
+            width: 100%;
+            max-width: none;
+            height: var(--pluto-height-small);
+            justify-content: flex-start;
+            padding: 0 2rem;
+
+            & > .pluto-icon {
+                margin: 0 1rem 0 0;
+            }
+        }
+    }
+
+    & > .pluto-tabs__content {
+        flex-grow: 1;
+        min-width: 0;
+        overflow: hidden;
+
+        /* Percent heights inside a stretched flex item do not resolve in WebKit, so
+           the columns fill by growing instead. */
+        & > .pluto-form-sections {
+            flex-grow: 1;
+            height: auto;
+        }
+    }
+
+    /* The square widget would otherwise stretch to the column width. */
+    .pluto-select-orientation {
+        justify-self: start;
+    }
 }

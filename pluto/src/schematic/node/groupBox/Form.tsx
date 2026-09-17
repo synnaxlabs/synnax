@@ -9,13 +9,13 @@
 
 import { type ReactElement } from "react";
 
-import { Form } from "@/schematic/node/common/form";
+import { Form as Base } from "@/form";
 import { Text } from "@/text";
 
 export const GroupBoxForm = (): ReactElement => (
-  <Form.Wrapper x>
+  <Base.Sections x>
     <Text.Text status="disabled" center>
       Groups have no editable properties.
     </Text.Text>
-  </Form.Wrapper>
+  </Base.Sections>
 );

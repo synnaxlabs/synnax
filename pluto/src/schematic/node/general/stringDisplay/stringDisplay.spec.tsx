@@ -139,19 +139,19 @@ describe("StringDisplay", () => {
       );
 
     it("should render the style controls", () => {
-      const { getByText } = renderForm();
-      expect(getByText("Label")).toBeDefined();
+      const { getAllByText, getByText } = renderForm();
+      expect(getAllByText("Label").length).toBeGreaterThan(0);
       expect(getByText("Color")).toBeDefined();
-      expect(getByText("Display width")).toBeDefined();
-      expect(getByText("Size")).toBeDefined();
+      expect(getByText("Width")).toBeDefined();
+      expect(getAllByText("Size").length).toBeGreaterThan(0);
     });
 
     it("should render the telemetry controls", () => {
       const { getByText } = renderForm();
       fireEvent.click(getByText("Telemetry"));
       expect(getByText("Channel")).toBeDefined();
-      expect(getByText("Stale color")).toBeDefined();
-      expect(getByText("Stale timeout")).toBeDefined();
+      expect(getByText("Color")).toBeDefined();
+      expect(getByText("Timeout")).toBeDefined();
     });
   });
 

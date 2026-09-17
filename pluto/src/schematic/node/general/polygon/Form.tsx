@@ -9,7 +9,6 @@
 
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { type Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
@@ -42,45 +41,42 @@ const CORNER_ROUNDING_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 export const PolygonForm = (): ReactElement => (
-  <Form.Wrapper direction="x" align="stretch">
-    <Flex.Box direction="y" grow>
+  <Base.Sections x>
+    <Base.Section title="Label">
       <Label.Form path="label" />
-      <Flex.Box direction="x">
-        <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background color" />
-        <Base.NumericField
-          path="rotation"
-          label="Rotation"
-          inputProps={ROTATION_INPUT_PROPS}
-          grow
-        />
-        <Base.NumericField
-          path="numSides"
-          label="Number of sides"
-          inputProps={NUM_SIDES_INPUT_PROPS}
-          grow
-        />
-        <Base.NumericField
-          path="sideLength"
-          label="Side length"
-          inputProps={SIDE_LENGTH_INPUT_PROPS}
-          grow
-        />
-        <Base.NumericField
-          path="cornerRounding"
-          label="Corner rounding"
-          inputProps={CORNER_ROUNDING_INPUT_PROPS}
-          grow
-        />
-        <Base.NumericField
-          path="strokeWidth"
-          label="Border width"
-          inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-          grow
-        />
-      </Flex.Box>
-    </Flex.Box>
-  </Form.Wrapper>
+    </Base.Section>
+    <Base.Section title="Shape">
+      <Base.NumericField
+        path="numSides"
+        label="Sides"
+        inputProps={NUM_SIDES_INPUT_PROPS}
+      />
+      <Base.NumericField
+        path="sideLength"
+        label="Side length"
+        inputProps={SIDE_LENGTH_INPUT_PROPS}
+      />
+      <Base.NumericField
+        path="rotation"
+        label="Rotation"
+        inputProps={ROTATION_INPUT_PROPS}
+      />
+      <Base.NumericField
+        path="cornerRounding"
+        label="Corner rounding"
+        inputProps={CORNER_ROUNDING_INPUT_PROPS}
+      />
+    </Base.Section>
+    <Base.Section title="Appearance">
+      <Form.ColorField path="color" />
+      <Form.ColorField path="backgroundColor" label="Background color" />
+      <Base.NumericField
+        path="strokeWidth"
+        label="Border width"
+        inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
+      />
+    </Base.Section>
+  </Base.Sections>
 );
 
 export const CommonPolygonForm = PolygonForm;
