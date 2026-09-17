@@ -8,12 +8,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SignUp } from "@clerk/astro/components";
-import Portal from "@/portal/layouts/Portal.astro";
+import Root from "@/layouts/Root.astro";
+import { SignUp } from "@/portal/ui/auth/SignUp";
+import "@/portal/portal.css";
 
-if (Astro.locals.auth().userId != null) return Astro.redirect("/account", 303);
+if (Astro.locals.auth().userId != null) return Astro.redirect("/portal", 303);
 ---
 
-<Portal title="Create an account">
-    <SignUp />
-</Portal>
+<Root frontmatter={{ title: "Create an account" }}>
+    <section class="portal-auth-page">
+        <SignUp client:load />
+    </section>
+</Root>

@@ -8,29 +8,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { desc, eq, isNull, and, count } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import Portal from "@/portal/layouts/Portal.astro";
-import { date, load } from "@/portal/page";
+import { load } from "@/portal/page";
+import { Desktop } from "@/portal/ui/licenses/Desktop";
+import { Licenses } from "@/portal/ui/licenses/Licenses";
 import { activation, license } from "@/server/db/schema";
-import { ensurePersonal, listForMember } from "@/server/organization";
+import { organizationsFor, pick } from "@/server/organization";
 
 const loaded = await load(Astro);
 if (loaded instanceof Response) return loaded;
 const { portal, session } = loaded;
 
-await ensurePersonal(portal.store, { userID: session.userID, name: session.name });
-const organizations = await listForMember(portal.store, session);
-const requested = Astro.url.searchParams.get("org");
-const selected = organizations.find((o) => o.key === requested) ?? organizations[0];
+const organizations = await organizationsFor(portal.store, session);
+const selected = pick(organizations, Astro.url.searchParams.get("org"));
+const enterprise = selected?.kind === "team";
 
 const licenses =
-    selected == null
+    selected == null || !enterprise
         ? []
         : await portal.store.query
-              .select({
-                  license,
-                  seats: count(activation.key),
-              })
+              .select({ license, seats: count(activation.key) })
               .from(license)
               .leftJoin(
                   activation,
@@ -43,92 +41,40 @@ const licenses =
               .groupBy(license.key)
               .orderBy(desc(license.issuedAt));
 
-const now = portal.now();
-const status = (lic: typeof license.$inferSelect): string => {
-    if (lic.revokedAt != null) return "revoked";
-    if (lic.expiresAt != null && lic.expiresAt <= now)
-        return lic.maxVersion == null
-            ? "expired"
-            : `expired, covers up to ${lic.maxVersion}`;
-    return "active";
-};
-const term = (lic: typeof license.$inferSelect): string =>
-    lic.term === "perpetual"
-        ? `perpetual, up to ${lic.maxVersion}`
-        : `subscription until ${date(lic.expiresAt)}`;
+const devices =
+    selected == null || enterprise
+        ? []
+        : await portal.store.query
+              .select({ activation })
+              .from(activation)
+              .innerJoin(license, eq(activation.license, license.key))
+              .where(
+                  and(
+                      eq(license.organization, selected.key),
+                      eq(license.edition, "desktop"),
+                      isNull(activation.releasedAt),
+                  ),
+              )
+              .orderBy(desc(activation.lastSeen))
+              .then((rows) => rows.map((r) => r.activation));
 ---
 
 <Portal
-    title="Licenses"
+    title={enterprise ? "Licenses" : "Desktop"}
     session={session}
-    error={Astro.url.searchParams.get("error") ?? undefined}
+    organizations={organizations}
+    organization={selected}
 >
     {
-        organizations.length > 1 && (
-            <form method="get" class="portal-form">
-                <label>
-                    <span>Organization</span>
-                    <select name="org" onchange="this.form.submit()">
-                        {organizations.map((org) => (
-                            <option
-                                value={org.key}
-                                selected={org.key === selected?.key}
-                            >
-                                {org.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            </form>
+        enterprise ? (
+            <Licenses
+                client:load
+                organization={selected}
+                licenses={licenses}
+                now={portal.now()}
+            />
+        ) : (
+            <Desktop client:load devices={devices} />
         )
     }
-    <section class="portal-section">
-        {
-            licenses.length === 0 ? (
-                <p class="portal-muted">
-                    {selected?.name ?? "This organization"} holds no licenses. Contact
-                    Synnax to request one.
-                </p>
-            ) : (
-                <table class="portal-table">
-                    <thead>
-                        <tr>
-                            <th>Label</th>
-                            <th>Edition</th>
-                            <th>Term</th>
-                            <th>Seats</th>
-                            <th>Status</th>
-                            <th />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {licenses.map(({ license: lic, seats }) => (
-                            <tr>
-                                <td>
-                                    <a href={`/licenses/${lic.key}`}>
-                                        {lic.label || lic.key}
-                                    </a>
-                                </td>
-                                <td>{lic.edition}</td>
-                                <td>{term(lic)}</td>
-                                <td>
-                                    {seats} of {lic.nodes}
-                                </td>
-                                <td>{status(lic)}</td>
-                                <td>
-                                    {status(lic) !== "revoked" && (
-                                        <a
-                                            href={`/licenses/activate?license=${lic.key}`}
-                                        >
-                                            Activate a machine
-                                        </a>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            )
-        }
-    </section>
 </Portal>

@@ -39,16 +39,13 @@ export const FeedbackButton = (): ReactElement => (
       Stuck? Let us know!
     </Dialog.Trigger>
     <Dialog.Dialog>
-      <FeedbackForm close={close} />
+      <FeedbackForm />
     </Dialog.Dialog>
   </Dialog.Frame>
 );
 
-interface FeedbackFormProps {
-  close: () => void;
-}
-
-const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
+const FeedbackForm = (): ReactElement => {
+  const { close } = Dialog.useContext();
   const [loading, setLoading] = useState(false);
   const [softSuccess, setSuccess] = useState(false);
 
@@ -106,7 +103,13 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Button variant="text" size="small" textColor={8}>
+            <Button.Button
+              variant="text"
+              size="small"
+              textColor={8}
+              onClick={close}
+              aria-label="Close"
+            >
               <Icon.Close />
             </Button.Button>
           </Nav.Bar.End>

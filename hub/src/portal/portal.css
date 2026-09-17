@@ -9,247 +9,164 @@
  * included in the file licenses/APL.txt.
  */
 
-.portal {
-    width: min(100% - 4rem, 96rem);
-    margin: 4rem auto 8rem;
-    display: flex;
+/* The portal runs at Pluto's own scale, scoped so the docs keep their editorial one.
+   Modals portal to the document root, so they carry the scope class themselves. */
+.portal,
+.portal-nav,
+.portal-modal {
+    --pluto-h1-size: 5.5rem;
+    --pluto-h1-weight: 500;
+    --pluto-h1-line-height: 8.25rem;
+    --pluto-h1-letter-spacing: -0.01em;
+    --pluto-h2-size: 4.5rem;
+    --pluto-h2-weight: 500;
+    --pluto-h2-line-height: 6.75rem;
+    --pluto-h2-letter-spacing: 0;
+    --pluto-h3-size: 3.5rem;
+    --pluto-h3-weight: 500;
+    --pluto-h3-line-height: 5.25rem;
+    --pluto-h4-size: 2.6667rem;
+    --pluto-h4-weight: 500;
+    --pluto-h4-line-height: 4rem;
+    --pluto-h5-size: 2.3333rem;
+    --pluto-h5-weight: 450;
+    --pluto-h5-line-height: 3.5rem;
+    --pluto-p-size: 2.1667rem;
+    --pluto-p-weight: 400;
+    --pluto-p-line-height: 3rem;
+    --pluto-small-size: 1.9167rem;
+    --pluto-small-weight: 400;
+    --pluto-small-line-height: 2.8333rem;
+    --pluto-border-radius: 0.6667rem;
+    --pluto-height-huge: 8rem;
+    --pluto-height-large: 5.5rem;
+    --pluto-height-medium: 4.5rem;
+    --pluto-height-small: 4rem;
+}
+
+main > section.portal {
     flex-direction: column;
-    gap: 2.5rem;
+    max-width: 1100px;
+    padding: 4rem 6rem 12rem;
+    gap: 5rem;
+    align-items: stretch;
+
+    & a:not(.pluto-btn):hover {
+        text-decoration: none;
+    }
+
+    & code {
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        padding: 0.25rem 0.75rem;
+        background: var(--pluto-gray-l2);
+        border: var(--pluto-border);
+        border-color: var(--pluto-gray-l4);
+        border-radius: var(--pluto-border-radius);
+    }
+
+    & .pluto-header .pluto-text {
+        margin: 0;
+    }
 }
 
-.portal-nav {
-    display: flex;
-    gap: 0.5rem;
-    border-bottom: var(--pluto-border);
+.page-nav.portal-nav {
+    padding: 4rem 2rem 0 3rem;
+
+    & .portal-sidebar__link {
+        justify-content: flex-start;
+    }
+
+    & .portal-sidebar__link .pluto-text {
+        font-size: var(--pluto-p-size);
+    }
 }
 
-.portal-nav__link {
-    padding: 1rem 1.5rem;
-    color: var(--pluto-gray-l8);
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-}
-
-.portal-nav__link--active {
-    color: var(--pluto-gray-l11);
-    border-bottom-color: var(--pluto-primary-z);
-}
-
-.portal-title {
-    margin: 0;
-}
-
-.portal-error {
-    margin: 0;
-    padding: 1.5rem 2rem;
-    border: var(--pluto-border);
-    border-color: var(--pluto-error-z);
-    border-radius: var(--pluto-border-radius);
-    color: var(--pluto-error-z);
-}
-
-.portal-notice {
-    margin: 0;
-    padding: 1.5rem 2rem;
-    border: var(--pluto-border);
-    border-color: var(--pluto-primary-z);
-    border-radius: var(--pluto-border-radius);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-}
-
-.portal-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.portal-section h2 {
-    margin: 0;
-}
-
-.portal-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.portal-table th,
-.portal-table td {
-    text-align: left;
-    padding: 1rem 1.5rem;
-    border-bottom: var(--pluto-border);
-    vertical-align: top;
-}
-
-.portal-table th {
-    color: var(--pluto-gray-l8);
-    font-weight: 500;
-}
-
-.portal-table code {
-    font-family: var(--pluto-code-font-family, "Geist Mono", monospace);
-    font-size: 0.9em;
-}
-
-.portal-fields {
+/* Rows in a portal list read as a table: the first column grows, the rest keep to
+   their content, and the header row uses the same grid as its rows. */
+.portal-list__row {
     display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 1rem 3rem;
-    margin: 0;
+    align-items: center;
+    gap: 3rem;
+    width: 100%;
+    min-height: 6rem;
 }
 
-.portal-fields dt {
-    color: var(--pluto-gray-l8);
-}
-
-.portal-fields dd {
-    margin: 0;
-}
-
-.portal-form {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    max-width: 60rem;
-}
-
-.portal-form label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.portal-form label > span {
+.portal-list__head {
+    padding: 0 2rem;
     color: var(--pluto-gray-l9);
 }
 
-.portal-form input,
-.portal-form select,
-.portal-form textarea {
-    font: inherit;
-    padding: 1rem 1.5rem;
-    border: var(--pluto-border);
+.portal-list .pluto-list__item {
     border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l1);
-    color: var(--pluto-gray-l11);
 }
 
-.portal-form textarea {
-    min-height: 12rem;
-    font-family: var(--pluto-code-font-family, "Geist Mono", monospace);
-}
-
-.portal-form fieldset {
-    border: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    gap: 2rem;
-}
-
-.portal-form fieldset label {
-    flex-direction: row;
-    align-items: center;
-}
-
-.portal-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.portal-button {
-    font: inherit;
-    padding: 1rem 2rem;
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l2);
-    color: var(--pluto-gray-l11);
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-}
-
-.portal-button--primary {
-    background: var(--pluto-primary-z);
-    border-color: var(--pluto-primary-z);
-    color: var(--pluto-white);
-}
-
-.portal-button--danger {
-    color: var(--pluto-error-z);
-}
-
-.portal-muted {
-    color: var(--pluto-gray-l8);
-}
-
-.portal-hashes {
-    margin: 0;
-    padding: 1rem 1.5rem;
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l1);
-    font-family: var(--pluto-code-font-family, "Geist Mono", monospace);
-    font-size: 0.9em;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-
-.portal-badge {
-    display: inline-block;
-    padding: 0.25rem 1rem;
-    border-radius: 1rem;
-    border: var(--pluto-border);
-    font-size: 0.85em;
-    color: var(--pluto-gray-l9);
-}
-
-.portal-badge--open {
-    border-color: var(--pluto-primary-z);
-    color: var(--pluto-primary-z);
-}
-
-.portal-badge--done {
-    color: var(--pluto-gray-l7);
-}
-
-.portal-thread {
-    gap: 1rem;
+.portal-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(24rem, 1fr));
+    gap: 3rem 4rem;
 }
 
 .portal-message {
-    max-width: 72rem;
-    padding: 1.5rem 2rem;
-    border: var(--pluto-border);
-    border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l1);
+    max-width: 80%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .portal-message--customer {
     align-self: flex-end;
-    border-color: var(--pluto-primary-z);
 }
 
-.portal-message header {
-    display: flex;
-    justify-content: space-between;
-    gap: 2rem;
-    margin-bottom: 0.5rem;
-    color: var(--pluto-gray-l8);
+.portal-composer .pluto-input {
+    min-height: 16rem;
+    align-items: flex-start;
 }
 
-.portal-message p {
-    margin: 0;
+main > section.portal-auth-page {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: none;
+    padding: 0 4rem;
 }
 
-.portal-prose {
-    font-family: inherit;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+.portal-auth {
+    width: 100%;
+    max-width: 64rem;
+    margin: 8rem auto 12rem;
+}
+
+.portal-modal {
+    width: min(96rem, 100%);
+}
+
+@media (width <= 800px) {
+    .page-nav.portal-nav {
+        display: block;
+        position: static;
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        padding: 2rem 2rem 0;
+        border-right: none;
+        border-bottom: var(--pluto-border);
+    }
+
+    main:has(> .portal) {
+        flex-direction: column;
+    }
+
+    main > section.portal {
+        padding: 3rem 2rem 10rem;
+    }
+
+    .portal-list__row {
+        grid-template-columns: 1fr !important;
+        gap: 0.5rem;
+        padding: 1.5rem 0;
+    }
+
+    .portal-list__head {
+        display: none;
+    }
 }

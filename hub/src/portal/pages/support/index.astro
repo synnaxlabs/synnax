@@ -9,15 +9,17 @@
 // included in the file licenses/APL.txt.
 
 import Portal from "@/portal/layouts/Portal.astro";
-import { date, failure, load } from "@/portal/page";
+import { failure, load } from "@/portal/page";
 import { supportFor } from "@/portal/support";
+import { Page } from "@/portal/ui/Page";
+import { Support } from "@/portal/ui/support/Support";
 import { list, type Listed } from "@/server/support/thread";
 
 const loaded = await load(Astro);
 if (loaded instanceof Response) return loaded;
 const { portal, session } = loaded;
 
-let error = Astro.url.searchParams.get("error") ?? undefined;
+let error: string | undefined;
 let view: Awaited<ReturnType<typeof supportFor>> | undefined;
 let threads: Listed[] = [];
 try {
@@ -30,102 +32,22 @@ try {
 }
 ---
 
-<Portal title="Support" session={session} error={error}>
+<Portal
+    title="Support"
+    session={session}
+    organizations={view?.organizations ?? []}
+    organization={view?.organization}
+>
     {
-        view != null && view.organizations.length > 1 && (
-            <form method="get" class="portal-form">
-                <label>
-                    <span>Organization</span>
-                    <select name="org" onchange="this.form.submit()">
-                        {view.organizations.map((org) => (
-                            <option
-                                value={org.key}
-                                selected={org.key === view?.organization.key}
-                            >
-                                {org.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            </form>
-        )
-    }
-    {
-        view != null && (
-            <>
-                <section class="portal-section">
-                    <h2>Threads</h2>
-                    {threads.length === 0 ? (
-                        <p class="portal-muted">
-                            {view.organization.name} has no support threads yet.
-                        </p>
-                    ) : (
-                        <table class="portal-table">
-                            <thead>
-                                <tr>
-                                    <th>Title</th>
-                                    <th>Status</th>
-                                    <th>Opened</th>
-                                    <th>Last message</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {threads.map((t) => (
-                                    <tr>
-                                        <td>
-                                            <a href={`/support/${t.key}`}>{t.title}</a>
-                                            {session.staff && (
-                                                <span class="portal-muted">
-                                                    {" "}
-                                                    {t.issueIdentifier}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td>
-                                            <span
-                                                class:list={[
-                                                    "portal-badge",
-                                                    `portal-badge--${t.status}`,
-                                                ]}
-                                            >
-                                                {t.status}
-                                            </span>
-                                        </td>
-                                        <td>{date(t.createdAt)}</td>
-                                        <td>{date(t.updatedAt)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
-                </section>
-                <section class="portal-section">
-                    <h2>Open a thread</h2>
-                    <form
-                        method="post"
-                        action="/api/portal/support/threads"
-                        class="portal-form"
-                    >
-                        <input type="hidden" name="org" value={view.organization.key} />
-                        <label>
-                            <span>Title</span>
-                            <input name="title" required maxlength="200" />
-                        </label>
-                        <label>
-                            <span>Message</span>
-                            <textarea name="message" required class="portal-prose" />
-                        </label>
-                        <div class="portal-actions">
-                            <button
-                                type="submit"
-                                class="portal-button portal-button--primary"
-                            >
-                                Send
-                            </button>
-                        </div>
-                    </form>
-                </section>
-            </>
+        view == null ? (
+            <Page client:load title="Support" error={error} />
+        ) : (
+            <Support
+                client:load
+                organization={view.organization}
+                threads={threads}
+                staff={session.staff}
+            />
         )
     }
 </Portal>

@@ -148,11 +148,19 @@ through a registry (`console/src/app/link/useDeep.ts`).
 
 Every license belongs to an organization, and the portal owns the organization record. A
 user who signs up gets a personal organization whose only member is that user; no Clerk
-organization is created for it. A user who creates a team gets a team organization
-backed by a Clerk organization, which supplies membership, invitations, and the `owner`,
-`admin`, and `member` roles. Owners and admins manage licenses and invite members. Every
-member opens and reads the organization's support threads. Moving a license from a
-personal to a team organization is a transfer of one row.
+organization is created for it. An enterprise customer gets a team organization backed
+by a Clerk organization, which supplies membership, invitations, and the `admin` and
+`member` roles. Staff create it in the Clerk dashboard when the deal closes and invite
+the customer's admin there; customers never create teams, and a personal account shows
+no organization concept at all. Admins manage the team and invite members. Every member
+opens and reads the organization's support threads. Moving a license from a personal to
+a team organization is a transfer of one row.
+
+An account is therefore personal or enterprise. A personal user sees their Desktop
+machines and, where a team feature would sit, one Enterprise panel that names the
+feature and offers Talk to us, linking to the contact form. A user in at least one team
+sees that team's licenses, threads, and members, and an organization switcher only when
+they belong to more than one.
 
 Clerk prices organizations at 100 monthly retained organizations free and then one
 dollar each per month. Desktop makes every free user an organization owner, so personal
@@ -353,16 +361,24 @@ flag in `console/src`.
 ### 5.6 Portal identity and organizations
 
 Clerk provides sign-up, sign-in, sessions, and, for team organizations, membership,
-invitations, and roles through `@clerk/astro`, on a direct Clerk account. The site's
-middleware gains the Clerk handler ahead of the existing CSP handler, and the CSP
-allowlist gains Clerk's domains. After sign-in, PostHog identifies the user, which the
-site's `person_profiles: "identified_only"` setting already anticipates. A Clerk webhook
-creates the personal organization on user creation and mirrors team organization
-creation into the portal's tables (§5.9).
+invitations, and roles through `@clerk/astro`, on a direct Clerk account. The portal
+renders every one of those screens itself on Clerk's client API (§5.12); no Clerk widget
+appears on the site. The site's middleware gains the Clerk handler ahead of the existing
+CSP handler, and the CSP allowlist gains Clerk's domains. After sign-in, PostHog
+identifies the user, which the site's `person_profiles: "identified_only"` setting
+already anticipates. The portal's organization rows follow Clerk at the seams that read
+them: resolving a session upserts a row for every team the user belongs to, and issuing
+a license upserts the row for the team the staff member chose from Clerk's organization
+list. A Clerk webhook mirrors the same creations as a fast path; it is idempotent and
+nothing depends on its delivery.
 
 Staff are members of the Synnax Labs team organization with the `owner` or `admin` role;
 the staff area checks membership of that one organization key, held in an environment
 variable.
+
+Inside a team, every member activates machines, releases seats, downloads tokens, and
+opens support threads, because the person at the test stand is rarely the account admin.
+Only admins invite and remove members and change roles. No license action is admin-only.
 
 Neon Postgres, on a direct Neon account, holds the portal's tables through Drizzle:
 
@@ -502,6 +518,77 @@ this RFC extends it to every new piece in the Core:
 Obfuscation raises the cost of a casual `strings` or `grep`; it does not stop a reader
 of the source. Principle 3 sets the bar it works toward.
 
+### 5.12 Portal interface
+
+The portal is a section of the hub, not a second shell. The header gains a fourth entry,
+Portal, beside Reference, Blog, and Releases, visible signed out; a signed-out click
+lands on sign-in and returns to the page asked for. Signed in, the header's sign-in
+button becomes an avatar menu with Portal, Account, and Sign out. Below the header, a
+portal page takes the docs' left rail for its own sidebar: the organization switcher on
+top for a user in more than one team, then Licenses for a team member or Desktop for a
+personal user, Support, and Account, and for staff a second group with Inbox and
+Licenses. The content column runs at Pluto's own type scale and radius, scoped to the
+portal frame the way the feedback modal already scopes them, so the portal reads as an
+application while the docs keep their editorial scale. Theme follows the operating
+system, as the docs do. Below the mobile breakpoint the sidebar folds into the existing
+drawer and tables collapse to cards.
+
+Every portal page is an Astro page that loads its data on the server through the
+existing server functions and renders one React island with that data as props, hydrated
+on load so the first paint is server HTML. Actions open Pluto modal dialogs with the
+Console's anatomy: a header bar carrying the title and a close button, a body, and a
+footer bar with the primary action and the save shortcut. A dialog posts JSON to the
+existing `/api/portal/...` route, shows a route error inline as a status summary, and on
+success navigates to the same URL so the page reloads its data. The `?error=` query
+channel and the page-level form posts are deleted. That anatomy moves from the Console
+into Pluto as `Modal` (frame, header, body, footer), and the Console's `platform/modals`
+keeps only what binds it to the session: the factory and the stack.
+
+- **Sign-in and sign-up**: `/sign-in`, `/sign-up`, `/sign-in/reset`, and
+  `/sso-callback`, built on `signIn`, `signUp`, `setActive`, and
+  `handleRedirectCallback` from Clerk's client. Sign-in offers email and password, a
+  Google button, and a Microsoft button; a second factor renders when the account has
+  one. Reset sends an email code and takes a new password. Sign-up takes name, email,
+  and password, verifies the email with a six-digit code, and lands on `/portal`. OAuth
+  redirects to `/sso-callback` and completes to the requested page. Clerk's error codes
+  map to field help text; nothing else surfaces raw vendor copy.
+- **Licenses** (`/portal`, team members): The organization's licenses as a table of
+  label, edition, term, seats in use, and a status tag. Activate a machine opens a
+  dialog: the license to activate, if the page did not name one, a field for the
+  fingerprint the Console copied, and an Activate action that downloads the token and
+  leaves the dialog in a done state with Download again. `/portal/licenses/activate`,
+  the page the Console links, is the licenses page with that dialog open, taking
+  `?license=`. An organization with no licenses sees why and a link that opens a support
+  thread.
+- **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
+  with first seen and last renewal, an Unlink action per machine, and an empty state
+  until Phase 5 ships. The Enterprise panel sits beneath the list.
+- **License** (`/portal/licenses/<key>`): The label, status tag, and actions on top:
+  Activate a machine, and for staff Floating token and Revoke, the latter a hold to
+  confirm. A facts grid for edition, term, seats, channels, issued, and key. The
+  machines table with first seen, last token, and a per-machine menu of Download token
+  and Release, the latter confirmed. The license's activity from the event table
+  beneath, newest first.
+- **Support** (`/portal/support`, `/portal/support/<key>`): The organization's threads
+  with status tags and last activity; New thread opens a dialog with a title and a
+  message. A thread is a conversation: messages as plain text with line breaks and
+  auto-linked URLs, customer and staff messages distinguished, a composer at the bottom
+  with the save shortcut. Staff see the Linear issue link and reply as Synnax.
+- **Account** (`/portal/account`): Profile with name, email, avatar, and password change
+  through Clerk's user API. For a personal user, the Enterprise panel in place of a
+  teams section. For each team the user belongs to, its members with their roles, and
+  for an admin an Invite dialog taking email and role, with remove and role change in a
+  per-member menu. Membership goes through Clerk's organization API; there is no team
+  creation on the site.
+- **Staff inbox** (`/portal/staff`): Every thread across organizations, open first, with
+  the organization and the Linear identifier, opening the same thread view.
+- **Staff licenses** (`/portal/staff/licenses`): Every license with its organization,
+  and Issue license as a dialog: the organization chosen from Clerk's organization list,
+  label, term, nodes, channels, and the expiry or maximum version the term needs,
+  validated before the post. Issuing upserts the organization row (§5.6).
+- **Feedback**: The docs' feedback modal takes the same dialog anatomy and closes on
+  success.
+
 ## 6 What this RFC does not cover
 
 - Building Synnax Desktop itself: embedding a Core in the Console bundle and the feature
@@ -528,7 +615,7 @@ without a format change:
 ## 7 Implementation phases
 
 A rename lands first on its own, then Phases 1 through 3 stack on `rc` and merge as one
-unit, so no Core on `rc` demands a token before the key that signs it exists. Phase 4
+unit, so no Core on `rc` demands a token before the key that signs it exists. Phase 5
 lands with the Desktop bundle.
 
 - **Phase 0: Rename.** `git mv docs/site hub`, package `@synnaxlabs/hub`, and the twelve
@@ -559,7 +646,18 @@ lands with the Desktop bundle.
 - **Phase 3: Support on Linear.** The thread tables, customer mirroring, the support
   page, and the feedback modal cutover. Boundary earned by reviewability: a different
   domain with a different vendor, and nothing in the release depends on it.
-- **Phase 4: Desktop sign-in.** The browser handoff page, the deep link handler, the
+- **Phase 4: Portal interface.** Two pull requests. The first moves the modal anatomy
+  from the Console into Pluto and migrates the Console's callers, a mechanical change
+  kept apart by risk isolation. The second replaces every portal page: the header entry
+  and avatar menu, the sidebar, the custom sign-in, sign-up, reset, and callback pages,
+  the licenses, license, support, account, and staff pages with their dialogs, the
+  `/portal` routes with the Console's activation link moved, and the deletion of the
+  form-post pages, the `?error=` channel, and the portal stylesheet. Boundary earned by
+  reviewability: Phases 2 and 3 are reviewed on their server behavior, and this one on
+  its interface. Before it deploys, the production Clerk instance needs the name
+  attribute, organizations, and the Microsoft connection enabled, and the Neon database
+  needs the Drizzle migration applied; neither the build nor the deploy runs it.
+- **Phase 5: Desktop sign-in.** The browser handoff page, the deep link handler, the
   account slice and renewal loop, and the Vite flag. Depends on the Desktop bundle
   existing, so it lands when that work does.
 
@@ -686,14 +784,55 @@ registered error types. New clients decode it.
     has none, and a Marketplace install bills through Vercel and injects its variables
     without a secret changing hands. The trade is real: Neon and Clerk settings are
     dashboard steps in `infra/README.md`, not code.
-28. **Portal routes**: `/account`, `/licenses`, `/licenses/activate`, `/licenses/<key>`,
-    `/staff/licenses`, and `/api/portal/...` for the endpoints. The organization is a
-    query parameter on the licenses page, not a path segment, so a license URL never
-    changes when an organization is renamed.
+28. **Portal routes under one prefix**: `/portal` lands on licenses, then
+    `/portal/licenses/<key>`, `/portal/licenses/activate`, `/portal/support`,
+    `/portal/support/<key>`, `/portal/account`, `/portal/staff`,
+    `/portal/staff/licenses`, and `/api/portal/...` for the endpoints. Sign-in, sign-up,
+    and the SSO callback stay at the root, since they are not portal pages. A first
+    draft put the pages at the root; once the header named the section Portal, the URL
+    had to say the same. The organization is a query parameter, not a path segment, so a
+    license URL never changes when an organization is renamed.
 29. **The site becomes `hub/`**: `docs/site` understates a site that carries accounts,
     licenses, and support. `site/` and `www/` were rejected as generic, `portal/` names
     one section, `cloud/` implies a hosted service, and a coined name was offered and
     declined. The landing page merge is deferred (§6).
+30. **The portal is a section, not a shell**: Tailscale, Vercel, Linear, and Stripe put
+    the signed-in surface in an application shell on its own host. The hub is one
+    deployment, and the portal will stay small, so it takes one header entry and a
+    sidebar in the docs' left rail rather than a shell of its own. The trade is real:
+    the portal inherits the docs header and footer, and its density is scoped by CSS
+    rather than by a separate layout.
+31. **Sign-in and the team screens are ours, on Clerk's client API**: Clerk's prebuilt
+    components take an appearance object, not a design; they render their own layout and
+    copy, and they would be the only surface on the site not built from Pluto. The trade
+    is real: password reset, email verification, second factors, and OAuth callbacks are
+    our pages to maintain against Clerk's API.
+32. **One island per page over JSON**: Restyling the server-rendered forms was cheaper
+    but cannot produce a dialog or an inline error, and every action would remain a
+    full-page round trip through a query string. The routes already accept JSON, so the
+    island model costs nothing on the server. The trade is real: the portal pages need
+    React to act, where the docs pages do not.
+33. **Members act on licenses, admins act on the team**: Making every license action
+    admin-only would send the engineer at the stand to their manager for a token. The
+    trade is real: any member can release another member's machine, and the event log is
+    the recourse.
+34. **Staff create teams in the Clerk dashboard**: A first draft let any user create a
+    team and invite members. Every license is staff-issued (decision 10), so a
+    customer-made team is an empty shell until a deal closes, and it puts a second
+    concept in front of every personal user. Clerk's dashboard already creates
+    organizations and sends invitations, so a creation dialog on the site would be a
+    second interface over the same API. The trade is real: onboarding a customer is a
+    staff step, and the site has no team creation to test.
+35. **Personal accounts see no organization concept**: A personal user has one
+    organization they never chose, so a switcher, a teams section, and an organization
+    subtitle would name something they cannot act on. Where a team feature would sit,
+    one Enterprise panel names it and offers Talk to us. The trade is real: the two
+    account shapes fork the licenses page and the account page.
+36. **Organization rows follow Clerk at the seams that read them**: A first draft relied
+    on the webhook alone, so a dropped delivery, or a local instance the webhook cannot
+    reach, left a team invisible to the portal. Session resolve and license issue now
+    upsert the rows they need; the webhook remains a fast path. The trade is real: every
+    session resolve costs one query per team.
 
 ## 9 Open questions
 

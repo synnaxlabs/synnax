@@ -9,11 +9,12 @@
 // included in the file licenses/APL.txt.
 
 import Portal from "@/portal/layouts/Portal.astro";
+import { requireStaff } from "@/portal/access";
 import { failure, load } from "@/portal/page";
-import { threadFor } from "@/portal/support";
 import { Page } from "@/portal/ui/Page";
-import { Thread } from "@/portal/ui/support/Thread";
-import { organizationsFor } from "@/server/organization";
+import { Inbox, type InboxThread } from "@/portal/ui/staff/Inbox";
+import { listAll, organizationsFor } from "@/server/organization";
+import { listAll as listAllThreads } from "@/server/support/thread";
 
 const loaded = await load(Astro);
 if (loaded instanceof Response) return loaded;
@@ -22,9 +23,19 @@ const { portal, session } = loaded;
 const organizations = await organizationsFor(portal.store, session);
 
 let error: string | undefined;
-let view: Awaited<ReturnType<typeof threadFor>> | undefined;
+let threads: InboxThread[] = [];
 try {
-    view = await threadFor(portal, session, Astro.params.key ?? "");
+    requireStaff(session);
+    const [all, orgs] = await Promise.all([
+        listAllThreads(portal.store, portal.tracker),
+        listAll(portal.store),
+    ]);
+    const names = new Map(orgs.map((o) => [o.key, o.name]));
+    threads = all.map((t) => ({
+        ...t,
+        organizationName:
+            t.organization == null ? "Signed out" : (names.get(t.organization) ?? ""),
+    }));
 } catch (err) {
     const f = failure(err);
     Astro.response.status = f.status;
@@ -32,25 +43,12 @@ try {
 }
 ---
 
-<Portal
-    title={view?.thread.title ?? "Thread"}
-    session={session}
-    organizations={organizations}
-    organization={view?.organization}
->
+<Portal title="Inbox" session={session} organizations={organizations}>
     {
-        view == null ? (
-            <Page client:load title="Thread" error={error} />
+        error != null ? (
+            <Page client:load title="Inbox" error={error} />
         ) : (
-            <Thread
-                client:load
-                thread={view.thread}
-                status={view.status}
-                messages={view.messages}
-                organization={view.organization}
-                sender={view.sender}
-                staff={session.staff}
-            />
+            <Inbox client:load threads={threads} />
         )
     }
 </Portal>

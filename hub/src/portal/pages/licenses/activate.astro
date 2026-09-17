@@ -8,95 +8,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import Portal from "@/portal/layouts/Portal.astro";
-import { licenseFor } from "@/portal/access";
-import { failure, load } from "@/portal/page";
-import { and, desc, isNull, inArray } from "drizzle-orm";
-import { license } from "@/server/db/schema";
-import { ensurePersonal, listForMember } from "@/server/organization";
+import { load } from "@/portal/page";
+import { Activate } from "@/portal/ui/licenses/Activate";
+import { license, organization } from "@/server/db/schema";
+import { organizationsFor } from "@/server/organization";
 
 const loaded = await load(Astro);
 if (loaded instanceof Response) return loaded;
 const { portal, session } = loaded;
 
-const key = Astro.url.searchParams.get("license");
-let error = Astro.url.searchParams.get("error") ?? undefined;
-let view: Awaited<ReturnType<typeof licenseFor>> | undefined;
-if (key != null)
-    try {
-        view = await licenseFor(portal, session, key);
-    } catch (err) {
-        const f = failure(err);
-        Astro.response.status = f.status;
-        error = f.message;
-    }
-
-await ensurePersonal(portal.store, { userID: session.userID, name: session.name });
-const organizations = await listForMember(portal.store, session);
-const choices =
-    view != null
-        ? []
-        : await portal.store.query
-              .select()
-              .from(license)
-              .where(
-                  and(
-                      inArray(
-                          license.organization,
-                          organizations.map((o) => o.key),
-                      ),
-                      isNull(license.revokedAt),
-                  ),
-              )
-              .orderBy(desc(license.issuedAt));
+const organizations = await organizationsFor(portal.store, session);
+const choices = await portal.store.query
+    .select({ license, organization })
+    .from(license)
+    .innerJoin(organization, eq(license.organization, organization.key))
+    .where(
+        and(
+            inArray(
+                license.organization,
+                organizations.filter((o) => o.kind === "team").map((o) => o.key),
+            ),
+            isNull(license.revokedAt),
+        ),
+    )
+    .orderBy(desc(license.issuedAt));
+const selected = Astro.url.searchParams.get("license");
 ---
 
-<Portal title="Activate a machine" session={session} error={error}>
-    {
-        view == null ? (
-            <section class="portal-section">
-                <p>Choose the license the machine runs under.</p>
-                {choices.length === 0 ? (
-                    <p class="portal-muted">You have no license to activate against.</p>
-                ) : (
-                    <ul>
-                        {choices.map((lic) => (
-                            <li>
-                                <a href={`/licenses/activate?license=${lic.key}`}>
-                                    {lic.label || lic.key}
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
-        ) : (
-            <form
-                method="post"
-                action={`/api/portal/licenses/${view.license.key}/activate`}
-                class="portal-form"
-            >
-                <p>
-                    Activating under{" "}
-                    <strong>{view.license.label || view.license.key}</strong> for{" "}
-                    {view.organization.name}. Start the Core, copy the host hashes it
-                    prints (the Console's activation screen shows them too), and paste
-                    them here. The token you download goes to the Core with{" "}
-                    <code>--license-file</code> or through the Console.
-                </p>
-                <label>
-                    <span>Host hashes, separated by commas or new lines</span>
-                    <textarea name="fingerprint" required spellcheck="false" />
-                </label>
-                <div class="portal-actions">
-                    <button type="submit" class="portal-button portal-button--primary">
-                        Activate and download token
-                    </button>
-                    <a href={`/licenses/${view.license.key}`} class="portal-button">
-                        Cancel
-                    </a>
-                </div>
-            </form>
-        )
-    }
+<Portal title="Activate a machine" session={session} organizations={organizations}>
+    <Activate
+        client:load
+        choices={choices}
+        selected={choices.some((c) => c.license.key === selected) ? selected : null}
+    />
 </Portal>
