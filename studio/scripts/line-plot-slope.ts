@@ -27,10 +27,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // The measurement pins to data on screen, so stop the rolling window first.
     // A hold snapshots the axis as it turns on, so wait for real samples first;
     // otherwise it pins the empty hour-wide default window.
-    await session.settleWall(4000);
+    await session.settleWall(9000);
     await session.settle(1000);
     await session.click(capture.control(page, "pause"), { zoom: false });
     await session.settle(500);
+    // The first seconds of data vanish once a measurement lands, so a flat drag
+    // zooms the time axis past them.
+    await session.drag({ x: 760, y: 640 }, { x: 1880, y: 650 }, { zoom: false });
+    await session.settle(800);
     await session.moveTo({ x: 756, y: 500 });
 
     session.startRecording();
