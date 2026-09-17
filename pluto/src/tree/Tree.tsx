@@ -178,6 +178,8 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
   itemHeight = ITEM_HEIGHT,
   overscan,
   onFetchMore,
+  allowNone,
+  autoSelectOnNone,
   ...rest
 }: TreeProps<K, E>): ReactElement => {
   const { keys } = shape;
@@ -195,6 +197,8 @@ export const Tree = <K extends record.Key, E extends record.Keyed<K>>({
         overscan={overscan}
         onFetchMore={onFetchMore}
         virtual={virtual}
+        allowNone={allowNone}
+        autoSelectOnNone={autoSelectOnNone}
       >
         <List.Items<K, E>
           full="y"

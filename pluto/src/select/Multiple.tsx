@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { caseconv, type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
@@ -16,6 +16,7 @@ import { type List } from "@/list";
 import { Dialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
+import { usePlaceholder } from "@/select/placeholder";
 
 export interface MultipleProps<
   K extends record.Key,
@@ -71,42 +72,46 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   variant = "connected",
   preview,
   ...rest
-}: MultipleProps<K, E>): ReactElement => (
-  <BaseDialog.Frame variant={variant} {...rest}>
-    <Frame<K, E>
-      multiple
-      value={value}
-      onChange={onChange}
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      onFetchMore={onFetchMore}
-      allowNone={allowNone}
-      replaceOnSingle={replaceOnSingle}
-      virtual={virtual}
-    >
-      <MultipleTrigger<K, E>
-        haulType={haulType}
-        createHaulItem={createHaulItem}
-        icon={icon}
-        placeholder={`Select ${plural(resourceName)}`}
-        disabled={disabled}
-        preview={preview}
-        {...triggerProps}
+}: MultipleProps<K, E>): ReactElement => {
+  const placeholder = usePlaceholder(plural(resourceName));
+  return (
+    <BaseDialog.Frame variant={variant} {...rest}>
+      <Frame<K, E>
+        multiple
+        value={value}
+        onChange={onChange}
+        data={data}
+        getItem={getItem}
+        subscribe={subscribe}
+        onFetchMore={onFetchMore}
+        allowNone={allowNone}
+        replaceOnSingle={replaceOnSingle}
+        virtual={virtual}
       >
-        {renderTag}
-      </MultipleTrigger>
-      <Dialog<K>
-        onSearch={onSearch}
-        emptyContent={emptyContent}
-        status={status}
-        actions={actions}
-        footer={footer}
-        resourceName={resourceName}
-        {...dialogProps}
-      >
-        {children}
-      </Dialog>
-    </Frame>
-  </BaseDialog.Frame>
-);
+        <MultipleTrigger<K, E>
+          haulType={haulType}
+          createHaulItem={createHaulItem}
+          icon={icon}
+          placeholder={placeholder}
+          aria-label={caseconv.capitalize(plural(resourceName))}
+          disabled={disabled}
+          preview={preview}
+          {...triggerProps}
+        >
+          {renderTag}
+        </MultipleTrigger>
+        <Dialog<K>
+          onSearch={onSearch}
+          emptyContent={emptyContent}
+          status={status}
+          actions={actions}
+          footer={footer}
+          resourceName={resourceName}
+          {...dialogProps}
+        >
+          {children}
+        </Dialog>
+      </Frame>
+    </BaseDialog.Frame>
+  );
+};
