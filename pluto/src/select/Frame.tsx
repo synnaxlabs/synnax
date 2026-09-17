@@ -27,12 +27,11 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
 }: MultipleProviderProps<K>): ReactElement => {
-  const { value, allowNone, replaceOnSingle, closeDialogOnSelect } = rest;
+  const { value, allowNone } = rest;
   const res = useMultiple(rest);
-  // Mirrors useMultiple: a plain click on the sole selected key re-selects it,
-  // and emptying is forbidden, so nothing changes and no dialog closes.
-  const reselectNoop =
-    replaceOnSingle === true && allowNone === false && closeDialogOnSelect !== true;
+  // Mirrors useMultiple: a click that would empty the selection returns before
+  // onChange and before the dialog closes.
+  const reselectNoop = allowNone === false;
   return (
     <Context value={value} reselectNoop={reselectNoop} {...res}>
       {children}

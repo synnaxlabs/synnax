@@ -12,6 +12,7 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
@@ -242,6 +243,51 @@ describe("Select.Multiple", () => {
     expect(onChange).toHaveBeenLastCalledWith(
       Array.from({ length: 206 }, (_, i) => `${i}`),
     );
+  });
+
+  it("should name the trigger by its resource", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple />);
+    expect(c.getByRole("button", { name: "Test Items" })).toBeTruthy();
+  });
+
+  it("should open the selection dialog from the keyboard", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple />);
+    const trigger = c.getByRole("button", { name: "Test Items" });
+    expect(trigger.tabIndex).toBe(0);
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    expect(c.getByText("First Item Option")).toBeTruthy();
+  });
+
+  it("should prompt a selection when a visible label names the field", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(
+      <Input.Item label="Items">
+        <SelectMultiple />
+      </Input.Item>,
+    );
+    expect(c.getByText("Select Test Items")).toBeTruthy();
+  });
+
+  it("should make the sole selected item inert when allowNone is false", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple allowNone={false} />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
+      "pluto-btn--prevent-click",
+    );
+  });
+
+  it("should keep the sole selected item clickable when allowNone is true", () => {
+    const { SelectMultiple } = createSelectMultiple();
+    const c = render(<SelectMultiple />);
+    fireEvent.click(c.getByText("Test Items"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(
+      c.getByRole("option", { name: "First Item Option" }).classList,
+    ).not.toContain("pluto-btn--prevent-click");
   });
 
   describe("replaceOnSingle", () => {

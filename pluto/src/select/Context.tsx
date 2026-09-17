@@ -47,11 +47,7 @@ export interface ContextProps<K extends record.Key = record.Key>
     PropsWithChildren,
     Partial<Pick<ContextValue<K>, "onSelect" | "setSelected" | "clear">>,
     SelectionState<K> {
-  /**
-   * True when re-selecting an already-selected item changes nothing: the frame
-   * forbids emptying the selection and a select closes no dialog. Items use it
-   * to drop interaction feedback that would promise a change.
-   */
+  /** True when clicking the sole selected item changes nothing. */
   reselectNoop?: boolean;
 }
 

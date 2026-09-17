@@ -80,10 +80,7 @@ export interface MultipleTriggerProps<
   createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
-  /**
-   * Names the trigger for assistive technology. Required when the field has no visible
-   * label, since the tags alone never say what they are.
-   */
+  /** Names the trigger. The tags alone never say what they are. */
   "aria-label"?: string;
   /** Whether to show only a count instead of one tag per entry. */
   hideTags?: boolean;
@@ -182,8 +179,9 @@ export const MultipleTrigger = <
   return (
     <Tag.Tags
       full="x"
-      // The chassis is a div, so the name only reaches assistive tech with a role.
+      // The chassis is a div, so it needs a role and a tab stop to act as a button.
       role="button"
+      tabIndex={showAddButton || preview === true ? undefined : 0}
       aria-label={ariaLabel}
       onClick={() => {
         if (!showAddButton) toggle();

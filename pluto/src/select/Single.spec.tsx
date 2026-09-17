@@ -12,6 +12,7 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
@@ -212,6 +213,43 @@ describe("Select.Single", () => {
     const c = render(<SelectSingle />);
     expect(c.getByText("Second Item")).toBeTruthy();
     expect(c.queryByText("Test Item")).toBeNull();
+  });
+
+  it("should name the trigger by its resource", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    expect(c.getByRole("button", { name: "Test Item" })).toBeTruthy();
+  });
+
+  it("should prompt a selection when a visible label names the field", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(
+      <Input.Item label="Item">
+        <SelectSingle />
+      </Input.Item>,
+    );
+    expect(c.getByText("Select Test Item")).toBeTruthy();
+  });
+
+  it("should make the selected item inert when a re-select changes nothing", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle allowNone={false} closeDialogOnSelect={false} />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
+      "pluto-btn--prevent-click",
+    );
+  });
+
+  it("should keep the selected item clickable when a re-select closes", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle allowNone={false} />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(
+      c.getByRole("option", { name: "First Item Option" }).classList,
+    ).not.toContain("pluto-btn--prevent-click");
   });
 
   describe("preview", () => {

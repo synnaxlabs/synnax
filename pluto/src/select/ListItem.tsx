@@ -20,13 +20,8 @@ export type ListItemProps<
 > = List.ItemProps<K, E>;
 
 /**
- * A {@link List.Item} wired to the enclosing selection, so clicking it selects and its
- * selected and hovered states come from the selection rather than the caller.
- *
- * When the item is the sole selection in a frame where re-selecting changes nothing,
- * it renders click-inert with no hover or press feedback: there is no interaction
- * left to promise. A row whose click still acts while selected (a double-click
- * executor, an inline control) opts out with `preventClick={false}`.
+ * A {@link List.Item} wired to the enclosing selection. The sole selected item renders
+ * click-inert when clicking it changes nothing; pass `preventClick={false}` to opt out.
  */
 export const ListItem = <
   K extends record.Key = record.Key,
