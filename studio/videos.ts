@@ -88,6 +88,10 @@ export default manifest.define([
     id: "device-drivers/task/command-palette",
     script: "scripts/task-command-palette.ts",
   },
+  { id: "console/line-plots/create", script: "scripts/line-plot-create.ts" },
+  { id: "console/logs/create", script: "scripts/log-create.ts" },
+  { id: "console/schematics/create", script: "scripts/schematic-create.ts" },
+  { id: "console/tables/create", script: "scripts/table-create.ts" },
   {
     id: "device-drivers/task/layout-selector",
     script: "scripts/task-layout-selector.ts",

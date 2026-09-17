@@ -10,8 +10,7 @@
 import { createComponentScript } from "./common/create-component";
 
 /**
- * Docs `reference/driver/task-basics` (Layout Selector tab): from an empty panel,
- * click the mosaic "+" to open the component selector and pick a task type; the task
- * configuration form opens in its place as a tab.
+ * Docs `console/tables/create`: open the component selector on an empty panel and
+ * create a table.
  */
-export default createComponentScript("NI analog read task", ".console-task-configure");
+export default createComponentScript("Table", ".console-table");
