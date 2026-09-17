@@ -60,7 +60,10 @@ const toKey = (binding: Binding): channel.Key =>
 
 const getChannelNameProps = (
   hasIcon: boolean,
-): Omit<ChannelNameProps, "channel" | "namePath"> => ({
+): Omit<
+  ChannelNameProps<unknown>,
+  "channel" | "channelPath" | "device" | "namePath" | "resolve"
+> => ({
   level: "p",
   color: 9,
   weight: 450,
@@ -123,7 +126,9 @@ export const ListAndDetailsChannelItem = <K extends string, D>({
               stateNamePath={`${path}.stateChannelName`}
               cmdNamePath={`${path}.cmdChannelName`}
               cmdChannel={channel}
+              cmdChannelPath={`${path}.cmdChannel`}
               stateChannel={stateChannel}
+              stateChannelPath={`${path}.stateChannel`}
               device={device}
               resolve={(d: D) => toPair(resolve(d))}
               itemKey={itemKey}
@@ -133,6 +138,7 @@ export const ListAndDetailsChannelItem = <K extends string, D>({
           <ChannelName
             {...channelNameProps}
             channel={channel}
+            channelPath={`${path}.channel`}
             device={device}
             resolve={(d: D) => toKey(resolve(d))}
             namePath={`${path}.name`}

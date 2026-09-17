@@ -107,6 +107,7 @@ const WriteEndpointListItem = (props: List.ItemProps<string>) => {
     () => (
       <Task.ChannelName
         channel={channel}
+        channelPath={`config.endpoints.${itemKey}.channel.channel`}
         device={device}
         // Configure keeps a bound channel before consulting the device map.
         resolve={({ properties }) =>

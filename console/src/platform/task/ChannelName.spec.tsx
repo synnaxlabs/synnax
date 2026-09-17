@@ -18,7 +18,7 @@ import { Task } from "@/platform/task";
 import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
 
-const unresolved = { device: undefined, resolve: () => 0 };
+const unresolved = { device: undefined, resolve: () => 0, channelPath: "channel" };
 
 describe("ChannelName", () => {
   it("should render the default name when no channel is selected", async () => {
@@ -129,17 +129,19 @@ describe("ChannelName", () => {
       it("should keep the row's channel while the device is undefined", async () => {
         const ch = await createChannel();
         const other = await createChannel();
-        await renderInTaskFormWithClient(
+        const { form } = await renderInTaskFormWithClient(
           <Task.ChannelName
             channel={ch.key}
+            channelPath="channel"
             namePath="name"
             device={undefined}
             resolve={() => other.key}
           />,
-          { client, values: { name: "" } },
+          { client, values: { name: "", channel: ch.key } },
         );
         await screen.findByText(ch.name);
         expect(screen.queryByText(other.name)).toBeNull();
+        expect(form.current?.get("channel").value).toBe(ch.key);
       });
 
       it("should show the channel the resolver picks over the row's own", async () => {
@@ -148,11 +150,12 @@ describe("ChannelName", () => {
         await renderInTaskFormWithClient(
           <Task.ChannelName
             channel={stale.key}
+            channelPath="channel"
             namePath="name"
             device={{}}
             resolve={() => bound.key}
           />,
-          { client, values: { name: "" } },
+          { client, values: { name: "", channel: stale.key } },
         );
         await screen.findByText(bound.name);
         expect(screen.queryByText(stale.name)).toBeNull();
@@ -163,12 +166,13 @@ describe("ChannelName", () => {
         await renderInTaskFormWithClient(
           <Task.ChannelName
             channel={stale.key}
+            channelPath="channel"
             namePath="name"
             defaultName="No channel"
             device={{}}
             resolve={() => 0}
           />,
-          { client, values: { name: "" } },
+          { client, values: { name: "", channel: stale.key } },
         );
         await screen.findByText("No channel");
         expect(screen.queryByText(stale.name)).toBeNull();
@@ -180,13 +184,80 @@ describe("ChannelName", () => {
         await renderInTaskFormWithClient(
           <Task.ChannelName
             channel={0}
+            channelPath="channel"
             namePath="name"
             device={dev}
             resolve={({ map }) => map.port}
           />,
-          { client, values: { name: "" } },
+          { client, values: { name: "", channel: 0 } },
         );
         await screen.findByText(bound.name);
+      });
+
+      it("should bind the row to the resolved channel in the form", async () => {
+        const bound = await createChannel();
+        const { form } = await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={0}
+            channelPath="channel"
+            namePath="name"
+            device={{}}
+            resolve={() => bound.key}
+          />,
+          { client, values: { name: "", channel: 0 } },
+        );
+        await waitFor(() => expect(form.current?.get("channel").value).toBe(bound.key));
+      });
+
+      it("should rebind the row when the resolver picks a different channel", async () => {
+        const stale = await createChannel();
+        const bound = await createChannel();
+        const { form } = await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={stale.key}
+            channelPath="channel"
+            namePath="name"
+            device={{}}
+            resolve={() => bound.key}
+          />,
+          { client, values: { name: "", channel: stale.key } },
+        );
+        await waitFor(() => expect(form.current?.get("channel").value).toBe(bound.key));
+      });
+
+      it("should keep the row's channel when the resolver finds none", async () => {
+        const stale = await createChannel();
+        const { form } = await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={stale.key}
+            channelPath="channel"
+            namePath="name"
+            defaultName="No channel"
+            device={{}}
+            resolve={() => 0}
+          />,
+          { client, values: { name: "", channel: stale.key } },
+        );
+        await screen.findByText("No channel");
+        await act(async () => {});
+        expect(form.current?.get("channel").value).toBe(stale.key);
+      });
+
+      it("should not bind the row in preview mode", async () => {
+        const bound = await createChannel();
+        const { form } = await renderInTaskFormWithClient(
+          <Task.ChannelName
+            channel={0}
+            channelPath="channel"
+            namePath="name"
+            device={{}}
+            resolve={() => bound.key}
+          />,
+          { client, mode: "preview", values: { name: "", channel: 0 } },
+        );
+        await screen.findByText(bound.name);
+        await act(async () => {});
+        expect(form.current?.get("channel").value).toBe(0);
       });
 
       it("should rename the resolved channel rather than the row's form name", async () => {
@@ -195,12 +266,13 @@ describe("ChannelName", () => {
         const { form } = await renderInTaskFormWithClient(
           <Task.ChannelName
             channel={0}
+            channelPath="channel"
             namePath="name"
             id={editID}
             device={{}}
             resolve={() => bound.key}
           />,
-          { client, values: { name: "form_name" } },
+          { client, values: { name: "form_name", channel: 0 } },
         );
         await screen.findByText(bound.name);
         Text.edit(editID);

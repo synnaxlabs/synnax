@@ -110,6 +110,7 @@ const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
 const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }) => ({
   key: channel,
   id: Task.getChannelNameID(key),
+  field: "channel",
 });
 
 const resolve: ChannelResolver<ReadChannel> = ({ nodeId }, { properties }) =>

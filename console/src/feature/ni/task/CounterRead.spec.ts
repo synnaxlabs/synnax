@@ -209,6 +209,22 @@ describe("CounterRead device map binding", () => {
     await screen.findByText(bound.name);
   });
 
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "ci");
+    const dev = await createMappedDevice("2", bound.key);
+    const { draft } = await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 2, { device: dev.key })]),
+    );
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.COUNTER_READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(bound.key);
+    });
+  });
+
   it("should drop a row's stale channel when its device map has no entry for its port", async () => {
     const stale = await createTestChannel(client, "ci");
     const dev = await createNIDevice(client);

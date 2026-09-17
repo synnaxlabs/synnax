@@ -277,6 +277,26 @@ describe("HTTP Write device map binding", () => {
     await screen.findByText(bound.name);
   });
 
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "http_cmd");
+    const dev = await createHTTPDevice(client, {
+      properties: { write: { "/cmd": bound.key } },
+    });
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [createWriteEndpoint("ep1", "/cmd")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: HTTP.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.endpoints[0].channel.channel).toBe(bound.key);
+    });
+  });
+
   it("should keep an endpoint's own channel over the device map", async () => {
     const own = await createTestChannel(client, "http_own");
     const mapped = await createTestChannel(client, "http_mapped");

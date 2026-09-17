@@ -327,6 +327,7 @@ describe("HTTP Read device map binding", () => {
     );
     await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await screen.findByText(/\/data/));
+    return draft;
   };
 
   it("should bind a field that holds no channel from the device map", async () => {
@@ -338,6 +339,26 @@ describe("HTTP Read device map binding", () => {
     });
     await renderSelected(dev.key, [createReadField("f1", "/temperature")]);
     await screen.findByText(bound.name);
+  });
+
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "http_field");
+    const dev = await createHTTPDevice(client, {
+      properties: {
+        read: { "/data": { index: 0, channels: { "/temperature": bound.key } } },
+      },
+    });
+    const draft = await renderSelected(dev.key, [
+      createReadField("f1", "/temperature"),
+    ]);
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: HTTP.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.endpoints[0].fields[0].channel).toBe(bound.key);
+    });
   });
 
   it("should keep a field's own channel over the device map", async () => {

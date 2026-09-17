@@ -251,6 +251,23 @@ describe("AnalogWrite device map binding", () => {
     await screen.findByText(pair.state.name);
   });
 
+  it("should save the bound channels into the task", async () => {
+    const pair = await createPair();
+    const dev = await createMappedDevice("2", pair);
+    const { draft } = await renderAnalogWrite(
+      createConfig([createChannel("ao_voltage", 2)], dev.key),
+    );
+    await screen.findByText(pair.command.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].cmdChannel).toBe(pair.command.key);
+      expect(saved.config.channels[0].stateChannel).toBe(pair.state.key);
+    });
+  });
+
   it("should drop a row's stale channels when the device map has no entry for its port", async () => {
     const pair = await createPair();
     const dev = await createNIDevice(client);

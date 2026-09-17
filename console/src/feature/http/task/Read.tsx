@@ -147,6 +147,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={fieldChannel}
+          channelPath={`${path}.channel`}
           device={device}
           resolve={resolve}
           namePath={`${path}.name`}

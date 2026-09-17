@@ -42,7 +42,7 @@ export interface ExtraItemProps {
 }
 
 export interface ChannelKeyAndIDGetter<C extends Channel> {
-  (channel: C): { id: string; key: channel.Key };
+  (channel: C): { id: string; key: channel.Key; field: string };
 }
 
 /** Returns the channel the device's saved map binds the row's node to. */
@@ -74,7 +74,7 @@ const ChannelListItem = <C extends Channel>({
   const opcNode = nodeId.length > 0 ? nodeId : "No node selected";
   let opcNodeColor;
   if (opcNode === "No node selected") opcNodeColor = "var(--pluto-warning-z)";
-  const { key: channel, id } = getChannelKeyAndID(item);
+  const { key: channel, id, field } = getChannelKeyAndID(item);
   return (
     <Select.ListItem {...rest} justify="between" align="center" rightAligned>
       <Flex.Box
@@ -87,6 +87,7 @@ const ChannelListItem = <C extends Channel>({
           color={10}
           level="p"
           channel={channel}
+          channelPath={`${path}.${field}`}
           device={device}
           resolve={(d) => resolve(item, d)}
           id={id}

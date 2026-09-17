@@ -184,6 +184,24 @@ describe("OPCUA.Write device map binding", () => {
     await screen.findByText(bound.name);
   });
 
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "opc_cmd");
+    const ch = createWriteChannel();
+    const dev = await createOPCDevice(client, {
+      properties: { write: { channels: { [ch.nodeId]: bound.key } } },
+    });
+    const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].cmdChannel).toBe(bound.key);
+    });
+  });
+
   it("should drop a node's stale channel when the device map has no entry for it", async () => {
     const stale = await createTestChannel(client, "opc_cmd");
     const ch = { ...createWriteChannel(), cmdChannel: stale.key };

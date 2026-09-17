@@ -274,6 +274,23 @@ describe("EtherCAT Read device map binding", () => {
     await screen.findByText(bound.name);
   });
 
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "ecat");
+    const slave = await createSlave({ auto_Status: bound.key });
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status")],
+    });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(bound.key);
+    });
+  });
+
   it("should drop a row's stale channel when the slave map has no entry for its PDO", async () => {
     const stale = await createTestChannel(client, "ecat");
     const slave = await createSlave();

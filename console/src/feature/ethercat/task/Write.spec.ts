@@ -259,6 +259,27 @@ describe("EtherCAT Write device map binding", () => {
     await screen.findByText(pair.state.name);
   });
 
+  it("should save the bound channels into the task", async () => {
+    const pair = await createPair();
+    const slave = await createSlave({
+      auto_Control: pair.command.key,
+      auto_Control_state: pair.state.key,
+    });
+    const { draft } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createAutoWriteChannel(slave.key, "Control")],
+    });
+    await screen.findByText(pair.command.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].cmdChannel).toBe(pair.command.key);
+      expect(saved.config.channels[0].stateChannel).toBe(pair.state.key);
+    });
+  });
+
   it("should drop a row's stale channels when the slave map has no entry for its PDO", async () => {
     const pair = await createPair();
     const slave = await createSlave();

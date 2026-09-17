@@ -20,11 +20,13 @@ export interface CommandStatePair {
 
 export interface WriteChannelNamesProps<D> extends Omit<
   ChannelNameProps<D>,
-  "channel" | "defaultName" | "id" | "namePath" | "resolve"
+  "channel" | "channelPath" | "defaultName" | "id" | "namePath" | "resolve"
 > {
   cmdChannel: channel.Key;
+  cmdChannelPath: string;
   cmdNamePath: string;
   stateChannel: channel.Key;
+  stateChannelPath: string;
   stateNamePath: string;
   itemKey: string;
   /** Returns the pair the device map binds the row to, 0 for each it lacks. */
@@ -33,9 +35,11 @@ export interface WriteChannelNamesProps<D> extends Omit<
 
 export const WriteChannelNames = <D,>({
   cmdChannel,
+  cmdChannelPath,
   cmdNamePath,
-  stateNamePath,
   stateChannel,
+  stateChannelPath,
+  stateNamePath,
   itemKey,
   resolve,
   ...rest
@@ -44,6 +48,7 @@ export const WriteChannelNames = <D,>({
     <ChannelName
       {...rest}
       channel={cmdChannel}
+      channelPath={cmdChannelPath}
       resolve={(device: D) => resolve(device).command}
       id={getChannelNameID(itemKey, "cmd")}
       defaultName="No command channel"
@@ -52,6 +57,7 @@ export const WriteChannelNames = <D,>({
     <ChannelName
       {...rest}
       channel={stateChannel}
+      channelPath={stateChannelPath}
       resolve={(device: D) => resolve(device).state}
       className={CSS.B("state-channel")}
       defaultName="No state channel"

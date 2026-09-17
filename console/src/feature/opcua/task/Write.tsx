@@ -57,6 +57,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
 }) => ({
   key: cmdChannel,
   id: Task.getChannelNameID(key, "cmd"),
+  field: "cmdChannel",
 });
 
 const resolve: ChannelResolver<WriteChannel> = ({ nodeId }, { properties }) =>

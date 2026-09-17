@@ -61,11 +61,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
   return (
     <List.Item {...rest} full="x" justify="between">
       <Flex.Box pack x align="center">
-        <PForm.Field<string>
-          path={`${path}.port`}
-          showLabel={false}
-          hideIfNull
-        >
+        <PForm.Field<string> path={`${path}.port`} showLabel={false} hideIfNull>
           {({ value, onChange, preview }) => (
             <SelectPort
               value={value}
@@ -106,7 +102,9 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
             properties[convertWriteChannelTypeToPortType(type)].channels[port] ??
             PlatformDevice.ZERO_COMMAND_STATE_PAIR
           }
+          cmdChannelPath={`${path}.cmdChannel`}
           cmdNamePath={`${path}.cmdChannelName`}
+          stateChannelPath={`${path}.stateChannel`}
           stateNamePath={`${path}.stateChannelName`}
         />
         <Task.EnableDisableButton path={`${path}.disabled`} />

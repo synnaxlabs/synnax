@@ -26,6 +26,7 @@ describe("ReadChannelContextMenuItem", () => {
       <>
         <Task.ChannelName
           channel={0}
+          channelPath="config.channel"
           device={undefined}
           resolve={() => 0}
           namePath="config.name"

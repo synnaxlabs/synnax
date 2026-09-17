@@ -17,8 +17,10 @@ import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
 import {
   commitFieldInput,
+  createTaskStatus,
   createTestChannel,
   deployAndAwaitTask,
+  isRedeployHidden,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -162,6 +164,85 @@ describe("DigitalRead device map binding", () => {
     const dev = await createMappedDevice("0l1", bound.key);
     await renderDigitalRead(createConfig([createChannel(0, 1)], dev.key));
     await screen.findByText(bound.name);
+  });
+
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "di");
+    const dev = await createMappedDevice("0l1", bound.key);
+    const { draft } = await renderDigitalRead(
+      createConfig([createChannel(0, 1)], dev.key),
+    );
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(bound.key);
+    });
+  });
+
+  it("should leave a stale channel in the task when the device map has no entry", async () => {
+    const stale = await createTestChannel(client, "di");
+    const dev = await createNIDevice(client);
+    const { draft } = await renderDigitalRead(
+      createConfig([createChannel(0, 1, { channel: stale.key })], dev.key),
+    );
+    await screen.findByText("No channel");
+    const saved = await client.tasks.retrieve({
+      key: draft.key,
+      schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+    });
+    expect(saved.config.channels[0].channel).toBe(stale.key);
+  });
+
+  // A running task whose row was deleted and re-added: the row holds a fresh key and
+  // no channel, exactly as the form autosaves it before this binding lands.
+  const createRunningWithReAddedRow = async (bound: number, dev: string) => {
+    const deployed = await createDraft(
+      createConfig([createChannel(0, 1, { channel: bound })], dev),
+    );
+    await client.tasks.create(
+      {
+        ...deployed,
+        config: createConfig([createChannel(0, 1)], dev),
+        status: createTaskStatus({
+          details: {
+            task: deployed.key,
+            running: true,
+            configHash: deployed.configHash,
+            rack: deployed.rack,
+          },
+        }),
+      },
+      NI.Task.DIGITAL_READ_SCHEMAS,
+    );
+    return deployed;
+  };
+
+  it("should hide redeploy once a re-added row is bound to its deployed channel", async () => {
+    const bound = await createTestChannel(client, "di");
+    const dev = await createMappedDevice("0l1", bound.key);
+    const deployed = await createRunningWithReAddedRow(bound.key, dev.key);
+    await renderNITaskForm(NI.Task.DigitalRead, { client, taskKey: deployed.key });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: deployed.key,
+        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+      });
+      expect(saved.configHash).toBe(deployed.configHash);
+    });
+    await waitFor(() => expect(isRedeployHidden()).toBe(true));
+  });
+
+  it("should keep redeploy shown when a re-added row cannot be bound", async () => {
+    const bound = await createTestChannel(client, "di");
+    const dev = await createNIDevice(client);
+    const deployed = await createRunningWithReAddedRow(bound.key, dev.key);
+    await renderNITaskForm(NI.Task.DigitalRead, { client, taskKey: deployed.key });
+    await screen.findByText("No channel");
+    await waitFor(() => expect(isRedeployHidden()).toBe(false));
   });
 
   it("should drop a row's stale channel when the device map has no entry for its line", async () => {

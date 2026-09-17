@@ -51,7 +51,16 @@ const renderItem = (
         />
       ))}
     />,
-    { client, values: { config: { channels: [{ key: "a", disabled: false }] } } },
+    {
+      client,
+      values: {
+        config: {
+          channels: [
+            { key: "a", disabled: false, channel: 0, cmdChannel: 0, stateChannel: 0 },
+          ],
+        },
+      },
+    },
   );
 
 describe("layouts.ListAndDetailsChannelItem", () => {
@@ -163,6 +172,39 @@ describe("layouts.ListAndDetailsChannelItem", () => {
         client,
       );
       await screen.findByText(ch.name);
+    });
+
+    it("should bind a read row's channel field in the form", async () => {
+      const ch = await createTestChannel(client);
+      const { form } = await renderItem(
+        { channel: 0, device: {}, resolve: () => ch.key },
+        client,
+      );
+      await waitFor(() =>
+        expect(form.current?.get("config.channels.a.channel").value).toBe(ch.key),
+      );
+    });
+
+    it("should bind a write row's command and state fields in the form", async () => {
+      const command = await createTestChannel(client, "cmd");
+      const state = await createTestChannel(client, "state");
+      const { form } = await renderItem(
+        {
+          channel: 0,
+          stateChannel: 0,
+          device: {},
+          resolve: () => ({ command: command.key, state: state.key }),
+        },
+        client,
+      );
+      await waitFor(() => {
+        expect(form.current?.get("config.channels.a.cmdChannel").value).toBe(
+          command.key,
+        );
+        expect(form.current?.get("config.channels.a.stateChannel").value).toBe(
+          state.key,
+        );
+      });
     });
 
     it("should show no channel when the resolver finds none for a bound read row", async () => {

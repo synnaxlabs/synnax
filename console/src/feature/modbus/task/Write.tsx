@@ -97,6 +97,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}
+          channelPath={`${path}.channel`}
           device={device}
           resolve={({ properties }) => properties.write.channels[writeMapKey(ch)] ?? 0}
           namePath={`${path}.name`}

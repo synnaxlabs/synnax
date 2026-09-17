@@ -291,6 +291,26 @@ describe("LabJack Read device map binding", () => {
     await screen.findByText(bound.name);
   });
 
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "lj");
+    const dev = await createLabJackDevice(client, {
+      properties: { AI: { channels: { AIN0: bound.key } } },
+    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: LabJack.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(bound.key);
+    });
+  });
+
   it("should drop a port's stale channel when the device map has no entry for it", async () => {
     const stale = await createTestChannel(client, "lj");
     const dev = await createLabJackDevice(client);

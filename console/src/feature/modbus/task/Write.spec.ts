@@ -211,6 +211,23 @@ describe("Modbus.Write device map binding", () => {
     await screen.findByText(bound.name);
   });
 
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "mb_cmd");
+    const dev = await createModbusDevice(client, {
+      properties: { write: { channels: { "coil-output-4": bound.key } } },
+    });
+    const draft = await createDraft(client, createConfig(dev.key, [createCoil(4)]));
+    await renderTaskFormTab(Modbus.Task.Write, { client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: Modbus.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(bound.key);
+    });
+  });
+
   it("should drop a row's stale channel when the device map has no entry for its address", async () => {
     const stale = await createTestChannel(client, "mb_cmd");
     const dev = await createModbusDevice(client);

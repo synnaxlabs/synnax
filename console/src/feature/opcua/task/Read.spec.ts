@@ -9,7 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
@@ -197,6 +197,24 @@ describe("OPCUA.Read device map binding", () => {
     const draft = await createDraft(client, createReadConfig(dev.key, [ch]));
     await renderRead({ client, taskKey: draft.key });
     await screen.findByText(bound.name);
+  });
+
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "opc");
+    const ch = createReadChannel();
+    const dev = await createOPCDevice(client, {
+      properties: { read: { indexes: [], channels: { [ch.nodeId]: bound.key } } },
+    });
+    const draft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(bound.key);
+    });
   });
 
   it("should drop a node's stale channel when the device map has no entry for it", async () => {

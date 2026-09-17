@@ -372,6 +372,23 @@ describe("AnalogRead device map binding", () => {
     await screen.findByText(bound.name);
   });
 
+  it("should save the bound channel into the task", async () => {
+    const bound = await createTestChannel(client, "ai");
+    const dev = await createMappedDevice("2", bound.key);
+    const { draft } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 2, { device: dev.key })],
+    });
+    await screen.findByText(bound.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(bound.key);
+    });
+  });
+
   it("should drop a row's stale channel when its device map has no entry for its port", async () => {
     const stale = await createTestChannel(client, "ai");
     const dev = await createNIDevice(client);

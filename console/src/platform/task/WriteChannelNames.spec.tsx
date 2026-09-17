@@ -19,7 +19,9 @@ import {
 } from "@/platform/task/testutil";
 
 const NAME_PATHS = {
+  cmdChannelPath: "config.cmdChannel",
   cmdNamePath: "config.cmdName",
+  stateChannelPath: "config.stateChannel",
   stateNamePath: "config.stateName",
   itemKey: "chan1",
 };
@@ -57,7 +59,9 @@ describe("WriteChannelNames", () => {
 
   describe("resolving from the device map", () => {
     const client = createTestClient();
-    const values = { config: { cmdName: "", stateName: "" } };
+    const values = {
+      config: { cmdName: "", stateName: "", cmdChannel: 0, stateChannel: 0 },
+    };
 
     const createPair = async () => ({
       command: await createTestChannel(client, "cmd"),
@@ -111,6 +115,45 @@ describe("WriteChannelNames", () => {
       await screen.findByText("No state channel");
       expect(screen.queryByText(pair.command.name)).toBeNull();
       expect(screen.queryByText(pair.state.name)).toBeNull();
+    });
+
+    it("should bind both channels of the resolved pair in the form", async () => {
+      const pair = await createPair();
+      const { form } = await renderInTaskFormWithClient(
+        <Task.WriteChannelNames
+          cmdChannel={0}
+          stateChannel={0}
+          {...NAME_PATHS}
+          device={{}}
+          resolve={() => ({ command: pair.command.key, state: pair.state.key })}
+        />,
+        { client, values },
+      );
+      await waitFor(() => {
+        expect(form.current?.get("config.cmdChannel").value).toBe(pair.command.key);
+        expect(form.current?.get("config.stateChannel").value).toBe(pair.state.key);
+      });
+    });
+
+    it("should bind only the channel the resolver finds", async () => {
+      const pair = await createPair();
+      const { form } = await renderInTaskFormWithClient(
+        <Task.WriteChannelNames
+          cmdChannel={0}
+          stateChannel={pair.state.key}
+          {...NAME_PATHS}
+          device={{}}
+          resolve={() => ({ command: pair.command.key, state: 0 })}
+        />,
+        {
+          client,
+          values: { config: { ...values.config, stateChannel: pair.state.key } },
+        },
+      );
+      await waitFor(() =>
+        expect(form.current?.get("config.cmdChannel").value).toBe(pair.command.key),
+      );
+      expect(form.current?.get("config.stateChannel").value).toBe(pair.state.key);
     });
 
     it("should resolve the command and state independently", async () => {

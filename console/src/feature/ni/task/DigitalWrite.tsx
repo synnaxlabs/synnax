@@ -63,7 +63,9 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
         properties.digitalOutput.channels[getDigitalChannelDeviceKey({ port, line })] ??
         PlatformDevice.ZERO_COMMAND_STATE_PAIR
       }
+      cmdChannelPath={`${path}.cmdChannel`}
       cmdNamePath={`${path}.cmdChannelName`}
+      stateChannelPath={`${path}.stateChannel`}
       stateNamePath={`${path}.stateChannelName`}
     />
   );

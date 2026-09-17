@@ -52,9 +52,11 @@ const NameComponent = ({ channel, itemKey, path, port, line }: NameComponentProp
   return (
     <Task.ChannelName
       channel={channel}
+      channelPath={`${path}.channel`}
       device={device}
       resolve={({ properties }) =>
-        properties.digitalInput.channels[getDigitalChannelDeviceKey({ port, line })] ?? 0
+        properties.digitalInput.channels[getDigitalChannelDeviceKey({ port, line })] ??
+        0
       }
       id={Task.getChannelNameID(itemKey)}
       level="p"

@@ -25,7 +25,7 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { location, type optional, primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 
 import { CSS } from "@/platform/css";
 import { useIsPreview } from "@/platform/task/Form";
@@ -41,6 +41,8 @@ interface BoundProps extends optional.Optional<
 }
 
 export interface ChannelNameProps<D> extends BoundProps {
+  /** The form path of the row's channel key, written when the device map binds it. */
+  channelPath: string;
   /** The device whose saved map binds the row, or undefined while it loads. */
   device: D | undefined;
   /** Returns the channel the device map binds the row to, or 0 when it has none. */
@@ -81,11 +83,7 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
 };
 
 /** The name the form carries for a channel whose record isn't in hand. */
-const Unresolved = ({
-  defaultName = "No channel",
-  namePath,
-  ...rest
-}: BoundProps) => {
+const Unresolved = ({ defaultName = "No channel", namePath, ...rest }: BoundProps) => {
   const formName = Form.useFieldValue<string>(namePath, { optional: true });
   const name = primitive.isNonZero(formName) ? formName : defaultName;
   return <Name namePath={namePath} name={name} {...rest} />;
@@ -136,18 +134,22 @@ const describe = (error: Error): Pick<MessageProps, "message" | "description"> =
 
 /**
  * Shows a row's channel name. The device's saved map decides which channel is shown
- * once the device resolves, since configure binds from it. The row's key stands in.
+ * once the device resolves, and the row is bound to it so autosave stores that key.
  */
 export const ChannelName = <D,>({
   device,
   resolve,
   channel,
+  channelPath,
   ...rest
 }: ChannelNameProps<D>): ReactElement => {
-  const props: BoundProps = {
-    ...rest,
-    channel: device == null ? channel : resolve(device),
-  };
+  const bound = device == null ? channel : resolve(device);
+  const { mode, set } = Form.useContext();
+  useEffect(() => {
+    if (mode === "preview" || bound === 0 || bound === channel) return;
+    set(channelPath, bound);
+  }, [mode, set, channelPath, bound, channel]);
+  const props: BoundProps = { ...rest, channel: bound };
   // Through a ref so the fallback keeps its identity: a new component every render
   // would remount the name field and drop an edit in progress.
   const propsRef = useSyncedRef(props);
