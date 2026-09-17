@@ -654,8 +654,8 @@ func passthrough(val f32) f32 {
     EXPECT_TRUE(node.is_output_truthy(0));
 }
 
-/// @brief entry nodes with no inputs execute only once per stage entry.
-TEST(NodeTest, NoInputNodeExecutesOncePerStageEntry) {
+/// @brief nodes with no inputs execute on every call to next().
+TEST(NodeTest, NoInputNodeExecutesOnEveryNext) {
     const auto client = new_test_client();
 
     auto output_idx_name = random_name("output_idx");
@@ -714,7 +714,7 @@ constant{} -> )" + output_name;
 
     changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
-    EXPECT_TRUE(changed_outputs.empty());
+    EXPECT_EQ(changed_outputs.size(), 1);
 
     node.reset();
 

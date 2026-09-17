@@ -42,8 +42,8 @@ var (
 
 func (cfg WriterConfig) Validate() error {
 	v := validate.New("virtual.writer_config")
-	validate.NotEmptyString(v, "subject.key", cfg.Subject.Key)
-	validate.NotNil(v, "err_on_unauthorized_open", cfg.ErrOnUnauthorizedOpen)
+	v.NotEmptyString("subject.key", cfg.Subject.Key)
+	v.NotNil("err_on_unauthorized_open", cfg.ErrOnUnauthorizedOpen)
 	return v.Error()
 }
 

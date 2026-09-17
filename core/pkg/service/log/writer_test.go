@@ -166,8 +166,8 @@ var _ = Describe("Writer", func() {
 		Describe("per-action semantics", func() {
 			It("Should apply Rename", func(ctx SpecContext) {
 				l := log.Log{Name: "original"}
-				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewRenameAction(log.RenamePayload{Name: "renamed"}),
 				})).To(Succeed())
 				Expect(retrieve(ctx, l.Key).Name).To(Equal("renamed"))
@@ -177,8 +177,8 @@ var _ = Describe("Writer", func() {
 				"Should append a default channel entry via AddChannel",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "test"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewAddChannelAction(log.AddChannelPayload{Channel: 42}),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
@@ -196,8 +196,8 @@ var _ = Describe("Writer", func() {
 
 			It("Should treat a duplicate AddChannel as a no-op", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}
-				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewAddChannelAction(log.AddChannelPayload{Channel: 42}),
 					log.NewAddChannelAction(log.AddChannelPayload{Channel: 42}),
 				})).To(Succeed())
@@ -206,8 +206,8 @@ var _ = Describe("Writer", func() {
 
 			It("Should drop an entry via RemoveChannel", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}
-				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewAddChannelAction(log.AddChannelPayload{Channel: 1}),
 					log.NewAddChannelAction(log.AddChannelPayload{Channel: 2}),
 					log.NewRemoveChannelAction(log.RemoveChannelPayload{Channel: 1}),
@@ -221,8 +221,8 @@ var _ = Describe("Writer", func() {
 				"Should insert then replace an entry via SetChannelEntry",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "test"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
 							Entry: log.ChannelEntry{Channel: 5, Alias: "first"},
 						}),
@@ -243,9 +243,9 @@ var _ = Describe("Writer", func() {
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: 5}},
 					}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					red := color.Color{R: 255, G: 0, B: 0, A: 1}
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelColorAction(
 							log.SetChannelColorPayload{Channel: 5, Color: red},
 						),
@@ -291,8 +291,8 @@ var _ = Describe("Writer", func() {
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: 1}},
 					}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelAliasAction(
 							log.SetChannelAliasPayload{Channel: 99, Alias: "ignored"},
 						),
@@ -309,8 +309,8 @@ var _ = Describe("Writer", func() {
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: 5}},
 					}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{
 							Channel:   5,
 							Precision: precision,
@@ -323,8 +323,8 @@ var _ = Describe("Writer", func() {
 
 			It("Should replace the whole list via SetChannels", func(ctx SpecContext) {
 				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 1}}}
-				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewSetChannelsAction(log.SetChannelsPayload{
 						Channels: []log.ChannelEntry{{Channel: 2}, {Channel: 3}},
 					}),
@@ -346,8 +346,8 @@ var _ = Describe("Writer", func() {
 							{Channel: 4},
 						},
 					}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSwapChannelAction(
 							log.SwapChannelPayload{From: 2, To: 5},
 						),
@@ -367,8 +367,8 @@ var _ = Describe("Writer", func() {
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: 1}},
 					}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSwapChannelAction(
 							log.SwapChannelPayload{From: 99, To: 5},
 						),
@@ -383,8 +383,8 @@ var _ = Describe("Writer", func() {
 				"Should set the timestamp precision via SetTimestampPrecision",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "test"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetTimestampPrecisionAction(
 							log.SetTimestampPrecisionPayload{
 								TimestampPrecision: 3,
@@ -398,8 +398,8 @@ var _ = Describe("Writer", func() {
 			DescribeTable("Should reject an out-of-range timestamp precision",
 				func(ctx SpecContext, precision int32) {
 					l := log.Log{Name: "test"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetTimestampPrecisionAction(
 							log.SetTimestampPrecisionPayload{
 								TimestampPrecision: precision,
@@ -413,8 +413,8 @@ var _ = Describe("Writer", func() {
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}
-				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewSetChannelNamesHiddenAction(log.SetChannelNamesHiddenPayload{
 						ChannelNamesHidden: true,
 					}),
@@ -433,8 +433,8 @@ var _ = Describe("Writer", func() {
 		Describe("atomicity and broadcast", func() {
 			It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}
-				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewRenameAction(log.RenamePayload{Name: "batched"}),
 					log.NewAddChannelAction(log.AddChannelPayload{Channel: 10}),
 					log.NewSetTimestampPrecisionAction(log.SetTimestampPrecisionPayload{
@@ -451,8 +451,8 @@ var _ = Describe("Writer", func() {
 				"Should not apply any action when one in the batch is rejected",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "before"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewRenameAction(log.RenamePayload{Name: "after"}),
 						log.NewSetTimestampPrecisionAction(
 							log.SetTimestampPrecisionPayload{
@@ -468,7 +468,7 @@ var _ = Describe("Writer", func() {
 				"Should notify subscribers with the dispatched ScopedAction on success",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "observed"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					rec := &Recorder[log.Key, log.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
 					actions := []log.Action{
@@ -476,7 +476,7 @@ var _ = Describe("Writer", func() {
 						log.NewAddChannelAction(log.AddChannelPayload{Channel: 5}),
 					}
 					Expect(
-						svc.NewWriter(tx).Dispatch(ctx, l.Key, "client-xyz", actions),
+						svc.Dispatch(ctx, l.Key, "client-xyz", actions),
 					).
 						To(Succeed())
 					seen := rec.Snapshot()
@@ -493,11 +493,11 @@ var _ = Describe("Writer", func() {
 				"Should assign strictly monotonic Seq across successive dispatches",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "seq"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					rec := &Recorder[log.Key, log.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
 					for _, name := range []string{"a", "b", "c"} {
-						Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d", []log.Action{
+						Expect(svc.Dispatch(ctx, l.Key, "d", []log.Action{
 							log.NewRenameAction(log.RenamePayload{Name: name}),
 						})).To(Succeed())
 					}
@@ -512,10 +512,10 @@ var _ = Describe("Writer", func() {
 				"Should not notify subscribers when Reduce rejects the action",
 				func(ctx SpecContext) {
 					l := log.Log{Name: "rejected"}
-					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					rec := &Recorder[log.Key, log.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
-					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetTimestampPrecisionAction(
 							log.SetTimestampPrecisionPayload{
 								TimestampPrecision: 99,

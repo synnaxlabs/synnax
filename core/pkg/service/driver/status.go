@@ -91,5 +91,5 @@ func (h *StatusHandler) stamp() task.Status {
 }
 
 func (h *StatusHandler) write(ctx context.Context, stat task.Status) error {
-	return status.NewWriter[task.StatusDetails](h.svc, nil).Set(ctx, &stat)
+	return h.svc.NewWriter(nil).Set(ctx, &stat)
 }

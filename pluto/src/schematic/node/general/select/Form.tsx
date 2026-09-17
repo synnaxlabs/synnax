@@ -85,8 +85,8 @@ export const SelectForm = (): ReactElement => (
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.SizeField />
           <Form.ColorField path="color" />
+          <Form.SizeField />
           <Base.NumericField
             path="inlineSize"
             label="Width"

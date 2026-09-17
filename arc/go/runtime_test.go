@@ -120,7 +120,7 @@ func newRuntimeHarness(
 
 	nodes := make(map[string]node.Node)
 	for _, irNode := range prog.Nodes {
-		n := MustSucceed(factory.Create(ctx, node.Config{
+		n := MustSucceed(factory.Create(node.Config{
 			Node:    irNode,
 			Program: prog,
 			State:   nodeState.Node(irNode.Key),

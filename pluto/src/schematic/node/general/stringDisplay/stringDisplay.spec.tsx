@@ -85,8 +85,8 @@ describe("StringDisplay", () => {
       expect(getText(container).textContent).toBe("hello");
     });
 
-    // The box takes its height from the text element's line box, so the element has to
-    // be in the DOM before a value arrives or the symbol renders collapsed.
+    // The text element must already be in the DOM when the first value arrives, so
+    // the value renders into it rather than remounting it.
     it("should render a text element when no value has arrived", () => {
       const { container } = render(<Primitive value="" />);
       expect(getText(container).textContent).toBe("");
@@ -139,19 +139,19 @@ describe("StringDisplay", () => {
       );
 
     it("should render the style controls", () => {
-      const { getByText } = renderForm();
-      expect(getByText("Label")).toBeDefined();
+      const { getAllByText, getByText } = renderForm();
+      expect(getAllByText("Label").length).toBeGreaterThan(0);
       expect(getByText("Color")).toBeDefined();
-      expect(getByText("Display width")).toBeDefined();
-      expect(getByText("Size")).toBeDefined();
+      expect(getByText("Width")).toBeDefined();
+      expect(getAllByText("Size").length).toBeGreaterThan(0);
     });
 
     it("should render the telemetry controls", () => {
       const { getByText } = renderForm();
       fireEvent.click(getByText("Telemetry"));
       expect(getByText("Channel")).toBeDefined();
-      expect(getByText("Stale color")).toBeDefined();
-      expect(getByText("Stale timeout")).toBeDefined();
+      expect(getByText("Color")).toBeDefined();
+      expect(getByText("Timeout")).toBeDefined();
     });
   });
 

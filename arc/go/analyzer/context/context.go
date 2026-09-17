@@ -31,7 +31,7 @@
 //	rootCtx := context.CreateRoot(stdContext, program, resolver)
 //
 //	// Create child context with different AST node
-//	funcCtx := context.Child(rootCtx, functionDecl)
+//	funcCtx := rootCtx.Child(functionDecl)
 //
 //	// Create context with new scope for function body
 //	bodyCtx := funcCtx.WithScope(functionScope)
@@ -231,16 +231,16 @@ func NewRoot[ASTNode antlr.ParserRuleContext](
 	}
 }
 
-// Child creates a new child context for a different AST node. Child is the primary
-// way to traverse the AST during analysis.
+// Child creates a new child context for a different AST node. Child is the primary way
+// to traverse the AST during analysis.
 //
 // The child context references the same shared state (Diagnostics, Constraints,
 // TypeMap, Scope) as the parent, points to a different AST node, and preserves the
 // parent's TypeHint and InTypeInferenceMode.
 //
-// The type parameter P is the parent AST node type. The type parameter N is the
-// child AST node type and can be different from P.
-func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
+// The type parameter N is the child AST node type and can be different from the
+// parent's.
+func (ctx Context[P]) Child[N antlr.ParserRuleContext](next N) Context[N] {
 	return Context[N]{
 		Context:             ctx.Context,
 		Scope:               ctx.Scope,

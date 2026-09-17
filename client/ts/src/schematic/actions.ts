@@ -23,6 +23,9 @@ import {
   setNodePosition,
 } from "@/schematic/actions.gen";
 
+// Must match the pluto groupBox symbol's config variant.
+const GROUP_BOX_VARIANT = "groupBox";
+
 const handlers: Handlers = {
   create: (state, payload) => {
     Object.assign(state, payload.schematic);
@@ -83,16 +86,24 @@ const handlers: Handlers = {
       oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
-    return {
-      inverse: [
-        setNode(
-          oldConfig != null
-            ? { node: oldNode, config: oldConfig }
-            : { node: oldNode, config: undefined },
-        ),
-      ],
-      targets: [payload.key],
-    };
+    const inverse: Action[] = [
+      setNode(
+        oldConfig != null
+          ? { node: oldNode, config: oldConfig }
+          : { node: oldNode, config: undefined },
+      ),
+    ];
+    const targets = [payload.key];
+    for (const [key, config] of Object.entries(state.configs)) {
+      if (config?.variant !== GROUP_BOX_VARIANT) continue;
+      const members = config.members;
+      if (!Array.isArray(members) || !members.includes(payload.key)) continue;
+      const oldMembers = actions.snapshotDraft(members);
+      config.members = members.filter((m) => m !== payload.key);
+      inverse.push(setConfig({ key, config: { members: oldMembers } }));
+      targets.push(key);
+    }
+    return { inverse, targets };
   },
   addEdge: (state, payload) => {
     if (state.edges.some((e) => e.key === payload.edge.key))

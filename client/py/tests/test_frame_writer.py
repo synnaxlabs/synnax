@@ -410,6 +410,42 @@ class TestWriter:
             w1.close()
             w2.close()
 
+    def test_set_authority_data_channel_only(
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
+    ):
+        """A per-channel authority change naming only a data channel must also
+        cover its index, since a data sample cannot be written without its
+        timestamp."""
+        start = sy.TimeSpan.SECOND * 1
+        idx_ch, data_ch = indexed_pair
+        w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
+        w2 = client.open_writer(start=start, channels=indexed_pair, authorities=200)
+        try:
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
+            f = data_ch.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+            w1.set_authority({data_ch.key: 255})
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
+            f = data_ch.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
     def test_set_authority_by_name(
         self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
@@ -429,6 +465,76 @@ class TestWriter:
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
             w1.set_authority({data_ch.name: 255, idx_ch.name: 255})
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
+            f = data_ch.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
+    def test_set_authority_by_name_data_channel_only(
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
+    ):
+        """The by-name form of a per-channel authority change naming only a
+        data channel must also cover its index."""
+        start = sy.TimeSpan.SECOND * 1
+        idx_ch, data_ch = indexed_pair
+        w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
+        w2 = client.open_writer(start=start, channels=indexed_pair, authorities=200)
+        try:
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
+            f = data_ch.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+            w1.set_authority({data_ch.name: 255})
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
+            f = data_ch.read(sy.TimeRange.MAX)
+            assert len(f) == 10
+        finally:
+            w1.close()
+            w2.close()
+
+    def test_set_authority_by_name_value_data_channel_only(
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
+    ):
+        """The (name, value) form of a per-channel authority change naming only
+        a data channel must also cover its index."""
+        start = sy.TimeSpan.SECOND * 1
+        idx_ch, data_ch = indexed_pair
+        w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
+        w2 = client.open_writer(start=start, channels=indexed_pair, authorities=200)
+        try:
+            w1.write(
+                pd.DataFrame(
+                    {
+                        idx_ch.key: seconds_linspace(1, 10),
+                        data_ch.key: np.random.rand(10).astype(np.float64),
+                    }
+                )
+            )
+            f = data_ch.read(sy.TimeRange.MAX)
+            assert len(f) == 0
+            w1.set_authority(data_ch.name, 255)
             w1.write(
                 pd.DataFrame(
                     {

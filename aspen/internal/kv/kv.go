@@ -204,41 +204,33 @@ func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 	st := newStore()
 
 	pipe := plumber.New()
-	plumber.SetSource[TxRequest](pipe, executorAddr, &db.source)
-	plumber.SetSource[TxRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
-	plumber.SetSegment[TxRequest, TxRequest](
-		pipe,
+	pipe.SetSource[TxRequest](executorAddr, &db.source)
+	pipe.SetSource[TxRequest](leaseReceiverAddr, newLeaseReceiver(cfg))
+	pipe.SetSegment[TxRequest, TxRequest](
 		leaseProxyAddr,
 		newLeaseProxy(cfg, versionAssignerAddr, leaseSenderAddr),
 	)
 	opServer := newOperationServer(cfg, st)
-	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, opServer)
-	plumber.SetSegment[TxRequest](
-		pipe,
+	pipe.SetSource[TxRequest](operationReceiverAddr, opServer)
+	pipe.SetSegment[TxRequest](
 		filterPersistAddr,
 		newFilterPersist(cfg, persistDeltaAddr, feedbackSenderAddr),
 	)
-	plumber.SetSegment[TxRequest](pipe, versionAssignerAddr, va)
-	plumber.SetSink[TxRequest](pipe, leaseSenderAddr, newLeaseSender(cfg))
-	plumber.SetSegment[TxRequest, TxRequest](pipe, persistAddr, newPersist(cfg.Engine))
-	plumber.SetSource[TxRequest](pipe, storeEmitterAddr, newStoreEmitter(st, cfg))
-	plumber.SetSink[TxRequest](pipe, storeSinkAddr, newStoreSink(st))
-	plumber.SetSegment[TxRequest, TxRequest](
-		pipe,
-		operationSenderAddr,
-		newOperationClient(cfg),
-	)
-	plumber.SetSink[TxRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
+	pipe.SetSegment[TxRequest](versionAssignerAddr, va)
+	pipe.SetSink[TxRequest](leaseSenderAddr, newLeaseSender(cfg))
+	pipe.SetSegment[TxRequest, TxRequest](persistAddr, newPersist(cfg.Engine))
+	pipe.SetSource[TxRequest](storeEmitterAddr, newStoreEmitter(st, cfg))
+	pipe.SetSink[TxRequest](storeSinkAddr, newStoreSink(st))
+	pipe.SetSegment[TxRequest, TxRequest](operationSenderAddr, newOperationClient(cfg))
+	pipe.SetSink[TxRequest](feedbackSenderAddr, newFeedbackSender(cfg))
 	fbReceiver := newFeedbackReceiver(cfg)
-	plumber.SetSource[TxRequest](pipe, feedbackReceiverAddr, fbReceiver)
-	plumber.SetSegment[TxRequest, TxRequest](
-		pipe,
+	pipe.SetSource[TxRequest](feedbackReceiverAddr, fbReceiver)
+	pipe.SetSegment[TxRequest, TxRequest](
 		recoveryTransformAddr,
 		newGossipRecoveryTransform(cfg),
 	)
 
-	plumber.SetSegment[TxRequest, TxRequest](
-		pipe,
+	pipe.SetSegment[TxRequest, TxRequest](
 		persistDeltaAddr,
 		newPersistSplitter(observableRelayBuffer, cfg.Instrumentation),
 	)
@@ -256,7 +248,7 @@ func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 		signal.WithBaseRetryInterval(500*time.Millisecond),
 		signal.WithRetryScale(1.1),
 	)
-	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
+	pipe.SetSink[TxRequest](observableAddr, observable)
 	db.txObservable = observable
 
 	plumber.MultiRouter[TxRequest]{

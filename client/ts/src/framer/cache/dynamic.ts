@@ -13,6 +13,8 @@ import {
   math,
   MultiSeries,
   Series,
+  Size,
+  TimeRange,
   type TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -51,6 +53,34 @@ const MAX_DEF_WRITES = 100;
 
 // Variable-rate types allocate bytes, not samples. Rough bytes-per-sample estimate.
 const VARIABLE_DT_MULTIPLIER = 40;
+
+/**
+ * @returns true when every byte of the series fits in the buffer's free space. Measured
+ * in bytes because a variable-length buffer counts its capacity that way.
+ */
+const fits = (buffer: Series, series: Series): boolean =>
+  series.byteLength.valueOf() <=
+  buffer.byteCapacity.valueOf() - buffer.byteLength.valueOf();
+
+// Bounds on compacting a buffer that rotated early. Both have to trip: the fraction
+// spares a nearly full buffer, the floor one whose waste is not worth a copy.
+const COMPACT_MAX_FILL = 0.25;
+const COMPACT_MIN_WASTE = Size.kilobytes(256);
+
+/**
+ * @returns true when copying the buffer's samples into a right-sized series is worth
+ * the copy. A held buffer never qualifies: the holder keeps the original alive, so a
+ * copy would only add a second allocation, and it would break the object identity a
+ * consumer that both reads and streams deduplicates on.
+ */
+const shouldCompact = (buffer: Series): boolean => {
+  if (buffer.refCount > 0 || buffer.length === 0) return false;
+  const used = buffer.byteLength.valueOf();
+  const capacity = buffer.byteCapacity.valueOf();
+  return (
+    capacity - used > COMPACT_MIN_WASTE.valueOf() && used < capacity * COMPACT_MAX_FILL
+  );
+};
 
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
@@ -97,6 +127,17 @@ export class Dynamic {
   }
 
   /**
+   * @returns the time range the buffer's samples actually cover: its start to the last
+   * stamped write, or the wall clock when the buffer holds unstamped data. Unlike the
+   * buffer's provisional time range, the end never claims future time. Null when there
+   * is no buffer.
+   */
+  get dataTimeRange(): TimeRange | null {
+    if (this.curr == null) return null;
+    return new TimeRange(this.curr.timeRange.start, this.currDataEnd ?? this.now());
+  }
+
+  /**
    * @returns a list of buffers that were filled by the cache during the write. If the
    * current buffer is able to fit all writes, no buffers will be returned.
    */
@@ -115,7 +156,6 @@ export class Dynamic {
     alignment: bigint,
     start: TimeStamp,
     source: Series,
-    sampleIndex: number,
   ): Series {
     this.counter++;
     const dt = this.props.transform.resolveDataType(source.dataType);
@@ -127,8 +167,7 @@ export class Dynamic {
     let sampleOffset: math.Numeric = 0;
     if (narrowing)
       if (source.dataType.equals(DataType.TIMESTAMP)) sampleOffset = start.valueOf();
-      else if (sampleIndex < source.length)
-        sampleOffset = BigInt(source.data[sampleIndex].valueOf());
+      else if (source.length > 0) sampleOffset = BigInt(source.data[0].valueOf());
     return Series.alloc({
       capacity: dt.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
       dataType: dt,
@@ -140,6 +179,18 @@ export class Dynamic {
     });
   }
 
+  /**
+   * @returns the sample capacity for a buffer that must hold the given series whole:
+   * the configured size, or the series' own size when that is larger.
+   */
+  private capacityFor(source: Series): number {
+    const dt = this.props.transform.resolveDataType(source.dataType);
+    const required = dt.isVariable
+      ? Math.ceil(source.byteLength.valueOf() / VARIABLE_DT_MULTIPLIER)
+      : source.length;
+    return Math.max(this.nextBufferSize(), required);
+  }
+
   // Unstamped series (virtual channels, writes without an in-frame index) fall back
   // to the wall clock.
   private allocStart(series: Series): TimeStamp {
@@ -148,28 +199,41 @@ export class Dynamic {
 
   private allocCurr(
     res: WriteResponse,
-    alignment: bigint,
-    start: TimeStamp,
     source: Series,
-    sampleIndex: number,
+    start: TimeStamp | null,
   ): Series {
     this.curr = this.allocate(
-      this.nextBufferSize(),
-      alignment,
-      start,
+      this.capacityFor(source),
+      source.alignment,
+      start ?? this.allocStart(source),
       source,
-      sampleIndex,
     );
     res.allocated.push(this.curr);
     return this.curr;
   }
 
-  private flushCurr(res: WriteResponse): void {
-    if (this.curr == null) return;
-    this.curr.timeRange.end = this.currDataEnd ?? this.now();
+  /** @returns the timestamp the flushed buffer's end was stamped with, or null when
+   * there was no buffer. */
+  private flushCurr(res: WriteResponse): TimeStamp | null {
+    if (this.curr == null) return null;
+    const end = this.currDataEnd ?? this.now();
+    this.curr.timeRange.end = end;
     this.currDataEnd = null;
-    res.flushed.push(this.curr);
+    res.flushed.push(this.compacted(this.curr, res));
     this.curr = null;
+    return end;
+  }
+
+  /**
+   * @returns a right-sized copy of a buffer that rotated with most of its space
+   * unused, or the buffer itself. A rotated buffer holds its whole allocation until
+   * it is collected, which is wasteful when an oversized series ended it early.
+   */
+  private compacted(buffer: Series, res: WriteResponse): Series {
+    // A buffer allocated during this same write has not reached its subscribers yet,
+    // so its reference count cannot yet report who is about to hold it.
+    if (!shouldCompact(buffer) || res.allocated.series.includes(buffer)) return buffer;
+    return buffer.compact();
   }
 
   private _write(series: Series, res: WriteResponse): void {
@@ -194,9 +258,8 @@ export class Dynamic {
       }
     }
     let curr = this.curr;
-    if (curr == null)
-      curr = this.allocCurr(res, series.alignment, this.allocStart(series), series, 0);
-    else {
+    let trimmed = false;
+    if (curr != null) {
       // overlap > 0: the incoming series steps back into samples the current buffer
       // already holds. overlap < 0: there is a gap between the buffer and the series.
       const overlap = Number(curr.alignment + BigInt(curr.length) - series.alignment);
@@ -205,38 +268,36 @@ export class Dynamic {
         // the cache with overlapping series. sub() is zero-copy.
         if (overlap >= series.length) return;
         series = series.sub(overlap);
+        trimmed = true;
       } else if (overlap < 0) {
         this.flushCurr(res);
-        curr = this.allocCurr(
-          res,
-          series.alignment,
-          this.allocStart(series),
-          series,
-          0,
-        );
+        curr = null;
       }
     }
-    while (true) {
-      const converted = transform.convert(series, curr.sampleOffset);
-      const amountWritten = curr.write(converted);
-      if (amountWritten === series.length) {
-        this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;
-        this.updateAvgRate(series);
-        return;
+    const convert = (buffer: Series): Series =>
+      transform.convert(series, buffer.sampleOffset);
+    let rotationStart: TimeStamp | null = null;
+    if (curr != null) {
+      const converted = convert(curr);
+      // A series never splits across two buffers. The timestamp where a split falls is
+      // not in the data, so both sides would have to guess the boundary they share, and
+      // a guess lands outside the data whenever samples are irregular.
+      if (fits(curr, converted)) curr.write(converted);
+      else {
+        const end = this.flushCurr(res);
+        // A trimmed series keeps the whole frame's start, which is earlier than the
+        // samples it still holds. Those samples begin where the buffer they were
+        // trimmed against ends, so the next buffer starts there.
+        if (trimmed) rotationStart = end;
+        curr = null;
       }
-      // The timestamp at the split point is unknowable from the data series, so
-      // both sides fall back to the wall clock.
-      this.currDataEnd = null;
-      this.flushCurr(res);
-      curr = this.allocCurr(
-        res,
-        series.alignment + BigInt(amountWritten),
-        this.now(),
-        series,
-        amountWritten,
-      );
-      series = series.slice(amountWritten);
     }
+    if (curr == null) {
+      curr = this.allocCurr(res, series, rotationStart);
+      curr.write(convert(curr));
+    }
+    this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;
+    this.updateAvgRate(series);
   }
 
   private updateAvgRate(series: Series): void {

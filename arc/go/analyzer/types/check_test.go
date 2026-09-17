@@ -237,7 +237,8 @@ var _ = Describe("Check", func() {
 				"scalar with series",
 				types.I64(),
 				types.Series(types.I64()),
-				"type mismatch in test: expected i64, got series i64"),
+				"type mismatch in test: expected i64, got series i64",
+			),
 			Entry(
 				"chan with series",
 				types.Chan(types.F32()),

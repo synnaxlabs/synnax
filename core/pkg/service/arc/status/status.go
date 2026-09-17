@@ -113,10 +113,10 @@ type ModuleConfig struct {
 
 func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	v := validate.New("arc.status")
-	validate.NotNil(v, "status", cfg.Status)
-	validate.NotNil(v, "reporter", cfg.Reporter)
+	v.NotNil("status", cfg.Status)
+	v.NotNil("reporter", cfg.Reporter)
 	if cfg.Runtime != nil {
-		validate.NotNil(v, "strings", cfg.Strings)
+		v.NotNil("strings", cfg.Strings)
 	}
 	if err := v.Error(); err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 
 func (m *module) ModuleName() string { return moduleName }
 
-func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
+func (m *module) Create(cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
 		if err := setSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {

@@ -120,24 +120,6 @@ const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
     to: { type: "task" },
   });
 
-const taskStatusZ = z.object({ details: z.object({ task: task.keyZ }) });
-
-// Task statuses may arrive under any status key; the referenced task lives in
-// the details, with the "task:<key>" status key as a fallback.
-const affectedTaskKeys = (
-  event: query.TableEvent<status.Key, status.Status>,
-): task.Key[] | null => {
-  const keys: task.Key[] = [];
-  if (event.variant === "set") {
-    const parsed = taskStatusZ.safeParse(event.value);
-    if (parsed.success) keys.push(parsed.data.details.task);
-  }
-  const [type, key] = event.key.split(":");
-  if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
-    keys.push(key);
-  return keys.length === 0 ? null : keys;
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   stream: StreamClient;
@@ -210,7 +192,7 @@ export class Client extends query.Retriever<
       compose: (record) => this.composeTask(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
       watch: [
-        query.deriveWatch(this.cfg.statusStore, (event) => affectedTaskKeys(event)),
+        query.deriveWatch(this.cfg.statusStore, (event) => task.affectedKeys(event)),
       ],
     });
     this.taskAnswers = cache.queries<Key, task.Task | null, task.Key, task.Task>({
@@ -290,8 +272,8 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  // clearRack drops the deleted task from the cache so it is not served until
-  // the delete signal lands.
+  // Drops the deleted task from the cache so it is not served until the delete signal
+  // lands.
   private async clearRack(key: Key): Promise<void> {
     const tsk = await this.retrieveTask(key);
     await this.cfg.unary.send(
@@ -450,10 +432,10 @@ export class Client extends query.Retriever<
     return this.hydrate(arcs[0]);
   }
 
-  // Answers reuse the identical store doc so selector references stay
-  // stable; a fresher network doc replaces it and answers. While a locally
-  // replayed dispatch awaits its echo the replayed doc stays, but the
-  // network doc answers: it carries the server-materialized text.
+  // Answers reuse the identical store doc so selector references stay stable; a fresher
+  // network doc replaces it and answers. While a locally replayed dispatch awaits its
+  // echo the replayed doc stays, but the network doc answers: it carries the
+  // server-materialized text.
   private hydrate(a: Arc): Arc {
     if (this.dispatcher.hasOutstanding(a.key) === true) {
       this.store.ingest(a);
@@ -461,19 +443,17 @@ export class Client extends query.Retriever<
     }
     const prev = this.store.get(a.key);
     if (prev != null && deep.equal(prev, a)) return prev;
-    this.store.set(a);
+    this.store.ingest(a, "set");
     return a;
   }
 
-  /**
-   * Rebuilds a cached task with its cached status attached. The status is
-   * parsed because the status table holds every domain's statuses generically.
-   */
+  // The status is parsed because the status table holds every domain's statuses
+  // generically.
   private composeTask(cached: Omit<task.Task, "status">): task.Task {
     const cachedStatus = this.cfg.statusStore.get(task.statusKey(cached.key));
     const payload = cached.payload;
     if (cachedStatus == null) return this.cfg.tasks.sugar(payload);
-    const parsed = task.statusZ().safeParse(cachedStatus);
+    const parsed = task.defaultStatusZ.safeParse(cachedStatus);
     if (!parsed.success) return this.cfg.tasks.sugar(payload);
     return this.cfg.tasks.sugar({ ...payload, status: parsed.data });
   }

@@ -1043,6 +1043,43 @@ var _ = DescribeTable(
 	Entry("nested in str()", `func f() { x := str(bool(1)) }`),
 )
 
+var _ = DescribeTable(
+	"non-positive timer span rejection",
+	func(ctx SpecContext, source, message string) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		out := arc.Symbol{
+			Name: "out",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   1,
+		}
+		root.Parent.AddChild(&out)
+		Expect(
+			arc.CompileText(ctx, arc.Text{Raw: source}, root),
+		).Error().To(MatchError(ContainSubstring(message)))
+	},
+	Entry(
+		"zero interval period",
+		"import time\n\ntime.interval{period=0ms} -> out",
+		"period must be positive, got 0s",
+	),
+	Entry(
+		"negative interval period",
+		"import time\n\ntime.interval{period=-1s} -> out",
+		"period must be positive, got",
+	),
+	Entry(
+		"zero interval period via bare alias",
+		`interval{period=0ms} -> out`,
+		"period must be positive, got 0s",
+	),
+	Entry(
+		"zero wait duration",
+		"import time\n\ntime.wait{duration=0ms} -> out",
+		"duration must be positive, got 0s",
+	),
+)
+
 // Boolean expression pipelines: an expression that yields bool (comparison or
 // logical) flows straight into a bool channel.
 var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
@@ -1063,7 +1100,7 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 		out, changed := h.Flush()
 		Expect(changed).To(BeTrue())
 		Expect(
-			telem.UnmarshalSeries[bool](out.Get(200).Series[0]),
+			out.Get(200).Series[0].Unmarshal[bool](),
 		).To(Equal([]bool{true}))
 
 		h.Ingest(100, telem.NewSeriesV[float32](5))
@@ -1071,7 +1108,7 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 		h.channelState.ClearReads()
 		out2, _ := h.Flush()
 		Expect(
-			telem.UnmarshalSeries[bool](out2.Get(200).Series[0]),
+			out2.Get(200).Series[0].Unmarshal[bool](),
 		).To(Equal([]bool{false}))
 	})
 
@@ -1097,7 +1134,7 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[bool](out.Get(300).Series[0]),
+				out.Get(300).Series[0].Unmarshal[bool](),
 			).To(Equal([]bool{true}))
 
 			h.Ingest(100, telem.NewSeriesV[float32](5))
@@ -1106,7 +1143,7 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 			h.channelState.ClearReads()
 			out2, _ := h.Flush()
 			Expect(
-				telem.UnmarshalSeries[bool](out2.Get(300).Series[0]),
+				out2.Get(300).Series[0].Unmarshal[bool](),
 			).To(Equal([]bool{false}))
 		},
 	)
@@ -1124,23 +1161,23 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 		)
 		defer h.Close(ctx)
 
-		h.Ingest(100, telem.NewSeriesV[bool](true))
-		h.Ingest(200, telem.NewSeriesV[bool](true))
+		h.Ingest(100, telem.NewSeriesV(true))
+		h.Ingest(200, telem.NewSeriesV(true))
 		h.Tick(ctx, telem.Millisecond)
 		h.channelState.ClearReads()
 		out, changed := h.Flush()
 		Expect(changed).To(BeTrue())
 		Expect(
-			telem.UnmarshalSeries[bool](out.Get(300).Series[0]),
+			out.Get(300).Series[0].Unmarshal[bool](),
 		).To(Equal([]bool{true}))
 
-		h.Ingest(100, telem.NewSeriesV[bool](true))
-		h.Ingest(200, telem.NewSeriesV[bool](false))
+		h.Ingest(100, telem.NewSeriesV(true))
+		h.Ingest(200, telem.NewSeriesV(false))
 		h.Tick(ctx, 2*telem.Millisecond)
 		h.channelState.ClearReads()
 		out2, _ := h.Flush()
 		Expect(
-			telem.UnmarshalSeries[bool](out2.Get(300).Series[0]),
+			out2.Get(300).Series[0].Unmarshal[bool](),
 		).To(Equal([]bool{false}))
 	})
 })

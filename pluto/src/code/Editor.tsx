@@ -37,9 +37,6 @@ import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
-const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
-const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
-const PASTE_TRIGGER: Triggers.Trigger = ["Control", "V"];
 const RENAME_TRIGGER: Triggers.Trigger = ["F2"];
 const FORMAT_TRIGGER: Triggers.Trigger = ["Shift", "Alt", "F"];
 
@@ -464,6 +461,9 @@ export interface EditorProps
   extends Omit<Flex.BoxProps, "value" | "onChange" | "ref">, UseProps {
   ref?: Ref<EditorHandle>;
   loading?: ReactNode;
+  /** extraMenuItems are appended to the context menu, so a consumer can add
+   * app-specific entries (e.g. "Reload Console"). */
+  extraMenuItems?: ReactNode;
 }
 
 const MENU_EDITOR_ACTIONS: Record<string, string> = {
@@ -487,6 +487,7 @@ const EditorInternal = ({
   placeholder,
   autoFocus,
   background = 1,
+  extraMenuItems,
   ...rest
 }: Omit<EditorProps, "loading">) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
@@ -527,7 +528,7 @@ const EditorInternal = ({
       <Menu.Menu level="small" gap="small">
         <Menu.Item
           itemKey="cut"
-          trigger={CUT_TRIGGER}
+          trigger={Triggers.CUT}
           triggerIndicator
           disabled={!hasSelection}
           onClick={createMenuAction("cut")}
@@ -537,7 +538,7 @@ const EditorInternal = ({
         </Menu.Item>
         <Menu.Item
           itemKey="copy"
-          trigger={COPY_TRIGGER}
+          trigger={Triggers.COPY}
           triggerIndicator
           disabled={!hasSelection}
           onClick={createMenuAction("copy")}
@@ -547,7 +548,7 @@ const EditorInternal = ({
         </Menu.Item>
         <Menu.Item
           itemKey="paste"
-          trigger={PASTE_TRIGGER}
+          trigger={Triggers.PASTE}
           triggerIndicator
           onClick={createMenuAction("paste")}
         >
@@ -579,9 +580,10 @@ const EditorInternal = ({
           Format
         </Menu.Item>
         <Menu.Divider />
+        {extraMenuItems}
       </Menu.Menu>
     );
-  }, [createMenuAction, cursorRenameable]);
+  }, [createMenuAction, cursorRenameable, extraMenuItems]);
 
   return (
     <Flex.Box

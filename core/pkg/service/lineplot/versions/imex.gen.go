@@ -16,11 +16,12 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 )
 
 // Latest is the portable schema version stamped on exported LinePlot envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v5.Version
+const Latest = v6.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's LinePlot
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -28,7 +29,17 @@ const Latest = v5.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 	switch env.Version {
 	case v5.Version:
-		return imex.Decode[LinePlot](ctx, env)
+		t5, err := env.Decode[v5.LinePlot](ctx)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t6, err := v6.MigrateLinePlot(ctx, t5)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t6, nil
+	case v6.Version:
+		return env.Decode[LinePlot](ctx)
 	}
 	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

@@ -533,7 +533,8 @@ var _ = Describe("Channel", Ordered, func() {
 								Start:          0,
 								Channels:       []cesium.ChannelKey{errorKey1},
 								ControlSubject: control.Subject{Key: "rekey writer"},
-							}),
+							},
+						),
 						)
 
 						By("Trying to rekey")

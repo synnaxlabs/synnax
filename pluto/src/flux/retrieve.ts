@@ -9,6 +9,7 @@
 
 import {
   DisconnectedError,
+  isConnectionError,
   NotFoundError,
   query,
   type Synnax as Client,
@@ -18,6 +19,7 @@ import {
   caseconv,
   compare,
   type destructor,
+  sleep,
   type state,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -92,6 +94,12 @@ export interface CreateRetrieveParams<
    * absence at once. Requires `onChange` and `getCached`.
    */
   awaitCreation?: boolean;
+  /**
+   * Asks again, with a widening wait, when a fetch fails because the Core could not be
+   * reached. For reads a surface cannot render without: a settled failure holds until
+   * something invalidates it, so one unlucky moment reads as a lasting one.
+   */
+  retryUnreachable?: boolean;
 }
 
 // The domain query cache interns its answers, so identity holds for anything
@@ -329,12 +337,57 @@ const waitForCreation = <Query extends query.Params, Data extends query.Data>(
     }
   });
 
+/** Attempts a fetch gets after the Core first proves unreachable. */
+const UNREACHABLE_RETRIES = 3;
+
+/** Wait before the first retry. Each later one waits twice as long. */
+const RETRY_BASE = TimeSpan.milliseconds(250);
+
+interface RetryParams<Query extends query.Params, Data extends query.Data> extends Pick<
+  CreateRetrieveParams<Query, Data>,
+  "name" | "retrieve" | "getCached"
+> {
+  hash: string;
+  local: LocalCache<Data>;
+}
+
+/**
+ * Repeats a fetch the Core was unreachable for, settling the failure once the attempts
+ * run out or the Core answers with something other than a dead connection. Owns the
+ * bookkeeping ensureFetch does for a fetch that resolves or settles first time, since
+ * the read it hands back stands in for that one.
+ */
+const retryUnreachableFetch = <Query extends query.Params, Data extends query.Data>(
+  params: RetrieveParams<Query>,
+  { name, retrieve, getCached, hash, local }: RetryParams<Query, Data>,
+): Promise<Data> => {
+  const epoch = local.epoch;
+  const attempt = async (n: number): Promise<Data> => {
+    await sleep.sleep(RETRY_BASE.milliseconds * 2 ** (n - 1));
+    try {
+      const data = await retrieve(params);
+      if (getCached?.(params) === undefined) setSettled(local, hash, { data });
+      local.inFlight.delete(hash);
+      return data;
+    } catch (cause) {
+      if (n < UNREACHABLE_RETRIES && isConnectionError(cause))
+        return await attempt(n + 1);
+      const error = new Error(`Failed to retrieve ${name}`, { cause });
+      local.inFlight.delete(hash);
+      // A reconnect landed during the waits, so the failure may no longer hold.
+      if (local.epoch === epoch) setSettled(local, hash, { error });
+      throw error;
+    }
+  };
+  return attempt(1);
+};
+
 interface FetchParamsSource<
   Query extends query.Params,
   Data extends query.Data,
 > extends Pick<
   CreateRetrieveParams<Query, Data>,
-  "name" | "retrieve" | "onChange" | "getCached" | "awaitCreation"
+  "name" | "retrieve" | "onChange" | "getCached" | "awaitCreation" | "retryUnreachable"
 > {
   local: LocalCache<Data>;
 }
@@ -345,22 +398,28 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
   onChange,
   getCached,
   awaitCreation = false,
+  retryUnreachable = false,
   local,
 }: FetchParamsSource<Query, Data>): EnsureFetchParams<Query, Data> => ({
   name,
   retrieve,
   getCached,
   local,
-  // A not-found on a query that awaits creation stays pending: the reference may
-  // have outrun its document's create broadcast, which the subscription will
-  // deliver. Everything else settles.
-  onFetchError: (params, { cause, error, hash }) =>
-    awaitCreation &&
-    onChange != null &&
-    getCached != null &&
-    NotFoundError.matches(cause)
-      ? waitForCreation(params, { name, error, hash, onChange, getCached, local })
-      : null,
+  onFetchError: (params, { cause, error, hash }) => {
+    // A not-found on a query that awaits creation stays pending: the reference may have
+    // outrun its document's create broadcast, which the subscription will deliver.
+    if (
+      awaitCreation &&
+      onChange != null &&
+      getCached != null &&
+      NotFoundError.matches(cause)
+    )
+      return waitForCreation(params, { name, error, hash, onChange, getCached, local });
+    if (retryUnreachable && isConnectionError(cause))
+      return retryUnreachableFetch(params, { name, retrieve, getCached, hash, local });
+    // Every other failure settles.
+    return null;
+  },
 });
 
 const useSuspended = <Query extends query.Params, Data extends query.Data>(
@@ -373,6 +432,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     equal,
     normalizeQuery,
     awaitCreation,
+    retryUnreachable,
   }: Context<Query, Data>,
   query: Query,
 ): Data => {
@@ -405,7 +465,15 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   }
   return suspendOnFetch(
     params,
-    fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
+    fetchParamsFor({
+      name,
+      retrieve,
+      onChange,
+      getCached,
+      awaitCreation,
+      retryUnreachable,
+      local,
+    }),
     pending,
   );
 };
@@ -444,6 +512,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     equal,
     normalizeQuery,
     awaitCreation,
+    retryUnreachable,
   }: Context<Query, Data>,
   q: Query | null,
 ): Result<Data> => {
@@ -473,7 +542,15 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     if (settled != null && "data" in settled) return;
     ensureFetch(
       params,
-      fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
+      fetchParamsFor({
+        name,
+        retrieve,
+        onChange,
+        getCached,
+        awaitCreation,
+        retryUnreachable,
+        local,
+      }),
     ).then(bump, bump);
   }, [client, memoQuery, cached]);
 
@@ -514,6 +591,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
     getCached,
     normalizeQuery,
     awaitCreation,
+    retryUnreachable,
   }: Context<Query, Data>,
   query: Query,
 ): void => {
@@ -540,7 +618,15 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
   }
   suspendOnFetch(
     params,
-    fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
+    fetchParamsFor({
+      name,
+      retrieve,
+      onChange,
+      getCached,
+      awaitCreation,
+      retryUnreachable,
+      local,
+    }),
     pending,
   );
 };
@@ -682,6 +768,7 @@ const createResultSelector = <
     equal = answersEqual,
     normalizeQuery,
     awaitCreation,
+    retryUnreachable,
   } = context;
   const sliceEqual = (a: Slice<Data, Selected>, b: Slice<Data, Selected>): boolean => {
     if (a.kind !== b.kind) return false;
@@ -741,7 +828,15 @@ const createResultSelector = <
       if (settled != null && "data" in settled) return;
       ensureFetch(
         params,
-        fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
+        fetchParamsFor({
+          name,
+          retrieve,
+          onChange,
+          getCached,
+          awaitCreation,
+          retryUnreachable,
+          local,
+        }),
       ).then(bump, bump);
     }, [client, memoQuery, slice]);
     if (client == null)

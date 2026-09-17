@@ -48,6 +48,12 @@ describe("user ontology service", () => {
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
+  it("should offer Reload Console", async () => {
+    const u = await createUser();
+    await renderMenu([userResource(u.key, u.username)]);
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should not offer username or role changes for the logged-in user", async () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, "synnax")]);

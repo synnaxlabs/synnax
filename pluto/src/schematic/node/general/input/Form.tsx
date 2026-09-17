@@ -88,8 +88,8 @@ export const InputForm = (): ReactElement => (
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.SizeField />
           <Form.ColorField path="color" />
+          <Form.SizeField />
         </Base.Section>
       </Base.Sections>
     </Tabs.Content>

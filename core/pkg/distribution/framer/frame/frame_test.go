@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -108,11 +109,19 @@ var _ = Describe("Frame", func() {
 				telem.NewSeriesV[int64](4, 5, 6),
 				telem.NewSeriesV[int64](7, 8, 9),
 			})
-			filtered := f.KeepKeys([]channel.Key{1, 3})
+			filtered := f.KeepKeys(set.New[channel.Key](1, 3))
 			Expect(filtered.KeysSlice()).To(Equal([]channel.Key{1, 3}))
 			Expect(filtered.Count()).To(Equal(2))
 			Expect(filtered.SeriesAt(0)).To(Equal(telem.NewSeriesV[int64](1, 2, 3)))
 			Expect(filtered.SeriesAt(1)).To(Equal(telem.NewSeriesV[int64](7, 8, 9)))
+		})
+
+		It("Should return an empty frame when the set is empty", func() {
+			f := frame.NewMulti([]channel.Key{1, 2}, []telem.Series{
+				telem.NewSeriesV[int64](1, 2, 3),
+				telem.NewSeriesV[int64](4, 5, 6),
+			})
+			Expect(f.KeepKeys(set.New[channel.Key]()).Count()).To(Equal(0))
 		})
 	})
 
@@ -173,7 +182,7 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int64](3),
 					telem.NewSeriesV[int64](4),
 				},
-			).KeepKeys([]channel.Key{2, 4})
+			).KeepKeys(set.New[channel.Key](2, 4))
 			extended := f1.Extend(f2)
 			Expect(extended.Count()).To(Equal(3))
 			Expect(extended.KeysSlice()).To(Equal([]channel.Key{1, 2, 4}))
@@ -237,7 +246,8 @@ var _ = Describe("Frame", func() {
 					telem.NewSeriesV[int32](1, 2, 3),
 					telem.NewSeriesV[int32](4, 5, 6),
 					telem.NewSeriesV[int32](7, 8, 9),
-				})
+				},
+			)
 
 			copied := original.ShallowCopy()
 

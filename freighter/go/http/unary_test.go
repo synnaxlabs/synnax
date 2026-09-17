@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -62,7 +61,6 @@ func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
-	unaryAddr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 	unaryApp = newFiberApp(fiber.Config{DisableKeepalive: true})
 	router := MustSucceed(fhttp.NewRouter())
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
@@ -75,46 +73,36 @@ var _ = BeforeSuite(func() {
 		ctx.Set(fiber.HeaderContentType, "text/plain")
 		return ctx.SendString("just text")
 	})
-	unaryServer = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
-	unaryServerJSONOnly = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServer = router.NewUnaryServer[test.Request, test.Response]("/")
+	unaryServerJSONOnly = router.NewUnaryServer[test.Request, test.Response](
 		"/json-only",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(json.Codec),
 	)
-	unaryServerMsgpackOnly = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerMsgpackOnly = router.NewUnaryServer[test.Request, test.Response](
 		"/msgpack-only",
 		fhttp.WithRequestDecoders(msgpack.Codec),
 		fhttp.WithResponseEncoders(msgpack.Codec),
 	)
-	unaryServerFailingEncoder = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerFailingEncoder = router.NewUnaryServer[test.Request, test.Response](
 		"/encode-failure",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(failingEncoder{}),
 	)
-	unaryServerMsgpackErrors = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerMsgpackErrors = router.NewUnaryServer[test.Request, test.Response](
 		"/msgpack-errors",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(failingEncoder{}),
 		fhttp.WithErrorEncoders(msgpack.Codec),
 	)
-	unaryServerNoErrorEncoders = fhttp.NewUnaryServer[test.Request, test.Response](
-		router,
+	unaryServerNoErrorEncoders = router.NewUnaryServer[test.Request, test.Response](
 		"/no-error-encoders",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithErrorEncoders(),
 	)
 	unaryClient = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 	router.BindTo(unaryApp)
-	go func() {
-		defer GinkgoRecover()
-		Expect(unaryApp.Listen(unaryAddr.PortString(), fiber.ListenConfig{
-			DisableStartupMessage: true,
-		})).To(Succeed())
-	}()
+	unaryAddr = serveApp(unaryApp)
 	Eventually(func(g Gomega) {
 		g.Expect(pollHealth("http://" + unaryAddr.String() + "/health")).To(Succeed())
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())

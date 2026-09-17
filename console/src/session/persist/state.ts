@@ -147,7 +147,7 @@ const validateScopes = <S extends object>(initial: S, scopes: Scopes<S>): void =
   // A window partition stores a slice narrowed to its windows record alone, so a
   // field without a schema default would make every window partition unreadable.
   const defaultless = scopeKeys(window).filter(
-    (key) => window[key]?.safeParse({ windows: {} }).success !== true,
+    (key) => window[key] == null || !z.validate(window[key], { windows: {} }),
   );
   if (defaultless.length > 0)
     throw new Error(

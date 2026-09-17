@@ -86,9 +86,9 @@ export const SetpointForm = (): ReactElement => (
           <Label.Form path="label" />
         </Base.Section>
         <Base.Section title="Appearance">
-          <Form.UnitsField />
-          <Form.SizeField />
           <Form.ColorField path="color" />
+          <Form.SizeField />
+          <Form.UnitsField />
         </Base.Section>
         <Orientation.Section path="" hideInner />
       </Base.Sections>

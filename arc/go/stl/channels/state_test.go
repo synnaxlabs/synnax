@@ -126,7 +126,7 @@ var _ = Describe("ProgramState", func() {
 			s.Ingest(telem.UnaryFrame[uint32](5, telem.NewSeriesV(math.NaN())))
 			ser := MustBeOk(s.ReadValue(5))
 			Expect(ser.Len()).To(Equal(int64(1)))
-			Expect(math.IsNaN(telem.ValueAt[float64](ser, 0))).To(BeTrue())
+			Expect(math.IsNaN(ser.ValueAt[float64](0))).To(BeTrue())
 		})
 
 		It("Should handle series with max/min integer values", func() {
@@ -134,9 +134,9 @@ var _ = Describe("ProgramState", func() {
 				3, telem.NewSeriesV[int32](math.MaxInt32, math.MinInt32, 0),
 			))
 			ser := MustBeOk(s.ReadValue(3))
-			Expect(telem.ValueAt[int32](ser, 0)).To(Equal(int32(math.MaxInt32)))
-			Expect(telem.ValueAt[int32](ser, 1)).To(Equal(int32(math.MinInt32)))
-			Expect(telem.ValueAt[int32](ser, 2)).To(Equal(int32(0)))
+			Expect(ser.ValueAt[int32](0)).To(Equal(int32(math.MaxInt32)))
+			Expect(ser.ValueAt[int32](1)).To(Equal(int32(math.MinInt32)))
+			Expect(ser.ValueAt[int32](2)).To(Equal(int32(0)))
 		})
 
 		It("Should handle empty series", func() {
@@ -175,7 +175,7 @@ var _ = Describe("ProgramState", func() {
 				s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV(int32(i))))
 			}
 			ser := MustBeOk(s.ReadValue(3))
-			Expect(telem.ValueAt[int32](ser, 0)).To(Equal(int32(99)))
+			Expect(ser.ValueAt[int32](0)).To(Equal(int32(99)))
 		})
 	})
 
@@ -417,7 +417,7 @@ var _ = Describe("ProgramState", func() {
 			fr, changed := s.Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
-			Expect(telem.ValueAt[int32](fr.Get(1).Series[0], 0)).To(Equal(int32(42)))
+			Expect(fr.Get(1).Series[0].ValueAt[int32](0)).To(Equal(int32(42)))
 			Expect(fr.Get(2).Series).To(HaveLen(1))
 			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
 		})
@@ -449,9 +449,9 @@ var _ = Describe("ProgramState", func() {
 			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](10)))
 			s.WriteValue(3, telem.NewSeriesV[int32](20))
 			readSer := MustBeOk(s.ReadValue(3))
-			Expect(telem.ValueAt[int32](readSer, 0)).To(Equal(int32(10)))
+			Expect(readSer.ValueAt[int32](0)).To(Equal(int32(10)))
 			fr, _ := s.Flush(telem.Frame[uint32]{})
-			Expect(telem.ValueAt[int32](fr.Get(3).Series[0], 0)).To(Equal(int32(20)))
+			Expect(fr.Get(3).Series[0].ValueAt[int32](0)).To(Equal(int32(20)))
 		})
 	})
 })

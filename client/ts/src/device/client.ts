@@ -276,10 +276,6 @@ export class Client extends query.Retriever<
     return await super.retrieve(rest);
   }
 
-  async create(device: New): Promise<Device>;
-
-  async create(devices: New[]): Promise<Device[]>;
-
   async create<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
@@ -385,7 +381,6 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Rebuilds a cached device, attaching its cached status when requested. */
   private compose(cached: Omit<Device, "status">, includeStatus: boolean): Device {
     if (!includeStatus) return cached;
     const st = this.cfg.statusStore.get(statusKey(cached.key));
@@ -395,11 +390,10 @@ export class Client extends query.Retriever<
     return { ...cached, status: parsed.data };
   }
 
-  /** Writes fetched devices and their included statuses. */
   private writeThrough(devices: Device[]): void {
-    this.store.set(devices.map(stripStatus));
+    this.store.ingest(devices.map(stripStatus));
     devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.ingest(st);
     });
   }
 
@@ -416,7 +410,6 @@ export class Client extends query.Retriever<
     return res.devices;
   }
 
-  /** Fetches devices and writes their included statuses through the caches. */
   private async fetchThrough(req: RetrieveRequest): Promise<Device[]> {
     const devices = await this.execRetrieve(req);
     this.writeThrough(devices);
@@ -424,10 +417,11 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Device> {
-    // A status-bearing hit needs both the record and its status cached.
+    // Status-bearing queries bypass the table, which never holds status.
     if (q.includeStatus !== true) {
-      const cached = this.store.get(q.key);
-      if (cached != null) return cached;
+      const devices = await this.store.retrieve([q.key]);
+      checkForMultipleOrNoResults("Device", q, devices, true);
+      return devices[0];
     }
     const devices = await this.execRetrieve(q);
     checkForMultipleOrNoResults("Device", q, devices, true);

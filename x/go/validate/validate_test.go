@@ -61,7 +61,7 @@ var _ = Describe("Validate", func() {
 		Describe("NotNil", func() {
 			It("Should validate non-nil values", func() {
 				value := "not nil"
-				Expect(validate.NotNil(v, "field", &value)).To(BeFalse())
+				Expect(v.NotNil("field", &value)).To(BeFalse())
 				Expect(v.Error()).NotTo(HaveOccurred())
 			})
 			var p *any
@@ -71,7 +71,7 @@ var _ = Describe("Validate", func() {
 			var c chan any
 			var i any
 			DescribeTable("Should catch nil values", func(value any) {
-				Expect(validate.NotNil(v, "field", value)).To(BeTrue())
+				Expect(v.NotNil("field", value)).To(BeTrue())
 				Expect(v.Error()).To(MatchError(ContainSubstring("must be non-nil")))
 			},
 				Entry("pointers", p),
@@ -86,61 +86,61 @@ var _ = Describe("Validate", func() {
 		Describe("Numeric Validations", func() {
 			Describe("Positive", func() {
 				It("Should validate positive numbers", func() {
-					Expect(validate.Positive(v, "field", 42)).To(BeFalse())
+					Expect(v.Positive("field", 42)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should catch non-positive numbers", func() {
-					Expect(validate.Positive(v, "field", 0)).To(BeTrue())
+					Expect(v.Positive("field", 0)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})
 
 			Describe("Filtering", func() {
 				It("Should validate numbers greater than threshold", func() {
-					Expect(validate.GreaterThan(v, "field", 10, 5)).To(BeFalse())
+					Expect(v.GreaterThan("field", 10, 5)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should catch numbers less than or equal to threshold", func() {
-					Expect(validate.GreaterThan(v, "field", 5, 5)).To(BeTrue())
+					Expect(v.GreaterThan("field", 5, 5)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})
 
 			Describe("InBounds", func() {
 				It("Should validate values within bounds", func() {
-					Expect(validate.InBounds(v, "field", 5, 1, 10)).To(BeFalse())
+					Expect(v.InBounds("field", 5, 1, 10)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should accept values at lower bound (inclusive)", func() {
-					Expect(validate.InBounds(v, "field", 1, 1, 10)).To(BeFalse())
+					Expect(v.InBounds("field", 1, 1, 10)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should reject values at upper bound (exclusive)", func() {
-					Expect(validate.InBounds(v, "field", 10, 1, 10)).To(BeTrue())
+					Expect(v.InBounds("field", 10, 1, 10)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 
 				It("Should reject values below lower bound", func() {
-					Expect(validate.InBounds(v, "field", 0, 1, 10)).To(BeTrue())
+					Expect(v.InBounds("field", 0, 1, 10)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 
 				It("Should reject values above upper bound", func() {
-					Expect(validate.InBounds(v, "field", 11, 1, 10)).To(BeTrue())
+					Expect(v.InBounds("field", 11, 1, 10)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 
 				It("Should work with float values", func() {
-					Expect(validate.InBounds(v, "field", 5.5, 1.0, 10.0)).To(BeFalse())
+					Expect(v.InBounds("field", 5.5, 1.0, 10.0)).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should include bounds in error message", func() {
-					validate.InBounds(v, "field", 0, 1, 10)
+					v.InBounds("field", 0, 1, 10)
 					Expect(v.Error()).To(MatchError(ContainSubstring("[1, 10)")))
 				})
 			})
@@ -150,25 +150,25 @@ var _ = Describe("Validate", func() {
 			Describe("NotEmptySlice", func() {
 				It("Should validate non-empty slices", func() {
 					slice := []int{1, 2, 3}
-					Expect(validate.NotEmptySlice(v, "field", slice)).To(BeFalse())
+					Expect(v.NotEmptySlice("field", slice)).To(BeFalse())
 					Expect(v.Error()).ToNot(HaveOccurred())
 				})
 
 				It("Should catch empty slices", func() {
 					slice := []int{}
-					Expect(validate.NotEmptySlice(v, "field", slice)).To(BeTrue())
+					Expect(v.NotEmptySlice("field", slice)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})
 
 			Describe("NotEmptyString", func() {
 				It("Should validate non-empty strings", func() {
-					Expect(validate.NotEmptyString(v, "field", "hello")).To(BeFalse())
+					Expect(v.NotEmptyString("field", "hello")).To(BeFalse())
 					Expect(v.Error()).NotTo(HaveOccurred())
 				})
 
 				It("Should catch empty strings", func() {
-					Expect(validate.NotEmptyString(v, "field", "")).To(BeTrue())
+					Expect(v.NotEmptyString("field", "")).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})
@@ -177,13 +177,13 @@ var _ = Describe("Validate", func() {
 		Describe("Zeroable", func() {
 			It("Should validate non-zero zeroables", func() {
 				z := testZeroable{value: 42}
-				Expect(validate.NonZeroable(v, "field", z)).To(BeFalse())
+				Expect(v.NonZeroable("field", z)).To(BeFalse())
 				Expect(v.Error()).NotTo(HaveOccurred())
 			})
 
 			It("Should catch zero zeroables", func() {
 				z := testZeroable{value: 0}
-				Expect(validate.NonZeroable(v, "field", z)).To(BeTrue())
+				Expect(v.NonZeroable("field", z)).To(BeTrue())
 				Expect(v.Error()).To(HaveOccurred())
 			})
 		})

@@ -65,7 +65,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 			result := h.Output("avg_0", 0)
 			Expect(
-				telem.UnmarshalSeries[float64](result)[0],
+				result.Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 20.0, 0.01))
 			Expect(result.Alignment).To(Equal(telem.Alignment(7)))
 			Expect(result.TimeRange.Start).To(Equal(1 * telem.SecondTS))
@@ -73,7 +73,7 @@ var _ = Describe("Stat Flow Chains", func() {
 			resultTime := h.OutputTime("avg_0", 0)
 			Expect(resultTime.Len()).To(Equal(int64(1)))
 			Expect(
-				telem.UnmarshalSeries[telem.TimeStamp](resultTime)[0],
+				resultTime.Unmarshal[telem.TimeStamp]()[0],
 			).To(Equal(3 * telem.SecondTS))
 		})
 
@@ -99,7 +99,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 			result := h.Output("avg_0", 0)
 			Expect(
-				telem.UnmarshalSeries[int32](result)[0],
+				result.Unmarshal[int32]()[0],
 			).To(BeNumerically("~", 20, 1))
 		})
 	})
@@ -127,7 +127,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 			result := h.Output("min_0", 0)
 			Expect(
-				telem.UnmarshalSeries[float64](result)[0],
+				result.Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 10.0, 0.01))
 		})
 	})
@@ -155,7 +155,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 			result := h.Output("max_0", 0)
 			Expect(
-				telem.UnmarshalSeries[float64](result)[0],
+				result.Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 50.0, 0.01))
 		})
 	})
@@ -187,7 +187,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				h.Execute(ctx, "derivative_0")
 
 				result := h.Output("derivative_0", 0)
-				vals := telem.UnmarshalSeries[float64](result)
+				vals := result.Unmarshal[float64]()
 				Expect(vals).To(HaveLen(3))
 				Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 				Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
@@ -227,7 +227,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				out, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
-				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV[float64](20.0))
+				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV(20.0))
 			},
 		)
 
@@ -257,7 +257,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 				out, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
-				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV[float64](10.0))
+				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV(10.0))
 			},
 		)
 	})

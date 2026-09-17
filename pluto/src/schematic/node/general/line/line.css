@@ -1,0 +1,44 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A line is a hollow bounding box, so only the stroke and endpoints take the pointer. */
+.pluto-schematic .react-flow__node:has(.pluto-line) {
+    pointer-events: none !important;
+}
+
+.pluto-line {
+    /* Block, or the inline baseline gap pushes a thin box's line below its handles. */
+    display: block;
+    overflow: visible;
+
+    & line {
+        stroke: var(--pluto-symbol-display);
+        stroke-linecap: round;
+    }
+
+    /* Transparent rather than none, or the band falls outside the hit-tested bounds. */
+    & .pluto-line__hit {
+        stroke: transparent;
+        stroke-width: calc(16px / var(--pluto-diagram-zoom, 1));
+        pointer-events: stroke;
+    }
+}
+
+.pluto-line__end {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    translate: -50% -50%;
+    scale: calc(1 / var(--pluto-diagram-zoom, 1));
+    background: var(--pluto-primary-z);
+    cursor: move;
+    pointer-events: auto;
+}

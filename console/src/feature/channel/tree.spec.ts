@@ -277,6 +277,18 @@ describe("channel/ontology", () => {
       expect(await screen.findByDisplayValue(calc.name)).toBeTruthy();
     });
 
+    it("should offer Reload Console", async () => {
+      const ch = await createChannel();
+      assertDefined(Item.ContextMenu);
+      await renderTreeContextMenu(Item.ContextMenu, {
+        client,
+        resources: [
+          createResource(channelClient.ontologyID(ch.key), ch.name, ch.payload),
+        ],
+      });
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
     it("withholds rename and aliasing from an internal channel", async () => {
       const ch = await createChannel();
       const rng = await createTestRange(client);

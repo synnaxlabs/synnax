@@ -12,7 +12,6 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/ir"
@@ -36,9 +35,7 @@ var _ = Describe("ExecContext", func() {
 			Exec: symbol.ExecFlow,
 		}))
 		expr := MustSucceed(parser.ParseExpression("avg(10)"))
-		Expect(
-			expression.Compile(context.Child(ctx, expr)),
-		).Error().
+		Expect(expression.Compile(ctx.Child(expr))).Error().
 			To(MatchError(ContainSubstring("cannot be called inside a func block")))
 	})
 
