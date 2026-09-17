@@ -25,6 +25,7 @@ import {
 } from "@synnaxlabs/pluto";
 import {
   type CrudeTimeRange,
+  type NumericTimeRange,
   numericTimeRangeZ,
   runtime,
   TimeRange,
@@ -68,6 +69,11 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
         channelNames,
       },
     });
+    const range = Form.useFieldValue<
+      NumericTimeRange,
+      NumericTimeRange,
+      typeof formSchema
+    >("timeRange", { ctx: form });
     const footer = (
       <>
         <Triggers.SaveHelpText action="Download" />
@@ -92,7 +98,13 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                   label="From"
                 >
                   {(p) => (
-                    <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
+                    <Input.DateTime
+                      level="h4"
+                      variant="text"
+                      role="start"
+                      anchors={{ end: range.end }}
+                      {...p}
+                    />
                   )}
                 </Form.Field>
                 <Icon.Arrow.Right
@@ -101,7 +113,13 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                 />
                 <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
                   {(p) => (
-                    <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
+                    <Input.DateTime
+                      level="h4"
+                      variant="text"
+                      role="end"
+                      anchors={{ start: range.start }}
+                      {...p}
+                    />
                   )}
                 </Form.Field>
               </Flex.Box>

@@ -136,7 +136,15 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                   padHelpText={false}
                   label="From"
                 >
-                  {inputDateTimeRenderProp}
+                  {(p) => (
+                    <Input.DateTime
+                      level="h4"
+                      variant="text"
+                      role="start"
+                      anchors={{ end }}
+                      {...p}
+                    />
+                  )}
                 </Form.Field>
               )}
             </Flex.Box>
@@ -160,7 +168,15 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
               </Flex.Box>
               {!isToEnd && (
                 <Form.Field<number> path="timeRange.end" padHelpText={false} label="To">
-                  {inputDateTimeRenderProp}
+                  {(p) => (
+                    <Input.DateTime
+                      level="h4"
+                      variant="text"
+                      role="end"
+                      anchors={{ start }}
+                      {...p}
+                    />
+                  )}
                 </Form.Field>
               )}
             </Flex.Box>
@@ -181,10 +197,6 @@ const channelSelectRenderProp = Component.renderProp(
     />
   ),
 );
-
-const inputDateTimeRenderProp = Component.renderProp((p: Input.DateTimeProps) => (
-  <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
-));
 
 const formatTimeRange = (start: number, end: number): string => {
   const startStr =
