@@ -534,6 +534,85 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("useDispatch — edge color preprocess", () => {
+    const EDGE: schematic.Edge = {
+      key: "e2",
+      source: { node: "n1", param: "out" },
+      target: { node: "n2", param: "in" },
+    };
+
+    let schem: schematic.Schematic;
+    let getEdgeCfg: () => schematic.ElementConfig | undefined;
+    let dispatch: (...actions: schematic.Action[]) => Promise<void>;
+    let cleanup: () => void;
+
+    beforeEach(async () => {
+      schem = await createTestSchematic(proj.key);
+      const loadUtils = await loadSchematic(Wrapper, schem.key);
+      const edge = renderHook(
+        () => Schematic.useElementConfig({ key: schem.key, elKey: EDGE.key }),
+        { wrapper: Wrapper },
+      );
+      const disp = renderHook(() => Schematic.useDispatch(), { wrapper: Wrapper });
+      getEdgeCfg = () => edge.result.current;
+      dispatch = async (...actions) =>
+        await act(async () => {
+          await disp.result.current.dispatchAsync({ key: schem.key, actions });
+        });
+      cleanup = () => {
+        edge.unmount();
+        disp.unmount();
+        loadUtils.unmount();
+      };
+    });
+
+    afterEach(() => cleanup());
+
+    it("fills a new edge's color from its source symbol when its config names none", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", color: "#00ff00" },
+        }),
+      );
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 255, 0, 1] }),
+      );
+    });
+
+    it("keeps the color a new edge's config chose", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", color: "#00ff00" },
+        }),
+      );
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({
+          key: EDGE.key,
+          config: { variant: "pipe", color: "#0000ff" },
+        }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({ variant: "pipe", color: [0, 0, 255, 1] }),
+      );
+    });
+
+    it("leaves a new edge's config alone when its source symbol has no color", async () => {
+      await dispatch(
+        schematic.addEdge({ edge: EDGE }),
+        schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),
+      );
+      await waitFor(() => expect(getEdgeCfg()).toMatchObject({ variant: "pipe" }));
+      expect(getEdgeCfg()).not.toHaveProperty("color");
+    });
+  });
+
   describe("useDispatch — edge segment preprocess", () => {
     const SEGMENTS: Schematic.Edge.Segmented.Segment[] = [
       { direction: "x", length: 50 },

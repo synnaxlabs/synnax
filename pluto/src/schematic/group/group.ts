@@ -8,21 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { compare, type record, uuid } from "@synnaxlabs/x";
+import { compare, uuid } from "@synnaxlabs/x";
 
 import { Node } from "@/schematic/node";
 import { type Diagram } from "@/vis/diagram";
 
 const { PADDING, TOP_PADDING } = Node.GroupBox;
 
-const isConfig = (c: record.Unknown | undefined): c is Node.GroupBox.Config =>
+const isConfig = (c: schematic.ElementConfig | undefined): c is Node.GroupBox.Config =>
   c?.variant === Node.GroupBox.VARIANT;
 
 // Membership forms a forest: a group's config lists its member symbols' keys, and
 // a group is itself a symbol, so it can be a member of another group. parentOf is
 // that relation inverted.
 export const buildParentOf = (
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): Map<string, string> => {
   const parentOf = new Map<string, string>();
   for (const [key, config] of Object.entries(configs)) {
@@ -68,7 +68,7 @@ export const canGroup = (
 export interface CreateParams {
   selected: readonly string[];
   nodes: readonly schematic.Node[];
-  configs: Record<string, record.Unknown>;
+  configs: Record<string, schematic.ElementConfig>;
 }
 
 export interface CreateResult {
@@ -115,7 +115,7 @@ export const createActions = ({
 
 const collectMembers = (
   key: string,
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
   out: Set<string>,
 ): void => {
   const config = configs[key];
@@ -132,9 +132,9 @@ const collectMembers = (
  * dropping members that were not pasted. Non-group configs pass through.
  */
 export const remapMembers = (
-  config: record.Unknown | undefined,
+  config: schematic.ElementConfig | undefined,
   remap: Record<string, string>,
-): record.Unknown | undefined => {
+): schematic.ElementConfig | undefined => {
   if (!isConfig(config)) return config;
   const members = config.members.map((m) => remap[m]).filter((m) => m != null);
   return { ...config, members };
@@ -145,7 +145,7 @@ export const remapMembers = (
  */
 export const withMembers = (
   keys: readonly string[],
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): string[] => {
   const out = new Set(keys);
   for (const key of keys) collectMembers(key, configs, out);
@@ -201,7 +201,7 @@ export const fanOutMoves = (
 export const lockMembers = (
   nodes: schematic.Node[],
   parentOf: Map<string, string>,
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): Diagram.Node[] => {
   if (parentOf.size === 0) return nodes;
   const undraggable = (key: string): boolean => {
@@ -216,7 +216,7 @@ export const lockMembers = (
 const underLocked = (
   key: string,
   parentOf: Map<string, string>,
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): boolean => {
   const visited = new Set<string>();
   let parent = parentOf.get(key);
@@ -236,7 +236,7 @@ const underLocked = (
 export const drillIn = (
   key: string,
   parentOf: Map<string, string>,
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): string[] | null => {
   if (!parentOf.has(key) || underLocked(key, parentOf, configs)) return null;
   return withMembers([key], configs);
@@ -246,20 +246,20 @@ export const drillIn = (
 export const shielded = (
   keys: readonly string[],
   parentOf: Map<string, string>,
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): Set<string> => new Set(keys.filter((k) => underLocked(k, parentOf, configs)));
 
 /** closure resolves each key to its outermost group and includes its members. */
 export const closure = (
   keys: readonly string[],
   parentOf: Map<string, string>,
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): string[] => withMembers([...new Set(keys.map((k) => rootOf(parentOf, k)))], configs);
 
 /** canUngroup returns whether the selection includes a group. */
 export const canUngroup = (
   selected: readonly string[],
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): boolean => selected.some((key) => isConfig(configs[key]));
 
 export interface UngroupResult {
@@ -272,7 +272,7 @@ export interface UngroupResult {
 const resolveUngrouped = (
   key: string,
   targets: Set<string>,
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
   visited: Set<string>,
 ): string[] => {
   if (!targets.has(key)) return [key];
@@ -291,7 +291,7 @@ const resolveUngrouped = (
  */
 export const ungroupActions = (
   selected: readonly string[],
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): UngroupResult | null => {
   const parentOf = buildParentOf(configs);
   const targets = new Set<string>();
@@ -321,7 +321,7 @@ export const ungroupActions = (
       resolveUngrouped(m, targets, configs, new Set()),
     );
     if (!compare.arraysEqual(next, config.members))
-      actions.push(schematic.setConfig({ key, config: { members: next } }));
+      actions.push(schematic.setConfig({ key, config: { ...config, members: next } }));
   }
   const freed: string[] = [];
   for (const key of targets) {

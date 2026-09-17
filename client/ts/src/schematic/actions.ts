@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type record } from "@synnaxlabs/x";
-
 import { actions } from "@/actions";
 import {
   type Action,
@@ -22,7 +20,6 @@ import {
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
-import { elementConfigZ } from "@/schematic/types.gen";
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -52,8 +49,7 @@ const handlers: Handlers = {
     const idx = state.nodes.findIndex((n) => n.key === payload.node.key);
     if (idx === -1) {
       state.nodes.push(payload.node);
-      if (payload.config != null)
-        state.configs[payload.node.key] = elementConfigZ.parse(payload.config);
+      if (payload.config != null) state.configs[payload.node.key] = payload.config;
       return {
         inverse: [removeNode({ key: payload.node.key })],
         targets: [payload.node.key],
@@ -64,8 +60,7 @@ const handlers: Handlers = {
     const oldConfig =
       oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes[idx] = payload.node;
-    if (payload.config != null)
-      state.configs[payload.node.key] = elementConfigZ.parse(payload.config);
+    if (payload.config != null) state.configs[payload.node.key] = payload.config;
     return {
       inverse: [
         setNode(
@@ -98,9 +93,9 @@ const handlers: Handlers = {
       if (config?.variant !== "group_box") continue;
       const { members } = config;
       if (!members.includes(payload.key)) continue;
-      const oldMembers = actions.snapshotDraft(members);
+      const oldConfig = actions.snapshotDraft(config);
       config.members = members.filter((m) => m !== payload.key);
-      inverse.push(setConfig({ key, config: { members: oldMembers } }));
+      inverse.push(setConfig({ key, config: oldConfig }));
       targets.push(key);
     }
     return { inverse, targets };
@@ -125,38 +120,14 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
-  // The inverse of SetConfig is imperfect for keys the action newly introduces:
-  // SetConfig only merges, so it cannot remove keys that did not previously exist. The
-  // inverse here restores values for keys that DID exist before the merge; keys added
-  // by the action remain on undo as phantom fields. A future ReplaceConfig action can
-  // close the gap by enabling wholesale replacement.
   setConfig: (state, payload) => {
-    const existingRaw = state.configs[payload.key];
-    if (existingRaw != null) {
-      const existing: record.Unknown = actions.snapshotDraft(existingRaw);
-      const restoreFields: record.Unknown = {};
-      for (const k of Object.keys(payload.config))
-        if (existing[k] !== undefined) restoreFields[k] = existing[k];
-      state.configs[payload.key] = elementConfigZ.parse({
-        ...existing,
-        ...payload.config,
-      });
-      if (Object.keys(restoreFields).length === 0)
-        return { inverse: [], targets: [payload.key] };
-      return {
-        inverse: [setConfig({ key: payload.key, config: restoreFields })],
-        targets: [payload.key],
-      };
-    }
-    let cfg = payload.config;
-    const edge = state.edges.find((e) => e.key === payload.key);
-    if (edge != null) {
-      const srcCfg = state.configs[edge.source.node] as
-        { color?: color.Crude } | undefined;
-      if (srcCfg?.color != null) cfg = { ...cfg, color: srcCfg.color };
-    }
-    state.configs[payload.key] = elementConfigZ.parse(cfg);
-    return { inverse: [], targets: [payload.key] };
+    const existing = state.configs[payload.key];
+    const prev = existing != null ? actions.snapshotDraft(existing) : undefined;
+    state.configs[payload.key] = payload.config;
+    return {
+      inverse: prev != null ? [setConfig({ key: payload.key, config: prev })] : [],
+      targets: [payload.key],
+    };
   },
 };
 

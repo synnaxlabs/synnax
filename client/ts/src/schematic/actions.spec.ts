@@ -365,7 +365,7 @@ describe("schematic reducer", () => {
       const out = apply(
         state,
         schematic.removeNode({ key: "n1" }),
-        schematic.setConfig({ key: "g1", config: { members: ["n1", "n2", "n3"] } }),
+        schematic.setConfig({ key: "g1", config: groupConfig(["n1", "n2", "n3"]) }),
       );
       expect(out.configs.g1).toEqual(groupConfig(["n1", "n2", "n3"]));
     });
@@ -377,7 +377,7 @@ describe("schematic reducer", () => {
       });
       const out = apply(
         state,
-        schematic.setConfig({ key: "g1", config: { members: ["n1", "n2", "n3"] } }),
+        schematic.setConfig({ key: "g1", config: groupConfig(["n1", "n2", "n3"]) }),
         schematic.removeNode({ key: "n1" }),
       );
       expect(out.configs.g1).toEqual(groupConfig(["n2", "n3"]));
@@ -474,15 +474,26 @@ describe("schematic reducer", () => {
       );
       expect(out.configs).toEqual({ n1: tank("Pump") });
     });
-    it("should merge payload fields into an existing config entry", () => {
+    it("should replace an existing config entry whole", () => {
       const state = empty({
         configs: { n1: tank("Old", "#ff0000") },
       });
       const out = apply(
         state,
-        schematic.setConfig({ key: "n1", config: { label: { label: "New" } } }),
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", label: { label: "New" } },
+        }),
       );
-      expect(out.configs).toEqual({ n1: tank("New", "#ff0000") });
+      expect(out.configs).toEqual({ n1: tank("New") });
+    });
+    it("should replace an entry with one of another variant", () => {
+      const state = empty({ configs: { e1: cfg({ variant: "pipe" }) } });
+      const out = apply(
+        state,
+        schematic.setConfig({ key: "e1", config: { variant: "electric" } }),
+      );
+      expect(out.configs).toEqual({ e1: cfg({ variant: "electric" }) });
     });
     it("should accept a key that does not match any node or edge", () => {
       const out = apply(
@@ -493,110 +504,6 @@ describe("schematic reducer", () => {
         }),
       );
       expect(out.configs).toEqual({ orphan: tank("Floating") });
-    });
-    it("should reject a config that does not match any element variant", () => {
-      expect(() =>
-        apply(empty(), schematic.setConfig({ key: "orphan", config: { data: 1 } })),
-      ).toThrow(z.ZodError);
-    });
-    it("should override the payload color with the source node's color when the new entry is for an edge", () => {
-      const state = empty({
-        edges: [edge("e1", "src", "o", "tgt", "i")],
-        configs: { src: cfg({ variant: "tank", color: [0, 1, 0, 1] }) },
-      });
-      const out = apply(
-        state,
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", color: [0, 0, 0, 0] },
-        }),
-      );
-      expect(out.configs.e1).toEqual(cfg({ variant: "pipe", color: [0, 1, 0, 1] }));
-    });
-    it("should inherit the source node's color when the payload omits color", () => {
-      const state = empty({
-        edges: [edge("e1", "src", "o", "tgt", "i")],
-        configs: { src: cfg({ variant: "tank", color: [0, 1, 0, 1] }) },
-      });
-      const out = apply(
-        state,
-        schematic.setConfig({ key: "e1", config: { variant: "pipe" } }),
-      );
-      expect(out.configs.e1).toEqual(cfg({ variant: "pipe", color: [0, 1, 0, 1] }));
-    });
-    it("should copy a transparent source color as a choice", () => {
-      const state = empty({
-        edges: [edge("e1", "src", "o", "tgt", "i")],
-        configs: { src: cfg({ variant: "tank", color: [0, 0, 0, 0] }) },
-      });
-      const out = apply(
-        state,
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", color: [255, 0, 0, 1] },
-        }),
-      );
-      expect(out.configs.e1).toEqual(cfg({ variant: "pipe", color: [0, 0, 0, 0] }));
-    });
-    it("should leave the payload untouched when the source node has no color", () => {
-      const state = empty({
-        edges: [edge("e1", "src", "o", "tgt", "i")],
-        configs: { src: tank("Pump") },
-      });
-      const out = apply(
-        state,
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", color: [0, 0, 0, 0] },
-        }),
-      );
-      expect(out.configs.e1).toEqual(cfg({ variant: "pipe", color: [0, 0, 0, 0] }));
-    });
-    it("should leave the payload untouched when the source node has no config", () => {
-      const state = empty({
-        edges: [edge("e1", "src", "o", "tgt", "i")],
-      });
-      const out = apply(
-        state,
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", color: [0, 0, 0, 0] },
-        }),
-      );
-      expect(out.configs.e1).toEqual(cfg({ variant: "pipe", color: [0, 0, 0, 0] }));
-    });
-    it("should not override the color when merging into an existing edge config", () => {
-      const state = empty({
-        edges: [edge("e1", "src", "o", "tgt", "i")],
-        configs: {
-          src: cfg({ variant: "tank", color: [0, 1, 0, 1] }),
-          e1: cfg({ variant: "pipe", color: [0, 0, 0, 0] }),
-        },
-      });
-      const out = apply(
-        state,
-        schematic.setConfig({ key: "e1", config: { variant: "electric" } }),
-      );
-      expect(out.configs.e1).toEqual(cfg({ variant: "electric", color: [0, 0, 0, 0] }));
-    });
-    it("should inherit the source color end-to-end when addEdge is followed by setConfig in one batch", () => {
-      const state = empty({
-        nodes: [node("src", 0, 0), node("tgt", 100, 0)],
-        configs: { src: cfg({ variant: "tank", color: [0, 1, 0, 1] }) },
-      });
-      const out = apply(
-        state,
-        schematic.addEdge({ edge: edge("e1", "src", "o", "tgt", "i") }),
-        schematic.setConfig({
-          key: "e1",
-          config: { variant: "pipe", color: [0, 0, 0, 0], segments: [] },
-        }),
-      );
-      expect(out.configs.e1).toEqual({
-        variant: "pipe",
-        color: [0, 1, 0, 1],
-        segments: [],
-      });
     });
   });
 
@@ -740,6 +647,15 @@ describe("schematic reducer", () => {
       ).toThrow(z.ZodError);
     });
 
+    it("should reject a setConfig action whose config names no element variant", () => {
+      expect(() =>
+        schematic.actionZ.parse({
+          type: "set_config",
+          setConfig: { key: "orphan", config: { data: 1 } },
+        }),
+      ).toThrow(z.ZodError);
+    });
+
     it("should accept a fully populated setNodePosition action", () => {
       const a = schematic.setNodePosition({ key: "n1", position: { x: 1, y: 2 } });
       expect(schematic.actionZ.parse(a)).toEqual(a);
@@ -754,11 +670,10 @@ describe("schematic reducer inverses", () => {
     expect(restored).toEqual(state);
   };
 
-  // Acknowledges the documented gap in setConfig's inverse: keys newly added by a
-  // SetConfig action cannot be removed by the inverse (SetConfig is a merge, not a
-  // replace). Asserts that nodes and edges round-trip cleanly, and that every config
-  // key present in the original is restored to its original value. Keys absent from the
-  // original may persist as phantom entries on the restored state.
+  // Acknowledges the gap in setConfig's inverse: no action removes a config entry, so
+  // a key the batch newly introduced persists on the restored state. Asserts that nodes
+  // and edges round-trip cleanly, and that every config key present in the original is
+  // restored to its original value.
   const expectUserVisibleRoundTrip = (
     state: schematic.Schematic,
     actions: schematic.Action[],
@@ -876,7 +791,7 @@ describe("schematic reducer inverses", () => {
       ]);
       expect(inverse).toHaveLength(2);
       expect(inverse[1]).toEqual(
-        schematic.setConfig({ key: "g1", config: { members: ["a", "n1", "b"] } }),
+        schematic.setConfig({ key: "g1", config: groupConfig(["a", "n1", "b"]) }),
       );
     });
 
@@ -979,26 +894,25 @@ describe("schematic reducer inverses", () => {
   });
 
   describe("setConfig", () => {
-    it("should restore overwritten fields and strip unknown fields", () => {
+    it("should restore the prior entry whole", () => {
       const state = empty({
         configs: { n1: tank("Old", "#ff0000") },
       });
       const { next, inverse } = schematic.reduceAll(state, [
         schematic.setConfig({
           key: "n1",
-          config: { label: { label: "New" }, count: 1 },
+          config: { variant: "tank", label: { label: "New" } },
         }),
       ]);
+      expect(inverse).toEqual([
+        schematic.setConfig({ key: "n1", config: tank("Old", "#ff0000") }),
+      ]);
       const restored = schematic.reduceAll(next, inverse).next;
-      expect(restored.configs.n1).toMatchObject({ label: { label: "Old" } });
-      // Unknown fields are stripped by element config validation rather than
-      // persisting as phantom entries.
-      expect(restored.configs.n1).not.toHaveProperty("count");
+      expect(restored.configs.n1).toEqual(tank("Old", "#ff0000"));
     });
-    it("should produce an empty inverse when no key in the payload was previously present", () => {
-      const state = empty({ configs: { n1: tank("Old") } });
-      const { inverse } = schematic.reduceAll(state, [
-        schematic.setConfig({ key: "n1", config: { count: 1 } }),
+    it("should produce an empty inverse when the key had no entry", () => {
+      const { inverse } = schematic.reduceAll(empty(), [
+        schematic.setConfig({ key: "n1", config: tank("New") }),
       ]);
       expect(inverse).toEqual([]);
     });
@@ -1063,13 +977,13 @@ describe("schematic reducer inverses", () => {
       const r1 = schematic.reduceAll(initial, [
         schematic.setConfig({
           key: "n1",
-          config: { label: { level: "h2" }, color: "#ff0000" },
+          config: { variant: "tank", label: { level: "h2" }, color: "#ff0000" },
         }),
       ]);
       const r2 = schematic.reduceAll(r1.next, [
         schematic.setConfig({
           key: "n1",
-          config: { label: { level: "h3" }, color: "#ff0000" },
+          config: { variant: "tank", label: { level: "h3" }, color: "#ff0000" },
         }),
       ]);
       // Matches pushOnto's coalescing: inverse = [next.inverse, ...top.inverse]

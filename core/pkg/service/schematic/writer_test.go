@@ -290,7 +290,7 @@ var _ = Describe("Writer", func() {
 						),
 						schematic.NewSetConfigAction(schematic.SetConfigPayload{
 							Key:    "pump",
-							Config: tankPayload("Main Pump"),
+							Config: tankCfg("Main Pump", ""),
 						}),
 					}),
 				).To(Succeed())

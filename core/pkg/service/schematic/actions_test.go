@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
@@ -53,14 +52,6 @@ func pipeCfg(hex string) schematic.ElementConfig {
 	}
 	return schematic.ElementConfig{
 		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
-	}
-}
-
-// tankPayload is the wire form of a tank config carrying only a label.
-func tankPayload(label string) msgpack.EncodedJSON {
-	return msgpack.EncodedJSON{
-		"variant": "tank",
-		"label":   map[string]any{"label": label},
 	}
 }
 
@@ -164,17 +155,25 @@ var _ = Describe("Reducer", func() {
 				schematic.Reduce(
 					state,
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
-						Node: node("n1", 0, 0),
-						Config: msgpack.EncodedJSON{
-							"variant": "tank",
-							"label":   map[string]any{"label": "Pump"},
-							"color":   "#ff0000",
-						},
+						Node:   node("n1", 0, 0),
+						Config: new(tankCfg("Pump", "#ff0000")),
 					}),
 				),
 			)
 			Expect(out.Configs).To(HaveKey("n1"))
 			Expect(out.Configs["n1"]).To(Equal(tankCfg("Pump", "#ff0000")))
+		})
+		It("Should reject a config naming no variant", func() {
+			Expect(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
+					Node:   node("n1", 0, 0),
+					Config: &schematic.ElementConfig{},
+				}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("names no variant")),
+			))
 		})
 		It("Should leave configs untouched when the action's config is nil", func() {
 			state := schematic.Schematic{}
@@ -518,13 +517,13 @@ var _ = Describe("Reducer", func() {
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "n1",
-						Config: tankPayload("Pump"),
+						Config: tankCfg("Pump", ""),
 					}),
 				),
 			)
 			Expect(out.Configs["n1"]).To(Equal(tankCfg("Pump", "")))
 		})
-		It("Should merge payload fields into an existing config entry", func() {
+		It("Should replace an existing config entry whole", func() {
 			state := schematic.Schematic{Configs: map[string]schematic.ElementConfig{
 				"n1": tankCfg("Old", "#ff0000"),
 			}}
@@ -532,36 +531,41 @@ var _ = Describe("Reducer", func() {
 				schematic.Reduce(
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
-						Key: "n1",
-						Config: msgpack.EncodedJSON{
-							"label": map[string]any{"label": "New"},
+						Key:    "n1",
+						Config: tankCfg("New", ""),
+					}),
+				),
+			)
+			Expect(out.Configs["n1"]).To(Equal(tankCfg("New", "")))
+		})
+		It("Should replace an entry with one of another variant", func() {
+			state := schematic.Schematic{Configs: map[string]schematic.ElementConfig{
+				"e1": pipeCfg("#000000"),
+			}}
+			out := MustSucceed(
+				schematic.Reduce(
+					state,
+					schematic.NewSetConfigAction(schematic.SetConfigPayload{
+						Key: "e1",
+						Config: schematic.ElementConfig{
+							Variant: schematic.ElectricElementConfig{},
 						},
 					}),
 				),
 			)
-			Expect(out.Configs["n1"]).To(Equal(tankCfg("New", "#ff0000")))
+			Expect(out.Configs["e1"]).To(Equal(schematic.ElementConfig{
+				Variant: schematic.ElectricElementConfig{},
+			}))
 		})
 		// A nil config would otherwise store a null entry, which no client can read
 		// back, taking the whole schematic down with it.
-		It("Should reject a nil config", func() {
+		It("Should reject a config naming no variant", func() {
 			Expect(schematic.Reduce(
 				schematic.Schematic{},
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{Key: "n1"}),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("names no variant")),
-			))
-		})
-		It("Should reject a config naming no known variant", func() {
-			Expect(schematic.Reduce(
-				schematic.Schematic{},
-				schematic.NewSetConfigAction(schematic.SetConfigPayload{
-					Key:    "n1",
-					Config: msgpack.EncodedJSON{"variant": "not-a-symbol"},
-				}),
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(`unknown variant "not-a-symbol"`)),
 			))
 		})
 		It("Should accept a key that does not match any node or edge", func() {
@@ -571,167 +575,12 @@ var _ = Describe("Reducer", func() {
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "orphan",
-						Config: tankPayload("Floating"),
+						Config: tankCfg("Floating", ""),
 					}),
 				),
 			)
 			Expect(out.Configs["orphan"]).To(Equal(tankCfg("Floating", "")))
 		})
-		It("Should reject a config that does not match any element variant", func() {
-			state := schematic.Schematic{}
-			Expect(
-				schematic.Reduce(
-					state,
-					schematic.NewSetConfigAction(schematic.SetConfigPayload{
-						Key:    "orphan",
-						Config: msgpack.EncodedJSON{"data": 1},
-					}),
-				),
-			).Error().
-				To(MatchError(ContainSubstring("invalid element config")))
-		})
-		It(
-			"Should override the payload color with the edge's source color on insert",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]schematic.ElementConfig{
-						"src": tankCfg("Source", "#00ff00"),
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "e1",
-							Config: msgpack.EncodedJSON{
-								"variant": "pipe",
-								"color":   "#000000",
-							},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#00ff00")))
-			},
-		)
-		It(
-			"Should inherit the edge's source color when the payload omits color",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]schematic.ElementConfig{
-						"src": tankCfg("Source", "#00ff00"),
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key:    "e1",
-							Config: msgpack.EncodedJSON{"variant": "pipe"},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#00ff00")))
-			},
-		)
-		It(
-			"Should copy a transparent source color as a choice",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]schematic.ElementConfig{
-						"src": tankCfg("Source", "#00000000"),
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "e1",
-							Config: msgpack.EncodedJSON{
-								"variant": "pipe",
-								"color":   "#ff0000",
-							},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#00000000")))
-			},
-		)
-		It(
-			"Should leave the payload untouched when the source node has no color",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]schematic.ElementConfig{
-						"src": tankCfg("Pump", ""),
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "e1",
-							Config: msgpack.EncodedJSON{
-								"variant": "pipe",
-								"color":   "#000000",
-							},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#000000")))
-			},
-		)
-		It(
-			"Should leave the payload untouched when the source node has no config",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "e1",
-							Config: msgpack.EncodedJSON{
-								"variant": "pipe",
-								"color":   "#000000",
-							},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#000000")))
-			},
-		)
-		It(
-			"Should not override the color when merging into an existing edge config",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]schematic.ElementConfig{
-						"src": tankCfg("Source", "#00ff00"),
-						"e1":  pipeCfg("#000000"),
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key:    "e1",
-							Config: msgpack.EncodedJSON{"variant": "electric"},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(schematic.ElementConfig{
-					Variant: schematic.ElectricElementConfig{
-						SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-							Color: new(mustColor("#000000")),
-						},
-					},
-				}))
-			},
-		)
 	})
 
 	Describe("ReduceAll real-world scenarios", func() {
@@ -776,11 +625,11 @@ var _ = Describe("Reducer", func() {
 				),
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "pump",
-					Config: tankPayload("Main Pump"),
+					Config: tankCfg("Main Pump", ""),
 				}),
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "e1",
-					Config: msgpack.EncodedJSON{"variant": "pipe"},
+					Config: pipeCfg(""),
 				}),
 			}
 			out := MustSucceed(schematic.Reduce(state, actions...))
@@ -884,15 +733,17 @@ var _ = Describe("Reducer", func() {
 						actions,
 						schematic.NewSetConfigAction(schematic.SetConfigPayload{
 							Key:    "n" + string(rune('0'+i)),
-							Config: tankPayload("node " + string(rune('0'+i))),
+							Config: tankCfg("node "+string(rune('0'+i)), ""),
 						}),
 					)
 				}
 				actions = append(
 					actions,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
-						Key:    "e1",
-						Config: msgpack.EncodedJSON{"variant": "electric"},
+						Key: "e1",
+						Config: schematic.ElementConfig{
+							Variant: schematic.ElectricElementConfig{},
+						},
 					}),
 				)
 				out := MustSucceed(schematic.Reduce(state, actions...))

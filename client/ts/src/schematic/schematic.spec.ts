@@ -245,7 +245,10 @@ describe("Schematic", () => {
         schematic.removeNode({ key: "n1" }),
       ]);
       await client.schematics.dispatch(schem.key, [
-        schematic.setConfig({ key: "g1", config: { members: ["n1", "n3"] } }),
+        schematic.setConfig({
+          key: "g1",
+          config: { variant: "group_box", members: ["n1", "n3"] },
+        }),
       ]);
       const res = await client.schematics.retrieve(schem.key);
       expect(res.configs.g1).toMatchObject({
@@ -287,7 +290,10 @@ describe("Schematic", () => {
           schematic.removeNode({ key: "outer" }),
         ],
         [
-          schematic.setConfig({ key: "lockbox", config: { members: ["n2", "late"] } }),
+          schematic.setConfig({
+            key: "lockbox",
+            config: group(["n2", "late"], { locked: true }),
+          }),
           schematic.removeNode({ key: "n2" }),
         ],
         [schematic.removeNode({ key: "selfy" })],
@@ -351,14 +357,17 @@ describe("Schematic", () => {
       expect(res.edges).toEqual([]);
     });
 
-    test("setConfig upserts config under the given key", async () => {
+    test("setConfig replaces the config under the given key", async () => {
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setConfig({
           key: "n1",
           config: { variant: "tank", label: { label: "Original" } },
         }),
-        schematic.setConfig({ key: "n1", config: { label: { label: "Replaced" } } }),
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", label: { label: "Replaced" } },
+        }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.configs.n1).toMatchObject({

@@ -10,11 +10,10 @@
 package schematic
 
 import (
-	"maps"
 	"slices"
 
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle replaces the document with its created state.
@@ -43,6 +42,9 @@ func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 // replaces the existing node in place. If Config is non-nil, it is stored
 // under the node's key.
 func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
+	if p.Config != nil && p.Config.Variant == nil {
+		return Schematic{}, noVariantError(p.Node.Key)
+	}
 	replaced := false
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == p.Node.Key {
@@ -55,14 +57,10 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 		state.Nodes = append(state.Nodes, p.Node)
 	}
 	if p.Config != nil {
-		cfg, err := versions.DecodeElementConfig(versions.NormalizeConfigKeys(p.Config))
-		if err != nil {
-			return state, err
-		}
 		if state.Configs == nil {
 			state.Configs = make(map[string]ElementConfig)
 		}
-		state.Configs[p.Node.Key] = cfg
+		state.Configs[p.Node.Key] = *p.Config
 	}
 	return state, nil
 }
@@ -125,55 +123,23 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle merges the payload config into the configs entry for the given key.
-// Top-level fields present in the payload overwrite existing fields; fields
-// absent from the payload are preserved. When no entry exists yet and the
-// key matches an edge whose source node carries a color, the source color
-// overrides whatever color (if any) was in the payload.
+// Handle replaces the configs entry stored under the given key. A config naming no
+// variant is rejected: stored, it would be a null entry no client can read back.
 func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
-	if existing, ok := state.Configs[p.Key]; ok {
-		fields, err := versions.ElementConfigFields(existing)
-		if err != nil {
-			return state, err
-		}
-		maps.Copy(fields, versions.NormalizeConfigKeys(p.Config))
-		merged, err := versions.DecodeElementConfig(fields)
-		if err != nil {
-			return state, err
-		}
-		state.Configs[p.Key] = merged
-		return state, nil
-	}
-	raw := versions.NormalizeConfigKeys(p.Config)
-	for _, e := range state.Edges {
-		if e.Key != p.Key {
-			continue
-		}
-		srcCfg, ok := state.Configs[e.Source.Node]
-		if !ok {
-			break
-		}
-		srcFields, err := versions.ElementConfigFields(srcCfg)
-		if err != nil {
-			return state, err
-		}
-		c, ok := srcFields["color"]
-		if !ok || c == nil {
-			break
-		}
-		next := make(msgpack.EncodedJSON, len(raw)+1)
-		maps.Copy(next, raw)
-		next["color"] = c
-		raw = next
-		break
-	}
-	cfg, err := versions.DecodeElementConfig(raw)
-	if err != nil {
-		return state, err
+	if p.Config.Variant == nil {
+		return Schematic{}, noVariantError(p.Key)
 	}
 	if state.Configs == nil {
 		state.Configs = make(map[string]ElementConfig)
 	}
-	state.Configs[p.Key] = cfg
+	state.Configs[p.Key] = p.Config
 	return state, nil
+}
+
+func noVariantError(key string) error {
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"[Schematic] - config for %q names no variant",
+		key,
+	)
 }

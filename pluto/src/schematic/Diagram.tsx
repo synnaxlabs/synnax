@@ -19,7 +19,7 @@ import {
 } from "react";
 
 import { Component } from "@/component";
-import { useInitializerRef } from "@/hooks";
+import { useInitializerRef, useSyncedRef } from "@/hooks";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
@@ -33,13 +33,20 @@ import { useKey } from "@/schematic/Suspended";
 import { Diagram as Base } from "@/vis/diagram";
 import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
+// The partial merges against the latest config through a ref, not the render's
+// closure, so two changes in one tick both land.
 const useConfig = <T extends ElementConfig>(
   key: string,
 ): [T | undefined, (config: Partial<T>) => void] => {
   const config = useElementConfig({ elKey: key });
+  const configRef = useSyncedRef(config);
   const dispatch = useSingleDispatch();
   const handleChange = useCallback(
-    (config: Partial<T>) => dispatch(schematic.setConfig({ key, config })),
+    (partial: Partial<T>) => {
+      const current = configRef.current;
+      if (current == null) return;
+      dispatch(schematic.setConfig({ key, config: { ...current, ...partial } }));
+    },
     [key, dispatch],
   );
   return [config as T | undefined, handleChange];

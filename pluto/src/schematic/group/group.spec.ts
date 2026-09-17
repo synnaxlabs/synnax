@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -41,7 +40,7 @@ const groupConfig = (members: string[]): Node.GroupBox.Config => ({
 
 const doc = (
   nodes: schematic.Node[],
-  configs: Record<string, record.Unknown>,
+  configs: Record<string, schematic.ElementConfig>,
 ): schematic.Schematic => ({ nodes, configs }) as schematic.Schematic;
 
 // outer holds mid1 (which holds inner1) and mid2, side stands alone, and l1, l2,
@@ -95,7 +94,7 @@ describe("group", () => {
     });
 
     it("should ignore non-group configs", () => {
-      expect(buildParentOf({ v: { variant: "value" } }).size).toEqual(0);
+      expect(buildParentOf({ v: Node.createConfig("value") }).size).toEqual(0);
     });
 
     it("should keep the first group when two claim the same member", () => {
@@ -244,7 +243,7 @@ describe("group", () => {
     });
 
     it("should pass non-group configs through", () => {
-      const config = { variant: "value" };
+      const config = Node.createConfig("value");
       expect(remapMembers(config, { a: "a2" })).toBe(config);
       expect(remapMembers(undefined, { a: "a2" })).toBeUndefined();
     });
@@ -528,7 +527,7 @@ describe("group", () => {
       expect(result?.actions).toEqual([
         schematic.setConfig({
           key: "mid1",
-          config: { members: ["s6", "s7", "s2", "s3"] },
+          config: { ...forest.mid1, members: ["s6", "s7", "s2", "s3"] },
         }),
         schematic.removeNode({ key: "inner1" }),
       ]);
@@ -557,7 +556,7 @@ describe("group", () => {
       expect(result?.actions).toEqual([
         schematic.setConfig({
           key: "outer",
-          config: { members: ["inner1", "s2", "s3", "mid2", "s1"] },
+          config: { ...forest.outer, members: ["inner1", "s2", "s3", "mid2", "s1"] },
         }),
         schematic.removeNode({ key: "mid1" }),
       ]);
@@ -592,7 +591,9 @@ describe("group", () => {
 
   describe("grouping cycle", () => {
     it("should release members on ungroup and reclaim them on regroup", () => {
-      const remaining: Record<string, record.Unknown> = { g: groupConfig(["a", "b"]) };
+      const remaining: Record<string, schematic.ElementConfig> = {
+        g: groupConfig(["a", "b"]),
+      };
       expect(buildParentOf(remaining).has("a")).toEqual(true);
       const ungrouped = ungroupActions(["g", "a", "b"], remaining);
       ungrouped?.actions.forEach((a) => {
@@ -615,7 +616,7 @@ describe("group", () => {
     it("should keep an inner group's members claimed after the outer ungroups", () => {
       const configs = { outer: groupConfig(["inner", "c"]), inner: groupConfig(["a"]) };
       const result = ungroupActions(withMembers(["outer"], configs), configs);
-      const remaining: Record<string, record.Unknown> = { ...configs };
+      const remaining: Record<string, schematic.ElementConfig> = { ...configs };
       result?.actions.forEach((a) => {
         if (a.type === "remove_node") delete remaining[a.removeNode.key];
       });

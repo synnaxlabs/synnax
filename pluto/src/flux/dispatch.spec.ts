@@ -523,7 +523,7 @@ describe("Flux.createDispatch", () => {
           key,
           actions: schematic.setConfig({
             key: "n1",
-            config: { label: { label: "first" } },
+            config: { variant: "tank", label: { label: "first" } },
           }),
         });
       });
@@ -532,7 +532,7 @@ describe("Flux.createDispatch", () => {
           key,
           actions: schematic.setConfig({
             key: "n1",
-            config: { label: { label: "second" } },
+            config: { variant: "tank", label: { label: "second" } },
           }),
         });
       });

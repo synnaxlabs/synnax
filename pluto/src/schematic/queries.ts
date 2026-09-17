@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
-import { array, compare, type record, uuid, verbs, xy } from "@synnaxlabs/x";
+import { array, compare, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -191,14 +191,39 @@ const augmentWithEdgeSegments = (
     changes,
   });
   if (updates.length === 0) return actions;
-  const extra = updates.map((u) => {
-    const existing = current.configs[u.key] as record.Unknown | undefined;
+  const extra = updates.flatMap((u) => {
+    const existing = current.configs[u.key];
+    if (existing == null || !("segments" in existing)) return [];
     return schematic.setConfig({
       key: u.key,
       config: { ...existing, segments: u.segments },
     });
   });
   return [...actions, ...extra];
+};
+
+const isEdgeConfig = (c: schematic.ElementConfig): c is schematic.EdgeConfig =>
+  c.variant in schematic.EDGE_CONFIG_SCHEMAS;
+
+// An edge added in this batch whose config names no color takes its source
+// symbol's color, so a pipe drawn out of a colored symbol matches it.
+const inheritEdgeColor = (
+  current: schematic.Schematic,
+  actions: schematic.Action[],
+): schematic.Action[] => {
+  const added = new Map<string, schematic.Edge>();
+  for (const a of actions)
+    if (a.type === "add_edge") added.set(a.addEdge.edge.key, a.addEdge.edge);
+  if (added.size === 0) return actions;
+  return actions.map((a) => {
+    if (a.type !== "set_config") return a;
+    const { key, config } = a.setConfig;
+    const edge = added.get(key);
+    if (edge == null || !isEdgeConfig(config) || config.color != null) return a;
+    const source = current.configs[edge.source.node];
+    if (source == null || !("color" in source) || source.color == null) return a;
+    return schematic.setConfig({ key, config: { ...config, color: source.color } });
+  });
 };
 
 export const {
@@ -210,7 +235,10 @@ export const {
   domain: (client) => client.schematics,
   // Group fan-out runs first so member moves also get edge segment updates.
   preprocess: (current, actions) =>
-    augmentWithEdgeSegments(current, Group.fanOutMoves(current, actions)),
+    inheritEdgeColor(
+      current,
+      augmentWithEdgeSegments(current, Group.fanOutMoves(current, actions)),
+    ),
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
