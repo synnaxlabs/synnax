@@ -186,7 +186,7 @@ var _ = Describe("Config typing", func() {
 		cfg, ok := typed(ctx, msgpack.EncodedJSON{
 			"variant": "value",
 			"redline": map[string]any{
-				"bounds":   map[string]any{"lower": 0.0, "upper": 1.0},
+				"bounds": map[string]any{"lower": 0.0, "upper": 1.0},
 				"gradient": []any{
 					map[string]any{"key": "a", "color": "#00000000", "position": 0.0},
 				},
