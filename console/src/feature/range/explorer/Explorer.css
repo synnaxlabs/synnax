@@ -12,3 +12,41 @@
 .console-range-explorer {
     container-type: size;
 }
+
+.console-range__explorer-list {
+    & > .pluto-list__virtualizer {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        align-items: center;
+    }
+
+    & .console-range__list-item,
+    & .console-range__list-item-trailing {
+        display: grid;
+        grid-template-columns: subgrid;
+        align-items: center;
+    }
+
+    & .console-range__list-item,
+    & .pluto-list__sentinel {
+        grid-column: 1 / -1;
+    }
+
+    & .console-range__list-item-trailing {
+        grid-column: 2 / -1;
+        column-gap: 0;
+    }
+
+    & .pluto-tags {
+        grid-column: 1;
+        justify-self: end;
+    }
+
+    & .console-range__time-range {
+        grid-column: 2;
+    }
+
+    & .console-range__time-range ~ * {
+        grid-column: 3;
+    }
+}

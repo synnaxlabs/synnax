@@ -40,11 +40,6 @@ export const CONSOLE_NAV: PageNavNode = {
       name: "Projects",
     },
     {
-      key: "/reference/console/ranges",
-      href: "/reference/console/ranges",
-      name: "Ranges",
-    },
-    {
       key: "/reference/console/line-plots",
       href: "/reference/console/line-plots",
       name: "Line Plots",
