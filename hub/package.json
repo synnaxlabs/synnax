@@ -21,7 +21,7 @@
     "cov": "vitest --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "seed": "node scripts/seed.ts",
+    "create-internal-organization": "node scripts/create_internal_organization.ts",
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {

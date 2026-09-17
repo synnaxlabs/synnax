@@ -60,7 +60,10 @@ export interface Sent {
   to: string[];
 }
 
-/** sweep mails every due expiry warning and records each one as an event. */
+/**
+ * sweep mails every due expiry warning and records each one as an event. An
+ * organization with nobody to mail is skipped and retried on the next sweep.
+ */
 export const sweep = async ({
   store,
   mail,
@@ -81,12 +84,12 @@ export const sweep = async ({
     const days = dueNotice(row.license, notices, now);
     if (days == null) continue;
     const to = await recipients(row.organization.key);
-    if (to.length > 0)
-      await mail.send({
-        to,
-        subject: `Your Synnax license expires in ${days} ${days === 1 ? "day" : "days"}`,
-        text: expiryText(row.license, row.organization.name, days),
-      });
+    if (to.length === 0) continue;
+    await mail.send({
+      to,
+      subject: `Your Synnax license expires in ${days} ${days === 1 ? "day" : "days"}`,
+      text: expiryText(row.license, row.organization.name, days),
+    });
     await store.query.insert(event).values({
       kind: "expiry_notice",
       actor: "system",

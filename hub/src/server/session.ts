@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clerkClient } from "@clerk/astro/server";
+import { clerkClient, type OrganizationMembership } from "@clerk/astro/server";
 import { type APIContext } from "astro";
 
 import { unauthorized } from "@/server/errors";
@@ -36,10 +36,10 @@ export const resolve = async (
   const clerk = clerkClient(context);
   const [user, memberships] = await Promise.all([
     clerk.users.getUser(userId),
-    clerk.users.getOrganizationMembershipList({ userId, limit: 100 }),
+    allMemberships(clerk, userId),
   ]);
-  const clerkOrgIDs = memberships.data.map((m) => m.organization.id);
-  const staff = memberships.data.some(
+  const clerkOrgIDs = memberships.map((m) => m.organization.id);
+  const staff = memberships.some(
     (m) => m.organization.id === staffOrgID && m.role === STAFF_ROLE,
   );
   const email =
@@ -48,6 +48,24 @@ export const resolve = async (
     user.emailAddresses[0]?.emailAddress ??
     "";
   return { userID: userId, email, name: displayName(user, email), clerkOrgIDs, staff };
+};
+
+const PAGE = 100;
+
+const allMemberships = async (
+  clerk: ReturnType<typeof clerkClient>,
+  userId: string,
+): Promise<OrganizationMembership[]> => {
+  const all: OrganizationMembership[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const page = await clerk.users.getOrganizationMembershipList({
+      userId,
+      limit: PAGE,
+      offset,
+    });
+    all.push(...page.data);
+    if (page.data.length < PAGE) return all;
+  }
 };
 
 const displayName = (

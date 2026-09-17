@@ -1,7 +1,7 @@
 # Infrastructure
 
-One Terraform root per lifecycle. `hub/` owns what the hub portal signs with and runs on.
-State lives in HCP Terraform, organization `synnaxlabs`, workspace `hub`.
+One Terraform root per lifecycle. `hub/` owns what the hub portal signs with and runs
+on. State lives in HCP Terraform, organization `synnaxlabs`, workspace `hub`.
 
 ## Hub
 
@@ -40,12 +40,13 @@ preview branching on. The install sets `DATABASE_URL`. Then, with that URL in th
 
 ```sh
 pnpm --filter @synnaxlabs/hub db:migrate
-STAFF_ORG_ID=<clerk organization id> pnpm --filter @synnaxlabs/hub seed
+STAFF_ORG_ID=org_xxx pnpm --filter @synnaxlabs/hub create-internal-organization
 ```
 
-`db:migrate` applies the SQL under `hub/drizzle/`. `seed` creates the Synnax Labs
-organization every internal license belongs to. Rerun `db:migrate` after each schema
-change lands, and run `db:generate` to produce the SQL for one.
+`db:migrate` applies the SQL under `hub/drizzle/`. `create-internal-organization`
+creates the Synnax Labs organization every internal license belongs to. Rerun
+`db:migrate` after each schema change lands, and run `db:generate` to produce the SQL
+for one.
 
 ### Clerk
 
@@ -53,14 +54,14 @@ Install Clerk from the Vercel Marketplace on the hub project. The install sets
 `PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` for production and preview. In the
 Clerk dashboard:
 
-1. Organizations: enable them. Create the team organization "Synnax Labs" and give
-   every staff member the admin role. Its id is `staff_org_id`.
+1. Organizations: enable them. Create the team organization "Synnax Labs" and give every
+   staff member the admin role. Its id is `staff_org_id`, the `org_xxx` value above.
 2. Paths: sign-in `/sign-in`, sign-up `/sign-up`, after sign-in `/account`.
 3. Webhooks: add an endpoint at `https://docs.synnaxlabs.com/api/webhooks/clerk`
-   subscribed to `user.created`, `organization.created`, and `organization.updated`.
-   Its signing secret is `clerk_webhook_signing_secret`.
-4. Domains: for production, add `clerk.docs.synnaxlabs.com` and the DNS records it
-   asks for. The CSP in `hub/src/middleware.ts` already allows that host.
+   subscribed to `user.created`, `organization.created`, and `organization.updated`. Its
+   signing secret is `clerk_webhook_signing_secret`.
+4. Domains: for production, add `clerk.docs.synnaxlabs.com` and the DNS records it asks
+   for. The CSP in `hub/src/middleware.ts` already allows that host.
 
 ### Resend
 

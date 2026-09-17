@@ -17,7 +17,7 @@ import {
   type License,
   license,
 } from "@/server/db/schema";
-import { notFound } from "@/server/errors";
+import { badRequest, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
 import { sign, type Signer } from "@/server/license/sign";
 
@@ -141,7 +141,8 @@ export interface ReissueArgs {
 
 /**
  * reissue signs a fresh token for a machine that already holds a seat, for a download
- * after the activation page has been left. Throws when the seat was released.
+ * after the activation page has been left. Throws when the seat was released or the
+ * license no longer activates.
  */
 export const reissue = async (
   store: Store,
@@ -154,6 +155,13 @@ export const reissue = async (
     .innerJoin(license, eq(activation.license, license.key))
     .where(eq(activation.key, activationKey));
   if (row == null || row.activation.releasedAt != null) throw notFound("Activation");
+  const decision = decide({
+    license: row.license,
+    activations: [row.activation],
+    fingerprint: row.activation.fingerprint,
+    now,
+  });
+  if (!decision.ok) throw badRequest(DENIAL_MESSAGES[decision.reason]);
   await store.query
     .update(activation)
     .set({ lastSeen: now })

@@ -10,7 +10,7 @@
 // Creates the Synnax Labs organization the internal licenses belong to. Its key is
 // fixed because tokens already issued carry it. Run once per database:
 //
-//   DATABASE_URL=... STAFF_ORG_ID=org_... pnpm --filter @synnaxlabs/hub seed
+//   DATABASE_URL=... STAFF_ORG_ID=org_... pnpm --filter @synnaxlabs/hub create-internal-organization
 
 import { open } from "../src/server/db/db.ts";
 import { organization } from "../src/server/db/schema.ts";
