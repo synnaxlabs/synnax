@@ -347,15 +347,15 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   path="properties.healthCheck.headers"
                   label="Headers"
                   keyField="name"
-                  keyPlaceholder="Name"
-                  valuePlaceholder="Value"
+                  keyPlaceholder="Content-Type"
+                  valuePlaceholder="application/json"
                 />
                 <PlatformForm.KeyValueEditor
                   path="properties.healthCheck.queryParams"
                   label="Query parameters"
                   keyField="parameter"
-                  keyPlaceholder="Parameter"
-                  valuePlaceholder="Value"
+                  keyPlaceholder="limit"
+                  valuePlaceholder="100"
                 />
               </Flex.Box>
               <Flex.Box>
