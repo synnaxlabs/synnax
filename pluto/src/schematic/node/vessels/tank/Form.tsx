@@ -9,7 +9,6 @@
 
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
@@ -30,16 +29,20 @@ const FillForm = (): ReactElement => {
     optional: true,
   });
   return (
-    <Form.Wrapper y empty>
+    <Base.Sections x>
       <Scale.TelemForm path="fill" defaults={FILL_DEFAULTS} allowNone />
       {telem != null && (
-        <Flex.Box x>
-          <Scale.DisplayFields path="fill" />
-          <Form.ColorField path="fill.color" label="Fill color" />
-          <Scale.StyleFields path="fill" />
-        </Flex.Box>
+        <>
+          <Base.Section title="Display">
+            <Scale.DisplayFields path="fill" />
+          </Base.Section>
+          <Base.Section title="Appearance">
+            <Form.ColorField path="fill.color" label="Fill color" />
+            <Scale.StyleFields path="fill" />
+          </Base.Section>
+        </>
       )}
-    </Form.Wrapper>
+    </Base.Sections>
   );
 };
 
@@ -48,77 +51,69 @@ export const TankForm = ({
   showStrokeWidth = false,
   showFillTab = false,
 }: TankFormProps): ReactElement => {
-  const properties = (
-    <Form.Wrapper x align="stretch">
-      <Flex.Box y grow>
+  const style = (
+    <Base.Sections x>
+      <Base.Section title="Label">
         <Label.Form path="label" />
-        <Flex.Box x>
-          <Form.ColorField path="color" />
-          <Form.ColorField path="backgroundColor" label="Background color" />
+      </Base.Section>
+      <Base.Section title="Appearance">
+        <Form.ColorField path="color" />
+        <Form.ColorField path="backgroundColor" label="Background color" />
+        <Base.NumericField
+          path="borderRadius.x"
+          hideIfNull
+          optional
+          label="X border radius"
+          inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
+        />
+        <Base.NumericField
+          path="borderRadius.y"
+          hideIfNull
+          optional
+          label="Y border radius"
+          inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
+        />
+        {showBorderRadius && (
           <Base.NumericField
-            path="borderRadius.x"
+            path="borderRadius"
             hideIfNull
             optional
-            label="X border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
+            label="Border radius"
+            inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
+        )}
+        {showStrokeWidth && (
           <Base.NumericField
-            path="borderRadius.y"
+            path="strokeWidth"
             hideIfNull
             optional
-            label="Y border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
+            label="Border width"
+            inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           />
-          {showBorderRadius && (
-            <Base.NumericField
-              path="borderRadius"
-              hideIfNull
-              optional
-              label="Border radius"
-              grow
-              inputProps={Form.DIMENSIONS_INPUT_PROPS}
-            />
-          )}
-          {showStrokeWidth && (
-            <Base.NumericField
-              path="strokeWidth"
-              hideIfNull
-              optional
-              label="Border width"
-              grow
-              inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
-            />
-          )}
-          <Base.NumericField
-            path="dimensions.width"
-            label="Width"
-            grow
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
-          />
-          <Base.NumericField
-            path="dimensions.height"
-            label="Height"
-            grow
-            inputProps={Form.DIMENSIONS_INPUT_PROPS}
-          />
-        </Flex.Box>
-      </Flex.Box>
-      <Orientation.Field path="" hideInner showOuterCenter label="Label location" />
-    </Form.Wrapper>
+        )}
+      </Base.Section>
+      <Base.Section title="Dimensions">
+        <Base.NumericField
+          path="dimensions.width"
+          label="Width"
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
+        />
+        <Base.NumericField
+          path="dimensions.height"
+          label="Height"
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
+        />
+      </Base.Section>
+      <Orientation.Section path="" hideInner showOuterCenter title="Label location" />
+    </Base.Sections>
   );
-  if (!showFillTab) return properties;
+  if (!showFillTab) return style;
   return (
-    <Tabs.Frame initialValue="properties">
-      <Tabs.Selector>
-        <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
-        <Tabs.Tab itemKey="fill">Fill</Tabs.Tab>
-      </Tabs.Selector>
-      <Tabs.Content itemKey="properties">{properties}</Tabs.Content>
+    <Form.Tabs tabs={["style", "fill"]}>
+      <Tabs.Content itemKey="style">{style}</Tabs.Content>
       <Tabs.Content itemKey="fill">
         <FillForm />
       </Tabs.Content>
-    </Tabs.Frame>
+    </Form.Tabs>
   );
 };

@@ -71,9 +71,9 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
       </ValueFormWrapper>
     </Tabs.Content>
     <Tabs.Content itemKey="telem">
-      <ValueFormWrapper>
+      <Form.Sections x>
         <Value.TelemForm path="" />
-      </ValueFormWrapper>
+      </Form.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="redline">
       <ValueFormWrapper>

@@ -12,8 +12,6 @@ import { color, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Component } from "@/component";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
@@ -104,17 +102,25 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
   return (
-    <Form.Wrapper x align="stretch">
-      <Flex.Box x grow align="stretch">
-        <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
+    <Base.Sections x>
+      <Base.Section title="Label">
+        <Base.TextField path="label.label" label="Label" padHelpText={false} />
+        <Base.Field<text.Level>
+          hideIfNull
+          path="label.level"
+          label="Size"
+          padHelpText={false}
+        >
+          {Form.SelectTextLevel}
+        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Navigation">
         <Base.Field<Page | string>
           path="page"
           label="Page"
           padHelpText={false}
           hideIfNull={false}
           defaultValue=""
-          grow
-          className={CSS.BE("symbol-form", "page-field")}
         >
           {({ value }) => (
             <Select.Static
@@ -136,17 +142,11 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         >
           {ClickModeSelect}
         </Base.Field>
-        <Base.Field<text.Level>
-          hideIfNull
-          path="label.level"
-          label="Label size"
-          padHelpText={false}
-        >
-          {Form.SelectTextLevel}
-        </Base.Field>
+      </Base.Section>
+      <Base.Section title="Appearance">
         <Form.ColorField path="color" />
-      </Flex.Box>
-      <Orientation.Field path="" hideOuter />
-    </Form.Wrapper>
+      </Base.Section>
+      <Orientation.Section path="" hideOuter />
+    </Base.Sections>
   );
 };
