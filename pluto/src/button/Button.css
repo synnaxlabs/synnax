@@ -166,7 +166,7 @@
             clip-path: inset(0 100% 0 0);
         }
 
-        &:active::after {
+        &.pluto--held::after {
             animation: delay var(--pluto-btn-delay) linear;
             clip-path: inset(0 0 0 0);
         }

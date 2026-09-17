@@ -128,7 +128,7 @@
             pointer-events: none;
         }
 
-        &:active::after {
+        &.pluto--held::after {
             animation: delay var(--pluto-toggle-delay) linear;
             clip-path: inset(0 0 0 0);
         }

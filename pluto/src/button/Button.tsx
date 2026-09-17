@@ -10,7 +10,7 @@
 import "@/button/Button.css";
 
 import { color, record, text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
@@ -155,6 +155,8 @@ const Base = <E extends ElementType = "button">({
   };
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // WebKit sets :active on a secondary press, so the hold fill follows this flag.
+  const [held, setHeld] = useState(false);
 
   const handleMouseDown = (e: any) => {
     // Preventing default on mousedown cancels a native dragstart, so skip it for
@@ -169,9 +171,14 @@ const Base = <E extends ElementType = "button">({
       e.preventDefault();
     onMouseDown?.(e);
     if (isDisabled || preview === true || parsedDelay.isZero || e.button !== 0) return;
+    setHeld(true);
     document.addEventListener(
       "mouseup",
-      () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
+      () => {
+        setHeld(false);
+        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+      },
+      { once: true },
     );
     timeoutRef.current = setTimeout(() => {
       onClick?.(e);
@@ -238,6 +245,7 @@ const Base = <E extends ElementType = "button">({
         preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         reveal === true && CSS.M("reveal"),
+        held && CSS.M("held"),
         className,
       )}
       size={size}

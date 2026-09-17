@@ -321,6 +321,22 @@ describe("Button", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should mark a primary hold and clear it on mouseup", () => {
+      const c = render(<Button.Button onClickDelay={1000}>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.mouseDown(btn);
+      expect(btn.className).toContain("pluto--held");
+      fireEvent.mouseUp(document);
+      expect(btn.className).not.toContain("pluto--held");
+    });
+
+    it("should not mark a secondary hold", () => {
+      const c = render(<Button.Button onClickDelay={1000}>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.mouseDown(btn, { button: 2 });
+      expect(btn.className).not.toContain("pluto--held");
+    });
+
     it("should ignore a secondary-button hold", () => {
       const onClick = vi.fn();
       const c = render(
