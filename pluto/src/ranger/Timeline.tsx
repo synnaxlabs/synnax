@@ -10,7 +10,7 @@
 import "@/ranger/Timeline.css";
 
 import { type NumericTimeRange, type text, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 
 import { type Button } from "@/button";
 import { type Component } from "@/component";
@@ -68,6 +68,7 @@ export interface StageButtonProps extends Input.Control<NumericTimeRange> {
   level?: text.Level;
   size?: Component.Size;
   disabled?: boolean;
+  preview?: boolean;
   className?: string;
 }
 
@@ -84,6 +85,7 @@ export const StageButton = ({
   level,
   size,
   disabled,
+  preview,
   className,
 }: StageButtonProps): ReactElement => {
   const [open, setOpen] = useState(false);
@@ -110,6 +112,7 @@ export const StageButton = ({
         level={level}
         size={size}
         disabled={disabled}
+        preview={preview}
         className={CSS.BE("stage-button", "trigger")}
         tooltip={iconOnly ? STAGE_NAMES[stage] : undefined}
       >
@@ -148,8 +151,31 @@ export interface TimelineProps extends Input.Control<NumericTimeRange> {
   level?: text.Level;
   size?: Component.Size;
   disabled?: boolean;
+  preview?: boolean;
   className?: string;
 }
+
+// setTimeout overflows past this delay and fires at once.
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
+/**
+ * Re-renders when now crosses the range's next boundary, since the stage and the row's
+ * layout are read from the clock.
+ */
+const useStageBoundary = ({ start, end }: NumericTimeRange): void => {
+  const [tick, setTick] = useState(0);
+  const now = TimeStamp.now().nanoseconds;
+  let boundary: number | null = null;
+  if (start < UNSET && start > now) boundary = start;
+  else if (end < UNSET && end > now) boundary = end;
+  useEffect(() => {
+    if (boundary == null) return;
+    const remaining = (boundary - TimeStamp.now().nanoseconds) / 1e6;
+    const delay = Math.min(Math.max(0, Math.ceil(remaining)) + 1, MAX_TIMEOUT_MS);
+    const t = setTimeout(() => setTick((p) => p + 1), delay);
+    return () => clearTimeout(t);
+  }, [boundary, tick]);
+};
 
 /**
  * A range's stage and the timestamps that define it, in one row. To do shows the
@@ -168,8 +194,10 @@ export const Timeline = ({
   level,
   size,
   disabled,
+  preview,
   className,
 }: TimelineProps): ReactElement => {
+  useStageBoundary(value);
   const { start, end } = value;
   const stage = getStage(value);
   const scheduled = start < UNSET;
@@ -201,7 +229,7 @@ export const Timeline = ({
   );
   const endAnchors = useMemo(() => ({ start, parent }), [start, parent]);
 
-  const cell = { variant, level, size, disabled, resolution };
+  const cell = { variant, level, size, disabled, preview, resolution };
 
   return (
     <Flex.Box
@@ -218,6 +246,7 @@ export const Timeline = ({
         level={level}
         size={size}
         disabled={disabled}
+        preview={preview}
       />
       {stage === "to_do" && (
         <>
