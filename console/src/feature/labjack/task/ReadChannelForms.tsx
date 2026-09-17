@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
+import { Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
 import { deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, useMemo } from "react";
 
@@ -60,29 +60,17 @@ const SelectScaleTypeField = PForm.buildSelectField<
 
 const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   linear: ({ prefix }) => (
-    <Flex.Box x>
-      <PForm.NumericField path={`${prefix}.slope`} label="Slope" grow />
-      <PForm.NumericField path={`${prefix}.offset`} label="Offset" grow />
-    </Flex.Box>
+    <>
+      <PForm.NumericField path={`${prefix}.slope`} label="Slope" />
+      <PForm.NumericField path={`${prefix}.offset`} label="Offset" />
+    </>
   ),
   map: ({ prefix }) => (
     <>
-      <Flex.Box x>
-        <PForm.NumericField
-          path={`${prefix}.preScaledMin`}
-          label="Pre-scaled min"
-          grow
-        />
-        <PForm.NumericField
-          path={`${prefix}.preScaledMax`}
-          label="Pre-scaled max"
-          grow
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <PForm.NumericField path={`${prefix}.scaledMin`} label="Scaled min" grow />
-        <PForm.NumericField path={`${prefix}.scaledMax`} label="Scaled max" grow />
-      </Flex.Box>
+      <PForm.NumericField path={`${prefix}.preScaledMin`} label="Pre-scaled min" />
+      <PForm.NumericField path={`${prefix}.preScaledMax`} label="Pre-scaled max" />
+      <PForm.NumericField path={`${prefix}.scaledMin`} label="Scaled min" />
+      <PForm.NumericField path={`${prefix}.scaledMax`} label="Scaled max" />
     </>
   ),
   none: () => null,
@@ -92,7 +80,7 @@ interface CustomScaleFormProps {
   prefix: string;
 }
 
-const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
+export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   const path = `${prefix}.scale`;
   const scaleType = PForm.useFieldValue<ScaleType>(`${path}.type`);
   const Form = SCALE_FORMS[scaleType];
@@ -177,48 +165,28 @@ interface FormProps {
 }
 
 export const FORMS: Record<ReadChannelType, FC<FormProps>> = {
-  analog: ({ path }) => (
-    <>
-      <Divider.Divider x padded="bottom" />
-      <MaxVoltageField path={path} />
-      <CustomScaleForm prefix={path} />
-    </>
-  ),
+  analog: ({ path }) => <MaxVoltageField path={path} />,
   digital: () => null,
   thermocouple: ({ path, deviceModel }) => (
     <>
-      <Divider.Divider x padded="bottom" />
-      <Flex.Box x>
-        <ThermocoupleTypeField path={path} grow />
-        <TemperatureUnitsField path={path} grow />
-        <PForm.NumericField
-          fieldKey="negChan"
-          path={path}
-          label="Negative channel"
-          grow
-        />
-      </Flex.Box>
-      <Flex.Box x>
-        <PForm.Field<string>
-          path={`${path}.cjcSource`}
-          grow
-          hideIfNull
-          label="CJC source"
-        >
-          {({ value, onChange, preview }) => (
-            <SelectCJCSourceField
-              value={value}
-              onChange={onChange}
-              preview={preview}
-              model={deviceModel}
-            />
-          )}
-        </PForm.Field>
-        <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC slope" grow />
-        <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC offset" grow />
-      </Flex.Box>
-      <Divider.Divider x padded="bottom" />
-      <CustomScaleForm prefix={path} />
+      <ThermocoupleTypeField path={path} />
+      <TemperatureUnitsField path={path} />
+      <PForm.NumericField fieldKey="negChan" path={path} label="Negative channel" />
+      <PForm.Field<string> path={`${path}.cjcSource`} hideIfNull label="CJC source">
+        {({ value, onChange, preview }) => (
+          <SelectCJCSourceField
+            value={value}
+            onChange={onChange}
+            preview={preview}
+            model={deviceModel}
+          />
+        )}
+      </PForm.Field>
+      <PForm.NumericField fieldKey="cjcSlope" path={path} label="CJC slope" />
+      <PForm.NumericField fieldKey="cjcOffset" path={path} label="CJC offset" />
     </>
   ),
 };
+
+/** Channel types whose values bypass the scale. */
+export const UNSCALED_TYPES = new Set<ReadChannelType>(["digital"]);

@@ -128,6 +128,8 @@ export interface ChannelListProps<C extends Channel>
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
   emptyContent: ReactElement;
   header: ReactNode;
+  /** Pinned below the list; a create action in the list's own idiom. */
+  footer?: ReactNode;
   isDragging?: boolean;
   listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
@@ -137,6 +139,7 @@ export const ChannelList = <C extends Channel>({
   listItem,
   emptyContent,
   header,
+  footer,
   isDragging,
   onDragOver,
   onDrop,
@@ -181,6 +184,7 @@ export const ChannelList = <C extends Channel>({
           </List.Items>
         </Select.Frame>
       </Menu.ContextMenu>
+      {footer}
     </Flex.Box>
   );
 };

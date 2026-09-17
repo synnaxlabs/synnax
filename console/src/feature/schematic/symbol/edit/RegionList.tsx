@@ -119,7 +119,7 @@ export const RegionList = ({
               </Flex.Box>
             </Tooltip.Dialog>
           </Text.Text>
-          <Button.Button onClick={onAddRegion} size="small" variant="filled">
+          <Button.Button onClick={onAddRegion} size="small" variant="text">
             <Icon.Add />
           </Button.Button>
         </Header.Actions>

@@ -26,6 +26,10 @@
         overflow-y: auto;
         width: 100%;
 
+        .console-task-properties {
+            margin-top: 1rem;
+        }
+
         .console-task-channel-form-container {
             border-radius: var(--pluto-border-radius-large);
             overflow: hidden;
@@ -45,21 +49,12 @@
             }
         }
 
-        .console-channel-list:not(:only-child) {
-            max-width: 300px;
-            flex-basis: 225px;
-        }
-
         .console-channel-list:only-child {
             flex-grow: 1;
         }
 
-        .console-details {
-            flex-basis: 70%;
-        }
-
         .console-details__form {
-            padding: 3rem;
+            padding: var(--console-details-padding);
             overflow: auto;
             height: 100%;
         }
@@ -74,10 +69,6 @@
     .console-task-configure {
         > div {
             padding: 3rem 2rem;
-
-            .console-details__form {
-                padding: 1rem 2rem;
-            }
         }
 
         .console-rack-name {

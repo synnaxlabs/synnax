@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/task/views/DetailsHeader";
+export * from "@/platform/task/views/ItemLabel";
 export * from "@/platform/task/views/List";
 export * from "@/platform/task/views/ListAndDetails";
 export * from "@/platform/task/views/ListAndDetailsChannelItem";
+export * from "@/platform/task/views/Panes";
