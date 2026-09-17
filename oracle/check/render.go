@@ -26,8 +26,8 @@ type Format string
 const (
 	// FormatText renders a styled, human-readable report. Default.
 	FormatText Format = "text"
-	// FormatJSON renders a stable, machine-readable report. The exact
-	// JSON shape is defined by the Report and GateReport struct tags.
+	// FormatJSON renders a stable, machine-readable report. The exact JSON shape is
+	// defined by the Report and GateReport struct tags.
 	FormatJSON Format = "json"
 )
 
@@ -84,9 +84,8 @@ func renderText(w io.Writer, r *Report, verbose bool) error {
 		if _, err := fmt.Fprintf(w, "%s %s%s\n", sym, label, elapsed); err != nil {
 			return err
 		}
-		// In a passing gate we suppress info/warning findings unless
-		// verbose; failures always print every finding so the user sees
-		// the full picture.
+		// In a passing gate we suppress info/warning findings unless verbose; failures
+		// always print every finding so the user sees the full picture.
 		for _, f := range g.Findings {
 			if g.Status == StatusPass && f.Severity != SeverityError && !verbose {
 				continue

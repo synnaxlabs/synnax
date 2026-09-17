@@ -55,13 +55,13 @@ func DefaultOptions() Options {
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
 // Name returns the plugin identifier.
-func (p *Plugin) Name() string { return "go/pb" }
+func (*Plugin) Name() string { return "go/pb" }
 
 // Domains returns the domains this plugin handles.
-func (p *Plugin) Domains() []string { return []string{"pb"} }
+func (*Plugin) Domains() []string { return []string{"pb"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
+func (*Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 
 // Generate produces translator functions for structs with @pb flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -156,11 +156,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputUnions[outputPath] = append(outputUnions[outputPath], entry)
 	}
 
-	// Register pb output paths for schemas that opt into @pb but declare
-	// only enums (no structs or distinct typedefs). Cross-namespace fields
-	// referencing these enums depend on the foreign translator existing;
-	// without this pass the schema produces nothing and the dependent
-	// schema fails to compile against its missing import.
+	// Register pb output paths for schemas that opt into @pb but declare only enums (no
+	// structs or distinct typedefs). Cross-namespace fields referencing these enums
+	// depend on the foreign translator existing; without this pass the schema produces
+	// nothing and the dependent schema fails to compile against its missing import.
 	enumOnlyNamespace := make(map[string]string)
 	for _, e := range req.Resolutions.EnumTypes() {
 		if omit.IsSkipped(e, "pb") || omit.IsType(e, "go") {
@@ -204,10 +203,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		default:
 			namespace = enumOnlyNamespace[outputPath]
 		}
-		// CollectNamespaceEnums with FindPBOutputPath respects each enum's
-		// own @pb opt-in (HasPB) and FilePath, so an enum declared in a
-		// different schema that happens to share this namespace name does
-		// not bleed into this output.
+		// CollectNamespaceEnums with FindPBOutputPath respects each enum's own @pb
+		// opt-in (HasPB) and FilePath, so an enum declared in a different schema that
+		// happens to share this namespace name does not bleed into this output.
 		enums := enum.CollectNamespaceEnums(
 			namespace,
 			outputPath,
@@ -359,10 +357,10 @@ func (p *Plugin) generateFile(
 		}
 		data.UnionTranslators = append(data.UnionTranslators, *ut)
 
-		// Inline variants have no standalone Go payload type, so their payload
-		// message translates against the variant member itself: the member
-		// declares the payload's fields directly (and promotes base-embed
-		// fields), so field access lines up with the payload message.
+		// Inline variants have no standalone Go payload type, so their payload message
+		// translates against the variant member itself: the member declares the
+		// payload's fields directly (and promotes base-embed fields), so field access
+		// lines up with the payload message.
 		goName := naming.GetGoName(u)
 		for _, v := range form.Variants {
 			if !v.Inline {
@@ -381,10 +379,10 @@ func (p *Plugin) generateFile(
 					"failed to process inline payload for union %s variant %q",
 					u.Name, v.Name)
 			}
-			// The translator is named after the member, not the payload message:
-			// a union composed from this one inherits the variant and generates
-			// its own member translator against the same payload message, so
-			// payload-message naming would collide.
+			// The translator is named after the member, not the payload message: a
+			// union composed from this one inherits the variant and generates its own
+			// member translator against the same payload message, so payload-message
+			// naming would collide.
 			memberName := casing.VariantTypeName(goName, v.Name)
 			pt.Name = memberName
 			pt.GoType = fmt.Sprintf("%s.%s", data.parentAlias, memberName)
@@ -459,28 +457,27 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// unionTranslatorData holds data for translating a discriminated union between
-// its Go sealed-interface form and its protobuf oneof wrapper message.
+// unionTranslatorData holds data for translating a discriminated union between its Go
+// sealed-interface form and its protobuf oneof wrapper message.
 type unionTranslatorData struct {
 	Name        string
 	GoType      string
 	PBType      string
 	GoTypeShort string
 	PBTypeShort string
-	// Bases lists the union's extends bases, which nest as message fields on
-	// the wrapper and translate through the bases' own translator functions.
+	// Bases lists the union's extends bases, which nest as message fields on the
+	// wrapper and translate through the bases' own translator functions.
 	Bases []unionBaseTranslatorData
 	// Variants lists every variant in declaration order.
 	Variants []unionVariantTranslatorData
 }
 
-// unionBaseTranslatorData holds data for one extends base of a union
-// translator.
+// unionBaseTranslatorData holds data for one extends base of a union translator.
 type unionBaseTranslatorData struct {
 	// GoEmbed is the embedded base field on the Go variant struct (e.g. "TabBase").
 	GoEmbed string
-	// PBGoName is the protoc-generated Go field for the base message on the
-	// wrapper (e.g. "TabBase" for proto field "tab_base").
+	// PBGoName is the protoc-generated Go field for the base message on the wrapper
+	// (e.g. "TabBase" for proto field "tab_base").
 	PBGoName string
 	// ToPB and FromPB are the base struct's translator functions.
 	ToPB   string
@@ -496,20 +493,20 @@ type unionVariantTranslatorData struct {
 	PBWrapper string
 	// PBField is the field name inside the oneof wrapper (e.g. "Cap").
 	PBField string
-	// IsInline marks an inline variant: the payload translators take the
-	// variant member itself rather than an embedded payload field.
+	// IsInline marks an inline variant: the payload translators take the variant member
+	// itself rather than an embedded payload field.
 	IsInline bool
-	// PayloadGoField is the embedded payload field on the Go variant struct.
-	// Empty for inline variants.
+	// PayloadGoField is the embedded payload field on the Go variant struct. Empty for
+	// inline variants.
 	PayloadGoField string
 	// PayloadToPB and PayloadFromPB are the payload struct's translator functions.
 	PayloadToPB   string
 	PayloadFromPB string
 }
 
-// processUnionForTranslation builds the translator view for a discriminated
-// union: a nil-variant-aware ToPB that switches on the Go variant type and
-// sets the corresponding protobuf oneof wrapper, and the inverse FromPB.
+// processUnionForTranslation builds the translator view for a discriminated union: a
+// nil-variant-aware ToPB that switches on the Go variant type and sets the
+// corresponding protobuf oneof wrapper, and the inverse FromPB.
 func (p *Plugin) processUnionForTranslation(
 	u resolution.Type,
 	form resolution.UnionForm,
@@ -564,9 +561,9 @@ func (p *Plugin) processUnionForTranslation(
 			IsInline:  v.Inline,
 		}
 		if v.Inline {
-			// Inline payload translators are member-typed and generated locally
-			// for each union that carries the variant, so they are referenced
-			// without a package prefix.
+			// Inline payload translators are member-typed and generated locally for
+			// each union that carries the variant, so they are referenced without a
+			// package prefix.
 			memberName := casing.VariantTypeName(goName, v.Name)
 			vt.PayloadToPB = memberName + "ToPB"
 			vt.PayloadFromPB = memberName + "FromPB"
@@ -581,9 +578,9 @@ func (p *Plugin) processUnionForTranslation(
 	return ut, nil
 }
 
-// protocOneofGoName mirrors protoc-gen-go's naming for oneof member fields:
-// the CamelCase field name gains a trailing underscore when it collides with a
-// method protoc generates on every message.
+// protocOneofGoName mirrors protoc-gen-go's naming for oneof member fields: the
+// CamelCase field name gains a trailing underscore when it collides with a method
+// protoc generates on every message.
 func protocOneofGoName(value string) string {
 	name := lo.PascalCase(casing.FieldSnake(value))
 	switch name {
@@ -593,9 +590,9 @@ func protocOneofGoName(value string) string {
 	return name
 }
 
-// resolveUnionTranslatorName returns the package prefix and function base name
-// for a union's pb translator, adding the cross-package import when the union
-// lives in a different proto package.
+// resolveUnionTranslatorName returns the package prefix and function base name for a
+// union's pb translator, adding the cross-package import when the union lives in a
+// different proto package.
 func (p *Plugin) resolveUnionTranslatorName(
 	u resolution.Type,
 	data *templateData,
@@ -689,8 +686,8 @@ func (p *Plugin) processFieldForTranslation(
 
 	typeRef := field.Type
 
-	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32)
-	// require pointer dereference before casting and re-addressing after.
+	// Optional primitives that need type conversion (e.g., *uint8 <-> *uint32) require
+	// pointer dereference before casting and re-addressing after.
 	if isOptional && resolution.IsPrimitive(typeRef.Name) &&
 		primitiveNeedsConversion(typeRef.Name) {
 		fd.NeedsPtrConversion = true
@@ -704,8 +701,8 @@ func (p *Plugin) processFieldForTranslation(
 		)
 	}
 
-	// Optional typedefs over primitives (e.g. *channel.Key <-> *uint32)
-	// need the same deref-convert-readdress treatment.
+	// Optional typedefs over primitives (e.g. *channel.Key <-> *uint32) need the same
+	// deref-convert-readdress treatment.
 	if isOptional && !resolution.IsPrimitive(typeRef.Name) {
 		if resolved, ok := typeRef.Resolve(data.table); ok {
 			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
@@ -720,9 +717,9 @@ func (p *Plugin) processFieldForTranslation(
 
 	// Maps whose value type does not survive a direct copy (numeric primitives that
 	// widen, opaque records that bridge through structpb.Struct, struct values that
-	// have their own pb translator) require element-wise conversion loops. Force
-	// into OptionalFields so the template renders a nil-guarded loop rather than a
-	// direct struct initializer assignment.
+	// have their own pb translator) require element-wise conversion loops. Force into
+	// OptionalFields so the template renders a nil-guarded loop rather than a direct
+	// struct initializer assignment.
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) == 2 {
 		if mvc := p.buildMapValueConversion(typeRef, data); mvc != nil {
 			fd.MapValueConversion = mvc
@@ -733,8 +730,8 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	// An optional list is a nullable wrapper message in proto (see pb/types). The
-	// forward converts the slice (to be wrapped in &Wrapper{Values: ...}); the
-	// backward reads from <pbField>.Values. A nil slice maps to a nil wrapper.
+	// forward converts the slice (to be wrapped in &Wrapper{Values: ...}); the backward
+	// reads from <pbField>.Values. A nil slice maps to a nil wrapper.
 	if isOptional && arrays.IsArray(typeRef, data.table) &&
 		!arrays.IsNested(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(
@@ -754,10 +751,10 @@ func (p *Plugin) processFieldForTranslation(
 	return fd
 }
 
-// buildMapValueConversion returns the per-element conversion data for a Map
-// field whose value type does not round-trip directly between the Go domain
-// type and the proto wire type. Returns nil when no conversion is needed (the
-// caller should fall back to direct field copy).
+// buildMapValueConversion returns the per-element conversion data for a Map field whose
+// value type does not round-trip directly between the Go domain type and the proto wire
+// type. Returns nil when no conversion is needed (the caller should fall back to direct
+// field copy).
 func (p *Plugin) buildMapValueConversion(
 	typeRef resolution.TypeRef, data *templateData,
 ) *mapValueConversionData {
@@ -864,9 +861,9 @@ func (p *Plugin) processGenericStructForTranslation(
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
 
-	// anypb is only referenced from translator signatures of structs whose
-	// generics survive default-substitution; for fully-defaulted generics the
-	// emitted translator is concrete and the import would be unused.
+	// anypb is only referenced from translator signatures of structs whose generics
+	// survive default-substitution; for fully-defaulted generics the emitted translator
+	// is concrete and the import would be unused.
 	if len(typeParamNames) > 0 {
 		data.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	}
@@ -988,8 +985,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 		HasBackwardError: hasBackwardError,
 	}
 
-	// An optional list is a nullable wrapper message in proto (see pb/types),
-	// matching the non-generic path in processFieldForTranslation.
+	// An optional list is a nullable wrapper message in proto (see pb/types), matching
+	// the non-generic path in processFieldForTranslation.
 	if isOptional && arrays.IsArray(typeRef, data.table) &&
 		!arrays.IsNested(typeRef, data.table) {
 		f, b, e, be := p.generateArrayConversion(
@@ -1534,10 +1531,10 @@ func (p *Plugin) generateGenericStructConversion(
 	forwardArgs := strings.Join(forwardConverters, ", ")
 	backwardArgs := strings.Join(backwardConverters, ", ")
 
-	// The generated Go field type is (an alias of) the instantiated generic:
-	// the forward argument pins every type parameter and the backward result
-	// assigns directly. Backward inference needs a typed converter, so a nil
-	// converter keeps the explicit instantiation.
+	// The generated Go field type is (an alias of) the instantiated generic: the
+	// forward argument pins every type parameter and the backward result assigns
+	// directly. Backward inference needs a typed converter, so a nil converter keeps
+	// the explicit instantiation.
 	backwardTypeArgs := ""
 	if slices.Contains(backwardConverters, "nil") {
 		backwardTypeArgs = "[" + strings.Join(explicitTypeArgs, ", ") + "]"
@@ -1802,8 +1799,8 @@ func (p *Plugin) generateArrayConversion(
 		case "uuid":
 			data.AddExternal("uuid")
 			data.AddExternal("github.com/samber/lo")
-			// Forward conversion uses lo.Map (no error possible)
-			// Backward conversion uses IIFE with proper error handling
+			// Forward conversion uses lo.Map (no error possible) Backward conversion
+			// uses IIFE with proper error handling
 			backward = fmt.Sprintf(`func() ([]uuid.UUID, error) {
 		result := make([]uuid.UUID, len(%s))
 		for i, s := range %s {
@@ -1824,8 +1821,8 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	// Distinct element types over primitive bases require per-element casts:
-	// `[]channel.Key` cannot be assigned to `[]uint32` (and vice-versa), so emit
-	// lo.Map conversions in both directions using the proto/distinct type names.
+	// `[]channel.Key` cannot be assigned to `[]uint32` (and vice-versa), so emit lo.Map
+	// conversions in both directions using the proto/distinct type names.
 	if ok {
 		if distinctForm, isDistinct := elemResolved.Form.(resolution.DistinctForm); isDistinct {
 			if resolution.IsPrimitive(distinctForm.Base.Name) &&
@@ -1857,9 +1854,9 @@ func (p *Plugin) generateArrayConversion(
 	return goField, pbField, false, false
 }
 
-// qualifiedDistinctGoName returns the Go identifier for a distinct type as it
-// should appear in the generated translator file, including any package prefix
-// and registering the import if the type lives in a different package.
+// qualifiedDistinctGoName returns the Go identifier for a distinct type as it should
+// appear in the generated translator file, including any package prefix and registering
+// the import if the type lives in a different package.
 func (p *Plugin) qualifiedDistinctGoName(
 	resolved resolution.Type,
 	data *templateData,
@@ -1891,12 +1888,11 @@ func (p *Plugin) generateNestedArrayConversion(
 ) (forward, backward string, hasError bool) {
 	wrapperName := arrays.NestedWrapperName(typeRef, data.table)
 
-	// Delegate per-element conversion to the inner slice's existing
-	// XYZToPB / XYZFromPB helpers. This preserves type safety and error
-	// propagation for nested named-slice fields (e.g., Strata []Members).
-	// Falls back to the earlier broken lo.Map form only for [][]primitive,
-	// which has no struct helper to call — that path was not used by any
-	// schema at the time this fix landed.
+	// Delegate per-element conversion to the inner slice's existing XYZToPB / XYZFromPB
+	// helpers. This preserves type safety and error propagation for nested named-slice
+	// fields (e.g., Strata []Members). Falls back to the earlier broken lo.Map form
+	// only for [][]primitive, which has no struct helper to call — that path was not
+	// used by any schema at the time this fix landed.
 	if f, b, ok := p.generateStructNestedArrayConversion(
 		typeRef,
 		data,
@@ -1922,17 +1918,15 @@ func (p *Plugin) generateNestedArrayConversion(
 	return forward, backward, false
 }
 
-// generateStructNestedArrayConversion emits the nested-array translation for
-// the common case of a slice-of-named-slice-of-struct (e.g., field type
-// []Members where Members = []Member). Returns ok=false if the schema does
-// not match this shape (e.g., [][]primitive), in which case the caller
-// should fall back to a simpler emission.
+// generateStructNestedArrayConversion emits the nested-array translation for the common
+// case of a slice-of-named-slice-of-struct (e.g., field type []Members where Members =
+// []Member). Returns ok=false if the schema does not match this shape (e.g.,
+// [][]primitive), in which case the caller should fall back to a simpler emission.
 //
-// The emitted forward expression has signature `([]*<Wrapper>, error)` and
-// the backward expression has signature `(<outer-go-type>, error)`. Both
-// delegate to the pre-existing XYZToPB / XYZFromPB helpers that the
-// generator emits for every named array type, so per-element error handling
-// and type conversions stay in one place.
+// The emitted forward expression has signature `([]*<Wrapper>, error)` and the backward
+// expression has signature `(<outer-go-type>, error)`. Both delegate to the
+// pre-existing XYZToPB / XYZFromPB helpers that the generator emits for every named
+// array type, so per-element error handling and type conversions stay in one place.
 func (p *Plugin) generateStructNestedArrayConversion(
 	typeRef resolution.TypeRef,
 	data *templateData,
@@ -1964,10 +1958,10 @@ func (p *Plugin) generateStructNestedArrayConversion(
 	)
 	pluralName := pluralizeDistinct(translatorStructName)
 
-	// If the outer typeRef resolves to a distinct named type (e.g., Strata),
-	// use its qualified Go name so the IIFE's make() and return types match
-	// the field exactly. Otherwise, use []<elem-go-type>, which is assignable
-	// to an unnamed outer slice field.
+	// If the outer typeRef resolves to a distinct named type (e.g., Strata), use its
+	// qualified Go name so the IIFE's make() and return types match the field exactly.
+	// Otherwise, use []<elem-go-type>, which is assignable to an unnamed outer slice
+	// field.
 	outerGoType := ""
 	if outerResolved, ok := typeRef.Resolve(data.table); ok {
 		if _, isDistinct := outerResolved.Form.(resolution.DistinctForm); isDistinct {
@@ -2151,8 +2145,7 @@ func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
 
-// isUnionType reports whether the type reference resolves to a discriminated
-// union.
+// isUnionType reports whether the type reference resolves to a discriminated union.
 func isUnionType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -2235,8 +2228,8 @@ type templateData struct {
 	GenericTranslators    []genericTranslatorData
 	Translators           []translatorData
 	UnionTranslators      []unionTranslatorData
-	// NeedsRecordArrayHelpers reports whether any field converts a []record,
-	// requiring the shared recordsToPB/recordsFromPB helpers.
+	// NeedsRecordArrayHelpers reports whether any field converts a []record, requiring
+	// the shared recordsToPB/recordsFromPB helpers.
 	NeedsRecordArrayHelpers bool
 }
 
@@ -2264,8 +2257,8 @@ type fieldTranslatorData struct {
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
-	// IsOptionalEnum is true for a optional field whose underlying type is an
-	// enum. Triggers the same val/&val backward dance as IsOptionalStruct so the
+	// IsOptionalEnum is true for a optional field whose underlying type is an enum.
+	// Triggers the same val/&val backward dance as IsOptionalStruct so the
 	// pointer-typed Go field is populated from the value-returning EnumFromPB call.
 	IsOptionalEnum bool
 	// NeedsPtrConversion is true when a optional primitive needs type conversion (e.g.,
@@ -2295,9 +2288,8 @@ type mapValueConversionData struct {
 	ForwardValueExpr string // e.g., "uint32(v)"
 	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	BackwardValueExpr string // e.g., "uint8(v)"
-	// ForwardHasError is true when ForwardValueExpr returns (T, error). The
-	// template must capture both, propagate err on failure, and assign T into
-	// the map.
+	// ForwardHasError is true when ForwardValueExpr returns (T, error). The template
+	// must capture both, propagate err on failure, and assign T into the map.
 	ForwardHasError bool
 	// BackwardHasError is true when BackwardValueExpr returns (T, error). The
 	// template emits the same shape on the FromPB side.
@@ -2319,9 +2311,9 @@ type enumValueTranslatorData struct {
 	PBValue string
 }
 
-// genericTranslatorData holds data for a generic type's translators.
-// These are translator functions with type parameters that accept converter
-// functions for each type parameter.
+// genericTranslatorData holds data for a generic type's translators. These are
+// translator functions with type parameters that accept converter functions for each
+// type parameter.
 type genericTranslatorData struct {
 	Name string
 	// GoType is the full generic type with parameters (e.g., "status.Status[D]").
@@ -2347,9 +2339,8 @@ type typeParamData struct {
 	Constraint string
 }
 
-// anyHelperData holds data for ToPBAny/FromPBAny helper functions.
-// These are generated for concrete types that are used as type arguments
-// to generic structs.
+// anyHelperData holds data for ToPBAny/FromPBAny helper functions. These are generated
+// for concrete types that are used as type arguments to generic structs.
 type anyHelperData struct {
 	// TypeName is the unqualified type name (e.g., "StatusDetails").
 	TypeName string

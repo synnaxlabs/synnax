@@ -30,8 +30,8 @@ const (
 	Version1 Version = 1
 	Version2 Version = 2
 	// Version3 renames the metadata's is_index member, which earlier versions stored
-	// under the Go field name. Opening at this version rewrites the file, so the
-	// stored form catches up with the tag.
+	// under the Go field name. Opening at this version rewrites the file, so the stored
+	// form catches up with the tag.
 	Version3       Version = 3
 	VersionCurrent         = Version3
 )

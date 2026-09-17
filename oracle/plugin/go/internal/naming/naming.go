@@ -43,8 +43,8 @@ func IsScreamingCase(s string) bool {
 	return hasLetter
 }
 
-// goAcronyms lists common Go acronyms that should remain fully uppercased in
-// PascalCase identifiers (e.g., "Xy" → "XY", "Id" → "ID").
+// goAcronyms lists common Go acronyms that should remain fully uppercased in PascalCase
+// identifiers (e.g., "Xy" → "XY", "Id" → "ID").
 var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
 	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
@@ -53,10 +53,10 @@ var goAcronyms = []string{
 	"Xss", "Xy",
 }
 
-// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions
-// (e.g. "id" → "ID", "sticky_xy" → "StickyXY"). Routes through casing.TypePascal
-// so PascalCase inputs with adjacent capitals (SetXChannel, URLValue) keep
-// their boundaries instead of collapsing to SetXchannel / Urlvalue.
+// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions (e.g.
+// "id" → "ID", "sticky_xy" → "StickyXY"). Routes through casing.TypePascal so
+// PascalCase inputs with adjacent capitals (SetXChannel, URLValue) keep their
+// boundaries instead of collapsing to SetXchannel / Urlvalue.
 func ToPascalCase(s string) string {
 	if IsScreamingCase(s) {
 		return s
@@ -77,11 +77,11 @@ func GetFieldName(f resolution.Field) string {
 	return ToPascalCase(f.Name)
 }
 
-// GetGoName returns the Go name for a type. It checks for a @go name
-// override first, then falls back to the declared schema type name. The
-// declared name is used verbatim so acronym-bearing names (RTDType,
-// BaseAIChannel) survive; routing through ToPascalCase would mangle them
-// into names that diverge from how references resolve the type.
+// GetGoName returns the Go name for a type. It checks for a @go name override first,
+// then falls back to the declared schema type name. The declared name is used verbatim
+// so acronym-bearing names (RTDType, BaseAIChannel) survive; routing through
+// ToPascalCase would mangle them into names that diverge from how references resolve
+// the type.
 func GetGoName(t resolution.Type) string {
 	if override := domain.GetStringFromType(t, "go", "name"); override != "" {
 		return override
@@ -89,9 +89,9 @@ func GetGoName(t resolution.Type) string {
 	return t.Name
 }
 
-// LowerFirst lowercases the leading uppercase run of a string, handling
-// acronyms correctly (e.g., "HTTPClient" -> "httpClient", "Key" -> "key").
-// The result is escaped if it collides with a Go keyword.
+// LowerFirst lowercases the leading uppercase run of a string, handling acronyms
+// correctly (e.g., "HTTPClient" -> "httpClient", "Key" -> "key"). The result is escaped
+// if it collides with a Go keyword.
 func LowerFirst(s string) string {
 	if s == "" {
 		return s
@@ -118,8 +118,8 @@ func LowerFirst(s string) string {
 	return keywords.Escape(string(runes))
 }
 
-// DerivePackageName extracts the package name from an output path.
-// Example: "core/pkg/service/user" -> "user"
+// DerivePackageName extracts the package name from an output path. Example:
+// "core/pkg/service/user" -> "user"
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // majorVersion matches a module major-version path segment ("v2", "v12").
@@ -137,10 +137,10 @@ func AssumedImportName(path string) string {
 	return base
 }
 
-// DerivePackageAlias creates a unique alias for an imported package to avoid
-// conflicts. Version packages (e.g., "spatial/types/v0") alias to the resource
-// name ("spatial"). Otherwise, if the base name conflicts with the current
-// package, it prepends the parent directory.
+// DerivePackageAlias creates a unique alias for an imported package to avoid conflicts.
+// Version packages (e.g., "spatial/types/v0") alias to the resource name ("spatial").
+// Otherwise, if the base name conflicts with the current package, it prepends the
+// parent directory.
 func DerivePackageAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))
@@ -155,9 +155,9 @@ func DerivePackageAlias(outputPath, currentPackage string) string {
 	return base
 }
 
-// DeriveVersionedAlias is DerivePackageAlias, except version packages keep the
-// version suffix ("spatialv0"). Migration files import two versions of the same
-// resource and need the suffix to disambiguate.
+// DeriveVersionedAlias is DerivePackageAlias, except version packages keep the version
+// suffix ("spatialv0"). Migration files import two versions of the same resource and
+// need the suffix to disambiguate.
 func DeriveVersionedAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))

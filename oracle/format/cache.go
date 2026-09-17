@@ -148,8 +148,7 @@ func (c *Cache) PruneTo(keep set.Set[string]) {
 	}
 }
 
-// Save persists the cache to disk, creating the parent directory if
-// needed.
+// Save persists the cache to disk, creating the parent directory if needed.
 func (c *Cache) Save() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -566,11 +566,10 @@ func localRefNames(f *versions.File, ref resolution.TypeRef) []string {
 }
 
 // membersOf lists the member names a file's declarations reference in the given foreign
-// namespace.
-// pinAliasCurrent reports whether every referenced member of a lagging pin resolves to
-// the same defining version at both the pinned and current versions of the dependency
-// chain. When it does, the pinned and current shapes are one declaration and the lag
-// is nominal.
+// namespace. pinAliasCurrent reports whether every referenced member of a lagging pin
+// resolves to the same defining version at both the pinned and current versions of the
+// dependency chain. When it does, the pinned and current shapes are one declaration and
+// the lag is nominal.
 func pinAliasCurrent(
 	ctx context.Context,
 	resolver *versions.Resolver,

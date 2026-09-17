@@ -43,11 +43,10 @@ func NewManager() *Manager {
 // AddExternal adds an external package import.
 func (m *Manager) AddExternal(path string) { m.external.Add(path) }
 
-// AddInternal adds an internal package import with an alias. When two
-// different paths request one alias, the first binding wins and the conflict
-// is recorded; emitters must check Conflicts before rendering, because a
-// rendered reference under a rebound alias would silently point at the wrong
-// package.
+// AddInternal adds an internal package import with an alias. When two different paths
+// request one alias, the first binding wins and the conflict is recorded; emitters must
+// check Conflicts before rendering, because a rendered reference under a rebound alias
+// would silently point at the wrong package.
 func (m *Manager) AddInternal(alias, path string) {
 	if existing, ok := m.internal[alias]; ok && existing.Path != path {
 		if m.conflicts[alias] == nil {
@@ -60,8 +59,8 @@ func (m *Manager) AddInternal(alias, path string) {
 	m.internal[alias] = &internalImport{Path: path, Alias: alias}
 }
 
-// Conflicts returns, per alias, the sorted set of distinct import paths that
-// requested it. Empty when every alias maps to exactly one path.
+// Conflicts returns, per alias, the sorted set of distinct import paths that requested
+// it. Empty when every alias maps to exactly one path.
 func (m *Manager) Conflicts() map[string][]string {
 	if len(m.conflicts) == 0 {
 		return nil
@@ -99,8 +98,8 @@ func (m *Manager) ExternalImports() []string {
 	return result
 }
 
-// stdlib reports whether an import path belongs to the standard library: its
-// first segment carries no dot.
+// stdlib reports whether an import path belongs to the standard library: its first
+// segment carries no dot.
 func stdlib(path string) bool {
 	first, _, _ := strings.Cut(path, "/")
 	return !strings.Contains(first, ".")
@@ -118,10 +117,10 @@ func (m *Manager) StdImports() []string {
 	return result
 }
 
-// NonStdImports returns every non-standard-library import — plain external
-// paths and aliased internal ones alike — sorted by path. An external import
-// whose package name is claimed by an internal alias is dropped: the internal
-// package shadows it, and selectors resolve through the alias instead.
+// NonStdImports returns every non-standard-library import — plain external paths and
+// aliased internal ones alike — sorted by path. An external import whose package name
+// is claimed by an internal alias is dropped: the internal package shadows it, and
+// selectors resolve through the alias instead.
 func (m *Manager) NonStdImports() []InternalImportData {
 	result := make([]InternalImportData, 0, len(m.external)+len(m.internal))
 	for imp := range m.external {
@@ -155,8 +154,8 @@ func (i InternalImportData) NeedsAlias() bool {
 	return i.Alias != "" && i.Alias != naming.AssumedImportName(i.Path)
 }
 
-// InternalImports returns sorted internal imports, excluding any that are already
-// in the external imports list to avoid duplicates.
+// InternalImports returns sorted internal imports, excluding any that are already in
+// the external imports list to avoid duplicates.
 func (m *Manager) InternalImports() []InternalImportData {
 	result := make([]InternalImportData, 0, len(m.internal))
 	for _, imp := range m.internal {

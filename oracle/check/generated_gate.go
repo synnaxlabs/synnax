@@ -25,26 +25,25 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// GeneratedGate is the load-bearing gate of `oracle check`: it asserts
-// that what the pipeline would write to disk on the next `oracle sync`
-// already matches what is on disk today.
+// GeneratedGate is the load-bearing gate of `oracle check`: it asserts that what the
+// pipeline would write to disk on the next `oracle sync` already matches what is on
+// disk today.
 //
-// The mechanics: for every plugin output, run the same formatter chain
-// `oracle sync` would, then byte-compare the canonical bytes to the
-// existing file. Any divergence - missing file, content mismatch - is
-// reported as drift with `oracle sync` as the fix hint.
+// The mechanics: for every plugin output, run the same formatter chain `oracle sync`
+// would, then byte-compare the canonical bytes to the existing file. Any divergence -
+// missing file, content mismatch - is reported as drift with `oracle sync` as the fix
+// hint.
 //
-// Because the formatter chain is the *same* one sync uses (passed in via
-// the constructor, not reconstructed here), it is structurally
-// impossible for this gate to disagree with what sync would produce.
+// Because the formatter chain is the *same* one sync uses (passed in via the
+// constructor, not reconstructed here), it is structurally impossible for this gate to
+// disagree with what sync would produce.
 type generatedGate struct {
 	formatters *format.Registry
 	workers    int
 }
 
-// NewGeneratedGate constructs a generated-drift gate. The formatter
-// registry must be the same one sync uses; passing a different one
-// turns the gate into a lie.
+// NewGeneratedGate constructs a generated-drift gate. The formatter registry must be
+// the same one sync uses; passing a different one turns the gate into a lie.
 func NewGeneratedGate(formatters *format.Registry, workers int) Checker {
 	return generatedGate{formatters: formatters, workers: workers}
 }
@@ -110,16 +109,14 @@ func (g generatedGate) Run(
 	return r
 }
 
-// checkOne runs the formatter chain on a single plugin output and
-// compares the canonical bytes to the on-disk file. Returns (finding,
-// true) when there is something to report, (zero, false) when the file
-// is up to date.
+// checkOne runs the formatter chain on a single plugin output and compares the
+// canonical bytes to the on-disk file. Returns (finding, true) when there is something
+// to report, (zero, false) when the file is up to date.
 //
-// Errors from the formatter chain are reported as findings rather than
-// surfaced as Go errors. Sync would experience the same error on the
-// next run; for a CI gate the right thing is to attribute the failure
-// to the file that triggered it and keep going so the user sees every
-// failing file at once.
+// Errors from the formatter chain are reported as findings rather than surfaced as Go
+// errors. Sync would experience the same error on the next run; for a CI gate the right
+// thing is to attribute the failure to the file that triggered it and keep going so the
+// user sees every failing file at once.
 func (g generatedGate) checkOne(
 	ctx context.Context,
 	env Env,

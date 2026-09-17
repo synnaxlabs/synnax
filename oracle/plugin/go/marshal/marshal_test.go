@@ -928,13 +928,11 @@ var _ = Describe("Go Marshal Plugin", func() {
 			It(
 				"Should emit the uuid import exactly once when uuid-typed fields are present",
 				func() {
-					// Regression: the test fixture generator both set
-					// NeedsUUID (which the template renders as a hardcoded
-					// `"uuid"` line) and registered the same
-					// import under ExtraImports with an explicit "uuid" alias,
-					// producing two import lines for the same path and breaking
-					// the generated test file with a "uuid redeclared" compile
-					// error.
+					// Regression: the test fixture generator both set NeedsUUID (which
+					// the template renders as a hardcoded `"uuid"` line) and registered
+					// the same import under ExtraImports with an explicit "uuid" alias,
+					// producing two import lines for the same path and breaking the
+					// generated test file with a "uuid redeclared" compile error.
 					source := `
 					@go output "core/pkg/test"
 					@go marshal

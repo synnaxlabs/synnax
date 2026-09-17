@@ -21,10 +21,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// PersistenceGate warns when a persisted type at a version-laid-out path is absent
-// from its resource's current version file. Versioning exists to decode stored
-// bytes; a persisted type outside the chain would ship bytes no frozen shape
-// records.
+// PersistenceGate warns when a persisted type at a version-laid-out path is absent from
+// its resource's current version file. Versioning exists to decode stored bytes; a
+// persisted type outside the chain would ship bytes no frozen shape records.
 type persistenceGate struct {
 	// WarningsAsErrors promotes the gate's warnings to errors.
 	WarningsAsErrors bool
