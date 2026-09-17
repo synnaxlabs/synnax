@@ -12,7 +12,10 @@
 //
 //   DATABASE_URL=... STAFF_ORG_ID=org_... pnpm --filter @synnaxlabs/hub create-internal-organization
 
-import { open } from "../src/server/db/db.ts";
+import { neon } from "@neondatabase/serverless";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/neon-http";
+
 import { organization } from "../src/server/db/schema.ts";
 
 const INTERNAL_ORGANIZATION_KEY = "64156293-6534-416c-99d1-8db73a22ca6a";
@@ -23,18 +26,41 @@ const required = (name: string): string => {
   return value;
 };
 
-const store = open(required("DATABASE_URL"));
-const [row] = await store.query
-  .insert(organization)
-  .values({
-    key: INTERNAL_ORGANIZATION_KEY,
-    kind: "team",
-    name: "Synnax Labs",
-    clerkOrgID: required("STAFF_ORG_ID"),
-  })
-  .onConflictDoUpdate({
-    target: organization.key,
-    set: { clerkOrgID: required("STAFF_ORG_ID") },
-  })
-  .returning();
+const db = drizzle(neon(required("DATABASE_URL")));
+const clerkOrgID = required("STAFF_ORG_ID");
+
+// The session mirror or the webhook may have recorded the Clerk organization under a
+// random key already. Its key moves to the fixed one; a license referencing the old
+// key makes that update fail loudly.
+const [byKey] = await db
+  .select()
+  .from(organization)
+  .where(eq(organization.key, INTERNAL_ORGANIZATION_KEY));
+const [byClerk] = await db
+  .select()
+  .from(organization)
+  .where(eq(organization.clerkOrgID, clerkOrgID));
+let row: typeof organization.$inferSelect;
+if (byKey != null)
+  [row] = await db
+    .update(organization)
+    .set({ clerkOrgID })
+    .where(eq(organization.key, INTERNAL_ORGANIZATION_KEY))
+    .returning();
+else if (byClerk != null)
+  [row] = await db
+    .update(organization)
+    .set({ key: INTERNAL_ORGANIZATION_KEY, name: "Synnax Labs" })
+    .where(eq(organization.key, byClerk.key))
+    .returning();
+else
+  [row] = await db
+    .insert(organization)
+    .values({
+      key: INTERNAL_ORGANIZATION_KEY,
+      kind: "team",
+      name: "Synnax Labs",
+      clerkOrgID,
+    })
+    .returning();
 console.log(`organization ${row.name} ready as ${row.key}`);
