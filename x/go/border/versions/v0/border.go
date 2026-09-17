@@ -21,9 +21,7 @@ import (
 //   - per-corner numbers: {"top_left": 4, ...}
 //   - per-corner pairs:   {"top_left": {"x": 4, "y": 8}, ...}
 //
-// Corner keys are accepted in both snake_case and camelCase, since legacy
-// schematic configs stored them verbatim from the Console. Shorthand forms
-// expand to the canonical per-corner shape.
+// Shorthand forms expand to the canonical per-corner shape.
 func (r *Radius) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		*r = Radius{}
@@ -48,19 +46,16 @@ func (r *Radius) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	corners := []struct {
-		snake, camel string
-		dst          *spatial.XY
+		key string
+		dst *spatial.XY
 	}{
-		{"top_left", "topLeft", &r.TopLeft},
-		{"top_right", "topRight", &r.TopRight},
-		{"bottom_left", "bottomLeft", &r.BottomLeft},
-		{"bottom_right", "bottomRight", &r.BottomRight},
+		{"top_left", &r.TopLeft},
+		{"top_right", &r.TopRight},
+		{"bottom_left", &r.BottomLeft},
+		{"bottom_right", &r.BottomRight},
 	}
 	for _, c := range corners {
-		raw, ok := obj[c.snake]
-		if !ok {
-			raw, ok = obj[c.camel]
-		}
+		raw, ok := obj[c.key]
 		if !ok {
 			continue
 		}

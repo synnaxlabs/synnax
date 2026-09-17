@@ -83,6 +83,18 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		}))
 	})
 
+	DescribeTable("Should restate a legacy scale as a vertical bar without its gutter",
+		func(ctx SpecContext, path string) {
+			sch := decode(ctx, path)
+			cfg, ok := sch.Configs["s1"].Variant.(versions.ScaleElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Orientation).To(BeEquivalentTo("top"))
+			Expect(cfg.Dimensions).To(Equal(spatial.Dimensions{Width: 34, Height: 160}))
+		},
+		Entry("server v7 export", "testdata/import_v7_scale.json"),
+		Entry("Console export", "testdata/import_console_scale.json"),
+	)
+
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_typed_console.json")
 		Expect(sch.Snapshot).To(BeFalse())

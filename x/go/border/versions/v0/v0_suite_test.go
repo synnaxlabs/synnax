@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package border_test
+package v0_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestBorder(t *testing.T) {
+func TestBorderV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Border Suite")
+	RunSpecs(t, "Border v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

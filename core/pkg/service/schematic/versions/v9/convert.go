@@ -11,6 +11,7 @@ package v9
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"unicode"
 
@@ -34,9 +35,22 @@ func NormalizeConfigKeys(raw msgpack.EncodedJSON) msgpack.EncodedJSON {
 	if raw == nil {
 		return nil
 	}
-	out, _ := normalizeConfigValue(map[string]any(raw)).(map[string]any)
+	out := normalizeConfigMap(raw)
 	if variant, ok := out["variant"].(string); ok {
 		out["variant"] = camelToSnakeKey(variant)
+	}
+	return out
+}
+
+func normalizeConfigMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, val := range m {
+		nk := camelToSnakeKey(k)
+		if opaqueConfigFields.Contains(nk) {
+			out[nk] = val
+			continue
+		}
+		out[nk] = normalizeConfigValue(val)
 	}
 	return out
 }
@@ -44,21 +58,13 @@ func NormalizeConfigKeys(raw msgpack.EncodedJSON) msgpack.EncodedJSON {
 func normalizeConfigValue(v any) any {
 	switch t := v.(type) {
 	case map[string]any:
-		out := make(map[string]any, len(t))
-		for k, val := range t {
-			nk := camelToSnakeKey(k)
-			if opaqueConfigFields.Contains(nk) {
-				out[nk] = val
-				continue
-			}
-			out[nk] = normalizeConfigValue(val)
+		return normalizeConfigMap(t)
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			out[i] = normalizeConfigValue(val)
 		}
 		return out
-	case []any:
-		for i := range t {
-			t[i] = normalizeConfigValue(t[i])
-		}
-		return t
 	default:
 		return v
 	}
@@ -223,12 +229,25 @@ func segProp(spec any, segment, prop string) (any, bool) {
 	if !ok {
 		return nil, false
 	}
-	if prop == "channel" {
-		if n, isNum := v.(float64); isNum && n == 0 {
-			return nil, false
-		}
+	if prop == "channel" && isZeroNumber(v) {
+		return nil, false
 	}
 	return v, true
+}
+
+// isZeroNumber reports whether v is a numeric zero of any width, since msgpack decodes
+// a stored integer to the narrowest type that holds it.
+func isZeroNumber(v any) bool {
+	rv := reflect.ValueOf(v)
+	switch {
+	case rv.CanInt():
+		return rv.Int() == 0
+	case rv.CanUint():
+		return rv.Uint() == 0
+	case rv.CanFloat():
+		return rv.Float() == 0
+	}
+	return false
 }
 
 // normalizePage lifts an off-page reference's legacy page, a bare schematic key, into

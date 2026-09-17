@@ -93,6 +93,5 @@ func importFromV7(ctx context.Context, old v7.Schematic) (Schematic, error) {
 	if err != nil {
 		return Schematic{}, err
 	}
-	v8.NormalizeScales(s8)
 	return v9.ImportSchematic(ctx, s8)
 }

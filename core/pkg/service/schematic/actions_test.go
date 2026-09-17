@@ -10,7 +10,6 @@
 package schematic_test
 
 import (
-	"encoding/json"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -24,22 +23,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// mustColor parses a crude hex color into its canonical form.
-func mustColor(hex string) color.Color {
-	var c color.Color
-	if err := json.Unmarshal([]byte(strconv.Quote(hex)), &c); err != nil {
-		panic(err)
-	}
-	return c
-}
-
 // tankCfg constructs a typed tank element config. hex is optional.
 func tankCfg(label, hex string) schematic.ElementConfig {
 	cfg := schematic.TankElementConfig{
 		Label: schematic.LabelConfig{Label: label},
 	}
 	if hex != "" {
-		cfg.Color = new(mustColor(hex))
+		cfg.Color = new(MustSucceed(color.FromHex(hex)))
 	}
 	return schematic.ElementConfig{Variant: cfg}
 }
@@ -48,7 +38,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 func pipeCfg(hex string) schematic.ElementConfig {
 	cfg := schematic.SegmentedEdgeConfig{}
 	if hex != "" {
-		cfg.Color = new(mustColor(hex))
+		cfg.Color = new(MustSucceed(color.FromHex(hex)))
 	}
 	return schematic.ElementConfig{
 		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
@@ -426,6 +416,56 @@ var _ = Describe("Reducer", func() {
 			Expect(out.Configs).To(
 				Equal(map[string]schematic.ElementConfig{"g2": groupCfg()}),
 			)
+		})
+		It("Should converge to the same configs regardless of removal order", func() {
+			build := func() schematic.Schematic {
+				return schematic.Schematic{
+					Nodes: []schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+					Configs: map[string]schematic.ElementConfig{
+						"g1": groupCfg("n1"),
+						"n1": tankCfg("Pump", ""),
+					},
+				}
+			}
+			a := removeNode(removeNode(build(), "n1"), "g1")
+			b := removeNode(removeNode(build(), "g1"), "n1")
+			Expect(a.Configs).To(Equal(b.Configs))
+			Expect(a.Configs).To(BeEmpty())
+			Expect(a.Nodes).To(BeEmpty())
+			Expect(b.Nodes).To(BeEmpty())
+		})
+		It("Should splice the key from a large fan of groups", func() {
+			nodes := []schematic.Node{node("n1", 0, 0)}
+			configs := make(map[string]schematic.ElementConfig, 50)
+			expected := make(map[string]schematic.ElementConfig, 50)
+			for i := range 50 {
+				key := "g" + strconv.Itoa(i)
+				nodes = append(nodes, node(key, 0, 0))
+				configs[key] = groupCfg("n1", "other")
+				expected[key] = groupCfg("other")
+			}
+			out := removeNode(schematic.Schematic{Nodes: nodes, Configs: configs}, "n1")
+			Expect(out.Configs).To(Equal(expected))
+		})
+		It("Should let a members write that lands after the removal win", func() {
+			state := removeNode(schematic.Schematic{
+				Nodes: []schematic.Node{
+					node("g1", 0, 0),
+					node("n1", 0, 0),
+					node("n2", 0, 0),
+				},
+				Configs: map[string]schematic.ElementConfig{"g1": groupCfg("n1", "n2")},
+			}, "n1")
+			out := MustSucceed(
+				schematic.Reduce(
+					state,
+					schematic.NewSetConfigAction(schematic.SetConfigPayload{
+						Key:    "g1",
+						Config: groupCfg("n1", "n2", "n3"),
+					}),
+				),
+			)
+			Expect(out.Configs["g1"]).To(Equal(groupCfg("n1", "n2", "n3")))
 		})
 	})
 

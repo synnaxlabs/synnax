@@ -100,28 +100,123 @@ var _ = Describe("Config typing", func() {
 		}))
 	})
 
-	// v8 stored a whole telem pipeline spec; v9 stores the channel key the pipeline
+	// v8 stored a whole telem pipeline spec; v9 stores the arguments the pipeline
 	// was built from.
-	It("Should rewrite a stored telem pipeline into its arguments", func(
-		ctx SpecContext,
-	) {
-		cfg, ok := typed(ctx, msgpack.EncodedJSON{
-			"variant": "value",
-			"telem": map[string]any{"props": map[string]any{
-				"segments": map[string]any{
-					"valueStream": map[string]any{
-						"props": map[string]any{"channel": 65537.0},
-					},
-					"rollingAverage": map[string]any{
-						"props": map[string]any{"windowSize": 5.0},
-					},
-				},
-			}},
-		}).(v9.ValueElementConfig)
-		Expect(ok).To(BeTrue())
-		Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(65537)))
-		Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
-	})
+	pipeline := func(segments map[string]map[string]any) map[string]any {
+		segs := make(map[string]any, len(segments))
+		for name, props := range segments {
+			segs[name] = map[string]any{"props": props}
+		}
+		return map[string]any{"props": map[string]any{"segments": segs}}
+	}
+	valueStream := map[string]map[string]any{
+		"valueStream":    {"channel": 7.0},
+		"rollingAverage": {"windowSize": 5.0},
+	}
+	setter := map[string]map[string]any{"setter": {"channel": 8.0}}
+	DescribeTable("Should rewrite a stored telem pipeline into its arguments",
+		func(
+			ctx SpecContext,
+			raw msgpack.EncodedJSON,
+			check func(v9.ElementConfigVariant),
+		) {
+			check(typed(ctx, raw))
+		},
+		Entry("value",
+			msgpack.EncodedJSON{"variant": "value", "telem": pipeline(valueStream)},
+			func(v v9.ElementConfigVariant) {
+				cfg := v.(v9.ValueElementConfig)
+				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
+				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
+			}),
+		Entry("gauge",
+			msgpack.EncodedJSON{"variant": "gauge", "telem": pipeline(valueStream)},
+			func(v v9.ElementConfigVariant) {
+				cfg := v.(v9.GaugeElementConfig)
+				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
+				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
+			}),
+		Entry("string_display",
+			msgpack.EncodedJSON{"variant": "string_display", "telem": pipeline(valueStream)},
+			func(v v9.ElementConfigVariant) {
+				cfg := v.(v9.StringDisplayElementConfig)
+				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
+			}),
+		Entry("light", msgpack.EncodedJSON{
+			"variant": "light",
+			"source": pipeline(map[string]map[string]any{
+				"valueStream": {"channel": 7.0},
+				"threshold":   {"trueBound": map[string]any{"lower": 1.0, "upper": 2.0}},
+			}),
+		}, func(v v9.ElementConfigVariant) {
+			cfg := v.(v9.LightElementConfig)
+			Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
+			Expect(cfg.Threshold).To(HaveValue(Equal(spatial.Bounds{Lower: 1, Upper: 2})))
+		}),
+		Entry("state_indicator",
+			msgpack.EncodedJSON{"variant": "state_indicator", "source": pipeline(valueStream)},
+			func(v v9.ElementConfigVariant) {
+				cfg := v.(v9.StateIndicatorElementConfig)
+				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
+			}),
+		Entry("setpoint", msgpack.EncodedJSON{
+			"variant": "setpoint",
+			"source":  pipeline(valueStream),
+			"sink":    pipeline(setter),
+		}, func(v v9.ElementConfigVariant) {
+			cfg := v.(v9.SetpointElementConfig)
+			Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
+		}),
+		Entry("button", msgpack.EncodedJSON{"variant": "button", "sink": pipeline(setter)},
+			func(v v9.ElementConfigVariant) {
+				cfg := v.(v9.ButtonElementConfig)
+				Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
+			}),
+		Entry("input", msgpack.EncodedJSON{"variant": "input", "sink": pipeline(setter)},
+			func(v v9.ElementConfigVariant) {
+				cfg := v.(v9.InputElementConfig)
+				Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
+			}),
+		Entry("toggle", msgpack.EncodedJSON{
+			"variant": "valve",
+			"source":  pipeline(valueStream),
+			"sink":    pipeline(setter),
+		}, func(v v9.ElementConfigVariant) {
+			cfg := v.(v9.ValveElementConfig)
+			Expect(cfg.StateChannel).To(HaveValue(BeEquivalentTo(7)))
+			Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
+		}),
+		Entry("control chip authority", msgpack.EncodedJSON{
+			"variant": "valve",
+			"control": map[string]any{
+				"chip": map[string]any{"sink": map[string]any{
+					"props": map[string]any{"authority": 200.0},
+				}},
+				"indicator": map[string]any{},
+			},
+		}, func(v v9.ElementConfigVariant) {
+			cfg := v.(v9.ValveElementConfig)
+			Expect(cfg.Control).ToNot(BeNil())
+			Expect(cfg.Control.Authority).To(HaveValue(BeEquivalentTo(200)))
+		}),
+	)
+
+	DescribeTable("Should drop a zero channel whatever width msgpack decoded it to",
+		func(ctx SpecContext, zero any) {
+			cfg, ok := typed(ctx, msgpack.EncodedJSON{
+				"variant": "value",
+				"telem": pipeline(map[string]map[string]any{
+					"valueStream": {"channel": zero},
+				}),
+			}).(v9.ValueElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Channel).To(BeNil())
+		},
+		Entry("float64", 0.0),
+		Entry("int8", int8(0)),
+		Entry("int64", int64(0)),
+		Entry("uint64", uint64(0)),
+	)
 
 	// v8 stored an off-page reference's target as a bare schematic key; v9 stores a
 	// typed page reference, and an empty key meant no page.

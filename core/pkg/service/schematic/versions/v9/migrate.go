@@ -77,6 +77,9 @@ func lift(
 	ctx context.Context,
 	old v8.Schematic,
 ) (Schematic, map[string]configLoss, error) {
+	// Stored scales were restated by their own migration, but an imported v8 body may
+	// predate it. The restatement is idempotent, so every lift runs it.
+	v8.NormalizeScales(old)
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, nil, err
