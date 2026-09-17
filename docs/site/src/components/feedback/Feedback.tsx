@@ -192,8 +192,12 @@ const FeedbackForm = (): ReactElement => {
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}
             </Form.Field>
-            <Text.Text level="small" color={10}>
-              We use your name and email to follow up on your feedback.
+            <Text.Text level="small" color={10} style={{ display: "block" }}>
+              We use your name and email to follow up on your feedback.{" "}
+              <a href="https://formspree.io" target="_blank" rel="noreferrer">
+                Formspree
+              </a>{" "}
+              handles these messages for us.
             </Text.Text>
           </Flex.Box>
         </Flex.Box>
