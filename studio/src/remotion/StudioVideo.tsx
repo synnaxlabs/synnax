@@ -57,7 +57,8 @@ export const StudioVideo = ({
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
       {blur != null && (
         <svg width={0} height={0} style={{ position: "absolute" }}>
-          <filter id="camera-blur">
+          {/* The linearRGB default posterizes near-black pixels into tinted blocks. */}
+          <filter id="camera-blur" colorInterpolationFilters="sRGB">
             <feGaussianBlur stdDeviation={`${blur.x} ${blur.y}`} />
           </filter>
         </svg>
