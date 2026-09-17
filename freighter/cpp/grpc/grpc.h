@@ -9,17 +9,34 @@
 
 #pragma once
 
+#include <cstdlib>
+
 #include "grpc/grpc.h"
 #include "grpcpp/channel.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/security/credentials.h"
 
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/fs/fs.h"
 
 namespace freighter::grpc {
 namespace priv {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
+/// @brief the gRPC environment variable naming a PEM file of trust anchors.
+const std::string ROOTS_FILE_ENV = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH";
+
+/// @brief builds TLS credentials that verify the server against the PEM file named by
+/// GRPC_DEFAULT_SSL_ROOTS_FILE_PATH, or the system trust store when it is unset. The
+/// file is passed as explicit roots because gRPC allows a leaf certificate as the
+/// anchor only on that path, not in the default store it builds from the same variable.
+inline std::shared_ptr<::grpc::ChannelCredentials> ssl_credentials() {
+    ::grpc::SslCredentialsOptions opts;
+    if (const char *path = std::getenv(ROOTS_FILE_ENV.c_str()); path != nullptr)
+        if (auto [roots, err] = x::fs::read_file(path); !err)
+            opts.pem_root_certs = std::move(roots);
+    return ::grpc::SslCredentials(opts);
+}
 
 /// @brief converts a ::grpc::Status to a x::errors::Error.
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
@@ -39,11 +56,10 @@ class Pool {
 
 public:
     /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify the
-    /// server against the system trust store.
+    /// server against the trust anchors described by priv::ssl_credentials.
     explicit Pool(const bool secure = false):
         credentials(
-            secure ? ::grpc::SslCredentials(::grpc::SslCredentialsOptions())
-                   : ::grpc::InsecureChannelCredentials()
+            secure ? priv::ssl_credentials() : ::grpc::InsecureChannelCredentials()
         ) {}
 
     /// @brief returns the number of channels in the pool.

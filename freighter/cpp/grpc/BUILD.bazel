@@ -17,6 +17,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp:freighter",
+        "//x/cpp/fs",
         "@grpc//:grpc++",
     ],
 )
@@ -38,14 +39,17 @@ cc_test(
     size = "small",
     srcs = ["tls_test.cpp"],
     data = [
+        "//freighter/cpp/grpc/mock:test_ca_cert.pem",
         "//freighter/cpp/grpc/mock:test_cert.pem",
         "//freighter/cpp/grpc/mock:test_key.pem",
+        "//freighter/cpp/grpc/mock:test_leaf_cert.pem",
+        "//freighter/cpp/grpc/mock:test_leaf_key.pem",
     ],
     deps = [
         "//freighter/cpp/grpc/mock:server",
         "//freighter/cpp/grpc/mock:service_grpc",
         "//x/cpp/env",
         "//x/cpp/test",
-        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
