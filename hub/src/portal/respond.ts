@@ -9,57 +9,32 @@
 
 import { type APIContext } from "astro";
 
-import { HTTPError, toResponse } from "@/server/errors";
+import { toResponse } from "@/server/errors";
 
 /** TOKEN_FILE_EXTENSION is what the Console's file picker filters on. */
 export const TOKEN_FILE_EXTENSION = "license";
 
-/** wantsHTML is true for a browser form post, false for an API caller. */
-export const wantsHTML = ({ request }: APIContext): boolean =>
-  request.headers.get("accept")?.includes("text/html") ?? false;
-
-/** redirect sends a browser back to a portal page with query parameters. */
-export const redirect = (
-  context: APIContext,
-  path: string,
-  params: Record<string, string> = {},
-): Response => {
-  const url = new URL(path, context.url);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  return context.redirect(url.pathname + url.search, 303);
+/** filename is the name a token downloads as, derived from its license label. */
+export const filename = (label: string): string => {
+  const stem = label.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "synnax";
+  return `${stem}.${TOKEN_FILE_EXTENSION}`;
 };
 
 /** download answers with the token as a file the Console picker accepts. */
-export const download = (token: string, label: string): Response => {
-  const stem = label.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "synnax";
-  return new Response(token, {
+export const download = (token: string, label: string): Response =>
+  new Response(token, {
     headers: {
       "content-type": "text/plain; charset=utf-8",
-      "content-disposition": `attachment; filename="${stem}.${TOKEN_FILE_EXTENSION}"`,
+      "content-disposition": `attachment; filename="${filename(label)}"`,
     },
   });
-};
 
-/**
- * handle runs a route body and turns a thrown HTTPError into a JSON error for API
- * callers or a redirect carrying the message for a browser form. `back` is the page
- * a browser returns to.
- */
-export const handle = async (
-  context: APIContext,
-  back: string,
-  body: () => Promise<Response>,
-): Promise<Response> => {
+/** handle runs a route body and turns a thrown error into a JSON error response. */
+export const handle = async (body: () => Promise<Response>): Promise<Response> => {
   try {
     return await body();
   } catch (err) {
-    if (!wantsHTML(context)) return toResponse(err);
-    if (err instanceof HTTPError) {
-      if (err.status === 401) return context.redirect("/sign-in", 303);
-      return redirect(context, back, { error: err.message });
-    }
-    console.error(err);
-    return redirect(context, back, { error: "Something went wrong. Try again." });
+    return toResponse(err);
   }
 };
 
@@ -69,7 +44,7 @@ const flatten = (value: unknown): string => {
   return JSON.stringify(value) ?? "";
 };
 
-/** form reads a posted form body, or JSON for API callers, into one flat record. */
+/** form reads a JSON body, or a posted form, into one flat record. */
 export const form = async ({
   request,
 }: APIContext): Promise<Record<string, string>> => {

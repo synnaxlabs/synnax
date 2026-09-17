@@ -58,7 +58,7 @@ export const description = ({
   if (page != null) lines.push(`Page: ${site}${page}`);
   if (organization != null)
     lines.push(
-      `Organization: [${organization.name}](${site}/licenses?org=${organization.key})`,
+      `Organization: [${organization.name}](${site}/portal?org=${organization.key})`,
     );
   if (licenses.length > 0)
     lines.push("", "Licenses:", ...licenses.map((lic) => licenseLine(lic, now)));

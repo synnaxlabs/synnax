@@ -10,12 +10,7 @@
 import { type Portal } from "@/portal/portal";
 import { type Organization, type Sender } from "@/server/db/schema";
 import { forbidden, notFound } from "@/server/errors";
-import {
-  ensurePersonal,
-  isMember,
-  listForMember,
-  retrieve,
-} from "@/server/organization";
+import { isMember, organizationsFor, pick, retrieve } from "@/server/organization";
 import { type Session } from "@/server/session";
 import { retrieve as retrieveThread, type Retrieved } from "@/server/support/thread";
 
@@ -33,9 +28,8 @@ export const supportFor = async (
   session: Session,
   key: string | null,
 ): Promise<SupportView> => {
-  await ensurePersonal(portal.store, { userID: session.userID, name: session.name });
-  const organizations = await listForMember(portal.store, session);
-  const org = key == null ? organizations[0] : organizations.find((o) => o.key === key);
+  const organizations = await organizationsFor(portal.store, session);
+  const org = pick(organizations, key);
   if (org == null) throw forbidden("You are not a member of that organization");
   return { organizations, organization: org };
 };

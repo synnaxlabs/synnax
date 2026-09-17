@@ -11,6 +11,7 @@ import { eq, inArray, or } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import { type Organization, organization } from "@/server/db/schema";
+import { type Session } from "@/server/session";
 
 export interface EnsurePersonalArgs {
   userID: string;
@@ -86,6 +87,35 @@ export const listForMember = async (
   return rows.sort(
     (a, b) => Number(b.kind === "personal") - Number(a.kind === "personal"),
   );
+};
+
+/**
+ * organizationsFor returns the organizations a session may act for: the personal one,
+ * created on first sight, then every team, mirrored from the session's Clerk
+ * memberships so a team created in the Clerk dashboard is usable before its webhook
+ * lands.
+ */
+export const organizationsFor = async (
+  store: Store,
+  session: Session,
+): Promise<Organization[]> => {
+  await ensurePersonal(store, { userID: session.userID, name: session.name });
+  for (const team of session.teams) await mirrorTeam(store, team);
+  return await listForMember(store, session);
+};
+
+/**
+ * pick chooses the organization a page acts for. A team is the default for a member of
+ * any team; `?org=` selects among them. A user on no team acts for their personal
+ * organization. Returns null when the requested key is not one of the user's.
+ */
+export const pick = (
+  organizations: Organization[],
+  requested: string | null,
+): Organization | null => {
+  const teams = organizations.filter((o) => o.kind === "team");
+  if (requested != null) return teams.find((o) => o.key === requested) ?? null;
+  return teams[0] ?? organizations.find((o) => o.kind === "personal") ?? null;
 };
 
 /** listAll returns every organization, for staff. */

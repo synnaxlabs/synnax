@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import {
@@ -184,22 +184,18 @@ export const reply = async (
   if (sender === "staff" && t.contact !== "")
     await mail.send({
       to: [t.contact],
-      ...replyMail({ title: t.title, author, text, url: `${site}/support/${t.key}` }),
+      ...replyMail({
+        title: t.title,
+        author,
+        text,
+        url: `${site}/portal/support/${t.key}`,
+      }),
     });
 };
 
-/** listForOrganizations returns threads across organizations, for staff. */
-export const listForOrganizations = async (
-  store: Store,
-  tracker: Tracker,
-  keys: string[],
-): Promise<Listed[]> => {
-  if (keys.length === 0) return [];
-  const rows = await store.query
-    .select()
-    .from(thread)
-    .where(inArray(thread.organization, keys))
-    .orderBy(desc(thread.updatedAt));
+/** listAll returns every thread, newest first, with its issue status. Staff only. */
+export const listAll = async (store: Store, tracker: Tracker): Promise<Listed[]> => {
+  const rows = await store.query.select().from(thread).orderBy(desc(thread.updatedAt));
   const statuses = await tracker.statuses(rows.map((t) => t.issueID));
   return rows.map((t) => ({ ...t, status: statuses.get(t.issueID) ?? "open" }));
 };

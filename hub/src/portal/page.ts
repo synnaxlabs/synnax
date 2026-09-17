@@ -40,11 +40,3 @@ export const failure = (err: unknown): { status: number; message: string } => {
   console.error(err);
   return { status: 500, message: "Something went wrong. Try again." };
 };
-
-export const date = (d: Date | null): string =>
-  d == null ? "" : d.toISOString().slice(0, 10);
-
-export const shortHash = (hashes: string[]): string =>
-  hashes.length === 0
-    ? "floating"
-    : `${hashes[0].slice(0, 12)}…${hashes.length > 1 ? ` +${hashes.length - 1}` : ""}`;

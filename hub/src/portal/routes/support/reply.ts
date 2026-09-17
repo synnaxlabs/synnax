@@ -10,16 +10,16 @@
 import { type APIRoute } from "astro";
 
 import { open } from "@/portal/portal";
-import { form, handle, redirect, wantsHTML } from "@/portal/respond";
+import { form, handle } from "@/portal/respond";
 import { threadFor } from "@/portal/support";
 import { badRequest } from "@/server/errors";
 import { checkSupport } from "@/server/ratelimit";
 import { reply } from "@/server/support/thread";
 
 /** POST appends `message` to a thread as the signed-in viewer. */
-export const POST: APIRoute = async (context) => {
-  const key = context.params.key ?? "";
-  return await handle(context, `/support/${key}`, async () => {
+export const POST: APIRoute = async (context) =>
+  await handle(async () => {
+    const key = context.params.key ?? "";
     const portal = open(context);
     const session = await portal.session();
     const body = await form(context);
@@ -38,7 +38,5 @@ export const POST: APIRoute = async (context) => {
       site: portal.site,
       now,
     });
-    if (wantsHTML(context)) return redirect(context, `/support/${key}`);
     return new Response(null, { status: 204 });
   });
-};

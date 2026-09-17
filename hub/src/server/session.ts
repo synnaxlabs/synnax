@@ -13,15 +13,25 @@ import { type APIContext } from "astro";
 import { unauthorized } from "@/server/errors";
 import { type Membership } from "@/server/organization";
 
+/** Team is one Clerk organization the user belongs to. */
+export interface Team {
+  clerkOrgID: string;
+  name: string;
+  role: string;
+}
+
 /** Session is what the portal knows about the signed-in user for one request. */
 export interface Session extends Membership {
   email: string;
   name: string;
+  /** teams are the Clerk organizations the user is a member of. */
+  teams: Team[];
   /** staff is true for admins of the Synnax Labs team organization. */
   staff: boolean;
 }
 
-const STAFF_ROLE = "org:admin";
+export const ADMIN_ROLE = "org:admin";
+const STAFF_ROLE = ADMIN_ROLE;
 
 /**
  * resolve reads the signed-in user and their organization memberships from Clerk.
@@ -38,16 +48,26 @@ export const resolve = async (
     clerk.users.getUser(userId),
     allMemberships(clerk, userId),
   ]);
-  const clerkOrgIDs = memberships.map((m) => m.organization.id);
-  const staff = memberships.some(
-    (m) => m.organization.id === staffOrgID && m.role === STAFF_ROLE,
-  );
+  const teams = memberships.map((m) => ({
+    clerkOrgID: m.organization.id,
+    name: m.organization.name,
+    role: m.role,
+  }));
+  const clerkOrgIDs = teams.map((t) => t.clerkOrgID);
+  const staff = teams.some((t) => t.clerkOrgID === staffOrgID && t.role === STAFF_ROLE);
   const email =
     user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
       ?.emailAddress ??
     user.emailAddresses[0]?.emailAddress ??
     "";
-  return { userID: userId, email, name: displayName(user, email), clerkOrgIDs, staff };
+  return {
+    userID: userId,
+    email,
+    name: displayName(user, email),
+    teams,
+    clerkOrgIDs,
+    staff,
+  };
 };
 
 const PAGE = 100;

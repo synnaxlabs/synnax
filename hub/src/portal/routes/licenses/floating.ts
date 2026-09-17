@@ -15,9 +15,9 @@ import { download, handle } from "@/portal/respond";
 import { floating } from "@/server/license/issue";
 
 /** POST downloads a token bound to no machine, for CI runners. Staff only. */
-export const POST: APIRoute = async (context) => {
-  const key = context.params.key ?? "";
-  return await handle(context, `/licenses/${key}`, async () => {
+export const POST: APIRoute = async (context) =>
+  await handle(async () => {
+    const key = context.params.key ?? "";
     const portal = open(context);
     const session = await portal.session();
     requireStaff(session);
@@ -29,4 +29,3 @@ export const POST: APIRoute = async (context) => {
     });
     return download(token, license.label);
   });
-};

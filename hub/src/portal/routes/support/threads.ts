@@ -10,7 +10,7 @@
 import { type APIRoute } from "astro";
 
 import { open } from "@/portal/portal";
-import { form, handle, redirect, wantsHTML } from "@/portal/respond";
+import { form, handle } from "@/portal/respond";
 import { supportFor } from "@/portal/support";
 import { badRequest } from "@/server/errors";
 import { checkSupport } from "@/server/ratelimit";
@@ -18,7 +18,7 @@ import { open as openThread } from "@/server/support/thread";
 
 /** POST opens a thread for the organization in `org` with `title` and `message`. */
 export const POST: APIRoute = async (context) =>
-  await handle(context, "/support", async () => {
+  await handle(async () => {
     const portal = open(context);
     const session = await portal.session();
     const body = await form(context);
@@ -40,6 +40,5 @@ export const POST: APIRoute = async (context) =>
       site: portal.site,
       now,
     });
-    if (wantsHTML(context)) return redirect(context, `/support/${thread.key}`);
     return Response.json({ thread: thread.key, issue: thread.issueIdentifier });
   });

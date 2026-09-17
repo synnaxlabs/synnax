@@ -37,7 +37,7 @@ describe("format.description", () => {
     expect(text).toContain(
       "Opened by Gaal Dornik (gaal@streeling.edu) from the portal.",
     );
-    expect(text).toContain(`[Streeling](${SITE}/licenses?org=${ORG.key})`);
+    expect(text).toContain(`[Streeling](${SITE}/portal?org=${ORG.key})`);
     expect(text).toContain("- Test rig: enterprise, 2 nodes, until 2027-03-01, active");
     expect(text).toContain("- Old: enterprise, 2 nodes, until 2027-03-01, revoked");
     expect(text.endsWith("---\n\nThe Core will not start.")).toBe(true);
@@ -75,10 +75,10 @@ describe("format.replyMail", () => {
       title: "Core will not start",
       author: "Hari",
       text: "Try again.",
-      url: `${SITE}/support/abc`,
+      url: `${SITE}/portal/support/abc`,
     });
     expect(mail.subject).toBe("Re: Core will not start");
     expect(mail.text).toContain('Hari from Synnax replied to "Core will not start"');
-    expect(mail.text).toContain(`Reply at ${SITE}/support/abc`);
+    expect(mail.text).toContain(`Reply at ${SITE}/portal/support/abc`);
   });
 });
