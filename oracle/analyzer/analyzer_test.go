@@ -2177,8 +2177,10 @@ Entry struct {
 			},
 		)
 
-		It("Should follow an alias to the struct a base or variant names", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should follow an alias to the struct a base or variant names",
+			func(ctx SpecContext) {
+				source := `
 				Base struct {
 					key uuid
 				}
@@ -2199,9 +2201,10 @@ Entry struct {
 					payload PayloadAlias {}
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-		})
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
 
 		It(
 			"Should error when an action extends a non-struct type",

@@ -898,7 +898,9 @@ var _ = Describe("UnifiedFields", func() {
 			Name:          "ParentAlias",
 			QualifiedName: "ns.ParentAlias",
 			Namespace:     "ns",
-			Form:          resolution.AliasForm{Target: resolution.TypeRef{Name: "ns.Parent"}},
+			Form: resolution.AliasForm{
+				Target: resolution.TypeRef{Name: "ns.Parent"},
+			},
 		}
 		child := resolution.Type{
 			Name:          "Child",
@@ -911,9 +913,9 @@ var _ = Describe("UnifiedFields", func() {
 				},
 			},
 		}
-		table.Add(parent)
-		table.Add(alias)
-		table.Add(child)
+		Expect(table.Add(parent)).To(Succeed())
+		Expect(table.Add(alias)).To(Succeed())
+		Expect(table.Add(child)).To(Succeed())
 		fields := resolution.UnifiedFields(child, table)
 		Expect(fields).To(HaveLen(2))
 		Expect(fields[0].Name).To(Equal("id"))

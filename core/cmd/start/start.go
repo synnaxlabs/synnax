@@ -357,6 +357,11 @@ func BootupCore(
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
+			// Without a covering grant the Core refuses the rack registration, so the
+			// Driver must keep retrying in the background instead of failing the start.
+			Detached: new(
+				serviceLayer.Verification.Retrieve().State != verification.StateOK,
+			),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
