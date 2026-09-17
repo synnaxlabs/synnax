@@ -137,7 +137,18 @@ export const setTabViewPayloadZ = z.object({
 
 export type SetTabViewPayload = z.infer<typeof setTabViewPayloadZ>;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "insert_tabs"; insertTabs: InsertTabsPayload }
+  | { type: "remove_tab"; removeTab: RemoveTabPayload }
+  | { type: "move_tab"; moveTab: MoveTabPayload }
+  | { type: "split_tab"; splitTab: SplitTabPayload }
+  | { type: "resize_split"; resizeSplit: ResizeSplitPayload }
+  | { type: "set_tab_resource"; setTabResource: SetTabResourcePayload }
+  | { type: "set_tab_view"; setTabView: SetTabViewPayload };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("insert_tabs"), insertTabs: insertTabsPayloadZ }),
@@ -151,8 +162,6 @@ export const actionZ = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("set_tab_view"), setTabView: setTabViewPayloadZ }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
