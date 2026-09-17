@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
@@ -84,6 +85,45 @@ var _ = Describe("MigrateTable", func() {
 		Expect(fields).To(HaveKeyWithValue("value", "hi"))
 		Expect(fields).To(HaveKey("background_color"))
 		Expect(fields).NotTo(HaveKey("backgroundColor"))
+	})
+
+	It("Should keep a chosen background color", func(ctx SpecContext) {
+		cfg, ok := migrateCell(
+			ctx, "text", `{"backgroundColor": "#112233"}`,
+		).Variant.(v2.TextCellConfig)
+		Expect(MustBeOk(cfg, ok).BackgroundColor).To(HaveValue(
+			Equal(color.Color{R: 17, G: 34, B: 51, A: 1}),
+		))
+	})
+
+	It("Should drop an unchosen color stored as transparent black", func(
+		ctx SpecContext,
+	) {
+		cfg, ok := migrateCell(
+			ctx, "text", `{"backgroundColor": "#00000000"}`,
+		).Variant.(v2.TextCellConfig)
+		Expect(MustBeOk(cfg, ok).BackgroundColor).To(BeNil())
+	})
+
+	It("Should drop every unchosen color on a value cell", func(ctx SpecContext) {
+		cfg, ok := migrateCell(ctx, "value", `{
+			"color": "#00000000",
+			"stalenessColor": {"r": 0, "g": 0, "b": 0, "a": 0}
+		}`).Variant.(v2.ValueCellConfig)
+		Expect(MustBeOk(cfg, ok).Color).To(BeNil())
+		Expect(cfg.StalenessColor).To(BeNil())
+	})
+
+	It("Should keep a transparent gradient stop color", func(ctx SpecContext) {
+		cfg, ok := migrateCell(ctx, "value", `{
+			"redline": {
+				"bounds": {"lower": 0, "upper": 1},
+				"gradient": [{"key": "s", "color": "#00000000", "position": 0}]
+			}
+		}`).Variant.(v2.ValueCellConfig)
+		Expect(MustBeOk(cfg, ok).Redline).NotTo(BeNil())
+		Expect(cfg.Redline.Gradient).To(HaveLen(1))
+		Expect(cfg.Redline.Gradient[0].Key).To(Equal("s"))
 	})
 
 	It("Should fill absent fields with their schema defaults", func(ctx SpecContext) {
