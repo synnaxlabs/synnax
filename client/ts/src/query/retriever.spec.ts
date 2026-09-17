@@ -241,6 +241,20 @@ describe("Retriever", () => {
       expect(client.store.get("b")).toEqual(thing("b", 9));
     });
 
+    it("keeps a write that landed while a request fetch was in flight", async () => {
+      let release: (things: Thing[]) => void = () => {};
+      const fetchRequest = vi.fn(
+        async () => await new Promise<Thing[]>((resolve) => (release = resolve)),
+      );
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      const pending = client.retrieve({ minSize: 1 });
+      await vi.waitFor(() => expect(fetchRequest).toHaveBeenCalledTimes(1));
+      client.store.set([{ ...thing("a"), name: "renamed" }]);
+      release([thing("a")]);
+      await pending;
+      expect(client.store.get("a")?.name).toEqual("renamed");
+    });
+
     it("treats a request with keys plus another set field as non-keys-only", async () => {
       const fetchRequest = vi.fn(async () => [thing("a", 9)]);
       const client = new Client(newCache(), async () => [], fetchRequest);

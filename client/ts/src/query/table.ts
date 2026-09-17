@@ -66,6 +66,17 @@ export interface BatchSubscriber<
  */
 export type HydrateMode = "set" | "if-absent";
 
+/** A point in a table's write history, taken with {@link Table.stamp}. */
+export type Stamp = number;
+
+/** Options for {@link Table.ingest}. */
+export interface IngestOptions {
+  /** Overrides the table's declared hydrate mode. */
+  mode?: HydrateMode;
+  /** Skips entries written after this stamp: the fetch predates those writes. */
+  since?: Stamp;
+}
+
 /** A table value carrying its entry key, so batch writes and fetches can derive
  *  each entry's key from the record itself. */
 export type Keyed<
@@ -164,6 +175,8 @@ export class Table<
   > | null;
   private readonly indexes: Array<LookupIndex<Key, Value>>;
   private gen = 0;
+  private writeSeq = 0;
+  private readonly writeStamps = new Map<Key, Stamp>();
 
   constructor({
     onError,
@@ -277,16 +290,41 @@ export class Table<
     keyOrValues: Key | Keyed<Key, Value> | Array<Keyed<Key, Value>>,
     value?: state.SetArg<Value | undefined>,
   ): destructor.Destructor {
-    if (typeof keyOrValues !== "object")
+    if (typeof keyOrValues !== "object") {
+      this.stampWrite(keyOrValues as Key);
       return this.setOne(keyOrValues as Key, value) ?? destructor.NOOP;
+    }
+    const values = array.toArray(keyOrValues);
+    values.forEach(({ key }) => this.stampWrite(key));
+    return this.setMany(values);
+  }
+
+  private setMany(values: Array<Keyed<Key, Value>>): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
     this.batch(() =>
-      array.toArray(keyOrValues).forEach((val) => {
+      values.forEach((val) => {
         const rollback = this.setOne(val.key, val);
         if (rollback != null) rollbacks.push(rollback);
       }),
     );
     return () => this.batch(() => rollbacks.reverse().forEach((r) => r()));
+  }
+
+  private stampWrite(key: Key): void {
+    this.writeStamps.set(key, ++this.writeSeq);
+  }
+
+  private writtenSince(key: Key, since: Stamp): boolean {
+    return (this.writeStamps.get(key) ?? 0) > since;
+  }
+
+  /**
+   * Marks the current point in the table's write history. A fetch takes one before it
+   * starts and hands it to {@link ingest} so that writes landing while the fetch is in
+   * flight are not overwritten by its older records.
+   */
+  stamp(): Stamp {
+    return this.writeSeq;
   }
 
   private setIfAbsent(values: Array<Keyed<Key, Value>>): destructor.Destructor {
@@ -304,17 +342,23 @@ export class Table<
   /**
    * Writes fetched records into the table under its declared hydrate mode, or the given
    * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
-   * tombstoned key is skipped: the fetch may predate the delete, and only a {@link set}
-   * revives a deleted record.
+   * tombstoned key is skipped, as is a key written after the given stamp: the fetch may
+   * predate the delete or the write, and only a {@link set} revives a deleted record.
    * @returns A rollback that undoes the entries this call wrote.
    */
   ingest(
     values: Keyed<Key, Value> | Array<Keyed<Key, Value>>,
-    mode: HydrateMode = this.hydrateMode,
+    { mode = this.hydrateMode, since }: IngestOptions = {},
   ): destructor.Destructor {
-    const arr = array.toArray(values).filter(({ key }) => !this.tombstones.has(key));
+    const arr = array
+      .toArray(values)
+      .filter(
+        ({ key }) =>
+          !this.tombstones.has(key) &&
+          (since == null || !this.writtenSince(key, since)),
+      );
     if (mode === "if-absent") return this.setIfAbsent(arr);
-    return this.set(arr);
+    return this.setMany(arr);
   }
 
   /** Returns every entry in the table, or every entry the filter accepts. */
@@ -363,10 +407,10 @@ export class Table<
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
    * every key is fetched regardless of presence and cached entries the fetch omits are
-   * tombstoned. A key deleted while the fetch was in flight stays deleted either way.
-   * Returns the table's entries for the found keys in input order, deduplicated; keys
-   * the cluster no longer has are omitted. Tables without a fetch serve cached entries
-   * only.
+   * tombstoned. A key written or deleted while the fetch was in flight keeps that
+   * write either way. Returns the table's entries for the found keys in input order,
+   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
+   * serve cached entries only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -374,6 +418,7 @@ export class Table<
         opts.refresh === true ? keys : keys.filter((key) => !this.entries.has(key));
       if (misses.length > 0) {
         const gen = this.gen;
+        const since = this.stamp();
         const fetched = await this.fetchBatcher.enqueue(misses);
         if (gen === this.gen)
           if (opts.refresh === true) {
@@ -381,13 +426,16 @@ export class Table<
             // fetch omitted vanished from the cluster and are tombstoned.
             const present = new Set<Key>(fetched.map(({ key }) => key));
             const vanished = misses.filter(
-              (key) => !present.has(key) && this.entries.has(key),
+              (key) =>
+                !present.has(key) &&
+                this.entries.has(key) &&
+                !this.writtenSince(key, since),
             );
             this.batch(() => {
               if (vanished.length > 0) this.delete(vanished);
-              if (fetched.length > 0) this.ingest(fetched, "set");
+              if (fetched.length > 0) this.ingest(fetched, { mode: "set", since });
             });
-          } else if (fetched.length > 0) this.ingest(fetched);
+          } else if (fetched.length > 0) this.ingest(fetched, { since });
       }
     }
     const seen = new Set<Key>();
@@ -441,6 +489,7 @@ export class Table<
 
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
+        this.stampWrite(k);
         this.applyDelete(k);
         if (tombstone && value != null)
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
@@ -470,15 +519,18 @@ export class Table<
     const keys = this.keys();
     if (keys.length === 0) return;
     const gen = this.gen;
+    const since = this.stamp();
     const values = await fetchSurvivors(fetchEntries, keys);
     // A reset mid-fetch means the cluster was replaced: writing the fetched
     // entries would repopulate the cleared table with old-cluster records.
     if (gen !== this.gen) return;
     const present = new Set<Key>(values.map(({ key }) => key));
-    const vanished = keys.filter((k) => !present.has(k));
+    const vanished = keys.filter(
+      (k) => !present.has(k) && !this.writtenSince(k, since),
+    );
     this.batch(() => {
       if (vanished.length > 0) this.delete(vanished);
-      if (values.length > 0) this.set(values);
+      if (values.length > 0) this.ingest(values, { mode: "set", since });
     });
   }
 
@@ -492,6 +544,7 @@ export class Table<
     this.gen++;
     this.entries.clear();
     this.tombstones.clear();
+    this.writeStamps.clear();
     for (const index of this.indexes) index.reset();
   }
 

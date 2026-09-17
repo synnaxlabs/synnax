@@ -177,8 +177,9 @@ export abstract class Retriever<
       fetch: async (query, options) => {
         const keys = keysOnly(query);
         if (keys != null) return (await table.retrieve(keys as K[])).map((r) => r.key);
+        const since = table.stamp();
         const records = await fetch(query, options);
-        table.ingest(records);
+        table.ingest(records, { since });
         return records.map((r) => r.key);
       },
       compose: (records, q) => records.map((r) => compose(r, q)),
