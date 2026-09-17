@@ -20,7 +20,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { getHeaderIconButton, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -226,6 +226,36 @@ describe("HTTP Read form", () => {
       expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
       expect(fields.find((f) => f.key === "f2")?.channel).toBe(virtualKey);
       expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
+    });
+
+    it("should rename a field's existing channel from the details pane", async () => {
+      const dev = await createHTTPDevice(client);
+      const ch = await client.channels.create({
+        name: uniqueName("http_read"),
+        dataType: "float64",
+        virtual: true,
+      });
+      const config = createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          fields: [createReadField("f1", "/temperature", { channel: ch.key })],
+        },
+      ]);
+      const draft = await createDraft(client, config);
+      await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /\/temperature/ }));
+      const field = await screen.findByRole<HTMLInputElement>("textbox", {
+        name: "Channel",
+      });
+      await waitFor(() => expect(field.value).toBe(ch.name));
+      const renamed = uniqueName("http_renamed");
+      fireEvent.change(field, { target: { value: renamed } });
+      fireEvent.blur(field);
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(ch.key)).name).toBe(renamed),
+      );
     });
 
     it("should keep a duplicated endpoint's timestamp bound to the index", async () => {

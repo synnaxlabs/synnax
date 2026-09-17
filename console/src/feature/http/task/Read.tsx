@@ -16,7 +16,9 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
+  Channel as PChannel,
   Component,
   CSS as PCSS,
   Device as PDevice,
@@ -249,6 +251,55 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
   );
 };
 
+interface ChannelNameFieldProps {
+  path: string;
+  channel: channel.Key;
+  defaultName: string;
+}
+
+/**
+ * Names a field's channel. Until configure creates the channel, the name lives on the
+ * field; after, an edit renames the channel itself.
+ */
+const ChannelNameField = ({
+  path,
+  channel: key,
+  defaultName,
+}: ChannelNameFieldProps) =>
+  key === 0 ? (
+    <PForm.TextField
+      path={`${path}.name`}
+      label="Channel"
+      padHelpText={false}
+      inputProps={{ placeholder: defaultName === "" ? "Channel name" : defaultName }}
+    />
+  ) : (
+    <ExistingChannelNameField channel={key} />
+  );
+
+const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) => {
+  const { data: name = "" } = PChannel.useResultName({ key });
+  const { update } = PChannel.useRename();
+  const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
+  const isPreview = Task.useIsPreview();
+  const handleChange = useCallback(
+    (next: string) => {
+      if (next.length > 0 && next !== name) update({ key, name: next });
+    },
+    [key, name, update],
+  );
+  return (
+    <Input.Item label="Channel" padHelpText={false}>
+      <Input.Text
+        value={name}
+        onChange={handleChange}
+        onlyChangeOnBlur
+        disabled={isPreview || !canRename}
+      />
+    </Input.Item>
+  );
+};
+
 const FieldDetails: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => {
   const path = `config.endpoints.${epKey}.fields.${fieldKey}`;
   const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
@@ -271,13 +322,10 @@ const FieldDetails: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey
         >
           {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
         </PForm.Field>
-        <PForm.TextField
-          path={`${path}.name`}
-          label="Channel"
-          padHelpText={false}
-          inputProps={{
-            placeholder: defaultName === "" ? "Channel name" : defaultName,
-          }}
+        <ChannelNameField
+          path={path}
+          channel={fieldChannel}
+          defaultName={defaultName}
         />
       </PForm.Section>
       <PForm.Section title="Enum mapping">
