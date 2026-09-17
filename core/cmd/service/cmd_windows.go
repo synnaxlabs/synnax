@@ -278,10 +278,7 @@ func readRecentLogs(filePath string, maxEntries int) (_ []string, err error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		var entry logEntry
-		if jsonErr := json.Unmarshal(
-			[]byte(line),
-			&entry,
-		); jsonErr != nil {
+		if jsonErr := json.Unmarshal([]byte(line), &entry); jsonErr != nil {
 			continue // Skip non-JSON lines
 		}
 		if _, ok := importantLogLevels[entry.Level]; ok {

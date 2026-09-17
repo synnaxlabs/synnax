@@ -36,11 +36,11 @@ type TLSProvider interface {
 	VerifyCertHost(src cert.Source, host string) error
 	// VerifyCertCoreCA confirms src serves a certificate chaining to the Core CA. Only
 	// peers need it, since they trust that CA alone. No-op in insecure mode.
-	VerifyCertCoreCA(src cert.Source) error
+	VerifyCertCoreCA(cert.Source) error
 	// VerifyCertTrustAnchors confirms src serves a certificate chaining to one of the
 	// Core's trust anchors, the list the embedded Driver verifies against. No-op in
 	// insecure mode.
-	VerifyCertTrustAnchors(src cert.Source) error
+	VerifyCertTrustAnchors(cert.Source) error
 }
 
 // KeyProvider provides the private keys the node signs with.
