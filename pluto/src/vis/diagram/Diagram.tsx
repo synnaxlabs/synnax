@@ -26,7 +26,6 @@ import {
   type ReactFlowProps,
   ReactFlowProvider,
   SelectionMode,
-  useOnViewportChange as useRFOnViewportChange,
   type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
@@ -70,6 +69,7 @@ import {
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
 import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
+import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";
 import {
   calculateCursorPosition,
   internalNodeBox,
@@ -346,34 +346,26 @@ export const create = ({
       [pTriggers],
     );
 
-    const zoomRef = useRef<number>(viewport.zoom);
-    const syncZoomCSSVar = useCallback((zoom: number): void => {
-      if (zoomRef.current === zoom) return;
-      zoomRef.current = zoom;
-      triggerRef.current?.style.setProperty(CSS.variable("diagram-zoom"), `${zoom}`);
-    }, []);
-    syncZoomCSSVar(viewport.zoom);
-
     const viewportRef = useRef<RFViewport | null>(null);
     const handleViewportChange = useCallback(
       (vp: RFViewport): void => {
+        // Set before the dedupe: a remounted React Flow reports an unchanged viewport
+        // on a fresh element that has no variable yet.
+        triggerRef.current?.style.setProperty(
+          CSS.variable("diagram-zoom"),
+          `${vp.zoom}`,
+        );
         const prev = viewportRef.current;
         if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
           return;
         viewportRef.current = vp;
         if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
-        syncZoomCSSVar(vp.zoom);
         setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
         onViewportChange(translateViewportBackward(vp));
       },
-      [setState, onViewportChange, syncZoomCSSVar],
+      [setState, onViewportChange],
     );
-
-    useRFOnViewportChange({
-      onStart: handleViewportChange,
-      onChange: handleViewportChange,
-      onEnd: handleViewportChange,
-    });
+    useOnViewportChange(handleViewportChange);
 
     const selectedSet = useMemo(() => new Set(selected), [selected]);
     const selectedRef = useSyncedRef(selectedSet);

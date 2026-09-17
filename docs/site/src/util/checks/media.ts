@@ -9,10 +9,10 @@
 
 import { z } from "zod";
 
-import { mediaURL } from "../../components/media/url.ts";
-import { type Check } from "./check.ts";
-import { locate } from "./crawl.ts";
-import { attrValues, islands } from "./html.ts";
+import { mediaURL } from "@/components/media/url";
+import { type Check } from "@/util/checks/check";
+import { locate } from "@/util/checks/crawl";
+import { attrValues, islands } from "@/util/checks/html";
 
 const THEMES = ["light", "dark"];
 
