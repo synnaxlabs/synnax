@@ -573,6 +573,58 @@ var _ = Describe("Graph", func() {
 				},
 			)
 
+			DescribeTable(
+				"Should describe a mismatched edge into select",
+				func(ctx SpecContext, t types.Type) {
+					nodes, inputs := buildNodes(
+						nodeSpec{
+							key: "on",
+							typ: "on",
+							cfg: map[string]any{"channel": 100},
+						},
+						nodeSpec{key: "sel", typ: "select"},
+					)
+					g := arc.Graph{
+						Nodes:  nodes,
+						Inputs: inputs,
+						Edges: graph.Edges{
+							{
+								Source: ir.Handle{
+									Node:  "on",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "sel",
+									Param: ir.DefaultOutputParam,
+								},
+							},
+						},
+					}
+					resolver := []symbol.Symbol{{
+						Name: "my_ch",
+						Type: types.Chan(t),
+						Kind: symbol.KindChannel,
+						ID:   100,
+					}}
+					g = MustSucceed(graph.Parse(g))
+					_, diagnostics := graph.Analyze(
+						ctx, g, NewGraphRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeFalse())
+					Expect(diagnostics.String()).To(HavePrefix("error: type mismatch"))
+					Expect(diagnostics.String()).To(ContainSubstring(
+						"type mismatch in edge from 'on' output 'output' " +
+							"to 'select' input 'output': " + t.String() +
+							" is not compatible with bool",
+					))
+				},
+				Entry("f32", types.F32()),
+				Entry("f64", types.F64()),
+				Entry("u8", types.U8()),
+				Entry("i32", types.I32()),
+				Entry("str", types.String()),
+			)
+
 			It("Should handle missing edge connections", func(ctx SpecContext) {
 				nodes, inputs := buildNodes(
 					nodeSpec{key: "src", typ: "source"},
