@@ -31,7 +31,6 @@ type FileLoader interface {
 	Versioned(importPath string) bool
 }
 
-// standardFileLoader loads files from the filesystem relative to the git repo root.
 type standardFileLoader struct{ repoRoot string }
 
 // NewStandardFileLoader creates a FileLoader that resolves paths from the repo root.

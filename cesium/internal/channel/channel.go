@@ -18,7 +18,23 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Key identifies a channel within a Cesium database. The caller assigns it; creating a
+// second channel under a key already in use is an error.
 type Key = uint32
+
+// Version is the format of the files stored in a channel. A channel opened at a lower
+// version is migrated up and its metadata rewritten.
+type Version = uint8
+
+const (
+	Version1 Version = 1
+	Version2 Version = 2
+	// Version3 renames the metadata's is_index member, which earlier versions stored
+	// under the Go field name. Opening at this version rewrites the file, so the
+	// stored form catches up with the tag.
+	Version3       Version = 3
+	VersionCurrent         = Version3
+)
 
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical

@@ -37,9 +37,7 @@ type cacheGate struct{ cache *format.Cache }
 
 // NewCacheGate returns a Checker that reports the cache coherent. A nil cache skips
 // the gate, for a caller that loaded none.
-func NewCacheGate(cache *format.Cache) Checker {
-	return cacheGate{cache: cache}
-}
+func NewCacheGate(cache *format.Cache) Checker { return cacheGate{cache: cache} }
 
 func (cacheGate) Name() string { return "cache" }
 
