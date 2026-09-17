@@ -118,12 +118,14 @@ export interface RenderRunOptions {
   captureDir: string;
   /** Path the encoded MP4 is written to. */
   outputLocation: string;
-  /** Output width target; defaults to native capture resolution. */
+  /**
+   * Output width target; defaults to 1080p, which is what the docs site
+   * serves. A capture narrower than that renders at its native width.
+   */
   target?: string;
   /**
-   * Draft renders trade quality for speed for review iterations: capped at
-   * 1080p (unless target says otherwise) with a fast encoder preset. Never
-   * upload a draft.
+   * Draft renders trade quality for speed for review iterations: a higher crf
+   * and a fast encoder preset. Never upload a draft.
    */
   draft?: boolean;
   onProgress?: (progress: number) => void;
@@ -152,15 +154,15 @@ export const runRender = async (opts: RenderRunOptions): Promise<void> => {
   const composition = await selectComposition({ serveUrl, id: "studio", inputProps });
 
   const native = Math.round(timeline.meta.width * timeline.meta.dsf);
-  const explicit = parseTarget(opts.target, native);
-  const targetWidth = draft && opts.target == null ? Math.min(1920, native) : explicit;
+  const targetWidth =
+    opts.target == null ? Math.min(1920, native) : parseTarget(opts.target, native);
   const scale = targetWidth / native;
 
   await renderMedia({
     composition,
     serveUrl,
     codec: "h264",
-    crf: draft ? 22 : 14,
+    crf: draft ? 22 : 20,
     x264Preset: draft ? "veryfast" : "slow",
     scale,
     pixelFormat: "yuv420p",

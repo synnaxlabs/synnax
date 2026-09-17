@@ -28,9 +28,9 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --width <px>      capture viewport width in CSS px (default 1512)
   --height <px>     capture viewport height in CSS px (default 945)
   --dsf <n>         capture device scale factor (default 2)
-  --target <t>      output width: 1080p | 1440p | 4k | <pixels>
+  --target <t>      output width: 1080p | 1440p | 4k | <pixels> (default 1080p)
                     (default native capture resolution, width*dsf)
-  --draft           fast review render: 1080p cap + fast encoder preset
+  --draft           fast review render: higher crf + fast encoder preset
   --hide-caret      hide the text caret during capture
   --headed          run the capture browser headed
   --skip-capture    reuse <out>/timeline.json and frames from a prior run

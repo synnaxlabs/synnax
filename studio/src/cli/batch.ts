@@ -23,7 +23,8 @@ Produces every manifest entry (videos.ts) whose id contains [filter]: for each,
 captures light and dark against fresh ephemeral cores and renders the themed
 pair into the consolidated out/videos/ directory. Entries whose script and
 options are unchanged since their last successful production are skipped.
-  --draft           fast review renders: 1080p cap + fast encoder preset
+  --exact           treat [filter] as a full id instead of a substring
+  --draft           fast review renders: higher crf + fast encoder preset
   --force           re-produce even when unchanged
   --keep-frames     keep captured frames after a successful render (default:
                     pruned, since each theme's frames run to gigabytes)
