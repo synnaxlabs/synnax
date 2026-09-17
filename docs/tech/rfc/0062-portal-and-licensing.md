@@ -379,15 +379,15 @@ Neon Postgres, on a direct Neon account, holds the portal's tables through Drizz
 Resend sends transactional mail that Clerk does not: expiry warnings at 30, 7, and 1
 days, and revocation notices. A Vercel Cron job runs the expiry sweep daily.
 
-`infra/hub/` declares in Terraform what has a provider: the KMS signing key and the
-IAM identity the Vercel runtime signs with, the Vercel environment variables and domain,
-and the GitHub Actions secret for CI. State lives in the HCP Terraform free tier. Cron
+`infra/hub/` declares in Terraform what has a provider: the KMS signing key and the IAM
+identity the Vercel runtime signs with, the Vercel environment variables and domain, and
+the GitHub Actions secret for CI. State lives in the HCP Terraform free tier. Cron
 schedules stay in `vercel.json`. Neon and Clerk are installed through the Vercel
 Marketplace, which injects the connection string and the Clerk keys into the project;
 their remaining dashboard steps, and Resend and Plain, which have no provider, are
 documented in `infra/README.md`. The layout is one Terraform root per lifecycle, so
-`infra/runners/` can later provision integration test runners without sharing state
-with the signing key.
+`infra/runners/` can later provision integration test runners without sharing state with
+the signing key.
 
 ### 5.7 Portal licenses and the activation ledger
 
@@ -674,10 +674,10 @@ registered error types. New clients decode it.
     has none, and a Marketplace install bills through Vercel and injects its variables
     without a secret changing hands. The trade is real: Neon and Clerk settings are
     dashboard steps in `infra/README.md`, not code.
-28. **Portal routes**: `/account`, `/licenses`, `/licenses/activate`,
-    `/licenses/<key>`, `/staff/licenses`, and `/api/portal/...` for the endpoints. The
-    organization is a query parameter on the licenses page, not a path segment, so a
-    license URL never changes when an organization is renamed.
+28. **Portal routes**: `/account`, `/licenses`, `/licenses/activate`, `/licenses/<key>`,
+    `/staff/licenses`, and `/api/portal/...` for the endpoints. The organization is a
+    query parameter on the licenses page, not a path segment, so a license URL never
+    changes when an organization is renamed.
 29. **The site becomes `hub/`**: `docs/site` understates a site that carries accounts,
     licenses, and support. `site/` and `www/` were rejected as generic, `portal/` names
     one section, `cloud/` implies a hosted service, and a coined name was offered and

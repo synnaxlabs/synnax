@@ -35,7 +35,12 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should report a missing grant to a reader", func(ctx SpecContext) {
 		reader := freshUser(ctx)
-		grantOn(ctx, reader.OntologyID(), []access.Action{access.ActionRetrieve}, object)
+		grantOn(
+			ctx,
+			reader.OntologyID(),
+			[]access.Action{access.ActionRetrieve},
+			object,
+		)
 		info := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, reader),
 			apiverification.RetrieveRequest{},
@@ -59,7 +64,12 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should refuse activation without an update grant", func(ctx SpecContext) {
 		reader := freshUser(ctx)
-		grantOn(ctx, reader.OntologyID(), []access.Action{access.ActionRetrieve}, object)
+		grantOn(
+			ctx,
+			reader.OntologyID(),
+			[]access.Action{access.ActionRetrieve},
+			object,
+		)
 		_, err := apiSvc.Activate(
 			AuthedCtx(ctx, reader),
 			apiverification.ActivateRequest{Token: keys.Sign(svcmock.NewGrant())},
