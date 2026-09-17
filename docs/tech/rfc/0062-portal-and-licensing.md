@@ -17,16 +17,16 @@ to a machine, a machine to a license, or a license to a conversation.
 
 This RFC turns docs.synnaxlabs.com into that connection. The site moves from `docs/site`
 to a top-level `hub/`, gains accounts through Clerk, organizations and licenses in Neon
-Postgres, and support threads on Plain, all inside the existing Astro server deployment
-on Vercel, with every cloud resource declared in Terraform. The Core gains one license
-primitive: a JWT signed with Ed25519 and bound to a machine, verified offline with
-public keys compiled into the binary. Two paths issue that token. The free edition,
-Synnax Desktop, signs the user in through the system browser and issues itself a
-short-lived license that renews while signed in. The enterprise edition, the standalone
-Core, activates through a start flag or the Console against a license that staff issued
-in the portal, on a subscription or perpetual term. Downloads stay public, the Core
-never phones home, a running Core never stops because of time, and the old key format is
-deleted.
+Postgres, and support threads filed in Linear, all inside the existing Astro server
+deployment on Vercel, with every cloud resource declared in Terraform. The Core gains
+one license primitive: a JWT signed with Ed25519 and bound to a machine, verified
+offline with public keys compiled into the binary. Two paths issue that token. The free
+edition, Synnax Desktop, signs the user in through the system browser and issues itself
+a short-lived license that renews while signed in. The enterprise edition, the
+standalone Core, activates through a start flag or the Console against a license that
+staff issued in the portal, on a subscription or perpetual term. Downloads stay public,
+the Core never phones home, a running Core never stops because of time, and the old key
+format is deleted.
 
 ## 1 Motivation
 
@@ -75,7 +75,7 @@ deleted.
   reactivate.
 - **Grace window**: The period after a subscription expires during which a Core still
   starts, with warnings.
-- **Tenant**: Plain's grouping of customers. One per organization.
+- **Linear customer**: Linear's record of who a request came from. One per organization.
 
 ## 3 Principles
 
@@ -94,14 +94,14 @@ deleted.
 5. **Enforcement lives in the license, not the download**: Every artifact stays public.
    Desktop sign-in counts free users; activation counts enterprise machines.
 6. **Buy the standard parts, build the Synnax parts**: Identity, teams, email, key
-   custody, and support come from Clerk, Resend, AWS KMS, and Plain. The license token,
+   custody, and triage come from Clerk, Resend, AWS KMS, and Linear. The license token,
    the fingerprint, the verifier, the organization model, and the activation ledger are
    ours.
 7. **Vendor ids never enter a stored format**: The license names the portal's own
-   organization key. Clerk and Plain ids are columns on that row, replaceable without
+   organization key. Clerk and Linear ids are columns on that row, replaceable without
    reissuing anything.
-8. **The docs stay the knowledge base**: Plain stores threads, not articles. Support is
-   rendered inside the site through Plain's API.
+8. **The docs stay the knowledge base**: Linear holds the triage, not articles. The
+   conversation itself lives in the portal's own tables and is rendered by the site.
 9. **Infrastructure is code**: Every cloud resource the hub needs is declared in
    Terraform under `infra/`, one root per lifecycle. What a vendor cannot expose is a
    documented manual step, never an undocumented click.
@@ -188,7 +188,7 @@ vocabulary:
 - **`iat`**: Issued-at, seconds since the epoch, as JWT defines it.
 - **`exp`** (optional): Expiry. Absent on a perpetual license.
 - **`v`**: Claim set version. Starts at `1`.
-- **`org`**: The portal's organization UUID. Never a Clerk or Plain id.
+- **`org`**: The portal's organization UUID. Never a Clerk or Linear id.
 - **`ed`**: Edition, `d` for desktop or `e` for enterprise.
 - **`fp`**: List of per-interface hashes (§5.2). Empty for a floating license.
 - **`fs`**: The fingerprint scheme. Starts at `1`.
@@ -358,7 +358,7 @@ middleware gains the Clerk handler ahead of the existing CSP handler, and the CS
 allowlist gains Clerk's domains. After sign-in, PostHog identifies the user, which the
 site's `person_profiles: "identified_only"` setting already anticipates. A Clerk webhook
 creates the personal organization on user creation and mirrors team organization
-creation into a Plain tenant (§5.9).
+creation into the portal's tables (§5.9).
 
 Staff are members of the Synnax Labs team organization with the `owner` or `admin` role;
 the staff area checks membership of that one organization key, held in an environment
@@ -367,7 +367,7 @@ variable.
 Neon Postgres, on a direct Neon account, holds the portal's tables through Drizzle:
 
 - **`organization`**: `key`, `kind` (`personal` or `team`), `name`, `clerk_org_id` (team
-  only), `plain_tenant_id`, `owner_user_id` (personal only).
+  only), `linear_customer_id`, `owner_user_id` (personal only).
 - **`license`**: `key`, `organization`, `edition`, `term` (`subscription` or
   `perpetual`), `nodes`, `channels`, `expires_at`, `max_version`, `label`, `issued_by`,
   `revoked_at`. The token is regenerated from the row, never stored.
@@ -384,7 +384,7 @@ identity the Vercel runtime signs with, the Vercel environment variables and dom
 the GitHub Actions secret for CI. State lives in the HCP Terraform free tier. Cron
 schedules stay in `vercel.json`. Neon and Clerk are installed through the Vercel
 Marketplace, which injects the connection string and the Clerk keys into the project;
-their remaining dashboard steps, and Resend and Plain, which have no provider, are
+their remaining dashboard steps, and Resend and Linear, which have no provider, are
 documented in `infra/README.md`. The layout is one Terraform root per lifecycle, so
 `infra/runners/` can later provision integration test runners without sharing state with
 the signing key.
@@ -425,27 +425,32 @@ portal releases the activation, so the next renewal is refused and the license l
 expiry plus the grace window. A laptop that never reaches the portal runs until then,
 and shows the activation screen with the offline instructions on its next start.
 
-### 5.9 Support on Plain
+### 5.9 Support on Linear
 
-Every Plain call runs server-side in the site, through `@team-plain/typescript-sdk`,
-with the API key as a Vercel secret. Plain's hosted help center is not used.
+Support threads are the portal's own tables, `thread` and `message`, mirrored into
+Linear through `@linear/sdk` with an API key as a Vercel secret. Linear is where staff
+triage; the portal is where the customer reads and writes.
 
-- **Tenants**: One per organization, created by the portal with the organization key as
-  `externalId`. Members are added as Plain customers to their tenants.
+- **Customers**: One Linear customer per organization, created on the organization's
+  first thread with the organization key as its external id. Every thread opened for an
+  organization carries a customer request from it, so Linear's customer views group
+  requests by organization.
+- **Threads**: A thread is one issue in the support team. Its body names who wrote in,
+  links the organization in the portal, and lists the organization's licenses with their
+  state, which is the context a customer card would have given. Every message is a
+  comment on the issue, attributed to its author and sender. The thread's status is the
+  issue's workflow state, open or done, and a member's reply reopens a done issue.
+- **Visibility**: The portal shows only the messages in its own `message` table. A
+  comment staff type in Linear stays internal, so nothing leaks by default. Staff reply
+  to a customer from the thread page in the portal, which mirrors the comment onto the
+  issue and mails the thread's contact through Resend.
 - **Support page**: A signed-in page listing the organization's threads with status, a
-  form that creates a thread, and a thread view with reply. Visibility is tenant-wide,
-  so every member sees the organization's threads. Threads open on Plain's chat channel
-  and every member message is a customer chat, which is Plain's headless portal model
-  and needs that entitlement on the workspace. The thread view shows chats, emails, and
-  custom entries; internal notes never leave Plain.
-- **Feedback modal**: The Formspree form becomes a Plain thread. Signed-out visitors
-  still submit; the thread is created against a customer keyed by the email they enter,
-  or a shared anonymous customer when they enter none. A signed-in visitor's feedback
-  lands under their own customer and personal organization.
-- **Customer card**: The site serves Plain's customer card protocol at one endpoint,
-  verified with the request signature header, returning the customer's organizations,
-  licenses, and recent activations. Staff reading a thread see the machine the customer
-  is describing.
+  form that opens a thread, and a thread view with reply. Visibility is
+  organization-wide, so every member sees the organization's threads.
+- **Feedback modal**: The Formspree form becomes a thread of kind `feedback`. A
+  signed-in visitor's feedback files under their personal organization and shows in
+  their portal; anyone else is reached at the email they gave, if any, and the issue
+  records the page it came from.
 
 ### 5.10 Development, CI, and hosted Cores
 
@@ -503,9 +508,8 @@ of the source. Principle 3 sets the bar it works toward.
   flag surface beyond the sign-in state. This RFC defines the license path Desktop uses.
 - Payments and self-serve purchase. The license table is shaped so a Stripe flow can
   create rows later; nothing here depends on it.
-- Plain's Ask AI and any mirroring of docs into Plain's knowledge base.
-- The privacy policy. Accounts, Clerk, Plain, and PostHog identification change the data
-  processing it describes, and it is updated alongside Phase 2, outside this RFC.
+- The privacy policy. Accounts, Clerk, Linear, and PostHog identification change the
+  data processing it describes, and it is updated alongside Phase 2, outside this RFC.
 - Merging the landing page into the hub. It lives in the separate `synnaxlabs/landing`
   repository on the same stack, and moving it in, with the docs under one domain, needs
   permanent redirects, an Algolia rebuild, and every docs link in the Console updated.
@@ -552,8 +556,8 @@ lands with the Desktop bundle.
   the key and the CI secret must exist before Phase 1's Core runs in CI. Boundary earned
   by a green intermediate state: after this phase staff issue the cutover licenses
   (§7.0) and the release can ship.
-- **Phase 3: Support on Plain.** Tenant mirroring, the support page, the feedback modal
-  cutover, and the customer card endpoint. Boundary earned by reviewability: a different
+- **Phase 3: Support on Linear.** The thread tables, customer mirroring, the support
+  page, and the feedback modal cutover. Boundary earned by reviewability: a different
   domain with a different vendor, and nothing in the release depends on it.
 - **Phase 4: Desktop sign-in.** The browser handoff page, the deep link handler, the
   account slice and renewal loop, and the Vite flag. Depends on the Desktop bundle
@@ -577,8 +581,8 @@ registered error types. New clients decode it.
 
 1. **Organizations own every license, with a personal organization per user**: A
    polymorphic owner (user or organization) forks every query, permission check, and
-   Plain mapping in two. The trade is real: a solo user sees one more concept, and Plain
-   holds one tenant per hobbyist.
+   Linear mapping in two. The trade is real: a solo user sees one more concept, and
+   Linear holds one customer per hobbyist.
 2. **One signed offline token with expiry and renewal**: Online-only validation makes a
    running Core depend on our uptime and cannot run air-gapped. Extending the opaque key
    keeps it forgeable. Keygen would remove the signer but not the portal, the verifier,
@@ -589,9 +593,12 @@ registered error types. New clients decode it.
    Tauri updater, `pip`, and `docker pull` cannot be gated. Desktop sign-in and
    activation give the counts a wall would have given. The trade is real: nothing stops
    a direct GitHub link.
-4. **Support is built on Plain's API inside the site**: The hosted help center lives on
-   its own domain, cannot sit under a path on the docs site, and would duplicate the
-   docs as a second knowledge base.
+4. **Support is the portal's own tables, triaged in Linear**: The team already works in
+   Linear, so a support desk such as Plain adds a second inbox, its own seats, and a
+   headless-portal entitlement for the one thing the portal already owns, the customer
+   conversation. A hosted help center would also duplicate the docs as a second
+   knowledge base. The trade is real: staff answer customers from the portal, not from a
+   Linear comment, because only the portal's messages are customer-visible.
 5. **Clerk and Neon inside the Astro site**: Supabase has no organization concept, so
    invitations and roles would be ours to build. PocketBase is pre-1.0, has no
    organizations, runs on one node, and needs a second host. A separate Go service adds

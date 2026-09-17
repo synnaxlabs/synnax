@@ -68,14 +68,6 @@ const allMemberships = async (
   }
 };
 
-/** memberships lists every organization membership of a user, for callers with no
- * session of their own. */
-export const memberships = async (
-  context: APIContext,
-  userID: string,
-): Promise<OrganizationMembership[]> =>
-  await allMemberships(clerkClient(context), userID);
-
 const displayName = (
   user: { firstName: string | null; lastName: string | null; username: string | null },
   email: string,

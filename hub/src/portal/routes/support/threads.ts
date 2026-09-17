@@ -14,7 +14,7 @@ import { form, handle, redirect, wantsHTML } from "@/portal/respond";
 import { supportFor } from "@/portal/support";
 import { badRequest } from "@/server/errors";
 import { checkSupport } from "@/server/ratelimit";
-import { record } from "@/server/support/record";
+import { open as openThread } from "@/server/support/thread";
 
 /** POST opens a thread for the organization in `org` with `title` and `message`. */
 export const POST: APIRoute = async (context) =>
@@ -26,25 +26,20 @@ export const POST: APIRoute = async (context) =>
     const text = (body.message ?? "").trim();
     if (title === "") throw badRequest("Give the thread a title");
     if (text === "") throw badRequest("Write a message");
-    const { organization, customerID } = await supportFor(
-      portal,
-      session,
-      body.org ?? null,
-    );
+    const { organization } = await supportFor(portal, session, body.org ?? null);
     const now = portal.now();
     await checkSupport(portal.store, { actor: session.userID, now });
-    const thread = await portal.support.createThread({
-      customerID,
-      organizationKey: organization.key,
+    const thread = await openThread(portal.store, portal.tracker, {
+      kind: "support",
+      organization,
       title,
       text,
+      author: session.name,
+      contact: session.email,
+      createdBy: session.userID,
+      site: portal.site,
+      now,
     });
-    await record(portal.store, {
-      kind: "thread",
-      actor: session.userID,
-      organization: organization.key,
-      detail: { thread: thread.id },
-    });
-    if (wantsHTML(context)) return redirect(context, `/support/${thread.id}`);
-    return Response.json({ thread: thread.id, ref: thread.ref });
+    if (wantsHTML(context)) return redirect(context, `/support/${thread.key}`);
+    return Response.json({ thread: thread.key, issue: thread.issueIdentifier });
   });

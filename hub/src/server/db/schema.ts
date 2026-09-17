@@ -45,7 +45,7 @@ export const organization = pgTable("organization", {
   kind: text("kind", { enum: ORGANIZATION_KINDS }).notNull(),
   name: text("name").notNull(),
   clerkOrgID: text("clerk_org_id").unique(),
-  plainTenantID: text("plain_tenant_id"),
+  linearCustomerID: text("linear_customer_id"),
   ownerUserID: text("owner_user_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -108,3 +108,47 @@ export const event = pgTable(
   ],
 );
 export type Event = typeof event.$inferSelect;
+
+export const THREAD_KINDS = ["support", "feedback"] as const;
+export type ThreadKind = (typeof THREAD_KINDS)[number];
+
+export const SENDERS = ["customer", "staff"] as const;
+export type Sender = (typeof SENDERS)[number];
+
+/** thread is a support conversation. Its issue in Linear is where staff triage it. */
+export const thread = pgTable(
+  "thread",
+  {
+    key: uuid("key").primaryKey().defaultRandom(),
+    kind: text("kind", { enum: THREAD_KINDS }).notNull(),
+    organization: uuid("organization").references(() => organization.key),
+    title: text("title").notNull(),
+    /** contact is the email staff replies are sent to, empty when unknown. */
+    contact: text("contact").notNull().default(""),
+    /** createdBy is the user id of the member who opened it, empty when signed out. */
+    createdBy: text("created_by").notNull().default(""),
+    issueID: text("issue_id").notNull(),
+    issueIdentifier: text("issue_identifier").notNull(),
+    issueURL: text("issue_url").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("thread_organization_idx").on(t.organization)],
+);
+export type Thread = typeof thread.$inferSelect;
+
+export const message = pgTable(
+  "message",
+  {
+    key: serial("key").primaryKey(),
+    thread: uuid("thread")
+      .notNull()
+      .references(() => thread.key),
+    sender: text("sender", { enum: SENDERS }).notNull(),
+    author: text("author").notNull(),
+    text: text("text").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("message_thread_idx").on(t.thread)],
+);
+export type Message = typeof message.$inferSelect;

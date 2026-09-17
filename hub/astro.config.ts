@@ -120,8 +120,12 @@ const config: AstroUserConfig = {
         default: "Synnax Labs <licenses@synnaxlabs.com>",
       }),
       CRON_SECRET: secret,
-      PLAIN_API_KEY: secret,
-      PLAIN_SIGNING_SECRET: secret,
+      LINEAR_API_KEY: secret,
+      LINEAR_SUPPORT_TEAM: envField.string({
+        context: "server",
+        access: "public",
+        default: "SUP",
+      }),
     },
   },
 };

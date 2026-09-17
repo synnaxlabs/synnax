@@ -12,30 +12,33 @@ import { type APIRoute } from "astro";
 import { open } from "@/portal/portal";
 import { form, handle, redirect, wantsHTML } from "@/portal/respond";
 import { threadFor } from "@/portal/support";
-import { badRequest, forbidden } from "@/server/errors";
+import { badRequest } from "@/server/errors";
 import { checkSupport } from "@/server/ratelimit";
-import { record } from "@/server/support/record";
+import { reply } from "@/server/support/thread";
 
-/** POST appends `message` to a thread as the signed-in member. */
+/** POST appends `message` to a thread as the signed-in viewer. */
 export const POST: APIRoute = async (context) => {
-  const id = context.params.id ?? "";
-  return await handle(context, `/support/${id}`, async () => {
+  const key = context.params.key ?? "";
+  return await handle(context, `/support/${key}`, async () => {
     const portal = open(context);
     const session = await portal.session();
     const body = await form(context);
     const text = (body.message ?? "").trim();
     if (text === "") throw badRequest("Write a message");
-    const { thread, organization, customerID } = await threadFor(portal, session, id);
-    if (customerID == null) throw forbidden("Staff reply from Plain");
-    await checkSupport(portal.store, { actor: session.userID, now: portal.now() });
-    await portal.support.reply({ customerID, threadID: thread.id, text });
-    await record(portal.store, {
-      kind: "thread",
+    const view = await threadFor(portal, session, key);
+    const now = portal.now();
+    await checkSupport(portal.store, { actor: session.userID, now });
+    await reply(portal.store, portal.tracker, portal.mail, {
+      thread: view.thread,
+      status: view.status,
+      sender: view.sender,
+      author: session.name,
       actor: session.userID,
-      organization: organization.key,
-      detail: { thread: thread.id, reply: true },
+      text,
+      site: portal.site,
+      now,
     });
-    if (wantsHTML(context)) return redirect(context, `/support/${thread.id}`);
+    if (wantsHTML(context)) return redirect(context, `/support/${key}`);
     return new Response(null, { status: 204 });
   });
 };

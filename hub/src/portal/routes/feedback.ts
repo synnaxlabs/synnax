@@ -14,7 +14,7 @@ import { open } from "@/portal/portal";
 import { badRequest, HTTPError, toResponse } from "@/server/errors";
 import { ensurePersonal } from "@/server/organization";
 import { checkFeedback } from "@/server/ratelimit";
-import { record } from "@/server/support/record";
+import { open as openThread } from "@/server/support/thread";
 
 const bodyZ = z.object({
   name: z.string().trim().max(200).default(""),
@@ -23,10 +23,13 @@ const bodyZ = z.object({
   page: z.string().trim().max(500).default("/"),
 });
 
+/** ANONYMOUS names a submission that gave no name. */
+export const ANONYMOUS = "Anonymous visitor";
+
 /**
- * POST turns a docs feedback submission into a Plain thread. A signed-in visitor
- * files it under their own customer and personal organization; anyone else under
- * the email they gave, or the anonymous customer when they gave none.
+ * POST turns a docs feedback submission into a thread. A signed-in visitor files it
+ * under their personal organization and can follow it in the portal; anyone else is
+ * reached at the email they gave, if any.
  */
 export const POST: APIRoute = async (context) => {
   try {
@@ -41,31 +44,30 @@ export const POST: APIRoute = async (context) => {
       if (!(err instanceof HTTPError) || err.status !== 401)
         throw err instanceof Error ? err : new Error(String(err));
     }
+    const now = portal.now();
     const actor =
       session?.userID ?? (email === "" ? `ip:${context.clientAddress}` : email);
-    await checkFeedback(portal.store, { actor, now: portal.now() });
-    let organizationKey: string | undefined;
-    if (session != null)
-      organizationKey = (
-        await ensurePersonal(portal.store, {
-          userID: session.userID,
-          name: session.name,
-        })
-      ).key;
-    const thread = await portal.support.submitFeedback({
-      email: session?.email ?? email,
-      name: session?.name ?? name,
-      text: description,
-      page,
-      organizationKey,
-    });
-    await record(portal.store, {
+    await checkFeedback(portal.store, { actor, now });
+    const organization =
+      session == null
+        ? null
+        : await ensurePersonal(portal.store, {
+            userID: session.userID,
+            name: session.name,
+          });
+    const thread = await openThread(portal.store, portal.tracker, {
       kind: "feedback",
-      actor,
-      organization: organizationKey,
-      detail: { thread: thread.id, page },
+      organization,
+      title: `Feedback on ${page}`,
+      text: description,
+      author: session?.name ?? (name || email || ANONYMOUS),
+      contact: session?.email ?? email,
+      createdBy: session?.userID ?? "",
+      page,
+      site: portal.site,
+      now,
     });
-    return Response.json({ thread: thread.id, ref: thread.ref });
+    return Response.json({ thread: thread.key, issue: thread.issueIdentifier });
   } catch (err) {
     return toResponse(err);
   }

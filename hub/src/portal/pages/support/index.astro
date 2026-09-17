@@ -11,7 +11,7 @@
 import Portal from "@/portal/layouts/Portal.astro";
 import { date, failure, load } from "@/portal/page";
 import { supportFor } from "@/portal/support";
-import { type Thread } from "@/server/support/support";
+import { list, type Listed } from "@/server/support/thread";
 
 const loaded = await load(Astro);
 if (loaded instanceof Response) return loaded;
@@ -19,20 +19,15 @@ const { portal, session } = loaded;
 
 let error = Astro.url.searchParams.get("error") ?? undefined;
 let view: Awaited<ReturnType<typeof supportFor>> | undefined;
-let threads: Thread[] = [];
+let threads: Listed[] = [];
 try {
     view = await supportFor(portal, session, Astro.url.searchParams.get("org"));
-    threads = await portal.support.listThreads(view.organization.key);
+    threads = await list(portal.store, portal.tracker, view.organization.key);
 } catch (err) {
     const f = failure(err);
     Astro.response.status = f.status;
     error = f.message;
 }
-const STATUS: Record<Thread["status"], string> = {
-    todo: "open",
-    snoozed: "waiting",
-    done: "done",
-};
 ---
 
 <Portal title="Support" session={session} error={error}>
@@ -71,15 +66,20 @@ const STATUS: Record<Thread["status"], string> = {
                                     <th>Title</th>
                                     <th>Status</th>
                                     <th>Opened</th>
-                                    <th>Last change</th>
+                                    <th>Last message</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {threads.map((t) => (
                                     <tr>
                                         <td>
-                                            <a href={`/support/${t.id}`}>{t.title}</a>
-                                            <span class="portal-muted"> {t.ref}</span>
+                                            <a href={`/support/${t.key}`}>{t.title}</a>
+                                            {session.staff && (
+                                                <span class="portal-muted">
+                                                    {" "}
+                                                    {t.issueIdentifier}
+                                                </span>
+                                            )}
                                         </td>
                                         <td>
                                             <span
@@ -88,11 +88,11 @@ const STATUS: Record<Thread["status"], string> = {
                                                     `portal-badge--${t.status}`,
                                                 ]}
                                             >
-                                                {STATUS[t.status]}
+                                                {t.status}
                                             </span>
                                         </td>
                                         <td>{date(t.createdAt)}</td>
-                                        <td>{date(t.changedAt)}</td>
+                                        <td>{date(t.updatedAt)}</td>
                                     </tr>
                                 ))}
                             </tbody>

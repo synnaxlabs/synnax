@@ -210,7 +210,7 @@
     color: var(--pluto-gray-l9);
 }
 
-.portal-badge--todo {
+.portal-badge--open {
     border-color: var(--pluto-primary-z);
     color: var(--pluto-primary-z);
 }

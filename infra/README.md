@@ -8,7 +8,7 @@ on. State lives in HCP Terraform, organization `synnaxlabs`, workspace `hub`.
 Terraform declares the AWS signing key and its IAM identity, the Vercel environment and
 domain, and the GitHub Actions secret. Three vendors stay outside it: Neon and Clerk are
 installed through the Vercel Marketplace, which injects their connection string and keys
-into the project and has no Terraform surface; Resend and Plain have no provider. Their
+into the project and has no Terraform surface; Resend and Linear have no provider. Their
 one-time steps are below.
 
 ### Apply
@@ -20,10 +20,10 @@ terraform apply
 ```
 
 Variables come from HCP Terraform workspace variables: `vercel_team_id`, `staff_org_id`,
-`clerk_webhook_signing_secret`, `resend_api_key`, `plain_api_key`,
-`plain_signing_secret`, and `ci_license_token`. Provider credentials come from the
-environment: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for an administrator,
-`VERCEL_API_TOKEN`, and `GITHUB_TOKEN`.
+`clerk_webhook_signing_secret`, `resend_api_key`, `linear_api_key`, and
+`ci_license_token`. Provider credentials come from the environment: `AWS_ACCESS_KEY_ID`
+and `AWS_SECRET_ACCESS_KEY` for an administrator, `VERCEL_API_TOKEN`, and
+`GITHUB_TOKEN`.
 
 Resources that existed before this root did are imported once, never recreated:
 
@@ -77,20 +77,17 @@ subscription of a few months with one node and no channel cap labelled "CI", and
 "Download floating token" on it. The file's content is `ci_license_token`. Rotate it by
 issuing a new one before the old one expires and applying again.
 
-### Plain
+### Linear
 
-Plain has no Terraform provider. In the Plain workspace:
+Support threads and docs feedback are Linear issues. In the workspace:
 
-1. Settings, Machine users: create one named "hub" with an API key that holds
-   `tenant:create`, `tenant:read`, `customer:create`, `customer:read`, `customer:edit`,
-   `customerTenantMembership:create`, `thread:create`, `thread:read`, `timeline:read`,
-   and `chat:create`. The key is `plain_api_key`.
-2. Billing: the support page sends customer messages as chats, which needs Plain's
-   headless portal entitlement.
-3. Settings, Request signing: the secret is `plain_signing_secret`.
-4. Settings, Customer cards: add three cards pointing at
-   `https://docs.synnaxlabs.com/api/plain/cards` with the keys `organizations`,
-   `licenses`, and `activations`. No headers are needed; the site checks the request
-   signature.
+1. Teams: create a team for support. Its key is `linear_support_team`, `SUP` by default.
+   Give it a triage state so new threads land in triage.
+2. Members: add a member named "Synnax Hub" and, signed in as it, create a personal API
+   key under Settings, Security and access. Issues and comments the site files appear
+   under that member. The key is `linear_api_key`.
+3. Customers: enable the feature. The site creates one customer per portal organization
+   and attaches a customer request to every thread it opens for one.
 
-The docs feedback form posts to the same site, so Formspree is no longer used.
+Nothing else is configured. The docs feedback form posts to the site, so Formspree is no
+longer used.

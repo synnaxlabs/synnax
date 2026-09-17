@@ -49,16 +49,16 @@ variable "mail_from" {
   default = "Synnax Labs <licenses@synnaxlabs.com>"
 }
 
-variable "plain_api_key" {
-  description = "Plain machine user API key the site talks to the workspace with."
+variable "linear_api_key" {
+  description = "Linear API key of the member support issues and comments are filed as."
   type        = string
   sensitive   = true
 }
 
-variable "plain_signing_secret" {
-  description = "Plain request signing secret, verified on customer card requests."
+variable "linear_support_team" {
+  description = "Key of the Linear team support threads are filed in."
   type        = string
-  sensitive   = true
+  default     = "SUP"
 }
 
 variable "ci_license_token" {
