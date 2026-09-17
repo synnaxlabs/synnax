@@ -183,7 +183,7 @@ const channelSelectRenderProp = Component.renderProp(
 );
 
 const inputDateTimeRenderProp = Component.renderProp((p: Input.DateTimeProps) => (
-  <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
+  <Input.DateTime level="h4" variant="text" {...p} />
 ));
 
 const formatTimeRange = (start: number, end: number): string => {
