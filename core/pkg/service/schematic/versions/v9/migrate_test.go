@@ -427,7 +427,7 @@ var _ = Describe("ImportSchematic", func() {
 		))
 	})
 
-	It("Should reject a config carrying a field the variant cannot hold", func(
+	It("Should reject a config carrying a value the variant cannot decode", func(
 		ctx SpecContext,
 	) {
 		Expect(v9.ImportSchematic(ctx, v8.Schematic{
