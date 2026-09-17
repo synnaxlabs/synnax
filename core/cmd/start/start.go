@@ -11,10 +11,12 @@ package start
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -33,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -255,6 +258,7 @@ func BootupCore(
 		Storage:              storageLayer,
 		RootCredentials:      cfg.rootCredentials,
 		Verifier:             cfg.verifier,
+		Version:              version.Get(),
 		ValidateChannelNames: cfg.validateChannelNames,
 	})
 	if !ok(err, serviceLayer) {
@@ -353,6 +357,11 @@ func BootupCore(
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
+			// Without a covering grant the Core refuses the rack registration, so the
+			// Driver must keep retrying in the background instead of failing the start.
+			Detached: new(
+				serviceLayer.Verification.Retrieve().State != verification.StateOK,
+			),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -380,6 +389,17 @@ func BootupCore(
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listeners.AdvertiseAddress(),
 	)
+	if info := serviceLayer.Verification.Retrieve(); info.State != verification.StateOK {
+		scheme := "https"
+		if *cfg.insecure {
+			scheme = "http"
+		}
+		cfg.L.Warn(fmt.Sprintf(
+			noneTemplate,
+			strings.Join(info.Host, ", "),
+			scheme+"://"+string(cfg.listeners.AdvertiseAddress()),
+		))
+	}
 
 	if onServerStarted != nil {
 		onServerStarted <- struct{}{}

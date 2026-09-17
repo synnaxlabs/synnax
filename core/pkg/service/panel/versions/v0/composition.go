@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
@@ -327,7 +328,13 @@ func convertNode(
 		if !exists {
 			continue
 		}
-		tabs = append(tabs, Tab{Variant: ResourceTab{Key: uuid.New(), Resource: id}})
+		tabs = append(tabs, Tab{Variant: ResourceTab{
+			Key: uuid.New(),
+			Resource: ontologyv0.ID{
+				Type: ontologyv0.ResourceType(id.Type),
+				Key:  id.Key,
+			},
+		}})
 	}
 	if len(tabs) == 0 {
 		return nil, nil
@@ -378,7 +385,7 @@ func convertTaskTab(
 		}
 		return &Tab{Variant: ResourceTab{
 			Key:      uuid.New(),
-			Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+			Resource: ontologyv0.ID{Type: ontologyv0.ResourceTypeTask, Key: key},
 		}}, nil
 	}
 	return nil, nil
@@ -463,7 +470,7 @@ func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 			}
 			tab.Variant = ResourceTab{
 				TabBase:  view.TabBase,
-				Resource: ontology.ID{Type: ontology.ResourceTypeTask, Key: key},
+				Resource: ontologyv0.ID{Type: ontologyv0.ResourceTypeTask, Key: key},
 			}
 			changed = true
 		}
@@ -479,13 +486,13 @@ func convertNodeTaskTabs(n *Node, mapping map[string]string) bool {
 // resourceTabTypes is the set of resource types a tab can display, as the panel schema
 // currently enforces.
 var resourceTabTypes = set.New(
-	ontology.ResourceTypeSchematic,
-	ontology.ResourceTypeLineplot,
-	ontology.ResourceTypeLog,
-	ontology.ResourceTypeTable,
-	ontology.ResourceTypeArc,
-	ontology.ResourceTypeTask,
-	ontology.ResourceTypeRange,
+	ontologyv0.ResourceTypeSchematic,
+	ontologyv0.ResourceTypeLineplot,
+	ontologyv0.ResourceTypeLog,
+	ontologyv0.ResourceTypeTable,
+	ontologyv0.ResourceTypeArc,
+	ontologyv0.ResourceTypeTask,
+	ontologyv0.ResourceTypeRange,
 )
 
 // stripInvalidResourceTabs removes every resource tab whose type is outside

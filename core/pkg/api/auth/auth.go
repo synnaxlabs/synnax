@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -38,14 +39,17 @@ type ClusterInfo struct {
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// NodeTime is the time of the node that the request was sent to.
 	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
+	// Verification is the state of the Core's grant: ok, missing, or expired.
+	Verification verification.State `json:"verification" msgpack:"verification"`
 }
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	token   *token.Service
-	auth    *auth.Service
-	user    *user.Service
-	cluster cluster.Cluster
+	token        *token.Service
+	auth         *auth.Service
+	user         *user.Service
+	cluster      cluster.Cluster
+	verification *verification.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -54,10 +58,11 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		token:   cfg.Service.Token,
-		auth:    cfg.Service.Auth,
-		user:    cfg.Service.User,
-		cluster: cfg.Distribution.Cluster,
+		token:        cfg.Service.Token,
+		auth:         cfg.Service.Auth,
+		user:         cfg.Service.User,
+		cluster:      cfg.Distribution.Cluster,
+		verification: cfg.Service.Verification,
 	}, nil
 }
 
@@ -96,10 +101,11 @@ func (s *Service) Login(
 		User:  u,
 		Token: tk,
 		ClusterInfo: ClusterInfo{
-			ClusterKey:  s.cluster.Key().String(),
-			NodeKey:     s.cluster.HostKey(),
-			NodeVersion: version.Get(),
-			NodeTime:    midPoint,
+			ClusterKey:   s.cluster.Key().String(),
+			NodeKey:      s.cluster.HostKey(),
+			NodeVersion:  version.Get(),
+			NodeTime:     midPoint,
+			Verification: s.verification.Retrieve().State,
 		},
 	}, err
 }

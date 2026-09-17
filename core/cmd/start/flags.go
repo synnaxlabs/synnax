@@ -109,11 +109,17 @@ func AddFlags(cmd *cobra.Command) {
 		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
 	cmd.Flags().String(FlagDecoded, "", usage)
+	cmd.Flags().String(FlagDecodedPath, "", usagePath)
 }
 
 var (
-	FlagDecoded = base64.MustDecode("bGljZW5zZS1rZXk=")
-	usage       = base64.MustDecode(
-		"TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMi",
+	FlagDecoded     = base64.MustDecode("bGljZW5zZS1rZXk=")
+	FlagDecodedPath = base64.MustDecode("bGljZW5zZS1maWxl")
+	usage           = base64.MustDecode("TGljZW5zZSB0b2tlbg==")
+	usagePath       = base64.MustDecode(
+		"UGF0aCB0byBhIGZpbGUgY29udGFpbmluZyB0aGUgbGljZW5zZSB0b2tlbg==",
+	)
+	noneTemplate = base64.MustDecode(
+		"bm8gYWN0aXZlIGxpY2Vuc2Ugb24gdGhpcyBDb3JlLiBIb3N0IGhhc2hlczogJXMuIE9wZW4gdGhlIENvbnNvbGUgYXQgJXMgdG8gYWN0aXZhdGUu",
 	)
 )

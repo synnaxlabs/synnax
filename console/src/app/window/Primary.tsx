@@ -18,6 +18,7 @@ import { Nav } from "@/app/nav";
 import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
 import { Device } from "@/feature/device";
+import { License } from "@/feature/license";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
 import { Project } from "@/feature/project";
@@ -49,27 +50,29 @@ export const Primary = (): ReactElement => {
     <>
       <SideEffect />
       <Auth.Guard>
-        <Auth.ConnectionGuard>
-          <Project.Guard>
-            <ProjectSideEffect />
-            <div
-              className={CSS.cls(
-                CSS.BE("main", "workspace"),
-                fullWidthTop && CSS.M("full-width-top"),
-              )}
-            >
-              <Nav.Bar.Top />
-              <Nav.Bar.Left />
-              <Flex.Box y gap="small" className={CSS.BE("main", "content")}>
-                <Flex.Box x gap="small" grow className={CSS.BE("main", "row")}>
-                  <Nav.Drawer.Left />
-                  <Mosaic.Mosaic />
+        <License.Guard>
+          <Auth.ConnectionGuard>
+            <Project.Guard>
+              <ProjectSideEffect />
+              <div
+                className={CSS.cls(
+                  CSS.BE("main", "workspace"),
+                  fullWidthTop && CSS.M("full-width-top"),
+                )}
+              >
+                <Nav.Bar.Top />
+                <Nav.Bar.Left />
+                <Flex.Box y gap="small" className={CSS.BE("main", "content")}>
+                  <Flex.Box x gap="small" grow className={CSS.BE("main", "row")}>
+                    <Nav.Drawer.Left />
+                    <Mosaic.Mosaic />
+                  </Flex.Box>
+                  <Nav.Drawer.Bottom />
                 </Flex.Box>
-                <Nav.Drawer.Bottom />
-              </Flex.Box>
-            </div>
-          </Project.Guard>
-        </Auth.ConnectionGuard>
+              </div>
+            </Project.Guard>
+          </Auth.ConnectionGuard>
+        </License.Guard>
       </Auth.Guard>
     </>
   );

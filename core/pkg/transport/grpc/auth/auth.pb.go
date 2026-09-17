@@ -36,6 +36,7 @@ type ClusterInfo struct {
 	NodeVersion   string                 `protobuf:"bytes,2,opt,name=node_version,json=nodeVersion,proto3" json:"node_version,omitempty"`
 	NodeKey       uint32                 `protobuf:"varint,3,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	NodeTime      int64                  `protobuf:"varint,4,opt,name=node_time,json=nodeTime,proto3" json:"node_time,omitempty"`
+	Verification  string                 `protobuf:"bytes,5,opt,name=verification,proto3" json:"verification,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -96,6 +97,13 @@ func (x *ClusterInfo) GetNodeTime() int64 {
 		return x.NodeTime
 	}
 	return 0
+}
+
+func (x *ClusterInfo) GetVerification() string {
+	if x != nil {
+		return x.Verification
+	}
+	return ""
 }
 
 type LoginRequest struct {
@@ -266,13 +274,14 @@ var File_core_pkg_transport_grpc_auth_auth_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/transport/grpc/auth/auth.proto\x12\tgrpc.auth\"\x89\x01\n" +
+	"'core/pkg/transport/grpc/auth/auth.proto\x12\tgrpc.auth\"\xad\x01\n" +
 	"\vClusterInfo\x12\x1f\n" +
 	"\vcluster_key\x18\x01 \x01(\tR\n" +
 	"clusterKey\x12!\n" +
 	"\fnode_version\x18\x02 \x01(\tR\vnodeVersion\x12\x19\n" +
 	"\bnode_key\x18\x03 \x01(\rR\anodeKey\x12\x1b\n" +
-	"\tnode_time\x18\x04 \x01(\x03R\bnodeTime\"F\n" +
+	"\tnode_time\x18\x04 \x01(\x03R\bnodeTime\x12\"\n" +
+	"\fverification\x18\x05 \x01(\tR\fverification\"F\n" +
 	"\fLoginRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\"\x85\x01\n" +

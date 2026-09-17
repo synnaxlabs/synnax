@@ -36,6 +36,7 @@ ResourceType enum {
     table            = "table"
     task             = "task"
     user             = "user"
+    verification     = "verification"
     view             = "view"
 
     @doc value "is the type of the resource."
@@ -43,7 +44,6 @@ ResourceType enum {
 
 RelationshipType string {
     @cpp omit
-    @go hand
     @py hand
     @ts hand
 }

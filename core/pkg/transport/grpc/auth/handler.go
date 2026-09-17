@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
@@ -70,10 +71,11 @@ func (loginResponseTranslator) Forward(
 			Username: r.User.Username,
 		},
 		ClusterInfo: &ClusterInfo{
-			ClusterKey:  r.ClusterInfo.ClusterKey,
-			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     uint32(r.ClusterInfo.NodeKey),
-			NodeTime:    int64(r.ClusterInfo.NodeTime),
+			ClusterKey:   r.ClusterInfo.ClusterKey,
+			NodeVersion:  r.ClusterInfo.NodeVersion,
+			NodeKey:      uint32(r.ClusterInfo.NodeKey),
+			NodeTime:     int64(r.ClusterInfo.NodeTime),
+			Verification: string(r.ClusterInfo.Verification),
 		},
 	}, nil
 }
@@ -93,10 +95,11 @@ func (loginResponseTranslator) Backward(
 			Username: r.User.Username,
 		},
 		ClusterInfo: auth.ClusterInfo{
-			ClusterKey:  r.ClusterInfo.ClusterKey,
-			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     node.Key(r.ClusterInfo.NodeKey),
-			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
+			ClusterKey:   r.ClusterInfo.ClusterKey,
+			NodeVersion:  r.ClusterInfo.NodeVersion,
+			NodeKey:      node.Key(r.ClusterInfo.NodeKey),
+			NodeTime:     telem.TimeStamp(r.ClusterInfo.NodeTime),
+			Verification: verification.State(r.ClusterInfo.Verification),
 		},
 	}, nil
 }

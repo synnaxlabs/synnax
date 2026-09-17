@@ -119,6 +119,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_TASK, nil
 	case ontology.ResourceTypeUser:
 		return ResourceType_RESOURCE_TYPE_USER, nil
+	case ontology.ResourceTypeVerification:
+		return ResourceType_RESOURCE_TYPE_VERIFICATION, nil
 	case ontology.ResourceTypeView:
 		return ResourceType_RESOURCE_TYPE_VIEW, nil
 	default:
@@ -175,6 +177,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeTask, nil
 	case ResourceType_RESOURCE_TYPE_USER:
 		return ontology.ResourceTypeUser, nil
+	case ResourceType_RESOURCE_TYPE_VERIFICATION:
+		return ontology.ResourceTypeVerification, nil
 	case ResourceType_RESOURCE_TYPE_VIEW:
 		return ontology.ResourceTypeView, nil
 	default:

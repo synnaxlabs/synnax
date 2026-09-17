@@ -35,6 +35,7 @@ export const RESOURCE_TYPES = [
   "table",
   "task",
   "user",
+  "verification",
   "view",
 ] as const;
 export const resourceTypeZ = z.enum(RESOURCE_TYPES);

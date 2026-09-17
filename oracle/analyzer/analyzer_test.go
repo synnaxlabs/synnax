@@ -2178,6 +2178,35 @@ Entry struct {
 		)
 
 		It(
+			"Should follow an alias to the struct a base or variant names",
+			func(ctx SpecContext) {
+				source := `
+				Base struct {
+					key uuid
+				}
+
+				Payload struct {
+					name string
+				}
+
+				BaseAlias = Base
+
+				PayloadAlias = Payload
+
+				Child struct extends BaseAlias {
+					value int32
+				}
+
+				Choice union on kind extends BaseAlias {
+					payload PayloadAlias {}
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
 			"Should error when an action extends a non-struct type",
 			func(ctx SpecContext) {
 				source := `

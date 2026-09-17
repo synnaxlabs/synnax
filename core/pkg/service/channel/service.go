@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -142,7 +141,7 @@ type Service struct {
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{
 		ValidateNames:    new(true),
-		IntOverflowCheck: verification.DefaultOverflowCheck,
+		IntOverflowCheck: func(types.Uint20) error { return nil },
 	}, cfgs...)
 	if err != nil {
 		return nil, err

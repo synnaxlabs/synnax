@@ -36,5 +36,6 @@ constexpr const char *RESOURCE_TYPE_STATUS = "status";
 constexpr const char *RESOURCE_TYPE_TABLE = "table";
 constexpr const char *RESOURCE_TYPE_TASK = "task";
 constexpr const char *RESOURCE_TYPE_USER = "user";
+constexpr const char *RESOURCE_TYPE_VERIFICATION = "verification";
 constexpr const char *RESOURCE_TYPE_VIEW = "view";
 }

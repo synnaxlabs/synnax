@@ -117,6 +117,23 @@ var _ = Describe("Open", func() {
 		)
 
 		It(
+			"Should return before the Driver starts when detached",
+			func(ctx SpecContext) {
+				Expect(os.Setenv("MOCK_DELAY_MS", "30000")).To(Succeed())
+				defer func() { Expect(os.Unsetenv("MOCK_DELAY_MS")).To(Succeed()) }()
+				logger, _ := newTestLogger()
+				start := time.Now()
+				d := openMockDriver(ctx, logger, driver.Config{
+					Detached:     new(true),
+					StartTimeout: 100 * time.Millisecond,
+					StopTimeout:  500 * time.Millisecond,
+				})
+				Expect(time.Since(start)).To(BeNumerically("<", 100*time.Millisecond))
+				Expect(d.Close()).To(Succeed())
+			},
+		)
+
+		It(
 			"Should return timeout error when driver crashes on startup",
 			func(ctx SpecContext) {
 				Expect(os.Setenv("MOCK_FAIL_START", "1")).To(Succeed())

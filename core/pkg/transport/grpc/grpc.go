@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/verification"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -72,6 +73,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// AUTH
 	t.AuthChangePassword = noop.UnaryServer[apiauth.ChangePasswordRequest, types.Nil]{}
+
+	// VERIFICATION
+	t.VerificationRetrieve = noop.UnaryServer[verification.RetrieveRequest, verification.RetrieveResponse]{}
+	t.VerificationActivate = noop.UnaryServer[verification.ActivateRequest, verification.ActivateResponse]{}
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, types.Nil]{}

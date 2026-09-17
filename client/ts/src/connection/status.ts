@@ -19,10 +19,16 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AuthError, DisconnectedError } from "@/errors";
+import {
+  AuthError,
+  DisconnectedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+} from "@/errors";
+import { type license } from "@/license";
 import { status } from "@/status";
 
-export const REASONS = ["unreachable", "auth", "incompatible"] as const;
+export const REASONS = ["unreachable", "auth", "incompatible", "unlicensed"] as const;
 export const reasonZ = z.enum(REASONS);
 /** Why the connection is in the error variant. */
 export type Reason = z.infer<typeof reasonZ>;
@@ -43,6 +49,8 @@ export const statusDetailsZ = z.object({
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
   retry: z.object({ attempt: z.number(), nextAt: TimeStamp.z }).nullable(),
+  // What the Core last reported about its license. Absent before the first check.
+  license: z.enum(["ok", "missing", "expired"]).optional(),
   // A check is in flight right now. A process fact, not a judgment: the
   // variant holds its verdict while attempts run beneath it.
   checking: z.boolean(),
@@ -163,6 +171,8 @@ export interface Info {
   nodeVersion: string;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
+  /** Whether a license applies to the Core. */
+  license: license.State;
 }
 
 /**
@@ -189,6 +199,15 @@ export type Event =
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach cluster";
+const UNLICENSED: Record<Exclude<license.State, "ok">, string> = {
+  missing: "No license is active on this Core",
+  expired: "The license on this Core has expired",
+};
+
+const licenseError = (state: Exclude<license.State, "ok">): Error =>
+  state === "missing"
+    ? new MissingLicenseError(UNLICENSED.missing)
+    : new ExpiredLicenseError(UNLICENSED.expired);
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
 
@@ -240,6 +259,10 @@ const enterError = (
   details: { ...prev.details, ...details, reason },
 });
 
+// Reasons the check loop clears on its own; the rest wait on the user.
+const isSelfHealing = (reason: Reason): boolean =>
+  reason === "unreachable" || reason === "unlicensed";
+
 const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
   migrate.versionsEqual(clientVersion, nodeVersion, {
     checkMajor: true,
@@ -255,6 +278,7 @@ const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clockSkew: info.clockSkew,
   clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
+  license: info.license,
 });
 
 // Connected, with live updates refused. A settled outcome: only a policy
@@ -283,13 +307,21 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
+  // the Core answers but refuses everything else until a license is activated;
+  // the check keeps running so an activation lifts the error on its own
+  if (info.license !== "ok")
+    return enterError(prev, UNLICENSED[info.license], "unlicensed", {
+      ...facts,
+      error: licenseError(info.license),
+      retry: null,
+    });
   // reachable but the stream is still dark: the client re-demands it and we
-  // stay degraded until it reports live. A parked unreachable error must
-  // lift out of error: the short circuit it drives would starve the very
-  // stream reopen this state waits on.
+  // stay degraded until it reports live. A parked unreachable or unlicensed
+  // error must lift out of error: the short circuit it drives would starve
+  // the very stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
     if (prev.details.streamDenied) return enterStreamDenied(prev, config, facts);
-    if (prev.variant === "error" && prev.details.reason === "unreachable")
+    if (prev.variant === "error" && isSelfHealing(prev.details.reason))
       return enter(prev, "loading", RECONNECTING, {
         ...facts,
         error: undefined,
@@ -397,8 +429,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "retry.requested":
       // deliberately does not clear auth or incompatibility: those rest until
       // the user supplies something new
-      if (prev.variant !== "error" || prev.details.reason !== "unreachable")
-        return prev;
+      if (prev.variant !== "error" || !isSelfHealing(prev.details.reason)) return prev;
       return enter(prev, "loading", CONNECTING);
     case "credentials.replaced":
       // the new user may hold the permissions the old one lacked
