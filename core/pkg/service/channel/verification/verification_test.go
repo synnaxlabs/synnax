@@ -132,23 +132,29 @@ var _ = Describe("Verification", func() {
 			Expect(svc.Check()).To(MatchError(verification.ErrMissing))
 			Expect(svc.IsOverflowed(1000)).To(Succeed())
 		})
-		It("should accept a verifier on open and load it on the next", func(ctx SpecContext) {
-			g := grant()
-			svc := open(ctx, verification.ServiceConfig{Verifier: sign(g)})
-			Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
-			Expect(svc.Close()).To(Succeed())
-			svc = open(ctx)
-			defer func() { Expect(svc.Close()).To(Succeed()) }()
-			info := svc.Retrieve()
-			Expect(info.State).To(Equal(verification.StateOK))
-			Expect(*info.Grant).To(Equal(g))
-			Expect(svc.Check()).To(Succeed())
-		})
-		It("should fail to open on a verifier that does not verify", func(ctx SpecContext) {
-			Expect(verification.OpenService(ctx, cfg, verification.ServiceConfig{
-				Verifier: "garbage",
-			})).Error().To(MatchError(verification.ErrInvalid))
-		})
+		It(
+			"should accept a verifier on open and load it on the next",
+			func(ctx SpecContext) {
+				g := grant()
+				svc := open(ctx, verification.ServiceConfig{Verifier: sign(g)})
+				Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
+				Expect(svc.Close()).To(Succeed())
+				svc = open(ctx)
+				defer func() { Expect(svc.Close()).To(Succeed()) }()
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(verification.StateOK))
+				Expect(*info.Grant).To(Equal(g))
+				Expect(svc.Check()).To(Succeed())
+			},
+		)
+		It(
+			"should fail to open on a verifier that does not verify",
+			func(ctx SpecContext) {
+				Expect(verification.OpenService(ctx, cfg, verification.ServiceConfig{
+					Verifier: "garbage",
+				})).Error().To(MatchError(verification.ErrInvalid))
+			},
+		)
 		It("should remove the previous format's entry", func(ctx SpecContext) {
 			legacy := []byte("bGljZW5zZUtleQ==")
 			Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
@@ -181,18 +187,21 @@ var _ = Describe("Verification", func() {
 			Expect(svc.Retrieve().State).To(Equal(verification.StateExpired))
 			Expect(svc.Check()).To(MatchError(verification.ErrExpired))
 		})
-		It("should treat every entry as expired after a clock rollback", func(ctx SpecContext) {
-			svc := open(ctx, verification.ServiceConfig{Verifier: sign(grant())})
-			Expect(svc.Close()).To(Succeed())
-			earlier := now.Add(-2 * day)
-			svc = open(ctx, verification.ServiceConfig{
-				Now: func() time.Time { return earlier },
-			})
-			defer func() { Expect(svc.Close()).To(Succeed()) }()
-			info := svc.Retrieve()
-			Expect(info.State).To(Equal(verification.StateExpired))
-			Expect(info.Warning).To(ContainSubstring("clock"))
-		})
+		It(
+			"should treat every entry as expired after a clock rollback",
+			func(ctx SpecContext) {
+				svc := open(ctx, verification.ServiceConfig{Verifier: sign(grant())})
+				Expect(svc.Close()).To(Succeed())
+				earlier := now.Add(-2 * day)
+				svc = open(ctx, verification.ServiceConfig{
+					Now: func() time.Time { return earlier },
+				})
+				defer func() { Expect(svc.Close()).To(Succeed()) }()
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(verification.StateExpired))
+				Expect(info.Warning).To(ContainSubstring("clock"))
+			},
+		)
 		It("should tolerate a clock inside the rollback window", func(ctx SpecContext) {
 			svc := open(ctx, verification.ServiceConfig{Verifier: sign(grant())})
 			Expect(svc.Close()).To(Succeed())
@@ -222,13 +231,16 @@ var _ = Describe("Verification", func() {
 			Expect(info.State).To(Equal(verification.StateOK))
 			Expect(info.Warning).To(ContainSubstring("expires in"))
 		})
-		It("should accept a subscription inside the grace window", func(ctx SpecContext) {
-			g := grant()
-			g.Exp = seconds(now.Add(-2 * day))
-			info := MustSucceed(svc.Activate(ctx, sign(g)))
-			Expect(info.State).To(Equal(verification.StateOK))
-			Expect(info.Warning).To(ContainSubstring("grace"))
-		})
+		It(
+			"should accept a subscription inside the grace window",
+			func(ctx SpecContext) {
+				g := grant()
+				g.Exp = seconds(now.Add(-2 * day))
+				info := MustSucceed(svc.Activate(ctx, sign(g)))
+				Expect(info.State).To(Equal(verification.StateOK))
+				Expect(info.Warning).To(ContainSubstring("grace"))
+			},
+		)
 		It("should refuse a subscription past the grace window", func(ctx SpecContext) {
 			g := grant()
 			g.Exp = seconds(now.Add(-20 * day))
@@ -257,12 +269,15 @@ var _ = Describe("Verification", func() {
 			Expect(svc.Activate(ctx, sign(g))).Error().
 				To(MatchError(verification.ErrExpired))
 		})
-		It("should refuse a grant with neither expiry nor ceiling", func(ctx SpecContext) {
-			g := grant()
-			g.Exp = nil
-			Expect(svc.Activate(ctx, sign(g))).Error().
-				To(MatchError(verification.ErrInvalid))
-		})
+		It(
+			"should refuse a grant with neither expiry nor ceiling",
+			func(ctx SpecContext) {
+				g := grant()
+				g.Exp = nil
+				Expect(svc.Activate(ctx, sign(g))).Error().
+					To(MatchError(verification.ErrInvalid))
+			},
+		)
 		It("should refuse a ceiling that does not parse", func(ctx SpecContext) {
 			g := grant()
 			g.Mv = new("latest")
@@ -277,13 +292,16 @@ var _ = Describe("Verification", func() {
 			Expect(info.State).To(Equal(verification.StateOK))
 			Expect(info.Warning).To(ContainSubstring("subscription ended"))
 		})
-		It("should refuse a fallback whose ceiling is below this version", func(ctx SpecContext) {
-			g := grant()
-			g.Exp = seconds(now.Add(-100 * day))
-			g.Mv = new("0.59")
-			Expect(svc.Activate(ctx, sign(g))).Error().
-				To(MatchError(verification.ErrExpired))
-		})
+		It(
+			"should refuse a fallback whose ceiling is below this version",
+			func(ctx SpecContext) {
+				g := grant()
+				g.Exp = seconds(now.Add(-100 * day))
+				g.Mv = new("0.59")
+				Expect(svc.Activate(ctx, sign(g))).Error().
+					To(MatchError(verification.ErrExpired))
+			},
+		)
 		It("should refuse a grant bound to other hosts", func(ctx SpecContext) {
 			g := grant()
 			g.Fp = []string{"0000"}

@@ -47,13 +47,13 @@ const (
 // Info is what the service knows about this Core's grant.
 type Info struct {
 	// State is the verdict.
-	State State `json:"state" msgpack:"state"`
+	State State `json:"state"             msgpack:"state"`
 	// Warning is set while the state is ok but a change is near or past.
 	Warning string `json:"warning,omitempty" msgpack:"warning,omitempty"`
 	// Host identifies this machine.
-	Host Host `json:"host" msgpack:"host"`
+	Host Host `json:"host"              msgpack:"host"`
 	// Grant is the grant that applies, if any.
-	Grant *Grant `json:"grant,omitempty" msgpack:"grant,omitempty"`
+	Grant *Grant `json:"grant,omitempty"   msgpack:"grant,omitempty"`
 }
 
 // ServiceConfig is the configuration for a verification service.
@@ -355,8 +355,10 @@ func (s *Service) load(ctx context.Context) error {
 }
 
 var (
-	warnExpiresTemplate  = base64.MustDecode("bGljZW5zZSBleHBpcmVzIGluICVz")
-	warnGraceTemplate    = base64.MustDecode("bGljZW5zZSBleHBpcmVkIG9uICVzLCBncmFjZSBwZXJpb2QgZW5kcyBvbiAlcw==")
+	warnExpiresTemplate = base64.MustDecode("bGljZW5zZSBleHBpcmVzIGluICVz")
+	warnGraceTemplate   = base64.MustDecode(
+		"bGljZW5zZSBleHBpcmVkIG9uICVzLCBncmFjZSBwZXJpb2QgZW5kcyBvbiAlcw==",
+	)
 	warnFallbackTemplate = base64.MustDecode(
 		"c3Vic2NyaXB0aW9uIGVuZGVkIG9uICVzLCB0aGlzIHZlcnNpb24gaXMgY292ZXJlZCB1cCB0byAlcw==",
 	)
@@ -448,7 +450,9 @@ func parseMinor(version string) (major, minor int, ok bool) {
 
 var (
 	logActive      = base64.MustDecode("bGljZW5zZSBhY3RpdmU=")
-	logCapTemplate = base64.MustDecode("bGljZW5zZSBhY3RpdmUsIGxpbWl0IGlzICVkIGNoYW5uZWxz")
+	logCapTemplate = base64.MustDecode(
+		"bGljZW5zZSBhY3RpdmUsIGxpbWl0IGlzICVkIGNoYW5uZWxz",
+	)
 )
 
 func (s *Service) logState() {
