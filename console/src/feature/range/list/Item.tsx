@@ -116,7 +116,7 @@ const Base = ({
             />
           </Flex.Box>
         </Flex.Box>
-        <Flex.Box x align="center">
+        <Flex.Box x align="center" className={CSS.BE("range", "list-item-trailing")}>
           {showLabels && labels != null && labels.length > 0 && (
             <Tag.Tags variant="text">
               {labels.map(({ key, name, color }) => (
@@ -127,7 +127,12 @@ const Base = ({
             </Tag.Tags>
           )}
           {showTimeRange && (
-            <Telem.Text.TimeRange level="small" role="group" aria-label="Time range">
+            <Telem.Text.TimeRange
+              className={CSS.BE("range", "time-range")}
+              level="small"
+              role="group"
+              aria-label="Time range"
+            >
               {timeRange}
             </Telem.Text.TimeRange>
           )}

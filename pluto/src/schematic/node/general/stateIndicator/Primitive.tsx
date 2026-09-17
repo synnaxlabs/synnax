@@ -12,9 +12,11 @@ import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
+import { HEIGHTS } from "@/component/size";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
@@ -34,6 +36,7 @@ export const StateIndicator = ({
   options,
   color: colorVal,
   inlineSize,
+  size = "medium",
   staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
@@ -58,8 +61,9 @@ export const StateIndicator = ({
       [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       backgroundColor,
       minWidth: inlineSize,
+      height: HEIGHTS[size],
     }),
-    [colorVal, backgroundColor, inlineSize],
+    [colorVal, backgroundColor, inlineSize, size],
   );
   return (
     <Primitive.Div
@@ -74,7 +78,7 @@ export const StateIndicator = ({
         bottom={102}
       />
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text level="p" color={textColor} variant="code">
+        <Text.Text level={SIZE_LEVELS[size]} color={textColor} variant="code">
           {label}
         </Text.Text>
       </div>
