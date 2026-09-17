@@ -110,12 +110,16 @@ locals {
     RESEND_API_KEY               = var.resend_api_key
     MAIL_FROM                    = var.mail_from
     CRON_SECRET                  = random_password.cron_secret.result
+    PLAIN_API_KEY                = var.plain_api_key
+    PLAIN_SIGNING_SECRET         = var.plain_signing_secret
   }
   sensitive_env = toset([
     "AWS_SECRET_ACCESS_KEY",
     "CLERK_WEBHOOK_SIGNING_SECRET",
     "RESEND_API_KEY",
     "CRON_SECRET",
+    "PLAIN_API_KEY",
+    "PLAIN_SIGNING_SECRET",
   ])
 }
 

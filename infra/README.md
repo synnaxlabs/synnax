@@ -20,9 +20,10 @@ terraform apply
 ```
 
 Variables come from HCP Terraform workspace variables: `vercel_team_id`, `staff_org_id`,
-`clerk_webhook_signing_secret`, `resend_api_key`, and `ci_license_token`. Provider
-credentials come from the environment: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-for an administrator, `VERCEL_API_TOKEN`, and `GITHUB_TOKEN`.
+`clerk_webhook_signing_secret`, `resend_api_key`, `plain_api_key`,
+`plain_signing_secret`, and `ci_license_token`. Provider credentials come from the
+environment: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` for an administrator,
+`VERCEL_API_TOKEN`, and `GITHUB_TOKEN`.
 
 Resources that existed before this root did are imported once, never recreated:
 
@@ -78,4 +79,18 @@ issuing a new one before the old one expires and applying again.
 
 ### Plain
 
-Plain has no Terraform provider. Its setup is documented with the support work.
+Plain has no Terraform provider. In the Plain workspace:
+
+1. Settings, Machine users: create one named "hub" with an API key that holds
+   `tenant:create`, `tenant:read`, `customer:create`, `customer:read`, `customer:edit`,
+   `customerTenantMembership:create`, `thread:create`, `thread:read`, `timeline:read`,
+   and `chat:create`. The key is `plain_api_key`.
+2. Billing: the support page sends customer messages as chats, which needs Plain's
+   headless portal entitlement.
+3. Settings, Request signing: the secret is `plain_signing_secret`.
+4. Settings, Customer cards: add three cards pointing at
+   `https://docs.synnaxlabs.com/api/plain/cards` with the keys `organizations`,
+   `licenses`, and `activations`. No headers are needed; the site checks the request
+   signature.
+
+The docs feedback form posts to the same site, so Formspree is no longer used.

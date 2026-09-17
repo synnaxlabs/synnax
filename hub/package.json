@@ -37,6 +37,7 @@
     "@synnaxlabs/media": "catalog:",
     "@synnaxlabs/pluto": "catalog:",
     "@synnaxlabs/x": "catalog:",
+    "@team-plain/typescript-sdk": "catalog:",
     "astro": "catalog:",
     "astro-seo": "catalog:",
     "clsx": "catalog:",

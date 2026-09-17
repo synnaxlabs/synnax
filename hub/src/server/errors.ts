@@ -24,8 +24,9 @@ export const forbidden = (message = "Forbidden"): HTTPError =>
   new HTTPError(403, message);
 export const unauthorized = (): HTTPError => new HTTPError(401, "Sign in first");
 export const badRequest = (message: string): HTTPError => new HTTPError(400, message);
-export const tooMany = (): HTTPError =>
-  new HTTPError(429, "Too many activations. Try again later.");
+export const tooMany = (
+  message = "Too many activations. Try again later.",
+): HTTPError => new HTTPError(429, message);
 
 /** toResponse turns a thrown error into the response a JSON route returns. */
 export const toResponse = (err: unknown): Response => {

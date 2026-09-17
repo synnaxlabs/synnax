@@ -49,6 +49,18 @@ variable "mail_from" {
   default = "Synnax Labs <licenses@synnaxlabs.com>"
 }
 
+variable "plain_api_key" {
+  description = "Plain machine user API key the site talks to the workspace with."
+  type        = string
+  sensitive   = true
+}
+
+variable "plain_signing_secret" {
+  description = "Plain request signing secret, verified on customer card requests."
+  type        = string
+  sensitive   = true
+}
+
 variable "ci_license_token" {
   description = "A floating token issued to the Synnax Labs organization for CI."
   type        = string

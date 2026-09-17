@@ -35,6 +35,8 @@ export const EVENT_KINDS = [
   "release",
   "revoke",
   "expiry_notice",
+  "thread",
+  "feedback",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 

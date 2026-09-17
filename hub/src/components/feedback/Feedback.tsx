@@ -64,16 +64,12 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
   const handleSuccessfulSubmit = () => {
     void (async () => {
       if (!methods.validate()) return;
-      const data = new FormData();
       const value = methods.value();
-      data.append("name", value.name ?? "");
-      data.append("email", value.email ?? "");
-      data.append("description", value.description);
       setLoading(true);
-      const res = await fetch("https://formspree.io/f/mpwwklbr", {
+      const res = await fetch("/api/feedback", {
         method: "POST",
-        body: data,
-        headers: { Accept: "application/json" },
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...value, page: window.location.pathname }),
       });
       setLoading(false);
       if (res.ok) {

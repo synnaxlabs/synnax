@@ -21,6 +21,10 @@ const ROUTES: Record<string, string> = {
   "/licenses/activate": "pages/licenses/activate.astro",
   "/licenses/[key]": "pages/licenses/[key].astro",
   "/staff/licenses": "pages/staff/licenses.astro",
+  "/support": "pages/support/index.astro",
+  "/support/[id]": "pages/support/[id].astro",
+  "/api/feedback": "routes/feedback.ts",
+  "/api/plain/cards": "routes/plain/cards.ts",
   "/api/webhooks/clerk": "routes/webhooks/clerk.ts",
   "/api/cron/expiry": "routes/cron/expiry.ts",
   "/api/portal/licenses/[key]/activate": "routes/licenses/activate.ts",
@@ -28,6 +32,8 @@ const ROUTES: Record<string, string> = {
   "/api/portal/licenses/[key]/floating": "routes/licenses/floating.ts",
   "/api/portal/activations/[key]/token": "routes/activations/token.ts",
   "/api/portal/activations/[key]/release": "routes/activations/release.ts",
+  "/api/portal/support/threads": "routes/support/threads.ts",
+  "/api/portal/support/threads/[id]/reply": "routes/support/reply.ts",
 };
 
 /** portal adds the signed-in portal pages, API routes, and Clerk middleware. */

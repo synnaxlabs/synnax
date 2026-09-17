@@ -427,16 +427,21 @@ and shows the activation screen with the offline instructions on its next start.
 
 ### 5.9 Support on Plain
 
-Every Plain call runs server-side in the site, through `@team-plain/graphql`, with the
-API key as a Vercel secret. Plain's hosted help center is not used.
+Every Plain call runs server-side in the site, through `@team-plain/typescript-sdk`,
+with the API key as a Vercel secret. Plain's hosted help center is not used.
 
 - **Tenants**: One per organization, created by the portal with the organization key as
   `externalId`. Members are added as Plain customers to their tenants.
 - **Support page**: A signed-in page listing the organization's threads with status, a
   form that creates a thread, and a thread view with reply. Visibility is tenant-wide,
-  so every member sees the organization's threads.
+  so every member sees the organization's threads. Threads open on Plain's chat channel
+  and every member message is a customer chat, which is Plain's headless portal model
+  and needs that entitlement on the workspace. The thread view shows chats, emails, and
+  custom entries; internal notes never leave Plain.
 - **Feedback modal**: The Formspree form becomes a Plain thread. Signed-out visitors
-  still submit; the thread is created against a customer keyed by the email they enter.
+  still submit; the thread is created against a customer keyed by the email they enter,
+  or a shared anonymous customer when they enter none. A signed-in visitor's feedback
+  lands under their own customer and personal organization.
 - **Customer card**: The site serves Plain's customer card protocol at one endpoint,
   verified with the request signature header, returning the customer's organizations,
   licenses, and recent activations. Staff reading a thread see the machine the customer

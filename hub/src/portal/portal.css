@@ -200,3 +200,56 @@
     white-space: pre-wrap;
     word-break: break-all;
 }
+
+.portal-badge {
+    display: inline-block;
+    padding: 0.25rem 1rem;
+    border-radius: 1rem;
+    border: var(--pluto-border);
+    font-size: 0.85em;
+    color: var(--pluto-gray-l9);
+}
+
+.portal-badge--todo {
+    border-color: var(--pluto-primary-z);
+    color: var(--pluto-primary-z);
+}
+
+.portal-badge--done {
+    color: var(--pluto-gray-l7);
+}
+
+.portal-thread {
+    gap: 1rem;
+}
+
+.portal-message {
+    max-width: 72rem;
+    padding: 1.5rem 2rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l1);
+}
+
+.portal-message--customer {
+    align-self: flex-end;
+    border-color: var(--pluto-primary-z);
+}
+
+.portal-message header {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 0.5rem;
+    color: var(--pluto-gray-l8);
+}
+
+.portal-message p {
+    margin: 0;
+}
+
+.portal-prose {
+    font-family: inherit;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

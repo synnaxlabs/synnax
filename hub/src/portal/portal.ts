@@ -14,6 +14,7 @@ import {
   LICENSE_KID,
   LICENSE_KMS_KEY_ARN,
   MAIL_FROM,
+  PLAIN_API_KEY,
   RESEND_API_KEY,
   STAFF_ORG_ID,
 } from "astro:env/server";
@@ -22,12 +23,14 @@ import { open as openStore, type Store } from "@/server/db/db";
 import { kms, type Signer } from "@/server/license/sign";
 import { type Mailer, resend } from "@/server/mail";
 import { resolve, type Session } from "@/server/session";
+import { plain, type Support } from "@/server/support/support";
 
 /** Portal is the set of services a portal page or route works with. */
 export interface Portal {
   store: Store;
   signer: Signer;
   mail: Mailer;
+  support: Support;
   staffOrgID: string;
   /** session resolves the signed-in user, throwing a 401 when there is none. */
   session: () => Promise<Session>;
@@ -46,6 +49,7 @@ export const open = (context: APIContext): Portal => ({
     kid: LICENSE_KID,
   }),
   mail: resend(RESEND_API_KEY, MAIL_FROM),
+  support: plain(PLAIN_API_KEY),
   staffOrgID: STAFF_ORG_ID,
   session: async () => await resolve(context, STAFF_ORG_ID),
   now: () => new Date(),

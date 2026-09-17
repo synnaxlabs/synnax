@@ -88,6 +88,7 @@ catalog:
   '@tauri-apps/plugin-shell': ^2.3.6
   '@tauri-apps/plugin-store': ^2.4.4
   '@tauri-apps/plugin-updater': ^2.11.0
+  '@team-plain/typescript-sdk': ^5.12.1
   '@testing-library/react': ^16.3.2
   '@testing-library/user-event': ^14.6.7
   '@types/d3-scale': ^4.0.9

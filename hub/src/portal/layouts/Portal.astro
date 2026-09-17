@@ -23,6 +23,7 @@ const path = Astro.url.pathname;
 const tabs = [
     { href: "/account", label: "Account" },
     { href: "/licenses", label: "Licenses" },
+    { href: "/support", label: "Support" },
     ...(session?.staff === true ? [{ href: "/staff/licenses", label: "Staff" }] : []),
 ];
 ---

@@ -120,6 +120,8 @@ const config: AstroUserConfig = {
         default: "Synnax Labs <licenses@synnaxlabs.com>",
       }),
       CRON_SECRET: secret,
+      PLAIN_API_KEY: secret,
+      PLAIN_SIGNING_SECRET: secret,
     },
   },
 };
