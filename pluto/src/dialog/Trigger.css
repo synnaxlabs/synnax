@@ -9,6 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
+/* A select shows a name. The frame is the element a form lays out. */
+.pluto-dialog__frame:has(> .pluto-dialog__trigger) {
+    --pluto-control-width: 48rem;
+}
+
 .pluto-dialog__trigger {
     .pluto-caret-animated {
         margin-left: auto;

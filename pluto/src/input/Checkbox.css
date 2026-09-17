@@ -16,7 +16,11 @@
     position: relative;
     cursor: pointer !important;
     background: none !important;
-    padding: 0;
+
+    /* Outranks the button's sized padding. */
+    &.pluto-btn {
+        padding: 0;
+    }
 
     &:not(.pluto--disabled).pluto-btn--prevent-click input {
         cursor: pointer;
