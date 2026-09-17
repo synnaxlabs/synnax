@@ -12,11 +12,8 @@ import { useEffect } from "react";
 
 /**
  * Calls `onChange` with every viewport React Flow renders, including the one it mounts
- * at. Subscribes to the store transform that positions the DOM instead of using React
- * Flow's `useOnViewportChange`: that hook registers its callbacks in the store once,
- * and React Flow resets the store when it unmounts, so a remount reports nothing.
- * Nothing is reported while React Flow is unmounted, when the transform is a
- * placeholder.
+ * at, and with nothing while React Flow is unmounted. Reads the store transform rather
+ * than `useOnViewportChange`, whose callbacks React Flow drops when it unmounts.
  */
 export const useOnViewportChange = (onChange: (viewport: Viewport) => void): void => {
   const store = useStoreApi();
