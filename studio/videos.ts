@@ -138,4 +138,9 @@ export default manifest.define([
     id: "device-drivers/task/layout-selector",
     script: "scripts/task-layout-selector.ts",
   },
+  {
+    id: "releases/0-57-0/panels",
+    script: "scripts/release-0-57-0-panels.ts",
+    themed: false,
+  },
 ]);

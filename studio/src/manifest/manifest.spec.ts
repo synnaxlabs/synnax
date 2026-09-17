@@ -65,4 +65,10 @@ describe("manifest names", () => {
       "docs/console/ranges/create-dark.mp4",
     );
   });
+
+  it("should drop the theme suffix from an unthemed CDN key", () => {
+    expect(cdnKey("releases/0-57-0/panels", null)).toEqual(
+      "docs/releases/0-57-0/panels.mp4",
+    );
+  });
 });

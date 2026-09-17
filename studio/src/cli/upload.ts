@@ -73,9 +73,12 @@ const main = async (): Promise<void> => {
         process.exit(1);
       }
     }
-    for (const theme of THEMES) {
+    // An unthemed page requests one file, so only the dark render ships.
+    const themes = entry.themed === false ? (["dark"] as const) : THEMES;
+    for (const theme of themes) {
       const file = path.join(OUT_ROOT, videoName(entry.id, theme));
-      if (existsSync(file)) uploads.push({ file, key: cdnKey(entry.id, theme) });
+      const key = cdnKey(entry.id, entry.themed === false ? null : theme);
+      if (existsSync(file)) uploads.push({ file, key });
       else missing.push(videoName(entry.id, theme));
     }
   }

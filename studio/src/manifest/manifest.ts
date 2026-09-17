@@ -36,6 +36,12 @@ export const entryZ = z.object({
   /** Hides the text caret during capture. */
   hideCaret: z.boolean().optional(),
   /**
+   * Mirrors the docs Video component's prop. A themed page asks the CDN for a
+   * file per theme; an unthemed one asks for a single file, and the release
+   * notes serve the dark render there. Both themes are still produced.
+   */
+  themed: z.boolean().optional(),
+  /**
    * Pins the capture's core to this port, overriding the port the run assigns.
    * For shots that put the address on screen: the docs show 9090. Pinned
    * entries produce one at a time, since they cannot take a free port.
@@ -71,6 +77,9 @@ export const filter = (manifest: Manifest, pattern?: string): Manifest =>
 export const videoName = (id: string, theme: "light" | "dark"): string =>
   `videos/${id.replaceAll("/", "-")}-${theme}.mp4`;
 
-/** cdnKey returns the object key the docs CDN serves the video under. */
-export const cdnKey = (id: string, theme: "light" | "dark"): string =>
-  `docs/${id}-${theme}.mp4`;
+/**
+ * cdnKey returns the object key the docs CDN serves the video under. An
+ * unthemed entry takes the bare key, which is the one its page requests.
+ */
+export const cdnKey = (id: string, theme: "light" | "dark" | null): string =>
+  theme == null ? `docs/${id}.mp4` : `docs/${id}-${theme}.mp4`;
