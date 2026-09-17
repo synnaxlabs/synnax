@@ -174,7 +174,7 @@ describe("camera.simulate", () => {
       { type: "pointerup", tick: 126, x: 1680, y: 120, button: "left" },
     ]);
     const track = simulate(tl, plan(tl));
-    const settled = track[120 + 90];
+    const settled = track[120 + 60];
     expect(settled.amount).toBeGreaterThan(1.5);
     const c = crop(settled, W, H);
     expect(rect.x).toBeGreaterThanOrEqual(c.x - 2);

@@ -29,7 +29,7 @@ describe("spring", () => {
     expect(settle(CAMERA_SPRING, 2, 3)).toBeCloseTo(2, 2);
   });
 
-  it("should overshoot slightly with the underdamped camera spring", () => {
+  it("should settle on the target without overshoot with the camera spring", () => {
     let state = at(0);
     let max = 0;
     const dt = 1 / 60;
@@ -37,8 +37,8 @@ describe("spring", () => {
       state = step(state, 1, CAMERA_SPRING, dt);
       max = Math.max(max, state.position);
     }
-    expect(max).toBeGreaterThan(1);
-    expect(max).toBeLessThan(1.08);
+    expect(max).toBeLessThanOrEqual(1);
+    expect(state.position).toBeCloseTo(1, 3);
   });
 
   it("should be stable at high stiffness", () => {
