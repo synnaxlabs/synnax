@@ -25,7 +25,6 @@ package check
 
 import (
 	"context"
-	"encoding/json/jsontext"
 	"sort"
 
 	"github.com/synnaxlabs/oracle/pipeline"
@@ -76,11 +75,9 @@ func (s Severity) String() string {
 	}
 }
 
-// MarshalJSONTo serializes Severity as its lower-case string form so the JSON report is
+// MarshalText serializes Severity as its lower-case string form so the JSON report is
 // consumable without an out-of-band enum table.
-func (s Severity) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteToken(jsontext.String(s.String()))
-}
+func (s Severity) MarshalText() ([]byte, error) { return []byte(s.String()), nil }
 
 // Status is the outcome of a single gate.
 type Status int
@@ -109,10 +106,8 @@ func (s Status) String() string {
 	}
 }
 
-// MarshalJSONTo serializes Status as its lower-case string form.
-func (s Status) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteToken(jsontext.String(s.String()))
-}
+// MarshalText serializes Status as its lower-case string form.
+func (s Status) MarshalText() ([]byte, error) { return []byte(s.String()), nil }
 
 // Finding is one observation produced by a Checker. The driver renders findings; gates
 // do not print directly.
