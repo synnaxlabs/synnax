@@ -85,6 +85,13 @@ describe("AnalogWrite", () => {
     }
   });
 
+  it("should name each end of a range", async () => {
+    await renderAnalogWrite(createConfig([createChannel("ao_current", 0)]));
+    fireEvent.click(await screen.findByText("cmd_ao_current_0"));
+    expect(await screen.findByRole("textbox", { name: "Minimum value" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Maximum value" })).toBeTruthy();
+  });
+
   it("should switch the function generator wave type when a wave button is clicked", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
     fireEvent.click(await screen.findByText("cmd_ao_func_gen_0"));
