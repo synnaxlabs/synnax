@@ -25,7 +25,7 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use<typeof CONFIG_Z>({
-    values: Node.createConfig("off_page_reference"),
+    values: Node.createConfig({ variant: "off_page_reference" }),
     schema: CONFIG_Z,
   });
   return (

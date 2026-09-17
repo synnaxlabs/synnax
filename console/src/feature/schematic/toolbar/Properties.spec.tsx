@@ -26,7 +26,7 @@ import {
 } from "@/testutil";
 
 const createValveConfig = (): Record<string, unknown> =>
-  PSchematic.Node.createConfig("valve");
+  PSchematic.Node.createConfig({ variant: "valve" });
 
 interface RenderPropertiesParams {
   nodeKeys: string[];
@@ -103,7 +103,10 @@ describe("Schematic toolbar Properties", () => {
       await renderProperties({
         nodeKeys: ["n1"],
         createConfig: () =>
-          PSchematic.Node.createConfig("custom_static", { specKey: uuid.create() }),
+          PSchematic.Node.createConfig({
+            variant: "custom_static",
+            specKey: uuid.create(),
+          }),
       });
       expect(
         await screen.findByText(
@@ -120,10 +123,9 @@ describe("Schematic toolbar Properties", () => {
     const createGroupedConfig = (key: string): Record<string, unknown> =>
       key === "g1"
         ? {
-            ...(PSchematic.Node.createConfig("group_box") as unknown as Record<
-              string,
-              unknown
-            >),
+            ...(PSchematic.Node.createConfig({
+              variant: "group_box",
+            }) as unknown as Record<string, unknown>),
             members: ["n1", "n2"],
           }
         : createValveConfig();

@@ -48,7 +48,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
   const createParams = useCallback(
-    (): Schematic.AddNodeProps => ({ key: id.create(), variant }),
+    (): Schematic.AddNodeProps => ({ key: id.create(), config: { variant } }),
     [variant],
   );
   const handleDragStart = useCallback(
@@ -64,7 +64,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     () =>
       spec == null
         ? null
-        : Schematic.Node.createConfig(spec.key as Schematic.Node.Variant),
+        : Schematic.Node.createConfig({ variant: spec.key as Schematic.Node.Variant }),
     [spec],
   );
   if (spec == null || config == null) return null;
@@ -134,8 +134,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const createParams = useCallback(
     (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
       key: id.create(),
-      variant,
-      overrides: { specKey: itemKey },
+      config: { variant, specKey: itemKey },
     }),
     [variant, itemKey],
   );

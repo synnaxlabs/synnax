@@ -27,7 +27,7 @@ const CONFIG_Z = schematic.stringDisplayNodeConfigZ;
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   const methods = Form.use<typeof CONFIG_Z>({
-    values: Node.createConfig("string_display"),
+    values: Node.createConfig({ variant: "string_display" }),
     schema: CONFIG_Z,
   });
   return (

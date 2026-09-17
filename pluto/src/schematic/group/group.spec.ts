@@ -94,7 +94,9 @@ describe("group", () => {
     });
 
     it("should ignore non-group configs", () => {
-      expect(buildParentOf({ v: Node.createConfig("value") }).size).toEqual(0);
+      expect(
+        buildParentOf({ v: Node.createConfig({ variant: "value" }) }).size,
+      ).toEqual(0);
     });
 
     it("should keep the first group when two claim the same member", () => {
@@ -243,7 +245,7 @@ describe("group", () => {
     });
 
     it("should pass non-group configs through", () => {
-      const config = Node.createConfig("value");
+      const config = Node.createConfig({ variant: "value" });
       expect(remapMembers(config, { a: "a2" })).toBe(config);
       expect(remapMembers(undefined, { a: "a2" })).toBeUndefined();
     });

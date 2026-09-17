@@ -42,8 +42,7 @@ const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] =>
   const items = [
     PSchematic.createHaulItem({
       key: id.create(),
-      variant: "value",
-      overrides: { label: { label: name }, channel: Number(otgID.key) },
+      config: { variant: "value", label: { label: name }, channel: Number(otgID.key) },
     }),
   ];
   if (data?.internal === true) return items;

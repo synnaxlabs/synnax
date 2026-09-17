@@ -49,20 +49,13 @@ export type Config = schematic.NodeConfig;
 export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 
 /**
- * Overrides is the schema input for a variant without its discriminator. Fields with
- * a schema default are optional; the rest are required.
+ * Input is the schema input for a variant: its discriminator plus its fields, of which
+ * those with a schema default are optional and the rest required.
  */
-export type Overrides<V extends Variant> = Omit<
+export type Input<V extends Variant> = { variant: V } & Omit<
   Extract<z.input<typeof configZ>, { variant: V }>,
   "variant"
 >;
-
-/**
- * CreateArgs is the trailing argument list of {@link createConfig}: the overrides are
- * optional only when the variant has no required field.
- */
-export type CreateArgs<V extends Variant> =
-  {} extends Overrides<V> ? [overrides?: Overrides<V>] : [overrides: Overrides<V>];
 
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];
@@ -71,21 +64,16 @@ export const resolveSpec = (variant: string): Spec<Variant, Config> => {
 };
 
 /**
- * Builds a fresh config for the variant. Every value comes from the schema, except the
- * label, which names the symbol unless the overrides set it.
- * @param variant - The node variant.
- * @param overrides - Fields to set on top of the schema defaults. Required when the
- * variant has a field with no default, such as the custom symbols' specKey.
+ * Builds a fresh config from the schema input. Every unset value comes from the
+ * schema, except the label, which names the symbol unless the input sets it.
+ * @param input - The variant plus any fields to set on top of the schema defaults.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
-export const createConfig = <V extends Variant>(
-  variant: V,
-  ...[overrides]: CreateArgs<V>
-): ConfigOf<V> => {
-  const config = configZ.parse({ variant, ...overrides }) as ConfigOf<V>;
-  const spec = resolveSpec(variant);
-  const labeled = overrides as { label?: { label?: string } } | undefined;
-  if ("label" in config && labeled?.label?.label == null)
+export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> => {
+  const config = configZ.parse(input) as ConfigOf<V>;
+  const spec = resolveSpec(input.variant);
+  const labeled = input as { label?: { label?: string } };
+  if ("label" in config && labeled.label?.label == null)
     config.label.label = spec.label ?? spec.name;
   return config;
 };

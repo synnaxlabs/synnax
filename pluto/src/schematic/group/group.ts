@@ -99,7 +99,7 @@ export const createActions = ({
   const key = uuid.create();
   const members = memberNodes.map((n) => n.key);
   const config: Node.GroupBox.Config = {
-    ...Node.createConfig(Node.GroupBox.VARIANT),
+    ...Node.createConfig({ variant: Node.GroupBox.VARIANT }),
     members,
   };
   const node = {

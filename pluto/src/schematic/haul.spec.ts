@@ -19,7 +19,7 @@ import {
   isHaulItem,
 } from "@/schematic/haul";
 
-const ITEM_DATA: HaulItemData = { key: "n1", variant: "tank" };
+const ITEM_DATA: HaulItemData = { key: "n1", config: { variant: "tank" } };
 
 const foreignItem = (key: string, type = "other"): Haul.Item => ({ key, type });
 
@@ -38,12 +38,11 @@ describe("createHaulItem", () => {
     });
   });
 
-  it("preserves optional position and overrides on the data payload", () => {
-    const data: HaulItemData = {
+  it("preserves the position and config fields on the data payload", () => {
+    const data: HaulItemData<"valve"> = {
       key: "n2",
-      variant: "valve",
       position: { x: 5, y: 7 },
-      overrides: { label: { label: "V1" } },
+      config: { variant: "valve", label: { label: "V1" } },
     };
     expect(createHaulItem(data).data).toEqual(data);
   });
@@ -61,9 +60,9 @@ describe("isHaulItem", () => {
 
 describe("filterHaulItems", () => {
   it("keeps only schematic items and preserves their order", () => {
-    const a = createHaulItem({ key: "a", variant: "tank" });
+    const a = createHaulItem({ key: "a", config: { variant: "tank" } });
     const b = foreignItem("b");
-    const c = createHaulItem({ key: "c", variant: "valve" });
+    const c = createHaulItem({ key: "c", config: { variant: "valve" } });
     expect(filterHaulItems([a, b, c])).toEqual([a, c]);
   });
 

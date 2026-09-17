@@ -259,29 +259,19 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export type AddNodeProps<V extends Node.Variant = Node.Variant> = {
+export interface AddNodeProps<V extends Node.Variant = Node.Variant> {
   key: string;
-  variant: V;
   position?: xy.XY;
-} & ({} extends Node.Overrides<V>
-  ? { overrides?: Node.Overrides<V> }
-  : { overrides: Node.Overrides<V> });
+  config: Node.Input<V>;
+}
 
 export const useAddNode = () => {
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
 
   return useCallback(
-    <V extends Node.Variant>({
-      key,
-      variant,
-      position,
-      overrides,
-    }: AddNodeProps<V>) => {
-      const config: Node.Config = Node.createConfig(
-        variant,
-        ...([overrides] as Node.CreateArgs<V>),
-      );
+    <V extends Node.Variant>({ key, position, config: input }: AddNodeProps<V>) => {
+      const config: Node.Config = Node.createConfig(input);
       if (Node.isCustomConfig(config)) {
         const sym = client?.schematics.symbols.getCached(config.specKey);
         if (query.isLive(sym)) config.label.label = sym.name;
