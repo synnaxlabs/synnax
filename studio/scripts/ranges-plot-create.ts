@@ -35,6 +35,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settle(1000);
     await session.click(capture.control(page, "pause"), { zoom: false });
     await session.settle(500);
+    // The first seconds of data vanish once the range saves, so a flat drag zooms
+    // the time axis past them.
+    await session.drag({ x: 900, y: 640 }, { x: 1880, y: 650 }, { zoom: false });
+    await session.settle(800);
     await session.moveTo({ x: 950, y: 500 });
 
     session.startRecording();
