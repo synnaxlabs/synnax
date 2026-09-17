@@ -17,18 +17,16 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// ESLint is a Formatter that applies `eslint --fix` to TypeScript /
-// JavaScript content via stdin. ESLint's `--fix` flag is incompatible
-// with `--stdin`, so this implementation uses
-// `--fix-dry-run --format json --stdin --stdin-filename=<absPath>` and
-// parses the JSON envelope to extract the fixed source. When eslint
-// reports no fixes applicable to the input, the JSON contains no
-// `output` field for the file and the original content is returned
-// unchanged.
+// ESLint is a Formatter that applies `eslint --fix` to TypeScript / JavaScript content
+// via stdin. ESLint's `--fix` flag is incompatible with `--stdin`, so this
+// implementation uses `--fix-dry-run --format json --stdin --stdin-filename=<absPath>`
+// and parses the JSON envelope to extract the fixed source. When eslint reports no
+// fixes applicable to the input, the JSON contains no `output` field for the file and
+// the original content is returned unchanged.
 //
-// The command runs from the nearest package.json directory so `npx`
-// resolves the package-local eslint binary and so jiti/tsx (used to
-// load the package's eslint.config.ts) is available in node_modules.
+// The command runs from the nearest package.json directory so `pnpm exec` resolves the
+// package-local eslint binary and so jiti/tsx (used to load the package's
+// eslint.config.ts) is available in node_modules.
 type ESLint struct {
 	// Bin is the eslint binary to run.
 	Bin string
@@ -36,9 +34,9 @@ type ESLint struct {
 	Args []string
 }
 
-// NewESLint returns an ESLint formatter using `npx eslint`.
+// NewESLint returns an ESLint formatter using `pnpm exec eslint`.
 func NewESLint() *ESLint {
-	return &ESLint{Bin: "npx", Args: []string{"eslint"}}
+	return &ESLint{Bin: "pnpm", Args: []string{"exec", "eslint"}}
 }
 
 type eslintReport struct {
@@ -51,11 +49,10 @@ type eslintReport struct {
 
 // Format runs eslint on stdin and returns the fixed source.
 //
-// Non-fatal lint findings are tolerated: oracle-generated code is
-// allowed to trip lint rules that have no auto-fix available, matching
-// the legacy post-hook's stance. A fatal parse error from eslint is
-// surfaced as an error since it indicates the generated source is
-// broken.
+// Non-fatal lint findings are tolerated: oracle-generated code is allowed to trip lint
+// rules that have no auto-fix available, matching the legacy post-hook's stance. A
+// fatal parse error from eslint is surfaced as an error since it indicates the
+// generated source is broken.
 func (e *ESLint) Format(
 	ctx context.Context,
 	content []byte,
