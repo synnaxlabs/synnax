@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -24,8 +25,13 @@ import { getLabeledInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(OPCUA.Task.Read, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(OPCUA.Task.Read, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 interface CreateReadChannelOverrides extends Partial<OPCUA.Task.ReadChannel> {}
 
@@ -41,7 +47,7 @@ const createReadChannel = (
     nodeName,
     channel: 0,
     disabled: false,
-    useAsIndex: false,
+    isIndex: false,
     dataType: "float32",
     name: "",
     ...overrides,
@@ -112,7 +118,7 @@ describe("OPCUA.Read", () => {
 
   it("should use the flagged timestamp channel as the index and reuse it on redeploy", async () => {
     const dev = await createOPCDevice(client);
-    const tsChannel = createReadChannel({ useAsIndex: true, dataType: "timestamp" });
+    const tsChannel = createReadChannel({ isIndex: true, dataType: "timestamp" });
     const dataChannel = createReadChannel();
     const draft = await createDraft(
       client,

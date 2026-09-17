@@ -15,8 +15,10 @@ import { Circle } from "@/schematic/node/general/circle";
 import { Gauge } from "@/schematic/node/general/gauge";
 import { Input } from "@/schematic/node/general/input";
 import { Light } from "@/schematic/node/general/light";
+import { Line } from "@/schematic/node/general/line";
 import { OffPageReference } from "@/schematic/node/general/offPageReference";
 import { Polygon } from "@/schematic/node/general/polygon";
+import { Scale } from "@/schematic/node/general/scale";
 import { Select } from "@/schematic/node/general/select";
 import { Setpoint } from "@/schematic/node/general/setpoint";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
@@ -32,8 +34,10 @@ export const REGISTRY = {
   gauge: Gauge.spec,
   input: Input.spec,
   light: Light.spec,
+  line: Line.spec,
   offPageReference: OffPageReference.spec,
   polygon: Polygon.spec,
+  scale: Scale.spec,
   select: Select.spec,
   setpoint: Setpoint.spec,
   stateIndicator: StateIndicator.spec,
@@ -50,8 +54,10 @@ export const configZ = z.discriminatedUnion("variant", [
   Gauge.configZ,
   Input.configZ,
   Light.configZ,
+  Line.configZ,
   OffPageReference.configZ,
   Polygon.configZ,
+  Scale.configZ,
   Select.configZ,
   Setpoint.configZ,
   StateIndicator.configZ,

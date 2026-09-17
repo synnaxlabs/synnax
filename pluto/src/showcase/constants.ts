@@ -15,6 +15,7 @@ export const DISPLAY = [
   "text",
   "button",
   "input",
+  "preview",
   "select",
   "menu",
   "note",

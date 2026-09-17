@@ -30,6 +30,7 @@ const setReqZ = z.object({
 });
 
 interface SetReq extends z.infer<typeof setReqZ> {}
+/** Options for `Client.set`. Set `replace` to swap the whole label set at once. */
 export interface SetOptions extends Pick<SetReq, "replace"> {}
 
 const removeReqZ = setReqZ.omit({ replace: true });
@@ -46,18 +47,26 @@ const retrieveRequestZ = z.object({
 });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
+/** Names one label. */
 export type RetrieveSingleParams = { key: Key };
+/** Everything a multi-label retrieval can filter on, including the resource labeled. */
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+/** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
+/** Config for {@link Client}. */
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
   ontology: ontology.Client;
 }
 
+/**
+ * Creates, reads, deletes, and attaches labels on a Core. Reach it through
+ * `client.labels`.
+ */
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Label> {
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */

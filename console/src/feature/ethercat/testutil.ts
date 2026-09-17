@@ -31,7 +31,7 @@ type ManualReadChannel = Extract<ReadChannel, { type: "manual" }>;
 type AutoWriteChannel = Extract<WriteChannel, { type: "automatic" }>;
 type ManualWriteChannel = Extract<WriteChannel, { type: "manual" }>;
 
-/** Builds a cluster-safe device identifier (2-12 chars, letter first). */
+/** Builds a Core-safe device identifier (2-12 chars, letter first). */
 export const createIdentifier = (): string =>
   `s${id.create().replace(/[^a-zA-Z0-9]/g, "")}`.slice(0, 12);
 
@@ -102,7 +102,7 @@ export const createManualWriteChannel = (
 });
 
 /**
- * Creates an EtherCAT slave device on the live cluster. `properties` are merged over
+ * Creates an EtherCAT slave device on the live Core. `properties` are merged over
  * ZERO_SLAVE_PROPERTIES; `properties.name` doubles as the device name when set.
  */
 export const createSlaveDevice = async (

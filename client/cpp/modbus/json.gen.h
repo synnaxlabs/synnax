@@ -22,6 +22,7 @@
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::modbus {
 
@@ -31,22 +32,22 @@ inline RegisterValue RegisterValue::parse(x::json::Parser parser) {
             "data_type",
             ::x::telem::DataType("uint8")
         ),
-        .swap_bytes = parser.field<bool>("swap_bytes", false),
-        .swap_words = parser.field<bool>("swap_words", false),
+        .bytes_swapped = parser.field<bool>("bytes_swapped", false),
+        .words_swapped = parser.field<bool>("words_swapped", false),
     };
 }
 
 inline x::json::json RegisterValue::to_json() const {
     x::json::json j;
     j["data_type"] = this->data_type;
-    j["swap_bytes"] = this->swap_bytes;
-    j["swap_words"] = this->swap_words;
+    j["bytes_swapped"] = this->bytes_swapped;
+    j["words_swapped"] = this->words_swapped;
     return j;
 }
 
 inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
     return BaseReadChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -69,7 +70,7 @@ inline x::json::json BaseReadChannel::to_json() const {
 
 inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
     return BaseWriteChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(

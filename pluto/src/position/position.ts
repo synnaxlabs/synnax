@@ -60,16 +60,13 @@ const buildOptions = ({
   const preferences = array.toArray(prefer).map(normalizePreference);
   const disabled = array.toArray(disable).map(normalizePreference);
 
-  // Start with initial preference if provided
   const options: Option[] = [];
 
-  // Add initial preference first if provided and not disabled
   if (initial != null) {
     const normalizedInitial = normalizePreference(initial);
     const targetLoc = parseLocationOptions(normalizedInitial.targetCorner);
     const dialogLoc = parseLocationOptions(normalizedInitial.dialogCorner);
 
-    // Find all XY locations that match the initial preference
     location.XY_LOCATIONS.forEach((t) => {
       if (location.xyEquals(t, location.CENTER)) return;
       if (targetLoc.x != null && t.x !== targetLoc.x) return;
@@ -89,7 +86,6 @@ const buildOptions = ({
     return first;
   }
 
-  // Add explicit preferences in order
   preferences.forEach((pref) => {
     const targetLoc = parseLocationOptions(pref.targetCorner);
     const dialogLoc = parseLocationOptions(pref.dialogCorner);
@@ -116,7 +112,6 @@ const buildOptions = ({
     });
   });
 
-  // Add all remaining valid combinations as fallbacks
   location.XY_LOCATIONS.forEach((t) => {
     if (location.xyEquals(t, location.CENTER)) return;
 

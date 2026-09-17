@@ -146,8 +146,7 @@ class WebSocketStream<
 const CLOSE_NORMAL = 1000;
 
 /**
- * WebSocketClient is an implementation of StreamClient that is backed by
- * websockets.
+ * WebSocketClient is an implementation of StreamClient that is backed by websockets.
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
   baseUrl: url.URL;
@@ -157,8 +156,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   static readonly MESSAGE_TYPE = "arraybuffer";
 
   /**
-   * @param encoder - The encoder to use for encoding messages and decoding
-   *   responses.
+   * @param encoder - The encoder to use for encoding messages and decoding responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
   constructor(baseEndpoint: url.URL, encoder: binary.Codec, secure = false) {

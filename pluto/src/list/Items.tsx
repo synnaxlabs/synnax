@@ -10,19 +10,24 @@
 import "@/list/Items.css";
 
 import { type record } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode, useMemo } from "react";
+import { type ReactElement, type ReactNode, useMemo } from "react";
 
+import { memo } from "@/component/memo";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
 
+/** Props for {@link Items}. */
 export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   Flex.BoxProps,
   "children" | "ref"
 > {
+  /** Renders one item. It is called once per visible key. */
   children: ItemRenderProp<K>;
+  /** Rendered in place of the items when the list is empty. */
   emptyContent?: ReactNode;
+  /** Sizes the list to hold this many items before it scrolls. */
   displayItems?: number;
   /**
    * Smooths the height change when the item count changes. Set it only when the list
@@ -83,7 +88,8 @@ const BaseItems = <
   const boxStyle = useMemo(
     () => ({
       height: minHeight,
-      [CSS.var("list-item-height")]: itemHeight != null ? `${itemHeight}px` : undefined,
+      [CSS.variable("list-item-height")]:
+        itemHeight != null ? `${itemHeight}px` : undefined,
       ...style,
     }),
     [minHeight, itemHeight, style],
@@ -94,7 +100,7 @@ const BaseItems = <
     <Flex.Box
       gap={0}
       ref={ref}
-      className={CSS(
+      className={CSS.cls(
         className,
         CSS.BE("list", "items"),
         isVirtual && CSS.BEM("list", "items", "virtual"),
@@ -111,4 +117,8 @@ const BaseItems = <
   );
 };
 
-export const Items = memo(BaseItems) as typeof BaseItems;
+/**
+ * The scroll container for a {@link Frame}. It renders the visible items, handles
+ * virtualization, and shows `emptyContent` when there are none.
+ */
+export const Items = memo(BaseItems);

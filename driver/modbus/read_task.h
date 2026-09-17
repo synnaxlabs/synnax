@@ -100,8 +100,8 @@ public:
             auto [value, err] = util::parse_register_value(
                 this->buffer.data() + offset,
                 ch.value_type,
-                ch.swap_bytes,
-                ch.swap_words
+                ch.bytes_swapped,
+                ch.words_swapped
             );
             if (err) return err;
             fr.series->at(frame_offset++).write(value);

@@ -9,39 +9,68 @@
 
 import { type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { uuid } from "@synnaxlabs/x";
+import { waitFor } from "@testing-library/react";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { renderHookWithConsole, uniqueName } from "@/testutil";
 
 const client = createTestClient();
+
+beforeAll(async () => {
+  await client.connect();
+});
 
 const createStatus = async (): Promise<status.Status> =>
   await client.statuses.set({
     name: uniqueName("status"),
-    message: "listen test",
+    message: "synchronizer test",
     variant: "success",
   });
 
-const favoritesState = (keys: status.Key[]) => ({
-  [Session.Status.SLICE_NAME]: { version: 0 as const, favorites: keys },
+const preloadWith = (...keys: status.Key[]): Partial<Session.State> => ({
+  [Session.Status.SLICE_NAME]: { ...Session.Status.ZERO_SLICE_STATE, favorites: keys },
 });
 
 describe("Status.SYNCHRONIZERS", () => {
-  it("should remove a favorite when its status is deleted remotely", async () => {
-    const stat = await createStatus();
-    const { wrapper, store } = await createConsoleWrapper({
-      client,
-      preloadedState: favoritesState([stat.key]),
-    });
-    renderHook(() => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS), {
-      wrapper,
-    });
-    expect(Session.Status.selectFavorites(store.getState())).toContain(stat.key);
-    await client.statuses.delete(stat.key);
+  it("should remove a favorite when its status is deleted while connected", async () => {
+    const created = await createStatus();
+    const { store } = await renderHookWithConsole(
+      () => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS),
+      { client, preloadedState: preloadWith(created.key) },
+    );
+    expect(Session.Status.selectFavorites(store.getState())).toContain(created.key);
+    await client.statuses.delete(created.key);
     await waitFor(() => {
-      expect(Session.Status.selectFavorites(store.getState())).not.toContain(stat.key);
+      expect(Session.Status.selectFavorites(store.getState())).not.toContain(
+        created.key,
+      );
     });
+  });
+
+  it("should sweep favorites that vanished while away, keeping live ones", async () => {
+    const survivor = await createStatus();
+    const ghost = uuid.create();
+    const { store } = await renderHookWithConsole(
+      () => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS),
+      { client, preloadedState: preloadWith(survivor.key, ghost) },
+    );
+    await waitFor(() => {
+      expect(Session.Status.selectFavorites(store.getState())).not.toContain(ghost);
+    });
+    expect(Session.Status.selectFavorites(store.getState())).toContain(survivor.key);
+  });
+
+  it("should keep a favorite created moments before the sweep", async () => {
+    // Regression: reconcile once compared favorites against a listing of every status,
+    // which could answer as of before this write and drop the favorite.
+    const fresh = await createStatus();
+    const { result, store } = await renderHookWithConsole(
+      () => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS),
+      { client, preloadedState: preloadWith(fresh.key) },
+    );
+    await waitFor(() => expect(result.current).toBe(true));
+    expect(Session.Status.selectFavorites(store.getState())).toContain(fresh.key);
   });
 });

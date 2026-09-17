@@ -180,7 +180,6 @@ constexpr const char *CI_MEAS_METHOD_LARGE_RNG_2_CTR = "LargeRng2Ctr";
 constexpr const char *CI_MEAS_METHOD_DYNAMIC_AVG = "DynamicAvg";
 
 constexpr const char *CI_FREQ_UNITS_HZ = "Hz";
-constexpr const char *CI_FREQ_UNITS_SECONDS = "Seconds";
 constexpr const char *CI_FREQ_UNITS_TICKS = "Ticks";
 
 constexpr const char *CI_TIME_UNITS_SECONDS = "Seconds";
@@ -215,6 +214,15 @@ constexpr const char *WAVE_TYPE_TRIANGLE = "Triangle";
 constexpr const char *WAVE_TYPE_SQUARE = "Square";
 constexpr const char *WAVE_TYPE_SAWTOOTH = "Sawtooth";
 
+constexpr const char
+    *ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_G = "PicoCoulombsPerG";
+constexpr const char
+    *ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_METERS_PER_SECOND_SQUARED =
+        "PicoCoulombsPerMetersPerSecondSquared";
+constexpr const char
+    *ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_INCHES_PER_SECOND_SQUARED =
+        "PicoCoulombsPerInchesPerSecondSquared";
+
 /// @brief MinMaxVal bounds the expected signal range in scaled units.
 struct MinMaxVal {
     /// @brief min_val is the minimum expected value, in scaled units.
@@ -238,7 +246,7 @@ struct Sensitivity {
 /// @brief BaseAIChannel carries the fields every NI analog input channel shares.
 struct BaseAIChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -257,7 +265,7 @@ struct BaseAIChannel {
 /// @brief BaseCIChannel carries the fields every NI counter input channel shares.
 struct BaseCIChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -276,7 +284,7 @@ struct BaseCIChannel {
 /// @brief BaseAOChannel carries the fields every NI analog output channel shares.
 struct BaseAOChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
@@ -297,7 +305,7 @@ struct BaseAOChannel {
 /// @brief DIChannel is a digital input channel the task acquires from.
 struct DIChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -316,7 +324,7 @@ struct DIChannel {
 /// @brief DOChannel is a digital output channel the task drives.
 struct DOChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
@@ -598,8 +606,8 @@ struct Resistance {
 
 /// @brief ZIndex configures the Z-index reset behavior of an encoder.
 struct ZIndex {
-    /// @brief z_index_enable is true when the encoder's Z index resets the count.
-    bool z_index_enable = false;
+    /// @brief z_index_enabled is true when the encoder's Z index resets the count.
+    bool z_index_enabled = false;
     /// @brief z_index_val is the value the measurement resets to when the Z index is
     /// active.
     double z_index_val = 0;
@@ -627,8 +635,6 @@ struct AIVoltageChannel : public BaseAIChannel,
                           public Terminal,
                           public CustomScale {
     std::string type = "ai_voltage";
-    /// @brief units are the units of the voltage measurement.
-    std::string units = UNITS_VOLTS;
 
     static AIVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -671,8 +677,6 @@ struct AICurrentChannel : public BaseAIChannel,
                           public Terminal,
                           public CustomScale {
     std::string type = "ai_current";
-    /// @brief units are the units of the current measurement.
-    std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
     /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
@@ -740,8 +744,6 @@ struct AIMicrophoneChannel : public BaseAIChannel,
                              public CurrentExcitation,
                              public CustomScale {
     std::string type = "ai_microphone";
-    /// @brief units are the units of the microphone measurement.
-    std::string units = UNITS_PASCALS;
     /// @brief mic_sensitivity is the microphone sensitivity, in mV/Pa.
     double mic_sensitivity = 0;
     /// @brief max_snd_press_level is the maximum expected sound pressure level, in dB.
@@ -794,8 +796,6 @@ struct AIResistanceChannel : public BaseAIChannel,
                              public CurrentExcitation,
                              public CustomScale {
     std::string type = "ai_resistance";
-    /// @brief units are the units of the resistance measurement.
-    std::string units = UNITS_OHMS;
 
     static AIResistanceChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -824,8 +824,6 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
                               public VoltageExcitation,
                               public CustomScale {
     std::string type = "ai_strain_gauge";
-    /// @brief units are the units of the strain measurement.
-    std::string units = UNITS_STRAIN;
     /// @brief strain_config selects the strain-gauge bridge configuration.
     std::string strain_config = STRAIN_CONFIG_FULL_BRIDGE_I;
     /// @brief gage_factor is the gauge factor of the strain gauge.
@@ -845,8 +843,18 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
 };
 
 /// @brief AITempBuiltinChannel reads temperature from the device's built-in sensor.
-struct AITempBuiltinChannel : public BaseAIChannel {
+struct AITempBuiltinChannel {
     std::string type = "ai_temp_builtin";
+    /// @brief key uniquely identifies the channel within the task.
+    std::string key;
+    /// @brief name is the human-readable channel name.
+    std::string name = "";
+    /// @brief disabled is true when the channel is excluded from acquisition.
+    bool disabled = false;
+    /// @brief channel is the Synnax channel that raw samples are written to.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief device is the key of the device the channel belongs to.
+    ::synnax::device::Key device = "";
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_DEG_C;
 
@@ -935,10 +943,10 @@ struct AIAccel4WireDCVoltageChannel : public BaseAIChannel,
     std::string units = ACCEL_UNITS_G;
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
     std::string sensitivity_units = ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G;
-    /// @brief use_excit_for_scaling is true when the excitation voltage is used to
-    /// scale
-    /// the reading.
-    bool use_excit_for_scaling = false;
+    /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
+    /// the
+    /// reading.
+    bool scaled_by_excitation = false;
 
     static AIAccel4WireDCVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -948,14 +956,13 @@ struct AIAccel4WireDCVoltageChannel : public BaseAIChannel,
 struct AIAccelChargeChannel : public BaseAIChannel,
                               public MinMaxVal,
                               public Terminal,
+                              public Sensitivity,
                               public CustomScale {
     std::string type = "ai_accel_charge";
     /// @brief units are the units of the acceleration measurement.
     std::string units = ACCEL_UNITS_G;
-    /// @brief sensitivity is the sensitivity of the accelerometer.
-    double sensitivity = 0;
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
-    std::string sensitivity_units = ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G;
+    std::string sensitivity_units = ACCEL_CHARGE_SENSITIVITY_UNITS_PICO_COULOMBS_PER_G;
 
     static AIAccelChargeChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -980,8 +987,6 @@ struct AICurrentRMSChannel : public BaseAIChannel,
                              public Terminal,
                              public CustomScale {
     std::string type = "ai_current_rms";
-    /// @brief units are the units of the current measurement.
-    std::string units = UNITS_AMPS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
     /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
@@ -1014,8 +1019,6 @@ struct AIFreqVoltageChannel : public BaseAIChannel,
                               public MinMaxVal,
                               public CustomScale {
     std::string type = "ai_freq_voltage";
-    /// @brief units are the units of the frequency measurement.
-    std::string units = UNITS_HZ;
     /// @brief threshold_level is the voltage level at which a cycle is counted.
     double threshold_level = 0;
     /// @brief hysteresis is the hysteresis applied around the threshold level.
@@ -1107,8 +1110,6 @@ struct AIVoltageRMSChannel : public BaseAIChannel,
                              public Terminal,
                              public CustomScale {
     std::string type = "ai_voltage_rms";
-    /// @brief units are the units of the voltage measurement.
-    std::string units = UNITS_VOLTS;
 
     static AIVoltageRMSChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1121,14 +1122,12 @@ struct AIVoltageWithExcitChannel : public BaseAIChannel,
                                    public VoltageExcitation,
                                    public CustomScale {
     std::string type = "ai_voltage_with_excit";
-    /// @brief units are the units of the voltage measurement.
-    std::string units = UNITS_VOLTS;
     /// @brief bridge_config selects the physical bridge wiring.
     std::string bridge_config = BRIDGE_CONFIG_FULL_BRIDGE;
-    /// @brief use_excit_for_scaling is true when the excitation voltage is used to
-    /// scale
-    /// the reading.
-    bool use_excit_for_scaling = false;
+    /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
+    /// the
+    /// reading.
+    bool scaled_by_excitation = false;
 
     static AIVoltageWithExcitChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1172,12 +1171,8 @@ AIChannel parse_ai_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const AIChannel &value);
 
 /// @brief CIFrequencyChannel measures signal frequency.
-struct CIFrequencyChannel : public BaseCIChannel, public CustomScale {
+struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
     std::string type = "ci_frequency";
-    /// @brief min_val is the minimum expected frequency.
-    double min_val = 2;
-    /// @brief max_val is the maximum expected frequency.
-    double max_val = 100;
     /// @brief units are the units of the frequency measurement.
     std::string units = CI_FREQ_UNITS_HZ;
     /// @brief edge selects the edge the counter responds to.
@@ -1191,6 +1186,11 @@ struct CIFrequencyChannel : public BaseCIChannel, public CustomScale {
     std::int32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
+
+    CIFrequencyChannel() {
+        this->min_val = 2;
+        this->max_val = 100;
+    }
 
     static CIFrequencyChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1213,12 +1213,8 @@ struct CIEdgeCountChannel : public BaseCIChannel {
 };
 
 /// @brief CIPeriodChannel measures signal period.
-struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
+struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
     std::string type = "ci_period";
-    /// @brief min_val is the minimum expected period, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected period, in the selected units.
-    double max_val = 0.100000;
     /// @brief units are the units of the period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief starting_edge selects the edge that starts a period measurement.
@@ -1233,17 +1229,20 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale {
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
+    CIPeriodChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 0.100000;
+    }
+
     static CIPeriodChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CIPulseWidthChannel measures pulse width.
-struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
+struct CIPulseWidthChannel : public BaseCIChannel,
+                             public CustomScale,
+                             public MinMaxVal {
     std::string type = "ci_pulse_width";
-    /// @brief min_val is the minimum expected pulse width, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected pulse width, in the selected units.
-    double max_val = 0.100000;
     /// @brief units are the units of the pulse-width measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief starting_edge selects the edge that starts a pulse-width measurement.
@@ -1251,33 +1250,39 @@ struct CIPulseWidthChannel : public BaseCIChannel, public CustomScale {
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
+    CIPulseWidthChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 0.100000;
+    }
+
     static CIPulseWidthChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CISemiPeriodChannel measures semi-period.
-struct CISemiPeriodChannel : public BaseCIChannel, public CustomScale {
+struct CISemiPeriodChannel : public BaseCIChannel,
+                             public CustomScale,
+                             public MinMaxVal {
     std::string type = "ci_semi_period";
-    /// @brief min_val is the minimum expected semi-period, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected semi-period, in the selected units.
-    double max_val = 0.100000;
     /// @brief units are the units of the semi-period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
+
+    CISemiPeriodChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 0.100000;
+    }
 
     static CISemiPeriodChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CITwoEdgeSepChannel measures the separation between two edges.
-struct CITwoEdgeSepChannel : public BaseCIChannel, public CustomScale {
+struct CITwoEdgeSepChannel : public BaseCIChannel,
+                             public CustomScale,
+                             public MinMaxVal {
     std::string type = "ci_two_edge_sep";
-    /// @brief min_val is the minimum expected separation, in the selected units.
-    double min_val = 0.000001;
-    /// @brief max_val is the maximum expected separation, in the selected units.
-    double max_val = 1;
     /// @brief units are the units of the two-edge-separation measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief first_edge selects the edge that starts the measurement.
@@ -1289,17 +1294,20 @@ struct CITwoEdgeSepChannel : public BaseCIChannel, public CustomScale {
     /// @brief second_terminal is the terminal the second edge's signal is wired to.
     std::string second_terminal = "";
 
+    CITwoEdgeSepChannel() {
+        this->min_val = 0.000001;
+        this->max_val = 1;
+    }
+
     static CITwoEdgeSepChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CIVelocityLinearChannel measures linear velocity from an encoder.
-struct CIVelocityLinearChannel : public BaseCIChannel, public CustomScale {
+struct CIVelocityLinearChannel : public BaseCIChannel,
+                                 public CustomScale,
+                                 public MinMaxVal {
     std::string type = "ci_velocity_linear";
-    /// @brief min_val is the minimum expected velocity.
-    double min_val = 0;
-    /// @brief max_val is the maximum expected velocity.
-    double max_val = 1;
     /// @brief units are the units of the velocity measurement.
     std::string units = CI_LINEAR_VELOCITY_UNITS_M_PER_S;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1311,17 +1319,20 @@ struct CIVelocityLinearChannel : public BaseCIChannel, public CustomScale {
     /// @brief terminal_b is the terminal for encoder channel B.
     std::string terminal_b = "";
 
+    CIVelocityLinearChannel() {
+        this->min_val = 0;
+        this->max_val = 1;
+    }
+
     static CIVelocityLinearChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief CIVelocityAngularChannel measures angular velocity from an encoder.
-struct CIVelocityAngularChannel : public BaseCIChannel, public CustomScale {
+struct CIVelocityAngularChannel : public BaseCIChannel,
+                                  public CustomScale,
+                                  public MinMaxVal {
     std::string type = "ci_velocity_angular";
-    /// @brief min_val is the minimum expected velocity.
-    double min_val = 0;
-    /// @brief max_val is the maximum expected velocity.
-    double max_val = 1;
     /// @brief units are the units of the velocity measurement.
     std::string units = CI_ANGULAR_VELOCITY_UNITS_RPM;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1332,6 +1343,11 @@ struct CIVelocityAngularChannel : public BaseCIChannel, public CustomScale {
     std::string terminal_a = "";
     /// @brief terminal_b is the terminal for encoder channel B.
     std::string terminal_b = "";
+
+    CIVelocityAngularChannel() {
+        this->min_val = 0;
+        this->max_val = 1;
+    }
 
     static CIVelocityAngularChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1382,16 +1398,17 @@ struct CIPositionAngularChannel : public BaseCIChannel,
 };
 
 /// @brief CIDutyCycleChannel measures the duty cycle of a signal.
-struct CIDutyCycleChannel : public BaseCIChannel, public CustomScale {
+struct CIDutyCycleChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
     std::string type = "ci_duty_cycle";
-    /// @brief min_val is the minimum expected duty-cycle frequency.
-    double min_val = 2;
-    /// @brief max_val is the maximum expected duty-cycle frequency.
-    double max_val = 10000;
     /// @brief active_edge selects the edge the counter responds to.
     std::string active_edge = CI_EDGE_RISING;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
+
+    CIDutyCycleChannel() {
+        this->min_val = 2;
+        this->max_val = 10000;
+    }
 
     static CIDutyCycleChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1418,8 +1435,6 @@ CIChannel parse_ci_channel(x::json::Parser parser);
 /// @brief AOCurrentChannel drives a current output.
 struct AOCurrentChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
     std::string type = "ao_current";
-    /// @brief units are the units of the current output.
-    std::string units = UNITS_AMPS;
 
     static AOCurrentChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1444,8 +1459,6 @@ struct AOFuncGenChannel : public BaseAOChannel {
 /// @brief AOVoltageChannel drives a voltage output.
 struct AOVoltageChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
     std::string type = "ao_voltage";
-    /// @brief units are the units of the voltage output.
-    std::string units = UNITS_VOLTS;
 
     static AOVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

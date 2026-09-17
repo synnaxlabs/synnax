@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { label, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -17,15 +18,17 @@ import { searchAndClickLabel } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import {
   createConsoleWrapper,
+  createTestClientWithGrants,
   findDialogTrigger,
   getIconButton,
+  type Grants,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const renderSelect = async (ui: ReactElement) => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const renderSelect = async (ui: ReactElement, as: Client = client) => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
   return render(
     <>
       {ui}
@@ -80,5 +83,41 @@ describe("Label.Select", () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
+  });
+});
+
+describe("Label.Select permissions", () => {
+  const createSubject = async (grants: Grants) =>
+    await createTestClientWithGrants(client, {
+      ...grants,
+      retrieve: [label.TYPE_ONTOLOGY_ID],
+    });
+
+  const renderPicker = async (as: Client): Promise<string> => {
+    const { name } = await client.labels.create({
+      name: uniqueName("label"),
+      color: "#0000FF",
+    });
+    await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />, as);
+    fireEvent.click(await findDialogTrigger());
+    const search = await screen.findByPlaceholderText("Search labels...");
+    fireEvent.change(search, { target: { value: name } });
+    return name;
+  };
+
+  it("should withhold the new-label action from a subject who cannot create labels", async () => {
+    const name = await renderPicker(await createSubject({}));
+    // The listed label proves the picker resolved its data, so the missing action
+    // is the gate and not a list still in flight.
+    await screen.findByText(name);
+    expect(screen.queryByText("New label")).toBeNull();
+    // A footer that renders null still counts as a footer, which moves the border
+    // off the list onto an empty wrapper.
+    expect(document.querySelector(".pluto-select__body")).toBeNull();
+  });
+
+  it("should offer the new-label action to a subject who may create labels", async () => {
+    await renderPicker(await createSubject({ create: [label.TYPE_ONTOLOGY_ID] }));
+    expect(await screen.findByText("New label")).toBeTruthy();
   });
 });

@@ -22,7 +22,7 @@ import { Session } from "@/session";
 export const Target = (): ReactElement => {
   const { variant, details } = Synnax.useConnectionStatus();
   const checking = useHeldChecking(details.checking);
-  const cluster = Session.Cluster.useSelectState();
+  const core = Session.Core.useSelectSelected();
   const label = STATUS_LABELS[variant];
   return (
     <Flex.Box
@@ -34,11 +34,11 @@ export const Target = (): ReactElement => {
     >
       <Indicator />
       <Text.Text color={10} weight={500} overflow="ellipsis">
-        {cluster?.name ?? "Core"}
+        {core?.name ?? "Core"}
       </Text.Text>
-      {cluster != null && (
+      {core != null && (
         <Text.Text color={9} overflow="ellipsis">
-          {cluster.host}:{cluster.port}
+          {core.host}:{core.port}
         </Text.Text>
       )}
       <Text.Text status={variant} className={CSS.BE("connection-target", "status")}>

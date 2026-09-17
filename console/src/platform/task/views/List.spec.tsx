@@ -76,10 +76,10 @@ describe("layouts.List", () => {
     expect(screen.getByText("No channels in task")).toBeTruthy();
   });
 
-  it("should hide the add button when the task is a snapshot", async () => {
+  it("should hide the add button when the form is in preview", async () => {
     const { container } = await renderInTaskForm(
       <Task.Views.List<Channel> createChannel={() => null} listItem={listItem} />,
-      { values: { snapshot: true, config: { channels: [] } } },
+      { values: { config: { channels: [] } }, mode: "preview" },
     );
     await waitFor(() => expect(screen.getByText("Channels")).toBeTruthy());
     expect(queryIconButton(container, "add")).toBeNull();

@@ -23,7 +23,7 @@ import { type ReactElement, useCallback } from "react";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols } from "@/feature/schematic/toolbar/Symbols";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Errors } from "@/platform/errors";
@@ -97,9 +97,13 @@ const Internal = (): ReactElement => {
             )}
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton getID={() => schematic.ontologyID(key)} />
-              <Cluster.CopyLinkToolbarButton
+            <Flex.Box
+              x
+              gap="small"
+              className={CSS.BE("schematic", "toolbar", "actions")}
+            >
+              <Export.ToolbarButton id={schematic.ontologyID(key)} />
+              <Core.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}
               />

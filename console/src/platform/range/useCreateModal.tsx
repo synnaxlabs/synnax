@@ -63,17 +63,9 @@ export const useCreateModal = Modals.create<CreateModalParams>(
       },
       afterSave: (form) => {
         close();
-        const { name, key, timeRange } = form.value();
+        const { key } = form.value();
         if (key == null) return;
-        dispatch(
-          Session.Range.add({
-            name,
-            key,
-            persisted: true,
-            variant: "static",
-            timeRange,
-          }),
-        );
+        dispatch(Session.Range.add({ variant: "persisted", key }));
       },
     });
 
@@ -83,10 +75,9 @@ export const useCreateModal = Modals.create<CreateModalParams>(
       if (key == null) return;
       dispatch(
         Session.Range.add({
-          persisted: false,
-          name,
-          key,
           variant: "static",
+          key,
+          name,
           timeRange: new TimeRange(timeRange.start, timeRange.end).numeric,
         }),
       );

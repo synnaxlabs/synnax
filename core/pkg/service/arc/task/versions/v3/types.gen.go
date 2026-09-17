@@ -53,8 +53,8 @@ type Config struct {
 	RtPriority int32 `json:"rt_priority" msgpack:"rt_priority"`
 	// CPUAffinity pins the loop to a CPU core. -1 selects automatically.
 	CPUAffinity int32 `json:"cpu_affinity" msgpack:"cpu_affinity"`
-	// LockMemory locks the runtime's memory to prevent paging.
-	LockMemory bool `json:"lock_memory" msgpack:"lock_memory"`
+	// MemoryLocked is true when the runtime's memory is locked to prevent paging.
+	MemoryLocked bool `json:"memory_locked" msgpack:"memory_locked"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

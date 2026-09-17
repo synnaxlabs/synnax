@@ -47,6 +47,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
@@ -64,6 +65,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -132,8 +134,8 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("service")
-	validate.NotNil(v, "distribution", c.Distribution)
-	validate.NotNil(v, "security", c.Security)
+	v.NotNil("distribution", c.Distribution)
+	v.NotNil("security", c.Security)
 	return v.Error()
 }
 
@@ -358,9 +360,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigUUID(l.Group.Observe()),
 	); !ok(err, closer) {
 		return nil, err
@@ -373,16 +374,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigUUID(l.Label.Observe()),
 	); !ok(err, closer) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigString(l.Status.Observe()),
 	); !ok(err, closer) {
 		return nil, err
@@ -516,9 +515,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
-	if closer, err := signals.PublishFromGorp(
+	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
-		l.Signals,
 		signals.GorpPublisherConfigNumeric(l.Rack.Observe(), telem.Uint32T),
 	); !ok(err, closer) {
 		return nil, err
@@ -667,7 +665,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Storage:         cfg.Storage,
 			Group:           l.Group,
 			Ontology:        l.Ontology,
-		}); !ok(err, l.Metrics) {
+		},
+	); !ok(err, l.Metrics) {
+		return nil, err
+	}
+	// Composition migrations move data across service boundaries, so they can only run
+	// once every service table above is open: a table's own chain runs at open, before
+	// later services have staged the legacy data these migrations consume. Table chains
+	// handle single-table format upgrades; anything that reads another service's staged
+	// data belongs here.
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Child("composition"),
+		DB:              cfg.Distribution.DB,
+		Namespace:       "Composition",
+		Migrations:      panelversions.CompositionMigrations,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{

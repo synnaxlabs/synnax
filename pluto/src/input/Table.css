@@ -1,0 +1,48 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-input__table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+
+    & th,
+    & td {
+        vertical-align: middle;
+        font-weight: unset;
+    }
+
+    & thead th {
+        text-align: left;
+        padding-bottom: 0.5rem;
+    }
+
+    & tbody td {
+        padding-block: 0.5rem;
+    }
+
+    /* The gutter holds the row's label, the action column its remove button. */
+    & th:first-child {
+        width: 5rem;
+        text-align: right;
+        padding-right: 1rem;
+    }
+
+    & th:last-child,
+    & td:last-child {
+        width: 6rem;
+        text-align: right;
+    }
+
+    & td:not(:last-child) {
+        padding-right: 1rem;
+    }
+}

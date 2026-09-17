@@ -57,10 +57,7 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         assert len(tasks) == 1, (
             f"Expected exactly 1 task named '{self.task_name}', got {len(tasks)}"
         )
-        raw = tasks[0]
-        typed = self.task_class(**raw.config)
-        typed.set_internal(raw)
-        return typed
+        return self.task_class(tasks[0])
 
     def run(self) -> None:
         self.test_task_config()
@@ -141,7 +138,7 @@ class ReadTaskConsoleVerify(ConsoleCase):
         self.log(f"Testing: Task form for '{self.task_name}' in console")
         console = self.console
 
-        task_page = console.project.open_from_search(TaskPage, self.task_name)
+        task_page = console.pages.open_from_search(TaskPage, self.task_name)
 
         layout = console.layout
         assert layout.get_input_field("Name") == self.task_name, "Task name mismatch"

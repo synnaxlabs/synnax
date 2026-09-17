@@ -56,14 +56,13 @@ class UserRegister(ConsoleCase):
 
         self.log(f"Registering user: {self.username}")
 
-        success = self.console.access.register_user(
+        self.console.access.register_user(
             username=self.username,
             password=PASSWORD,
             first_name="Test",
             last_name="User",
             role_name=role_name,
         )
-        assert success, f"Failed to register user {self.username}"
 
         self.log("User registered, verifying in UI...")
         self.console.access.expand_role(role_name)
@@ -78,10 +77,9 @@ class UserRegister(ConsoleCase):
         """Change a user's role and verify they move between roles."""
         self.log(f"Changing role for {self.username}: Operator -> Engineer")
 
-        success = self.console.access.assign_role_to_user(
+        self.console.access.assign_role_to_user(
             username=self.username, role_name="Engineer"
         )
-        assert success, f"Failed to change role for {self.username}"
 
         self.console.access.expand_role("Engineer")
         engineer_users = self.console.access.list_users_under_role("Engineer")
@@ -109,10 +107,9 @@ class UserRegister(ConsoleCase):
         new_username = f"renamed_{random_name()}"
         self.log(f"Renaming user: {self.username} -> {new_username}")
 
-        success = self.console.access.rename_user(
+        self.console.access.rename_user(
             username=self.username, new_username=new_username
         )
-        assert success, f"Failed to rename user {self.username}"
 
         item = self.console.access._find_user_item(new_username)
         assert item is not None, f"Renamed user {new_username} not found in tree"
@@ -124,10 +121,9 @@ class UserRegister(ConsoleCase):
         new_username = f"logintest_{random_name()}"
         self.log(f"Changing username: {self.username} -> {new_username}")
 
-        success = self.console.access.rename_user(
+        self.console.access.rename_user(
             username=self.username, new_username=new_username
         )
-        assert success, f"Failed to rename user {self.username}"
         self.username = new_username
 
         self.log("Logging out and logging in with new username")
@@ -143,20 +139,18 @@ class UserRegister(ConsoleCase):
         username = f"deluser_{random_name()}"
         self.log(f"Registering user to delete: {username}")
 
-        success = self.console.access.register_user(
+        self.console.access.register_user(
             username=username,
             password=PASSWORD,
             first_name="Delete",
             last_name="Me",
             role_name="Operator",
         )
-        assert success, f"Failed to register user {username}"
 
         self.console.access.expand_role("Operator")
 
         self.log(f"Deleting user: {username}")
-        success = self.console.access.delete_user(username)
-        assert success, f"Failed to delete user {username}"
+        self.console.access.delete_user(username)
 
     def test_delete_multiple_users(self) -> None:
         """Delete multiple users via multi-select in the Resources Toolbar."""
@@ -164,14 +158,13 @@ class UserRegister(ConsoleCase):
 
         for username in usernames:
             self.log(f"Registering user: {username}")
-            success = self.console.access.register_user(
+            self.console.access.register_user(
                 username=username,
                 password=PASSWORD,
                 first_name="Multi",
                 last_name="Delete",
                 role_name="Operator",
             )
-            assert success, f"Failed to register user {username}"
 
         self.console.access.expand_role("Operator")
 
@@ -179,5 +172,4 @@ class UserRegister(ConsoleCase):
             self.console.access.ensure_user_visible(username, "Operator")
 
         self.log(f"Deleting users: {usernames}")
-        success = self.console.access.delete_users(usernames)
-        assert success, f"Failed to delete users {usernames}"
+        self.console.access.delete_users(usernames)

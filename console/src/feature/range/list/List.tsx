@@ -58,6 +58,13 @@ const EmptyContent = () => {
   );
 };
 
+const SEARCH_PLACEHOLDER = (
+  <>
+    <Icon.Search />
+    Search Ranges...
+  </>
+);
+
 export const List = ({
   data,
   getItem,
@@ -119,12 +126,7 @@ export const List = ({
               level="h5"
               variant="text"
               value={request.searchTerm ?? ""}
-              placeholder={
-                <>
-                  <Icon.Search />
-                  Search Ranges...
-                </>
-              }
+              placeholder={SEARCH_PLACEHOLDER}
               onChange={handleSearch}
             />
             {enableAddButton && <AddButton />}

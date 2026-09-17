@@ -131,8 +131,8 @@ public:
                 fr.at(channel.channel, -1),
                 state.data() + offset,
                 channel.value_type,
-                channel.swap_bytes,
-                channel.swap_words
+                channel.bytes_swapped,
+                channel.words_swapped
             );
             if (err) return err;
         }

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
@@ -110,6 +111,7 @@ func NewHost(
 	builder = bindI32[int32](builder, cs, "i32")
 	builder = bindI64[uint64](builder, cs, "u64")
 	builder = bindI64[int64](builder, cs, "i64")
+	builder = bindBool(builder, cs)
 	builder = bindF32(builder, cs)
 	builder = bindF64(builder, cs)
 	builder = bindStr(builder, cs, stringState)
@@ -119,7 +121,7 @@ func NewHost(
 	return h, nil
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	isSource := cfg.Node.Type == "on"
 	isSink := cfg.Node.Type == "write"
 	if !isSource && !isSink {
@@ -177,7 +179,7 @@ type nodeInputs struct {
 // latest key when present, otherwise the configured key.
 func boundKey(s *node.State, channelIdx int, configured uint32) uint32 {
 	if t := s.RefInput(channelIdx); t.Len() > 0 {
-		return telem.ValueAt[uint32](t, -1)
+		return t.ValueAt[uint32](-1)
 	}
 	return configured
 }
@@ -281,20 +283,32 @@ func (s *sink) Next(ctx node.Context) {
 		return
 	}
 	data := s.Input(s.inputIdx)
-	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}
-	s.state.writeChannel(boundKey(s.State, s.channelIdx, s.key), data, time)
-	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
+	key := boundKey(s.State, s.channelIdx, s.key)
+	time := s.InputTime(s.inputIdx)
+	// A length disagreement is an upstream aligner bug. Refuse the write instead
+	// of persisting a corrupt index.
+	if time.Len() != data.Len() {
+		ctx.ReportError(errors.Newf(
+			"write to channel %d: sample count %d does not match timestamp count %d",
+			key,
+			data.Len(),
+			time.Len(),
+		))
+		return
+	}
+	s.state.writeChannel(key, data, time)
+	lastTS := time.ValueAt[telem.TimeStamp](-1)
 	out := s.Output(0)
 	out.Resize(1)
-	telem.SetValueAt[uint8](*out, 0, 1)
+	out.SetValueAt[uint8](0, 1)
 	out.Alignment = data.Alignment
 	out.TimeRange = data.TimeRange
 	outTime := s.OutputTime(0)
 	outTime.Resize(1)
-	telem.SetValueAt(*outTime, 0, lastTS)
+	outTime.SetValueAt(0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange
 	ctx.MarkChanged(0)
@@ -315,7 +329,7 @@ func bindI32[T i32Compatible](
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return uint32(telem.ValueAt[T](series, -1))
+			return uint32(series.ValueAt[T](-1))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
@@ -340,13 +354,36 @@ func bindI64[T i64Compatible](
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return uint64(telem.ValueAt[T](series, -1))
+			return uint64(series.ValueAt[T](-1))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
 			appendFixedWriteSample(cs, chID, T(val))
 			cs.writeIndexedTimestamp(chID)
 		}).Export("write_" + suffix)
+	return builder
+}
+
+func bindBool(
+	builder wazero.HostModuleBuilder,
+	cs *ProgramState,
+) wazero.HostModuleBuilder {
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID uint32) uint32 {
+			series, ok := cs.ReadValue(chID)
+			if !ok || series.Len() == 0 {
+				return 0
+			}
+			if series.ValueAt[bool](-1) {
+				return 1
+			}
+			return 0
+		}).Export("read_bool")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, chID, val uint32) {
+			appendFixedWriteSample(cs, chID, val != 0)
+			cs.writeIndexedTimestamp(chID)
+		}).Export("write_bool")
 	return builder
 }
 
@@ -360,7 +397,7 @@ func bindF32(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return telem.ValueAt[float32](series, -1)
+			return series.ValueAt[float32](-1)
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
@@ -379,7 +416,7 @@ func bindF64(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			return telem.ValueAt[float64](series, -1)
+			return series.ValueAt[float64](-1)
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
@@ -399,7 +436,7 @@ func bindStr(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			unmarshaled := telem.UnmarshalSeries[string](series)
+			unmarshaled := series.Unmarshal[string]()
 			if len(unmarshaled) == 0 {
 				return 0
 			}

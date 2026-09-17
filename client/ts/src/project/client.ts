@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
+import {
+  type FileTransport,
+  type UnaryClient,
+  type UploadBody,
+} from "@synnaxlabs/freighter";
 import {
   array,
   caseconv,
@@ -51,9 +55,21 @@ const setLayoutReqZ = z.object({
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
 
+const importParamsZ = z.object({ fileName: z.string().min(1) });
+
 const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
+const importResZ = z.object({ project: projectZ });
 const emptyResZ = z.object({});
+
+/** Options for a project import call. */
+export interface ImportOptions {
+  /**
+   * The name of the uploaded archive or picked directory. Its extension-stripped form
+   * names the project when the bundle carries no name.
+   */
+  fileName: string;
+}
 
 export interface SetLayoutParams extends z.input<typeof setLayoutReqZ> {}
 
@@ -166,8 +182,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     this.mergeThrough(key, { layout });
   }
 
-  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
-  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [
@@ -194,8 +208,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
    * naming the project. Two members of one directory that take the same file name keep
    * distinct names through a numeric suffix. The caller pipes the stream wherever it
    * likes without the client buffering the whole archive.
-   *
-   * @param key - the key of the project to export.
    * @param options - the export options, including the serialization member files are
    * written in.
    * @returns the bundle as a stream of zip bytes.
@@ -207,6 +219,30 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
       exportReqZ,
       { encoding: "ZIP" },
     );
+  }
+
+  /**
+   * Imports a project bundle: a zip archive holding one JSON envelope per document and
+   * panel, group children as directories, and a manifest.json naming the project. The
+   * Core creates a fresh project and imports every member in a single transaction, so a
+   * failure leaves nothing behind. Legacy project directories (a root LAYOUT.json with
+   * no manifest) import through the same call.
+   *
+   * @param data - the bundle as zip bytes.
+   * @param options - the import options, including the source file's name.
+   * @returns the created project.
+   * @throws {ValidationError} if the manifest is missing, malformed, or of another
+   * bundle kind, if two member names collide, or if a member cannot be imported.
+   */
+  async import(data: UploadBody, options: ImportOptions): Promise<Project> {
+    const res = await this.cfg.file.upload(
+      "/project/import",
+      data,
+      { encoding: "ZIP", params: options, paramsSchema: importParamsZ },
+      importResZ,
+    );
+    this.store.set(res.project);
+    return res.project;
   }
 
   /** Subscribes to every project delete delivered to the cache. */

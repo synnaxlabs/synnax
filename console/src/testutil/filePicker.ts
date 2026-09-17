@@ -7,34 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { File as NodeFile } from "node:buffer";
+
 import { vi } from "vitest";
 
 /**
- * FakePickedFile is the minimal File surface the browser file-picker path reads:
- * name, optional directory-relative path, and contents as text or bytes.
+ * fakePickedFile builds a File for driving the browser picker boundary. It is built
+ * from node:buffer so undici's fetch accepts it as a request body — jsdom's File is
+ * another realm's Blob and would be stringified.
  */
-export interface FakePickedFile {
-  name: string;
-  webkitRelativePath?: string;
-  text: () => Promise<string>;
-  arrayBuffer: () => Promise<ArrayBuffer>;
-}
-
-/** fakePickedFile builds a FakePickedFile with the given name and contents. */
 export const fakePickedFile = (
   name: string,
   contents: string | Uint8Array<ArrayBuffer> = "content",
   webkitRelativePath?: string,
-): FakePickedFile => {
-  const bytes =
-    typeof contents === "string" ? new TextEncoder().encode(contents) : contents;
-  return {
-    name,
-    webkitRelativePath,
-    text: () => Promise.resolve(new TextDecoder().decode(bytes)),
-    arrayBuffer: async () =>
-      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-  };
+): File => {
+  const file = new NodeFile([contents], name) as unknown as File;
+  if (webkitRelativePath != null)
+    Object.defineProperty(file, "webkitRelativePath", { value: webkitRelativePath });
+  return file;
 };
 
 /**
@@ -46,7 +36,7 @@ export interface FilePickerInterceptor {
   /** lastInput returns the most recently opened picker input. */
   lastInput: () => HTMLInputElement;
   /** selectFiles resolves the pending pick with the given files. */
-  selectFiles: (files: FakePickedFile[]) => void;
+  selectFiles: (files: File[]) => void;
   /** cancel dismisses the pending pick. */
   cancel: () => void;
 }

@@ -19,10 +19,16 @@ import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
 import { getRootElement } from "@/util/rootElement";
 
+/** Props for {@link Dialog}. */
 export interface DialogProps extends Flex.BoxProps<"div"> {
+  /** Keeps the children mounted and hidden while closed, instead of unmounting them. */
   passthrough?: boolean;
 }
 
+/**
+ * The floating surface of a {@link Frame}. It mounts only while open, unless
+ * `passthrough` is set, and portals itself to the document root when modal.
+ */
 export const Dialog = ({
   style,
   background = 0,
@@ -52,7 +58,7 @@ export const Dialog = ({
       ref={ref}
       y
       background={background}
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("dialog", "dialog"),
         CSS.loc(targetCorner.x),
         CSS.loc(targetCorner.y),

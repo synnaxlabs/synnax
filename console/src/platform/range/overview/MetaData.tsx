@@ -107,7 +107,7 @@ const MetaDataListItem = ({
   }, [isCreate, visible]);
   return (
     <List.Item
-      className={CSS(
+      className={CSS.cls(
         CSS.BE("metadata", "list-item"),
         isCreate && CSS.M("create"),
         PCSS.visible(visible),
@@ -150,6 +150,7 @@ const MetaDataListItem = ({
               size="small"
               onClick={() => save()}
               trigger={visible ? ["Enter"] : undefined}
+              triggerIndicator
             >
               <Icon.Check />
             </Button.Button>

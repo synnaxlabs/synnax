@@ -174,3 +174,121 @@ var _ = Describe("Optional Default Invariant", func() {
 			""),
 	)
 })
+
+var _ = Describe("Default Groups", func() {
+	var loader *MockFileLoader
+	BeforeEach(func() { loader = NewMockFileLoader() })
+
+	DescribeTable(
+		"a field marked with `@default group`",
+		func(ctx SpecContext, source, wantErr string) {
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			if wantErr == "" {
+				Expect(diag.Ok()).To(BeTrue())
+			} else {
+				Expect(diag.Error()).To(ContainSubstring(wantErr))
+			}
+		},
+		Entry("accepts a numeric pair sharing a group",
+			`
+				Cfg struct {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64 = 1 { @default group "range" }
+				}
+			`,
+			""),
+		Entry("accepts two groups in one struct",
+			`
+				Cfg struct {
+					first_electrical  float64 = 0 { @default group "electrical" }
+					second_electrical float64 = 1 { @default group "electrical" }
+					first_physical    float64 = 0 { @default group "physical" }
+					second_physical   float64 = 1 { @default group "physical" }
+				}
+			`,
+			""),
+		Entry("accepts a group declared across union variant fields",
+			`
+				Scale union on type {
+					map {
+						scaled_min float64 = 0 { @default group "scaled" }
+						scaled_max float64 = 1 { @default group "scaled" }
+					}
+				}
+			`,
+			""),
+		Entry("rejects a group with a single member",
+			`
+				Cfg struct {
+					max_val float64 = 1 { @default group "range" }
+				}
+			`,
+			`default group "range" in "Cfg" has one member`),
+		Entry("rejects a marker with no group name",
+			`
+				Cfg struct {
+					min_val float64 = 0 { @default group }
+					max_val float64 = 1 { @default group }
+				}
+			`,
+			"declares `@default group` with no name"),
+		Entry("rejects a member with no default",
+			`
+				Cfg struct {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64 { @default group "range" }
+				}
+			`,
+			`is in default group "range" but has no default`),
+		Entry("rejects an optional member",
+			`
+				Cfg struct {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64? { @default group "range" }
+				}
+			`,
+			`is optional and in default group "range"`),
+		Entry("rejects a bool member, whose zero is always valid on its own",
+			`
+				Cfg struct {
+					lower bool = false { @default group "range" }
+					upper bool = true { @default group "range" }
+				}
+			`,
+			"has no zero value the group guard can compare against"),
+		Entry("rejects an integer-enum member, whose zeroth value is a real member",
+			`
+				Priority enum {
+					low = 0
+					high = 1
+				}
+
+				Cfg struct {
+					a Priority = low { @default group "g" }
+					b Priority = high { @default group "g" }
+				}
+			`,
+			"has no zero value the group guard can compare against"),
+		Entry("accepts a string-enum member",
+			`
+				Units enum {
+					volts = "Volts"
+					amps = "Amps"
+				}
+
+				Cfg struct {
+					units Units = volts { @default group "g" }
+					label string = "signal" { @default group "g" }
+				}
+			`,
+			""),
+		Entry("rejects an unknown expression in the default domain",
+			`
+				Cfg struct {
+					min_val float64 = 0 { @default cluster "range" }
+					max_val float64 = 1 { @default cluster "range" }
+				}
+			`,
+			"declares unknown default expression"),
+	)
+})

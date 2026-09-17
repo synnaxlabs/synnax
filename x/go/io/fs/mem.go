@@ -58,7 +58,7 @@ func (y *MemFS) Open(fullName string, flag int) (File, error) {
 			if flag&os.O_TRUNC != 0 {
 				n.mu.Lock()
 				n.mu.data = n.mu.data[:0]
-				n.mu.modTime = time.Now()
+				n.touch()
 				n.mu.Unlock()
 			}
 
@@ -271,6 +271,17 @@ func (f *memNode) ModTime() time.Time {
 	return f.mu.modTime
 }
 
+// touch advances the modification time. The caller must hold f.mu. The new time is
+// always strictly after the old one: the Windows wall clock is too coarse to separate
+// writes landing in the same tick, and callers detect a change by comparing mod times.
+func (f *memNode) touch() {
+	now := time.Now()
+	if !now.After(f.mu.modTime) {
+		now = f.mu.modTime.Add(time.Nanosecond)
+	}
+	f.mu.modTime = now
+}
+
 const standardPerm = UserRWX | GroupRX | OtherRX
 
 func (f *memNode) Mode() os.FileMode {
@@ -414,7 +425,7 @@ func (f *memFile) Write(p []byte) (int, error) {
 	}
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
-	f.n.mu.modTime = time.Now()
+	f.n.touch()
 	if f.wpos+len(p) <= len(f.n.mu.data) {
 		n := copy(f.n.mu.data[f.wpos:f.wpos+len(p)], p)
 		if n != len(p) {
@@ -439,7 +450,7 @@ func (f *memFile) WriteAt(p []byte, ofs int64) (int, error) {
 	}
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
-	f.n.mu.modTime = time.Now()
+	f.n.touch()
 
 	for len(f.n.mu.data) < int(ofs)+len(p) {
 		f.n.mu.data = append(f.n.mu.data, 0)
@@ -478,7 +489,7 @@ func (f *memFile) Truncate(size int64) error {
 
 	f.n.mu.Lock()
 	defer f.n.mu.Unlock()
-	f.n.mu.modTime = time.Now()
+	f.n.touch()
 
 	if size > int64(len(f.n.mu.data)) {
 		f.n.mu.data = append(f.n.mu.data, make([]byte, size-int64(len(f.n.mu.data)))...)

@@ -29,6 +29,8 @@ export interface RenderOntologyTreeOptions {
   items?: Tree.Items;
   /** Extra siblings rendered alongside the tree, e.g. CaptureStatuses. */
   extra?: ReactNode;
+  /** The client that creates the session's project; defaults to the rendering one. */
+  projectClient?: Synnax;
 }
 
 export interface OntologyTreeHandle extends RenderResult {
@@ -36,7 +38,7 @@ export interface OntologyTreeHandle extends RenderResult {
 }
 
 /**
- * Renders the real Tree.Tree against the live cluster inside the full console
+ * Renders the real Tree.Tree against the live Core inside the full console
  * provider stack, with a mounted modal stack so context-menu flows can open prompts.
  * The Triggers provider is included so held-modifier interactions (control-click
  * multi-select) behave as they do in the app. An active project is established so
@@ -47,9 +49,10 @@ export const renderOntologyTree = async ({
   root,
   items = {},
   extra,
+  projectClient = client,
 }: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  await selectTestProject(store, client);
+  await selectTestProject(store, projectClient);
   const rendered = render(
     <Triggers.Provider>
       <Haul.Provider>

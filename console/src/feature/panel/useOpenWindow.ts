@@ -33,9 +33,8 @@ export const useOpenWindow = (): OpenWindow => {
     (key, props) => {
       const windowKey = id.create();
       dispatch(Drift.createWindow({ ...props, key: windowKey }));
-      // Seeds the identity title at creation, before the new window's own
-      // synchronizer can run, so a claimed pre-render never shows Tauri's
-      // default title.
+      // Seeds the identity title at creation, before the new window's own synchronizer
+      // can run, so a claimed pre-render never shows Tauri's default title.
       const ordinal = Drift.selectWindowAttribute(
         store.getState(),
         windowKey,

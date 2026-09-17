@@ -150,7 +150,6 @@ const getOpenChannel = (
   if (channelToCopy == null) return null;
   // preferredPortType is AI or DI
   const preferredPortType = convertReadChannelTypeToPortType(channelToCopy.type);
-  // backupPortType is the opposite of preferredPortType
   const backupPortType =
     preferredPortType === Device.DI_PORT_TYPE
       ? Device.AI_PORT_TYPE
@@ -260,7 +259,6 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     for (const c of config.channels) {
       const type = convertReadChannelTypeToPortType(c.type);
       const existing = dev.properties[type].channels[c.port];
-      // check if the channel is in properties
       if (primitive.isZero(existing)) toCreate.push(c);
       else
         try {

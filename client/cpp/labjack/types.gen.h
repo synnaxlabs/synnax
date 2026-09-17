@@ -47,7 +47,7 @@ constexpr const char *THERMOCOUPLE_TYPE_C = "C";
 /// @brief BaseReadChannel carries the fields every LabJack read channel shares.
 struct BaseReadChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief name is the human-readable channel name.
     std::string name = "";
     /// @brief disabled is true when the channel is excluded from acquisition.
@@ -64,7 +64,7 @@ struct BaseReadChannel {
 /// @brief BaseWriteChannel carries the fields every LabJack write channel shares.
 struct BaseWriteChannel {
     /// @brief key uniquely identifies the channel within the task.
-    std::string key = "";
+    std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
@@ -195,8 +195,6 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     std::string type = "thermocouple";
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_K;
-    /// @brief pos_chan is the AIN port the thermocouple's positive lead is wired to.
-    std::int32_t pos_chan = 0;
     /// @brief neg_chan is the AIN port of the thermocouple's negative lead on T7
     /// devices.
     /// 199 selects single-ended.

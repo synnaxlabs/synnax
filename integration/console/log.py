@@ -18,7 +18,7 @@ from console.page import ConsolePage
 class Log(ConsolePage):
     """Log page management interface"""
 
-    page_type: str = "Log"
+    page_type = "Log"
     pluto_label: str = ".pluto-log"
 
     def __init__(
@@ -46,15 +46,17 @@ class Log(ConsolePage):
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
         while True:
-            rows = toolbar.locator(
-                ".console-log__channel-row:has(button:has(svg.pluto-icon--close))"
+            rows = toolbar.locator(".console-log__channel-row").filter(
+                has=self.page.get_by_role("button", name="Remove channel", exact=True)
             )
             count = rows.count()
             if count == 0:
                 break
             row = rows.first
             row.hover()
-            remove_btn = row.locator("button:has(svg.pluto-icon--close)").first
+            remove_btn = row.get_by_role(
+                "button", name="Remove channel", exact=True
+            ).first
             remove_btn.dispatch_event("click")
             # Confirm the row actually detached before rescanning; a silent
             # no-op here would loop forever.
@@ -107,7 +109,7 @@ class Log(ConsolePage):
         self.page.mouse.move(x, bbox["y"] + bbox["height"] - 10, steps=5)
         self.page.mouse.up()
         self.pane_locator.click(button="right", position={"x": 40, "y": 10})
-        menu = self.page.locator(".pluto-menu-context").first
+        menu = self.page.get_by_role("menu")
         try:
             menu.wait_for(state="visible", timeout=3000)
             menu.locator(".pluto-menu-item").filter(has_text="Copy").first.click(

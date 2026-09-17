@@ -786,6 +786,40 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(o.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 	})
 
+	Describe("Reset channel", func() {
+		It(
+			"Should fail to compile with a non-boolean reset channel",
+			func(ctx SpecContext) {
+				reset := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Uint8T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &reset)).To(Succeed())
+				base := []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
+				calc := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: fmt.Sprintf("return %s", base[0].Name),
+					Operations: []channel.Operation{
+						{Type: "max", ResetChannel: reset.Key()},
+					},
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(compiler.Compile(ctx, compiler.Config{
+					ChannelService: channelSvc,
+					Channel:        calc,
+				})).Error().To(MatchError(ContainSubstring("type mismatch")))
+			},
+		)
+	})
+
 	It(
 		"Should compute derivative operation with type promotion",
 		func(ctx SpecContext) {
@@ -819,7 +853,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(o.Len()).To(BeEquivalentTo(3))
-			result := telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+			result := o.Get(calc.Key()).Series[0].Unmarshal[float64]()
 			Expect(result).To(HaveLen(3))
 			Expect(result[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(result[1]).To(BeNumerically("~", 10.0, 0.01))
@@ -835,7 +869,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			)
 			o, changed = MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
-			result = telem.UnmarshalSeries[float64](o.Get(calc.Key()).Series[0])
+			result = o.Get(calc.Key()).Series[0].Unmarshal[float64]()
 			Expect(result).To(HaveLen(1))
 			Expect(result[0]).To(BeNumerically("~", 10.0, 0.01))
 		},

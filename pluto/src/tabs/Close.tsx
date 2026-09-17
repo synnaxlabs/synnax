@@ -12,8 +12,10 @@ import { type ReactElement } from "react";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 
+/** Props for {@link Close}. */
 export interface CloseProps extends Button.CloseProps {}
 
+/** A close button sized and placed for use inside a {@link Tab}. */
 export const Close = ({ className, ...rest }: CloseProps): ReactElement => (
-  <Button.Close className={CSS(CSS.BE("tabs", "close"), className)} {...rest} />
+  <Button.Close className={CSS.cls(CSS.BE("tabs", "close"), className)} {...rest} />
 );

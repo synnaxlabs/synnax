@@ -19,6 +19,12 @@
     min-height: 5.5rem;
     border-radius: var(--pluto-border-radius-small);
 
+    /* Pairs with the hover and press gate in Button.css: a row that swallows its
+       own click is a container, not a control. */
+    &.pluto-btn--prevent-click {
+        cursor: default;
+    }
+
     /* Rows speak the list selection tier. The extra .pluto-btn outranks the
        control-tier default in Button.css; color resets to inherited because rows
        carry multi-color content. */

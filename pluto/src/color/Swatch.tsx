@@ -30,12 +30,9 @@ export interface SwatchProps
 
 /**
  * A color swatch that opens a picker when clicked.
- *
  * @param props - The props for the swatch. Unlisted props are passed to the underlying
  * button.
- * @param props.value - The color the swatch shows.
  * @param props.onChange - A function to call when the color changes.
- * @param props.allowChange - Whether clicking the swatch opens the picker.
  * @param props.onlyChangeOnBlur - If true, the swatch holds picker changes locally and
  * calls `onChange` once, when the picker closes. Set it where a live preview is not
  * worth a change per pixel of drag through the gradient. A change pending when the

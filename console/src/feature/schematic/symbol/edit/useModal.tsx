@@ -66,7 +66,7 @@ export const useModal = Modals.create<ModalParams>(
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
           handles: [],
           variant: "static",
-          scaleStroke: false,
+          strokeScaled: false,
           states: [{ key: "base", name: "Base", regions: [] }],
           scale: 1,
         },
@@ -235,7 +235,7 @@ export const useModal = Modals.create<ModalParams>(
                         )}
                       </Form.Field>
                       <Form.SwitchField
-                        path="data.scaleStroke"
+                        path="data.strokeScaled"
                         label="Scale stroke"
                         align="start"
                       />
@@ -265,7 +265,11 @@ export const useModal = Modals.create<ModalParams>(
             <Modals.Footer background={0}>
               <Triggers.SaveHelpText action={createSaveText} />
               <Nav.Bar.End>
-                <Button.Button variant="filled" onClick={() => save()}>
+                <Button.Button
+                  variant="filled"
+                  onClick={() => save()}
+                  trigger={Triggers.SAVE}
+                >
                   {createSaveText}
                 </Button.Button>
               </Nav.Bar.End>

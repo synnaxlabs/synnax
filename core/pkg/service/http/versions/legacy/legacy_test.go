@@ -46,6 +46,32 @@ var _ = Describe("Read", func() {
 		}))
 	})
 
+	It("Should rename the released timestamp format", func() {
+		in := msgpack.EncodedJSON{
+			"endpoints": []any{map[string]any{
+				"fields": []any{map[string]any{"timestampFormat": "unix_ms"}},
+			}},
+		}
+		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
+			"endpoints": []any{map[string]any{
+				"fields": []any{map[string]any{"time_format": "unix_ms"}},
+			}},
+		}))
+	})
+
+	It("Should keep a canonical time format unchanged", func() {
+		in := msgpack.EncodedJSON{
+			"endpoints": []any{map[string]any{
+				"fields": []any{map[string]any{"time_format": "iso8601"}},
+			}},
+		}
+		Expect(legacy.Read.Apply(in)).To(Equal(msgpack.EncodedJSON{
+			"endpoints": []any{map[string]any{
+				"fields": []any{map[string]any{"time_format": "iso8601"}},
+			}},
+		}))
+	})
+
 	It("Should keep record keys that look like camelCase as data", func() {
 		in := msgpack.EncodedJSON{
 			"endpoints": []any{map[string]any{

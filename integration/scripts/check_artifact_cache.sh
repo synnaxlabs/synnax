@@ -14,163 +14,245 @@ set -e
 PLATFORM=${1:-linux}
 
 if [ "${PLATFORM}" = "all" ]; then
-    ARTIFACT_NAMES=("synnax-core-linux" "synnax-core-windows")
+    OS_NAMES=("linux" "windows")
 else
-    ARTIFACT_NAMES=("synnax-core-${PLATFORM}")
+    read -r -a OS_NAMES <<< "${PLATFORM}"
 fi
 
-REBUILD_PATHS=(
+CORE_ARTIFACTS=()
+DRIVER_ARTIFACTS=()
+CONSOLE_ARTIFACTS=()
+for os in "${OS_NAMES[@]}"; do
+    CORE_ARTIFACTS+=("synnax-core-${os}")
+    DRIVER_ARTIFACTS+=("synnax-driver-${os}")
+    CONSOLE_ARTIFACTS+=("synnax-console-assets-${os}")
+done
+# Binary checks download the driver from the reused run, so a full skip needs both.
+FULL_ARTIFACTS=("${CORE_ARTIFACTS[@]}" "${DRIVER_ARTIFACTS[@]}")
+
+# A component's artifacts are reusable from a run that matches on its path set.
+# build.synnax.yaml is in every set because a build definition change rebuilds all.
+DRIVER_PATHS=(
     ".bazelignore"
     ".bazeliskrc"
     ".bazelrc"
     ".github/workflows/build.synnax.yaml"
     ".gitmodules"
-    "alamos/go/**"
-    "alamos/ts/**"
     "arc/cpp/**"
-    "arc/go/**"
-    "arc/ts/**"
-    "aspen/**"
-    "cesium/**"
     "client/cpp/**"
+    "driver/**"
+    "freighter/cpp/**"
+    "MODULE.bazel"
+    "MODULE.bazel.lock"
+    "vendor/**"
+    "x/cpp/**"
+)
+
+CONSOLE_PATHS=(
+    ".github/workflows/build.synnax.yaml"
+    "alamos/ts/**"
+    "arc/ts/**"
     "client/ts/**"
     "configs/ts/**"
     "configs/vite/**"
     "console/**"
-    "core/**"
     "drift/**"
-    "driver/**"
-    "freighter/cpp/**"
-    "freighter/go/**"
     "freighter/ts/**"
-    "MODULE.bazel"
-    "MODULE.bazel.lock"
     "package.json"
     "pluto/**"
     "pnpm-lock.yaml"
     "pnpm-workspace.yaml"
     "turbo.json"
-    "vendor/**"
-    "x/cpp/**"
-    "x/go/**"
     "x/media/**"
     "x/ts/**"
 )
+
+CORE_PATHS=(
+    ".github/workflows/build.synnax.yaml"
+    "alamos/go/**"
+    "arc/go/**"
+    "aspen/**"
+    "cesium/**"
+    "core/**"
+    "freighter/go/**"
+    "x/go/**"
+)
+
+UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
+
+# Deploy runs build the same artifacts, so both workflows are reuse sources.
+WORKFLOW_FILES=("test.integration.yaml" "deploy.synnax.yaml")
+
+CACHE_DIR=$(mktemp -d)
+trap 'rm -rf "${CACHE_DIR}"' EXIT
 
 log() {
     echo "[cache] $1" >&2
 }
 
-check_run_has_artifacts() {
-    local run_id=$1
-    local artifacts_json=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/artifacts")
+emit() {
+    echo "$1" >> "${GITHUB_OUTPUT:-/dev/null}"
+}
 
-    for artifact_name in "${ARTIFACT_NAMES[@]}"; do
-        local artifact_exists=$(echo "${artifacts_json}" | jq -r --arg name "${artifact_name}" '.artifacts[]? | select(.name == $name) | .name' | head -1)
-        if [ -z "${artifact_exists}" ]; then
+ensure_history() {
+    if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+        git fetch --quiet --deepen=30 2> /dev/null || true
+    fi
+}
+
+# Fetches the commit by sha when the checkout does not already contain it.
+ensure_commit() {
+    local sha=$1
+    if [ -f "${CACHE_DIR}/commit-ok-${sha}" ]; then
+        return 0
+    fi
+    if [ -f "${CACHE_DIR}/commit-missing-${sha}" ]; then
+        return 1
+    fi
+    if git cat-file -e "${sha}^{commit}" 2> /dev/null \
+        || { git fetch --quiet --depth=1 origin "${sha}" 2> /dev/null \
+            && git cat-file -e "${sha}^{commit}" 2> /dev/null; }; then
+        touch "${CACHE_DIR}/commit-ok-${sha}"
+        return 0
+    fi
+    touch "${CACHE_DIR}/commit-missing-${sha}"
+    return 1
+}
+
+# True when none of the given paths differ between the commit and COMPARE_REF.
+paths_clean() {
+    local sha=$1
+    shift
+    local specs=()
+    local p
+    for p in "$@"; do
+        specs+=("${p%'/**'}")
+    done
+    git diff --quiet "${sha}" "${COMPARE_REF}" -- "${specs[@]}" 2> /dev/null
+}
+
+runs_for_sha() {
+    local sha=$1
+    local file="${CACHE_DIR}/runs-${sha}"
+    if [ ! -f "${file}" ]; then
+        local wf
+        for wf in "${WORKFLOW_FILES[@]}"; do
+            gh api "repos/:owner/:repo/actions/workflows/${wf}/runs?head_sha=${sha}&per_page=20" \
+                --jq '.workflow_runs[].id' 2> /dev/null || true
+        done | sort -rn > "${file}"
+    fi
+    cat "${file}"
+}
+
+# Expired artifacts still appear in the API listing but cannot be downloaded.
+run_has_artifacts() {
+    local run_id=$1
+    local names=$2
+    local file="${CACHE_DIR}/artifacts-${run_id}.json"
+    if [ ! -f "${file}" ]; then
+        gh api "repos/:owner/:repo/actions/runs/${run_id}/artifacts?per_page=100" \
+            > "${file}" 2> /dev/null || echo '{}' > "${file}"
+    fi
+    local name
+    for name in ${names}; do
+        local found=$(jq -r --arg name "${name}" \
+            '.artifacts[]? | select(.name == $name and .expired == false) | .name' \
+            "${file}" | head -1)
+        if [ -z "${found}" ]; then
             return 1
         fi
     done
     return 0
 }
 
-check_run_built_artifacts() {
-    local run_id=$1
-    local run_jobs=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs")
-    local built_artifacts=$(echo "${run_jobs}" | jq -r '.jobs[].steps[]? | select(.name | contains("Upload") and contains("Artifact")) | select(.conclusion == "success") | .name' | head -1)
-    [ -n "${built_artifacts}" ]
-}
+# Prints the newest run with live artifacts for $2 and no diff on the path set.
+# Exact-sha lookups cover this branch. The recent-run scan covers other branches.
+find_reusable_run() {
+    local label=$1
+    local artifact_names=$2
+    shift 2
 
-find_cached_run() {
-    # Use GITHUB_HEAD_REF for PRs, fallback to git branch for direct pushes
-    local current_branch="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
-    if [ -z "${current_branch}" ]; then
-        # Fallback for detached HEAD without GITHUB_HEAD_REF
-        current_branch="${GITHUB_BASE_REF:-${GITHUB_REF_NAME:-rc}}"
-    fi
-    local workflow_file="test.integration.yaml"
-
-    log "Searching for cached artifacts on branch '${current_branch}'"
-
-    local runs_json=$(gh run list --workflow="${workflow_file}" --branch="${current_branch}" --limit=25 --json="databaseId,headSha")
-    local run_count=$(echo "${runs_json}" | jq 'length')
-    log "Found ${run_count} workflow runs to check"
-
-    for row in $(echo "${runs_json}" | jq -r '.[] | @base64'); do
-        local run_id=$(echo ${row} | base64 --decode | jq -r '.databaseId')
-        local sha=$(echo ${row} | base64 --decode | jq -r '.headSha')
-
-        if [ -n "${run_id}" ] && [ "${run_id}" != "null" ]; then
-            if check_run_has_artifacts "${run_id}" && check_run_built_artifacts "${run_id}"; then
-                log "Found cached run ${run_id} (${sha:0:8}) with artifacts"
-                echo "${run_id}:${sha}"
-                return 0
-            fi
-        fi
-    done
-    log "No runs found with required artifacts"
-    return 1
-}
-
-check_if_rebuild_needed() {
-    local sha=$1
-
-    if ! git cat-file -e "${sha}" 2> /dev/null; then
-        log "Fetching commit history to compare changes..."
-        git fetch --quiet --unshallow 2> /dev/null || git fetch --quiet --depth=25 2> /dev/null || true
-    fi
-
-    if ! git cat-file -e "${sha}" 2> /dev/null; then
-        log "Cannot find commit ${sha:0:8}, rebuild required"
-        return 0
-    fi
-
-    local compare_ref="${GITHUB_HEAD_SHA:-HEAD}"
-    local changed_files=$(git diff --name-only "${sha}" "${compare_ref}" 2> /dev/null)
-    if [ $? -ne 0 ] || [ -z "${changed_files}" ]; then
-        log "No changes detected since ${sha:0:8}"
-        return 1
-    fi
-
-    local file_count=$(echo "${changed_files}" | wc -l | tr -d ' ')
-    log "Checking ${file_count} changed files against rebuild paths"
-
-    while IFS= read -r file; do
-        if [ -z "${file}" ]; then
+    local sha run_id
+    for sha in ${CANDIDATE_SHAS}; do
+        if ! paths_clean "${sha}" "$@"; then
             continue
         fi
-
-        for rebuild_path in "${REBUILD_PATHS[@]}"; do
-            if [[ "${file}" == ${rebuild_path} ]] || [[ "${file}" == ${rebuild_path}* ]]; then
-                log "Rebuild required: '${file}' matches '${rebuild_path}'"
+        for run_id in $(runs_for_sha "${sha}"); do
+            if [ "${run_id}" = "${GITHUB_RUN_ID:-}" ]; then
+                continue
+            fi
+            if run_has_artifacts "${run_id}" "${artifact_names}"; then
+                log "${label}: reusing run ${run_id} (${sha:0:8}, exact sha)"
+                echo "${run_id}"
                 return 0
             fi
         done
-    done <<< "${changed_files}"
+    done
 
-    log "No rebuild-triggering changes detected"
-    return 1
+    local row
+    for row in ${RECENT_RUNS}; do
+        run_id="${row%%:*}"
+        sha="${row#*:}"
+        if [ "${run_id}" = "${GITHUB_RUN_ID:-}" ]; then
+            continue
+        fi
+        if ! ensure_commit "${sha}"; then
+            continue
+        fi
+        if ! paths_clean "${sha}" "$@"; then
+            continue
+        fi
+        if run_has_artifacts "${run_id}" "${artifact_names}"; then
+            log "${label}: reusing run ${run_id} (${sha:0:8}, clean diff)"
+            echo "${run_id}"
+            return 0
+        fi
+    done
+    log "${label}: no reusable run found"
 }
 
 main() {
-    local cache_result=$(find_cached_run)
+    # A dispatch can force reuse of a specific run and skip the search entirely.
+    if [ "${SKIP_BUILD:-false}" = "true" ]; then
+        if [ -n "${REF_RUN_ID:-}" ]; then
+            log "Skipping build with artifacts from run ${REF_RUN_ID}"
+            emit "SKIP_BUILD=true"
+            emit "REF_RUN_ID=${REF_RUN_ID}"
+            return 0
+        fi
+        log "Empty REF_RUN_ID. Searching for cached artifacts instead."
+    fi
 
-    if [ -z "${cache_result}" ]; then
-        echo "CACHE_HIT=false" >> ${GITHUB_OUTPUT:-/dev/null}
+    COMPARE_REF="${GITHUB_HEAD_SHA:-HEAD}"
+    ensure_history
+    ensure_commit "${COMPARE_REF}" || COMPARE_REF="HEAD"
+
+    # Candidates older than the 7-day artifact retention cannot hit.
+    CANDIDATE_SHAS=$(git rev-list --since=7.days --max-count=30 "${COMPARE_REF}" \
+        2> /dev/null || true)
+    RECENT_RUNS=$(for wf in "${WORKFLOW_FILES[@]}"; do
+        gh run list --workflow="${wf}" --limit=25 \
+            --json databaseId,headSha --jq '.[] | "\(.databaseId):\(.headSha)"'
+    done | sort -t: -k1 -rn)
+
+    local full_run
+    full_run=$(find_reusable_run "full" "${FULL_ARTIFACTS[*]}" "${UNION_PATHS[@]}")
+    if [ -n "${full_run}" ]; then
+        log "✅ Skipping build. Using artifacts from run ${full_run}"
+        emit "SKIP_BUILD=true"
+        emit "REF_RUN_ID=${full_run}"
         return 0
     fi
 
-    local cached_run_id="${cache_result%:*}"
-    local cached_sha="${cache_result#*:}"
-
-    if check_if_rebuild_needed "${cached_sha}"; then
-        echo "CACHE_HIT=false" >> ${GITHUB_OUTPUT:-/dev/null}
-        return 0
-    fi
-
-    echo "CACHE_HIT=true" >> ${GITHUB_OUTPUT:-/dev/null}
-    echo "CACHED_RUN_ID=${cached_run_id}" >> ${GITHUB_OUTPUT:-/dev/null}
-    log "✅ Cache hit. Using artifacts from run ${cached_run_id} (${cached_sha:0:8})"
+    local driver_run console_run
+    driver_run=$(find_reusable_run "driver" "${DRIVER_ARTIFACTS[*]}" \
+        "${DRIVER_PATHS[@]}")
+    console_run=$(find_reusable_run "console" "${CONSOLE_ARTIFACTS[*]}" \
+        "${CONSOLE_PATHS[@]}")
+    emit "SKIP_BUILD=false"
+    emit "REF_RUN_ID=${GITHUB_RUN_ID:-}"
+    emit "DRIVER_REF_RUN_ID=${driver_run}"
+    emit "CONSOLE_REF_RUN_ID=${console_run}"
 }
 
 main

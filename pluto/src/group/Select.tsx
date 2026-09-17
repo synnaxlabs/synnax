@@ -23,21 +23,14 @@ const ListItem = ({
   ...rest
 }: List.ItemRenderProps<group.Key>): ReactElement | null => {
   const item = List.useItem<group.Key, group.Group>(itemKey);
-  const { selected, onSelect, hovered } = Select.useItemState<group.Key>(itemKey);
   if (item == null) return null;
   return (
-    <List.Item
-      itemKey={itemKey}
-      onSelect={onSelect}
-      selected={selected}
-      hovered={hovered}
-      {...rest}
-    >
+    <Select.ListItem itemKey={itemKey} {...rest}>
       <Text.Text align="center">
         <Icon.Group />
         {item.name}
       </Text.Text>
-    </List.Item>
+    </Select.ListItem>
   );
 };
 

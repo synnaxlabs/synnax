@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -83,7 +84,8 @@ var _ = Describe("Writer Behavior", func() {
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 								telem.NewSeriesV[int64](1, 2, 3, 4),
-							}),
+							},
+						),
 						))
 						end := MustSucceed(w.Commit())
 						Expect(end).To(Equal(13*telem.SecondTS + 1))
@@ -1431,7 +1433,7 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](f.Get(strChan).Series[0]),
+							f.Get(strChan).Series[0].Unmarshal[string](),
 						).To(Equal([]string{"hello", "world", "foo"}))
 					})
 					Specify(
@@ -1480,12 +1482,10 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[float64](f.Get(fixed).Series[0]),
+								f.Get(fixed).Series[0].Unmarshal[float64](),
 							).To(Equal([]float64{1.1, 2.2, 3.3, 4.4}))
 							Expect(
-								telem.UnmarshalSeries[string](
-									f.Get(variable).Series[0],
-								),
+								f.Get(variable).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"a", "b", "c", "d"}))
 						},
 					)
@@ -1539,7 +1539,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(strCh).Series[0]),
+								f.Get(strCh).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"alpha", "beta"}))
 							Expect(f.Get(jsonCh).Series[0].Len()).To(Equal(int64(2)))
 						},
@@ -1579,7 +1579,7 @@ var _ = Describe("Writer Behavior", func() {
 							),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+							f.Get(data).Series[0].Unmarshal[string](),
 						).To(Equal(
 							[]string{"line1\nline2\nline3", "no newline"},
 						))
@@ -1626,7 +1626,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+								f.Get(data).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"p1", "p2", "p3"}))
 							Expect(subDB.Close()).To(Succeed())
 						},
@@ -1678,7 +1678,7 @@ var _ = Describe("Writer Behavior", func() {
 								),
 							)
 							Expect(
-								telem.UnmarshalSeries[string](f.Get(data).Series[0]),
+								f.Get(data).Series[0].Unmarshal[string](),
 							).To(Equal([]string{"x", "y"}))
 						},
 					)
@@ -3274,7 +3274,8 @@ var _ = Describe("Writer Behavior", func() {
 							[]cesium.ChannelKey{key},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
-							}),
+							},
+						),
 						))
 						Expect(authorized).To(BeFalse())
 
@@ -3349,7 +3350,8 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 							telem.NewSeriesV[int64](1, 2, 3, 4),
-						}),
+						},
+					),
 					))
 					end := MustSucceed(w.Commit())
 					Expect(end).To(Equal(13*telem.SecondTS + 1))
@@ -3372,7 +3374,8 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{55000},
 							Start:    10 * telem.SecondTS,
-						})
+						},
+					)
 					Expect(err).To(MatchError(channel.ErrNotFound))
 				})
 				Specify(
@@ -3446,7 +3449,8 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 							telem.NewSeriesV[float32](10, 11, 12),
-						}),
+						},
+					),
 					))
 					_, err := w.Commit()
 					Expect(err).To(MatchError(validate.ErrValidation))
@@ -3464,7 +3468,8 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WriterConfig{
 									Channels: []cesium.ChannelKey{idx, data},
 									Start:    10 * telem.SecondTS,
-								}))
+								},
+							))
 							MustSucceed(w.Write(telem.MultiFrame(
 								[]cesium.ChannelKey{idx},
 								[]telem.Series{
@@ -3480,7 +3485,8 @@ var _ = Describe("Writer Behavior", func() {
 									"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>",
 									idx,
 									data,
-								))))
+								)),
+							))
 						},
 					)
 
@@ -3492,7 +3498,8 @@ var _ = Describe("Writer Behavior", func() {
 								cesium.WriterConfig{
 									Channels: []cesium.ChannelKey{idx, data},
 									Start:    10 * telem.SecondTS,
-								}))
+								},
+							))
 							MustSucceed(w.Write(telem.MultiFrame(
 								[]cesium.ChannelKey{data},
 								[]telem.Series{
@@ -3508,7 +3515,8 @@ var _ = Describe("Writer Behavior", func() {
 									"received no data for index channel [uneven 1]<%v> that must be provided when writing to related data channels [[uneven 2]<%v>]",
 									idx,
 									data,
-								))))
+								)),
+							))
 						},
 					)
 				})
@@ -3519,7 +3527,8 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{idx, data},
 							Start:    10 * telem.SecondTS,
-						}))
+						},
+					))
 					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{idx, idx},
 						[]telem.Series{
@@ -3573,14 +3582,16 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{disc1Index},
 								Start:    10 * telem.SecondTS,
-							}))
+							},
+						))
 
 						By("Writing data to the index correctly")
 						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{disc1Index},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13),
-							}),
+							},
+						),
 						))
 						MustSucceed(w.Commit())
 						Expect(w.Close()).To(Succeed())
@@ -3593,7 +3604,8 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{disc1},
 								Start:    10 * telem.SecondTS,
-							}))
+							},
+						))
 						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{disc1},
 							[]telem.Series{
@@ -3625,7 +3637,8 @@ var _ = Describe("Writer Behavior", func() {
 							cesium.WriterConfig{
 								Channels: []cesium.ChannelKey{disc2},
 								Start:    10 * telem.SecondTS,
-							}))
+							},
+						))
 						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{disc2},
 							[]telem.Series{
@@ -3651,14 +3664,16 @@ var _ = Describe("Writer Behavior", func() {
 							Key:      dtErrKey,
 							DataType: telem.TimestampT,
 							IsIndex:  true,
-						})).To(Succeed())
+						},
+					)).To(Succeed())
 					w := MustSucceed(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
 							Channels: []cesium.ChannelKey{dtErrKey},
 							Start:    10 * telem.SecondTS,
 							Sync:     new(true),
-						}))
+						},
+					))
 					authorized, err := w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{dtErrKey},
 						[]telem.Series{

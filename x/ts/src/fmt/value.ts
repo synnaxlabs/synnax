@@ -23,7 +23,6 @@ const DEFAULT_MAX_DEPTH = 8;
  * Produces a safe, JSON-friendly representation of an arbitrary value for logging and
  * display. Strings, arrays, and object depth are capped; non-plain values such as
  * `Date`, `Error`, functions, and symbols are rendered as short bracketed tags.
- *
  * Intended for user-facing error messages, debug output, and any situation where the
  * input may be untrusted or unbounded in size. The output is always structurally
  * cloneable and safe to JSON.stringify.

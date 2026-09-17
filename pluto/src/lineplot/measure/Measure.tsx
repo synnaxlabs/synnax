@@ -19,9 +19,11 @@ import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 
 const MEASURE_TRIGGERS: Triggers.ModeConfig<measure.Mode> = {
-  one: [["1"]],
-  two: [["2"]],
   defaultMode: "one",
+  modes: {
+    one: [["1"]],
+    two: [["2"]],
+  },
 };
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
@@ -98,10 +100,8 @@ export const Measure = ({
 
   useEffect(() => {
     if (ref.current === null) return;
-    // Select the parent node of the tooltip
     const parent = ref.current.parentElement;
     if (parent == null) return;
-    // Bind a hover listener to the parent node
     parent.addEventListener("mousemove", handleMove);
     parent.addEventListener("mouseleave", handleLeave);
     return () => {

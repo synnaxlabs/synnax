@@ -362,6 +362,7 @@ func analyze(c *analysisCtx) {
 	checkDefaultInvariant(c)
 	checkIdentDefaultResolves(c)
 	checkUnionDefaultConstructible(c)
+	checkDefaultGroups(c)
 	synthesizeCreateTypes(c)
 }
 
@@ -971,8 +972,10 @@ func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam 
 	}
 	var result []resolution.TypeParam
 	for _, p := range params.AllTypeParam() {
-		tp := resolution.TypeParam{Name: p.IDENT().GetText()}
-		tp.Optional = p.QUESTION() != nil
+		tp := resolution.TypeParam{
+			Name:     p.IDENT().GetText(),
+			Optional: p.QUESTION() != nil,
+		}
 		typeRefs := p.AllTypeRef()
 		hasExtends := p.EXTENDS() != nil
 		hasEquals := p.EQUALS() != nil
@@ -1383,13 +1386,7 @@ func collectInlineVariant(
 			)
 		}
 		for _, fo := range body.AllFieldOmit() {
-			d := diagnostics.Errorf(
-				fo,
-				"union %s variant %q: field omissions are not supported in inline variant bodies",
-				unionName,
-				variantName,
-			)
-			c.report(d)
+			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
 		}
 		for _, a := range body.AllActionDef() {
 			d := diagnostics.Errorf(
@@ -1802,6 +1799,15 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 
+	reportInheritedFieldConflicts(
+		c, "struct "+typ.Name, form.Extends, set.New(form.OmittedFields...),
+	)
+
+	// A synthetic union-variant payload may omit a field the union's bases
+	// contribute, and those bases are not visible here. validateUnion checks it.
+	if typ.Synthetic {
+		return
+	}
 	allParentFields := make(set.Set[string])
 	for _, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(c.table)
@@ -1818,6 +1824,48 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				"cannot omit field %q: not found in any parent struct",
 				omitted)
 			c.report(d)
+		}
+	}
+}
+
+// reportInheritedFieldConflicts reports every field name that two of the parents
+// contribute. Parents unify left to right, so a shared name silently takes the leftmost
+// parent's field and drops the other, even when both parents inherit the name from one
+// ancestor. Names in omitted never reach the child.
+func reportInheritedFieldConflicts(
+	c *analysisCtx,
+	subject string,
+	extends []resolution.TypeRef,
+	omitted set.Set[string],
+) {
+	if len(extends) < 2 {
+		return
+	}
+	inheritedFrom := make(map[string]string)
+	for _, ext := range extends {
+		parent, ok := ext.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := parent.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, c.table) {
+			if omitted.Contains(f.Name) {
+				continue
+			}
+			if first, seen := inheritedFrom[f.Name]; seen {
+				c.report(diagnostics.Errorf(
+					nil,
+					"%s inherits field %q from both %s and %s",
+					subject,
+					f.Name,
+					first,
+					parent.Name,
+				))
+				continue
+			}
+			inheritedFrom[f.Name] = parent.Name
 		}
 	}
 }
@@ -1866,6 +1914,7 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 				c.report(d)
 			}
 		}
+		reportInheritedFieldConflicts(c, "action "+action.Name, action.Extends, nil)
 	}
 }
 
@@ -1987,6 +2036,7 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 //   - At least one variant is declared.
 //   - Variant names (the JSON discriminator string values) are unique.
 //   - Each Extends target resolves to a struct type.
+//   - No two base structs contribute the same field name.
 //   - Each variant references a struct type.
 //   - Neither the base structs nor the variant structs redeclare the
 //     discriminator field; the union declaration owns it exclusively.
@@ -2047,6 +2097,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			baseFields.Add(f.Name)
 		}
 	}
+	reportInheritedFieldConflicts(c, "union "+typ.Name, form.Extends, nil)
 
 	if baseFields.Contains(form.Discriminator) {
 		d := diagnostics.Errorf(
@@ -2109,6 +2160,55 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 				break
 			}
 		}
+		validateVariantOmissions(c, typ, form, variant, variantType, baseFields)
+	}
+}
+
+// validateVariantOmissions checks that every field a variant drops with `-name` is
+// one it actually inherits, from the union's bases or the variant's own extends.
+func validateVariantOmissions(
+	c *analysisCtx,
+	typ resolution.Type,
+	form resolution.UnionForm,
+	variant resolution.UnionVariant,
+	variantType resolution.Type,
+	baseFields set.Set[string],
+) {
+	variantForm, ok := variantType.Form.(resolution.StructForm)
+	if !ok || len(variantForm.OmittedFields) == 0 {
+		return
+	}
+	inherited := baseFields.Copy()
+	for _, ext := range variantForm.Extends {
+		parent, ok := ext.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, c.table) {
+			inherited.Add(f.Name)
+		}
+	}
+	for _, omitted := range variantForm.OmittedFields {
+		if omitted == form.Discriminator {
+			c.report(diagnostics.Errorf(
+				nil,
+				"union %s variant %q: cannot omit the discriminator field %q, which is owned by the union",
+				typ.Name,
+				variant.Name,
+				form.Discriminator,
+			))
+			continue
+		}
+		if inherited.Contains(omitted) {
+			continue
+		}
+		c.report(diagnostics.Errorf(
+			nil,
+			"union %s variant %q: cannot omit field %q, which the variant does not inherit",
+			typ.Name,
+			variant.Name,
+			omitted,
+		))
 	}
 }
 

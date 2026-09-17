@@ -1207,6 +1207,40 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
+				"Should flatten when two parents promote one name",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/user"
+
+				Base struct {
+					x string
+				}
+
+				A struct extends Base {
+					aa string
+				}
+
+				B struct {
+					base string
+				}
+
+				Child struct extends A, B {
+					c string
+				}
+			`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+
+					content := string(resp.Files[0].Content)
+					// Embedding A and B promotes Base from both, and Go rejects an
+					// ambiguous promoted name as a selector and as a literal key.
+					Expect(content).NotTo(ContainSubstring("\tA\n"))
+					Expect(content).NotTo(ContainSubstring("\tB\n"))
+					Expect(content).To(ContainSubstring(`X string`))
+					Expect(content).To(ContainSubstring(`Base string`))
+				},
+			)
+
+			It(
 				"Should keep embedding when a field restates only a default",
 				func(ctx SpecContext) {
 					source := `
@@ -1471,52 +1505,6 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(content).To(ContainSubstring(`type C struct {`))
 					Expect(content).To(ContainSubstring("\tA\n"))
 					Expect(content).To(ContainSubstring("\tB\n"))
-					Expect(content).To(ContainSubstring(`C bool`))
-				},
-			)
-
-			It(
-				"Should flatten fields when multiple extends have field conflicts",
-				func(ctx SpecContext) {
-					source := `
-				@go output "core/entities"
-
-				A struct {
-					shared string
-					a int32
-				}
-
-				B struct {
-					shared string
-					b int32
-				}
-
-				C struct extends A, B {
-					c bool
-				}
-			`
-					table, diag := analyzer.AnalyzeSource(
-						ctx,
-						source,
-						"entities",
-						loader,
-					)
-					Expect(diag.Ok()).To(BeTrue())
-
-					req := &plugin.Request{
-						Resolutions: table,
-					}
-
-					resp := MustSucceed(goPlugin.Generate(req))
-
-					content := string(resp.Files[0].Content)
-					// C should have flattened fields (no embedding due to conflict)
-					Expect(content).To(ContainSubstring(`type C struct {`))
-					Expect(content).NotTo(ContainSubstring("\tA\n"))
-					Expect(content).NotTo(ContainSubstring("\tB\n"))
-					Expect(content).To(ContainSubstring(`Shared string`))
-					Expect(content).To(ContainSubstring(`A int32`))
-					Expect(content).To(ContainSubstring(`B int32`))
 					Expect(content).To(ContainSubstring(`C bool`))
 				},
 			)
@@ -2798,7 +2786,8 @@ Entry struct {
 					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
 					Expect(resp.Files).To(HaveLen(1))
 					Expect(resp.Files[0].Path).To(
-						Equal("core/pkg/service/user/types.gen.go"))
+						Equal("core/pkg/service/user/types.gen.go"),
+					)
 					ExpectContent(resp, "types.gen.go").
 						ToContain("package user", "type User struct {").
 						ToNotContain("types/v")
@@ -2900,6 +2889,44 @@ var _ = Describe("Go Union Generation", func() {
 					`var v LinearScale`,
 					`u.Variant = v`,
 				)
+		},
+	)
+
+	It(
+		"Should flatten a base a variant omits a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			Range struct {
+				minVal float64
+				maxVal float64
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage extends Range {}
+				ai_temp_builtin extends Range {
+					-port
+					-maxVal
+					units string
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			content := MustContentOf(resp, "types.gen.go")
+			Expect(content).To(ContainSubstring(
+				"type AITempBuiltinChannel struct {\n" +
+					"\tEnabled bool `json:\"enabled\" msgpack:\"enabled\"`\n" +
+					"\tMinVal float64 `json:\"min_val\" msgpack:\"min_val\"`\n" +
+					"\tUnits string `json:\"units\" msgpack:\"units\"`\n",
+			))
+			Expect(content).To(ContainSubstring(
+				"type AIVoltageChannel struct {\n\tBaseAIChan\n\tRange\n",
+			))
 		},
 	)
 
@@ -3249,11 +3276,9 @@ func (u *rtChan) UnmarshalJSON(data []byte) error {
 var _ = Describe("Union codec round trip", func() {
 	It("Should round-trip an internally-tagged union with a nested union", func() {
 		in := rtChan{Variant: rtChanV{
-			rtBase: rtBase{Port: 7},
-			rtVoltage: rtVoltage{
-				MinVal: -10,
-				Scale:  rtScale{Variant: rtLinearScale{rtLinearParams{Slope: 1.5}}},
-			},
+			Port:   7,
+			MinVal: -10,
+			Scale:  rtScale{Variant: rtLinearScale{rtLinearParams{Slope: 1.5}}},
 		}}
 		data := MustSucceed(gojson.Marshal(in))
 		var m map[string]any

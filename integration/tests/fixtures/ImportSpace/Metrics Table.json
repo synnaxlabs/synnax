@@ -91,7 +91,7 @@
               "valueStream": {
                 "type": "stream-channel-value",
                 "props": {
-                  "channel": 1048581
+                  "channel": "{{channel:sy_node_1_metrics_cpu_percentage}}"
                 },
                 "variant": "source",
                 "valueType": "number"
@@ -164,7 +164,7 @@
               "valueStream": {
                 "type": "stream-channel-value",
                 "props": {
-                  "channel": 1048580
+                  "channel": "{{channel:sy_node_1_metrics_mem_percentage}}"
                 },
                 "variant": "source",
                 "valueType": "number"

@@ -16,10 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // encodedBody unpacks env's wire form into the generic map assertions inspect.
@@ -43,13 +46,15 @@ var _ = Describe("EncodeBundle", func() {
 	It("Should stamp the panel envelope headers", func() {
 		p := panel.Panel{Name: "Controls", Root: leafNode()}
 		env := MustSucceed(panel.EncodeBundle(p, nil))
-		Expect(env.Version).To(Equal(imex.Version(0)))
+		Expect(env.Version).To(Equal(versions.Latest))
 		Expect(env.Type).To(Equal("panel"))
 		Expect(env.Name).To(Equal("Controls"))
 		body := encodedBody(env)
 		Expect(body).To(HaveKeyWithValue("type", "panel"))
 		Expect(body).To(HaveKeyWithValue("name", "Controls"))
-		Expect(body).To(HaveKeyWithValue("version", BeNumerically("==", 0)))
+		Expect(body).To(HaveKeyWithValue(
+			"version", BeNumerically("==", versions.Latest),
+		))
 	})
 
 	It("Should rewrite resource references to bundle paths", func() {
@@ -153,29 +158,125 @@ var _ = Describe("EncodeBundle", func() {
 	})
 })
 
-var _ = Describe("TaskRefs", func() {
+var _ = Describe("DecodeBundle", func() {
+	It("Should resolve resource paths back to ontology IDs", func(ctx SpecContext) {
+		first, second := tab(uuid.New()), tab(uuid.New())
+		encodeRefs := map[ontology.ID]string{
+			mustResource(first):  "chamber_pressure.json",
+			mustResource(second): "propulsion/pressurization.json",
+		}
+		p := panel.Panel{
+			Name: "Controls",
+			Root: splitNode(
+				spatial.DirectionX, 0.5, leafNode(first), leafNode(second),
+			),
+		}
+		env := MustSucceed(panel.EncodeBundle(p, encodeRefs))
+		minted := map[string]ontology.ID{
+			"chamber_pressure.json": {
+				Type: ontology.ResourceTypeLineplot, Key: uuid.NewString(),
+			},
+			"propulsion/pressurization.json": {
+				Type: ontology.ResourceTypeSchematic, Key: uuid.NewString(),
+			},
+		}
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), minted))
+		Expect(decoded.Name).To(Equal("Controls"))
+		split, ok := decoded.Root.Variant.(panel.SplitNode)
+		Expect(ok).To(BeTrue())
+		firstLeaf, ok := split.First.Variant.(panel.LeafNode)
+		Expect(ok).To(BeTrue())
+		Expect(firstLeaf.Tabs).To(HaveLen(1))
+		Expect(firstLeaf.Tabs[0].Key()).To(Equal(first.Key()))
+		Expect(mustResource(firstLeaf.Tabs[0])).
+			To(Equal(minted["chamber_pressure.json"]))
+		lastLeaf, ok := split.Last.Variant.(panel.LeafNode)
+		Expect(ok).To(BeTrue())
+		Expect(mustResource(lastLeaf.Tabs[0])).
+			To(Equal(minted["propulsion/pressurization.json"]))
+	})
+
+	It("Should pass view tabs through unchanged", func(ctx SpecContext) {
+		view := viewTab(uuid.New(), "docs")
+		p := panel.Panel{Name: "Controls", Root: leafNode(view)}
+		env := MustSucceed(panel.EncodeBundle(p, nil))
+		decoded := MustSucceed(panel.DecodeBundle(ctx, WireRoundTrip(env), nil))
+		leaf, ok := decoded.Root.Variant.(panel.LeafNode)
+		Expect(ok).To(BeTrue())
+		Expect(leaf.Tabs).To(HaveLen(1))
+		v, ok := leaf.Tabs[0].Variant.(panel.ViewTab)
+		Expect(ok).To(BeTrue())
+		Expect(v.Type).To(Equal("docs"))
+	})
+
+	It("Should reject a path the reference table does not hold", func(
+		ctx SpecContext,
+	) {
+		t := tab(uuid.New())
+		refs := map[ontology.ID]string{mustResource(t): "missing.json"}
+		env := MustSucceed(panel.EncodeBundle(
+			panel.Panel{Name: "Controls", Root: leafNode(t)}, refs,
+		))
+		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`"missing.json"`)),
+		))
+	})
+
+	It("Should reject a version newer than the panel schema", func(
+		ctx SpecContext,
+	) {
+		env := imex.Envelope{
+			Version: versions.Latest + 1, Type: "panel", Name: "Controls",
+		}
+		Expect(env.Encode(map[string]any{
+			"root": map[string]any{"variant": "leaf", "tabs": []any{}},
+		})).To(Succeed())
+		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("panel version 1")),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		))
+	})
+
+	It("Should reject a resource tab without a path", func(ctx SpecContext) {
+		env := imex.Envelope{Version: 0, Type: "panel", Name: "Controls"}
+		Expect(env.Encode(map[string]any{
+			"root": map[string]any{
+				"variant": "leaf",
+				"tabs": []any{map[string]any{
+					"key":      uuid.NewString(),
+					"variant":  "resource",
+					"resource": 42,
+				}},
+			},
+		})).To(Succeed())
+		Expect(panel.DecodeBundle(ctx, WireRoundTrip(env), nil)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("holds no member path")),
+		))
+	})
+})
+
+var _ = Describe("ResourceRefs", func() {
 	taskID := func() ontology.ID {
 		return ontology.ID{Type: ontology.ResourceTypeTask, Key: uuid.NewString()}
 	}
 	taskTab := func(id ontology.ID) panel.Tab {
-		return panel.Tab{Variant: panel.ResourceTab{
-			TabBase:  panel.TabBase{Key: uuid.New()},
-			Resource: id,
-		}}
+		return panel.Tab{Variant: panel.ResourceTab{Key: uuid.New(), Resource: id}}
 	}
 
-	It("Should collect every task the tree's resource tabs reference", func() {
-		first, second := taskID(), taskID()
+	It("Should collect every resource the tree's resource tabs reference", func() {
+		task, plot := taskID(), uuid.New()
 		root := splitNode(
 			spatial.DirectionX,
 			0.5,
-			leafNode(taskTab(first), tab(uuid.New())),
-			leafNode(taskTab(second), viewTab(uuid.New(), "docs")),
+			leafNode(taskTab(task), tab(plot)),
+			leafNode(viewTab(uuid.New(), "docs")),
 		)
-		Expect(panel.TaskRefs(root)).To(ConsistOf(first, second))
+		Expect(panel.ResourceRefs(root)).To(ConsistOf(task, tabResource(plot)))
 	})
 
-	It("Should return a task referenced by two tabs once", func() {
+	It("Should return a resource referenced by two tabs once", func() {
 		id := taskID()
 		root := splitNode(
 			spatial.DirectionX,
@@ -183,11 +284,11 @@ var _ = Describe("TaskRefs", func() {
 			leafNode(taskTab(id)),
 			leafNode(taskTab(id)),
 		)
-		Expect(panel.TaskRefs(root)).To(ConsistOf(id))
+		Expect(panel.ResourceRefs(root)).To(ConsistOf(id))
 	})
 
-	It("Should return nothing for a tree without task tabs", func() {
-		Expect(panel.TaskRefs(leafNode(tab(uuid.New())))).To(BeEmpty())
+	It("Should return nothing for a tree of view tabs", func() {
+		Expect(panel.ResourceRefs(leafNode(viewTab(uuid.New(), "docs")))).To(BeEmpty())
 	})
 })
 

@@ -43,7 +43,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("ni.service")
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -95,6 +95,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_analog_write",
 			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.AnalogWrite,
 			SetEntryKey:        (*AnalogWriteConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogWriteConfig).Validate,

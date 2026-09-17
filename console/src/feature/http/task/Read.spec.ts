@@ -15,14 +15,23 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Read, { task: ZERO_DRAFT, ...options });
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(HTTP.Task.Read, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
+  await awaitEditableForm();
+  return rendered;
+};
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add endpoint"));
@@ -127,8 +136,18 @@ describe("HTTP Read form", () => {
     fireEvent.click(await screen.findByText("Duplicate"));
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(2));
     fireEvent.contextMenu(screen.getAllByText(/\/api\/v1/)[0]);
-    fireEvent.click(await screen.findByText("Delete"));
+    fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
+  });
+
+  it("should offer Reload Console from the endpoint context menu", async () => {
+    await renderRead();
+    await addEndpoint();
+    const path = screen.getByPlaceholderText("/api/data");
+    fireEvent.change(path, { target: { value: "/api/v1" } });
+    fireEvent.blur(path);
+    fireEvent.contextMenu(await screen.findByText(/\/api\/v1/));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
   it("should seed the form from the task row's config", async () => {
@@ -146,7 +165,7 @@ describe("HTTP Read form", () => {
     await screen.findByText(/\/seeded/);
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     const client = createTestClient();
 
     it("should create index, data, and virtual channels and persist them to the device", async () => {
@@ -160,7 +179,7 @@ describe("HTTP Read form", () => {
           fields: [
             createReadField("f1", "/temperature"),
             createReadField("f2", "/label", { dataType: "string" }),
-            createReadField("tf", "/ts", { timestampFormat: "unix_sec" }),
+            createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
           ],
         },
       ]);
@@ -230,6 +249,45 @@ describe("HTTP Read form", () => {
         HTTP.Task.READ_SCHEMAS,
       );
       expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
+    });
+
+    it("should drop a request body left over from POST when the method switches to GET", async () => {
+      const dev = await createHTTPDevice(client);
+      const config = createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/switched",
+          method: "POST",
+          body: '{"query": "latest"}',
+          fields: [createReadField("f1", "/temperature")],
+        },
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep2",
+          path: "/kept",
+          method: "POST",
+          body: '{"query": "kept"}',
+          fields: [createReadField("f2", "/pressure")],
+        },
+      ]);
+      const draft = await createDraft(client, config);
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      fireEvent.click(await screen.findByText(/\/switched/));
+      await screen.findByDisplayValue('{"query": "latest"}');
+      fireEvent.click(screen.getByRole("button", { name: "GET" }));
+      await waitFor(() =>
+        expect(screen.queryByDisplayValue('{"query": "latest"}')).toBeNull(),
+      );
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.READ_SCHEMAS,
+      );
+      const endpoints = created.config.endpoints;
+      expect(endpoints.find((e) => e.key === "ep1")?.body).toBe("");
+      expect(endpoints.find((e) => e.key === "ep2")?.body).toBe('{"query": "kept"}');
     });
 
     it("should recover the index from an existing data channel when the stored index is gone", async () => {

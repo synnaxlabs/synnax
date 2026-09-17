@@ -22,6 +22,7 @@ import {
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
 import {
+  awaitEditableForm,
   clickDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -48,6 +49,8 @@ const createDraft = async (
   config: EtherCAT.Task.ReadPayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.READ_SCHEMAS);
 
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
 const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
@@ -59,6 +62,7 @@ const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
       statuses.push(...next);
     },
   });
+  await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };
 
@@ -147,7 +151,7 @@ describe("EtherCAT Read", () => {
     await waitFor(() => expect(screen.getByText(slave.name)).toBeTruthy());
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create the index and data channels, update the slave, and save the task", async () => {
       const identifier = createIdentifier();
       const namedChannel = uniqueName("ecat_named");

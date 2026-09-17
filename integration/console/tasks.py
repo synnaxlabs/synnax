@@ -15,23 +15,18 @@ from typing import Any, Literal
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
-from console.layout import LayoutClient
+from console.base import ResourceClient
 from framework.run_dir import resolve_results_path
 
 
-class TaskClient:
+class TaskClient(ResourceClient):
     """Task toolbar management for Console UI automation."""
 
     ITEM_SELECTOR = ".pluto-list__item:has(.console-task__metadata)"
 
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-
     def show_toolbar(self) -> None:
         """Show the task toolbar in the left sidebar."""
-        self.layout.show_resource_toolbar("task")
+        self.layout.show_resource_toolbar("Tasks")
 
     def get_item(self, name: str) -> Locator:
         """Get a task item locator from the task toolbar.
@@ -47,12 +42,12 @@ class TaskClient:
         )
         return self.layout.page.locator(self.ITEM_SELECTOR).filter(has=title).first
 
-    def _select_tasks(self, names: list[str]) -> Locator:
+    def _select(self, names: list[str]) -> Locator:
         """Multi-select tasks via Ctrl+Click, return the last item."""
         self.show_toolbar()
         return self.layout.ctrl_select_items(names, self.get_item)
 
-    def wait_for_task(
+    def wait_for(
         self,
         name: str,
     ) -> None:
@@ -79,7 +74,7 @@ class TaskClient:
             state="visible", timeout=30000
         )
 
-    def rename_task(self, old_name: str, new_name: str) -> None:
+    def rename(self, old_name: str, new_name: str) -> None:
         """Rename a task via context menu in the task toolbar.
 
         Uses inline text edit (Text.MaybeEditable), not a modal dialog.
@@ -98,21 +93,9 @@ class TaskClient:
         )
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
-        self._handle_rename_confirmation()
         self.get_item(new_name).wait_for(state="visible", timeout=5000)
 
-    def _handle_rename_confirmation(self) -> None:
-        """Handle the rename confirmation dialog if the task is running."""
-        try:
-            rename_btn = self.layout.page.get_by_role(
-                "button", name="Rename", exact=True
-            )
-            rename_btn.wait_for(state="visible", timeout=2000)
-            rename_btn.click()
-        except PlaywrightTimeoutError:
-            pass
-
-    def delete_task(self, name: str) -> None:
+    def delete(self, name: str) -> None:
         """Delete a task via context menu in the task toolbar.
 
         Args:
@@ -125,7 +108,7 @@ class TaskClient:
         self.layout.delete_with_confirmation(item)
         item.wait_for(state="hidden", timeout=5000)
 
-    def delete_tasks(self, names: list[str]) -> None:
+    def delete_many(self, names: list[str]) -> None:
         """Delete multiple tasks via multi-select and context menu.
 
         Args:
@@ -133,13 +116,13 @@ class TaskClient:
         """
         if not names:
             return
-        last = self._select_tasks(names)
+        last = self._select(names)
         self.ctx_menu.action(last, "Delete")
         self.layout.confirm_delete()
         for name in names:
             self.get_item(name).wait_for(state="hidden", timeout=5000)
 
-    def export_task(self, name: str) -> dict[str, Any]:
+    def export(self, name: str) -> dict[str, Any]:
         """Export a task via context menu in the task toolbar.
 
         Args:
@@ -178,7 +161,7 @@ class TaskClient:
         self.ctx_menu.action(item, "Copy link")
         return self.layout.read_clipboard()
 
-    def start_task(self, name: str) -> None:
+    def start(self, name: str) -> None:
         """Start a single task by clicking its play button. No-op if already running.
 
         Waits for the task to reach the running state before returning.
@@ -194,7 +177,7 @@ class TaskClient:
         item.locator("button:has(.pluto-icon--play)").click()
         self.wait_for_state(name, "running")
 
-    def stop_task(self, name: str) -> None:
+    def stop(self, name: str) -> None:
         """Stop a single task by clicking its stop button. No-op if already stopped.
 
         Waits for the task to reach the stopped state before returning.
@@ -210,7 +193,7 @@ class TaskClient:
         item.locator("button:has(.pluto-icon--stop)").click()
         self.wait_for_state(name, "stopped")
 
-    def start_tasks(self, names: list[str]) -> None:
+    def start_many(self, names: list[str]) -> None:
         """Start multiple tasks via multi-select and context menu.
 
         Waits for all tasks to reach the running state before returning.
@@ -220,12 +203,12 @@ class TaskClient:
         """
         if not names:
             return
-        last = self._select_tasks(names)
+        last = self._select(names)
         self.ctx_menu.action(last, "Start")
         for name in names:
             self.wait_for_state(name, "running")
 
-    def stop_tasks(self, names: list[str]) -> None:
+    def stop_many(self, names: list[str]) -> None:
         """Stop multiple tasks via multi-select and context menu.
 
         Waits for all tasks to reach the stopped state before returning.
@@ -235,7 +218,7 @@ class TaskClient:
         """
         if not names:
             return
-        last = self._select_tasks(names)
+        last = self._select(names)
         self.ctx_menu.action(last, "Stop")
         for name in names:
             self.wait_for_state(name, "stopped")
@@ -262,7 +245,6 @@ class TaskClient:
         action = "Enable data saving" if enable else "Disable data saving"
         opposite = "Disable data saving" if enable else "Enable data saving"
         self.show_toolbar()
-        self.layout.page.wait_for_timeout(300)
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click()
@@ -282,30 +264,30 @@ class TaskClient:
         else:
             self.ctx_menu.close()
 
-    def disable_data_saving_tasks(self, names: list[str]) -> None:
+    def disable_data_saving_many(self, names: list[str]) -> None:
         """Disable data saving for multiple tasks via multi-select and context menu.
 
         Args:
             names: Names of the tasks.
         """
-        self._toggle_data_saving_tasks(names, enable=False)
+        self._toggle_data_saving_many(names, enable=False)
 
-    def enable_data_saving_tasks(self, names: list[str]) -> None:
+    def enable_data_saving_many(self, names: list[str]) -> None:
         """Enable data saving for multiple tasks via multi-select and context menu.
 
         Args:
             names: Names of the tasks.
         """
-        self._toggle_data_saving_tasks(names, enable=True)
+        self._toggle_data_saving_many(names, enable=True)
 
-    def _toggle_data_saving_tasks(self, names: list[str], *, enable: bool) -> None:
+    def _toggle_data_saving_many(self, names: list[str], *, enable: bool) -> None:
         if not names:
             return
         action = "Enable data saving" if enable else "Disable data saving"
-        last = self._select_tasks(names)
+        last = self._select(names)
         self.ctx_menu.action(last, action)
 
-    def open_task_config(self, name: str) -> None:
+    def open_config(self, name: str) -> None:
         """Open a task's configuration via context menu or double-click (random).
 
         Args:
@@ -320,7 +302,7 @@ class TaskClient:
         else:
             item.dblclick()
 
-    def snapshot_tasks(self, names: list[str], range_name: str) -> None:
+    def snapshot(self, names: list[str], range_name: str) -> None:
         """Snapshot tasks to the active range via context menu.
 
         Args:
@@ -329,5 +311,5 @@ class TaskClient:
         """
         if not names:
             return
-        last = self._select_tasks(names)
+        last = self._select(names)
         self.ctx_menu.action(last, f"Snapshot to {range_name}", exact=False)

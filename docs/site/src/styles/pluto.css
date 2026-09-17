@@ -23,16 +23,6 @@
 
 /* Tabs selector */
 .pluto-tabs__tab {
-    padding: 0 3rem;
-
-    .pluto-text-icon {
-        gap: 1.5rem;
-    }
-
-    .pluto-text {
-        margin: 0;
-    }
-
     /* Arc context tabs render the icon to the right of the label. */
     .pluto-icon--arc-flow,
     .pluto-icon--arc-func {
@@ -40,15 +30,29 @@
     }
 }
 
-@media (max-width: 800px) {
-    .pluto-tabs__tab {
-        padding: 0 1rem;
-    }
-}
-
 @media (max-width: 600px) {
     .pluto-tabs__selector {
         justify-content: center;
+    }
+}
+
+article .pluto-tabs__selector {
+    margin: 1rem 1rem 1rem;
+    --pluto-height-medium: 6.5rem;
+    --pluto-tabs-tab-height: 5.5rem;
+
+    .pluto-tabs__tab {
+        padding: 0 2.5rem;
+        gap: 1.5rem;
+
+        @media (max-width: 800px) {
+            padding: 0 1.5rem;
+            gap: 1rem;
+        }
+
+        :is(.pluto-text, .pluto-icon) {
+            margin: 0;
+        }
     }
 }
 
@@ -116,9 +120,13 @@
             }
         }
 
-        &.pluto--selected .pluto-text {
-            color: var(--pluto-text-color);
-            font-weight: 500;
+        &.pluto--selected {
+            box-shadow: inset 3px 0 0 0 var(--pluto-primary-z);
+
+            & .pluto-text {
+                color: var(--pluto-text-color);
+                font-weight: 500;
+            }
         }
 
         &:not(.pluto--has-children):not(.pluto--selected) {
@@ -239,8 +247,8 @@ article table th p {
 
 /* Dialog component */
 .pluto-dialog__bg.pluto--visible {
-    backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
 }
 
 @media (max-width: 600px) and (hover: none) {

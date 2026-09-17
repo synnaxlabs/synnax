@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
+import { NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -110,7 +111,171 @@ describe("Status", () => {
     });
   });
 
+  describe("optimistic set", () => {
+    const createCrude = (overrides: Partial<status.Crude> = {}): status.Crude => ({
+      key: `optimistic-${id.create()}`,
+      name: "Optimistic Status",
+      variant: "info",
+      message: "Optimistic message",
+      time: TimeStamp.now(),
+      ...overrides,
+    });
+
+    it("should cache the status before the write commits", async () => {
+      const crude = createCrude();
+      let duringWrite: query.Cached<status.Status> | undefined;
+      await client.statuses.set(crude, {
+        onOptimistic: () => {
+          duringWrite = client.statuses.getCached(crude.key as status.Key);
+        },
+      });
+      expect(expectLive(duringWrite).message).toEqual(crude.message);
+    });
+
+    it("should cache every status of a batch before the write commits", async () => {
+      const first = createCrude();
+      const second = createCrude();
+      let duringWrite: Array<query.Cached<status.Status> | undefined> = [];
+      await client.statuses.set([first, second], {
+        onOptimistic: () => {
+          duringWrite = [first, second].map(({ key }) =>
+            client.statuses.getCached(key as status.Key),
+          );
+        },
+      });
+      expect(duringWrite.map((s) => expectLive(s).message)).toEqual([
+        first.message,
+        second.message,
+      ]);
+    });
+
+    it("should stamp a key and a time onto a status that carries neither", async () => {
+      const message = `unkeyed-${id.create()}`;
+      const created = await client.statuses.set({ variant: "info", message });
+      expect(created.key).not.toHaveLength(0);
+      expect(created.time.valueOf()).toBeGreaterThan(0n);
+      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
+        message,
+      );
+    });
+
+    it("should keep the details of a schema-parametrized status", async () => {
+      const detailsSchema = z.object({ count: z.number() });
+      const crude = createCrude();
+      let duringWrite: query.Cached<status.Status<typeof detailsSchema>> | undefined;
+      await client.statuses.set<typeof detailsSchema>(
+        { ...crude, details: { count: 5 } },
+        {
+          detailsSchema,
+          onOptimistic: () => {
+            duringWrite = client.statuses.getCached(
+              crude.key as status.Key,
+            ) as query.Cached<status.Status<typeof detailsSchema>>;
+          },
+        },
+      );
+      expect(expectLive(duringWrite).details).toEqual({ count: 5 });
+    });
+
+    it("should drop the optimistic status when the write fails", async () => {
+      const crude = createCrude();
+      await expect(
+        client.statuses.set(crude, {
+          onOptimistic: () => {
+            throw new Error("write failed");
+          },
+        }),
+      ).rejects.toThrow("write failed");
+      expect(client.statuses.getCached(crude.key as status.Key)).toBeUndefined();
+    });
+
+    it("should leave no corpse behind when the write fails", async () => {
+      const crude = createCrude();
+      const key = crude.key as status.Key;
+      await client.statuses.set(crude);
+      // Another client owns the record, and this one neither streams nor subscribes, so
+      // nothing puts the record in its cache before the rollback.
+      const observer = createTestClient();
+      await expect(
+        observer.statuses.set(
+          { ...crude, message: "replacement" },
+          {
+            onOptimistic: () => {
+              throw new Error("write failed");
+            },
+          },
+        ),
+      ).rejects.toThrow("write failed");
+      expect(observer.statuses.getCached(key)).toBeUndefined();
+      expect((await observer.statuses.retrieve(key)).message).toEqual(crude.message);
+    });
+
+    it("should restore the previous status when the write fails", async () => {
+      const crude = createCrude();
+      const created = await client.statuses.set(crude);
+      await expect(
+        client.statuses.set(
+          { ...crude, message: "replacement" },
+          {
+            onOptimistic: () => {
+              throw new Error("write failed");
+            },
+          },
+        ),
+      ).rejects.toThrow("write failed");
+      expect(expectLive(client.statuses.getCached(created.key)).message).toEqual(
+        created.message,
+      );
+    });
+  });
+
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const keys = [id.create(), id.create()];
+      await Promise.all(
+        keys.map(
+          async (key) =>
+            await client.statuses.set({
+              key,
+              name: "Coalesce Test",
+              variant: "info",
+              message: "coalesce",
+              time: TimeStamp.now(),
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        keys.map(async (key) => await local.statuses.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(keys);
+      expect(
+        send.mock.calls.filter(([target]) => target === "/status/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const s = await client.statuses.set({
+        key: id.create(),
+        name: "Isolation Test",
+        variant: "info",
+        message: "isolation",
+        time: TimeStamp.now(),
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.statuses.retrieve(s.key),
+        local.statuses.retrieve(`missing-${id.create()}`),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("should retrieve a status by key", async () => {
       const created = await client.statuses.set({
         name: "Retrieve Test",
@@ -193,7 +358,6 @@ describe("Status", () => {
     });
 
     it("should paginate results", async () => {
-      // Create several statuses
       const keys = [];
       for (let i = 0; i < 5; i++) {
         const key = `paginate-${i}-${Date.now()}`;
@@ -207,7 +371,6 @@ describe("Status", () => {
         });
       }
 
-      // Retrieve with limit
       const page1 = await client.statuses.retrieve({
         keys,
         limit: 2,
@@ -223,7 +386,6 @@ describe("Status", () => {
       expect(page1).toHaveLength(2);
       expect(page2).toHaveLength(2);
 
-      // Ensure no overlap
       const page1Keys = page1.map((s) => s.key);
       const page2Keys = page2.map((s) => s.key);
       expect(page1Keys.some((k) => page2Keys.includes(k))).toBe(false);
@@ -286,7 +448,6 @@ describe("Status", () => {
 
       await client.statuses.delete(keys);
 
-      // Try to retrieve them - should get empty or error
       const results = await client.statuses.retrieve({ keys }).catch(() => []);
       expect(results).toHaveLength(0);
     });
@@ -294,10 +455,8 @@ describe("Status", () => {
     it("should be idempotent", async () => {
       const key = "idempotent-delete";
 
-      // Delete a non-existent status - should not throw
       await expect(client.statuses.delete(key)).resolves.not.toThrow();
 
-      // Create and delete
       await client.statuses.set({
         name: "Idempotent",
         key,
@@ -308,7 +467,6 @@ describe("Status", () => {
 
       await client.statuses.delete(key);
 
-      // Delete again - should not throw
       await expect(client.statuses.delete(key)).resolves.not.toThrow();
     });
   });
@@ -576,6 +734,90 @@ describe("fromException", () => {
 
   it("should leave the description empty without a cause or message", () => {
     expect(status.fromException(new Error("boom")).description).toBe("");
+  });
+
+  describe("clone safety", () => {
+    it("should keep the original error instance when it is cloneable", () => {
+      const err = new Error("boom", { cause: new Error("root") });
+      expect(status.fromException(err).details.error).toBe(err);
+    });
+
+    it("should rebuild an error whose cause cannot be cloned", () => {
+      const err = new Error("boom", { cause: () => {} });
+      err.name = "SocketError";
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(stored.message).toBe("boom");
+      expect(stored.name).toBe("SocketError");
+      expect(stored.stack).toBe(err.stack);
+      expect(typeof stored.cause).toBe("string");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild an error carrying an un-cloneable own field", () => {
+      const err = new Error("boom");
+      (err as unknown as { cb: () => void }).cb = () => {};
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should preserve error causes as errors in the rebuilt chain", () => {
+      const root = new Error("root", { cause: () => {} });
+      const err = new Error("boom", { cause: root });
+      const stored = status.fromException(err).details.error;
+      expect(stored.cause).toBeInstanceOf(Error);
+      expect((stored.cause as Error).message).toBe("root");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should terminate on a cyclic cause chain", () => {
+      const err = new Error("boom");
+      err.cause = err;
+      (err as unknown as { cb: () => void }).cb = () => {};
+      const stored = status.fromException(err).details.error;
+      expect(stored.message).toBe("boom");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild an error carrying a throwing enumerable getter", () => {
+      const err = new Error("boom");
+      Object.defineProperty(err, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const stored = status.fromException(err).details.error;
+      // Passing err to expect would trip the getter while vitest inspects it.
+      expect(stored === err).toBe(false);
+      expect(stored.message).toBe("boom");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild when the cause carries a throwing enumerable getter", () => {
+      const cause: Record<string, unknown> = { ok: 1 };
+      Object.defineProperty(cause, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const err = new Error("boom", { cause });
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(typeof stored.cause).toBe("string");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild conservatively when the clone check budget is exhausted", () => {
+      const wide: Record<string, number> = {};
+      for (let i = 0; i < 100; i++) wide[`k${i}`] = i;
+      const err = new Error("boom", { cause: wide });
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
   });
 });
 

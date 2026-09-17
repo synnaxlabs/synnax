@@ -10,10 +10,13 @@
 package json
 
 import (
+	"slices"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -68,7 +71,8 @@ func (p *Plugin) processUnion(
 			HasExtends: true,
 			Fields:     make([]fieldData, 0),
 		}
-		for _, ext := range form.Extends {
+		inherited, declared := resolver.VariantBases(form, v, data.table)
+		for _, ext := range inherited {
 			if parent, ok := ext.Resolve(data.table); ok {
 				s.ParentTypes = append(s.ParentTypes, parentTypeData{
 					QualifiedName: p.resolveExtendsType(ext, parent, data),
@@ -78,14 +82,7 @@ func (p *Plugin) processUnion(
 		if payload, ok := v.Type.Resolve(data.table); ok {
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
-				for _, ext := range pform.Extends {
-					if parent, ok := ext.Resolve(data.table); ok {
-						s.ParentTypes = append(s.ParentTypes, parentTypeData{
-							QualifiedName: p.resolveExtendsType(ext, parent, data),
-						})
-					}
-				}
-				for _, f := range pform.Fields {
+				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					s.Fields = append(s.Fields, p.processField(f, payload, data))
 				}
 			} else {

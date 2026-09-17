@@ -23,7 +23,7 @@ class AngularPosition(Counter):
         decoding_type (str): "X1", "X2", "X4", or "Two pulse"
         pulses_per_rev (int): Pulses per revolution
         initial_angle (float): Initial angle value
-        z_index_enable (bool): Enable Z index
+        z_index_enabled (bool): Enable Z index
         z_index_val (float): Z index value
         z_index_phase (str): "A high B high", "A high B low", "A low B high", or "A low B low"
         terminal_a (str): Input Terminal A
@@ -40,7 +40,7 @@ class AngularPosition(Counter):
         decoding_type: Literal["X1", "X2", "X4", "Two pulse"] | None = None,
         pulses_per_rev: int | None = None,
         initial_angle: float | None = None,
-        z_index_enable: bool | None = None,
+        z_index_enabled: bool | None = None,
         z_index_val: float | None = None,
         z_index_phase: (
             Literal["A high B high", "A high B low", "A low B high", "A low B low"]
@@ -64,7 +64,7 @@ class AngularPosition(Counter):
         self._configure_input("Initial angle", initial_angle)
         self._configure_input("Pulses / Rev", pulses_per_rev)
         self._configure_dropdown("Decoding type", decoding_type)
-        self._configure_toggle("Z index enable", z_index_enable)
+        self._configure_toggle("Z index enable", z_index_enabled)
         self._configure_input("Value", z_index_val)
         self._configure_dropdown("Phase", z_index_phase)
         self._configure_dropdown("Input terminal A", terminal_a)

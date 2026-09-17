@@ -173,7 +173,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     return isMany ? res.panels : res.panels[0];
   }
 
-  async rename(key: Key, name: string): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const rename = () => [
       query.partialUpdate(this.store, key, { name }),
       this.cfg.ontology.cache.renameResource(ontologyID(key), name),
@@ -182,16 +182,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     // to other connected clients.
     await query.optimistic({
       rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
       commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     });
     rename();
   }
 
   /**
-   * Applies actions to the cached panel and sends them to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * panel isn't cached. Rolls back the local apply and rethrows on send
-   * failure.
+   * Applies actions to the cached panel and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the panel isn't cached.
+   * Rolls back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,
@@ -263,8 +263,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     );
   }
 
-  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
-  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const drop = () => [

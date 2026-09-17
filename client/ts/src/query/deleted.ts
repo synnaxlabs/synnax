@@ -9,16 +9,14 @@
 
 import { type TimeStamp } from "@synnaxlabs/x";
 
-// Brands instances through the global symbol registry so matches() holds
-// across duplicated module instances (dual CJS/ESM builds), where
-// instanceof does not.
+// Brands instances through the global symbol registry so matches() holds across
+// duplicated module instances (dual CJS/ESM builds), where instanceof does not.
 const BRAND = Symbol.for("synnaxlabs.client.query.deleted");
 
 /**
- * The last value of a deleted record, delivered wherever a cached answer
- * would be, so deletion can never be mistaken for live data. One instance
- * exists per deletion: repeated reads of a deleted answer return the same
- * reference.
+ * The last value of a deleted record, delivered wherever a cached answer would be, so
+ * deletion can never be mistaken for live data. One instance exists per deletion:
+ * repeated reads of a deleted answer return the same reference.
  */
 export class Deleted<D = unknown> {
   /** The record's value at the moment it was deleted. */

@@ -122,7 +122,7 @@ func backfillStatuses(
 		return r.OntologyID().String()
 	})
 	var existingStatuses []status.Status[StatusDetails]
-	if err = status.NewRetrieve[StatusDetails](cfg.Status).
+	if err = cfg.Status.NewRetrieve[StatusDetails]().
 		Where(status.MatchKeys[StatusDetails](statusKeys...)).
 		Entries(&existingStatuses).
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
@@ -153,10 +153,7 @@ func backfillStatuses(
 		"creating unknown statuses for existing racks",
 		zap.Int("count", len(missingStatuses)),
 	)
-	return status.NewWriter[StatusDetails](
-		cfg.Status,
-		tx,
-	).SetMany(ctx, &missingStatuses)
+	return cfg.Status.NewWriter(tx).SetMany(ctx, &missingStatuses)
 }
 
 // codecMigration re-encodes stored racks from MessagePack to Orc.
@@ -166,3 +163,6 @@ var codecMigration = gorp.CodecMigration[Key, Rack]("msgpack_to_orc")
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
 	return []migrate.Migration{newMigration(cfg), codecMigration}
 }
+
+// NormalizeKeys re-keys Rack rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Rack]("Rack")

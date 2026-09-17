@@ -40,13 +40,21 @@ from console.task.channels.counter_input import (
     TwoEdgeSeparation,
 )
 from console.task.counter_read import CounterRead
+from console.task.modbus import ModbusRead, ModbusTask, ModbusWrite
 from console.task.ni import NITask
+from console.task.opcua import OPCUARead, OPCUATask, OPCUAWrite
 
 __all__ = [
     "NITask",
     "AnalogRead",
     "AnalogWrite",
     "CounterRead",
+    "ModbusTask",
+    "ModbusRead",
+    "ModbusWrite",
+    "OPCUATask",
+    "OPCUARead",
+    "OPCUAWrite",
     "Analog",
     "Counter",
     "Accelerometer",

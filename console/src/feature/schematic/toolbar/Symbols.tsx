@@ -28,10 +28,9 @@ import {
 } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { useImport as useImportSymbol } from "@/feature/schematic/symbol/import";
-import { useImportGroup } from "@/feature/schematic/symbol/useImportGroup";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -68,7 +67,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { name, Preview } = spec;
   return (
     <List.Item
-      className={CSS(CSS.BE("schematic-symbols", "button"))}
+      className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
       draggable
@@ -139,6 +138,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     [addNode, createParams],
   );
   const { update: rename } = Schematic.Symbol.useRename();
+  const canRename = Access.useUpdateGranted(schematic.symbol.ontologyID(itemKey));
   const handleRename = useCallback(
     (name: string) => rename({ key: itemKey, name }),
     [itemKey, rename],
@@ -148,7 +148,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
 
   return (
     <Select.ListItem
-      className={CSS(CSS.BE("schematic-symbols", "button"))}
+      className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
       draggable
@@ -163,7 +163,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
         level="small"
         value={symbol.name}
         allowDoubleClick={false}
-        onChange={handleRename}
+        onChange={canRename ? handleRename : undefined}
       />
       <Flex.Box align="center" justify="center" grow>
         <Preview specKey={itemKey} scale={0.75} />
@@ -183,6 +183,8 @@ const RemoteSymbolListContextMenu = ({
 }: RemoteSymbolListContextMenuProps): ReactElement => {
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
+  const canRename = Access.useUpdateGranted(schematic.symbol.ontologyID(firstKey));
+  const canDelete = Access.useDeleteGranted(schematic.symbol.ontologyID(firstKey));
   const confirmDelete = Modals.useConfirmDelete({
     type: "Symbol",
     title: "Schematic.Symbol.Delete",
@@ -205,13 +207,15 @@ const RemoteSymbolListContextMenu = ({
         <Icon.Edit />
         Edit
       </Menu.Item>
-      <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      {canRename && (
+        <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      )}
       <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
       />
       <Menu.Divider />
-      <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
+      {canDelete && <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
@@ -280,6 +284,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   // Named item rather than group so the client's group namespace stays reachable.
   const item = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
   const { update: rename } = Group.useRename();
+  const canRename = Access.useUpdateGranted(group.ontologyID(itemKey));
   const handleRename = useCallback(
     (name: string) => rename({ key: itemKey, name }),
     [itemKey, rename],
@@ -287,7 +292,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   if (item == null) return null;
   const { Icon: GroupIcon } = item;
   // Static groups ship with the Console under non-UUID keys and have no server record.
-  const isRemote = group.keyZ.safeParse(itemKey).success;
+  const isRemote = z.validate(group.keyZ, itemKey);
   return (
     <Tabs.Tab itemKey={itemKey}>
       {GroupIcon != null && <GroupIcon />}
@@ -296,7 +301,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
         level="small"
         value={item.name}
         allowDoubleClick={false}
-        onChange={isRemote ? handleRename : undefined}
+        onChange={isRemote && canRename ? handleRename : undefined}
       />
     </Tabs.Tab>
   );
@@ -328,8 +333,8 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   const openEdit = Symbol.Edit.useModal();
-  const importSymbol = useImportSymbol();
-  const importGroup = useImportGroup();
+  const importSymbol = Symbol.useImport();
+  const importGroup = Symbol.useImportGroup();
   const hasCreateGroupPermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   const hasCreateSymbolPermission = Access.useCreateGranted(
     schematic.symbol.TYPE_ONTOLOGY_ID,
@@ -352,7 +357,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
     }, "Failed to create group");
   }, [updateAsync, rename, handleError, symbolGroupID]);
 
-  const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
+  const isRemoteGroup = z.validate(group.keyZ, selectedGroup);
 
   const handleCreateSymbol = useCallback(() => {
     if (!isRemoteGroup) return;
@@ -415,15 +420,19 @@ const GroupListContextMenu = ({
   keys,
 }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const firstKey = keys[0];
-  const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
+  const isRemoteGroup = z.validate(group.keyZ, firstKey);
   const item = List.useItem<group.Key, group.Group>(firstKey);
+  const canRename = Access.useUpdateGranted(group.ontologyID(firstKey));
+  const canDelete = Access.useDeleteGranted(group.ontologyID(firstKey));
   const exportGroup = Export.use();
   const deleteSymbolGroup = Symbol.useDeleteGroup();
 
   if (!isRemoteGroup) return null;
   return (
     <ContextMenu.Menu>
-      <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      {canRename && (
+        <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
+      )}
       <Menu.Divider />
       <Export.ContextMenuItem
         onClick={() => {
@@ -437,11 +446,13 @@ const GroupListContextMenu = ({
         }}
       />
       <Menu.Divider />
-      <ContextMenu.DeleteItem
-        onClick={() => {
-          if (item != null) deleteSymbolGroup(item);
-        }}
-      />
+      {canDelete && (
+        <ContextMenu.DeleteItem
+          onClick={() => {
+            if (item != null) deleteSymbolGroup(item);
+          }}
+        />
+      )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
@@ -498,7 +509,7 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
     itemKey,
   );
   if (item == null) return null;
-  const isRemote = schematic.symbol.keyZ.safeParse(itemKey).success;
+  const isRemote = z.validate(schematic.symbol.keyZ, itemKey);
   if (isRemote) return <RemoteListItem {...props} />;
   return <StaticListItem {...props} />;
 };
@@ -549,7 +560,7 @@ export const Symbols = (): ReactElement => {
       dispatch(Session.Schematic.setSelectedSymbolGroup({ key, group })),
     [dispatch, key],
   );
-  const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
+  const isRemoteGroup = z.validate(group.keyZ, groupKey);
 
   const [searchTerm, setSearchTerm] = useState("");
   const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});

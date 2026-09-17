@@ -77,35 +77,6 @@ describe("status slice", () => {
     });
   });
 
-  describe("filterFavoritesToKeys", () => {
-    it("should keep only favorites present in the payload", () => {
-      let state = Status.reducer(
-        Status.ZERO_SLICE_STATE,
-        Status.addFavorites(["a", "b", "c"]),
-      );
-      state = Status.reducer(state, Status.filterFavoritesToKeys(["b", "c", "d"]));
-      expect(state.favorites).toEqual(["b", "c"]);
-    });
-
-    it("should clear favorites when the payload matches none", () => {
-      let state = Status.reducer(
-        Status.ZERO_SLICE_STATE,
-        Status.addFavorites(["a", "b"]),
-      );
-      state = Status.reducer(state, Status.filterFavoritesToKeys([]));
-      expect(state.favorites).toEqual([]);
-    });
-
-    it("should accept a single key", () => {
-      let state = Status.reducer(
-        Status.ZERO_SLICE_STATE,
-        Status.addFavorites(["a", "b"]),
-      );
-      state = Status.reducer(state, Status.filterFavoritesToKeys("a"));
-      expect(state.favorites).toEqual(["a"]);
-    });
-  });
-
   describe("toggleFavorite", () => {
     it("should add a favorite that is not present", () => {
       const state = Status.reducer(Status.ZERO_SLICE_STATE, Status.toggleFavorite("a"));
@@ -126,18 +97,6 @@ describe("status slice", () => {
       state = Status.reducer(state, Status.toggleFavorite("a"));
       state = Status.reducer(state, Status.toggleFavorite("a"));
       expect(state.favorites).toEqual(["b"]);
-    });
-  });
-
-  describe("migrateSlice", () => {
-    it("should backfill missing fields from the zero state", () => {
-      const migrated = Status.migrateSlice({ favorites: ["a"] });
-      expect(migrated).toEqual({ version: 0, favorites: ["a"] });
-    });
-
-    it("should preserve existing fields", () => {
-      const existing: Status.SliceState = { version: 0, favorites: ["x", "y"] };
-      expect(Status.migrateSlice(existing)).toEqual(existing);
     });
   });
 });

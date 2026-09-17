@@ -8,9 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { group, type ontology } from "@synnaxlabs/client";
-import { Haul, type Status } from "@synnaxlabs/pluto";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { Haul, Status } from "@synnaxlabs/pluto";
+import {
+  act,
+  fireEvent,
+  renderHook,
+  type RenderHookResult,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
@@ -21,20 +28,19 @@ import {
   createSymbolPayload,
 } from "@/feature/schematic/testutil";
 import {
+  createFile,
   createJSONFile,
   fakeDirectoryEntry,
   fakeFileEntry,
   FileDragSource,
   fireFileDrop,
   startFileDrag,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
 import { Modals } from "@/platform/modals";
 import {
-  CaptureStatuses,
   createConsoleWrapper,
   fakePickedFile,
   interceptFilePicker,
-  renderSuspended,
   uniqueName,
 } from "@/testutil";
 
@@ -44,41 +50,45 @@ afterEach(() => {
 
 const ZONE_TEXT = "Drop a .zip or folder here";
 
+const useHarness = () => ({
+  open: Schematic.Symbol.useImportGroup(),
+  statuses: Status.useNotifications().statuses,
+});
+
 const renderModal = async () => {
-  const statuses: Status.NotificationSpec[] = [];
-  const { wrapper } = await createConsoleWrapper({ client });
-  const Opener = (): ReactElement => {
-    const open = Schematic.Symbol.useImportGroup();
-    return <button onClick={() => open()}>open import</button>;
-  };
-  await renderSuspended(
-    <Haul.Provider>
-      <FileDragSource />
-      <Opener />
-      <Modals.Stack />
-      <CaptureStatuses
-        onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
-      />
-    </Haul.Provider>,
-    { wrapper },
+  const { wrapper: Console } = await createConsoleWrapper({ client });
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Haul.Provider>
+        <FileDragSource />
+        {children}
+        <Modals.Stack />
+      </Haul.Provider>
+    </Console>
   );
+  let rendered!: RenderHookResult<ReturnType<typeof useHarness>, unknown>;
+  // Modal content that suspends is discarded when it mounts or opens inside a
+  // synchronous act scope, so both steps need an awaited one.
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: "open import" }));
+    rendered = renderHook(useHarness, { wrapper });
+  });
+  await act(async () => {
+    rendered.result.current.open();
   });
   await screen.findByText(ZONE_TEXT);
-  return { statuses };
+  return { statuses: () => rendered.result.current.statuses };
 };
 
 const successMessage = (name: string): string => `Imported symbol group "${name}"`;
 
 const awaitStatus = async (
-  statuses: Status.NotificationSpec[],
+  statuses: () => Status.NotificationSpec[],
   variant: string,
   message: string,
 ): Promise<void> => {
   await waitFor(() =>
     expect(
-      statuses.some((st) => st.variant === variant && st.message === message),
+      statuses().some((st) => st.variant === variant && st.message === message),
     ).toBe(true),
   );
 };
@@ -93,8 +103,8 @@ const importedGroupsNamed = async (name: string): Promise<ontology.Resource[]> =
 };
 
 /**
- * Creates a group with one symbol on the cluster and exports it, returning the
- * group's name, the exported symbol's name, and the bundle's zip bytes.
+ * Creates a group with one symbol on the Core and exports it, returning the group's
+ * name, the exported symbol's name, and the bundle's zip bytes.
  */
 const createExportedBundle = async () => {
   const root = await client.schematics.symbols.retrieveGroup();
@@ -135,7 +145,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       const { statuses } = await renderModal();
       startFileDrag();
       fireFileDrop(screen.getByText(ZONE_TEXT), [
-        fakeFileEntry(new File([bytes], `${groupName}.zip`)),
+        fakeFileEntry(createFile(`${groupName}.zip`, bytes)),
       ]);
       await awaitStatus(statuses, "success", successMessage(groupName));
       const groups = await importedGroupsNamed(groupName);

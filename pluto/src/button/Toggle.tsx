@@ -31,7 +31,8 @@ export const Toggle = ({
   ...rest
 }: ToggleProps): ReactElement => (
   <Button
-    className={CSS(className, CSS.B("btn-toggle"), CSS.selected(value))}
+    className={CSS.cls(className, CSS.B("btn-toggle"), CSS.selected(value))}
+    aria-pressed={value}
     onClick={(e) => {
       onClick?.(e);
       if (rightClickToggle) return;

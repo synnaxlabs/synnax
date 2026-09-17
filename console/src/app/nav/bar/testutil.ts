@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -40,8 +41,9 @@ export const withActiveProject = (
 export const renderBar = async (
   ui: ReactElement,
   preloadedState?: ConsolePreloadedState,
+  as: Synnax = client,
 ) => {
-  const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
+  const { wrapper, store } = await createConsoleWrapper({ client: as, preloadedState });
   let rendered!: RenderResult;
   await act(async () => {
     rendered = render(ui, { wrapper });

@@ -8,24 +8,38 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
-import { client, renderArc } from "@/platform/arc/testutil";
-import { selectTestProject } from "@/testutil";
+import { client } from "@/platform/arc/testutil";
+import { Modals } from "@/platform/modals";
+import { createConsoleWrapper, selectTestProject } from "@/testutil";
 
-const Harness = (): ReactElement => {
-  const create = Arc.useCreate();
-  return <button onClick={() => create()}>open</button>;
+const setup = async () => {
+  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      {children}
+      <Modals.Stack />
+    </Console>
+  );
+  const { result } = renderHook(Arc.useCreate, { wrapper });
+  // Modal content that suspends is discarded when it opens inside a synchronous act
+  // scope, so the open needs an awaited one.
+  const open = async () => {
+    await act(async () => {
+      result.current();
+    });
+  };
+  return { store, open };
 };
-Harness.displayName = "Harness";
 
 describe("arc useCreate", () => {
   it("should reject an empty name with a validation error", async () => {
-    await renderArc(<Harness />);
-    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    const { open } = await setup();
+    await open();
     await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
     const create = await screen.findByRole("button", { name: "Create" });
     await act(async () => {
@@ -36,9 +50,9 @@ describe("arc useCreate", () => {
 
   it("should create the arc on the server after the modal completes", async () => {
     const name = id.create();
-    const { store } = await renderArc(<Harness />);
+    const { store, open } = await setup();
     await selectTestProject(store, client);
-    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    await open();
 
     const input = await screen.findByPlaceholderText("Name");
     fireEvent.change(input, { target: { value: name } });

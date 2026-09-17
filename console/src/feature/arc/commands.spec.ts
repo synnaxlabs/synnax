@@ -8,16 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { renderPalette } from "@/feature/command/testutil";
+import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, uniqueName } from "@/testutil";
+import {
+  assertDefined,
+  renderHookWithConsole,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 describe("Arc Commands", () => {
   it("opens the arc explorer view from the open explorer command", async () => {
@@ -70,5 +77,38 @@ describe("Arc Commands", () => {
     expect(tab.resource.type).toBe(arc.TYPE_ONTOLOGY_ID.type);
     const created = await client.arcs.retrieve(tab.resource.key);
     expect(created.name).toBe(name);
+  });
+});
+
+describe("Arc Commands permissions", () => {
+  it("should offer Create an Arc automation to an engineer", async () => {
+    const gate = findCommand(Arc.COMMANDS, "Create Arc automation").useVisible;
+    assertDefined(gate);
+    const { result } = await renderHookWithConsole(gate, {
+      client: await roles.get("Engineer"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should withhold Create an Arc automation from a viewer", async () => {
+    const gate = findCommand(Arc.COMMANDS, "Create Arc automation").useVisible;
+    assertDefined(gate);
+    const read = findCommand(Arc.COMMANDS, "Open Arc explorer").useVisible;
+    assertDefined(read);
+    const { result } = await renderHookWithConsole(
+      () => ({ visible: gate(), readable: read() }),
+      { client: await roles.get("Viewer") },
+    );
+    await waitFor(() => expect(result.current.readable).toBe(true));
+    expect(result.current.visible).toBe(false);
+  });
+
+  it("should still offer Open the Arc Explorer to a viewer", async () => {
+    const gate = findCommand(Arc.COMMANDS, "Open Arc explorer").useVisible;
+    assertDefined(gate);
+    const { result } = await renderHookWithConsole(gate, {
+      client: await roles.get("Viewer"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
   });
 });

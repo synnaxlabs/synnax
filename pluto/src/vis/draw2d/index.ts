@@ -54,7 +54,7 @@ export interface Draw2DCircleProps {
 
 export interface Draw2DContainerProps {
   region: box.Box;
-  bordered?: boolean | location.Location | location.Location[];
+  bordered?: boolean | location.Outer | location.Outer[];
   rounded?: boolean;
   borderColor?: ColorSpec;
   borderRadius?: number;
@@ -67,7 +67,12 @@ export interface DrawTextProps extends FillTextOptions {
   position: xy.XY;
   level: text.Level;
   justify?: CanvasTextAlign;
-  align?: CanvasTextBaseline;
+  /**
+   * Vertical placement. The canvas baselines place the em box, which the engines
+   * disagree on, so "center" centers the ink instead, for glyphs sitting on the
+   * baseline.
+   */
+  align?: CanvasTextBaseline | "center";
   weight?: text.Weight;
   shade?: theming.Shade;
   maxWidth?: number;
@@ -94,7 +99,7 @@ export interface Draw2DBorderProps {
   color?: ColorSpec;
   width?: number;
   radius?: number;
-  location?: true | location.Location | location.Location[];
+  location?: true | location.Outer | location.Outer[];
 }
 
 export interface Draw2DTextContainerProps
@@ -169,7 +174,6 @@ export class Draw2D {
     const endAngle = angle?.upper ?? 2 * Math.PI;
 
     if (stroke != null && typeof radius === "object") {
-      // Stroke mode for rings - draw as a thick arc with rounded caps
       const { inner, outer } = radius;
       const midRadius = (inner + outer) / 2;
       const arcWidth = outer - inner;
@@ -182,7 +186,6 @@ export class Draw2D {
       ctx.stroke();
       if (lineDash != null) ctx.setLineDash([]);
     } else if (stroke != null && typeof radius === "number") {
-      // Stroke mode for simple circles
       ctx.arc(...xy.couple(position), radius, startAngle, endAngle, false);
       ctx.strokeStyle = color.hex(stroke);
       ctx.lineWidth = strokeWidth ?? 1;
@@ -191,23 +194,17 @@ export class Draw2D {
       ctx.stroke();
       if (lineDash != null) ctx.setLineDash([]);
     } else if (fill != null) {
-      // Fill mode (original behavior)
       ctx.fillStyle = color.hex(fill);
 
       if (typeof radius === "number") {
-        // Simple filled circle or arc
         ctx.arc(...xy.couple(position), radius, startAngle, endAngle);
         ctx.fill();
       } else {
-        // Ring or arc segment with inner and outer radius
         const { inner, outer } = radius;
-        // Draw outer arc
         ctx.arc(...xy.couple(position), outer, startAngle, endAngle, false);
-        // Draw line to inner arc start
         const innerStartX = position.x + inner * Math.cos(endAngle);
         const innerStartY = position.y + inner * Math.sin(endAngle);
         ctx.lineTo(innerStartX, innerStartY);
-        // Draw inner arc (reverse direction)
         ctx.arc(...xy.couple(position), inner, endAngle, startAngle, true);
         ctx.closePath();
         ctx.fill();
@@ -236,6 +233,7 @@ export class Draw2D {
     location,
   }: Draw2DBorderProps): void {
     const ctx = this.canvas;
+    ctx.beginPath();
     ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
     ctx.lineWidth = width ?? ctx.hairlineWidth;
     radius ??= Math.round(this.theme.sizes.border.radius.tiny * this.theme.sizes.base);
@@ -435,11 +433,14 @@ export class Draw2D {
     else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);
     else this.canvas.fillStyle = color.hex(this.theme.colors.gray[`l${shade}`]);
     this.canvas.textAlign = justify;
-    this.canvas.textBaseline = align;
+    const centered = align === "center";
+    this.canvas.textBaseline = centered ? "alphabetic" : align;
+    let y = position.y;
+    if (centered) y += this.canvas.textDimensions(text, { useAtlas }).height / 2;
     let removeScissor: destructor.Destructor | undefined;
     if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
-    this.canvas.fillText(text, position.x, position.y, undefined, { useAtlas });
+    this.canvas.fillText(text, position.x, y, undefined, { useAtlas });
     removeScissor?.();
   }
 }

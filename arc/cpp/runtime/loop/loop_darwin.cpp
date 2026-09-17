@@ -37,7 +37,7 @@ public:
         std::shared_ptr<x::thread::rt::Handle> rt_handle = nullptr
     ):
         config_(std::move(config)), rt_handle_(std::move(rt_handle)) {
-        if (this->config_.lock_memory)
+        if (this->config_.memory_locked)
             LOG(WARNING) << "[arc.loop] Memory locking not fully supported on macOS";
     }
 

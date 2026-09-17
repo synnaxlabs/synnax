@@ -64,9 +64,7 @@ interface CreateOptions {
 /**
  * Represents a Channel in a Synnax database. Typically, channels should not be
  * instantiated directly, but instead created via the `.channels.create` or retrieved
- * via the `.channels.retrieve` method on a Synnax client.
- *
- * Please refer to the [Synnax
+ * via the `.channels.retrieve` method on a Synnax client. Please refer to the [Synnax
  * documentation](https://docs.synnaxlabs.com/reference/concepts/channels) for detailed
  * information on what channels are and how to use them.
  */
@@ -81,9 +79,7 @@ export class Channel {
    * A human-readable name for the channel. This name is not guaranteed to be unique.
    */
   readonly name: string;
-  /**
-   * The data type of the channel.
-   */
+  /** The data type of the channel. */
   readonly dataType: DataType;
   /**
    * The key of the node in the Synnax cluster that holds the 'lease' over the channel
@@ -96,13 +92,9 @@ export class Channel {
    * that stores its timestamps.
    */
   readonly index: Key;
-  /**
-   * This is set to true if the channel is an index channel, and false otherwise.
-   */
+  /** This is set to true if the channel is an index channel, and false otherwise. */
   readonly isIndex: boolean;
-  /**
-   * This is set to true if the channel is an internal channel, and false otherwise.
-   */
+  /** This is set to true if the channel is an internal channel, and false otherwise. */
   readonly internal: boolean;
   /**
    * An alias for the channel under a specific range. This parameter is unstable and
@@ -121,9 +113,7 @@ export class Channel {
   readonly expression: string;
   readonly operations: Operation[];
   readonly concurrency: control.Concurrency;
-  /**
-   * The status of the channel.
-   */
+  /** The status of the channel. */
   readonly status?: status.Status;
 
   constructor({
@@ -197,18 +187,13 @@ export class Channel {
     return isCalculated(this.payload);
   }
 
-  /***
-   * @returns the ontology ID of the channel
-   */
+  /** @returns the ontology ID of the channel */
   get ontologyID(): ontology.ID {
     return ontologyID(this.key);
   }
 
   /**
    * Reads telemetry from the channel between the two timestamps.
-   *
-   * @param start - The starting timestamp of the range to read from.
-   * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
   async read(tr: CrudeTimeRange): Promise<MultiSeries> {
@@ -217,15 +202,14 @@ export class Channel {
 
   /**
    * Writes telemetry to the channel starting at the given timestamp.
-   *
    * @param start - The starting timestamp of the first sample in data.
-   * @param data - THe telemetry to write to the channel.
    */
   async write(start: CrudeTimeStamp, data: TypedArray): Promise<void> {
     return await this.framer.write(start, this.key, data);
   }
 }
 
+/** Zod schema for {@link RetrieveRequest}. */
 export const retrieveRequestZ = z.object({
   nodeKey: zod.uint12.optional(),
   keys: keyZ.array().optional(),
@@ -241,8 +225,10 @@ export const retrieveRequestZ = z.object({
   internal: z.boolean().optional(),
   legacyCalculated: z.boolean().optional(),
 });
+/** Everything a channel retrieval can filter on. */
 export type RetrieveRequest = z.input<typeof retrieveRequestZ>;
 
+/** The filters a retrieval accepts alongside its keys or names. */
 export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
@@ -251,6 +237,7 @@ const retrieveGroupReqZ = z.object({});
 
 const retrieveGroupResZ = z.object({ group: group.groupZ });
 
+/** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
 
 type NormalizedRequest = z.infer<typeof retrieveRequestZ>;
@@ -361,8 +348,7 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
   };
 };
 
-// Channel statuses live in the status table under the "channel:<key>" status
-// key.
+// Channel statuses live in the status table under the "channel:<key>" status key.
 const affectedChannelKeys = (
   event: query.TableEvent<status.Key, status.Status>,
 ): Key[] | null => {
@@ -387,6 +373,11 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
+/**
+ * Creates, reads, and deletes channels on a Core. Reach it through `client.channels`.
+ * Retrievals are served from a cache that a change stream keeps current, so a repeated
+ * read costs nothing.
+ */
 export class Client extends query.Retriever<
   typeof retrieveRequestZ,
   Key,
@@ -398,12 +389,14 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
   readonly store: query.Table<Key, Channel>;
+  private readonly byName: query.LookupIndex<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
     const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
+    const byName = new query.LookupIndex<Key, Channel>((ch) => ch.name);
     const store = cache.createTable<Key, Channel>({
       name: "channels",
       equal: (a, b) => deep.equal(a.payload, b.payload),
@@ -415,6 +408,7 @@ export class Client extends query.Retriever<
         }),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
+      indexes: [byName],
     });
     const composed = cache.derive<Key, Channel, Channel>({
       name: "channel.composed",
@@ -470,11 +464,11 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = writer;
     this.store = store;
+    this.byName = byName;
   }
 
   /**
    * Creates a single channel with the given properties.
-   *
    * @param name - A human-readable name for the channel.
    * @param rate - The rate of the channel. This only applies to fixed rate channels.
    * @param dataType - The data type for the samples stored in the channel.
@@ -512,25 +506,21 @@ export class Client extends query.Retriever<
   /**
    * Creates multiple channels with the given properties. The order of the channels
    * returned is guaranteed to match the order of the channels passed in.
-   *
-   * @param channels - An array of channel properties to create.
-   * For each channel, the following properties should be considered:
-   *
+   * @param channels - An array of channel properties to create. For each channel, the
+   * following properties should be considered:
    * @param name - A human-readable name for the channel.
    * @param rate - The rate of the channel. This only applies to fixed rate channels. If
    * the 'index' parameter is specified or 'isIndex' is set to true, this parameter will
    * be ignored.
    * @param dataType - The data type for the samples stored in the channel.
    * @param index - The key of the index channel that this channel should be associated
-   * with. An 'index' channel is a channel that stores timestamps for other channels. Refer
-   * to the Synnax documentation (https://docs.synnaxlabs.com) for more information. The
-   * index channel must have already been created. This field does not need to be specified
-   * if the channel is an index channel, or the channel is a fixed rate channel. If this
-   * value is specified, the 'rate' parameter will be ignored.
-   * @param isIndex - Set to true if the channel is an index channel, and false otherwise.
-   * Index channels must have a data type of `DataType.TIMESTAMP`.
-   *
-   * @param channels
+   * with. An 'index' channel is a channel that stores timestamps for other channels.
+   * Refer to the Synnax documentation (https://docs.synnaxlabs.com) for more
+   * information. The index channel must have already been created. This field does not
+   * need to be specified if the channel is an index channel, or the channel is a fixed
+   * rate channel. If this value is specified, the 'rate' parameter will be ignored.
+   * @param isIndex - Set to true if the channel is an index channel, and false
+   * otherwise. Index channels must have a data type of `DataType.TIMESTAMP`.
    */
   async create(channels: New[], options?: CreateOptions): Promise<Channel[]>;
 
@@ -555,14 +545,12 @@ export class Client extends query.Retriever<
 
   /**
    * Retrieves a channel from the database using the given key or name.
-   *
-   * @param params - The key or name of the channel to retrieve.
+   * @param params - The key or the name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
-   * @param options.dataTypes - Limits the query to only channels with the specified data
-   * type.
-   * @param options.notDataTypes - Limits the query to only channels without the specified
+   * @param options.dataTypes - Limits the query to only channels with the specified
    * data type.
-   *
+   * @param options.notDataTypes - Limits the query to only channels without the
+   * specified data type.
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
    * @throws {MultipleFoundError} is only thrown if the channel is retrieved by name,
@@ -580,17 +568,14 @@ export class Client extends query.Retriever<
   /**
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
-   *
-   * @param params - The keys or the names of the channels to retrieve. Note that
-   * this method does not support mixing keys and names in the same call.
+   * @param params - The keys or the names of the channels to retrieve. Note that this
+   * method does not support mixing keys and names in the same call.
    * @param options - Optional parameters to control the retrieval process.
-   * @param options.dataTypes - Limits the query to only channels with the specified data
-   * type.
-   * @param options.notDataTypes - Limits the query to only channels without the specified
-   *
+   * @param options.dataTypes - Limits the query to only channels with the specified
+   * data type.
+   * @param options.notDataTypes - Limits the query to only channels without the
+   * specified
    */
-  async retrieve(params: Key | string, options?: RetrieveOptions): Promise<Channel>;
-
   async retrieve(
     params: PrimitiveParams | Payload[],
     options?: RetrieveOptions,
@@ -637,10 +622,7 @@ export class Client extends query.Retriever<
     return isSingle ? res[0] : res;
   }
 
-  /***
-   * Deletes channels from the database using the given keys or names.
-   * @param params - The keys or names of the channels to delete.
-   */
+  /** * Deletes channels from the database using the given keys or names. */
   async delete(params: Params, opts: query.WriteOptions = {}): Promise<void> {
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
@@ -661,7 +643,7 @@ export class Client extends query.Retriever<
     }
     const names = normalized;
     await this.writer.delete({ names });
-    const cached = this.store.get((ch) => names.includes(ch.name));
+    const cached = this.byName.get(names);
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
@@ -786,10 +768,11 @@ export class Client extends query.Retriever<
     const { key, rangeKey } = query;
     let ch = this.store.get(key);
     if (ch == null) {
-      const payloads = await this.execRetrieve([key]);
-      checkForMultipleOrNoResults("channel", key, payloads, true);
-      ch = this.sugar(stripComposed(payloads[0]));
-      this.store.set(key, ch);
+      // Through the table, so concurrent misses coalesce into one request. A plot
+      // panel resolves one channel per telemetry source, all in the same tick.
+      const fetched = await this.store.retrieve([key]);
+      checkForMultipleOrNoResults("channel", key, fetched, true);
+      [ch] = fetched;
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
@@ -815,7 +798,7 @@ export class Client extends query.Retriever<
     const resolved: Channel[] = [];
     const missing: string[] = [];
     for (const name of new Set(names)) {
-      const matches = this.store.get((ch) => ch.name === name);
+      const matches = this.byName.get(name);
       if (matches.length > 1) return null;
       if (matches.length === 0) missing.push(name);
       else resolved.push(matches[0]);
@@ -844,5 +827,6 @@ export class Client extends query.Retriever<
   }
 }
 
+/** @returns whether the channel computes its samples from an expression. */
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";

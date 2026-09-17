@@ -44,9 +44,11 @@ export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"
 export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, username } = data;
-    await client.users.changeUsername(key, username);
+    await client.users.changeUsername(key, username, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -137,6 +139,10 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
   },
 });
 
+export const useResultKey = createResultSelector(({ key }) => key);
+
 export const useResultUsername = createResultSelector(({ username }) => username);
 
 export const useResultFirstName = createResultSelector(({ firstName }) => firstName);
+
+export const useResultLastName = createResultSelector(({ lastName }) => lastName);

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <utility>
 
@@ -77,6 +78,8 @@ struct ConnectionConfig {
     std::string base_url;
     /// @brief request timeout.
     x::telem::TimeSpan timeout;
+    /// @brief cap on in-flight requests to the device.
+    std::size_t max_concurrent_requests;
     /// @brief authentication configuration.
     AuthConfig auth;
     /// @brief whether to verify SSL certificates.
@@ -86,6 +89,10 @@ struct ConnectionConfig {
     [[nodiscard]] explicit ConnectionConfig(x::json::Parser parser):
         base_url(parser.field<std::string>("base_url")),
         timeout(parser.field<uint32_t>("timeout_ms", 100) * x::telem::MILLISECOND),
+        max_concurrent_requests(parser.field<std::size_t>(
+            "max_concurrent_requests",
+            DEFAULT_MAX_CONCURRENT_REQUESTS
+        )),
         auth(AuthConfig(parser.optional_child("auth"))),
         verify_ssl(parser.field<bool>("verify_ssl", true)) {
         if (!base_url.starts_with("http://") && !base_url.starts_with("https://"))
@@ -101,6 +108,8 @@ struct ConnectionConfig {
             );
         if (timeout <= x::telem::TimeSpan::ZERO())
             parser.field_err("timeout_ms", "must be positive");
+        if (max_concurrent_requests == 0)
+            parser.field_err("max_concurrent_requests", "must be positive");
     }
 };
 

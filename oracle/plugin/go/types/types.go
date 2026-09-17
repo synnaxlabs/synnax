@@ -740,14 +740,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
-	// Flatten (rather than embed the parent) when fields are omitted, parents
-	// conflict, a field removes an inherited domain, or a field restates an
-	// inherited field's type — none can be expressed through Go struct embedding.
-	flatten := len(form.Extends) > 0 &&
-		(len(form.OmittedFields) > 0 ||
-			resolver.HasFieldConflicts(form.Extends, data.table) ||
-			resolver.HasDomainOmissions(form) ||
-			resolver.HasStructuralOverride(form, data.table))
+	flatten := len(form.Extends) > 0 && !CanEmbed(form, data.table)
 	fields := resolution.UnifiedFields(entry, data.table)
 	// Fields the struct redeclares only to change an inherited default. The embedded
 	// parent already declares them, so they contribute a default fill and nothing
@@ -778,10 +771,12 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	if genMethods && len(embeds) > 0 {
 		sd.DefaultRecurse = append(
 			sd.DefaultRecurse,
-			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...)
+			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...,
+		)
 		sd.ValidateRecurse = append(
 			sd.ValidateRecurse,
-			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...)
+			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...,
+		)
 	}
 	for _, field := range fields {
 		if !defaultOnly.Contains(field.Name) {
@@ -790,7 +785,9 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		if !genMethods {
 			continue
 		}
-		sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+		if defaultGroupName(field) == "" {
+			sd.DefaultFills = append(sd.DefaultFills, goDefaultFills(field, data)...)
+		}
 		if step, ok := goRecurseStep(field, data, defaultsHasOwn, neverSkip); ok {
 			sd.DefaultRecurse = append(sd.DefaultRecurse, step)
 		}
@@ -802,10 +799,14 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		}
 		sd.ConstraintChecks = append(
 			sd.ConstraintChecks,
-			goConstraintChecks(field, data)...)
+			goConstraintChecks(field, data)...,
+		)
 		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
+	}
+	if genMethods {
+		sd.DefaultGroups = goDefaultGroups(fields, data)
 	}
 	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
 		len(sd.ValidateRecurse) > 0 {
@@ -1029,6 +1030,7 @@ type structData struct {
 	ExtendsTypes     []string
 	ExtraFields      []string
 	DefaultFills     []defaultFillData
+	DefaultGroups    []defaultGroupData
 	DefaultRecurse   []recurseStepData
 	EnumChecks       []enumCheckData
 	ConstraintChecks []constraintCheckData
@@ -1264,13 +1266,20 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 }
 {{end -}}
 {{- $s := .}}
-{{- if or .DefaultFills .DefaultRecurse}}
+{{- if or .DefaultFills .DefaultGroups .DefaultRecurse}}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
 		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
+	}
+{{- end}}
+{{- range $s.DefaultGroups}}
+	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$s.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
+{{- range .Fills}}
+		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
+{{- end}}
 	}
 {{- end}}
 {{- range $s.DefaultRecurse}}
@@ -1304,17 +1313,17 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- range $s.ConstraintChecks}}
 {{- if eq .Kind "non_empty_string"}}
-	validate.NotEmptyString(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+	v.NotEmptyString("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "non_zero"}}
-	validate.NonZero(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+	v.NonZero("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "min_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
 {{- else if eq .Kind "max_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
 {{- else if eq .Kind "ge"}}
-	validate.GreaterThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.GreaterThanEq("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
-	validate.LessThanEq(v, "{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.LessThanEq("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- end}}
 {{- end}}
 {{- range $s.ValidateRecurse}}
@@ -1383,6 +1392,13 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
 	}
 {{- end}}
+{{- range $vt.DefaultGroups}}
+	if {{range $i, $m := .Members}}{{if $i}} && {{end}}{{$vt.Receiver}}.{{$m.GoName}} == {{$m.ZeroLit}}{{end}} {
+{{- range .Fills}}
+		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
+{{- end}}
+	}
+{{- end}}
 {{- range $vt.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
 	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
@@ -1414,17 +1430,17 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- end}}
 {{- range $vt.ConstraintChecks}}
 {{- if eq .Kind "non_empty_string"}}
-	validate.NotEmptyString(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+	v.NotEmptyString("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "non_zero"}}
-	validate.NonZero(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+	v.NonZero("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
 {{- else if eq .Kind "min_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
 {{- else if eq .Kind "max_len"}}
 	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
 {{- else if eq .Kind "ge"}}
-	validate.GreaterThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.GreaterThanEq("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
-	validate.LessThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.LessThanEq("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
 {{- end}}
 {{- end}}
 {{- range $vt.ValidateRecurse}}

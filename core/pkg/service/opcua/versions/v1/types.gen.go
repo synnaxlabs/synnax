@@ -46,8 +46,8 @@ type ReadChannel struct {
 	BaseChannel
 	// Channel is the Synnax channel that samples are written to.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	// UseAsIndex is true when the channel's Synnax channel is the task's index.
-	UseAsIndex bool `json:"use_as_index" msgpack:"use_as_index"`
+	// IsIndex is true when the channel's Synnax channel is the task's index.
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

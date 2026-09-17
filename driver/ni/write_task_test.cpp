@@ -103,8 +103,7 @@ protected:
                   {"max_val", 1},
                   {"state_channel", state_ch_1.key},
                   {"cmd_channel", cmd_ch_1.key},
-                  {"custom_scale", {{"type", "none"}}},
-                  {"units", "Volts"}},
+                  {"custom_scale", {{"type", "none"}}}},
                  {
 
                      {"type", "ao_voltage"},
@@ -115,8 +114,7 @@ protected:
                      {"max_val", 1},
                      {"state_channel", state_ch_2.key},
                      {"cmd_channel", cmd_ch_2.key},
-                     {"custom_scale", {{"type", "none"}}},
-                     {"units", "Volts"}
+                     {"custom_scale", {{"type", "none"}}}
                  },
              })}
         };
@@ -372,8 +370,7 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
                {"max_val", 1},
                {"state_channel", state_ch.key},
                {"cmd_channel", cmd_ch.key},
-               {"custom_scale", {{"type", "none"}}},
-               {"units", "Volts"}}}
+               {"custom_scale", {{"type", "none"}}}}}
          )}
     };
 

@@ -9,7 +9,7 @@
 
 import "@/platform/modals/Header.css";
 
-import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Dialog, Icon, Nav, Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -23,6 +23,8 @@ export interface HeaderProps extends Omit<
   icon?: Icon.ReactElement;
   hideClose?: boolean;
 }
+
+const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
 
 /**
  * Header renders a modal's top title bar: a breadcrumb of the given name, an optional
@@ -44,7 +46,7 @@ export const Header = ({
       location="top"
       size="6rem"
       bordered
-      className={CSS(CSS.BE("modal", "header"), className)}
+      className={CSS.cls(CSS.BE("modal", "header"), className)}
       {...rest}
     >
       <Nav.Bar.Start>
@@ -59,7 +61,14 @@ export const Header = ({
       </Nav.Bar.Start>
       {!hideClose && (
         <Nav.Bar.End>
-          <Button.Button onClick={close} size="small" variant="text" textColor={9}>
+          <Button.Button
+            aria-label="Close"
+            onClick={close}
+            size="small"
+            variant="text"
+            textColor={9}
+            tooltip={CLOSE_TOOLTIP}
+          >
             <Icon.Close />
           </Button.Button>
         </Nav.Bar.End>

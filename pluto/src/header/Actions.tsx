@@ -12,18 +12,12 @@ import { type ReactElement, type ReactNode } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 
+/** Props for {@link Actions}. */
 export interface ActionsProps extends Omit<Flex.BoxProps, "children" | "direction"> {
   children?: ReactNode;
 }
 
-/**
- * Custom actions to render on the right side of the header.
- *
- * @param children - The actions to render. If the action is of type
- * {@link ButtonIconProps}, a correctly sized {@link ButtonIconOnly} is rendered using
- * the given props. If the action is a JSX element, it is rendered directly. It's a good
- * idea to prefer the latter in almost all cases for simplicity.
- */
+/** The trailing slot of a {@link Header}, holding its buttons. */
 export const Actions = ({ children = [], ...rest }: ActionsProps): ReactElement => (
   <Flex.Box
     x

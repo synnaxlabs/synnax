@@ -82,7 +82,7 @@ class Value(Symbol):
             self.set_label(channel_name)
 
         # Navigate to Properties > Telemetry tab
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         self.page.get_by_text("Telemetry").click()
 
         if channel_name is not None:

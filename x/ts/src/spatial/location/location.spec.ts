@@ -13,11 +13,11 @@ import { location } from "@/spatial/location";
 
 describe("Location", () => {
   describe("construction", () => {
-    [
-      ["from valueOf", String("left")],
+    const CASES: Array<[string, location.Crude]> = [
       ["from string", "left"],
       ["from direction", "x"],
-    ].forEach(([name, arg]) =>
+    ];
+    CASES.forEach(([name, arg]) =>
       test(name, () => expect(location.construct(arg)).toEqual("left")),
     );
   });
@@ -35,6 +35,29 @@ describe("Location", () => {
       expect(location.rotate("left", "counterclockwise")).toEqual("top");
       expect(location.rotate("bottom", "counterclockwise")).toEqual("left");
       expect(location.rotate("right", "counterclockwise")).toEqual("bottom");
+    });
+  });
+
+  describe("swapAxis", () => {
+    const OUTER = ["top", "bottom", "left", "right"] as const;
+
+    test("should pair each edge with the one facing the same way", () => {
+      expect(location.swapAxis("top")).toEqual("left");
+      expect(location.swapAxis("left")).toEqual("top");
+      expect(location.swapAxis("right")).toEqual("bottom");
+      expect(location.swapAxis("bottom")).toEqual("right");
+    });
+
+    test("should move the edge onto the other axis", () => {
+      OUTER.forEach((l) =>
+        expect(location.direction(location.swapAxis(l))).not.toEqual(
+          location.direction(l),
+        ),
+      );
+    });
+
+    test("should be its own inverse", () => {
+      OUTER.forEach((l) => expect(location.swapAxis(location.swapAxis(l))).toEqual(l));
     });
   });
 });

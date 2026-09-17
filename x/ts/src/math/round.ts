@@ -19,10 +19,8 @@ const SIGNIFICANT_FIGURES = 5;
 const MIN_SPAN_THRESHOLD = 1e-10;
 
 /**
- * Intelligently rounds a number using span-based or significant figure logic.
- * Designed for UI display where floating-point noise needs to be cleaned up.
- *
- * @param value - The number to be rounded.
+ * Intelligently rounds a number using span-based or significant figure logic. Designed
+ * for UI display where floating-point noise needs to be cleaned up.
  * @param b - Optional bounds. Uses span-based rounding when span is significant,
  * otherwise uses significant figures.
  * @returns The rounded number.

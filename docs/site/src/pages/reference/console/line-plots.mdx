@@ -8,10 +8,12 @@ next: "Logs"
 nextURL: "/reference/console/logs"
 ---
 
-import { Divider, Icon, Note } from "@synnaxlabs/pluto";
+import { Divider, Icon } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
 import { Table } from "@/components";
 import Diagram from "@/components/diagram/Diagram.astro";
+import CreateVisualization from "@/components/console/CreateVisualization.astro";
+import ShareAndExport from "@/components/console/ShareAndExport.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -29,28 +31,25 @@ export const components = mdxOverrides;
   />
 </Diagram>
 
-Line plots are the main visualization tool in the Synnax Console. Line plots can be used
-to plot real-time data or historical data. They can plot one or several channels along
-the y-axes, and the x-axis can be time or another channel.
-
-Click the visualize <Icon.Visualize /> button in the bottom-left corner to open the
-Visualization Toolbar.
-
-<Video client:only="react" id="console/line-plots/toolbar" />
-
-<Note.Note variant="warning">
-  Make sure that you are working in an active
-  [workspace](/reference/console/workspaces)! If your line plot is not created in a
-  workspace, it will not be saved permanently to Synnax.
-</Note.Note>
+Line plots graph real-time or historical data. They plot one or more channels along the
+y-axes, with time or another channel on the x-axis.
 
 <Divider.Divider x />
 
-## Visualization Toolbar
+## Creating a Plot
 
-### Data Tab
+<CreateVisualization type="line plot" video="console/line-plots/create" />
 
-<Video client:only="react" id="console/line-plots/data-tab" />
+<Divider.Divider x />
+
+## Configuring the Plot
+
+Click the line plot <Icon.LinePlot /> button in the bottom-left corner to open the
+Component Toolbar and configure the plot.
+
+<Video client:only="react" id="console/line-plots/toolbar" />
+
+### Data
 
 <table>
   <thead>
@@ -92,9 +91,7 @@ Visualization Toolbar.
   </tbody>
 </table>
 
-### Lines Tab
-
-<Video client:only="react" id="console/line-plots/lines-tab" />
+### Lines
 
 <table>
   <thead>
@@ -141,9 +138,7 @@ Visualization Toolbar.
   </tbody>
 </table>
 
-### Axes Tab
-
-<Video client:only="react" id="console/line-plots/axes-tab" />
+### Axes
 
 <table>
   <thead>
@@ -192,9 +187,7 @@ Visualization Toolbar.
   </tbody>
 </table>
 
-### Properties Tab
-
-<Video client:only="react" id="console/line-plots/properties-tab" />
+### Properties
 
 <table>
   <thead>
@@ -232,18 +225,6 @@ Visualization Toolbar.
 In the top-right corner of the line plot, there are options for navigating the line
 plot.
 
-### Zoom
-
-{/* prettier-ignore-start */}
-
-Zoom on the line plot by clicking the zoom <Icon.Zoom /> button in the or by pressing
-<Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (macOS) and left click. This
-will adjust the axes of the line plot to the area of the box.
-
-{/* prettier-ignore-end */}
-
-<Video client:only="react" id="console/line-plots/zoom" />
-
 ### Pan
 
 {/* prettier-ignore-start */}
@@ -253,21 +234,26 @@ Pan the line plot by clicking the pan <Icon.Pan /> button or by pressing
 
 {/* prettier-ignore-end */}
 
-<Video client:only="react" id="console/line-plots/pan" />
-
 ### Select
 
 {/* prettier-ignore-start */}
 
-Select data by clicking the selection <Icon.Selection /> buttonor by pressing
-<Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (macOS) and left click. This
-box allows you to select data by dragging on the line plot. After selecting data you can
-right click and copy the time range to be used in Python, TypeScript, or ISO formats.
-You can also create a range from this selection, or download the data as a CSV.
+Select data by clicking the selection <Icon.Selection /> button or by pressing
+<Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (macOS) and dragging a box on
+the plot. Right-click the selection to copy the time range in Python, TypeScript, or ISO
+format, create a range from it, or download the data as a CSV.
 
 {/* prettier-ignore-end */}
 
-<Video client:only="react" id="console/line-plots/select" />
+### Zoom
+
+{/* prettier-ignore-start */}
+
+Zoom on the line plot by clicking the zoom <Icon.Zoom /> button in the or by pressing
+<Icon.Keyboard.Alt /> (Windows) / <Icon.Keyboard.Option /> (macOS) and left click. This
+will adjust the axes of the line plot to the area of the box.
+
+{/* prettier-ignore-end */}
 
 ### Reset Zoom
 
@@ -283,6 +269,11 @@ Reset the zoom by clicking the expand <Icon.Expand /> button or by pressing
 Clicking the tooltip <Icon.Tooltip /> button will determine whether a tooltip is shown
 when hovering over navigation options.
 
+### Pause Live Plotting
+
+Pressing the `H` key or clicking the pause <Icon.Pause /> button will pause live
+plotting.
+
 ### Slope
 
 The slope <Icon.Rule /> button allows you to select two points on the line plot and
@@ -292,7 +283,8 @@ second point, press the `2` key and click on the line plot.
 
 <Video client:only="react" id="console/line-plots/slope" />
 
-### Pause Live Plotting
+<Divider.Divider x />
 
-Pressing the `H` key or clicking the pause <Icon.Pause /> button will pause live
-plotting.
+## Sharing and Exporting
+
+<ShareAndExport type="line plot" />

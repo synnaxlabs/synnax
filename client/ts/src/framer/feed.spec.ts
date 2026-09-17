@@ -20,6 +20,8 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { UnexpectedError } from "@/errors";
 import { type Transform } from "@/framer/cache/transform";
+import { Feed } from "@/framer/feed";
+import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -383,10 +385,77 @@ describe("feed", () => {
     }
   });
 
+  it("should keep far-past streamed data out of reads of the present", async () => {
+    const { time, data } = await createChannels();
+    const received: number[] = [];
+    const sub = feed.stream(
+      (res) => {
+        const series = res.get(data.key);
+        if (series != null) received.push(...(Array.from(series) as number[]));
+      },
+      [data.key],
+    );
+    // Epoch-anchored stamps: the incident's Arc defect streamed samples whose index
+    // timestamps sat decades in the past while writes marched forward in real time.
+    let epoch = TimeStamp.seconds(10);
+    const writer = await client.openWriter({
+      start: epoch,
+      channels: [time.key, data.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            epoch = epoch.add(TimeSpan.milliseconds(1));
+            await writer.write({ [time.key]: [epoch], [data.key]: [1] });
+            return received.length > 0;
+          },
+          { timeout: 10000, interval: 100 },
+        )
+        .toBe(true);
+    } finally {
+      await writer.close();
+    }
+    try {
+      // The live buffer holds only epoch-era samples, so a read of the recent past must
+      // come back empty instead of serving them.
+      const now = TimeStamp.now();
+      const recent = new TimeRange(now.sub(TimeSpan.seconds(30)), now);
+      expect((await feed.read(recent, data.key)).length).toBe(0);
+      // A read that targets the buffer's own era still serves it.
+      const past = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(60));
+      expect((await feed.read(past, data.key)).length).toBeGreaterThan(0);
+    } finally {
+      sub.close();
+    }
+  });
+
   it("should reject reads after the feed closes", async () => {
     const closable = client.openFeed();
     await closable.close();
     const tr = new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1)));
     await expect(closable.read(tr, 123)).rejects.toThrow(UnexpectedError);
+  });
+
+  it("should forward staleCoverageThreshold to the cache", async () => {
+    let calls = 0;
+    const direct = new Feed({
+      staleCoverageThreshold: TimeSpan.milliseconds(50),
+      readRemote: async () => {
+        calls++;
+        return new Frame([], []);
+      },
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await direct.read(tr, 1);
+    await direct.read(tr, 1);
+    expect(calls).toBe(1);
+    await sleep.sleep(TimeSpan.milliseconds(60));
+    await direct.read(tr, 1);
+    expect(calls).toBe(2);
+    await direct.close();
   });
 });

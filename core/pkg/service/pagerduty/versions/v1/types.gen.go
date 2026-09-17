@@ -22,9 +22,8 @@ type Alert struct {
 	Key string `json:"key" msgpack:"key"`
 	// Status is the key of the Synnax status the alert watches.
 	Status status.Key `json:"status" msgpack:"status"`
-	// TreatErrorAsCritical maps the error variant to PagerDuty critical instead of
-	// error.
-	TreatErrorAsCritical bool `json:"treat_error_as_critical" msgpack:"treat_error_as_critical"`
+	// ErrorsCritical is true when the error variant maps to PagerDuty critical.
+	ErrorsCritical bool `json:"errors_critical" msgpack:"errors_critical"`
 	// Component is the PagerDuty component attached to triggered events.
 	Component string `json:"component" msgpack:"component"`
 	// Group is the PagerDuty group attached to triggered events.

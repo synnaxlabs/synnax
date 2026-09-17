@@ -62,8 +62,10 @@ export interface DeleteParams {
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
   verbs: verbs.DELETE,
-  update: async ({ client, data }) => {
-    await client.groups.delete(data.key);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.groups.delete(data.key, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

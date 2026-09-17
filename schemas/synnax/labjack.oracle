@@ -52,16 +52,20 @@ Scale union on type {
     }
     map {
         pre_scaled_min float64 = 0 {
-            @doc value "is the lower bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the lower bound of the raw input range."
         }
         pre_scaled_max float64 = 1 {
-            @doc value "is the upper bound of the raw input range."
+            @default group "pre_scaled"
+            @doc value     "is the upper bound of the raw input range."
         }
         scaled_min     float64 = 0 {
-            @doc value "is the lower bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the lower bound of the scaled output range."
         }
         scaled_max     float64 = 1 {
-            @doc value "is the upper bound of the scaled output range."
+            @default group "scaled"
+            @doc value     "is the upper bound of the scaled output range."
         }
 
         @doc value "maps a raw range linearly onto a scaled range."
@@ -75,7 +79,7 @@ Scale union on type {
 }
 
 BaseReadChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -121,13 +125,10 @@ ReadChannel union on type extends BaseReadChannel {
     }
     thermocouple {
         port              string = "AIN0" {
-            @doc value "is unused; the read port is derived from pos_chan."
+            @doc value "is the AIN port the thermocouple's positive lead is wired to."
         }
         thermocouple_type ThermocoupleType = k {
             @doc value "selects the thermocouple alloy type."
-        }
-        pos_chan          int32 = 0 {
-            @doc value "is the AIN port the thermocouple's positive lead is wired to."
         }
         neg_chan          int32 = 199 {
             @doc value """
@@ -166,7 +167,7 @@ ReadChannel union on type extends BaseReadChannel {
 }
 
 BaseWriteChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }

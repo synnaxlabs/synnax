@@ -79,7 +79,7 @@ class OPCUAReadArray(OPCUAReadTaskCase):
 
 
 class OPCUAReadTimestamp(OPCUAReadTaskCase):
-    """Test reading server timestamps as the task index (use_as_index)."""
+    """Test reading server timestamps as the task index (is_index)."""
 
     task_name = "OPCUA Read Timestamp"
     array_mode = True
@@ -92,7 +92,7 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
                 channel=idx.key,
                 node_id="NS=2;I=7",
                 data_type="datetime",
-                use_as_index=True,
+                is_index=True,
             ),
         ] + [
             sy.opcua.ReadChannel(

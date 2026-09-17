@@ -63,7 +63,7 @@ var _ = Describe("AlertTask", func() {
 	) {
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		w := status.NewWriter[any](statusSvc, tx)
+		w := statusSvc.NewWriter(tx)
 		Expect(w.Set(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "Test Source",
@@ -121,7 +121,7 @@ var _ = Describe("AlertTask", func() {
 					Key:  "cmd-again",
 				})).To(Succeed())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
@@ -262,12 +262,12 @@ var _ = Describe("AlertTask", func() {
 	})
 
 	Describe("Severity Mapping", func() {
-		It("Should map error to critical when TreatErrorAsCritical is true",
+		It("Should map error to critical when ErrorsCritical is true",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.Alert{
-						Status:               "critical-error",
-						TreatErrorAsCritical: true,
+						Status:         "critical-error",
+						ErrorsCritical: true,
 					},
 				))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
@@ -283,12 +283,12 @@ var _ = Describe("AlertTask", func() {
 			},
 		)
 
-		It("Should map error to error when TreatErrorAsCritical is false",
+		It("Should map error to error when ErrorsCritical is false",
 			func(ctx context.Context) {
 				tsk := configureAndStart(ctx, validConfig(
 					pd.Alert{
-						Status:               "normal-error",
-						TreatErrorAsCritical: false,
+						Status:         "normal-error",
+						ErrorsCritical: false,
 					},
 				))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
@@ -320,7 +320,7 @@ var _ = Describe("AlertTask", func() {
 
 				tx := db.OpenTx()
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
-				w := status.NewWriter[any](statusSvc, tx)
+				w := statusSvc.NewWriter(tx)
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key:         "payload-test",
 					Name:        "Temperature Sensor",

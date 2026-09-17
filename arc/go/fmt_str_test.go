@@ -22,7 +22,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
 		s := ch.Series[len(ch.Series)-1]
-		vals := telem.UnmarshalSeries[string](s)
+		vals := s.Unmarshal[string]()
 		Expect(vals).ToNot(BeEmpty())
 		return vals[len(vals)-1]
 	}
@@ -200,7 +200,9 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) },
+				func(h *runtimeHarness) {
+					h.Ingest(100, telem.NewSeriesV(0.1234567890123456))
+				},
 				"x=0.1234567890123456",
 			),
 		)
@@ -230,6 +232,61 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				out, _ := h.Flush()
 				Expect(lastString(out, 101)).To(Equal("hello, probe"))
 			},
+		)
+	})
+
+	Describe("Bool placeholders", func() {
+		DescribeTable(
+			"renders bool literals",
+			func(ctx SpecContext, source, expected string) {
+				Expect(runFmtTrigger(ctx, source)).To(Equal(expected))
+			},
+			Entry("true literal", `f"{true}"`, "true"),
+			Entry("false literal", `f"{false}"`, "false"),
+			Entry(
+				"bool literal with surrounding text",
+				`f"active={true}"`,
+				"active=true",
+			),
+			Entry("two bool placeholders", `f"{true} and {false}"`, "true and false"),
+		)
+
+		// Runs a program that renders a bool placeholder into log, driven by a
+		// u8 trigger. Bool-channel placeholders wait on read_bool/write_bool.
+		runBoolProgram := func(ctx SpecContext, program string) string {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"log":  {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx, program, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			return lastString(out, 101)
+		}
+
+		DescribeTable("renders a literal-const bool variable placeholder",
+			func(ctx SpecContext, program, expected string) {
+				Expect(runBoolProgram(ctx, program)).To(Equal(expected))
+			},
+			Entry("flow context true", `flag := true
+trig -> f"v={flag}" -> log`, "v=true"),
+			Entry("flow context false", `flag := false
+trig -> f"v={flag}" -> log`, "v=false"),
+			Entry("func context true", `func f() {
+    b := true
+    log = f"v={b}"
+}
+trig -> f{}`, "v=true"),
+			Entry("func context false", `func f() {
+    b := false
+    log = f"v={b}"
+}
+trig -> f{}`, "v=false"),
 		)
 	})
 
@@ -428,7 +485,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.14159)) },
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(3.14159)) },
 				"3.1416",
 			),
 			Entry(
@@ -437,7 +494,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				"f64",
 				types.F64(),
 				telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.000123)) },
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(0.000123)) },
 				"0.000123",
 			),
 		)
@@ -573,7 +630,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
 				defer h.Close(ctx)
-				h.Ingest(100, telem.NewSeriesV[float64](3.14159))
+				h.Ingest(100, telem.NewSeriesV(3.14159))
 				for range 5 {
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()

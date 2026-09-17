@@ -62,14 +62,16 @@ export const Icon = {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path
-        d="M108.242 32.8833C108.797 32.8817 109.247 33.3317 109.245 33.8862L109.092 87.5891C109.09 88.4786 108.014 88.9223 107.385 88.2933L53.8351 34.7432C53.2061 34.1142 53.6499 33.0387 54.5394 33.0361L108.242 32.8833Z"
-        fill="#0B650D"
-      />
-      <path
-        d="M33.8862 109.245C33.3317 109.247 32.8818 108.797 32.8833 108.242L33.0361 54.5394C33.0387 53.6499 34.1142 53.2061 34.7432 53.8351L88.2934 107.385C88.9223 108.014 88.4786 109.09 87.5891 109.092L33.8862 109.245Z"
-        fill="#0B650D"
-      />
+      <g transform="rotate(-90 71.5 71.5)">
+        <path
+          d="M108.242 32.8833C108.797 32.8817 109.247 33.3317 109.245 33.8862L109.092 87.5891C109.09 88.4786 108.014 88.9223 107.385 88.2933L53.8351 34.7432C53.2061 34.1142 53.6499 33.0387 54.5394 33.0361L108.242 32.8833Z"
+          fill="#0B650D"
+        />
+        <path
+          d="M33.8862 109.245C33.3317 109.247 32.8818 108.797 32.8833 108.242L33.0361 54.5394C33.0387 53.6499 34.1142 53.2061 34.7432 53.8351L88.2934 107.385C88.9223 108.014 88.4786 109.09 87.5891 109.092L33.8862 109.245Z"
+          fill="#0B650D"
+        />
+      </g>
     </svg>
   ),
 };
@@ -89,7 +91,7 @@ export const MacOS = ({
   <Flex.Box
     gap={1.5}
     x
-    className={CSS(
+    className={CSS.cls(
       CSS.B("macos-controls"),
       !focused && CSS.BM("macos-controls", "blurred"),
       className,
@@ -129,7 +131,7 @@ const TrafficLight = ({
   ...rest
 }: TrafficLightProps): ReactElement => (
   <button
-    className={CSS(CSS.B("macos-control"), CSS.disabled(disabled), className)}
+    className={CSS.cls(CSS.B("macos-control"), CSS.disabled(disabled), className)}
     tabIndex={-1}
     disabled={disabled}
     {...rest}

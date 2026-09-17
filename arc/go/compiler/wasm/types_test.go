@@ -419,7 +419,7 @@ var _ = Describe("Binary Opcodes", func() {
 	Describe("Error Cases", func() {
 		It("Should error on unknown operator", func() {
 			writer := wasm.NewWriter()
-			err := writer.WriteBinaryOpInferred("&", types.I32())
+			err := writer.WriteBinaryOpInferred("@", types.I32())
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("unknown operator")))
 		})

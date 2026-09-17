@@ -92,7 +92,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
     dispatch(lineplot.setLineColor({ key: itemKey, color }));
 
   return (
-    <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">
+    <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large" preventClick>
       <Channel.AliasInput
         channel={line.yChannel}
         variant="shadow"

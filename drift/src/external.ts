@@ -64,6 +64,7 @@ export {
   type SetWindowVisiblePayload,
   SLICE_NAME,
   type SliceState,
+  sliceStateZ,
   type StoreState,
   ZERO_SLICE_STATE,
 } from "@/state";

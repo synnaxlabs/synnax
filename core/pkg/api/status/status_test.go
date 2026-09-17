@@ -56,7 +56,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 
 				var s status.Status[any]
 				Expect(
-					statusSvc.NewRetrieve().
+					statusSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](res.Key)).
 						Entry(&s).
 						Exec(ctx, nil),
@@ -184,7 +184,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				).Error().
 					To(MatchError(access.ErrDenied))
 
-				Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
+				Expect(statusSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 					Entry(&status.Status[any]{}).
 					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			},
@@ -214,4 +214,78 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			},
 		)
 	})
+})
+
+// createStatus persists a fresh status and returns it. Writes commit immediately (nil
+// tx) so access-control reads can observe the new ontology resource.
+func createStatus(ctx SpecContext, name string) status.Status[any] {
+	GinkgoHelper()
+	s := status.Status[any]{
+		Key:     uuid.NewString(),
+		Name:    name,
+		Message: "test",
+		Variant: status.VariantInfo,
+		Time:    telem.Now(),
+	}
+	Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+	return s
+}
+
+var _ = Describe("Service.Retrieve", func() {
+	It(
+		"Should omit missing keys from a multi-key retrieve instead of failing",
+		func(ctx SpecContext) {
+			s := createStatus(ctx, "api_partial_"+uuid.New().String())
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(
+				apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apistatus.RetrieveRequest{
+						Keys:                []status.Key{s.Key, uuid.NewString()},
+						IgnoreNotFoundError: true,
+					},
+				),
+			)
+			Expect(res.Statuses).To(HaveLen(1))
+			Expect(res.Statuses[0].Key).To(Equal(s.Key))
+		},
+	)
+
+	It(
+		"Should return an empty result when every requested key is missing",
+		func(ctx SpecContext) {
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			res := MustSucceed(
+				apiSvc.Retrieve(
+					AuthedCtx(ctx, author),
+					apistatus.RetrieveRequest{
+						Keys:                []status.Key{uuid.NewString()},
+						IgnoreNotFoundError: true,
+					},
+				),
+			)
+			Expect(res.Statuses).To(BeEmpty())
+		},
+	)
+
+	It(
+		"Should return a not found error for a missing key without the flag",
+		func(ctx SpecContext) {
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+
+			Expect(
+				apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
+					Keys: []status.Key{uuid.NewString()},
+				}),
+			).Error().To(MatchError(query.ErrNotFound))
+		},
+	)
 })

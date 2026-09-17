@@ -24,11 +24,11 @@ export const LEFT: Nav.Toolbar[] = [
   Channel.TOOLBAR,
   Range.TOOLBAR,
   Project.TOOLBAR,
-  Task.TOOLBAR,
   Device.TOOLBAR,
-  User.TOOLBAR,
+  Task.TOOLBAR,
   Arc.TOOLBAR,
   Status.TOOLBAR,
+  User.TOOLBAR,
 ];
 
 export const BOTTOM: Nav.Toolbar = Panel.TOOLBAR;

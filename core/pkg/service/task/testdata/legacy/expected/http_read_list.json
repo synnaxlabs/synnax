@@ -13,7 +13,7 @@
           "key": "fld-list-ts",
           "name": "fixture_http_list_timestamp",
           "pointer": "/data/timestamp",
-          "timestamp_format": "iso8601"
+          "time_format": "iso8601"
         },
         {
           "channel": 10120,

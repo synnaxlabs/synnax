@@ -15,7 +15,7 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type schematic } from "@/schematic";
-import { createTestClient } from "@/testutil";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -448,6 +448,68 @@ describe("Symbol Client", () => {
       } finally {
         stop();
       }
+    });
+
+    describe("optimistic", () => {
+      const WRITE_FAILED = new Error("write failed");
+      const fail = () => {
+        throw WRITE_FAILED;
+      };
+
+      const createPopulated = async (parent: ontology.ID = ontology.ROOT_ID) => {
+        const target = await createTarget(parent);
+        const symbol = await client.schematics.symbols.create({
+          name: "Inlet",
+          data: SYMBOL_DATA,
+          parent: group.ontologyID(target.key),
+        });
+        return { target, symbol };
+      };
+
+      it("should drop the group and its symbols before the write commits", async () => {
+        const { target, symbol } = await createPopulated();
+        let group_: query.Cached<group.Group> | undefined;
+        let symbol_: query.Cached<schematic.symbol.Symbol> | undefined;
+        await client.schematics.symbols.deleteGroup(target.key, {
+          onOptimistic: () => {
+            group_ = client.groups.getCached({ key: target.key });
+            symbol_ = client.schematics.symbols.getCached(symbol.key);
+          },
+        });
+        expect(query.isLive(group_)).toBe(false);
+        expect(query.isLive(symbol_)).toBe(false);
+      });
+
+      it("should restore the group and its symbols when the write fails", async () => {
+        const { target, symbol } = await createPopulated();
+        await expect(
+          client.schematics.symbols.deleteGroup(target.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(expectLive(client.groups.getCached({ key: target.key })).name).toEqual(
+          target.name,
+        );
+        expect(
+          expectLive(client.schematics.symbols.getCached(symbol.key)).name,
+        ).toEqual(symbol.name);
+      });
+
+      it("should restore the parent's children when the write fails", async () => {
+        const parent = await createParent();
+        const { target } = await createPopulated(parent);
+        let latest: query.Cached<group.Group[]> | undefined;
+        const stop = client.groups.onChange({ parent }, (cached) => {
+          latest = cached;
+        });
+        try {
+          expect(await client.groups.retrieve({ parent })).toHaveLength(1);
+          await expect(
+            client.schematics.symbols.deleteGroup(target.key, { onOptimistic: fail }),
+          ).rejects.toBe(WRITE_FAILED);
+          expect(expectLive(latest).map((g) => g.key)).toEqual([target.key]);
+        } finally {
+          stop();
+        }
+      });
     });
 
     it("should skip a resource that is not a symbol", async () => {

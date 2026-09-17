@@ -48,7 +48,7 @@ var _ = Describe("PublishSignals", func() {
 		shutdown    io.Closer
 	)
 	BeforeEach(func(ctx SpecContext) {
-		state = actions.NewState[uuid.UUID, testAction]()
+		state = actions.NewState[uuid.UUID, testAction](nil)
 		serviceName = nextServiceName()
 		closer = MustSucceed(
 			actions.PublishSignals(ctx, actions.SignalsConfig[uuid.UUID, testAction]{
@@ -139,7 +139,7 @@ var _ = Describe("SignalsConfig", func() {
 		DescribeTable(
 			"Should reject configs missing required fields",
 			func(mutate func(*actions.SignalsConfig[uuid.UUID, testAction]), wantField string) {
-				state := actions.NewState[uuid.UUID, testAction]()
+				state := actions.NewState[uuid.UUID, testAction](nil)
 				cfg := actions.SignalsConfig[uuid.UUID, testAction]{
 					Provider: sigs,
 					State:    state,
@@ -170,7 +170,7 @@ var _ = Describe("SignalsConfig", func() {
 		It("Should accept a fully-populated config", func() {
 			Expect(actions.SignalsConfig[uuid.UUID, testAction]{
 				Provider: sigs,
-				State:    actions.NewState[uuid.UUID, testAction](),
+				State:    actions.NewState[uuid.UUID, testAction](nil),
 				Name:     "ok",
 			}.Validate()).To(Succeed())
 		})

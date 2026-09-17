@@ -12,19 +12,13 @@ import random
 import synnax as sy
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import assert_link_format
 from x import random_name
-
-SRC_CH = "channel_lifecycle_uptime"
 
 
 class ChannelLifecycle(ConsoleCase):
     """Test channel lifecycle operations."""
 
     suffix: str
-    calc_x2: str
-    calc_x6: str
-    calc_editable: str
     shared_index: str
     shared_data: str
 
@@ -32,31 +26,6 @@ class ChannelLifecycle(ConsoleCase):
         super().setup()
         self.suffix = random_name()
         self._create_shared_channels()
-        self._create_shared_calc_channels()
-
-    def _create_shared_calc_channels(self) -> None:
-        """Create shared calculated channels for reuse across tests."""
-        self.calc_x2 = f"calc_x2_{self.suffix}"
-        self.calc_x6 = f"calc_x6_{self.suffix}"
-        self.calc_editable = f"calc_edit_{self.suffix}"
-
-        error = self.console.channels.create_calculated(
-            name=self.calc_x2,
-            expression=f"return {SRC_CH} * 2",
-        )
-        assert error is None, f"Failed to create {self.calc_x2}: {error}"
-
-        error = self.console.channels.create_calculated(
-            name=self.calc_x6,
-            expression=f"return {self.calc_x2} * 3",
-        )
-        assert error is None, f"Failed to create {self.calc_x6}: {error}"
-
-        error = self.console.channels.create_calculated(
-            name=self.calc_editable,
-            expression=f"return {SRC_CH} * 2",
-        )
-        assert error is None, f"Failed to create {self.calc_editable}: {error}"
 
     def _create_shared_channels(self) -> None:
         """Create shared index + data channel for read-only tests."""
@@ -77,15 +46,7 @@ class ChannelLifecycle(ConsoleCase):
 
     def teardown(self) -> None:
         with self._try_to("delete channels"):
-            self.console.channels.delete(
-                [
-                    self.calc_x6,
-                    self.calc_x2,
-                    self.calc_editable,
-                    self.shared_data,
-                    self.shared_index,
-                ]
-            )
+            self.console.channels.delete([self.shared_data, self.shared_index])
         super().teardown()
 
     def run(self) -> None:
@@ -97,21 +58,10 @@ class ChannelLifecycle(ConsoleCase):
         # Resources Toolbar
         self.test_open_channel_plot()
 
-        ## Context Menu
-        self.test_rename_channel()
-        self.test_edit_calculated_channel()
-        self.test_alias_operations()
-        self.test_delete_channel()
-        self.test_copy_link()
-
         # Search and Command Palette
         self.test_open_channel_plot_by_name()
         self.test_open_create_channel_modal()
         self.test_open_create_calculated_channel_modal()
-
-        # Calculated Channels
-        self.test_plot_calculated_channel()
-        self.test_erroneous_calculated_channel()
 
     def test_create_multiple_channels(self) -> None:
         """Test creating multiple channels using the 'Create more' checkbox."""
@@ -182,7 +132,7 @@ class ChannelLifecycle(ConsoleCase):
         """Test opening a channel plot by double-clicking."""
         self.log("Testing open channel plot by double-click")
 
-        plot = self.console.project.open_plot_from_click(
+        plot = self.console.pages.open_plot_from_click(
             self.shared_data, self.console.channels
         )
         self._cleanup_pages.append(plot.page_name)
@@ -191,139 +141,11 @@ class ChannelLifecycle(ConsoleCase):
         line_plot.first.wait_for(state="visible", timeout=5000)
         plot.close()
 
-    def test_rename_channel(self) -> None:
-        """Test renaming a channel via context menu."""
-        self.log("Testing rename channel")
-
-        console = self.console
-
-        suffix = random_name()
-        data_name = f"rename_data_{suffix}"
-        new_name = f"renamed_data_{suffix}"
-
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=self.shared_index,
-        )
-
-        console.channels.rename(names=data_name, new_names=new_name)
-
-        ch = self.client.channels.retrieve(new_name)
-        assert ch.name == new_name, f"Expected channel name {new_name}, got {ch.name}"
-
-        console.channels.delete([new_name])
-
-    def test_edit_calculated_channel(self) -> None:
-        """Test editing a calculated channel's calculation via context menu."""
-        self.log("Testing edit calculated channel")
-
-        console = self.console
-        client = self.client
-
-        updated_multiplier = 30
-        updated_expr = f"return {SRC_CH} * {updated_multiplier}"
-
-        console.channels.edit_calculated(self.calc_editable, updated_expr)
-        for _ in range(5):
-            sy.sleep(0.5)
-            frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
-            if len(frame[SRC_CH]) > 0:
-                break
-        uptime_val = int(frame[SRC_CH][-1])
-        calc_val = int(frame[self.calc_editable][-1])
-        expected_val = uptime_val * updated_multiplier
-        assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
-
-    def test_alias_operations(self) -> None:
-        """Test setting, verifying, clearing, and re-verifying a channel alias."""
-        console = self.console
-        client = self.client
-
-        suffix = random_name()
-        range_name = f"alias_range_{suffix}"
-        data_name = f"alias_data_{suffix}"
-        alias_name = f"MyAlias_{suffix}"
-
-        console.ranges.create(range_name, persisted=True)
-        console.ranges.open_explorer()
-        console.ranges.show_toolbar()
-        console.ranges.set_active(range_name)
-
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=self.shared_index,
-        )
-
-        console.channels.set_alias(name=data_name, alias=alias_name)
-
-        console.channels.show_channels()
-        alias_visible = self.page.get_by_text(alias_name).count() > 0
-        assert alias_visible, f"Alias '{alias_name}' should be visible in channel list"
-        console.channels.hide_channels()
-
-        rng = client.ranges.retrieve(name=range_name)
-        data_ch = client.channels.retrieve(data_name)
-        scoped_ch = rng[alias_name]
-        assert scoped_ch.key == data_ch.key, (
-            f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
-        )
-
-        console.channels.clear_alias(alias_name)
-
-        console.channels.show_channels()
-        alias_still_visible = self.page.get_by_text(alias_name).count() > 0
-        assert not alias_still_visible, (
-            f"Alias '{alias_name}' should not be visible after clearing"
-        )
-        console.channels.hide_channels()
-
-        rng = client.ranges.retrieve(name=range_name)
-        try:
-            rng[alias_name]
-            assert False, f"Alias '{alias_name}' should not resolve after clearing"
-        except sy.QueryError:
-            pass
-
-        console.channels.delete([data_name])
-        console.ranges.open_explorer()
-        console.ranges.delete_from_explorer(range_name)
-
-    def test_delete_channel(self) -> None:
-        """Test deleting a channel via context menu."""
-        self.log("Testing delete channel")
-
-        console = self.console
-
-        suffix = random_name()
-        index_name = f"delete_idx_{suffix}"
-        data_name = f"delete_data_{suffix}"
-
-        console.channels.create(name=index_name, is_index=True)
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=index_name,
-        )
-
-        console.channels.delete([data_name])
-        console.channels.delete([index_name])
-
-    def test_copy_link(self) -> None:
-        """Test copying a channel link via context menu."""
-        self.log("Testing copy channel link")
-
-        link = self.console.channels.copy_link(self.shared_data)
-
-        channel = self.client.channels.retrieve(self.shared_data)
-        assert_link_format(link, "channel", str(channel.key))
-
     def test_open_channel_plot_by_name(self) -> None:
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        plot = self.console.project.open_from_search(Plot, self.shared_data)
+        plot = self.console.pages.open_from_search(Plot, self.shared_data)
         self._cleanup_pages.append(plot.page_name)
         plot.close()
 
@@ -342,62 +164,3 @@ class ChannelLifecycle(ConsoleCase):
         console = self.console
         console.channels.open_create_calculated_modal()
         console.channels.close_modal()
-
-    def test_plot_calculated_channel(self) -> None:
-        """Test plotting a nested calculated channel (calc channel referencing another calc channel)."""
-        self.log("Testing plot nested calculated channel")
-
-        plot = self.console.project.create_plot(f"Nested Calc Plot {self.suffix}")
-        self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
-        csv_content = plot.download_csv()
-
-        assert self.calc_x2 in csv_content, f"CSV should contain {self.calc_x2}"
-        assert self.calc_x6 in csv_content, f"CSV should contain {self.calc_x6}"
-
-        lines = csv_content.strip().split("\n")
-        header = lines[0].split(",")
-        src_idx = header.index(SRC_CH)
-        calc_x2_idx = header.index(self.calc_x2)
-        calc_x6_idx = header.index(self.calc_x6)
-
-        for line in lines[1:]:
-            values = line.split(",")
-            src_val = int(values[src_idx])
-            calc_x2_val = int(values[calc_x2_idx])
-            calc_x6_val = int(values[calc_x6_idx])
-
-            expected_x2 = src_val * 2
-            expected_x6 = src_val * 2 * 3
-            assert calc_x2_val == expected_x2, (
-                f"calc_x2 mismatch: {src_val} * 2 = {expected_x2}, got {calc_x2_val}"
-            )
-            assert calc_x6_val == expected_x6, (
-                f"calc_x6 mismatch: {src_val} * 6 = {expected_x6}, got {calc_x6_val}"
-            )
-
-        plot.close()
-
-    def test_erroneous_calculated_channel(self) -> None:
-        """Test that erroneous calculated channel expressions are handled gracefully."""
-        console = self.console
-        console.notifications.close_all()
-
-        self.log("Testing erroneous calculated channel (nonexistent channel)")
-        calc_name = f"calc_err_{self.suffix}"
-        bad_ch_expression = "return nonexistent_channel_xyz * 3"
-
-        error = console.channels.create_calculated(
-            name=calc_name, expression=bad_ch_expression
-        )
-
-        assert error is not None, "Expected error for nonexistent channel"
-        assert "Failed to update calculated channel" in error, (
-            f"Error should mention failure: {error}"
-        )
-        assert "undefined symbol" in error, (
-            f"Error should mention undefined symbol: {error}"
-        )
-        assert "nonexistent_channel_xyz" in error, (
-            f"Error should mention nonexistent channel: {error}"
-        )

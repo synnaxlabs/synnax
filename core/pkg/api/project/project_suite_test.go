@@ -109,6 +109,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
+func createUser(ctx SpecContext) user.User {
+	GinkgoHelper()
+	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		Username: "import-" + uuid.NewString(),
+	}))
+}
+
 func createProject(ctx SpecContext, name string) project.Project {
 	GinkgoHelper()
 	p := project.Project{Name: name}

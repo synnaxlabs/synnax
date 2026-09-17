@@ -103,9 +103,9 @@ var _ = Describe("Parser", func() {
 					relational     = equality.RelationalExpression(0)
 					additive       = relational.AdditiveExpression(0)
 					multiplicative = additive.MultiplicativeExpression(0)
-					power          = multiplicative.PowerExpression(0)
-					unary          = power.UnaryExpression()
-					postfix        = unary.PostfixExpression()
+					unary          = multiplicative.UnaryExpression(0)
+					power          = unary.PowerExpression()
+					postfix        = power.PostfixExpression()
 					primary        = postfix.PrimaryExpression()
 					literal        = primary.Literal()
 				)
@@ -180,21 +180,21 @@ var _ = Describe("Parser", func() {
 				Expect(additive.AllMultiplicativeExpression()).To(HaveLen(2))
 				// First term is just "2"
 				first := additive.MultiplicativeExpression(0)
-				Expect(first.AllPowerExpression()).To(HaveLen(1))
+				Expect(first.AllUnaryExpression()).To(HaveLen(1))
 				// Second term is "3 * 4"
 				second := additive.MultiplicativeExpression(1)
-				Expect(second.AllPowerExpression()).To(HaveLen(2))
+				Expect(second.AllUnaryExpression()).To(HaveLen(2))
 				Expect(second.STAR(0)).NotTo(BeNil())
 			})
 
 			It("Should parse exponentiation with right associativity", func() {
 				expr := mustParseExpression("2 ^ 3 ^ 2")
 				// Should be parsed as 2 ^ (3 ^ 2)
-				power := getMultiplicativeExpression(expr).PowerExpression(0)
+				power := getPowerExpression(expr)
 				Expect(power).NotTo(BeNil())
 				Expect(power.CARET()).NotTo(BeNil())
 				// The right side should be another power expression
-				rightPower := power.PowerExpression()
+				rightPower := power.UnaryExpression().PowerExpression()
 				Expect(rightPower).NotTo(BeNil())
 				Expect(rightPower.CARET()).NotTo(BeNil())
 			})
@@ -203,14 +203,14 @@ var _ = Describe("Parser", func() {
 		Context("Unary Operations", func() {
 			It("Should parse unary minus", func() {
 				expr := mustParseExpression("-42")
-				unary := getPowerExpression(expr).UnaryExpression()
+				unary := getUnaryExpression(expr)
 				Expect(unary.MINUS()).NotTo(BeNil())
 				Expect(unary.UnaryExpression()).NotTo(BeNil())
 			})
 
 			It("Should parse logical NOT", func() {
 				expr := mustParseExpression("not true")
-				unary := getPowerExpression(expr).UnaryExpression()
+				unary := getUnaryExpression(expr)
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
 		})
@@ -910,16 +910,16 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				// 2 ^ 3 ^ 2 ^ 1 should be 2 ^ (3 ^ (2 ^ 1))
 				expr := mustParseExpression("2 ^ 3 ^ 2 ^ 1")
 
-				power := getMultiplicativeExpression(expr).PowerExpression(0)
+				power := getPowerExpression(expr)
 				Expect(power.CARET()).NotTo(BeNil())
 
 				// Right side should be another power expression
-				rightPower := power.PowerExpression()
+				rightPower := power.UnaryExpression().PowerExpression()
 				Expect(rightPower).NotTo(BeNil())
 				Expect(rightPower.CARET()).NotTo(BeNil())
 
 				// And that should have another power expression
-				rightRightPower := rightPower.PowerExpression()
+				rightRightPower := rightPower.UnaryExpression().PowerExpression()
 				Expect(rightRightPower).NotTo(BeNil())
 				Expect(rightRightPower.CARET()).NotTo(BeNil())
 			})
@@ -1020,17 +1020,20 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should report error for invalid operators", func() {
-				_, err := parser.ParseExpression("2 ** 3")
-				Expect(err).To(HaveOccurred())
+				Expect(
+					parser.ParseExpression("2 %% 3"),
+				).Error().
+					To(MatchError(ContainSubstring("extraneous input '%'")))
 			})
 
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
-				// Regression test: lexer errors were not being captured properly Using
-				// && instead of 'and' should produce lexer token recognition errors
+				// Regression test: lexer errors were not being captured properly. An
+				// unrecognized character should produce a lexer token recognition
+				// error.
 				Expect(
-					parser.ParseExpression("a > 5 && b < 10"),
+					parser.ParseExpression("a > 5 @ b < 10"),
 				).Error().
-					To(MatchError(ContainSubstring("token recognition error at: '&'")))
+					To(MatchError(ContainSubstring("token recognition error at: '@'")))
 			})
 
 			It("Should report error for double assignment", func() {
@@ -1372,7 +1375,7 @@ sensor -> demux{threshold=100} -> {
 				Expect(entries).To(HaveLen(2))
 
 				// First entry: high -> alarm{}
-				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("high"))
+				Expect(entries[0].RoutingKey().GetText()).To(Equal("high"))
 				Expect(entries[0].AllFlowOperator()).To(BeEmpty())
 				highTargets := entries[0].AllFlowNode()
 				Expect(highTargets).To(HaveLen(1))
@@ -1382,7 +1385,7 @@ sensor -> demux{threshold=100} -> {
 				).To(Equal("alarm"))
 
 				// Second entry: low -> logger{}
-				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("low"))
+				Expect(entries[1].RoutingKey().GetText()).To(Equal("low"))
 				lowTargets := entries[1].AllFlowNode()
 				Expect(lowTargets).To(HaveLen(1))
 				Expect(lowTargets[0].Function()).NotTo(BeNil())
@@ -1399,7 +1402,7 @@ sensor -> select{} -> {
 				flow := prog.TopLevelItem(0).FlowStatement()
 				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
 				Expect(entries).To(HaveLen(1))
-				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("true"))
+				Expect(entries[0].RoutingKey().GetText()).To(Equal("true"))
 				Expect(entries[0].AllFlowNode()).To(HaveLen(2))
 				ops := entries[0].AllFlowOperator()
 				Expect(ops).To(HaveLen(1))
@@ -1423,9 +1426,9 @@ sensor -> range_classifier{} -> {
 				entries := routingTable.AllRoutingEntry()
 
 				Expect(entries).To(HaveLen(3))
-				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("below_range"))
-				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("in_range"))
-				Expect(entries[2].IDENTIFIER(0).GetText()).To(Equal("above_range"))
+				Expect(entries[0].RoutingKey().GetText()).To(Equal("below_range"))
+				Expect(entries[1].RoutingKey().GetText()).To(Equal("in_range"))
+				Expect(entries[2].RoutingKey().GetText()).To(Equal("above_range"))
 			})
 
 			It("Should parse routing table to channels", func() {
@@ -1480,7 +1483,7 @@ sensor -> state_router{} -> {
 				Expect(entries).To(HaveLen(2))
 
 				// First entry: idle_out: processor{} -> idle_display{}
-				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
+				Expect(entries[0].RoutingKey().GetText()).To(Equal("idle_out"))
 				entry0Nodes := entries[0].AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2))
 				Expect(entries[0].AllFlowOperator()).To(HaveLen(1))
@@ -1492,7 +1495,7 @@ sensor -> state_router{} -> {
 				).To(Equal("idle_display"))
 
 				// Second entry: active_out: controller{} -> actuator
-				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
+				Expect(entries[1].RoutingKey().GetText()).To(Equal("active_out"))
 				entry1Nodes := entries[1].AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
 				Expect(entries[1].AllFlowOperator()).To(HaveLen(1))
@@ -1518,7 +1521,7 @@ sensor -> state_router{} -> {
 					Expect(entries).To(HaveLen(2))
 
 					// First entry: idle_out: processor{} => idle_display{}
-					Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("idle_out"))
+					Expect(entries[0].RoutingKey().GetText()).To(Equal("idle_out"))
 					entry0Nodes := entries[0].AllFlowNode()
 					Expect(entry0Nodes).To(HaveLen(2))
 					ops0 := entries[0].AllFlowOperator()
@@ -1532,7 +1535,7 @@ sensor -> state_router{} -> {
 					).To(Equal("idle_display"))
 
 					// Second entry: active_out: controller{} => actuator
-					Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("active_out"))
+					Expect(entries[1].RoutingKey().GetText()).To(Equal("active_out"))
 					entry1Nodes := entries[1].AllFlowNode()
 					Expect(entry1Nodes).To(HaveLen(2))
 					ops1 := entries[1].AllFlowOperator()
@@ -1564,26 +1567,26 @@ first{} -> {
 
 				// First entry: outputA: processor{}: paramC
 				entry0 := entries[0]
-				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("outputA"))
+				Expect(entry0.RoutingKey().GetText()).To(Equal("outputA"))
 				entry0Nodes := entry0.AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(1))
 				Expect(
 					entry0Nodes[0].Function().IDENTIFIER().GetText(),
 				).To(Equal("processor"))
 				// Check trailing parameter name
-				Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
-				Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("paramC"))
+				Expect(entry0.IDENTIFIER()).NotTo(BeNil())
+				Expect(entry0.IDENTIFIER().GetText()).To(Equal("paramC"))
 
 				// Second entry: outputB: paramD (no trailing parameter)
 				entry1 := entries[1]
-				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("outputB"))
+				Expect(entry1.RoutingKey().GetText()).To(Equal("outputB"))
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(1))
 				Expect(
 					entry1Nodes[0].Identifier().IDENTIFIER().GetText(),
 				).To(Equal("paramD"))
 				// No trailing parameter
-				Expect(entry1.AllIDENTIFIER()).To(HaveLen(1))
+				Expect(entry1.IDENTIFIER()).To(BeNil())
 			})
 
 			It(
@@ -1602,19 +1605,19 @@ stage1{} -> {
 
 					// First entry: out1: filter{} -> amplifier{}: input
 					entry0 := entries[0]
-					Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
+					Expect(entry0.RoutingKey().GetText()).To(Equal("out1"))
 					Expect(entry0.AllFlowNode()).To(HaveLen(2))
 					Expect(entry0.AllFlowOperator()).To(HaveLen(1))
-					Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
-					Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
+					Expect(entry0.IDENTIFIER()).NotTo(BeNil())
+					Expect(entry0.IDENTIFIER().GetText()).To(Equal("input"))
 
 					// Second entry: out2: processor{} -> converter{}: value
 					entry1 := entries[1]
-					Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
+					Expect(entry1.RoutingKey().GetText()).To(Equal("out2"))
 					Expect(entry1.AllFlowNode()).To(HaveLen(2))
 					Expect(entry1.AllFlowOperator()).To(HaveLen(1))
-					Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
-					Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
+					Expect(entry1.IDENTIFIER()).NotTo(BeNil())
+					Expect(entry1.IDENTIFIER().GetText()).To(Equal("value"))
 				},
 			)
 
@@ -1633,23 +1636,23 @@ stage1{} -> {
 
 					// First entry: out1: filter{} => amplifier{}: input
 					entry0 := entries[0]
-					Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("out1"))
+					Expect(entry0.RoutingKey().GetText()).To(Equal("out1"))
 					Expect(entry0.AllFlowNode()).To(HaveLen(2))
 					ops0 := entry0.AllFlowOperator()
 					Expect(ops0).To(HaveLen(1))
 					Expect(ops0[0].TRANSITION()).NotTo(BeNil())
-					Expect(entry0.AllIDENTIFIER()).To(HaveLen(2))
-					Expect(entry0.IDENTIFIER(1).GetText()).To(Equal("input"))
+					Expect(entry0.IDENTIFIER()).NotTo(BeNil())
+					Expect(entry0.IDENTIFIER().GetText()).To(Equal("input"))
 
 					// Second entry: out2: processor{} => converter{}: value
 					entry1 := entries[1]
-					Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("out2"))
+					Expect(entry1.RoutingKey().GetText()).To(Equal("out2"))
 					Expect(entry1.AllFlowNode()).To(HaveLen(2))
 					ops1 := entry1.AllFlowOperator()
 					Expect(ops1).To(HaveLen(1))
 					Expect(ops1[0].TRANSITION()).NotTo(BeNil())
-					Expect(entry1.AllIDENTIFIER()).To(HaveLen(2))
-					Expect(entry1.IDENTIFIER(1).GetText()).To(Equal("value"))
+					Expect(entry1.IDENTIFIER()).NotTo(BeNil())
+					Expect(entry1.IDENTIFIER().GetText()).To(Equal("value"))
 				},
 			)
 		})
@@ -1712,7 +1715,7 @@ sensor -> demux{threshold=100.0} -> {
 				Expect(entries).To(HaveLen(2))
 
 				// First entry: sensor1 -> a
-				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				Expect(entries[0].RoutingKey().GetText()).To(Equal("sensor1"))
 				entry0Targets := entries[0].AllFlowNode()
 				Expect(entry0Targets).To(HaveLen(1))
 				Expect(entry0Targets[0].Identifier()).NotTo(BeNil())
@@ -1721,7 +1724,7 @@ sensor -> demux{threshold=100.0} -> {
 				).To(Equal("a"))
 
 				// Second entry: sensor2 -> b
-				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				Expect(entries[1].RoutingKey().GetText()).To(Equal("sensor2"))
 				entry1Targets := entries[1].AllFlowNode()
 				Expect(entry1Targets).To(HaveLen(1))
 				Expect(entry1Targets[0].Identifier()).NotTo(BeNil())
@@ -1747,7 +1750,7 @@ sensor -> demux{threshold=100.0} -> {
 
 				// First entry: sensor1 -> lowpass{cutoff=0.5} -> a
 				entry0 := entries[0]
-				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				Expect(entry0.RoutingKey().GetText()).To(Equal("sensor1"))
 				Expect(
 					entry0.AllFlowOperator(),
 				).To(HaveLen(1))
@@ -1763,7 +1766,7 @@ sensor -> demux{threshold=100.0} -> {
 
 				// Second entry: sensor2 -> scale{factor=2.0} -> b
 				entry1 := entries[1]
-				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				Expect(entry1.RoutingKey().GetText()).To(Equal("sensor2"))
 				Expect(entry1.AllFlowOperator()).To(HaveLen(1))
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
@@ -1787,14 +1790,14 @@ sensor -> demux{threshold=100.0} -> {
 				Expect(entries).To(HaveLen(2))
 
 				entry0 := entries[0]
-				Expect(entry0.IDENTIFIER(0).GetText()).To(Equal("sensor1"))
+				Expect(entry0.RoutingKey().GetText()).To(Equal("sensor1"))
 				ops0 := entry0.AllFlowOperator()
 				Expect(ops0).To(HaveLen(1))
 				Expect(ops0[0].TRANSITION()).NotTo(BeNil())
 				Expect(entry0.AllFlowNode()).To(HaveLen(2))
 
 				entry1 := entries[1]
-				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("sensor2"))
+				Expect(entry1.RoutingKey().GetText()).To(Equal("sensor2"))
 				ops1 := entry1.AllFlowOperator()
 				Expect(ops1).To(HaveLen(1))
 				Expect(ops1[0].TRANSITION()).NotTo(BeNil())
@@ -2140,11 +2143,15 @@ func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
 func getPostfixExpression(
 	expr parser.IExpressionContext,
 ) parser.IPostfixExpressionContext {
-	return getPowerExpression(expr).UnaryExpression().PostfixExpression()
+	return getPowerExpression(expr).PostfixExpression()
 }
 
 func getPowerExpression(expr parser.IExpressionContext) parser.IPowerExpressionContext {
-	return getMultiplicativeExpression(expr).PowerExpression(0)
+	return getUnaryExpression(expr).PowerExpression()
+}
+
+func getUnaryExpression(expr parser.IExpressionContext) parser.IUnaryExpressionContext {
+	return getMultiplicativeExpression(expr).UnaryExpression(0)
 }
 
 func getMultiplicativeExpression(

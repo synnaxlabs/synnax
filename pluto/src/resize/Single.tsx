@@ -98,6 +98,7 @@ export const Single = ({
     onMove: handleMove,
     onStart: handleStart,
     onEnd: handleEnd,
+    preventDefault: true,
   });
 
   return (

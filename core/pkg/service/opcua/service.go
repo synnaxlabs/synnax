@@ -43,7 +43,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements xconfig.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("opcua.service")
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -75,6 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "opc_read",
 			Version:            legacy.LastVersion + 1,
+			Legacy:             &legacy.Read,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 		},

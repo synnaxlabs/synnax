@@ -27,7 +27,7 @@ export const Diaphragm = ({
 }: DiaphragmProps): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS(CSS.B("pump"), className)}
+    className={CSS.cls(CSS.B("pump"), className)}
     orientation={orientation}
   >
     <Handle.Rectangle

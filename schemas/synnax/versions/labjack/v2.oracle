@@ -70,7 +70,7 @@ Scale union on type {
 }
 
 BaseReadChannel struct {
-    key      string = "" {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
@@ -116,13 +116,10 @@ ReadChannel union on type extends BaseReadChannel {
     }
     thermocouple {
         port              string = "AIN0" {
-            @doc value "is unused; the read port is derived from pos_chan."
+            @doc value "is the AIN port the thermocouple's positive lead is wired to."
         }
         thermocouple_type ThermocoupleType = k {
             @doc value "selects the thermocouple alloy type."
-        }
-        pos_chan          int32 = 0 {
-            @doc value "is the AIN port the thermocouple's positive lead is wired to."
         }
         neg_chan          int32 = 199 {
             @doc value """
@@ -161,7 +158,7 @@ ReadChannel union on type extends BaseReadChannel {
 }
 
 BaseWriteChannel struct {
-    key                string = "" {
+    key                string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }

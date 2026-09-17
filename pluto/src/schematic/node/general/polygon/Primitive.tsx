@@ -109,7 +109,7 @@ export const Polygon = ({
     [sideLength, numSides, padding],
   );
   return (
-    <Primitive.Div className={CSS(className, CSS.B("polygon"))}>
+    <Primitive.Div className={CSS.cls(className, CSS.B("polygon"))}>
       <Primitive.SVG dimensions={{ width: size, height: size }} color={colorVal}>
         <Primitive.Path
           d={path}

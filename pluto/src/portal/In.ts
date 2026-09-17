@@ -22,9 +22,8 @@ export interface InProps {
   children: ReactNode;
 }
 
-// display: contents keeps the element out of layout entirely, so children
-// size and position against the hosting Out's element as if they were its
-// direct children.
+// display: contents keeps the element out of layout entirely, so children size and
+// position against the hosting Out's element as if they were its direct children.
 const createDetachedElement = (): HTMLElement => {
   const el = document.createElement("div");
   el.style.display = "contents";
@@ -32,12 +31,11 @@ const createDetachedElement = (): HTMLElement => {
 };
 
 /**
- * In renders children into a detached element registered under itemKey in the
- * enclosing {@link Context}. The content stays mounted at the In's position
- * in the React tree for the In's whole lifetime, while {@link Out} parts with
- * the same key host it in the DOM. Because the element is moved rather than
- * recreated when its host changes, the content keeps its state (DOM, WebGL
- * contexts) across moves.
+ * In renders children into a detached element registered under itemKey in the enclosing
+ * {@link Context}. The content stays mounted at the In's position in the React tree for
+ * the In's whole lifetime, while {@link Out} parts with the same key host it in the
+ * DOM. Because the element is moved rather than recreated when its host changes, the
+ * content keeps its state (DOM, WebGL contexts) across moves.
  */
 export const In = ({ itemKey, children }: InProps): ReactElement => {
   const registry = useContext("Portal.In");

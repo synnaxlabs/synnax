@@ -19,6 +19,7 @@ export const PREFIX = "ni";
 export type Units = ni.Units;
 export type AccelUnits = ni.AccelUnits;
 export type AccelSensitivityUnits = ni.AccelSensitivityUnits;
+export type AccelChargeSensitivityUnits = ni.AccelChargeSensitivityUnits;
 export type ChargeUnits = ni.ChargeUnits;
 export type ForceUnits = ni.ForceUnits;
 export type ElectricalUnits = ni.ElectricalUnits;
@@ -28,6 +29,14 @@ export type TemperatureUnits = ni.TemperatureUnits;
 export type TorqueUnits = ni.TorqueUnits;
 export type VelocityUnits = ni.VelocityUnits;
 export type VelocitySensitivityUnits = ni.VelocitySensitivityUnits;
+export type BridgeConfig = ni.BridgeConfig;
+export type ExcitationSource = ni.ExcitationSource;
+export type ForceSensitivityUnits = ni.ForceSensitivityUnits;
+export type ResistanceConfig = ni.ResistanceConfig;
+export type RTDType = ni.RTDType;
+export type StrainConfig = ni.StrainConfig;
+export type TerminalConfig = ni.TerminalConfig;
+export type ThermocoupleType = ni.ThermocoupleType;
 
 export const WAVE_TYPES = ni.WAVE_TYPES;
 export type WaveType = ni.WaveType;
@@ -161,6 +170,7 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
 export type CIChannel = ni.CIChannel;
 export type CIChannelType = ni.CIChannelType;
 export type CIFreqUnits = ni.CIFreqUnits;
+export type CITimeUnits = ni.CITimeUnits;
 export type CIPeriodUnits = ni.CITimeUnits;
 export type CIPulseWidthUnits = ni.CITimeUnits;
 export type CISemiPeriodUnits = ni.CITimeUnits;
@@ -232,6 +242,13 @@ export const AO_CHANNEL_TYPE_ICONS: Record<AOChannelType, Icon.FC> = {
 };
 
 export type AnalogChannel = AIChannel | AOChannel;
+
+/**
+ * Returns the port an analog channel reads or drives, or null when its type has none.
+ * The built-in temperature sensor is not wired to a port.
+ */
+export const channelPort = (channel: AnalogChannel): number | null =>
+  "port" in channel ? channel.port : null;
 
 export type DIChannel = ni.DIChannel;
 export const createDIChannel = (): DIChannel =>

@@ -82,7 +82,7 @@ const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactEleme
 
   useEffect(() => {
     if (Session.Runtime.ENGINE !== "tauri") return;
-    void getVersion().then(setConsoleVersion);
+    getVersion().then(setConsoleVersion).catch(console.error);
   }, []);
 
   const extraInfo: ExtraErrorInfo = {
@@ -103,7 +103,7 @@ const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactEleme
 // from above the store, where that component's Drift selectors are unavailable.
 const windowAction = (action: "close" | "minimize" | "maximize") => (): void => {
   if (Session.Runtime.ENGINE !== "tauri") return;
-  void getCurrentWindow()[action]();
+  getCurrentWindow()[action]().catch(console.error);
 };
 
 const handleClose = windowAction("close");
@@ -158,7 +158,8 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
     } catch (e) {
       console.error(e);
     }
-    if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().show();
+    if (Session.Runtime.ENGINE === "tauri")
+      getCurrentWindow().show().catch(console.error);
   }, []);
   const resetErrorBoundary = useCallback((): void => {
     onTryAgain?.();

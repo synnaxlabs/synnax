@@ -272,6 +272,9 @@ const resetTabs = (selector: HTMLElement, snap: boolean): void => {
     tab.style.transform = "";
   });
   if (!snap) return;
+  // Reading the offset forces a reflow so the transition reset applies to the new
+  // positions.
+  // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
   void selector.offsetHeight;
   tabs.forEach((tab) => (tab.style.transition = ""));
 };
@@ -673,7 +676,7 @@ export const Selector = ({
         ref={combinedRef}
         role={LIST_ROLE}
         aria-orientation={horizontal ? "horizontal" : "vertical"}
-        className={CSS(
+        className={CSS.cls(
           CSS.BE("tabs", "selector"),
           CSS.BEM("tabs", "selector", variant),
           CSS.BEM("tabs", "selector", "align", resolvedAlign),
@@ -692,7 +695,7 @@ export const Selector = ({
         {children}
         {ghostStyle != null && (
           <span
-            className={CSS(CSS.BE("tabs", "ghost"), CSS.M("direction", dir))}
+            className={CSS.cls(CSS.BE("tabs", "ghost"), CSS.M("direction", dir))}
             style={ghostStyle}
           />
         )}

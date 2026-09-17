@@ -15,7 +15,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
-import { Cluster } from "@/platform/cluster";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
@@ -75,12 +75,9 @@ export const Toolbar = (): ReactElement | null => {
           )}
         </Breadcrumb.Breadcrumb>
         <Flex.Box x align="center" empty>
-          <Flex.Box x empty className={CSS.BE("arc-toolbar", "actions")}>
-            <Export.ToolbarButton getID={() => arc.ontologyID(key)} />
-            <Cluster.CopyLinkToolbarButton
-              name={name}
-              ontologyID={arc.ontologyID(key)}
-            />
+          <Flex.Box x gap="small" className={CSS.BE("arc-toolbar", "actions")}>
+            <Export.ToolbarButton id={arc.ontologyID(key)} />
+            <Core.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
           </Flex.Box>
           {canEdit && (
             <Tabs.Selector className={CSS.BE("arc-toolbar", "tabs")}>

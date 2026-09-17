@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { text } from "@synnaxlabs/x";
+import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Select } from "@/select";
@@ -15,22 +15,25 @@ import { Button, Buttons } from "@/select/Button";
 
 export interface LevelProps extends Omit<Select.ButtonsProps<text.Level>, "keys"> {}
 
+/** The levels the picker offers, in render order. */
+const KEYS: text.Level[] = ["small", "h5", "h4", "h3", "h2"];
+
 export const Level = (props: LevelProps): ReactElement => (
-  <Buttons {...props} keys={text.LEVELS}>
-    <Button itemKey="h2" square>
-      XL
-    </Button>
-    <Button itemKey="h3" square>
-      L
-    </Button>
-    <Button itemKey="h4" square>
-      M
+  <Buttons {...props} keys={KEYS}>
+    <Button itemKey="small" square>
+      XS
     </Button>
     <Button itemKey="h5" square>
       S
     </Button>
-    <Button itemKey="small" square>
-      XS
+    <Button itemKey="h4" square>
+      M
+    </Button>
+    <Button itemKey="h3" square>
+      L
+    </Button>
+    <Button itemKey="h2" square>
+      XL
     </Button>
   </Buttons>
 );

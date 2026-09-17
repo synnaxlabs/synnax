@@ -17,6 +17,7 @@ import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
@@ -28,6 +29,7 @@ type ButtonTelemFormT = Omit<BaseButton.UseProps, "aetherKey"> & {
 
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
+  const mode = Base.useFieldValue<BaseButton.Mode>("mode", { optional: true });
   const sinkP = zod.parse(telem.sinkPipelinePropsZ, value.sink?.props, {
     label: "sink pipeline",
   });
@@ -72,7 +74,9 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Input.Item label="Channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
-        <Form.ActivationDelayField />
+        {/* The delay gates single-shot actuation (fire, pulse). Momentary's
+            hold is the actuation, so the field is hidden there. */}
+        {mode !== "momentary" && <Form.ActivationDelayField />}
         <Form.ControlChipField />
       </Flex.Box>
       <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
@@ -91,11 +95,18 @@ export const ButtonForm = (): ReactElement => (
       <Tabs.Tab itemKey="control">Control</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
-      <Form.StyleForm
-        omit={["align", "maxInlineSize"]}
-        hideInnerOrientation
-        hideOuterOrientation
-      />
+      <Form.Wrapper x>
+        <Flex.Box y align="stretch" grow gap="small">
+          <Label.Form
+            path="label"
+            omit={["align", "maxInlineSize", "level", "direction"]}
+          />
+          <Flex.Box x>
+            <Form.ColorField path="color" />
+            <Form.SizeField defaultValue="medium" />
+          </Flex.Box>
+        </Flex.Box>
+      </Form.Wrapper>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <ButtonTelemForm path="" />

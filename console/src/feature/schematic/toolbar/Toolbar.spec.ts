@@ -26,6 +26,7 @@ describe("Schematic.Toolbar", () => {
       const name = uniqueName("toolbar");
       const { key, store } = await renderSchematic(Schematic.Toolbar, {
         schematic: { name },
+        sessionState: { editable: false },
       });
       await screen.findByText(`${name} is not editable`);
       fireEvent.click(await screen.findByText("Enable editing"));
@@ -42,6 +43,7 @@ describe("Schematic.Toolbar", () => {
       const { key, store } = await renderSchematic(Schematic.Toolbar, {
         schematic: { name },
         sessionState: {
+          editable: false,
           control: { authority: 1, status: "acquired" },
         },
       });
@@ -108,7 +110,7 @@ describe("Schematic.Toolbar", () => {
       );
       // The Core serializes the schematic into the flat imex envelope: numeric version,
       // and the resource key is dropped.
-      expect(contents).toMatchObject({ name, type: "schematic", version: 7 });
+      expect(contents).toMatchObject({ name, type: "schematic", version: 8 });
     });
   });
 });

@@ -30,6 +30,9 @@ const messageZ = z.object({
 
 const paramsZ = z.object({ fileName: z.string(), project: z.string() });
 
+const encodeJSON = (value: unknown): Uint8Array<ArrayBuffer> =>
+  new TextEncoder().encode(JSON.stringify(value));
+
 describe("http", () => {
   test("echo", async () => {
     const response = await client.send(
@@ -79,16 +82,6 @@ describe("http", () => {
   });
 
   describe("upload", () => {
-    test("string body", async () => {
-      const response = await client.upload(
-        "/echo",
-        JSON.stringify({ id: 1, message: "hello" }),
-        { encoding: "JSON" },
-        messageZ,
-      );
-      expect(response).toEqual({ id: 2, message: "hello" });
-    });
-
     test("blob body", async () => {
       const body = new Blob([JSON.stringify({ id: 1, message: "hello" })], {
         type: "application/json",
@@ -102,10 +95,8 @@ describe("http", () => {
       expect(response).toEqual({ id: 2, message: "hello" });
     });
 
-    test("array buffer view body", async () => {
-      const body = new TextEncoder().encode(
-        JSON.stringify({ id: 1, message: "hello" }),
-      );
+    test("bytes body", async () => {
+      const body = encodeJSON({ id: 1, message: "hello" });
       const response = await client.upload(
         "/echo",
         body,
@@ -116,9 +107,7 @@ describe("http", () => {
     });
 
     test("readable stream body", async () => {
-      const bytes = new TextEncoder().encode(
-        JSON.stringify({ id: 1, message: "hello" }),
-      );
+      const bytes = encodeJSON({ id: 1, message: "hello" });
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(bytes);
@@ -136,14 +125,14 @@ describe("http", () => {
 
     test("not found", async () => {
       await expect(
-        client.upload("/not-found", JSON.stringify({}), { encoding: "JSON" }, messageZ),
+        client.upload("/not-found", encodeJSON({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow("Not Found");
     });
 
     test("params reach the server as a single JSON request param", async () => {
       const response = await client.upload(
         "/paramEcho",
-        JSON.stringify({ message: "params" }),
+        encodeJSON({ message: "params" }),
         {
           encoding: "JSON",
           params: { fileName: "My Log.json", project: "project:abc" },
@@ -160,7 +149,7 @@ describe("http", () => {
     test("the server sees no request params when params are omitted", async () => {
       const response = await client.upload(
         "/paramEcho",
-        JSON.stringify({ message: "params" }),
+        encodeJSON({ message: "params" }),
         { encoding: "JSON" },
         messageZ,
       );
@@ -171,7 +160,7 @@ describe("http", () => {
       await expect(
         client.upload(
           "/paramEcho",
-          JSON.stringify({ message: "params" }),
+          encodeJSON({ message: "params" }),
           {
             encoding: "JSON",
             params: { fileName: "My Log.json", project: 42 as unknown as string },
@@ -193,7 +182,7 @@ describe("http", () => {
         new binary.JSONCodec(),
       );
       await expect(
-        c.upload("/echo", JSON.stringify({}), { encoding: "JSON" }, messageZ),
+        c.upload("/echo", encodeJSON({}), { encoding: "JSON" }, messageZ),
       ).rejects.toThrow(Unreachable);
     });
   });

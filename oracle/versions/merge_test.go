@@ -117,6 +117,62 @@ New struct {
 		Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
 	})
 
+	It(
+		"Should carry live-only annotations on union variant fields, scoped per variant",
+		func(ctx SpecContext) {
+			write("schemas/synnax/versions/channel/v0.oracle", `
+Scale union on type {
+    linear {
+        slope float64 = 1
+    }
+    map {
+        scaled_min float64 = 0
+        scaled_max float64 = 1
+        slope      float64 = 1
+    }
+
+    @go marshal
+}
+
+Channel struct {
+    scale Scale = linear
+
+    @go marshal
+}
+`)
+			liveSource := `@go output "core/pkg/service/channel"
+
+Scale union on type {
+    linear {
+        slope float64 = 1 {
+            @validate required
+        }
+    }
+    map {
+        scaled_min float64 = 0 {
+            @default group "scaled"
+        }
+        scaled_max float64 = 1 {
+            @default group "scaled"
+        }
+        slope      float64 = 1
+    }
+}
+
+Channel struct {
+    scale Scale = linear
+}
+`
+			r, chain := resolver()
+			merged := MustSucceed(versions.MergeLive(ctx, r, chain, liveSource))
+			Expect(merged).To(ContainSubstring(`@default group "scaled"`))
+			Expect(strings.Count(merged, `@default group "scaled"`)).To(Equal(2))
+			// linear.slope carries the marker; map.slope, sharing the name, does not.
+			Expect(strings.Count(merged, "@validate required")).To(Equal(1))
+			Expect(versions.MergeLive(ctx, r, chain, merged)).To(Equal(merged))
+		},
+	)
+
 	It("Should carry live-owned action declarations through the merge", func(
 		ctx SpecContext,
 	) {

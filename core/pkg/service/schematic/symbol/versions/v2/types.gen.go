@@ -79,8 +79,8 @@ type Spec struct {
 	Handles []Handle `json:"handles,omitzero" msgpack:"handles,omitzero"`
 	// Scale is the symbol scale factor.
 	Scale float64 `json:"scale" msgpack:"scale"`
-	// ScaleStroke indicates whether stroke width scales with the symbol size.
-	ScaleStroke bool `json:"scale_stroke" msgpack:"scale_stroke"`
+	// StrokeScaled is true when stroke width scales with the symbol size.
+	StrokeScaled bool `json:"stroke_scaled" msgpack:"stroke_scaled"`
 	// PreviewViewport is an optional viewport configuration for symbol preview
 	// rendering.
 	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitempty" msgpack:"preview_viewport,omitempty"`
@@ -100,8 +100,8 @@ func (s *Spec) ApplyDefaults() {
 // schema constraints.
 func (s Spec) Validate() error {
 	v := validate.New("Spec")
-	validate.NotEmptyString(v, "svg", s.SVG)
-	validate.NotEmptyString(v, "variant", s.Variant)
+	v.NotEmptyString("svg", s.SVG)
+	v.NotEmptyString("variant", s.Variant)
 	for i := range s.Handles {
 		v.Exec(func() error { return validate.PathedError(s.Handles[i].Validate(), "handles", strconv.Itoa(i)) })
 	}
@@ -128,7 +128,7 @@ func (s *Symbol) ApplyDefaults() {
 // schema constraints.
 func (s Symbol) Validate() error {
 	v := validate.New("Symbol")
-	validate.NotEmptyString(v, "name", s.Name)
+	v.NotEmptyString("name", s.Name)
 	v.Exec(func() error { return validate.PathedError(s.Data.Validate(), "data") })
 	return v.Error()
 }

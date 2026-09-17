@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -52,6 +54,7 @@ var (
 	lineplotSvc *lineplot.Service
 	imexSvc     *imex.Service
 	taskSvc     *task.Service
+	arcSvc      *arc.Service
 	testRack    rack.Rack
 	writer      project.Writer
 	tx          gorp.Tx
@@ -121,6 +124,24 @@ var (
 		}))
 		testRack = rack.Rack{Name: "Project Test Rack"}
 		Expect(rackSvc.NewWriter(nil).Create(ctx, &testRack)).To(Succeed())
+		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           db,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Search:       searchIdx,
+			Status:       statusSvc,
+		}))
+		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Channel:  channelSvc,
+			Task:     taskSvc,
+			Status:   statusSvc,
+			Search:   searchIdx,
+			ImEx:     imexSvc,
+		}))
 		svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

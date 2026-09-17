@@ -75,7 +75,7 @@ describe("DigitalRead", () => {
     expect(screen.queryByDisplayValue("1")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create per-line channels keyed by port and line and update the device", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("di_named");

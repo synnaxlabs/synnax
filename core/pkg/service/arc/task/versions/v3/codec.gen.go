@@ -23,7 +23,7 @@ func (c Config) EncodeOrc(w *orc.Writer) error {
 	w.String(string(c.ExecutionMode))
 	w.Int32(int32(c.RtPriority))
 	w.Int32(int32(c.CPUAffinity))
-	w.Bool(c.LockMemory)
+	w.Bool(c.MemoryLocked)
 	return nil
 }
 
@@ -58,7 +58,7 @@ func (c *Config) DecodeOrc(r *orc.Reader) error {
 	if c.CPUAffinity, err = r.Int32(); err != nil {
 		return err
 	}
-	if c.LockMemory, err = r.Bool(); err != nil {
+	if c.MemoryLocked, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

@@ -289,7 +289,7 @@ var _ = Describe("Scheduler", func() {
 
 	Describe("Phase-based execution", func() {
 		It(
-			"Should execute phase-0 members unconditionally each cycle",
+			"Should run an entry phase-0 member once per activation",
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				prog := programOf(
@@ -301,7 +301,8 @@ var _ = Describe("Scheduler", func() {
 				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
-				Expect(nodeA.NextCalled).To(Equal(3))
+				// A has no inputs, so it is an entry node: one run per activation.
+				Expect(nodeA.NextCalled).To(Equal(1))
 			},
 		)
 
@@ -351,7 +352,10 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				nodeB := mock("B")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = func(c node.Context) {
+					c.MarkChanged(0)
+					c.MarkSelfChanged()
+				}
 				// Output is not truthy — B must not fire.
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
@@ -387,6 +391,7 @@ var _ = Describe("Scheduler", func() {
 				triggerCalls := 0
 				trigger.OnNext = func(c node.Context) {
 					triggerCalls++
+					c.MarkSelfChanged()
 					if triggerCalls == 2 {
 						c.MarkChanged(0)
 					}
@@ -415,6 +420,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Context pass-through", func() {
 		It("Should pass elapsed time to node context", func(ctx SpecContext) {
 			nodeA := mock("A")
+			nodeA.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 			prog := programOf(
 				[]ir.Node{irNode("A")},
 				nil,
@@ -501,9 +507,9 @@ var _ = Describe("Scheduler", func() {
 				Expect(stage.NextCalled).To(Equal(1))
 				// Reset called once on activation.
 				Expect(stage.ResetCalled).To(Equal(1))
-				// Stays active in subsequent cycles without re-activating.
+				// Stays active without re-activating; the entry member fired once.
 				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-				Expect(stage.NextCalled).To(Equal(2))
+				Expect(stage.NextCalled).To(Equal(1))
 				Expect(stage.ResetCalled).To(Equal(1))
 			},
 		)
@@ -542,6 +548,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				mock("trigger", true)
 				firstNode := mock("first_node")
+				firstNode.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 				secondNode := mock("second_node")
 				prog := buildTwoStepSeq("first_node")
 				s := build(prog)
@@ -565,18 +572,9 @@ var _ = Describe("Scheduler", func() {
 		)
 
 		It("Should exit the sequence when target is exit", func(ctx SpecContext) {
-			trigger := mock("trigger", true)
+			mock("trigger", true)
 			firstNode := mock("first_node")
-			// Model a one-shot rising-edge trigger: fires on cycle 1
-			// (so main activates), then releases on later cycles so the
-			// activation handle isn't re-satisfying after exit.
-			cycleCount := 0
-			trigger.OnNext = func(ctx node.Context) {
-				cycleCount++
-				if cycleCount > 1 {
-					trigger.OutputTruthy[0] = false
-				}
-			}
+			firstNode.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
 			main := sequentialScope("main",
 				[]ir.Member{{Scope: &first}},
@@ -596,8 +594,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(firstNode.NextCalled).To(Equal(1))
 
-			// Trip exit transition on cycle 2. The exit deactivates main;
-			// trigger has already been released, so no re-activation.
+			// The exit trips on cycle 2; the one-shot trigger cannot re-activate main.
 			firstNode.SetTruthy(0)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			countAtExit := firstNode.NextCalled
@@ -610,6 +607,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				mock("trigger", true)
 				firstNode := mock("first_node")
+				firstNode.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 				// Two transitions from first, in source order: first jumps to
 				// `a`, the second would jump to `b`. Both are truthy at the
 				// same cycle.
@@ -982,7 +980,8 @@ var _ = Describe("Scheduler", func() {
 		It(
 			"Should fire every cycle while the source stays truthy",
 			func(ctx SpecContext) {
-				mock("A", true)
+				nodeA := mock("A", true)
+				nodeA.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 				nodeB := mock("B")
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
@@ -1004,6 +1003,7 @@ var _ = Describe("Scheduler", func() {
 			"Should stop firing when the source transitions from truthy to falsy",
 			func(ctx SpecContext) {
 				nodeA := mock("A", true)
+				nodeA.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 				nodeB := mock("B")
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("B")},
@@ -1208,6 +1208,7 @@ var _ = Describe("Scheduler", func() {
 				call := 0
 				nodeA.OnNext = func(c node.Context) {
 					call++
+					c.MarkSelfChanged()
 					if call == 1 {
 						c.SetDeadline(telem.Second)
 					}
@@ -1383,7 +1384,8 @@ var _ = Describe("Scheduler", func() {
 		It(
 			"Should not re-activate an already-active gated scope on a subsequent cycle",
 			func(ctx SpecContext) {
-				mock("trigger", true)
+				trigger := mock("trigger", true)
+				trigger.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 				stageNode := mock("stage_node")
 				act := ir.Handle{Node: "trigger", Param: "output"}
 				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
@@ -1468,19 +1470,17 @@ var _ = Describe("Scheduler", func() {
 		It(
 			"Should reset sequence members when reactivated after an exit",
 			func(ctx SpecContext) {
-				// One-shot trigger: cycle 1 activates main, exit transition
-				// fires on cycle 2, cycle 3 re-triggers, main re-activates.
+				// Trigger marks on cycles 1 and 3; each mark activates main,
+				// which runs first_node and exits in the same cycle.
 				trigger := mock("trigger", true)
+				trigger.SuppressAutoMark = true
 				firstNode := mock("first_node", true)
 				cycle := 0
 				trigger.OnNext = func(c node.Context) {
 					cycle++
-					// Release after cycle 1, re-assert on cycle 3.
-					if cycle == 2 {
-						trigger.OutputTruthy[0] = false
-					}
-					if cycle == 3 {
-						trigger.OutputTruthy[0] = true
+					c.MarkSelfChanged()
+					if cycle == 1 || cycle == 3 {
+						c.MarkChanged(0)
 					}
 				}
 				first := parallelScope("first", stratum(ir.NodeMember("first_node")))
@@ -1511,12 +1511,12 @@ var _ = Describe("Scheduler", func() {
 					ctx,
 					2*telem.Microsecond,
 					node.ReasonTimerTick,
-				) // trigger released, no action
+				) // no mark, no action
 				s.Next(
 					ctx,
 					3*telem.Microsecond,
 					node.ReasonTimerTick,
-				) // trigger reasserted, main re-activates, runs, exits
+				) // re-activate + run + exit
 				// Two activations ⇒ two Reset calls on first_node.
 				Expect(firstNode.ResetCalled).To(Equal(2))
 			},
@@ -1543,7 +1543,8 @@ var _ = Describe("Scheduler", func() {
 				mock("trigger", true)
 				latch := mock("latch", true)
 				latch.SuppressAutoMark = true
-				mock("worker")
+				worker := mock("worker")
+				worker.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 
 				body := parallelScope("body", stratum(ir.NodeMember("worker")))
 				main := sequentialScope("main", []ir.Member{
@@ -1594,12 +1595,14 @@ var _ = Describe("Scheduler", func() {
 				marks := 0
 				latch.OnNext = func(c node.Context) {
 					marks++
+					c.MarkSelfChanged()
 					if marks == 1 {
 						c.MarkChanged(0)
 					}
 				}
 				mock("worker_a")
-				mock("worker_b")
+				workerB := mock("worker_b")
+				workerB.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 
 				a := parallelScope("a", stratum(ir.NodeMember("worker_a")))
 				b := parallelScope("b", stratum(ir.NodeMember("worker_b")))
@@ -1664,6 +1667,7 @@ var _ = Describe("Scheduler", func() {
 				cycle := 0
 				latch.OnNext = func(c node.Context) {
 					cycle++
+					c.MarkSelfChanged()
 					if cycle == 2 {
 						latch.SetTruthy(0)
 						c.MarkChanged(0)
@@ -1917,11 +1921,130 @@ var _ = Describe("Scheduler", func() {
 				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 				// The transition fires on pass 1, but second_node waits for the
 				// settle pass and runs after V has absorbed first_node's write.
+				// The entry trigger does not re-run on the settle pass.
 				Expect(order).To(Equal([]string{
-					"trigger", "V", "first", "trigger", "V", "second",
+					"trigger", "V", "first", "V", "second",
 				}))
 				Expect(firstNode.NextCalled).To(Equal(1))
 				Expect(secondNode.NextCalled).To(Equal(1))
+			},
+		)
+	})
+
+	Describe("Entry node one-shot", func() {
+		It(
+			"Should run an entry node once per activation across cycles",
+			func(ctx SpecContext) {
+				nodeA := mock("A")
+				prog := programOf(
+					[]ir.Node{irNode("A")},
+					nil,
+					rootScope(ir.NodeMember("A")),
+				)
+				s := build(prog)
+				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				Expect(nodeA.NextCalled).To(Equal(1))
+			},
+		)
+
+		It(
+			"Should keep dispatching a non-entry stratum-0 node every cycle",
+			func(ctx SpecContext) {
+				reader := mock("reader")
+				n := irNode("reader", "output")
+				// A channel read makes the node non-entry.
+				n.Channels = types.Channels{Read: map[uint32]string{1: "ch"}}
+				prog := programOf(
+					[]ir.Node{n},
+					nil,
+					rootScope(ir.NodeMember("reader")),
+				)
+				s := build(prog)
+				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				Expect(reader.NextCalled).To(Equal(3))
+			},
+		)
+
+		It(
+			"Should replay an entry node that marks itself",
+			func(ctx SpecContext) {
+				nodeA := mock("A")
+				nodeA.OnNext = func(c node.Context) { c.MarkSelfChanged() }
+				prog := programOf(
+					[]ir.Node{irNode("A")},
+					nil,
+					rootScope(ir.NodeMember("A")),
+				)
+				s := build(prog)
+				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				Expect(nodeA.NextCalled).To(Equal(3))
+			},
+		)
+
+		It(
+			"Should re-fire an entry node when its scope re-activates",
+			func(ctx SpecContext) {
+				trigger := mock("trigger", true)
+				trigger.SuppressAutoMark = true
+				// Marks on cycles 1 and 3; self-marks keep the trigger running.
+				trigger.OnNext = func(c node.Context) {
+					c.MarkSelfChanged()
+					if trigger.NextCalled == 1 || trigger.NextCalled == 3 {
+						c.MarkChanged(0)
+					}
+				}
+				entryNode := mock("A", true)
+				first := parallelScope("first", stratum(ir.NodeMember("A")))
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &first}},
+					ir.Transition{
+						On:        ir.Handle{Node: "A", Param: "output"},
+						TargetKey: exitTarget(),
+					},
+				)
+				triggerH := ir.Handle{Node: "trigger", Param: "output"}
+				main.Activation = &triggerH
+				prog := programOf(
+					[]ir.Node{irNode("trigger", "output"), irNode("A", "output")},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				)
+				s := build(prog)
+				// Cycle 1: main activates; A runs once and exits the sequence.
+				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				Expect(entryNode.NextCalled).To(Equal(1))
+				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				Expect(entryNode.NextCalled).To(Equal(1))
+				// Cycle 3: main re-activates; the reset lets A fire again.
+				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				Expect(entryNode.NextCalled).To(Equal(2))
+			},
+		)
+
+		It(
+			"Should run an entry sequential flow-step once while the step stays active",
+			func(ctx SpecContext) {
+				mock("trigger", true)
+				step := mock("step")
+				main := sequentialScope("main", []ir.Member{ir.NodeMember("step")})
+				triggerH := ir.Handle{Node: "trigger", Param: "output"}
+				main.Activation = &triggerH
+				prog := programOf(
+					[]ir.Node{irNode("trigger", "output"), irNode("step")},
+					nil,
+					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				)
+				s := build(prog)
+				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+				s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+				Expect(step.NextCalled).To(Equal(1))
 			},
 		)
 	})
@@ -2045,9 +2168,9 @@ var _ = Describe("Scheduler", func() {
 				)
 				s := build(prog)
 				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-				// The entry re-runs each pass but marks once; the creator must
+				// The entry node fires once per activation; the creator must
 				// dispatch exactly once, like a range create in a stage.
-				Expect(entry.NextCalled).To(Equal(2))
+				Expect(entry.NextCalled).To(Equal(1))
 				Expect(creator.NextCalled).To(Equal(1))
 			},
 		)
@@ -2159,7 +2282,10 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				nodeA := mock("A")
 				worker := mock("worker")
-				nodeA.OnNext = markOnNext(0)
+				nodeA.OnNext = func(c node.Context) {
+					c.MarkChanged(0)
+					c.MarkSelfChanged()
+				}
 				prog := programOf(
 					[]ir.Node{irNode("A", "output"), irNode("worker")},
 					[]ir.Edge{continuousEdge("A", "output", "worker", "in")},
@@ -2207,8 +2333,10 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				trigger := mock("trigger", true)
 				trigger.SuppressAutoMark = true
-				// Activate main on cycles 1 and 3 only.
+				// Activate main on cycles 1 and 3; self-marks keep the entry
+				// trigger running.
 				trigger.OnNext = func(ctx node.Context) {
+					ctx.MarkSelfChanged()
 					if trigger.NextCalled == 1 || trigger.NextCalled == 3 {
 						ctx.MarkChanged(0)
 					}
@@ -2222,6 +2350,7 @@ var _ = Describe("Scheduler", func() {
 				nodeV := mock("V")
 				nodeV.OnNext = func(ctx node.Context) { ctx.MarkSelfChanged() }
 				stageNode := mock("A")
+				stageNode.OnNext = func(ctx node.Context) { ctx.MarkSelfChanged() }
 				first := parallelScope("first",
 					stratum(ir.NodeMember("A")),
 					stratum(ir.NodeMember("V")),

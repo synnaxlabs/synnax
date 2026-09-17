@@ -65,7 +65,8 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		if err != nil {
 			db.L.Error(fmt.Sprintf(
 				"failed parsing existing folder <%s> to channel key",
-				i.Name()),
+				i.Name(),
+			),
 				zap.Error(err),
 			)
 			continue
@@ -77,7 +78,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
-	db.relay = openRelay(sCtx, o.Instrumentation, o.relayBufferSize, o.streamBufferSize)
+	db.relay = openRelay(sCtx, o)
 	db.startGC(sCtx, o)
 	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	return db, nil

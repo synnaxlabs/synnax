@@ -20,18 +20,23 @@ import {
   createThermocoupleReadChannel,
 } from "@/feature/labjack/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   findChannelListItem,
-  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(LabJack.Task.Read, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(LabJack.Task.Read, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 const createConfig = (
   device: string,
@@ -66,6 +71,21 @@ describe("LabJack Read", () => {
     const draft = await createDraft(client, createConfig(dev.key, []));
     await renderRead({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText(`Configure ${dev.name}`)).toBeTruthy());
+  });
+
+  it("should address each channel of a config built without explicit keys", async () => {
+    const dev = await createLabJackDevice(client);
+    // A client that leaves the key to the schema, the way every generated client and
+    // every documented example does.
+    const channels = ["alpha", "bravo", "charlie"].map((name, i) => ({
+      ...LabJack.Task.createReadChannel("analog"),
+      port: `AIN${i}`,
+      name,
+    }));
+    const draft = await createDraft(client, createConfig(dev.key, channels));
+    await renderRead({ client, taskKey: draft.key });
+    for (const name of ["alpha", "bravo", "charlie"])
+      await waitFor(() => expect(screen.getAllByText(name)).toHaveLength(1));
   });
 
   it("should render channel ports using their model aliases when available", async () => {
@@ -133,8 +153,9 @@ describe("LabJack Read", () => {
     fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Thermocouple type")).toBeTruthy());
     expect(screen.getByText("Temperature units")).toBeTruthy();
-    expect(screen.getByText("Positive channel")).toBeTruthy();
     expect(screen.getByText("Negative channel")).toBeTruthy();
+    // The port selector is the only control for the positive lead.
+    expect(screen.queryByText("Positive channel")).toBeNull();
     expect(screen.getByText("CJC source")).toBeTruthy();
     expect(screen.getByText("CJC slope")).toBeTruthy();
     expect(screen.getByText("CJC offset")).toBeTruthy();
@@ -168,7 +189,7 @@ describe("LabJack Read", () => {
     await waitFor(() => expect(screen.getAllByText("FIO4").length).toBeGreaterThan(0));
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create the index and data channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
       const namedChannel = uniqueName("lj_named");

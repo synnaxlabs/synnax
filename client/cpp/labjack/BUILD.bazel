@@ -22,5 +22,6 @@ cc_library(
         "//client/cpp/task",
         "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
     ],
 )

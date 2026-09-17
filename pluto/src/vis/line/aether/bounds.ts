@@ -65,14 +65,15 @@ const clip = (
  * @param yData - the y series, paired with x by time range and alignment overlap.
  * @param xWindow - the x range to bound over.
  * @param overlapThreshold - minimum time range overlap for an x/y pair to count.
+ * @param fallback - returned when no paired sample falls inside the window.
  * @returns the bounds of y samples whose paired x value falls inside the window.
- * Non-finite when none do.
  */
 export const windowBounds = (
   xData: MultiSeries,
   yData: MultiSeries,
   xWindow: bounds.Bounds,
   overlapThreshold: TimeSpan,
+  fallback: bounds.Bounds,
 ): bounds.Bounds => {
   let lower = Infinity;
   let upper = -Infinity;
@@ -84,5 +85,7 @@ export const windowBounds = (
       if (b.lower < lower) lower = b.lower;
       if (b.upper > upper) upper = b.upper;
     }
-  return { lower, upper };
+  const result = { lower, upper };
+  if (!bounds.isFinite(result)) return fallback;
+  return result;
 };

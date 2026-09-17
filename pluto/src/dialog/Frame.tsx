@@ -31,8 +31,16 @@ import { position } from "@/position";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";
 
+/**
+ * How a dialog attaches to its trigger.
+ *
+ * - `connected`: butts against the trigger and matches its width.
+ * - `floating`: sits near the trigger at its own width.
+ * - `modal`: centers over the page behind a backdrop.
+ */
 export type Variant = "connected" | "floating" | "modal";
 
+/** How far a modal dialog rises from its resting place as the viewport tightens. */
 export type ModalPosition = "slammed" | "shifted" | "base";
 
 /** Props for the {@link Frame} component. */
@@ -41,8 +49,10 @@ export interface FrameProps extends Omit<
   "ref" | "reverse" | "size" | "empty"
 > {
   initialVisible?: boolean;
+  /** Set it to control visibility from outside. The frame owns it when left unset. */
   visible?: boolean;
   onVisibleChange?: xstate.Setter<boolean>;
+  /** Pins the dialog to one corner pairing instead of choosing one that fits. */
   location?: position.LocationPreference;
   variant?: Variant;
   maxHeight?: Component.Size | number;
@@ -64,12 +74,14 @@ const ZERO_STATE: State = {
   modalPosition: "base",
 };
 
+/** State the enclosing {@link Frame} publishes to its trigger and dialog. */
 export interface ContextValue {
   close: () => void;
   open: () => void;
   toggle: () => void;
   visible: boolean;
   variant: Variant;
+  /** The corner of the trigger the dialog opens from. */
   location: location.XY;
 }
 
@@ -154,12 +166,21 @@ const selectModalPosition = (
 /**
  * A controlled dropdown dialog component that wraps its children. For the simplest
  * case, use the {@link use} hook (more behavioral details explained there).
- *
  * @param props - The props for the dropdown component. Unlisted props are passed to the
  * parent element.
  * @param props.visible - Whether the dropdown is visible or not. This is a controlled
  * @param props.children - Two children are expected: the dropdown trigger (often a
  * button or input) and the dropdown content.
+ */
+/**
+ * Pairs a {@link Trigger} with a {@link Dialog}, owning whether it is open and placing
+ * it in whatever space the viewport leaves.
+ *
+ * @example
+ * <Dialog.Frame>
+ *   <Dialog.Trigger>Open</Dialog.Trigger>
+ *   <Dialog.Dialog>{content}</Dialog.Dialog>
+ * </Dialog.Frame>
  */
 export const Frame = ({
   children,
@@ -341,7 +362,7 @@ export const Frame = ({
           {...rest}
           {...{ [PORTAL_ID_ATTR]: id }}
           ref={combinedTargetRef}
-          className={CSS(
+          className={CSS.cls(
             className,
             CSS.BE("dialog", "frame"),
             CSS.visible(visible),

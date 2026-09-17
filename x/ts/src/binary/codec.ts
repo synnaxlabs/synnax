@@ -13,29 +13,21 @@ import { caseconv } from "@/caseconv";
 import { narrow } from "@/narrow";
 import { zod } from "@/zod";
 
-/**
- * Codec is an entity that encodes and decodes messages to and from a
- * binary format.
- */
+/** Codec is an entity that encodes and decodes messages to and from a binary format. */
 export interface Codec {
   /** The HTTP content type of the encoder */
   contentType: string;
 
   /**
    * Encodes the given payload into a binary representation.
-   *
-   * @param payload - The payload to encode.
    * @returns An ArrayBuffer containing the encoded payload.
    */
   encode: (payload: unknown, schema?: z.ZodType) => Uint8Array<ArrayBuffer>;
 
   /**
    * Decodes the given binary representation into a type checked payload.
-   *
-   * @param data - The data to decode.
-   * @param schema - The schema to decode the data with.
-   * @param opts - Options forwarded to schema parsing, e.g. a label naming the
-   * value in parse error messages.
+   * @param opts - Options forwarded to schema parsing, e.g. a label naming the value in
+   * parse error messages.
    */
   decode: <P extends z.ZodType>(
     data: Uint8Array | ArrayBuffer,
@@ -90,9 +82,7 @@ export class JSONCodec implements Codec {
   }
 }
 
-/**
- * CSVCodec is a CSV implementation of Codec.
- */
+/** CSVCodec is a CSV implementation of Codec. */
 export class CSVCodec implements Codec {
   contentType = "text/csv";
 

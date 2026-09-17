@@ -212,8 +212,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * file name keep distinct names through a numeric suffix, and children that are not
    * symbols are skipped. The caller pipes the stream wherever it likes without the
    * client buffering the whole archive.
-   *
-   * @param key - the key of the group to export.
    * @param options - the export options, including the serialization member files are
    * written in.
    * @returns the bundle as a stream of zip bytes.
@@ -235,8 +233,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * beside a manifest.json naming the group. The Core creates a fresh group under the
    * permanent symbol group and imports every member in a single transaction, so a
    * failure leaves nothing behind.
-   *
-   * @param data - the bundle as zip bytes.
    * @returns the created group.
    * @throws {ValidationError} if the manifest is missing, malformed, or of another
    * bundle kind, if two member names collide, or if a member is not a symbol.
@@ -263,29 +259,35 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * Deletes the group and every symbol in it. The Core removes both in a single
    * transaction, so a failure leaves the group and its symbols untouched. A child that
    * is not a symbol survives: the Core moves it to the permanent symbol group.
-   *
-   * @param key - the key of the group to delete.
    */
-  async deleteGroup(key: group.Key): Promise<void> {
+  async deleteGroup(key: group.Key, opts: query.WriteOptions = {}): Promise<void> {
     const groupID = group.ontologyID(key);
     const rels = this.cfg.ontology.cache.relationships;
     // Read the members before the delete drops the relationships naming them.
     const memberKeys = rels.get((r) => matchChildRel(r, groupID)).map((r) => r.to.key);
-    await this.cfg.unary.send(
-      "/schematic/symbol/group/delete",
-      { key },
-      deleteGroupReqZ,
-      emptyResZ,
-    );
-    this.store.delete(memberKeys);
-    this.cfg.groupStore.delete(key);
-    // Both the relationships to the group's children and the one naming the group as
-    // its parent's child: the group and every symbol in it are gone.
-    rels.delete(
-      (r) =>
-        r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-        (ontology.idsEqual(r.from, groupID) || ontology.idsEqual(r.to, groupID)),
-    );
+    const drop = () => [
+      this.store.delete(memberKeys),
+      this.cfg.groupStore.delete(key),
+      // Both the relationships to the group's children and the one naming the group as
+      // its parent's child: the group and every symbol in it are gone.
+      rels.delete(
+        (r) =>
+          r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+          (ontology.idsEqual(r.from, groupID) || ontology.idsEqual(r.to, groupID)),
+      ),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/schematic/symbol/group/delete",
+          { key },
+          deleteGroupReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
   }
 
   async retrieveGroup(): Promise<group.Group> {

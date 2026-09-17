@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/persist/commands";
+export * from "@/feature/persist/useStoreStatus";

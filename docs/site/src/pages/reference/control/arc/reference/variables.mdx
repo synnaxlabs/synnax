@@ -112,6 +112,7 @@ MAX_PRESSURE := 500.0 // f64
 SAMPLE_COUNT := 100   // i64
 SETPOINT f64 := 50.0  // explicit type
 TIMEOUT := 30s        // with unit suffix
+ENABLED := true       // bool
 ```
 
 ### Stateful
@@ -133,7 +134,7 @@ Track how many times a condition has occurred.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value, threshold"
 stage {
     count $= 0
     // Triggered on new `value`
@@ -168,10 +169,10 @@ Sum values over time.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value"
 stage accumulate {
     total $= 0.0
-    // Triggred on new `value`
+    // Triggered on new `value`
     value + total -> total
 }
 ```
@@ -199,12 +200,12 @@ Compare the current value to the previous one.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value, delta"
 sequence phase_delta {
     prev $= 0.0
     // Triggered on new `value`
     value - prev -> delta
-    value -> previous
+    value -> prev
 }
 ```
 </Fragment>
@@ -232,7 +233,7 @@ Track the highest value seen.
 <Arc.Tabs client:load>
 
 <Fragment slot="flow">
-```arc
+```arc channels="value"
 stage running_max {
     max $= 0.0
     // Triggered on new `value`
@@ -268,16 +269,15 @@ Maintain an on/off state.
 
 <Fragment slot="flow">
 
-```arc
+```arc channels="trigger"
 stage toggle {
-    state $= 0
+    state $= false
 
-    // Blocked on new `trigger`
-    trigger -> state == 0 -> select{} -> {
-        true: 1 -> state,
-        false: 0 -> state
+    // Triggered on new `trigger`
+    trigger -> not state -> select{} -> {
+        true: true -> state,
+        false: false -> state
     }
-
 }
 ```
 
@@ -286,14 +286,10 @@ stage toggle {
 <Fragment slot="function">
 
 ```arc
-func toggle(trigger u8) u8 {
-    state $= 0
+func toggle(trigger bool) bool {
+    state $= false
     if trigger {
-        if state == 0 {
-            state = 1
-        } else {
-            state = 0
-        }
+        state = not state
     }
     return state
 }

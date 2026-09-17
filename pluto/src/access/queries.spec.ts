@@ -36,8 +36,11 @@ const subjectOf = (c: Synnax): ontology.ID => {
   return user.ontologyID(u.key);
 };
 
-const cachedPoliciesOf = (c: Synnax): access.policy.Policy[] => {
-  const cached = c.access.policies.getCached({ for: subjectOf(c) });
+const cachedPoliciesOf = (
+  c: Synnax,
+  subject: ontology.ID = subjectOf(c),
+): access.policy.Policy[] => {
+  const cached = c.access.policies.getCached({ for: subject });
   return query.isLive(cached) ? cached : [];
 };
 
@@ -575,26 +578,42 @@ describe("Access Queries", () => {
     });
   });
 
-  describe("useLoadPermissions", () => {
-    it("should load all policies for the current user", async () => {
+  describe("useEnsurePermissions", () => {
+    it("should grant a read on its first committed render", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const { result } = await renderHookSuspended(
+        () => {
+          Access.useEnsurePermissions({});
+          return Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
+        },
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      expect(result.current).toBe(true);
+    });
+
+    it("should cache every policy the current user holds", async () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
         objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
-        actions: ["retrieve"],
+        actions: ["retrieve", "create"],
       });
-      const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
-        wrapper,
+      await renderHookSuspended(() => Access.useEnsurePermissions({}), {
+        wrapper: await createAsyncSynnaxWrapper({ client: userClient }),
       });
-      await waitFor(() => expect(result.current).toBeDefined());
-      expect(result.current!.length).toBeGreaterThan(0);
-      const policy = result.current!.find((p) => p.name === policyName);
-      expect(policy).toBeDefined();
-      expect(policy!.actions).toContain("retrieve");
+      const policies = cachedPoliciesOf(userClient).filter(
+        (p) => p.name === policyName,
+      );
+      expect(policies.length).toBe(1);
+      expect(policies[0].actions).toContain("retrieve");
+      expect(policies[0].actions).toContain("create");
     });
 
-    it("should load policies for a specific subject", async () => {
+    it("should cache the policies of another subject", async () => {
       const policyName = id.create();
       const u = await client.users.create({
         username: id.create(),
@@ -615,81 +634,52 @@ describe("Access Queries", () => {
         access.role.ontologyID(r.key),
         access.policy.ontologyID(p.key),
       );
-      await client.access.roles.assign({
-        user: u.key,
-        role: r.key,
+      await client.access.roles.assign({ user: u.key, role: r.key });
+      const subject = user.ontologyID(u.key);
+      await renderHookSuspended(() => Access.useEnsurePermissions({ subject }), {
+        wrapper: await createAsyncSynnaxWrapper({ client }),
       });
-      const wrapper = await createAsyncSynnaxWrapper({ client });
-      const { result } = renderHook(
-        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }).data,
-        { wrapper },
+      const policy = cachedPoliciesOf(client, subject).find(
+        ({ name }) => name === policyName,
       );
-      await waitFor(() => expect(result.current).toBeDefined());
-      expect(result.current!.length).toBeGreaterThan(0);
-      const policy = result.current!.find((pol) => pol.name === policyName);
       expect(policy).toBeDefined();
       expect(policy!.actions).toContain("retrieve");
     });
 
-    it("should return empty array when user has no policies", async () => {
+    it("should cache an empty set for a subject holding no policies", async () => {
       const u = await client.users.create({
         username: id.create(),
         password: "test",
         firstName: "test",
         lastName: "test",
       });
-      const wrapper = await createAsyncSynnaxWrapper({ client });
-      const { result } = renderHook(
-        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }).data,
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current).toBeDefined());
-      expect(result.current!.length).toBe(0);
+      const subject = user.ontologyID(u.key);
+      await renderHookSuspended(() => Access.useEnsurePermissions({ subject }), {
+        wrapper: await createAsyncSynnaxWrapper({ client }),
+      });
+      expect(cachedPoliciesOf(client, subject).length).toBe(0);
     });
 
-    it("should cache loaded policies", async () => {
-      const policyName = id.create();
-      const userClient = await createTestClientWithPolicy(client, {
-        name: policyName,
-        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
-        actions: ["retrieve", "create"],
-      });
-      const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current).toBeDefined());
-      const policies = cachedPoliciesOf(userClient).filter(
-        (p) => p.name === policyName,
-      );
-      expect(policies.length).toBe(1);
-      expect(policies[0].name).toBe(policyName);
-      expect(policies[0].actions).toContain("retrieve");
-      expect(policies[0].actions).toContain("create");
-    });
-
-    it("should cache ontology relationships between roles and policies", async () => {
+    it("should cache the relationships between roles and policies", async () => {
       const policyName = id.create();
       const userClient = await createTestClientWithPolicy(client, {
         name: policyName,
         objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
         actions: ["retrieve"],
       });
-      const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
-        wrapper,
+      await renderHookSuspended(() => Access.useEnsurePermissions({}), {
+        wrapper: await createAsyncSynnaxWrapper({ client: userClient }),
       });
-      await waitFor(() => expect(result.current).toBeDefined());
-      const policy = result.current!.find((p) => p.name === policyName);
+      const policy = cachedPoliciesOf(userClient).find(
+        ({ name }) => name === policyName,
+      );
       expect(policy).toBeDefined();
-      const policyID = access.policy.ontologyID(policy!.key);
       const relationships = userClient.ontology.cache.relationships.get(
         (r) => r.from.type === "role" && r.to.type === "policy",
       );
-      expect(relationships.length).toBeGreaterThan(0);
-      const roleToPolicyRel = relationships.find((r) => r.to.key === policy!.key);
-      expect(roleToPolicyRel).toBeDefined();
-      expect(roleToPolicyRel!.to).toEqual(policyID);
+      const roleToPolicy = relationships.find((r) => r.to.key === policy!.key);
+      expect(roleToPolicy).toBeDefined();
+      expect(roleToPolicy!.to).toEqual(access.policy.ontologyID(policy!.key));
     });
   });
 });

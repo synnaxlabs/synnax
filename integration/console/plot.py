@@ -24,7 +24,7 @@ Axis = Literal["Y1", "Y2", "X1"]
 class Plot(ConsolePage):
     """Plot page management interface"""
 
-    page_type: str = "Line plot"
+    page_type = "Line plot"
     pluto_label: str = ".pluto-line-plot"
 
     def __init__(
@@ -93,8 +93,7 @@ class Plot(ConsolePage):
         """
         self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        csv_button = self.page.locator(".pluto-icon--csv").locator("..")
-        csv_button.click()
+        self.page.get_by_role("button", name="Download as CSV", exact=True).click()
 
         self.page.get_by_text("Download data for").wait_for(
             state="visible", timeout=5000
@@ -170,7 +169,7 @@ class Plot(ConsolePage):
         icon_direction: Literal["arrow-up", "arrow-right"] = (
             "arrow-up" if direction == "vertical" else "arrow-right"
         )
-        selector = f"label:has-text('Label direction') + div button:has([aria-label='pluto-icon--{icon_direction}'])"
+        selector = f"label:has-text('Label direction') + div button:has(svg.pluto-icon--{icon_direction})"
         self.page.locator(selector).click(timeout=5000)
 
     def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
@@ -285,10 +284,9 @@ class Plot(ConsolePage):
         """
         channels.show_channels()
 
-        channel_item = (
-            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
-        )
-        channel_item.wait_for(state="visible", timeout=5000)
+        # The channel tree is windowed, so the row must be scrolled into the
+        # DOM before it can be dragged.
+        channel_item = channels.tree.wait_for_name("channel:", channel_name)
 
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
@@ -311,10 +309,9 @@ class Plot(ConsolePage):
         self.notifications.close_all()
         channels.show_channels()
 
-        channel_item = (
-            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
-        )
-        channel_item.wait_for(state="visible", timeout=5000)
+        # The channel tree is windowed, so the row must be scrolled into the
+        # DOM before it can be dragged.
+        channel_item = channels.tree.wait_for_name("channel:", channel_name)
 
         self.layout.show_visualization_toolbar()
         data_tab = self.page.get_by_role("tab", name="Data", exact=True)

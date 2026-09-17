@@ -25,3 +25,52 @@ export const stubClipboardWriteText = (
   });
   return writeText;
 };
+
+/** Removes navigator.clipboard, as an insecure context or an old engine does. */
+export const stubClipboardUnavailable = (): void => {
+  Object.defineProperty(navigator, "clipboard", {
+    value: undefined,
+    configurable: true,
+  });
+};
+
+/** Removes document.execCommand, as an engine that dropped it would. */
+export const stubCopyCommandUnavailable = (): void => {
+  Object.defineProperty(document, "execCommand", {
+    value: undefined,
+    configurable: true,
+  });
+};
+
+/** Replaces document.execCommand with one that throws, as a locked-down engine does. */
+export const stubCopyCommandThrowing = (): void => {
+  Object.defineProperty(document, "execCommand", {
+    value: (): boolean => {
+      throw new Error("blocked");
+    },
+    configurable: true,
+  });
+};
+
+/**
+ * Replaces document.execCommand, which jsdom does not implement. The returned spy
+ * receives the text the browser would have copied, taken from the caller's selection.
+ * Pass false for a command the browser refuses.
+ */
+export const stubCopyCommand = (succeeds: boolean = true): Mock => {
+  const copied = vi.fn();
+  Object.defineProperty(document, "execCommand", {
+    value: (command: string): boolean => {
+      if (command !== "copy") return false;
+      // The last one, since the caller appends its scratch element to the body.
+      const el = Array.from(
+        document.querySelectorAll<HTMLTextAreaElement>("textarea"),
+      ).at(-1);
+      if (el == null) return false;
+      copied(el.value.slice(el.selectionStart ?? 0, el.selectionEnd ?? 0));
+      return succeeds;
+    },
+    configurable: true,
+  });
+  return copied;
+};

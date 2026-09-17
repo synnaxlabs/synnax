@@ -60,6 +60,32 @@ describe("useCalculatedModal", () => {
     });
   });
 
+  describe("reset channel picker", () => {
+    it("should list boolean channels and exclude other data types", async () => {
+      const base = uniqueChannelName("reset");
+      await client.channels.create({
+        name: `${base}_bool`,
+        dataType: DataType.BOOLEAN,
+        virtual: true,
+      });
+      await client.channels.create({
+        name: `${base}_u8`,
+        dataType: DataType.UINT8,
+        virtual: true,
+      });
+      await openModal();
+      await waitFor(() => expect(screen.getByText("Average")).toBeTruthy());
+      fireEvent.click(screen.getByText("Average"));
+      await waitFor(() => expect(screen.getByText("Reset channel")).toBeTruthy());
+      fireEvent.click(screen.getByText("Select channel"));
+      fireEvent.change(await screen.findByPlaceholderText("Search channels..."), {
+        target: { value: base },
+      });
+      await screen.findByText(`${base}_bool`);
+      expect(screen.queryByText(`${base}_u8`)).toBeNull();
+    });
+  });
+
   describe("validation", () => {
     it("should keep the modal open and show errors when the name and expression are empty", async () => {
       await openModal();

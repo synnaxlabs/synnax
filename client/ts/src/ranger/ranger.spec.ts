@@ -7,21 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
+  binary,
   DataType,
   id,
   math,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  url,
   uuid,
 } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { type z } from "zod";
 
 import { NotFoundError } from "@/errors";
+import { framer } from "@/framer";
+import { label } from "@/label";
+import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient, expectDeleted, expectLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -347,6 +354,212 @@ describe("range", () => {
       });
     });
   });
+
+  describe("optimistic writes", () => {
+    const WRITE_FAILED = new Error("write failed");
+    const fail = () => {
+      throw WRITE_FAILED;
+    };
+
+    const createRange = async () =>
+      await client.ranges.create({
+        name: `optimistic-${id.create()}`,
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+
+    const createChannel = async () =>
+      await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+
+    describe("delete", () => {
+      it("should drop the range from the cache before the write commits", async () => {
+        const rng = await createRange();
+        let duringWrite: query.Cached<ranger.Range> | undefined;
+        await client.ranges.delete(rng.key, {
+          onOptimistic: () => {
+            duringWrite = client.ranges.getCached(rng.key);
+          },
+        });
+        expect(query.isLive(duringWrite)).toBe(false);
+      });
+
+      it("should restore the range when the write fails", async () => {
+        const rng = await createRange();
+        await expect(
+          client.ranges.delete(rng.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(expectLive(client.ranges.getCached(rng.key)).name).toEqual(rng.name);
+      });
+
+      it("should restore the range's children entry when the write fails", async () => {
+        const parent = await createRange();
+        const child = await client.ranges.create({
+          name: `optimistic-child-${id.create()}`,
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          parent: { key: parent.key },
+        });
+        expect(await client.ranges.children.retrieve(parent.key)).toHaveLength(1);
+        await expect(
+          client.ranges.delete(child.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        const cached = expectLive(client.ranges.children.getCached(parent.key));
+        expect(cached.map((c) => c.key)).toEqual([child.key]);
+      });
+    });
+
+    describe("setAlias", () => {
+      it("should cache the alias before the write commits", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        let duringWrite: ranger.alias.Alias | undefined;
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
+          onOptimistic: () => {
+            duringWrite = client.ranges.aliases.get(key);
+          },
+        });
+        expect(duringWrite?.alias).toEqual("optimistic-alias");
+      });
+
+      it("should drop the alias when the write fails", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await expect(
+          client.ranges.setAlias(rng.key, ch.key, "optimistic-alias", {
+            onOptimistic: fail,
+          }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(client.ranges.aliases.get(key)).toBeUndefined();
+      });
+    });
+
+    describe("deleteAlias", () => {
+      it("should drop the alias before the write commits", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
+        let duringWrite: ranger.alias.Alias | undefined;
+        await client.ranges.deleteAlias(rng.key, ch.key, {
+          onOptimistic: () => {
+            duringWrite = client.ranges.aliases.get(key);
+          },
+        });
+        expect(duringWrite).toBeUndefined();
+      });
+
+      it("should restore the alias when the write fails", async () => {
+        const rng = await createRange();
+        const ch = await createChannel();
+        const key = ranger.alias.createKey({ range: rng.key, channel: ch.key });
+        await client.ranges.setAlias(rng.key, ch.key, "optimistic-alias");
+        await expect(
+          client.ranges.deleteAlias(rng.key, ch.key, { onOptimistic: fail }),
+        ).rejects.toBe(WRITE_FAILED);
+        expect(client.ranges.aliases.get(key)?.alias).toEqual("optimistic-alias");
+      });
+    });
+
+    describe("kv", () => {
+      const cachedPairs = (key: ranger.Key): ranger.kv.Pair[] =>
+        expectLive(client.ranges.kv.getCached(key));
+
+      // An unsubscribed query never patches its membership, so every spec here
+      // holds a subscription for as long as it reads the cached pairs.
+      const openRange = async () => {
+        const rng = await createRange();
+        const off = client.ranges.kv.onChange(rng.key, vi.fn());
+        await client.ranges.kv.retrieve(rng.key);
+        return { rng, off };
+      };
+
+      it("should cache a pair before the write commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.set("foo", "bar", {
+            onOptimistic: () => {
+              duringWrite = cachedPairs(rng.key);
+            },
+          });
+          expect(duringWrite).toEqual([{ range: rng.key, key: "foo", value: "bar" }]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should cache a keyed-object set before the write commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.set(
+            { foo: "bar", baz: "qux" },
+            {
+              onOptimistic: () => {
+                duringWrite = cachedPairs(rng.key);
+              },
+            },
+          );
+          expect(duringWrite).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+            { range: rng.key, key: "baz", value: "qux" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should restore the previous pairs when the set fails", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          await expect(
+            rng.kv.set("foo", "replacement", { onOptimistic: fail }),
+          ).rejects.toBe(WRITE_FAILED);
+          expect(cachedPairs(rng.key)).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should drop a pair before the delete commits", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          let duringWrite: ranger.kv.Pair[] = [];
+          await rng.kv.delete("foo", {
+            onOptimistic: () => {
+              duringWrite = cachedPairs(rng.key);
+            },
+          });
+          expect(duringWrite).toEqual([]);
+        } finally {
+          off();
+        }
+      });
+
+      it("should restore a pair when the delete fails", async () => {
+        const { rng, off } = await openRange();
+        try {
+          await rng.kv.set("foo", "bar");
+          await expect(rng.kv.delete("foo", { onOptimistic: fail })).rejects.toBe(
+            WRITE_FAILED,
+          );
+          expect(cachedPairs(rng.key)).toEqual([
+            { range: rng.key, key: "foo", value: "bar" },
+          ]);
+        } finally {
+          off();
+        }
+      });
+    });
+  });
 });
 
 // A second client with its own cache: its writes reach the first client only
@@ -369,6 +582,34 @@ describe("cached reads", () => {
   beforeAll(async () => await client.connect());
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const created = [await createRange(), await createRange()];
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        created.map(async ({ key }) => await local.ranges.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(created.map(({ key }) => key));
+      expect(
+        send.mock.calls.filter(([target]) => target === "/range/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const rng = await createRange();
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.ranges.retrieve(rng.key),
+        local.ranges.retrieve(uuid.create()),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
       const rng = await createRange();
       const first = await client.ranges.retrieve(rng.key);
@@ -507,6 +748,51 @@ describe("cached reads", () => {
         off();
       }
     });
+
+    it("pages children with limit and offset in a stable order", async () => {
+      const parent = await createRange();
+      await Promise.all(
+        Array.from({ length: 5 }, () =>
+          createRange(client, { parent: { key: parent.key } }),
+        ),
+      );
+      const all = await client.ranges.children.retrieve(parent.key);
+      expect(all).toHaveLength(5);
+      const first = await client.ranges.children.retrieve({
+        key: parent.key,
+        limit: 3,
+        offset: 0,
+      });
+      const second = await client.ranges.children.retrieve({
+        key: parent.key,
+        limit: 3,
+        offset: 3,
+      });
+      expect(first).toHaveLength(3);
+      expect(second).toHaveLength(2);
+      const paged = [...first, ...second].map((r) => r.key).sort();
+      expect(paged).toEqual(all.map((r) => r.key).sort());
+    });
+
+    it("sends the page bounds to the cluster instead of fetching every child", async () => {
+      const parent = await createRange();
+      await Promise.all(
+        Array.from({ length: 3 }, () =>
+          createRange(client, { parent: { key: parent.key } }),
+        ),
+      );
+      const spy = vi.spyOn(client.ontology.children, "retrieve");
+      try {
+        const page = await client.ranges.children.retrieve({
+          key: parent.key,
+          limit: 2,
+        });
+        expect(page).toHaveLength(2);
+        expect(spy).toHaveBeenCalledWith(expect.objectContaining({ limit: 2 }));
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe("parent", () => {
@@ -605,5 +891,97 @@ describe("store", () => {
       .toBe(true);
     const cached = expectDeleted(client.ranges.getCached(range.key));
     expect(cached.corpse.name).toEqual(range.name);
+  });
+});
+
+describe("write-through", () => {
+  const LABELS_PER_RANGE = 3;
+  const BATCH = 50;
+
+  const createDetachedClient = () => {
+    const makeRange = () => ({
+      key: uuid.create(),
+      name: "range",
+      timeRange: { start: 0, end: 1 },
+      labels: Array.from({ length: LABELS_PER_RANGE }, () => ({
+        key: uuid.create(),
+        name: "label",
+        color: "#000000",
+      })),
+      parent: { key: uuid.create(), name: "parent", timeRange: { start: 0, end: 1 } },
+    });
+    const unary: UnaryClient = {
+      use: () => {},
+      send: async <RQ extends z.ZodType, RS extends z.ZodType>(
+        target: string,
+        req: z.input<RQ> | z.infer<RQ>,
+        _reqZ: RQ,
+        resZ: RS,
+      ): Promise<z.infer<RS>> => {
+        if (target !== "/range/retrieve") return resZ.parse({});
+        // Key fetches are parent backfills; echo bare ranges so the cache settles
+        // without growing the label or relationship tables.
+        const { keys } = req as ranger.RetrieveRequest;
+        if (keys != null)
+          return resZ.parse({
+            ranges: keys.map((key) => ({
+              key,
+              name: "parent",
+              timeRange: { start: 0, end: 1 },
+            })),
+          });
+        return resZ.parse({ ranges: Array.from({ length: BATCH }, makeRange) });
+      },
+    };
+    const cache = new query.Cache({ openStreamer: null, onError: () => {} });
+    const ontologyClient = new ontology.Client({ unary, cache });
+    const labels = new label.Client({ unary, cache, ontology: ontologyClient });
+    const frameClient = new framer.Client({
+      stream: new WebSocketClient(
+        new url.URL({ host: "localhost", port: 9090 }),
+        binary.JSON_CODEC,
+      ),
+      unary,
+      retrieveChannels: async () => [],
+    });
+    const ranges = new ranger.Client({
+      unary,
+      cache,
+      labels,
+      ontology: ontologyClient,
+      framer: frameClient,
+      channels: async () => [],
+    });
+    return { ranges, labels, relationships: ontologyClient.cache.relationships };
+  };
+
+  let window = 0;
+  const fetchBatch = async (ranges: ranger.Client) =>
+    await ranges.retrieve({
+      overlapsWith: new TimeRange({
+        start: TimeStamp.seconds(window * 1e3),
+        end: TimeStamp.seconds(window++ * 1e3 + 1),
+      }),
+    });
+
+  it("should not scan the relationships table when writing a fetch through", async () => {
+    const { ranges, relationships } = createDetachedClient();
+    expect(await fetchBatch(ranges)).toHaveLength(BATCH);
+    const spy = vi.spyOn(relationships, "get");
+    await fetchBatch(ranges);
+    for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+    spy.mockRestore();
+  });
+
+  it("should flush the label and relationship tables once per fetch", async () => {
+    const { ranges, labels, relationships } = createDetachedClient();
+    await fetchBatch(ranges);
+    let relationshipFlushes = 0;
+    let labelFlushes = 0;
+    relationships.subscribeBatch(() => relationshipFlushes++);
+    labels.store.subscribeBatch(() => labelFlushes++);
+    await fetchBatch(ranges);
+    expect(relationshipFlushes).toBe(1);
+    expect(labelFlushes).toBe(1);
   });
 });

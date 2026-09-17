@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type destructor, type dimensions, scale, xy } from "@synnaxlabs/x";
+import {
+  type border,
+  box,
+  type destructor,
+  type dimensions,
+  scale,
+  xy,
+} from "@synnaxlabs/x";
 
 import { type render } from "@/vis/render";
 
@@ -47,7 +54,11 @@ export interface RecordingCanvas {
   /** Recorded method calls and property sets, in encounter order. */
   calls: Call[];
   /** Restrict drawing to a region; records the call and returns a no-op destructor. */
-  scissor(region: box.Box, overScan?: xy.XY): destructor.Destructor;
+  scissor(
+    region: box.Box,
+    overScan?: xy.XY,
+    radius?: border.CrudeRadius,
+  ): destructor.Destructor;
   /** Records the call and returns this same recording surface, so chained draw calls
    * land on the same {@link calls} list (production returns a scaled sub-context). */
   applyScale(scale: scale.XY): RecordingCanvas;
@@ -62,8 +73,12 @@ const buildCanvas = (width = 800, height = 600): RecordingCanvas => {
   const target: Record<string, unknown> = {
     canvas: { width, height },
     calls,
-    scissor: (region: box.Box, overScan: xy.XY = xy.ZERO) => {
-      calls.push({ op: "scissor", args: [region, overScan] });
+    scissor: (
+      region: box.Box,
+      overScan: xy.XY = xy.ZERO,
+      radius?: border.CrudeRadius,
+    ) => {
+      calls.push({ op: "scissor", args: [region, overScan, radius] });
       return () => {};
     },
     ...STYLE_DEFAULTS,

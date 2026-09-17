@@ -13,8 +13,10 @@ import { Text } from "@/text";
 import { useContext } from "@/triggers/Provider";
 import { type Trigger } from "@/triggers/triggers";
 
+/** Props for {@link Status}. */
 export interface StatusProps extends Text.TextProps {}
 
+/** Shows the keys held right now. It is a debugging aid, not a product surface. */
 export const Status = (props: StatusProps): ReactElement => {
   const { listen } = useContext();
   const [trigger, setTrigger] = useState<Trigger>([]);

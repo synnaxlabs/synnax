@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, status, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { arc, status, type Synnax as Client, task } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { Arc } from "@synnaxlabs/pluto";
 import { crdt } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -21,6 +24,8 @@ import {
   createConsoleWrapper,
   findDialogTrigger,
   getIconButton,
+  queryIconButton,
+  renderSuspended,
   uniqueName,
 } from "@/testutil";
 
@@ -29,9 +34,9 @@ const client = createTestClient();
 const createArcRack = async () =>
   await client.racks.create({ name: uniqueName("rack"), integrations: ["arc"] });
 
-const renderControls = async (arcKey: arc.Key) => {
-  const { wrapper } = await createConsoleWrapper({ client });
-  return render(
+const renderControls = async (arcKey: arc.Key, as: Client = client) => {
+  const { wrapper } = await createConsoleWrapper({ client: as });
+  return await renderSuspended(
     <Suspense fallback={null}>
       <Arc.Suspended arcKey={arcKey}>
         <TaskControls />
@@ -133,6 +138,21 @@ describe("TaskControls", () => {
     await waitFor(async () => {
       const restamped = await client.tasks.retrieve(tsk.key);
       expect(restamped.config.hash).not.toEqual(tsk.config.hash);
+    });
+  });
+
+  describe("without permission to command the task", () => {
+    it("should show the status without any action", async () => {
+      const rck = await createArcRack();
+      const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+      await client.arcs.setRack(a.key, rck.key);
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      const { container } = await renderControls(a.key, viewer);
+      await waitFor(() =>
+        expect(container.querySelector(".console-arc-editor__controls")).not.toBeNull(),
+      );
+      expect(queryIconButton(container, "play")).toBeNull();
+      expect(queryIconButton(container, "stop")).toBeNull();
     });
   });
 });

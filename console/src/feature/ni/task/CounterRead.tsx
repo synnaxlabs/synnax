@@ -12,7 +12,6 @@ import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import * as Device from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
@@ -131,10 +130,8 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
-    dev.properties = enrich(dev.model, dev.properties);
     let devModified = false;
 
-    // Initialize index for counter channels
     let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
     if (!shouldCreateIndex)
       try {
@@ -156,7 +153,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         dev.properties.counterInput.channels = {};
       }
 
-      // Create counter channels for this device
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
       for (const channel of deviceChannels) {
@@ -185,7 +181,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
             (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
         );
       }
-      // Map config channels to their Synnax channel keys
       deviceChannels.forEach((c) => {
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });

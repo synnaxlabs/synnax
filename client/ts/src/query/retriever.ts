@@ -294,9 +294,8 @@ export abstract class Retriever<
   }
 
   /**
-   * Returns the cached answer to the given query without touching the network,
-   * or undefined when nothing is cached. May be stale for unsubscribed
-   * queries.
+   * Returns the cached answer to the given query without touching the network, or
+   * undefined when nothing is cached. May be stale for unsubscribed queries.
    */
   getCached(params: K | SingleInput): Cached<D> | undefined;
   getCached(params: K[] | z.input<Z>): Cached<D[]> | undefined;

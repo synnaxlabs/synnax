@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"context"
 	"io"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -297,8 +299,8 @@ var _ = Describe("Streamer Behavior", func() {
 						Eventually(o.Outlet()).Should(Receive(&res))
 						idxSeries := res.Frame.Get(idx).Series[0]
 						expected := telem.TimeRange{
-							Start: telem.ValueAt[telem.TimeStamp](idxSeries, 0),
-							End:   telem.ValueAt[telem.TimeStamp](idxSeries, -1) + 1,
+							Start: idxSeries.ValueAt[telem.TimeStamp](0),
+							End:   idxSeries.ValueAt[telem.TimeStamp](-1) + 1,
 						}
 						Expect(expected.Start).ToNot(Equal(telem.TimeStamp(0)))
 						Expect(idxSeries.TimeRange).To(Equal(expected))
@@ -487,8 +489,9 @@ var _ = Describe("Streamer Behavior", func() {
 						// Writing past the relay's total buffered capacity would force
 						// the writer to block until the relay times out and drops
 						// frames for the stalled consumer, so undersized buffering
-						// surfaces as missing
-						// frames in the drain below.
+						// surfaces as missing frames in the drain below. The long
+						// slow-consumer timeout keeps the relay from dropping a frame
+						// when a scheduling stall delays the drain.
 						const frameCount int64 = 2 * bufferSize
 						subFS := MustSucceed(fs.Sub("slow-consumer"))
 						subDB := mustOpenDBOnFS(
@@ -496,6 +499,7 @@ var _ = Describe("Streamer Behavior", func() {
 							subFS,
 							cesium.WithRelayBufferSize(bufferSize),
 							cesium.WithStreamBufferSize(bufferSize),
+							cesium.WithSlowConsumerTimeout(10*time.Second),
 						)
 						key := GenerateChannelKey()
 						Expect(subDB.CreateChannel(

@@ -29,7 +29,6 @@ const TEST_CASES: TestCase[] = [
     precision: 0,
     expected: { standard: "12346", scientific: "1ᴇ4", engineering: "12ᴇ3" },
   },
-  // === Zero ===
   {
     number: 0,
     precision: 1,
@@ -51,7 +50,6 @@ const TEST_CASES: TestCase[] = [
     precision: 2,
     expected: { standard: "0.00", scientific: "0.00ᴇ0", engineering: "0.00ᴇ0" },
   },
-  // === Negative numbers ===
   {
     number: -1234.5678,
     precision: 1,
@@ -115,7 +113,6 @@ const TEST_CASES: TestCase[] = [
     precision: 0,
     expected: { standard: "-0", scientific: "-1ᴇ-4", engineering: "-123ᴇ-6" },
   },
-  // === Number 1 ===
   {
     number: 1,
     precision: 0,
@@ -233,7 +230,6 @@ const TEST_CASES: TestCase[] = [
     precision: 0,
     expected: { standard: "-1000", scientific: "-1ᴇ3", engineering: "-1ᴇ3" },
   },
-  // === Positive bigint ===
   {
     number: 1n,
     precision: 0,
@@ -262,7 +258,6 @@ const TEST_CASES: TestCase[] = [
       engineering: "1.77802094047ᴇ18",
     },
   },
-  // === Negative bigint ===
   {
     number: -1n,
     precision: 0,
@@ -286,7 +281,6 @@ const TEST_CASES: TestCase[] = [
       engineering: "-1.77802094047ᴇ18",
     },
   },
-  // === Zero bigint ===
   {
     number: 0n,
     precision: 0,

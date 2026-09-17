@@ -9,8 +9,17 @@
 
 import "@/feature/auth/ConnectionGuard.css";
 
-import { type connection } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
+import { AccessDeniedError, type connection } from "@synnaxlabs/client";
+import {
+  Access,
+  Button,
+  Errors,
+  Flex,
+  Icon,
+  Status,
+  Synnax,
+  Text,
+} from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -21,15 +30,16 @@ import {
 
 import { Login } from "@/feature/auth/Login";
 import { Shell } from "@/feature/shell";
-import { Cluster } from "@/platform/cluster";
 import { Connection } from "@/platform/connection";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
 /**
- * Renders a splash instead of the workspace until the session settles. Rejected
- * credentials return to the login surface; a degraded live connection does not.
+ * Renders a splash instead of the workspace until the session settles and the
+ * subject's permissions are cached. Rejected credentials return to the login
+ * surface; a degraded live connection does not.
  */
 export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   const client = Synnax.use();
@@ -38,7 +48,85 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   if (client == null) return children;
   if (status.variant === "error" && status.details.reason === "auth") return <Login />;
   if (!settled) return <Splash status={status} />;
+  return (
+    <Errors.SuspenseBoundary
+      loading={<Splash status={status} />}
+      FallbackComponent={PermissionsFallback}
+    >
+      <AwaitPermissions>{children}</AwaitPermissions>
+    </Errors.SuspenseBoundary>
+  );
+};
+
+// Every guarded surface reads a denial from an empty policy set, so the workspace
+// cannot render before the policies land.
+const AwaitPermissions = ({ children }: PropsWithChildren): ReactNode => {
+  Access.useEnsurePermissions({});
   return children;
+};
+
+const PermissionsFallback = (props: Errors.FallbackProps): ReactElement => {
+  const { error, resetErrorBoundary } = props;
+  const invalidate = Access.useInvalidatePermissions();
+  const logout = Session.useLogout();
+  const retry = (): void => {
+    invalidate({});
+    resetErrorBoundary();
+  };
+  // A denial is an expected state, not a crash, so it gets a calm surface.
+  if (AccessDeniedError.matches(error) || AccessDeniedError.matches(error.cause))
+    return <Denied retry={retry} />;
+  return (
+    <Errors.Fallback {...props}>
+      <Button.Button variant="outlined" onClick={logout}>
+        <Icon.Logout />
+        Log out
+      </Button.Button>
+      <Button.Button variant="filled" onClick={retry}>
+        <Icon.Refresh />
+        Retry
+      </Button.Button>
+    </Errors.Fallback>
+  );
+};
+
+interface DeniedProps {
+  retry: () => void;
+}
+
+const Denied = ({ retry }: DeniedProps): ReactElement => {
+  const logout = Session.useLogout();
+  const target = Session.Core.useSelectSelected();
+  const subject =
+    target != null && target.username !== "" ? ` for ${target.username}` : "";
+  return (
+    <Shell.Frame className={CSS.B("connection")} connection={target}>
+      <Flex.Box
+        y
+        align="center"
+        justify="center"
+        gap={8}
+        className={CSS.cls(CSS.BE("connection", "body"), CSS.M("revealed"))}
+      >
+        <Status.Orbital core={<PlatformShell.Mark />} />
+        <Status.Summary
+          variant="warning"
+          message="Console access denied"
+          description={`Check role permissions${subject}.`}
+        />
+        <Flex.Box x gap="small">
+          <Button.Button variant="outlined" onClick={logout}>
+            <Icon.Logout />
+            Log out
+          </Button.Button>
+          <Button.Button variant="filled" onClick={retry}>
+            <Icon.Refresh />
+            Retry
+          </Button.Button>
+        </Flex.Box>
+      </Flex.Box>
+    </Shell.Frame>
+  );
 };
 
 interface CountdownCoreProps {
@@ -67,8 +155,7 @@ interface SplashProps {
 
 const Splash = ({ status }: SplashProps): ReactElement => {
   const { variant, details } = status;
-  const activeKey = Session.Cluster.useSelectSelectedKey();
-  const cluster = Session.Cluster.useSelectState(activeKey ?? undefined);
+  const target = Session.Core.useSelectSelected();
   const connecting = details.epoch === 0;
   const troubled =
     connecting &&
@@ -86,13 +173,13 @@ const Splash = ({ status }: SplashProps): ReactElement => {
     ) : undefined;
   return (
     // Trouble puts the connection detail in the card, so the island would repeat it.
-    <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : cluster}>
+    <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : target}>
       <Flex.Box
         y
         align="center"
         justify="center"
         gap={8}
-        className={CSS(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
+        className={CSS.cls(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
         <Status.Orbital core={<PlatformShell.Mark>{core}</PlatformShell.Mark>} />
         {troubled ? (
@@ -109,9 +196,9 @@ const Splash = ({ status }: SplashProps): ReactElement => {
 };
 
 const Trouble = (): ReactElement => {
-  const activeKey = Session.Cluster.useSelectSelectedKey();
+  const activeKey = Session.Core.useSelectSelectedKey();
   const logout = Session.useLogout();
-  const openConnect = Cluster.useConnectModal();
+  const openConnect = Core.useConnectModal();
   return (
     <Flex.Box y gap="large" full="x">
       <Connection.Target />
@@ -123,7 +210,7 @@ const Trouble = (): ReactElement => {
               variant="outlined"
               grow
               justify="center"
-              onClick={() => openConnect({ clusterKey: activeKey })}
+              onClick={() => openConnect({ coreKey: activeKey })}
             >
               <Icon.Edit />
               Edit connection

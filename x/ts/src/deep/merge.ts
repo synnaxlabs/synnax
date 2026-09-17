@@ -60,7 +60,6 @@ export const overrideValidItems = <A, B>(
       return right;
     }
 
-    // Iterate over each property in the override object
     for (const key in overrideObj) {
       const overrideValue = overrideObj[key];
       let shape = currentSchema?.shape;
@@ -68,7 +67,6 @@ export const overrideValidItems = <A, B>(
         while (shape != null) {
           if (shape[key] != null) {
             const result = shape[key].safeParse(overrideValue);
-            // Check if parsing succeeded
             if (result.success) {
               baseObj[key] = result.data;
               break;

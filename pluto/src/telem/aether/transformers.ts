@@ -384,10 +384,8 @@ export class SeriesDownsampler {
     )
       this.cache.series.shift();
 
-    // Step 2: Update the downsampled series in the cache.
     source.series.forEach((ser, i) => {
       let downsampledSeries = this.cache.series.at(i);
-      // Step 2A: If the series is not in the cache, allocate a new series.
       if (downsampledSeries == null) {
         const capacity = Math.ceil(ser.capacity / this.props.windowSize);
         downsampledSeries = Series.alloc({

@@ -29,7 +29,7 @@ var _ = Describe("Retrieve", func() {
 					Notation: notation.NotationStandard,
 				},
 			},
-			HideChannelNames: true,
+			ChannelNamesHidden: true,
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 		var res log.Log

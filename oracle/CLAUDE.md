@@ -119,6 +119,17 @@ the "did you forget" check impossible to write.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
+## Default Groups
+
+`@default group "<name>"` on two or more fields makes their defaults fill as a unit: the
+generated fill runs only when every member holds its zero value. Use it when a field's
+zero is valid on its own but the group's all-zero state is not, such as a `min_val` /
+`max_val` pair, where an all-zero range means "unset" but a `max_val` of 0 is a real
+bound the fill must not overwrite.
+
+Grouping only changes Go. TypeScript, Python, and C++ fill from key presence at decode
+and never overwrite a value the caller sent.
+
 ## Contextual Validation
 
 A rule that needs facts outside the config, such as the data type of a referenced

@@ -18,8 +18,7 @@
       "name": "fixture_v0_ai_voltage",
       "port": 1,
       "terminal_config": "RSE",
-      "type": "ai_voltage",
-      "units": "Volts"
+      "type": "ai_voltage"
     },
     {
       "channel": 2020,
@@ -35,8 +34,7 @@
       "name": "fixture_v0_ai_frequency_voltage",
       "port": 2,
       "threshold_level": 2.25,
-      "type": "ai_freq_voltage",
-      "units": "Hz"
+      "type": "ai_freq_voltage"
     },
     {
       "channel": 2030,
@@ -74,7 +72,6 @@
       "port": 5,
       "strain_config": "HalfBridgeII",
       "type": "ai_strain_gauge",
-      "units": "Strain",
       "voltage_excit_source": "Internal",
       "voltage_excit_val": 3.75
     },

@@ -44,9 +44,9 @@ struct InputRegister final : Input {
     /// @brief The data type to interpret the register(s) as
     x::telem::DataType value_type;
     /// @brief The byte order for multi-register values
-    bool swap_bytes;
+    bool bytes_swapped;
     /// @brief The word order for multi-register values
-    bool swap_words;
+    bool words_swapped;
     /// @brief String length for STRING data type
     int string_length;
 
@@ -57,8 +57,8 @@ struct InputRegister final : Input {
     ):
         Input(base),
         value_type(value.data_type),
-        swap_bytes(value.swap_bytes),
-        swap_words(value.swap_words),
+        bytes_swapped(value.bytes_swapped),
+        words_swapped(value.words_swapped),
         string_length(string_length) {}
 
     explicit InputRegister(const ::synnax::modbus::HoldingRegisterReadChannel &cfg):
@@ -89,17 +89,17 @@ struct OutputHoldingRegister final : Output {
     /// @brief The data type to interpret the register(s) as
     x::telem::DataType value_type;
     /// @brief The byte order for multi-register values
-    bool swap_bytes;
+    bool bytes_swapped;
     /// @brief The word order for multi-register values
-    bool swap_words;
+    bool words_swapped;
 
     explicit OutputHoldingRegister(
         const ::synnax::modbus::HoldingRegisterWriteChannel &cfg
     ):
         Output(cfg),
         value_type(cfg.data_type),
-        swap_bytes(cfg.swap_bytes),
-        swap_words(cfg.swap_words) {}
+        bytes_swapped(cfg.bytes_swapped),
+        words_swapped(cfg.words_swapped) {}
 };
 
 /// @brief sorts a vector of channels in place by their address.

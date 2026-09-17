@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "zod/compile";
+
 export * from "@/array";
 export * from "@/binary";
+export * from "@/border";
 export * from "@/breaker";
 export * from "@/caseconv";
 export * from "@/change";
@@ -23,6 +26,7 @@ export * from "@/destructor";
 export * from "@/errors";
 export * from "@/filename";
 export * from "@/fmt";
+export * from "@/grid";
 export * from "@/id";
 export * from "@/instance";
 export * from "@/json";
@@ -56,4 +60,5 @@ export * from "@/unique";
 export * from "@/url";
 export * from "@/uuid";
 export * from "@/verbs";
+export * from "@/zip";
 export * from "@/zod";

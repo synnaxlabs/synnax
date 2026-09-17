@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, ranger } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { panel, ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -18,7 +18,7 @@ import { createActiveState } from "@/platform/project/testutil";
 import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
-import { createCluster } from "@/session/cluster/testutil";
+import { createCore } from "@/session/core/testutil";
 import {
   createConsoleWrapper,
   renderSuspended,
@@ -27,19 +27,20 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const createRange = async (): Promise<ranger.Range> => await createTestRange(client);
 
 const buttonWithIcon = (label: string): HTMLElement => {
   const button = screen
     .getAllByRole("button")
-    .find((b) => b.querySelector(`svg[aria-label*='${label}']`));
+    .find((b) => b.querySelector(`svg.pluto-icon--${label}`));
   if (button == null) throw new Error(`button with icon ${label} not found`);
   return button;
 };
 
-const renderDetails = async (rangeKey: string) => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderDetails = async (rangeKey: string, as: Client = client) => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   const result = await renderSuspended(
     <>
       <Range.Details rangeKey={rangeKey} />
@@ -51,7 +52,7 @@ const renderDetails = async (rangeKey: string) => {
 };
 
 describe("Range.Details", () => {
-  it("should rename the range on the cluster when the name field is edited", async () => {
+  it("should rename the range on the Core when the name field is edited", async () => {
     const range = await createRange();
     await renderDetails(range.key);
     const nameInput = await screen.findByDisplayValue(range.name, {});
@@ -112,11 +113,11 @@ describe("Range.Details", () => {
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: {
-        [Session.Cluster.SLICE_NAME]: {
+        [Session.Core.SLICE_NAME]: {
           version: 0,
           selected: "local",
-          clusters: {
-            local: createCluster("local", { name: "Local" }),
+          cores: {
+            local: createCore("local", { name: "Local" }),
           },
         },
       },
@@ -150,5 +151,18 @@ describe("Range.Details", () => {
     const copied = writeText.mock.calls[0][0];
     expect(copied).toContain("client.ranges.retrieve");
     expect(copied).toContain(range.key);
+  });
+
+  describe("without permission to write the range", () => {
+    it("should put the name field in preview rather than leaving it editable", async () => {
+      const range = await createRange();
+      const viewer = await roles.get("Viewer");
+      await renderDetails(range.key, viewer);
+      await waitFor(() => {
+        const name = screen.getByText(range.name);
+        expect(name.closest(".pluto-btn--preview")).not.toBeNull();
+      });
+      expect(screen.queryByDisplayValue(range.name)).toBeNull();
+    });
   });
 });

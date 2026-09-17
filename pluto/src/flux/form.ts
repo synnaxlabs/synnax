@@ -131,9 +131,9 @@ export interface UseFormParams<
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
   /**
-   * How long to wait after a change before autosaving. Zero, the default, saves on
-   * every change. Set it only for a form with a continuous input, such as a drag
-   * handle or a color picker, where a single gesture emits a burst of changes.
+   * How long to wait after a change before autosaving. Raise it for a form with a
+   * continuous input, such as a drag handle or a color picker, where one gesture
+   * emits a burst of changes. Zero saves on every change.
    */
   autoSaveDebounce?: CrudeTimeSpan;
   /** The record to edit, or null for a form with nothing to read. */
@@ -155,6 +155,14 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
   notifyOnChange: false,
 };
 
+const DEFAULT_AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
+
+/** A save waiting on the one before it, and the signal its callers issued it under. */
+interface QueuedSave {
+  promise: Promise<boolean>;
+  signal?: AbortSignal;
+}
+
 export const createForm = <
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
@@ -173,7 +181,7 @@ export const createForm = <
     query,
     initialValues,
     autoSave = false,
-    autoSaveDebounce = TimeSpan.ZERO,
+    autoSaveDebounce = DEFAULT_AUTO_SAVE_DEBOUNCE,
     afterSave,
     beforeSave,
     beforeValidate,
@@ -229,6 +237,16 @@ export const createForm = <
         form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS }),
       [form],
     );
+    // A listener carries what the Core holds, which an edit waiting on its autosave has
+    // already moved past. Writing it back would revert the edit, and the save that
+    // follows would persist the pre-edit value.
+    const listenerSet = useCallback(
+      (path: string, value: unknown, options?: Form.SetOptions) => {
+        if (form.get(path, { optional: true })?.touched === true) return;
+        noNotifySet(path, value, options);
+      },
+      [form, noNotifySet],
+    );
 
     // Form state is built once, so a query pointing at a different record has
     // to replace it.
@@ -243,7 +261,7 @@ export const createForm = <
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
 
-    const saveAsync = useCallback(
+    const runSave = useCallback(
       async (opts: query.FetchOptions = {}): Promise<boolean> => {
         const { signal = abortRef.current?.signal } = opts;
         try {
@@ -285,7 +303,35 @@ export const createForm = <
           return false;
         }
       },
-      [name, memoQuery, beforeSave, afterSave, beforeValidate],
+      [client, name, memoQuery, beforeSave, afterSave, beforeValidate],
+    );
+
+    // Saves of one record run one at a time. A caller that reads the form, awaits the
+    // Core, then writes back (a task deploy resolving its rack) leaves a window an
+    // autosave fires in; concurrent writes reach the Core in either order, so the
+    // pre-write values can land last and undo the save.
+    const pendingSave = useRef<Promise<unknown>>(null);
+    // A save that has not started reads the live form when it does, so it already
+    // carries what a later caller would write. Later callers join it instead of
+    // queueing a duplicate. Only callers under one signal join, so an abort still
+    // reaches every save it was issued for.
+    const queuedSave = useRef<QueuedSave>(null);
+    const saveAsync = useCallback(
+      async (opts: query.FetchOptions = {}): Promise<boolean> => {
+        const signal = opts.signal ?? abortRef.current?.signal;
+        const queued = queuedSave.current;
+        if (queued != null && queued.signal === signal) return await queued.promise;
+        const issuedFor = memoQuery;
+        const save = (pendingSave.current ?? Promise.resolve()).then(async () => {
+          if (queuedSave.current?.promise === save) queuedSave.current = null;
+          // A queued save reads the live form, which now holds another record.
+          return readQuery.current === issuedFor ? await runSave(opts) : false;
+        });
+        queuedSave.current = { promise: save, signal };
+        pendingSave.current = save.catch(() => {});
+        return await save;
+      },
+      [runSave, memoQuery],
     );
     const save = useCallback(
       (opts?: query.FetchOptions) => void saveAsync(opts),
@@ -314,12 +360,12 @@ export const createForm = <
           client,
           query: memoQuery,
           ...form,
-          set: noNotifySet,
+          set: listenerSet,
           abandon,
         }),
       );
       return () => listeners.cleanup();
-    }, [client, memoQuery, form, noNotifySet, abandon]);
+    }, [client, memoQuery, form, listenerSet, abandon]);
 
     return { form, save, saveAsync, ...result };
   };

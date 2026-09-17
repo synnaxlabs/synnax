@@ -1441,7 +1441,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		},
 	)
 
-	It("Should keep fields with sentinel defaults required", func(ctx SpecContext) {
+	It("Should mint an id for create-defaulted string fields", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -1453,7 +1453,8 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
-				`.key = parser.field<std::string>("key"),`,
+				`#include "x/cpp/uuid/uuid.h"`,
+				`parser.field<std::string>("key", x::uuid::create().to_string())`,
 				`.name = parser.field<std::string>("name", ""),`,
 			)
 	})

@@ -42,5 +42,5 @@ func Publish(
 			return telem.MarshalVariableSample(v), nil
 		},
 	}
-	return signals.PublishFromGorp(ctx, provider, cfg)
+	return provider.PublishFromGorp(ctx, cfg)
 }

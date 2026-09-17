@@ -70,9 +70,7 @@ export const decodeBase64 = (encoded: string): string => {
   return new TextDecoder().decode(bytes);
 };
 
-/**
- * URL is a simple class for building and extending URLs.
- */
+/** URL is a simple class for building and extending URLs. */
 export class URL {
   protocol: string;
   host: string;
@@ -81,7 +79,6 @@ export class URL {
 
   /**
    * @param host - The hostname or IP address of the server.
-   * @param port - The port number of the server.
    * @param protocol - The protocol to use for all requests. Defaults to "".
    * @param pathPrefix - A path prefix to use for all requests. Defaults to "".
    */
@@ -94,7 +91,6 @@ export class URL {
 
   /**
    * Replaces creates a new URL with the specified properties replaced.
-   * @param props - The properties to replace.
    * @returns a new URL.
    */
   replace(props: Partial<URLProps>): URL {
@@ -108,7 +104,6 @@ export class URL {
 
   /**
    * Creates a new url with the given path appended to the current path.
-   * @param path - the path to append to the URL.
    * @returns a new URL.
    */
   child(path: string): URL {

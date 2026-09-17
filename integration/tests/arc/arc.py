@@ -25,7 +25,6 @@ from uuid import UUID
 from pydantic import ValidationError
 
 import synnax as sy
-from framework.task_status import TaskStatus
 from framework.test_case import TestCase
 from framework.utils import create_virtual_channel
 from tests.driver.sim_daq_case import SimDaqCase
@@ -61,12 +60,6 @@ class ArcCase(SimDaqCase, TestCase):
     arc_name: str
     _arcs: list[ArcTaskHandle]
 
-    # Opt-in: when True, setup records per-task status updates for the duration
-    # of the test so wait_for_task_status / task_is_running can read them. This
-    # belongs on a generic Task case once one exists.
-    collect_task_status: bool = False
-    _task_status: TaskStatus | None
-
     def setup(self) -> None:
         required = [
             "arc_source",
@@ -81,14 +74,10 @@ class ArcCase(SimDaqCase, TestCase):
                 )
         self.rack = None
         self._arcs = []
-        self._task_status = None
         self.set_manual_timeout(180)
         create_virtual_channel(self.client, self.start_cmd_channel, sy.DataType.UINT8)
         self.subscribe(self.subscribe_channels)
         super().setup()
-        if self.collect_task_status:
-            self._task_status = TaskStatus(self.client)
-            self._task_status.open()
 
     def _retrieve_rack(self) -> None:
         rack_key = self.params.get("rack_key")
@@ -176,30 +165,6 @@ class ArcCase(SimDaqCase, TestCase):
         """
         self._arcs = [handle for handle in self._arcs if handle.name != name]
 
-    def wait_for_task_status(
-        self, task_key: sy.task.Key, text: str, timeout: float = 5.0
-    ) -> bool:
-        """Return True if a status for task_key containing text has surfaced.
-
-        Requires collect_task_status = True so the base lifecycle records task
-        status updates for the duration of the test.
-        """
-        if self._task_status is None:
-            raise RuntimeError(
-                "wait_for_task_status requires collect_task_status = True"
-            )
-        return self._task_status.wait_for(task_key, text, timeout)
-
-    def task_is_running(self, task_key: sy.task.Key) -> bool:
-        """Return True if the latest status reports task_key as running.
-
-        Requires collect_task_status = True so the base lifecycle records task
-        status updates for the duration of the test.
-        """
-        if self._task_status is None:
-            raise RuntimeError("task_is_running requires collect_task_status = True")
-        return self._task_status.is_running(task_key)
-
     def run(self) -> None:
         self._retrieve_rack()
         self.arc_name = self.load_arc(
@@ -228,8 +193,6 @@ class ArcCase(SimDaqCase, TestCase):
                 self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
                 with self._try_to("signal simulator stop"):
                     self.writer.write(self.end_cmd_channel, 1)
-            if self._task_status is not None:
-                self._task_status.close()
         finally:
             super().teardown()
 

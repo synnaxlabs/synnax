@@ -60,10 +60,7 @@ var _ = Describe("Context", func() {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
 			root.Hint = types.I32()
 			root.OutputMemoryBase = 42
-			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](
-				root,
-				nil,
-			)
+			child := root.Child[antlr.ParserRuleContext](nil)
 			Expect(child.Scope).To(Equal(root.Scope))
 			Expect(child.Writer).To(Equal(root.Writer))
 			Expect(child.Module).To(Equal(root.Module))
@@ -123,10 +120,7 @@ var _ = Describe("Context", func() {
 		It("Should propagate through Child", func(ctx SpecContext) {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
 			entered := root.EnterBlock().EnterBlock()
-			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](
-				entered,
-				nil,
-			)
+			child := entered.Child[antlr.ParserRuleContext](nil)
 			Expect(child.BlockDepth()).To(Equal(2))
 		})
 	})
@@ -179,10 +173,7 @@ var _ = Describe("Context", func() {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
 			entry := ccontext.LoopEntry{BreakDepth: 5, ContinueDepth: 6}
 			looped := root.EnterLoop(entry)
-			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](
-				looped,
-				nil,
-			)
+			child := looped.Child[antlr.ParserRuleContext](nil)
 			got, ok := child.CurrentLoop()
 			Expect(ok).To(BeTrue())
 			Expect(got).To(Equal(entry))

@@ -24,7 +24,7 @@ export const FlameArrestorFireResDetonation = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Primitive.Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
+  <Primitive.Div {...rest} className={CSS.cls(CSS.B("flame-arrestor"), className)}>
     <Handle.Linear orientation={orientation} left={3.333} right={96.667} />
     <Primitive.SVG
       dimensions={DIMENSIONS}

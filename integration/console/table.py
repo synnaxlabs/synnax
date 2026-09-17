@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 from playwright.sync_api import Locator
 
 import synnax as sy
@@ -19,7 +21,7 @@ DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 class Table(ConsolePage):
     """Table page management interface"""
 
-    page_type: str = "Table"
+    page_type = "Table"
     pluto_label: str = ".pluto-table"
 
     def __init__(
@@ -106,15 +108,15 @@ class Table(ConsolePage):
 
     def add_row(self) -> None:
         """Add a new row to the table by clicking the add-row button."""
-        control = self.page.locator(".pluto-table-frame__add-row").first
-        control.wait_for(state="visible", timeout=5000)
-        control.locator("button").last.click()
+        button = self.page.get_by_role("button", name=re.compile(r"^Add \d+ rows?$"))
+        button.wait_for(state="visible", timeout=5000)
+        button.click()
 
     def add_column(self) -> None:
         """Add a new column to the table by clicking the add-column button."""
-        control = self.page.locator(".pluto-table-frame__add-col").first
-        control.wait_for(state="visible", timeout=5000)
-        control.locator("button").last.click()
+        button = self.page.get_by_role("button", name=re.compile(r"^Add \d+ columns?$"))
+        button.wait_for(state="visible", timeout=5000)
+        button.click()
 
     def delete_row(self, row: int, col: int = 0) -> None:
         """Delete a row via context menu on a cell.

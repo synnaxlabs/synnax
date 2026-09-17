@@ -12,16 +12,19 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { unzipSync, zipSync } from "fflate";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Import } from "@/platform/import";
 import {
+  bodyBytes,
+  createFile,
   createJSONFile,
   fakeDirectoryEntry,
   fakeFileDropEvent,
   fakeFileEntry,
-} from "@/platform/import/testutil";
+} from "@/platform/fs/testutil";
+import { Import } from "@/platform/import";
 import {
   createPanelWrapper,
   createServerPanel,
@@ -57,13 +60,13 @@ const logNames = async (ids: ontology.ID[]): Promise<string[]> =>
   );
 
 interface RenderParams {
-  ingestDirectory?: Import.DirectoryIngester;
+  importBundle?: Import.BundleImporter;
   panelKey?: panel.Key;
   onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
 
 const renderFileDrop = async ({
-  ingestDirectory = vi.fn(),
+  importBundle = vi.fn(),
   panelKey,
   onStatuses,
 }: RenderParams = {}) => {
@@ -76,7 +79,7 @@ const renderFileDrop = async ({
     </Console>
   );
   return {
-    ...renderHook(() => Import.useFileDrop({ ingestDirectory }), { wrapper }),
+    ...renderHook(() => Import.useFileDrop({ importBundle }), { wrapper }),
     store,
   };
 };
@@ -104,9 +107,9 @@ describe("Import.useFileDrop", () => {
     });
   });
 
-  it("hands a dropped directory's parsed files to the directory ingester", async () => {
-    const ingestDirectory = vi.fn();
-    const { result } = await renderFileDrop({ ingestDirectory });
+  it("zips a dropped directory and hands the bundle to the importer", async () => {
+    const importBundle = vi.fn<Import.BundleImporter>();
+    const { result } = await renderFileDrop({ importBundle });
     act(() =>
       result.current({
         nodeKey: panel.ROOT_NODE_KEY,
@@ -118,16 +121,18 @@ describe("Import.useFileDrop", () => {
         ]),
       }),
     );
-    await waitFor(() => expect(ingestDirectory).toHaveBeenCalledTimes(1));
-    expect(ingestDirectory.mock.calls[0][0]).toBe("my-directory");
-    expect(ingestDirectory.mock.calls[0][1]).toEqual([
-      { name: "a.json", path: "a.json", data: { type: "log" } },
-    ]);
+    await waitFor(() => expect(importBundle).toHaveBeenCalledTimes(1));
+    expect(importBundle.mock.calls[0][0]).toBe("my-directory");
+    const entries = unzipSync(await bodyBytes(importBundle.mock.calls[0][1]));
+    expect(Object.keys(entries)).toEqual(["a.json"]);
+    expect(JSON.parse(new TextDecoder().decode(entries["a.json"]))).toEqual({
+      type: "log",
+    });
   });
 
-  it("walks nested directories and skips files that are not plain JSON", async () => {
-    const ingestDirectory = vi.fn();
-    const { result } = await renderFileDrop({ ingestDirectory });
+  it("zips nested files with their paths and drops files the Core ignores", async () => {
+    const importBundle = vi.fn<Import.BundleImporter>();
+    const { result } = await renderFileDrop({ importBundle });
     act(() =>
       result.current({
         nodeKey: panel.ROOT_NODE_KEY,
@@ -135,19 +140,36 @@ describe("Import.useFileDrop", () => {
         event: fakeFileDropEvent([
           fakeDirectoryEntry("my-directory", [
             createJSONFile("a.json", { type: "log" }),
-            // Binary junk Finder writes into browsed directories; parsing it would
-            // throw.
-            new File(["\x00\x01"], ".DS_Store"),
-            fakeDirectoryEntry("nested", [createJSONFile("b.json", { type: "log" })]),
+            createFile(".DS_Store", "\x00\x01"),
+            fakeDirectoryEntry("nested", [
+              createJSONFile("b.json", { type: "log" }),
+              createFile("notes.txt", "junk"),
+            ]),
           ]),
         ]),
       }),
     );
-    await waitFor(() => expect(ingestDirectory).toHaveBeenCalledTimes(1));
-    expect(ingestDirectory.mock.calls[0][1]).toEqual([
-      { name: "a.json", path: "a.json", data: { type: "log" } },
-      { name: "b.json", path: "nested/b.json", data: { type: "log" } },
-    ]);
+    await waitFor(() => expect(importBundle).toHaveBeenCalledTimes(1));
+    const entries = unzipSync(await bodyBytes(importBundle.mock.calls[0][1]));
+    expect(Object.keys(entries).toSorted()).toEqual(["a.json", "nested/b.json"]);
+  });
+
+  it("hands a dropped zip archive to the importer untouched", async () => {
+    const importBundle = vi.fn<Import.BundleImporter>();
+    const { result } = await renderFileDrop({ importBundle });
+    const bytes = zipSync({ "manifest.json": new TextEncoder().encode("{}") });
+    const droppedZip = createFile("My Project.zip", bytes);
+    act(() =>
+      result.current({
+        nodeKey: panel.ROOT_NODE_KEY,
+        location: "center",
+        event: fakeFileDropEvent([fakeFileEntry(droppedZip)]),
+      }),
+    );
+    await waitFor(() => expect(importBundle).toHaveBeenCalledTimes(1));
+    expect(importBundle.mock.calls[0][0]).toBe("My Project.zip");
+    // The dropped File itself reaches the importer, so the upload streams it.
+    expect(importBundle.mock.calls[0][1]).toBe(droppedZip);
   });
 
   it("reports a non-JSON file and still imports the rest of the drop", async () => {
@@ -160,7 +182,7 @@ describe("Import.useFileDrop", () => {
         nodeKey: panel.ROOT_NODE_KEY,
         location: "center",
         event: fakeFileDropEvent([
-          fakeFileEntry(new File(["hello"], "notes.txt", { type: "text/plain" })),
+          fakeFileEntry(createFile("notes.txt", "hello")),
           fakeFileEntry(createJSONFile("Survivor.json", LEGACY_LOG_STATE)),
         ]),
       }),
@@ -191,12 +213,12 @@ describe("Import.useFileDrop", () => {
       name: `switched-${uuid.create()}`,
       layout: {},
     });
-    const ingestDirectory = vi.fn<Import.DirectoryIngester>(
-      async (_name, _files, { store }) => {
+    const importBundle = vi.fn<Import.BundleImporter>(
+      async (_name, _bundle, { store }) => {
         store.dispatch(Session.Project.select(switched.key));
       },
     );
-    const { result, store } = await renderFileDrop({ ingestDirectory });
+    const { result, store } = await renderFileDrop({ importBundle });
     const open = Session.Project.selectSelected(store.getState());
     act(() =>
       result.current({

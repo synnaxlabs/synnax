@@ -262,7 +262,6 @@ describe("openStreamer", () => {
 
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
       expect(onChange.mock.calls[0][0]).toEqual([{ value: 1 }]);
-      // Wait a bit to ensure the streamer handles the EOF
       await new Promise((resolve) => setTimeout(resolve, 100));
       await closeStreamer();
     });
@@ -403,7 +402,6 @@ describe("openStreamer", () => {
       await expect.poll(() => listener2.mock.calls.length).toBe(2);
       await expect.poll(() => listener3.mock.calls.length).toBe(2);
 
-      // Verify all listeners received the same data
       for (const listener of [listener1, listener2, listener3]) {
         expect(listener.mock.calls[0][0]).toEqual([{ value: 1 }]);
         expect(listener.mock.calls[1][0]).toEqual([{ value: 2 }]);
@@ -449,7 +447,6 @@ describe("openStreamer", () => {
       // Error handler should have been invoked for each failure
       expect(onError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
-      // Verify other listeners still received correct data
       expect(listener1.mock.calls[0][0]).toEqual([{ value: 1 }]);
       expect(listener1.mock.calls[1][0]).toEqual([{ value: 2 }]);
       expect(listener3.mock.calls[0][0]).toEqual([{ value: 1 }]);
@@ -492,7 +489,6 @@ describe("openStreamer", () => {
 
       await expect.poll(() => executionOrder.length).toBe(9);
 
-      // Verify order is consistent across all frames
       expect(executionOrder[0]).toBe("listener1");
       expect(executionOrder[1]).toBe("listener2");
       expect(executionOrder[2]).toBe("listener3");
@@ -547,7 +543,6 @@ describe("openStreamer", () => {
       // Error handler should have been called for even numbered calls (2nd and 4th)
       expect(onError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
-      // Verify all listeners received correct data
       for (let i = 0; i < 4; i++) {
         expect(listener1.mock.calls[i][0]).toEqual([{ value: i + 1 }]);
         expect(listener3.mock.calls[i][0]).toEqual([{ value: i + 1 }]);
@@ -561,7 +556,6 @@ describe("openStreamer", () => {
       const listener2 = vi.fn();
       const onError = vi.fn();
 
-      // Different schemas for same channel
       const schema1 = z.object({ value: z.number() });
       const schema2 = z.object({ value: z.string() });
 
@@ -723,7 +717,6 @@ describe("openStreamer", () => {
         },
       ];
 
-      // Simulate updating a relationship (delete old, create new)
       const frames = [
         new framer.Frame({
           relationship_create: new Series([
@@ -744,13 +737,11 @@ describe("openStreamer", () => {
 
       await expect.poll(() => operations.length).toBe(2);
 
-      // Delete should happen first
       expect(operations[0].channel).toBe("relationship_delete");
       expect(operations[0].data).toEqual([
         { parentId: 1, childId: 2, type: "original" },
       ]);
 
-      // Then create
       expect(operations[1].channel).toBe("relationship_create");
       expect(operations[1].data).toEqual([
         { parentId: 1, childId: 2, type: "updated" },
@@ -1084,7 +1075,6 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      // Create a mock streamer to track close calls
       let mockStreamer: MockHardenedStreamer;
       const closeStreamer = await openStreamer(
         createStreamerArgs({
@@ -1096,14 +1086,11 @@ describe("openStreamer", () => {
         }),
       );
 
-      // Verify streamer is working
       expect(mockStreamer!).toBeDefined();
       expect(mockStreamer!.closeVi).not.toHaveBeenCalled();
 
-      // Close the streamer
       await closeStreamer();
 
-      // Verify close was called on the underlying streamer
       expect(mockStreamer!.closeVi).toHaveBeenCalledTimes(1);
     });
 
@@ -1111,7 +1098,6 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      // Simple test with fixed frames
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
         new framer.Frame({ test: new Series([{ value: 2 }]) }),
@@ -1124,18 +1110,14 @@ describe("openStreamer", () => {
         }),
       );
 
-      // Wait for all frames to be processed
       await expect.poll(() => onChange.mock.calls.length).toBe(2);
 
       const callsBeforeClose = onChange.mock.calls.length;
 
-      // Close the streamer
       await closeStreamer();
 
-      // Wait a bit longer to ensure no more calls happen
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Verify no additional calls were made after close
       expect(onChange.mock.calls.length).toBe(callsBeforeClose);
     });
 
@@ -1144,7 +1126,6 @@ describe("openStreamer", () => {
       const onChange2 = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      // First streamer
       const frames1 = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
       const closeStreamer1 = await openStreamer(
         createStreamerArgs({
@@ -1156,10 +1137,8 @@ describe("openStreamer", () => {
       await expect.poll(() => onChange1.mock.calls.length).toBe(1);
       expect(onChange1.mock.calls[0][0]).toEqual([{ value: 1 }]);
 
-      // Close first streamer
       await closeStreamer1();
 
-      // Second streamer with different data
       const frames2 = [new framer.Frame({ test: new Series([{ value: 2 }]) })];
       const closeStreamer2 = await openStreamer(
         createStreamerArgs({
@@ -1171,7 +1150,6 @@ describe("openStreamer", () => {
       await expect.poll(() => onChange2.mock.calls.length).toBe(1);
       expect(onChange2.mock.calls[0][0]).toEqual([{ value: 2 }]);
 
-      // Verify first listener wasn't called again
       expect(onChange1.mock.calls.length).toBe(1);
 
       await closeStreamer2();
@@ -1192,10 +1170,8 @@ describe("openStreamer", () => {
         }),
       );
 
-      // Call close multiple times concurrently
       const closePromises = [closeStreamer(), closeStreamer(), closeStreamer()];
 
-      // All should complete without throwing
       await Promise.all(closePromises);
 
       // Close should have been called on underlying streamer
@@ -1212,7 +1188,6 @@ describe("openStreamer", () => {
           listeners: createListeners("test", schema, onChange),
           openStreamer: async () => {
             const mockStreamer = new MockHardenedStreamer([]);
-            // Make close throw an error
             mockStreamer.closeVi.mockImplementation(() => {
               throw new Error("Close error");
             });
@@ -1221,7 +1196,6 @@ describe("openStreamer", () => {
         }),
       );
 
-      // Close might throw if underlying implementation throws
       await expect(closeStreamer()).rejects.toThrow("Close error");
     });
 
@@ -1229,7 +1203,6 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      // Use a simple frame sequence
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
         new framer.Frame({ test: new Series([{ value: 2 }]) }),
@@ -1243,13 +1216,10 @@ describe("openStreamer", () => {
         }),
       );
 
-      // Wait for some frames to be processed
       await expect.poll(() => onChange.mock.calls.length).toBeGreaterThanOrEqual(1);
 
-      // Close while potentially still processing
       await closeStreamer();
 
-      // Should not crash and calls should be reasonable
       expect(onChange.mock.calls.length).toBeLessThanOrEqual(3);
       expect(onChange.mock.calls.length).toBeGreaterThanOrEqual(1);
     });

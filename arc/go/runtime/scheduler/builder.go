@@ -59,6 +59,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 		rn := &node{
 			key:     n.Key,
 			idx:     i,
+			entry:   n.IsEntryNode(prog.Edges),
 			Node:    runtimeNodes[n.Key],
 			outputs: make([]outputResolved, 0, len(n.Outputs)),
 		}
@@ -102,6 +103,7 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
 		changedFlags:     make([]uint8, len(prog.Nodes)),
 		selfChangedFlags: make([]uint8, len(prog.Nodes)),
+		firedFlags:       make([]uint8, len(prog.Nodes)),
 		visitedFlags:     make([]uint8, len(prog.Nodes)),
 		tolerance:        tolerance,
 	}

@@ -15,8 +15,9 @@ import {
   type RenderHookResult,
   type RenderOptions as RTLRenderOptions,
   type RenderResult as RTLRenderResult,
+  waitFor,
 } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement, useEffect } from "react";
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
@@ -47,15 +48,29 @@ export interface RenderResult extends RTLRenderResult {
 /**
  * Renders a hook that suspends on a cold cache, resolving once its render commits.
  * RTL's own `renderHook` never commits a tree that suspends during the initial render,
- * leaving `result.current` null forever.
+ * leaving `result.current` null forever. Never call this inside an `act` scope: the
+ * commit it waits on cannot land until that scope exits.
  */
 export const renderHookSuspended = async <Result, Props>(
   hook: (props: Props) => Result,
   options?: RenderHookOptions<Props>,
 ): Promise<RenderHookResult<Result, Props>> => {
+  let committed = false;
+  const Tracked = (props: Props): Result => {
+    const result = hook(props);
+    useEffect(() => {
+      committed = true;
+    }, []);
+    return result;
+  };
   let rendered!: RenderHookResult<Result, Props>;
+  // An async act drains microtasks and React work, but not a fetch still in flight, so
+  // the commit is waited on rather than assumed.
   await act(async () => {
-    rendered = rtlRenderHook(hook, options);
+    rendered = rtlRenderHook(Tracked, options);
+  });
+  await waitFor(() => {
+    if (!committed) throw new Error("the suspended render never committed");
   });
   return rendered;
 };
@@ -63,10 +78,9 @@ export const renderHookSuspended = async <Result, Props>(
 /**
  * Render a React component with a Synnax provider stack already mounted on the worker
  * side, so the component's `Aether.use` calls register under the stack without the test
- * scaffolding a multi-level provider tree by hand.
- *
- * Use this for tests that exercise the React + worker boundary (clicks, form input,
- * dispatched actions). For pure worker-side renderer testing, use `renderAether`.
+ * scaffolding a multi-level provider tree by hand. Use this for tests that exercise the
+ * React + worker boundary (clicks, form input, dispatched actions). For pure
+ * worker-side renderer testing, use `renderAether`.
  */
 export const render = (ui: ReactElement, options: RenderOptions = {}): RenderResult => {
   const { rtl, ...providerOptions } = options;

@@ -26,13 +26,23 @@ export interface SingleProps<
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
+  /** Singular name of the thing being selected. It builds the placeholder and the
+   * empty and error content. */
   resourceName: string;
   variant?: Dialog.FrameProps["variant"];
+  /** Whether to render the trigger flat and inert, for use inside a preview. */
   preview?: boolean;
   triggerProps?: SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
 }
 
+/**
+ * A dropdown that selects one entry. Pass `data` and `getItem` from a list data hook,
+ * and a `children` render prop for the item.
+ *
+ * @example
+ * <Select.Single resourceName="Channel" value={key} onChange={setKey} {...listProps} />
+ */
 export const Single = <K extends record.Key, E extends record.Keyed<K> | undefined>({
   resourceName,
   onChange,

@@ -10,25 +10,15 @@
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from console.context_menu import ContextMenu
-from console.layout import LayoutClient
-from console.notifications import NotificationsClient
-from console.tree import Tree
+from console.base import ResourceClient
 
 
-class ArcClient:
+class ArcClient(ResourceClient):
     """Arc automation management for Console UI automation."""
 
-    ICON_NAME = "arc"
     TOOLBAR_CLASS = ".console-arc-toolbar"
     CONTROLS_CLASS = ".console-arc-editor__controls"
     LIST_ITEM_CLASS = ".pluto-list__item"
-
-    def __init__(self, layout: LayoutClient):
-        self.layout = layout
-        self.ctx_menu = ContextMenu(layout.page)
-        self.notifications = NotificationsClient(layout.page)
-        self.tree = Tree(layout.page)
 
     def _show_arc_panel(self) -> None:
         """Show the Arc panel in the navigation drawer.
@@ -40,8 +30,7 @@ class ArcClient:
         toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
         if toolbar.count() > 0 and toolbar.is_visible():
             return
-        arc_btn = self.layout.page.locator(f"button:has(.pluto-icon--{self.ICON_NAME})")
-        arc_btn.click()
+        self.layout.page.get_by_role("menuitem", name="Arcs", exact=True).click()
         toolbar.wait_for(state="visible", timeout=5000)
 
     def _get_controls(self) -> Locator:
@@ -306,7 +295,7 @@ class ArcClient:
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         # If running, a confirmation dialog appears warning about redeployment
-        confirm_modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
+        confirm_modal = self.layout.page.locator(self.layout.MODAL_SELECTOR)
         try:
             confirm_modal.wait_for(state="visible", timeout=1000)
         except PlaywrightTimeoutError:
@@ -324,3 +313,58 @@ class ArcClient:
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         self.layout.delete_with_confirmation(item)
+
+    GRAPH_CLASS = ".pluto-arc"
+    STAGES_LABEL = "Stages"
+    STAGE_GROUPS_LABEL = "Stage groups"
+
+    def open_graph(self, name: str) -> None:
+        """Open a graph-mode Arc, waiting on the canvas rather than the text editor.
+
+        Args:
+            name: The name of the Arc to open.
+        """
+        self._show_arc_panel()
+        self.get_item(name).dblclick()
+        self.layout.page.locator(self.GRAPH_CLASS).first.wait_for(
+            state="visible", timeout=10000
+        )
+
+    def _stages(self) -> Locator:
+        """Return the listbox holding the selected group's node selectors."""
+        return self.layout.page.get_by_role("listbox", name=self.STAGES_LABEL)
+
+    def _stage_groups(self) -> Locator:
+        """Return the group of buttons that pick the stage group."""
+        return self.layout.page.get_by_role("group", name=self.STAGE_GROUPS_LABEL)
+
+    def show_graph_toolbar(self) -> None:
+        """Show the graph Arc's stage palette in the bottom Component drawer."""
+        self.layout.show_visualization_toolbar()
+        self._stages().wait_for(state="visible", timeout=5000)
+
+    def stage_group_names(self) -> list[str]:
+        """Return the stage group names offered by the graph toolbar."""
+        groups = self._stage_groups().get_by_role("button")
+        return [groups.nth(i).inner_text().strip() for i in range(groups.count())]
+
+    def select_stage_group(self, name: str) -> None:
+        """Select a stage group by name.
+
+        Args:
+            name: The group's label, e.g. "Telemetry".
+        """
+        self._stage_groups().get_by_role("button", name=name, exact=True).click()
+
+    def stage_names(self) -> list[str]:
+        """Return the node selector names shown for the selected stage group.
+
+        Each selector renders a preview that repeats the name and shows a sample value,
+        so the name comes from the option's accessible name rather than its text.
+        """
+        stages = self._stages().get_by_role("option")
+        stages.first.wait_for(state="visible", timeout=5000)
+        return [
+            stages.nth(i).get_attribute("aria-label") or ""
+            for i in range(stages.count())
+        ]

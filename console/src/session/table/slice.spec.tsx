@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { Table as PTable } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -15,14 +14,18 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Table } from "@/session/table";
+import { createSliceStore, documentIn } from "@/session/window/testutil";
 
 const storeWith = (slice: Table.SliceState) =>
-  configureStore({
-    reducer: { [Table.SLICE_NAME]: Table.reducer },
-    preloadedState: { [Table.SLICE_NAME]: slice },
+  createSliceStore({
+    name: Table.SLICE_NAME,
+    reducer: Table.reducer,
+    preloadedState: slice,
+    middleware: Table.MIDDLEWARE,
   });
 
 const KEY = "table-1";
+const AUX_WINDOW = "aux-window";
 
 const wrapperFor = (
   store: ReturnType<typeof storeWith>,
@@ -54,7 +57,20 @@ describe("Table Slice", () => {
   });
 
   const exists = (key: string = KEY): boolean =>
-    Table.selectSliceState(store.getState()).tables[key] != null;
+    documentIn(Table.selectSliceState(store.getState()), key) != null;
+
+  // A window is a viewport: an edit in one window must not reach another window's
+  // view of the same document.
+  it("should keep each window's view of a document independent", () => {
+    store.dispatch(Table.create({ key: KEY }));
+    store.dispatch(Table.create({ key: KEY, windowKey: AUX_WINDOW }));
+    store.dispatch(
+      Table.setEditable({ key: KEY, editable: false, windowKey: AUX_WINDOW }),
+    );
+    const slice = store.getState()[Table.SLICE_NAME];
+    expect(documentIn(slice, KEY, AUX_WINDOW)?.editable).toBe(false);
+    expect(documentIn(slice, KEY)?.editable).toBe(true);
+  });
 
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
@@ -247,45 +263,23 @@ describe("Table Slice", () => {
       expect(Table.ZERO_SLICE_STATE.version).toBe(0);
     });
   });
+});
 
-  describe("purgeState", () => {
-    it("should reset the cell selection", () => {
-      const state = Table.stateZ.parse({
-        selectedCells: ["a", "b"],
-        lastSelected: "b",
-      });
-      const purged = Table.purgeState(state);
-      expect(purged.selectedCells).toEqual([]);
-      expect(purged.lastSelected).toBeNull();
+describe("persistence", () => {
+  // A selection is the state of an edit in progress, so it does not outlive the
+  // session that made it.
+  it("should clear the selection on the way to disk", () => {
+    const state = Table.stateZ.parse({
+      selectedCells: ["a", "b"],
+      lastSelected: "b",
     });
-
-    it("should leave other fields untouched", () => {
-      const state = Table.stateZ.parse({
-        hideIndicators: true,
-        editable: false,
-        centered: true,
-      });
-      const purged = Table.purgeState(state);
-      expect(purged.hideIndicators).toBe(true);
-      expect(purged.editable).toBe(false);
-      expect(purged.centered).toBe(true);
-    });
+    const purged = Table.purgeState(state);
+    expect(purged.selectedCells).toEqual([]);
+    expect(purged.lastSelected).toBeNull();
   });
 
-  describe("purgeSliceState", () => {
-    it("should reset the selection on every table in the slice", () => {
-      const state = {
-        [Table.SLICE_NAME]: {
-          version: 0 as const,
-          tables: {
-            "table-1": Table.stateZ.parse({ selectedCells: ["a"], lastSelected: "a" }),
-            "table-2": Table.stateZ.parse({ selectedCells: ["b"], lastSelected: "b" }),
-          },
-        },
-      };
-      const purged = Table.purgeSliceState(state);
-      expect(purged[Table.SLICE_NAME].tables["table-1"].selectedCells).toEqual([]);
-      expect(purged[Table.SLICE_NAME].tables["table-2"].lastSelected).toBeNull();
-    });
+  it("should leave the rest of the document alone", () => {
+    const state = Table.stateZ.parse({ selectedCells: ["a"], centered: true });
+    expect(Table.purgeState(state).centered).toBe(true);
   });
 });

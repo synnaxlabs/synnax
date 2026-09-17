@@ -19,9 +19,8 @@ import {
   type YAxisKey,
 } from "@/lineplot/types.gen";
 
-// LineKeyParts is the structured identity of a plotted line: a y-channel on a
-// y-axis plotted against an x-channel/x-axis over a range. It is the decoded
-// form of Line.key.
+// LineKeyParts is the structured identity of a plotted line: a y-channel on a y-axis
+// plotted against an x-channel/x-axis over a range. It is the decoded form of Line.key.
 export interface LineKeyParts {
   yAxis: YAxisKey;
   xAxis: XAxisKey;
@@ -39,7 +38,6 @@ export const lineKey = (parts: LineKeyParts): string =>
     SEPARATOR,
   );
 
-// parseLineKey decodes a Line.key produced by lineKey back into its identity.
 export const parseLineKey = (key: string): LineKeyParts => {
   const [yAxis, xAxis, range, xChannel, yChannel] = key.split(SEPARATOR);
   return {

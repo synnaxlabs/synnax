@@ -76,7 +76,7 @@ describe("DigitalWrite", () => {
     expect(screen.queryByDisplayValue("1")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create per-line command and state channels keyed by port and line", async () => {
       const dev = await createNIDevice(client);
       const rendered = await renderDigitalWrite(

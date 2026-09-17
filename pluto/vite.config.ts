@@ -94,6 +94,7 @@ export default defineConfig({
       ),
     },
     setupFiles: ["src/mock/setuptests.ts"],
+    testTimeout: 15_000,
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

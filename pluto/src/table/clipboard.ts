@@ -42,11 +42,10 @@ const describe = (p: Payload): string =>
 export interface UseClipboardParams {
   key: table.Key;
   selected?: string[];
-  // onPaste fires after a successful paste with the keys of every cell whose
-  // contents were overwritten. Consumers can use this to update the visible
-  // selection to the just-pasted region. Paste uses the last entry in
-  // `selected` as the top-left anchor; if `selected` is empty when paste
-  // fires, paste is a no-op.
+  // onPaste fires after a successful paste with the keys of every cell whose contents
+  // were overwritten. Consumers can use this to update the visible selection to the
+  // just-pasted region. Paste uses the last entry in `selected` as the top-left anchor;
+  // if `selected` is empty when paste fires, paste is a no-op.
   onPaste?: (overwrittenKeys: string[]) => void;
 }
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 
 import {
   AI_CHANNEL_SCHEMAS,
@@ -43,8 +43,7 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType, Ent
   },
   inputProps: {
     resourceName: "channel type",
-    data: Object.keys(AI_CHANNEL_TYPE_NAMES).map((key) => {
-      const type = key as AIChannelType;
+    data: record.keys(AI_CHANNEL_TYPE_NAMES).map((type) => {
       const Icon = AI_CHANNEL_TYPE_ICONS[type];
       return {
         key: type,

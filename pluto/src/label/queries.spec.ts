@@ -526,6 +526,32 @@ describe("queries", () => {
       ).rejects.toThrow();
     });
 
+    it("should run afterOptimistic before the delete commits", async () => {
+      const lbl = await client.labels.create({
+        name: "optimisticDelete",
+        color: "#FF0000",
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Label.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data as label.Key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync(lbl.key);
+      });
+
+      expect(order).toEqual([`optimistic:${lbl.key}`, "success"]);
+    });
+
     it("should handle delete operations in sequence", async () => {
       const label1 = await client.labels.create({
         name: "delete1",

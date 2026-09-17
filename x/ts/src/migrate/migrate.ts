@@ -65,13 +65,11 @@ const comparePreRelease = (a: string, b: string): number => {
     if (!aIsNumeric && bIsNumeric) return compare.GREATER_THAN;
 
     if (aIsNumeric && bIsNumeric) {
-      // Compare numerically
       const aNum = parseInt(aPart, 10);
       const bNum = parseInt(bPart, 10);
       if (aNum < bNum) return compare.LESS_THAN;
       if (aNum > bNum) return compare.GREATER_THAN;
     } else {
-      // Compare lexically (ASCII sort order)
       if (aPart < bPart) return compare.LESS_THAN;
       if (aPart > bPart) return compare.GREATER_THAN;
     }
@@ -102,7 +100,6 @@ export const compareSemVer = ((
   const semA = zod.parse(semVerZ, a, { label: "version" });
   const semB = zod.parse(semVerZ, b, { label: "version" });
 
-  // Split version and pre-release parts
   const [aMain, aPreRelease] = semA.split("-");
   const [bMain, bPreRelease] = semB.split("-");
 
@@ -130,7 +127,6 @@ export const compareSemVer = ((
   if (aPreRelease === undefined) return compare.GREATER_THAN;
   if (bPreRelease === undefined) return compare.LESS_THAN;
 
-  // Both have pre-release, compare them
   return comparePreRelease(aPreRelease, bPreRelease);
 }) satisfies compare.Comparator<SemVer>;
 

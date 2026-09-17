@@ -18,6 +18,11 @@
     cursor: text;
     user-select: none;
 
+    &:focus,
+    &:focus-visible {
+        outline: none;
+    }
+
     & .pluto-log__content {
         height: 100%;
     }

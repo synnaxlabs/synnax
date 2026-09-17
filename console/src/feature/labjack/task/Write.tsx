@@ -79,10 +79,11 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
             });
           }}
         >
-          {({ value, onChange }) => (
+          {({ value, onChange, preview }) => (
             <SelectPort
               value={value}
               onChange={onChange}
+              preview={preview}
               model={device.model}
               portType={convertWriteChannelTypeToPortType(type)}
               allowNone={false}

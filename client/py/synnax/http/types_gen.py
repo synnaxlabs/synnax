@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -118,7 +119,7 @@ class BaseWriteField(BaseModel):
         pointer: Is the JSON Pointer where the value is placed in the body.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     pointer: str = ""
 
     def __hash__(self) -> int:
@@ -142,18 +143,18 @@ class ReadField(BaseModel):
         channel: Is the Synnax channel the extracted value is written to.
         pointer: Is the JSON Pointer to the value within the response body.
         data_type: Is the data type of the extracted value.
-        timestamp_format: Is the encoding of the JSON value when the target channel
-            holds timestamps. Required for timestamp channels.
+        time_format: Is the encoding of the JSON value when the target channel holds
+            timestamps. Required for timestamp channels.
         enum_values: Maps string labels in the response to numeric channel values.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     pointer: str = ""
     data_type: telem.DataType = telem.DataType("float64")
-    timestamp_format: TimeFormat | None = None
+    time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] = Field(default_factory=list)
 
     def __hash__(self) -> int:
@@ -225,7 +226,7 @@ class ReadEndpoint(BaseModel):
             task stamps samples on arrival.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     method: Method = "GET"
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
@@ -252,7 +253,7 @@ class WriteEndpoint(BaseModel):
         fields: Contains additional static or generated body fields.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
     method: Method = "POST"
     path: str = ""

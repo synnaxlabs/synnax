@@ -134,6 +134,51 @@ var _ = Describe("Render", func() {
 			To(ContainSubstring("one of every field shape"))
 	})
 
+	It("Should render field omissions on structs and union variants", func(
+		ctx SpecContext,
+	) {
+		source := `
+Base struct {
+	port uint8
+	enabled bool
+}
+
+Trimmed struct extends Base {
+	-port
+}
+
+Chan union on type extends Base {
+	ai_voltage { minVal float64 }
+	ai_temp_builtin {
+		-port
+		units string
+	}
+}
+`
+		table := analyzeFixture(ctx, source)
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{
+			Resolve: func(name string) (resolution.Type, bool) {
+				if t, ok := table.Get(name); ok {
+					return t, true
+				}
+				return table.Get("test." + name)
+			},
+		})
+		Expect(rendered).To(ContainSubstring("-port"))
+
+		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		trimmed := MustBeOk(again.Get("test.Trimmed")).Form.(resolution.StructForm)
+		Expect(trimmed.OmittedFields).To(Equal([]string{"port"}))
+
+		chanType := MustBeOk(again.Get("test.Chan"))
+		form := chanType.Form.(resolution.UnionForm)
+		names := make([]string, 0)
+		for _, f := range resolution.UnifiedVariantFields(chanType, form.Variants[1], again) {
+			names = append(names, f.Name)
+		}
+		Expect(names).To(Equal([]string{"enabled", "units"}))
+	})
+
 	It("Should render alias lines and sorted imports", func(ctx SpecContext) {
 		table := analyzeFixture(ctx, "Key = uuid\n")
 		decls := []versions.Decl{

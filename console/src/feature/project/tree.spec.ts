@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, project } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -26,6 +26,7 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 const Item = Project.TREE_ITEMS.project;
 
@@ -49,6 +50,17 @@ afterEach(() => {
 });
 
 describe("project ontology service", () => {
+  it("should offer Reload Console", async () => {
+    const p = await createProject();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [projectResource(p.key, p.name)],
+      store: await createStoreWithActive(p.key),
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should expose creation, import, export, and link actions", async () => {
     const p = await createProject();
     assertDefined(Item.ContextMenu);
@@ -153,5 +165,21 @@ describe("project ontology service", () => {
     expect(canDrop({ source, items: [{ key: "channel:1", type: "channel" }] })).toBe(
       false,
     );
+  });
+});
+
+describe("permission to write the project", () => {
+  it("should withhold rename, the create actions, and delete from a viewer", async () => {
+    const p = await createProject();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [projectResource(p.key, p.name)],
+    });
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Delete")).toBeNull();
+    expect(screen.queryByText("New Line Plot")).toBeNull();
+    expect(screen.queryByText("New Schematic")).toBeNull();
   });
 });

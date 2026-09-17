@@ -12,7 +12,6 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
@@ -90,7 +89,6 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
-  dev.properties = enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateStateIndex = primitive.isZero(
     dev.properties.digitalOutput.stateIndex,

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -961,7 +962,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						MustSucceed(w.Close())
 						Expect(w.Commit(ctx)).Error().To(SatisfyAll(
 							MatchError(unary.ErrWriterClosed),
-							MatchError(ContainSubstring("channel [gauss]<%d>", key))),
+							MatchError(ContainSubstring("channel [gauss]<%d>", key)),
+						),
 						)
 						Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
 							Error().To(MatchError(unary.ErrWriterClosed))

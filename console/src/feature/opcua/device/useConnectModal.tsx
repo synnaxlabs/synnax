@@ -160,20 +160,20 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   label="Client certificate"
                   path="properties.connection.clientCertificate"
                 >
-                  {FS.InputFilePath}
+                  {clientCertField}
                 </Form.Field>
                 <Form.Field<string>
                   label="Client private key"
                   path="properties.connection.clientPrivateKey"
                 >
-                  {FS.InputFilePath}
+                  {clientPrivateKeyField}
                 </Form.Field>
                 <Form.Field<string>
                   grow
                   label="Server certificate"
                   path="properties.connection.serverCertificate"
                 >
-                  {FS.InputFilePath}
+                  {serverCertField}
                 </Form.Field>
               </>
             )}
@@ -192,6 +192,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               status={status.keepVariants(variant, "loading")}
               onClick={() => save()}
               variant="filled"
+              trigger={Triggers.SAVE}
             >
               Connect
             </Button.Button>
@@ -201,6 +202,18 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
     );
   },
 );
+
+const clientCertField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a client certificate" />
+));
+
+const clientPrivateKeyField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a client private key" />
+));
+
+const serverCertField = Component.renderProp(({ value, onChange }) => (
+  <FS.InputPath value={value} onChange={onChange} title="Select a server certificate" />
+));
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "opc" };
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach } from "vitest";
 
 /**
@@ -50,7 +50,7 @@ export const clickAndSettle = async (text: string): Promise<void> => {
 
 /** Queries container for a rendered pluto icon by its name, or null. */
 export const queryIcon = (container: ParentNode, icon: string): Element | null =>
-  container.querySelector(`[aria-label="pluto-icon--${icon}"]`);
+  container.querySelector(`.pluto-icon--${icon}`);
 
 /** Returns the closest button wrapping the given pluto icon, or null. */
 export const queryIconButton = (
@@ -63,12 +63,10 @@ export const getIconButtons = (
   container: ParentNode,
   icon: string,
 ): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll(`[aria-label="pluto-icon--${icon}"]`)).flatMap(
-    (el) => {
-      const button = el.closest("button");
-      return button == null ? [] : [button];
-    },
-  );
+  Array.from(container.querySelectorAll(`.pluto-icon--${icon}`)).flatMap((el) => {
+    const button = el.closest("button");
+    return button == null ? [] : [button];
+  });
 
 /** Like queryIconButton, but throws when no button wraps the icon. */
 export const getIconButton = (
@@ -79,6 +77,12 @@ export const getIconButton = (
   if (button == null) throw new Error(`no button wrapping icon ${icon}`);
   return button;
 };
+
+/** Like getIconButton, but waits for the button to appear. */
+export const findIconButton = async (
+  container: ParentNode,
+  icon: string,
+): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
 
 /**
  * Returns the pluto toggle button in container. Toggles carry no accessible name, and
@@ -144,6 +148,25 @@ export const getLabeledDialogTrigger = (labelText: string): HTMLElement =>
   getBySelector<HTMLElement>(getInputItem(labelText), ".pluto-dialog__trigger");
 
 /**
+ * Waits for the live dialog trigger of the mounted select whose current value renders
+ * as text. Select triggers expose no accessible name, so this matches on the shown
+ * value. A preview trigger opens nothing and so carries no popup, which also keeps it
+ * out of this query: one holding no value renders the literal word "None", colliding
+ * with a real selection of the same name while the form waits on its permission query.
+ */
+export const findDialogTriggerByText = async (text: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const match = screen
+      .getAllByRole("button")
+      .find(
+        (b) =>
+          b.getAttribute("aria-haspopup") === "dialog" && b.textContent?.includes(text),
+      );
+    if (match == null) throw new Error(`dialog trigger showing "${text}" not found`);
+    return match;
+  });
+
+/**
  * Reports whether a pluto element is rendered in its disabled state. Pluto marks
  * disabled buttons with a class rather than the disabled attribute.
  */
@@ -179,12 +202,43 @@ export const getCompositeIconButton = (
   container: ParentNode,
   icons: string[],
 ): HTMLButtonElement => {
-  const buttons = Array.from(container.querySelectorAll("button"));
-  const btn = buttons.find((b) =>
-    icons.every((i) => b.querySelector(`[aria-label="pluto-icon--${i}"]`) != null),
-  );
+  const [btn] = getCompositeIconButtons(container, icons);
   if (btn == null) throw new Error(`no button with icons ${icons.join(", ")}`);
   return btn;
+};
+
+/** Like getCompositeIconButton, but returns every match instead of throwing on none. */
+export const getCompositeIconButtons = (
+  container: ParentNode,
+  icons: string[],
+): HTMLButtonElement[] =>
+  Array.from(container.querySelectorAll("button")).filter((b) =>
+    icons.every((i) => b.querySelector(`.pluto-icon--${i}`) != null),
+  );
+
+/** A handle on the pluto input table inside an input item. */
+export interface InputTable {
+  /** The button that appends a row. */
+  add: HTMLButtonElement;
+  /** The body rows, top to bottom. */
+  rows: HTMLElement[];
+  /** The numeric input of the given row and column. */
+  cell: (row: number, col?: number) => HTMLInputElement;
+}
+
+/** Finds the pluto input table inside the input item labeled with labelText. */
+export const getInputTable = (labelText: string): InputTable => {
+  const table = getBySelector<HTMLElement>(
+    getInputItem(labelText),
+    ".pluto-input__table",
+  );
+  const [header, ...rows] = Array.from(table.querySelectorAll<HTMLElement>("tr"));
+  return {
+    add: getIconButton(header, "add"),
+    rows,
+    cell: (row, col = 0) =>
+      within(rows[row]).getAllByRole<HTMLInputElement>("textbox")[col],
+  };
 };
 
 /**

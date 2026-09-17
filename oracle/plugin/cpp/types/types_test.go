@@ -2076,6 +2076,33 @@ var _ = Describe("C++ Union Generation", func() {
 	)
 
 	It(
+		"Should flatten a base a variant omits a field from",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			content := MustContentOf(resp, "types.gen.h")
+			Expect(content).To(ContainSubstring("struct AITempBuiltinChannel {"))
+			Expect(content).
+				To(ContainSubstring("struct AIVoltageChannel : public BaseAIChan {"))
+		},
+	)
+
+	It(
 		"Should inherit the union base and payload in every variant struct, not flatten",
 		func(ctx SpecContext) {
 			source := `

@@ -14,6 +14,7 @@ import { waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
+import { documentIn, inWindow } from "@/session/window/testutil";
 import { renderHookWithConsole, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -31,8 +32,8 @@ const createSchematic = async (): Promise<schematic.Schematic> =>
 const preloadWith = (...keys: string[]): Partial<Session.State> => ({
   [Session.Schematic.SLICE_NAME]: {
     ...Session.Schematic.ZERO_SLICE_STATE,
-    schematics: Object.fromEntries(
-      keys.map((key) => [key, Session.Schematic.ZERO_STATE]),
+    windows: inWindow(
+      Object.fromEntries(keys.map((key) => [key, Session.Schematic.ZERO_STATE])),
     ),
   },
 });
@@ -44,10 +45,10 @@ describe("Schematic.SYNCHRONIZERS", () => {
       () => Session.Synchronizer.use(Session.Schematic.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(created.key) },
     );
-    expect(store.getState().schematic.schematics[created.key]).toBeDefined();
+    expect(documentIn(store.getState().schematic, created.key)).toBeDefined();
     await client.schematics.delete(created.key);
     await waitFor(() => {
-      expect(store.getState().schematic.schematics[created.key]).toBeUndefined();
+      expect(documentIn(store.getState().schematic, created.key)).toBeUndefined();
     });
   });
 
@@ -59,8 +60,8 @@ describe("Schematic.SYNCHRONIZERS", () => {
       { client, preloadedState: preloadWith(survivor.key, ghost) },
     );
     await waitFor(() => {
-      expect(store.getState().schematic.schematics[ghost]).toBeUndefined();
+      expect(documentIn(store.getState().schematic, ghost)).toBeUndefined();
     });
-    expect(store.getState().schematic.schematics[survivor.key]).toBeDefined();
+    expect(documentIn(store.getState().schematic, survivor.key)).toBeDefined();
   });
 });

@@ -8,17 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { LabJack } from "@/feature/labjack";
 
 describe("readStatusDataZ", () => {
   it("should accept null", () => {
-    expect(LabJack.Task.READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    expect(z.validate(LabJack.Task.READ_SCHEMAS.statusData, null)).toBe(true);
   });
   it("should accept undefined", () => {
-    expect(LabJack.Task.READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(
-      true,
-    );
+    expect(z.validate(LabJack.Task.READ_SCHEMAS.statusData, undefined)).toBe(true);
   });
   it("should accept a valid errors object", () => {
     const result = LabJack.Task.READ_SCHEMAS.statusData.safeParse({
@@ -430,16 +429,18 @@ describe("draft configs", () => {
   // accept every zero config; retrieve parses with it.
   it("should accept the zero read config", () => {
     expect(
-      LabJack.Task.READ_SCHEMAS.config.safeParse(
+      z.validate(
+        LabJack.Task.READ_SCHEMAS.config,
         LabJack.Task.READ_SCHEMAS.config.parse({}),
-      ).success,
+      ),
     ).toBe(true);
   });
   it("should accept the zero write config", () => {
     expect(
-      LabJack.Task.WRITE_SCHEMAS.config.safeParse(
+      z.validate(
+        LabJack.Task.WRITE_SCHEMAS.config,
         LabJack.Task.WRITE_SCHEMAS.config.parse({}),
-      ).success,
+      ),
     ).toBe(true);
   });
 });

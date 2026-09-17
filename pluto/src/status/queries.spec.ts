@@ -407,6 +407,35 @@ describe("Status queries", () => {
 
       await expect(client.statuses.retrieve(statusToDelete.key)).rejects.toThrow();
     });
+
+    it("should run afterOptimistic before the delete commits", async () => {
+      const stat = await client.statuses.set({
+        name: "Optimistic Delete",
+        key: `optimistic-delete-${id.create()}`,
+        variant: "error",
+        message: "Will be deleted",
+        time: TimeStamp.now(),
+      });
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Status.useDelete({
+            afterOptimistic: ({ data }) => {
+              order.push(`optimistic:${data as status.Key}`);
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync(stat.key);
+      });
+
+      expect(order).toEqual([`optimistic:${stat.key}`, "success"]);
+    });
   });
 
   describe("useSet", () => {
@@ -488,6 +517,71 @@ describe("Status queries", () => {
 
       const statusResource = resources.find((r) => r.id.key === "child-hook-test");
       expect(statusResource).toBeDefined();
+    });
+
+    it("should run afterOptimistic before a single set commits", async () => {
+      const key = `optimistic-set-${id.create()}`;
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Status.useSet({
+            afterOptimistic: () => {
+              order.push("optimistic");
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({
+          statuses: {
+            name: "Optimistic Set",
+            key,
+            variant: "info",
+            message: "Testing optimistic set",
+            time: TimeStamp.now(),
+          },
+        });
+      });
+
+      expect(order).toEqual(["optimistic", "success"]);
+    });
+
+    it("should run afterOptimistic before a batch set commits", async () => {
+      const keys = [
+        `optimistic-batch-${id.create()}`,
+        `optimistic-batch-${id.create()}`,
+      ];
+      const order: string[] = [];
+      const { result } = renderHook(
+        () =>
+          Status.useSet({
+            afterOptimistic: () => {
+              order.push("optimistic");
+            },
+            afterSuccess: () => {
+              order.push("success");
+            },
+          }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await result.current.updateAsync({
+          statuses: keys.map((key, i) => ({
+            name: `Optimistic Batch ${i}`,
+            key,
+            variant: "info" as const,
+            message: "Testing optimistic batch set",
+            time: TimeStamp.now(),
+          })),
+        });
+      });
+
+      expect(order).toEqual(["optimistic", "success"]);
     });
   });
 

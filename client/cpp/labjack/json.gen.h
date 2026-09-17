@@ -22,12 +22,13 @@
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::labjack {
 
 inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
     return BaseReadChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -50,7 +51,7 @@ inline x::json::json BaseReadChannel::to_json() const {
 
 inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
     return BaseWriteChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
         .cmd_channel = parser.field<::synnax::channel::Key>(
             "cmd_channel",
@@ -264,7 +265,6 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.port = parser.field<std::string>("port", "AIN0");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "K");
-    result.pos_chan = parser.field<std::int32_t>("pos_chan", 0);
     result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
     result.cjc_source = parser.field<std::string>("cjc_source", "TEMPERATURE_DEVICE_K");
     result.cjc_slope = parser.field<double>("cjc_slope", 1);
@@ -282,7 +282,6 @@ inline x::json::json ThermocoupleReadChannel::to_json() const {
         j[k] = v;
     j["port"] = this->port;
     j["thermocouple_type"] = this->thermocouple_type;
-    j["pos_chan"] = this->pos_chan;
     j["neg_chan"] = this->neg_chan;
     j["cjc_source"] = this->cjc_source;
     j["cjc_slope"] = this->cjc_slope;

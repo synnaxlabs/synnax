@@ -8,13 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Flex, Form, Input, List, Ranger, Select, Tag, Telem } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Flex,
+  Form,
+  Input,
+  List,
+  Ranger,
+  Select,
+  Tag,
+  Telem,
+} from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, type MouseEvent, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
+import { Session } from "@/session";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
   showParent?: boolean;
@@ -43,6 +54,8 @@ const Base = ({
       timeRange: item.timeRange.numeric,
     };
   }, [item]);
+  const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
+  const { update: rename } = Session.Range.useRename();
   const { form } = Ranger.useForm({
     query: null,
     initialValues,
@@ -60,7 +73,8 @@ const Base = ({
 
   return (
     <List.Item
-      className={CSS(CSS.BE("range", "list-item"))}
+      className={CSS.cls(CSS.BE("range", "list-item"))}
+      aria-label={name}
       onSelect={handleSelect}
       justify="between"
       selected={selected}
@@ -75,6 +89,7 @@ const Base = ({
             size="medium"
             variant="text"
             reveal={!selected}
+            aria-label="Select"
           />
           <Flex.Box x align="center" gap="tiny">
             <Form.Field<NumericTimeRange>
@@ -86,6 +101,7 @@ const Base = ({
                 <Ranger.SelectStage
                   {...Ranger.wrapNumericTimeRangeToStage({ value, onChange })}
                   variant="floating"
+                  disabled={!canEdit}
                   triggerProps={{ variant: "text", iconOnly: true }}
                 />
               )}
@@ -95,6 +111,8 @@ const Base = ({
               parent={parent}
               showParent={showParent}
               overflow="nowrap"
+              nameID={List.itemNameID(itemKey)}
+              onRename={canEdit ? (name) => rename({ key: itemKey, name }) : undefined}
             />
           </Flex.Box>
         </Flex.Box>
@@ -109,7 +127,9 @@ const Base = ({
             </Tag.Tags>
           )}
           {showTimeRange && (
-            <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
+            <Telem.Text.TimeRange level="small" role="group" aria-label="Time range">
+              {timeRange}
+            </Telem.Text.TimeRange>
           )}
           {showFavorite && <Range.FavoriteButton range={item} reveal />}
         </Flex.Box>

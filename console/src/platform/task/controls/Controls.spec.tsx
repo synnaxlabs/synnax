@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -15,9 +16,12 @@ import {
   clickRedeploy,
   createTaskStatus,
   isRedeployHidden,
-  renderInTaskForm,
+  renderInTaskFormWithClient,
 } from "@/platform/task/testutil";
-import { getIconButton } from "@/testutil";
+import { findIconButton, queryIconButton } from "@/testutil";
+
+const client = createTestClient();
+const roles = new RoleClients(client);
 
 const CONFIG = { channels: [] };
 // The server assigns config hashes; overrides.configHash is what the driver reports
@@ -41,9 +45,9 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
 
 describe("Controls.Controls", () => {
   it("should hide the actions when the task is a snapshot", async () => {
-    const { container } = await renderInTaskForm(
+    const { container } = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { values: { snapshot: true } },
+      { client, values: { snapshot: true } },
     );
     await waitFor(() =>
       expect(screen.getByText("Test Task has not been deployed")).toBeTruthy(),
@@ -53,49 +57,50 @@ describe("Controls.Controls", () => {
 
   it("should invoke onDeploy when the start button is pressed", async () => {
     const onDeploy = vi.fn();
-    const { container } = await renderInTaskForm(
+    const { container } = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
-      { values: { key: "1" } },
+      { client, values: { key: "1" } },
     );
-    fireEvent.click(getIconButton(container, "play"));
+    fireEvent.click(await findIconButton(container, "play"));
     expect(onDeploy).toHaveBeenCalledTimes(1);
   });
 
   it("should invoke onStop when the task is running", async () => {
     const onDeploy = vi.fn();
     const onStop = vi.fn();
-    const { container } = await renderInTaskForm(
+    const { container } = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={onDeploy} onStop={onStop} />,
-      { values: runningValues() },
+      { client, values: runningValues() },
     );
-    fireEvent.click(getIconButton(container, "stop"));
+    fireEvent.click(await findIconButton(container, "stop"));
     expect(onStop).toHaveBeenCalledTimes(1);
     expect(onDeploy).not.toHaveBeenCalled();
   });
 
   it("should not invoke onDeploy when the task has no key", async () => {
     const onDeploy = vi.fn();
-    const { container } = await renderInTaskForm(
+    const { container } = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
-      { values: { key: undefined } },
+      { client, values: { key: undefined } },
     );
-    fireEvent.click(getIconButton(container, "play"));
+    fireEvent.click(await findIconButton(container, "play"));
     expect(onDeploy).not.toHaveBeenCalled();
   });
 
   it("should collapse the redeploy button when the running config matches", async () => {
-    await renderInTaskForm(
+    const { container } = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { values: runningValues() },
+      { client, values: runningValues() },
     );
+    await findIconButton(container, "stop");
     expect(isRedeployHidden()).toBe(true);
   });
 
   it("should invoke onDeploy from the redeploy button when the task has drifted", async () => {
     const onDeploy = vi.fn();
-    await renderInTaskForm(
+    await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
-      { values: runningValues({ configHash: "stale" }) },
+      { client, values: runningValues({ configHash: "stale" }) },
     );
     await clickRedeploy();
     expect(onDeploy).toHaveBeenCalledTimes(1);
@@ -104,9 +109,9 @@ describe("Controls.Controls", () => {
   it("should disable the redeploy button while a command is in flight", async () => {
     const values = runningValues({ configHash: "stale" });
     values.status = { ...values.status, variant: "loading" };
-    await renderInTaskForm(
+    await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { values },
+      { client, values },
     );
     await waitFor(() => expect(isRedeployHidden()).toBe(false));
     const button = screen.getByText("Redeploy").closest("button");
@@ -115,22 +120,47 @@ describe("Controls.Controls", () => {
   });
 
   it("should collapse the redeploy button when the task is not running", async () => {
-    await renderInTaskForm(
+    const { container } = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { values: { key: "1", rack: 2, config: CONFIG } },
+      { client, values: { key: "1", rack: 2, config: CONFIG } },
     );
+    await findIconButton(container, "play");
     expect(isRedeployHidden()).toBe(true);
   });
 
   it("should expand the status on click and contract it on a second click", async () => {
-    await renderInTaskForm(
+    await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
-      { values: { status: createTaskStatus({ message: "Running smoothly" }) } },
+      { client, values: { status: createTaskStatus({ message: "Running smoothly" }) } },
     );
     expect(screen.queryByText("Copy diagnostics")).toBeNull();
     fireEvent.click(await screen.findByText("Running smoothly"));
     expect(await screen.findByText("Copy diagnostics")).toBeTruthy();
     fireEvent.click(screen.getByText("Running smoothly"));
     await waitFor(() => expect(screen.queryByText("Copy diagnostics")).toBeNull());
+  });
+
+  describe("permission to command the task", () => {
+    it("should show a viewer the status without any action", async () => {
+      const viewer = await roles.get("Viewer");
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client: viewer, values: runningValues({ configHash: "stale" }) },
+      );
+      await waitFor(() => expect(screen.getByText("Running smoothly")).toBeTruthy());
+      expect(queryIconButton(container, "stop")).toBeNull();
+      expect(queryIconButton(container, "play")).toBeNull();
+      expect(screen.queryByText("Redeploy")).toBeNull();
+    });
+
+    it("should offer an operator the full action row", async () => {
+      const operator = await roles.get("Operator");
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client: operator, values: runningValues({ configHash: "stale" }) },
+      );
+      await findIconButton(container, "stop");
+      await waitFor(() => expect(isRedeployHidden()).toBe(false));
+    });
   });
 });

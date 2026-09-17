@@ -179,14 +179,13 @@ const handlers: Handlers = {
     return { inverse: [], targets: [state.key] };
   },
 
-  // insertTabs upserts each tab in order into one destination leaf. A tab whose
-  // key is already in the tree always has its content refreshed; it keeps its
-  // current position unless the caller gives an explicit placement (targetTab,
-  // targetLeaf, location, or index), in which case it is relocated with the rest.
-  // A tab that would put a second tab behind the same resource, or a second
-  // singleton view behind the same type, is skipped; the rest of the batch still
-  // lands, and callers select the existing tab instead. Mirrors
-  // InsertTabsPayload.Handle in core/pkg/service/panel/actions.go.
+  // insertTabs upserts each tab in order into one destination leaf. A tab whose key is
+  // already in the tree always has its content refreshed; it keeps its current position
+  // unless the caller gives an explicit placement (targetTab, targetLeaf, location, or
+  // index), in which case it is relocated with the rest. A tab that would put a second
+  // tab behind the same resource, or a second singleton view behind the same type, is
+  // skipped; the rest of the batch still lands, and callers select the existing tab
+  // instead. Mirrors InsertTabsPayload.Handle in core/pkg/service/panel/actions.go.
   insertTabs: (state, payload) => {
     const placementGiven =
       payload.targetTab != null ||
@@ -285,10 +284,9 @@ const handlers: Handlers = {
     return { inverse: [], targets: [payload.key] };
   },
 
-  // splitTab resolves the tab's own leaf, splits it on the direction-mapped
-  // edge (x -> right, y -> bottom), and moves the tab into the new sibling
-  // pane. A leaf holding a single tab is a no-op (the result would be the tab
-  // beside an empty pane).
+  // splitTab resolves the tab's own leaf, splits it on the direction-mapped edge (x ->
+  // right, y -> bottom), and moves the tab into the new sibling pane. A leaf holding a
+  // single tab is a no-op (the result would be the tab beside an empty pane).
   splitTab: (state, payload) => {
     const leafPath = tabLeafPath(state.root, payload.key);
     if (leafPath == null) return NO_OP;
@@ -316,10 +314,9 @@ const handlers: Handlers = {
     return { inverse: [], targets: [String(payload.split)] };
   },
 
-  // setTabResource swaps the tab's content to the resource in place, clearing
-  // any view. A no-op when the resource already backs a different tab: a
-  // resource may back at most one tab per panel, and callers select the
-  // existing tab instead.
+  // setTabResource swaps the tab's content to the resource in place, clearing any view.
+  // A no-op when the resource already backs a different tab: a resource may back at
+  // most one tab per panel, and callers select the existing tab instead.
   setTabResource: (state, payload) => {
     const existing = findTabByResource(state.root, payload.resource);
     if (existing != null && existing.key !== payload.key) return NO_OP;

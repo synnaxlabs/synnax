@@ -182,7 +182,6 @@ export const updateNode = <K extends record.Key = string>({
   }
   const parent = findNodeParent({ tree, key });
   if (parent != null) {
-    // splice the updated node into the parent's children
     const index = parent.children?.findIndex((child) => child.key === key);
     if (index != null && index !== -1) parent.children?.splice(index, 1, updater(node));
   }

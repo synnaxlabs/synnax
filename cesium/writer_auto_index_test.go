@@ -16,6 +16,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -76,7 +77,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						after := telem.Now()
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(HaveLen(3))
 						Expect(ts[0]).To(BeNumerically(">=", before))
 						Expect(ts[2]).To(BeNumerically("<=", after+telem.TimeStamp(3)))
@@ -131,7 +132,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						MustSucceed(w.Commit())
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(HaveLen(6))
 						for i := 1; i < len(ts); i++ {
 							Expect(ts[i]).To(BeNumerically(">", ts[i-1]))
@@ -185,7 +186,7 @@ var _ = Describe("Writer AutoIndex", func() {
 								idx,
 							),
 						)
-						ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(Equal([]telem.TimeStamp{
 							100 * telem.SecondTS,
 							101 * telem.SecondTS,
@@ -262,33 +263,33 @@ var _ = Describe("Writer AutoIndex", func() {
 								DataType: telem.Float64T,
 							},
 						)).To(Succeed())
-						before := telem.Now()
 						w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels:  []cesium.ChannelKey{data},
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						explicit := before + 10*telem.MillisecondTS
-						MustSucceed(w.Write(telem.MultiFrame(
+						explicit := telem.Now() + 10*telem.MillisecondTS
+						Expect(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesV(explicit),
 								telem.NewSeriesV[float64](1),
 							},
-						)))
+						))).To(BeTrue())
 						Eventually(telem.Now).Should(BeNumerically(">", explicit))
-						MustSucceed(
+						afterExplicit := telem.Now()
+						Expect(
 							w.Write(
 								telem.UnaryFrame(data, telem.NewSeriesV[float64](2)),
 							),
-						)
+						).To(BeTrue())
 						MustSucceed(w.Commit())
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(HaveLen(2))
 						Expect(ts[0]).To(Equal(explicit))
-						Expect(ts[1]).To(BeNumerically(">", explicit))
+						Expect(ts[1]).To(BeNumerically(">=", afterExplicit))
 					},
 				)
 			})
@@ -339,7 +340,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						MustSucceed(w.Commit())
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(HaveLen(3))
 						Expect(ts[0]).To(BeNumerically(">=", before))
 					},
@@ -391,7 +392,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						MustSucceed(w.Commit())
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(HaveLen(3))
 					},
 				)
@@ -449,21 +450,17 @@ var _ = Describe("Writer AutoIndex", func() {
 						)))
 						MustSucceed(w.Commit())
 
-						ts1 := telem.UnmarshalSeries[telem.TimeStamp](
-							MustSucceed(
-								db.Read(ctx, telem.TimeRangeMax, idx1),
-							).SeriesAt(0),
-						)
+						ts1 := MustSucceed(
+							db.Read(ctx, telem.TimeRangeMax, idx1),
+						).SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts1).To(HaveLen(3))
 						Expect(ts1[0]).To(BeNumerically(">=", before))
 						Expect(ts1[1]).To(Equal(ts1[0] + 1))
 						Expect(ts1[2]).To(Equal(ts1[0] + 2))
 
-						ts2 := telem.UnmarshalSeries[telem.TimeStamp](
-							MustSucceed(
-								db.Read(ctx, telem.TimeRangeMax, idx2),
-							).SeriesAt(0),
-						)
+						ts2 := MustSucceed(
+							db.Read(ctx, telem.TimeRangeMax, idx2),
+						).SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts2).To(HaveLen(4))
 					},
 				)
@@ -518,16 +515,12 @@ var _ = Describe("Writer AutoIndex", func() {
 						)))
 						MustSucceed(w.Commit())
 
-						ts1 := telem.UnmarshalSeries[telem.TimeStamp](
-							MustSucceed(
-								db.Read(ctx, telem.TimeRangeMax, idx1),
-							).SeriesAt(0),
-						)
-						ts2 := telem.UnmarshalSeries[telem.TimeStamp](
-							MustSucceed(
-								db.Read(ctx, telem.TimeRangeMax, idx2),
-							).SeriesAt(0),
-						)
+						ts1 := MustSucceed(
+							db.Read(ctx, telem.TimeRangeMax, idx1),
+						).SeriesAt(0).Unmarshal[telem.TimeStamp]()
+						ts2 := MustSucceed(
+							db.Read(ctx, telem.TimeRangeMax, idx2),
+						).SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts1).To(Equal(ts2))
 					},
 				)
@@ -585,24 +578,20 @@ var _ = Describe("Writer AutoIndex", func() {
 						)))
 						MustSucceed(w.Commit())
 
-						ts1 := telem.UnmarshalSeries[telem.TimeStamp](
-							MustSucceed(
-								db.Read(
-									ctx,
-									(100 * telem.SecondTS).Range(102*telem.SecondTS),
-									idx1,
-								),
-							).SeriesAt(0),
-						)
+						ts1 := MustSucceed(
+							db.Read(
+								ctx,
+								(100 * telem.SecondTS).Range(102*telem.SecondTS),
+								idx1,
+							),
+						).SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(
 							ts1,
 						).To(Equal([]telem.TimeStamp{100 * telem.SecondTS, 101 * telem.SecondTS}))
 
-						ts2 := telem.UnmarshalSeries[telem.TimeStamp](
-							MustSucceed(
-								db.Read(ctx, telem.TimeRangeMax, idx2),
-							).SeriesAt(0),
-						)
+						ts2 := MustSucceed(
+							db.Read(ctx, telem.TimeRangeMax, idx2),
+						).SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts2).To(HaveLen(2))
 						Expect(ts2[0]).To(BeNumerically(">=", before))
 						Expect(ts2[1]).To(Equal(ts2[0] + 1))
@@ -651,7 +640,7 @@ var _ = Describe("Writer AutoIndex", func() {
 						MustSucceed(w.Commit())
 
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
-						ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+						ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 						Expect(ts).To(HaveLen(3))
 						Expect(ts[0]).To(BeNumerically(">=", before))
 					},
@@ -740,7 +729,7 @@ var _ = Describe("Writer AutoIndex", func() {
 							idx,
 						),
 					)
-					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+					ts := f.SeriesAt(0).Unmarshal[telem.TimeStamp]()
 					Expect(ts).To(Equal([]telem.TimeStamp{
 						100 * telem.SecondTS,
 						101 * telem.SecondTS,

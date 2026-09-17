@@ -100,7 +100,10 @@
   "channels": {
     "x1": 0,
     "x2": 0,
-    "y1": [1048581, 1048580],
+    "y1": [
+      "{{channel:sy_node_1_metrics_cpu_percentage}}",
+      "{{channel:sy_node_1_metrics_mem_percentage}}"
+    ],
     "y2": [],
     "y3": [],
     "y4": []
@@ -128,7 +131,7 @@
   },
   "lines": [
     {
-      "key": "y1---x1---recent---0---1048581",
+      "key": "y1---x1---recent---0---{{channel:sy_node_1_metrics_cpu_percentage}}",
       "color": "#dc136c",
       "strokeWidth": 2,
       "downsample": 1,
@@ -136,7 +139,7 @@
       "label": "sy_node_1_metrics_cpu_percentage"
     },
     {
-      "key": "y1---x1---recent---0---1048580",
+      "key": "y1---x1---recent---0---{{channel:sy_node_1_metrics_mem_percentage}}",
       "color": "#20a4f3",
       "strokeWidth": 2,
       "downsample": 1,

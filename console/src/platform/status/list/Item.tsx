@@ -9,8 +9,9 @@
 
 import "@/platform/status/list/Item.css";
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import {
+  Access,
   Flex,
   Icon,
   Input,
@@ -38,6 +39,8 @@ export const Item = (props: ItemProps): ReactElement | null => {
   };
   const item = List.useItem<status.Key, status.Status>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
+  const canRename = Access.useUpdateGranted(status.ontologyID(itemKey));
+  const { update: rename } = Status.useRename();
 
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
@@ -45,7 +48,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
   return (
     <List.Item<status.Key>
       {...props}
-      className={CSS(CSS.BE("status", "list-item"))}
+      className={CSS.cls(CSS.BE("status", "list-item"))}
       justify="between"
       selected={selected}
     >
@@ -55,12 +58,18 @@ export const Item = (props: ItemProps): ReactElement | null => {
           onChange={onSelect}
           size="medium"
           reveal={!selected}
+          aria-label="Select"
         />
         <Text.Text level="p" weight={450}>
           <Status.Indicator variant={variant} />
-          <Text.Text el="span" status={variant}>
-            {name}
-          </Text.Text>
+          <Text.MaybeEditable
+            id={List.itemNameID(itemKey)}
+            value={name}
+            defaultEl="span"
+            status={variant}
+            onChange={canRename ? (name) => rename({ key: itemKey, name }) : undefined}
+            allowDoubleClick={false}
+          />
           {message.length > 0 && <Icon.Caret.Right />}
           <Text.Text el="span" color={9}>
             {message}

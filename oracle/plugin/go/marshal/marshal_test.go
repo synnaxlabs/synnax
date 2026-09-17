@@ -1038,7 +1038,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("field that restates an inherited default", func() {
-			It("Should build the test literal through the embedded parent", func() {
+			It("Should key the test literal with the promoted parent field", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -1055,10 +1055,39 @@ var _ = Describe("Go Marshal Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				gen := MustContentOf(resp, "codec_gen_test.go")
-				// Child has no port member of its own, so a Child literal that
-				// assigned one would not compile.
-				Expect(strings.Count(gen, "Port:")).
-					To(Equal(strings.Count(gen, "Base{")))
+				// Child has no port member of its own, so the literal reaches Base.Port
+				// through the promoted field key.
+				Expect(gen).
+					To(ContainSubstring(`test.Child{Port: "test_1", Name: "test_2"}`))
+				Expect(gen).ToNot(ContainSubstring("Base: "))
+			})
+		})
+
+		Context("parent name a sibling parent's field shadows", func() {
+			It("Should keep the shadowing parent inside its wrapper", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Meta struct {
+						m string
+					}
+
+					Other struct {
+						meta string
+					}
+
+					Child struct extends Meta, Other {
+						c string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				gen := MustContentOf(resp, "codec_gen_test.go")
+				// A top-level Meta key would set the embedded Meta struct, so Other
+				// cannot promote its meta field alongside Meta's own M.
+				Expect(gen).To(ContainSubstring(`M: "test_1"`))
+				Expect(gen).To(ContainSubstring(`Other: test.Other{Meta: "test_2"}`))
 			})
 		})
 	})
@@ -1227,6 +1256,44 @@ var _ = Describe("Union Codecs", func() {
 					"TabBase: fullyPopulatedTabBase",
 					"Type:",
 				)
+		},
+	)
+
+	It(
+		"Should inline a base a variant omits a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/test"
+			@go marshal
+
+			BaseAIChan struct {
+				port uint8
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+
+			Test struct {
+				chan AIChannel
+			}
+		`
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			content := ExpectContent(resp, "codec.gen.go")
+			content.ToBeValidGoSource()
+			content.ToContain(
+				"case AITempBuiltinChannel:",
+				"w.Bool(v.Enabled)",
+				"v.Enabled, err = r.Bool()",
+			)
+			ExpectContent(resp, "codec_gen_test.go").
+				ToBeValidGoSource().
+				ToContain("Enabled:")
 		},
 	)
 

@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
+import { RoleClients } from "@synnaxlabs/client/testutil";
+import { Access } from "@synnaxlabs/pluto";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
+import { findCommand } from "@/platform/command/testutil";
 import { Session } from "@/session";
-import { renderHookWithConsole, resolveFocusedTab } from "@/testutil";
+import { assertDefined, renderHookWithConsole, resolveFocusedTab } from "@/testutil";
+
+const roles = new RoleClients(client);
 
 describe("Schematic Commands", () => {
   it("is visible when the user may create schematics", async () => {
@@ -44,5 +50,30 @@ describe("Schematic Commands", () => {
       throw new Error("focused tab is not a schematic resource");
     const created = await client.schematics.retrieve(tab.resource.key);
     expect(created.name).toBe("Schematic");
+  });
+});
+
+describe("Schematic Commands permissions", () => {
+  it("should offer Create a schematic to an engineer", async () => {
+    const gate = findCommand(Schematic.COMMANDS, "Create schematic").useVisible;
+    assertDefined(gate);
+    const { result } = await renderHookWithConsole(gate, {
+      client: await roles.get("Engineer"),
+    });
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should withhold Create a schematic from a viewer", async () => {
+    const gate = findCommand(Schematic.COMMANDS, "Create schematic").useVisible;
+    assertDefined(gate);
+    const { result } = await renderHookWithConsole(
+      () => ({
+        visible: gate(),
+        loaded: Access.useRetrieveGranted(schematic.TYPE_ONTOLOGY_ID),
+      }),
+      { client: await roles.get("Viewer") },
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.visible).toBe(false);
   });
 });

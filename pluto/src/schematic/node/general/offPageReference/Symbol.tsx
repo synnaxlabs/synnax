@@ -10,7 +10,10 @@
 import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
-import { type Config } from "@/schematic/node/general/offPageReference/config";
+import {
+  type Config,
+  parsePage,
+} from "@/schematic/node/general/offPageReference/config";
 import {
   OffPageReference,
   offPageReferenceTooltip,
@@ -26,15 +29,19 @@ export const Symbol = ({
     page,
     dblClickNav,
   },
-}: NodeProps<Config>): ReactElement => (
-  <OffPageReference
-    className={Grid.DRAG_HANDLE_CLASS}
-    onLabelChange={(label) => onConfigChange({ label: { label, level } })}
-    label={label}
-    level={level}
-    orientation={orientation}
-    color={color}
-    linked={page != null && page.length > 0}
-    title={offPageReferenceTooltip(page, dblClickNav)}
-  />
-);
+}: NodeProps<Config>): ReactElement => {
+  const { type, key } = parsePage(page);
+  return (
+    <OffPageReference
+      className={Grid.DRAG_HANDLE_CLASS}
+      onLabelChange={(label) => onConfigChange({ label: { label, level } })}
+      label={label}
+      level={level}
+      orientation={orientation}
+      color={color}
+      linked={key.length > 0}
+      pageType={type}
+      title={offPageReferenceTooltip(key, dblClickNav)}
+    />
+  );
+};
