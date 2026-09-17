@@ -58,8 +58,7 @@ if (error == null && Astro.request.method === "POST") {
     }
 }
 
-const organizations =
-    error == null || values.organization != null ? await listAll(portal.store) : [];
+const organizations = session.staff ? await listAll(portal.store) : [];
 const licenses = session.staff
     ? await portal.store.query
           .select({ license, organization })
