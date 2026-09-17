@@ -21,6 +21,7 @@ Video component serves them. Requires credentials in the environment:
   DO_SPACES_KEY     Spaces access key id
   DO_SPACES_SECRET  Spaces secret key
 Options:
+  --exact         treat [filter] as a full id instead of a substring
   --dry-run       print what would upload without uploading
   --allow-draft   permit uploading draft-quality renders (normally refused)`;
 
@@ -39,6 +40,7 @@ const main = async (): Promise<void> => {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
+      exact: { type: "boolean", default: false },
       "dry-run": { type: "boolean", default: false },
       "allow-draft": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
@@ -51,7 +53,9 @@ const main = async (): Promise<void> => {
   const manifest = (await import(path.join(ROOT, "videos.ts"))) as {
     default: Manifest;
   };
-  const entries = filter(manifest.default, positionals[0]);
+  const entries = values.exact
+    ? manifest.default.filter((e) => e.id === positionals[0])
+    : filter(manifest.default, positionals[0]);
   if (entries.length === 0) {
     console.error(`no manifest entries match "${positionals[0] ?? ""}"`);
     process.exit(1);
