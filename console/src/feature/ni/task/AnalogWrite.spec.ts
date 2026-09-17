@@ -65,7 +65,7 @@ const createConfig = (
 describe("AnalogWrite", () => {
   it("should render the detail form for every channel type as it is selected", async () => {
     const cases: [NI.Task.AOChannelType, string][] = [
-      ["ao_current", "Minimum value"],
+      ["ao_current", "Range"],
       ["ao_func_gen", "Frequency"],
       ["ao_voltage", "Custom scaling"],
     ];
