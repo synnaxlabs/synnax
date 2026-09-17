@@ -62,13 +62,9 @@ var _ = Describe("Config typing", func() {
 			"variant": "valve",
 			"color":   "#ff0000",
 		})).To(Equal(v9.ValveElementConfig{
-			ToggleSymbolConfig: v9.ToggleSymbolConfig{
-				ToggleConfig: v9.ToggleConfig{
-					LabeledConfig:    labeled,
-					StalenessTimeout: 5,
-				},
-				Color: new(MustSucceed(color.FromHex("#ff0000"))),
-			},
+			LabeledConfig:    labeled,
+			StalenessTimeout: 5,
+			Color:            new(MustSucceed(color.FromHex("#ff0000"))),
 		}))
 	})
 
@@ -80,10 +76,8 @@ var _ = Describe("Config typing", func() {
 				map[string]any{"direction": "x", "length": 10.0},
 			},
 		})).To(Equal(v9.PipeElementConfig{
-			SegmentedEdgeConfig: v9.SegmentedEdgeConfig{
-				Color:    new(MustSucceed(color.FromHex("#0000ff"))),
-				Segments: []v9.Segment{{Direction: "x", Length: 10}},
-			},
+			Color:    new(MustSucceed(color.FromHex("#0000ff"))),
+			Segments: []v9.Segment{{Direction: "x", Length: 10}},
 		}))
 	})
 

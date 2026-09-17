@@ -54,8 +54,9 @@ func ImportSchematic(ctx context.Context, old v8.Schematic) (Schematic, error) {
 // typeConfigs decodes v8's opaque config entries into the element config union. The
 // entries reach here in the camelCase form the Console wrote verbatim and never
 // validated, so each is normalized to the snake_case wire form and has its stored
-// telem pipelines and legacy page keys rewritten into the typed shape first. It returns the entries the
-// union rejected, keyed by node, alongside the ones it accepted.
+// telem pipelines and legacy page keys rewritten into the typed shape first. It
+// returns the entries the union rejected, keyed by node, alongside the ones it
+// accepted.
 func typeConfigs(
 	raw map[string]msgpack.EncodedJSON,
 ) (map[string]ElementConfig, map[string]error) {

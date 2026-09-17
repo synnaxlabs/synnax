@@ -45,22 +45,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Target: versions.Handle{Node: "n2", Param: "in"},
 		}}))
 		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
-			ToggleSymbolConfig: versions.ToggleSymbolConfig{
-				ToggleConfig: versions.ToggleConfig{
-					LabeledConfig: versions.LabeledConfig{
-						Label: versions.LabelConfig{
-							Level:         "h5",
-							Orientation:   "top",
-							Direction:     "x",
-							MaxInlineSize: 150,
-							Align:         "center",
-						},
-						Orientation: "left",
-						Scale:       1,
-					},
-					StalenessTimeout: 5,
-				},
+			Label: versions.LabelConfig{
+				Level:         "h5",
+				Orientation:   "top",
+				Direction:     "x",
+				MaxInlineSize: 150,
+				Align:         "center",
 			},
+			Orientation:      "left",
+			Scale:            1,
+			StalenessTimeout: 5,
 		}))
 	})
 
@@ -76,22 +70,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Target: versions.Handle{Node: "n2", Param: "in"},
 		}}))
 		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
-			ToggleSymbolConfig: versions.ToggleSymbolConfig{
-				ToggleConfig: versions.ToggleConfig{
-					LabeledConfig: versions.LabeledConfig{
-						Label: versions.LabelConfig{
-							Level:         "h5",
-							Orientation:   "top",
-							Direction:     "x",
-							MaxInlineSize: 150,
-							Align:         "center",
-						},
-						Orientation: "left",
-						Scale:       1,
-					},
-					StalenessTimeout: 5,
-				},
+			Label: versions.LabelConfig{
+				Level:         "h5",
+				Orientation:   "top",
+				Direction:     "x",
+				MaxInlineSize: 150,
+				Align:         "center",
 			},
+			Orientation:      "left",
+			Scale:            1,
+			StalenessTimeout: 5,
 		}))
 	})
 
