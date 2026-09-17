@@ -25,7 +25,7 @@ type Anchors = map[string]ed25519.PublicKey
 // anchors holds the production keys. Key 1 is the hub's signing key.
 var anchors = Anchors{
 	"1": ed25519.PublicKey(base64.MustDecode(
-		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"Sc6M2xG71KCrrL6XUjftfyLX8dLOSoBoN/LbXkT0lwE=",
 	)),
 }
 
