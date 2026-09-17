@@ -70,6 +70,29 @@ var _ = Describe("StructurallyEqual", func() {
 		)).To(BeFalse())
 	})
 
+	It("Should distinguish declarations by a referenced enum's member list", func() {
+		a := analyze(
+			"State enum {\n\tidle = \"idle\"\n}\n" +
+				"Channel struct {\n\tkey uuid @key\n\tstate State\n}\n",
+		)
+		b := analyze(
+			"State enum {\n\tidle = \"idle\"\n\trunning = \"running\"\n}\n" +
+				"Channel struct {\n\tkey uuid @key\n\tstate State\n}\n",
+		)
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+		)).To(BeFalse())
+	})
+
+	It("Should equate declarations whose referenced enums match", func() {
+		src := "State enum {\n\tidle = \"idle\"\n}\n" +
+			"Channel struct {\n\tkey uuid @key\n\tstate State\n}\n"
+		a, b := analyze(src), analyze(src)
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+		)).To(BeTrue())
+	})
+
 	It("Should equate identical enums", func() {
 		a := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")
 		b := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")

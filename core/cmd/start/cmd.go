@@ -14,6 +14,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -99,6 +100,23 @@ func start(cmd *cobra.Command) {
 
 func init() { AddFlags(Cmd) }
 
+// readVerifier returns the token from the key flag, or the trimmed contents of the
+// file the path flag names when the key flag is empty.
+func readVerifier() (string, error) {
+	if v := viper.GetString(FlagDecoded); v != "" {
+		return v, nil
+	}
+	path := viper.GetString(FlagDecodedPath)
+	if path == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
+}
+
 // GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
@@ -120,12 +138,16 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return l.Address
 		},
 	)
+	verifier, err := readVerifier()
+	if err != nil {
+		return CoreConfig{}, err
+	}
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
 		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
-		verifier:            viper.GetString(FlagDecoded),
+		verifier:            verifier,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
 		peers:               peers,

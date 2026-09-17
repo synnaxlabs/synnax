@@ -39,12 +39,14 @@ class State:
     node_version: str = ""
     clock_skew: TimeSpan = dataclasses.field(default_factory=lambda: TimeSpan(0))
     clock_skew_exceeded: bool = False
+    license: str = ""
 
 
 class CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
+    verification: str = ""
 
 
 def _parse_version(v: str) -> tuple[int, int]:
@@ -176,6 +178,7 @@ class Checker:
                 self._state.message = f"Connected to {self._name or 'cluster'}"
                 self._state.cluster_key = res.cluster_key
                 self._state.node_version = res.node_version
+                self._state.license = res.verification
                 state = dataclasses.replace(self._state)
 
         changed = (

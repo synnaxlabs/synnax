@@ -12,6 +12,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
 
+#include "driver/errors/errors.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
@@ -49,8 +50,9 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
         res = client.racks.create(host_name);
     }
     const x::errors::Error err = res.second;
-    // If we can't reach the cluster, keep trying according to the breaker retry logic.
-    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
+    // While the Core is unreachable or unlicensed, keep trying according to the
+    // breaker retry logic.
+    if (driver::errors::core_unavailable(err) && breaker.wait(err.message()))
         return this->load_remote(breaker);
 
     this->rack = res.first;

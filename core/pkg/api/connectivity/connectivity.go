@@ -15,20 +15,27 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Service struct{ cluster cluster.Cluster }
+type Service struct {
+	cluster      cluster.Cluster
+	verification *verification.Service
+}
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{cluster: cfg.Distribution.Cluster}, nil
+	return &Service{
+		cluster:      cfg.Distribution.Cluster,
+		verification: cfg.Service.Verification,
+	}, nil
 }
 
 type CheckResponse = auth.ClusterInfo
@@ -38,9 +45,10 @@ func (s *Service) Check(
 	types.Nil,
 ) (CheckResponse, error) {
 	return CheckResponse{
-		ClusterKey:  s.cluster.Key().String(),
-		NodeVersion: version.Get(),
-		NodeKey:     s.cluster.HostKey(),
-		NodeTime:    telem.Now(),
+		ClusterKey:   s.cluster.Key().String(),
+		NodeVersion:  version.Get(),
+		NodeKey:      s.cluster.HostKey(),
+		NodeTime:     telem.Now(),
+		Verification: s.verification.Retrieve().State,
 	}, nil
 }

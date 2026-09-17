@@ -40,6 +40,7 @@ const (
 	ResourceTypeTable           ResourceType = versions.ResourceTypeTable
 	ResourceTypeTask            ResourceType = versions.ResourceTypeTask
 	ResourceTypeUser            ResourceType = versions.ResourceTypeUser
+	ResourceTypeVerification    ResourceType = versions.ResourceTypeVerification
 	ResourceTypeView            ResourceType = versions.ResourceTypeView
 )
 

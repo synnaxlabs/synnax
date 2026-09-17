@@ -186,6 +186,99 @@ Task struct {
 			Expect(content).ToNot(ContainSubstring("autoMigrateKey"))
 		})
 
+	It("Should route a union through its hand-written migration", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/panel/v0.oracle", `
+Kind enum {
+	leaf = "leaf"
+}
+
+Node union on variant {
+	leaf {
+		kind Kind
+	}
+
+	@go marshal
+}
+
+Panel struct {
+	key uuid @key
+	root Node
+
+	@go marshal
+	@go migrate
+}
+`)
+		write("schemas/synnax/versions/panel/v1.oracle", `
+Kind enum {
+	leaf  = "leaf"
+	split = "split"
+}
+
+Node union on variant {
+	leaf {
+		kind Kind
+	}
+
+	@go marshal
+}
+
+Panel struct {
+	key uuid @key
+	root Node
+
+	@go marshal
+	@go migrate
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), `
+@go output "core/pkg/service/panel"
+
+Kind enum {
+	leaf  = "leaf"
+	split = "split"
+}
+
+Node union on variant {
+	leaf {
+		kind Kind
+	}
+}
+
+Panel struct {
+	key uuid @key
+	root Node
+}
+`,
+			"schemas/synnax/panel.oracle", "panel",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(migrate.New().Generate(&plugin.Request{
+			Resolutions: table, RepoRoot: root, Versions: resolver,
+		}))
+		var content string
+		for _, f := range resp.Files {
+			if f.Path == "core/pkg/service/panel/versions/v1/migrate.gen.go" {
+				content = string(f.Content)
+			}
+		}
+		Expect(content).ToNot(BeEmpty())
+		Expect(content).To(ContainSubstring("MigrateNode(ctx, old.Root)"))
+		Expect(content).ToNot(ContainSubstring("autoMigrateNode"))
+	})
+
 	It("Should copy an extends parent pinned to one dependency version", func() {
 		root := GinkgoT().TempDir()
 		write := func(rel, content string) {

@@ -105,7 +105,7 @@ jobs:
             -e SYNNAX_VERBOSE=true \
             -e SYNNAX_INSECURE=true \
             -e SYNNAX_MEM=true \
-            -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} \
+            -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_TOKEN }} \
             ghcr.io/synnaxlabs/synnax:${{ github.sha }}
           echo "Waiting for Synnax to be ready..."
           for i in $(seq 1 30); do
