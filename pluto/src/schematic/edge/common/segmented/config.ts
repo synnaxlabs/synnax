@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 export type Config<V extends schematic.EdgeConfigType = schematic.EdgeConfigType> =
@@ -20,9 +19,4 @@ export const createConfigZ = <V extends schematic.EdgeConfigType>(
 
 export const createDefaultConfig = <V extends schematic.EdgeConfigType>(
   variant: V,
-): Config<V> =>
-  schematic.EDGE_CONFIG_SCHEMAS[variant].parse({
-    variant,
-    color: color.ZERO,
-    segments: [],
-  });
+): Config<V> => schematic.EDGE_CONFIG_SCHEMAS[variant].parse({ variant, segments: [] });

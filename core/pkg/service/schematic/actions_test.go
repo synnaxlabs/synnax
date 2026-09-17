@@ -636,6 +636,30 @@ var _ = Describe("Reducer", func() {
 			},
 		)
 		It(
+			"Should copy a transparent source color as a choice",
+			func() {
+				state := schematic.Schematic{
+					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
+					Configs: map[string]schematic.ElementConfig{
+						"src": tankCfg("Source", "#00000000"),
+					},
+				}
+				out := MustSucceed(
+					schematic.Reduce(
+						state,
+						schematic.NewSetConfigAction(schematic.SetConfigPayload{
+							Key: "e1",
+							Config: msgpack.EncodedJSON{
+								"variant": "pipe",
+								"color":   "#ff0000",
+							},
+						}),
+					),
+				)
+				Expect(out.Configs["e1"]).To(Equal(pipeCfg("#00000000")))
+			},
+		)
+		It(
 			"Should leave the payload untouched when the source node has no color",
 			func() {
 				state := schematic.Schematic{

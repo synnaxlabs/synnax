@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type record } from "@synnaxlabs/x";
+import { type color, type record } from "@synnaxlabs/x";
 
 import { actions } from "@/actions";
 import {
@@ -153,8 +153,7 @@ const handlers: Handlers = {
     if (edge != null) {
       const srcCfg = state.configs[edge.source.node] as
         { color?: color.Crude } | undefined;
-      if (srcCfg?.color != null && !color.isZero(srcCfg.color))
-        cfg = { ...cfg, color: srcCfg.color };
+      if (srcCfg?.color != null) cfg = { ...cfg, color: srcCfg.color };
     }
     state.configs[payload.key] = elementConfigZ.parse(cfg);
     return { inverse: [], targets: [payload.key] };

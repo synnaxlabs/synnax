@@ -524,7 +524,7 @@ describe("schematic reducer", () => {
       );
       expect(out.configs.e1).toEqual(cfg({ variant: "pipe", color: [0, 1, 0, 1] }));
     });
-    it("should leave the payload untouched when the source node has a zero color", () => {
+    it("should copy a transparent source color as a choice", () => {
       const state = empty({
         edges: [edge("e1", "src", "o", "tgt", "i")],
         configs: { src: cfg({ variant: "tank", color: [0, 0, 0, 0] }) },
@@ -533,7 +533,7 @@ describe("schematic reducer", () => {
         state,
         schematic.setConfig({
           key: "e1",
-          config: { variant: "pipe", color: [0, 0, 0, 0] },
+          config: { variant: "pipe", color: [255, 0, 0, 1] },
         }),
       );
       expect(out.configs.e1).toEqual(cfg({ variant: "pipe", color: [0, 0, 0, 0] }));

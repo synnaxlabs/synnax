@@ -10,12 +10,10 @@
 package schematic
 
 import (
-	"encoding/json"
 	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -162,12 +160,6 @@ func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 		c, ok := srcFields["color"]
 		if !ok || c == nil {
 			break
-		}
-		if b, err := json.Marshal(c); err == nil {
-			var srcColor color.Color
-			if err := json.Unmarshal(b, &srcColor); err != nil || srcColor.IsZero() {
-				break
-			}
 		}
 		next := make(msgpack.EncodedJSON, len(raw)+1)
 		maps.Copy(next, raw)

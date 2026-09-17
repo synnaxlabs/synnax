@@ -141,6 +141,72 @@ var _ = Describe("Config typing", func() {
 		Expect(cfg.Page).To(BeNil())
 	})
 
+	// Consoles before v9 stored transparent black for an unchosen color. v9 stores no
+	// color at all, so the theme picks it.
+	DescribeTable("Should drop a stored zero color",
+		func(ctx SpecContext, stored any) {
+			cfg, ok := typed(ctx, msgpack.EncodedJSON{
+				"variant": "valve",
+				"color":   stored,
+			}).(v9.ValveElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Color).To(BeNil())
+		},
+		Entry("array", []any{0.0, 0.0, 0.0, 0.0}),
+		Entry("hex", "#00000000"),
+		Entry("object", map[string]any{"r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0}),
+		Entry("null", nil),
+	)
+
+	It("Should keep a chosen color", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant": "valve",
+			"color":   "#ff000080",
+		}).(v9.ValveElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Color).To(HaveValue(Equal(MustSucceed(color.FromHex("#ff000080")))))
+	})
+
+	It("Should drop zero colors nested in a symbol's indicator", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant":         "tank",
+			"backgroundColor": []any{0.0, 0.0, 0.0, 0.0},
+			"fill": map[string]any{
+				"color":     []any{0.0, 0.0, 0.0, 0.0},
+				"axisColor": "#00ff00",
+			},
+		}).(v9.TankElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.BackgroundColor).To(BeNil())
+		Expect(cfg.Fill.Color).To(BeNil())
+		Expect(cfg.Fill.AxisColor).To(HaveValue(Equal(MustSucceed(color.FromHex("#00ff00")))))
+	})
+
+	It("Should keep a zero color on a gradient stop", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant": "value",
+			"redline": map[string]any{
+				"bounds":   map[string]any{"lower": 0.0, "upper": 1.0},
+				"gradient": []any{
+					map[string]any{"key": "a", "color": "#00000000", "position": 0.0},
+				},
+			},
+		}).(v9.ValueElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Redline.Gradient).To(HaveLen(1))
+		Expect(cfg.Redline.Gradient[0].Color).To(Equal(color.Color{}))
+	})
+
+	It("Should drop a stored zero color on an edge", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant":  "pipe",
+			"color":    []any{0.0, 0.0, 0.0, 0.0},
+			"segments": []any{},
+		}).(v9.PipeElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Color).To(BeNil())
+	})
+
 	// A v8 config predates every schema default, so the lift is the only place the
 	// stored entry can pick them up.
 	It("Should fill schema defaults the stored config never carried", func(

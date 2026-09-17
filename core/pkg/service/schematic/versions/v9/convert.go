@@ -14,6 +14,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -246,4 +247,46 @@ func normalizePage(cfg map[string]any) {
 		return
 	}
 	cfg["page"] = map[string]any{"type": "schematic", "key": key}
+}
+
+// zeroColorOpaqueFields names fields whose colors are required and so must keep a
+// zero value, alongside the fields already excluded from normalization.
+var zeroColorOpaqueFields = set.New("gradient")
+
+// stripZeroColors deletes every color-valued field holding the zero color. Consoles
+// before v9 stored transparent black for an unchosen color; v9 stores nothing, so the
+// theme picks the color instead. Gradient stops and opaque fields are left alone.
+func stripZeroColors(v any) {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, val := range t {
+			if opaqueConfigFields.Contains(k) || zeroColorOpaqueFields.Contains(k) {
+				continue
+			}
+			if strings.HasSuffix(k, "color") {
+				if isZeroColor(val) {
+					delete(t, k)
+				}
+				continue
+			}
+			stripZeroColors(val)
+		}
+	case []any:
+		for _, item := range t {
+			stripZeroColors(item)
+		}
+	}
+}
+
+// isZeroColor reports whether v decodes as the zero color in any stored encoding.
+func isZeroColor(v any) bool {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return false
+	}
+	var c color.Color
+	if err := json.Unmarshal(b, &c); err != nil {
+		return false
+	}
+	return c.IsZero()
 }
