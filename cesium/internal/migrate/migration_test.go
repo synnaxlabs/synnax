@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/testdata"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -60,7 +61,7 @@ var _ = Describe("Migration Test", func() {
 					} else {
 						Expect(err).ToNot(HaveOccurred())
 					}
-					Expect(chInDB.Version).To(Equal(uint8(2)))
+					Expect(chInDB.Version).To(Equal(channel.VersionCurrent))
 
 					var (
 						channelFS = MustSucceed(fs.Sub(strconv.Itoa(int(ch.Key))))

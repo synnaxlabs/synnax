@@ -13,7 +13,6 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/io/fs"
 )
 
@@ -35,10 +34,11 @@ type migration func(state DBState) DBState
 var migrations = []migration{
 	migrateV0toV1,
 	migrateV1toV2,
+	migrateV2toV3,
 }
 
 func migrateV0toV1(state DBState) DBState {
-	state.Channel.Version = version.Version1
+	state.Channel.Version = channel.Version1
 	if state.Channel.Name == "" {
 		state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
 	}
@@ -46,11 +46,19 @@ func migrateV0toV1(state DBState) DBState {
 }
 
 func migrateV1toV2(state DBState) DBState {
-	state.Channel.Version = version.Version2
+	state.Channel.Version = channel.Version2
 	if state.Channel.Virtual || state.Channel.IsIndex {
 		return state
 	}
 	state.ShouldIgnoreChannel = state.Channel.Index == 0
+	return state
+}
+
+// migrateV2toV3 changes no field. The bump alone is the migration: meta.Open rewrites
+// the file whenever the version moves, which restates is_index under the name the tag
+// now carries instead of the Go field name earlier versions wrote.
+func migrateV2toV3(state DBState) DBState {
+	state.Channel.Version = channel.Version3
 	return state
 }
 

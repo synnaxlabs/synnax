@@ -12,7 +12,6 @@ package channel
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -50,11 +49,7 @@ type Channel struct {
 	// existing, valid index channel.
 	//
 	// [OPTIONAL]
-	//
-	// The tag spells the Go field name because databases written before this field
-	// carried one stored it that way. Renaming it to is_index would be unreadable by
-	// any Core that case-folds without ignoring the underscore.
-	IsIndex bool `json:"IsIndex" msgpack:"IsIndex"`
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
 	// any data and do not require an index.
 	//
@@ -68,7 +63,7 @@ type Channel struct {
 	// Version specifies the format of files stored in this channel.
 	//
 	// [OPTIONAL]
-	Version version.Version `json:"version" msgpack:"version"`
+	Version Version `json:"version" msgpack:"version"`
 }
 
 // String implements fmt.Stringer to return nicely formatted channel info.
