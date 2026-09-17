@@ -40,6 +40,11 @@
         min-width: 0;
     }
 
+    .console-panes__item-title {
+        min-width: 0;
+        overflow: hidden;
+    }
+
     &.console--list-closed {
         .console-panes__list {
             width: 0;

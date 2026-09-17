@@ -54,6 +54,9 @@ export const Panes = ({
 }: PanesProps) => {
   const [narrow, setNarrow] = useState(false);
   const narrowRef = useRef(narrow);
+  // The selection the drawer was opened at; once the selection moves on, the drawer
+  // reads as closed without an effect to close it.
+  const [openedAt, setOpenedAt] = useState<string | null | undefined>(undefined);
   // A mode switch lands without motion: transitions are off for the commit that
   // switches and back on two frames later, once the new position has painted.
   const [snap, setSnap] = useState(false);
@@ -63,6 +66,8 @@ export const Panes = ({
       if (next === narrowRef.current) return;
       narrowRef.current = next;
       setNarrow(next);
+      // A drawer belongs to the narrow layout it was opened in.
+      setOpenedAt(undefined);
       setSnap(true);
     }, []),
     { triggers: ["x"] },
@@ -79,9 +84,6 @@ export const Panes = ({
     };
   }, [snap]);
   const [hidden, setHidden] = useState(false);
-  // The selection the drawer was opened at; once the selection moves on, the drawer
-  // reads as closed without an effect to close it.
-  const [openedAt, setOpenedAt] = useState<string | null | undefined>(undefined);
   const drawerOpen = openedAt !== undefined && openedAt === detailsPath;
   const visible = narrow ? drawerOpen : !hidden;
   const handleToggle = useCallback(() => {
