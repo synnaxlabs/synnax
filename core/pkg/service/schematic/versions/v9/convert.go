@@ -22,9 +22,8 @@ import (
 )
 
 // opaqueConfigFields names element config fields whose contents carry semantic keys
-// (telem pipeline segment names, custom symbol state shapes) and must not be
-// case-converted.
-var opaqueConfigFields = set.New("props", "state_overrides")
+// (telem pipeline segment names) and must not be case-converted.
+var opaqueConfigFields = set.New("props")
 
 // NormalizeConfigKeys converts a config payload's field keys from the camelCase the
 // Console writes verbatim to the snake_case wire form of the element config union,

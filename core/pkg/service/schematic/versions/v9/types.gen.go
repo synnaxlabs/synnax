@@ -16,10 +16,10 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -3162,10 +3162,9 @@ type CustomActuatorNodeConfig struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it
-	// opaquely, consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	// StateOverrides contains per-instance overrides of the spec's visual states,
+	// matched to the spec's states by key.
+	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
@@ -3190,10 +3189,9 @@ type CustomStaticNodeConfig struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it
-	// opaquely, consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	// StateOverrides contains per-instance overrides of the spec's visual states,
+	// matched to the spec's states by key.
+	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (CustomStaticNodeConfig) isNodeConfigVariant() {}
@@ -7187,10 +7185,9 @@ type CustomActuatorElementConfig struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it
-	// opaquely, consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	// StateOverrides contains per-instance overrides of the spec's visual states,
+	// matched to the spec's states by key.
+	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (CustomActuatorElementConfig) isElementConfigVariant() {}
@@ -7215,10 +7212,9 @@ type CustomStaticElementConfig struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it
-	// opaquely, consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	// StateOverrides contains per-instance overrides of the spec's visual states,
+	// matched to the spec's states by key.
+	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (CustomStaticElementConfig) isElementConfigVariant() {}

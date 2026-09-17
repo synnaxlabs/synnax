@@ -20,10 +20,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
@@ -950,7 +950,21 @@ var _ = Describe("Codec", func() {
 					B: 6,
 					A: 6.5,
 				}),
-				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+				StateOverrides: []symbol.State{
+					{
+						Key:  "test_8",
+						Name: "test_9",
+						Regions: []symbol.Region{
+							{
+								Key:         "test_11",
+								Name:        "test_12",
+								Selectors:   []string{"test_13"},
+								StrokeColor: new(color.Color{}),
+								FillColor:   new(color.Color{}),
+							},
+						},
+					},
+				},
 			}}),
 			Entry("custom_static variant", v9.ElementConfig{Variant: v9.CustomStaticElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -961,7 +975,21 @@ var _ = Describe("Codec", func() {
 					B: 6,
 					A: 6.5,
 				}),
-				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+				StateOverrides: []symbol.State{
+					{
+						Key:  "test_8",
+						Name: "test_9",
+						Regions: []symbol.Region{
+							{
+								Key:         "test_11",
+								Name:        "test_12",
+								Selectors:   []string{"test_13"},
+								StrokeColor: new(color.Color{}),
+								FillColor:   new(color.Color{}),
+							},
+						},
+					},
+				},
 			}}),
 			Entry("group_box variant", v9.ElementConfig{Variant: v9.GroupBoxElementConfig{Members: []string{"test_1"}, Locked: false}}),
 			Entry("pipe variant", v9.ElementConfig{Variant: v9.PipeElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
@@ -1723,7 +1751,21 @@ var _ = Describe("Codec", func() {
 					B: 6,
 					A: 6.5,
 				}),
-				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+				StateOverrides: []symbol.State{
+					{
+						Key:  "test_8",
+						Name: "test_9",
+						Regions: []symbol.Region{
+							{
+								Key:         "test_11",
+								Name:        "test_12",
+								Selectors:   []string{"test_13"},
+								StrokeColor: new(color.Color{}),
+								FillColor:   new(color.Color{}),
+							},
+						},
+					},
+				},
 			}}),
 			Entry("custom_static variant", v9.NodeConfig{Variant: v9.CustomStaticNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -1734,7 +1776,21 @@ var _ = Describe("Codec", func() {
 					B: 6,
 					A: 6.5,
 				}),
-				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+				StateOverrides: []symbol.State{
+					{
+						Key:  "test_8",
+						Name: "test_9",
+						Regions: []symbol.Region{
+							{
+								Key:         "test_11",
+								Name:        "test_12",
+								Selectors:   []string{"test_13"},
+								StrokeColor: new(color.Color{}),
+								FillColor:   new(color.Color{}),
+							},
+						},
+					},
+				},
 			}}),
 			Entry("group_box variant", v9.NodeConfig{Variant: v9.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}),
 		)
@@ -4050,7 +4106,21 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 6,
 				A: 6.5,
 			}),
-			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+			StateOverrides: []symbol.State{
+				{
+					Key:  "test_8",
+					Name: "test_9",
+					Regions: []symbol.Region{
+						{
+							Key:         "test_11",
+							Name:        "test_12",
+							Selectors:   []string{"test_13"},
+							StrokeColor: new(color.Color{}),
+							FillColor:   new(color.Color{}),
+						},
+					},
+				},
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4068,7 +4138,21 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 6,
 				A: 6.5,
 			}),
-			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+			StateOverrides: []symbol.State{
+				{
+					Key:  "test_8",
+					Name: "test_9",
+					Regions: []symbol.Region{
+						{
+							Key:         "test_11",
+							Name:        "test_12",
+							Selectors:   []string{"test_13"},
+							StrokeColor: new(color.Color{}),
+							FillColor:   new(color.Color{}),
+						},
+					},
+				},
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -5658,7 +5742,21 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 6,
 				A: 6.5,
 			}),
-			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+			StateOverrides: []symbol.State{
+				{
+					Key:  "test_8",
+					Name: "test_9",
+					Regions: []symbol.Region{
+						{
+							Key:         "test_11",
+							Name:        "test_12",
+							Selectors:   []string{"test_13"},
+							StrokeColor: new(color.Color{}),
+							FillColor:   new(color.Color{}),
+						},
+					},
+				},
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -5676,7 +5774,21 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 6,
 				A: 6.5,
 			}),
-			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+			StateOverrides: []symbol.State{
+				{
+					Key:  "test_8",
+					Name: "test_9",
+					Regions: []symbol.Region{
+						{
+							Key:         "test_11",
+							Name:        "test_12",
+							Selectors:   []string{"test_13"},
+							StrokeColor: new(color.Color{}),
+							FillColor:   new(color.Color{}),
+						},
+					},
+				},
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

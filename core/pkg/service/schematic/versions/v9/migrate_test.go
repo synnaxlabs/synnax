@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
@@ -230,6 +231,37 @@ var _ = Describe("Config typing", func() {
 				Location: spatial.LocationXY{X: "left", Y: "center"},
 			}),
 		)
+	})
+
+	It("Should type a custom symbol's state overrides", func(ctx SpecContext) {
+		Expect(typed(ctx, msgpack.EncodedJSON{
+			"variant": "customStatic",
+			"specKey": "spec",
+			"stateOverrides": []any{map[string]any{
+				"key":  "on",
+				"name": "On",
+				"regions": []any{map[string]any{
+					"key":         "body",
+					"name":        "Body",
+					"selectors":   []any{"#body"},
+					"strokeColor": "#ff0000",
+					"fillColor":   []any{0, 0, 0, 0},
+				}},
+			}},
+		})).To(Equal(v9.CustomStaticElementConfig{
+			LabeledConfig: labeled,
+			SpecKey:       "spec",
+			StateOverrides: []symbol.State{{
+				Key:  "on",
+				Name: "On",
+				Regions: []symbol.Region{{
+					Key:         "body",
+					Name:        "Body",
+					Selectors:   []string{"#body"},
+					StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
+				}},
+			}},
+		}))
 	})
 
 	It("Should reset a config its variant cannot hold to the variant's defaults", func(

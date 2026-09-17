@@ -14,7 +14,6 @@ import {
   caseconv,
   color,
   notation,
-  record,
   spatial,
   text,
   uuid,
@@ -24,6 +23,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { ontology } from "@/ontology";
+import { symbol } from "@/schematic/symbol";
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
 export const flexAlignmentZ = z.enum(FLEX_ALIGNMENTS);
@@ -1279,16 +1279,10 @@ export const customActuatorNodeConfigZ = toggleConfigZ.extend({
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
   /**
-   * stateOverrides contains per-instance overrides of the spec's visual states. Each
-   * entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-   * consistent with how the symbol service stores specs.
+   * stateOverrides contains per-instance overrides of the spec's visual states, matched
+   * to the spec's states by key.
    */
-  stateOverrides: caseconv.preserveCase(
-    record
-      .unknownZ()
-      .array()
-      .default(() => []),
-  ),
+  stateOverrides: symbol.stateZ.array().default(() => []),
 });
 export interface CustomActuatorNodeConfig extends z.infer<
   typeof customActuatorNodeConfigZ
@@ -1302,16 +1296,10 @@ export const customStaticNodeConfigZ = labeledConfigZ.extend({
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
   /**
-   * stateOverrides contains per-instance overrides of the spec's visual states. Each
-   * entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-   * consistent with how the symbol service stores specs.
+   * stateOverrides contains per-instance overrides of the spec's visual states, matched
+   * to the spec's states by key.
    */
-  stateOverrides: caseconv.preserveCase(
-    record
-      .unknownZ()
-      .array()
-      .default(() => []),
-  ),
+  stateOverrides: symbol.stateZ.array().default(() => []),
 });
 export interface CustomStaticNodeConfig extends z.infer<
   typeof customStaticNodeConfigZ
@@ -2746,14 +2734,10 @@ export const customActuatorElementConfigZ = toggleConfigZ.extend({
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
   /**
-   * stateOverrides contains per-instance overrides of the spec's visual states. Each
-   * entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-   * consistent with how the symbol service stores specs.
+   * stateOverrides contains per-instance overrides of the spec's visual states, matched
+   * to the spec's states by key.
    */
-  stateOverrides: record
-    .unknownZ()
-    .array()
-    .default(() => []),
+  stateOverrides: symbol.stateZ.array().default(() => []),
 });
 export interface CustomActuatorElementConfig extends z.infer<
   typeof customActuatorElementConfigZ
@@ -2767,14 +2751,10 @@ export const customStaticElementConfigZ = labeledConfigZ.extend({
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
   /**
-   * stateOverrides contains per-instance overrides of the spec's visual states. Each
-   * entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-   * consistent with how the symbol service stores specs.
+   * stateOverrides contains per-instance overrides of the spec's visual states, matched
+   * to the spec's states by key.
    */
-  stateOverrides: record
-    .unknownZ()
-    .array()
-    .default(() => []),
+  stateOverrides: symbol.stateZ.array().default(() => []),
 });
 export interface CustomStaticElementConfig extends z.infer<
   typeof customStaticElementConfigZ

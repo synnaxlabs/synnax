@@ -12,12 +12,10 @@
 package v9
 
 import (
-	"encoding/json"
-
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	border "github.com/synnaxlabs/x/border/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
@@ -1290,12 +1288,8 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if v.StateOverrides != nil {
 			w.Uint32(uint32(len(v.StateOverrides)))
 			for i := range v.StateOverrides {
-				{
-					b, err := json.Marshal(v.StateOverrides[i])
-					if err != nil {
-						return err
-					}
-					w.WriteWithLen(b)
+				if err := v.StateOverrides[i].EncodeOrc(w); err != nil {
+					return err
 				}
 			}
 		}
@@ -1317,12 +1311,8 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if v.StateOverrides != nil {
 			w.Uint32(uint32(len(v.StateOverrides)))
 			for i := range v.StateOverrides {
-				{
-					b, err := json.Marshal(v.StateOverrides[i])
-					if err != nil {
-						return err
-					}
-					w.WriteWithLen(b)
+				if err := v.StateOverrides[i].EncodeOrc(w); err != nil {
+					return err
 				}
 			}
 		}
@@ -3100,16 +3090,10 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]msgpack.EncodedJSON, n)
+				v.StateOverrides = make([]symbol.State, n)
 				for i := range v.StateOverrides {
-					{
-						b, err := r.ReadWithLen()
-						if err != nil {
-							return err
-						}
-						if err = json.Unmarshal(b, &v.StateOverrides[i]); err != nil {
-							return err
-						}
+					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
+						return err
 					}
 				}
 			}
@@ -3146,16 +3130,10 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]msgpack.EncodedJSON, n)
+				v.StateOverrides = make([]symbol.State, n)
 				for i := range v.StateOverrides {
-					{
-						b, err := r.ReadWithLen()
-						if err != nil {
-							return err
-						}
-						if err = json.Unmarshal(b, &v.StateOverrides[i]); err != nil {
-							return err
-						}
+					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
+						return err
 					}
 				}
 			}
@@ -4371,12 +4349,8 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if v.StateOverrides != nil {
 			w.Uint32(uint32(len(v.StateOverrides)))
 			for i := range v.StateOverrides {
-				{
-					b, err := json.Marshal(v.StateOverrides[i])
-					if err != nil {
-						return err
-					}
-					w.WriteWithLen(b)
+				if err := v.StateOverrides[i].EncodeOrc(w); err != nil {
+					return err
 				}
 			}
 		}
@@ -4398,12 +4372,8 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if v.StateOverrides != nil {
 			w.Uint32(uint32(len(v.StateOverrides)))
 			for i := range v.StateOverrides {
-				{
-					b, err := json.Marshal(v.StateOverrides[i])
-					if err != nil {
-						return err
-					}
-					w.WriteWithLen(b)
+				if err := v.StateOverrides[i].EncodeOrc(w); err != nil {
+					return err
 				}
 			}
 		}
@@ -6146,16 +6116,10 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]msgpack.EncodedJSON, n)
+				v.StateOverrides = make([]symbol.State, n)
 				for i := range v.StateOverrides {
-					{
-						b, err := r.ReadWithLen()
-						if err != nil {
-							return err
-						}
-						if err = json.Unmarshal(b, &v.StateOverrides[i]); err != nil {
-							return err
-						}
+					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
+						return err
 					}
 				}
 			}
@@ -6192,16 +6156,10 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				if err != nil {
 					return err
 				}
-				v.StateOverrides = make([]msgpack.EncodedJSON, n)
+				v.StateOverrides = make([]symbol.State, n)
 				for i := range v.StateOverrides {
-					{
-						b, err := r.ReadWithLen()
-						if err != nil {
-							return err
-						}
-						if err = json.Unmarshal(b, &v.StateOverrides[i]); err != nil {
-							return err
-						}
+					if err = v.StateOverrides[i].DecodeOrc(r); err != nil {
+						return err
 					}
 				}
 			}

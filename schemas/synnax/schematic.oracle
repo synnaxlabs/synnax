@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
 import "schemas/x/notation"
@@ -876,37 +877,33 @@ NodeConfig union on variant {
     }
     t_junction                         StaticSymbolConfig
     custom_actuator extends ToggleConfig {
-        spec_key        string       {
+        spec_key        string         {
             @doc value "is the key of the custom symbol spec this instance renders."
         }
-        color           color.Color? {
+        color           color.Color?   {
             @doc value "is the stroke color of the symbol."
         }
-        state_overrides record[] = [] {
-            @doc value        """
-                contains per-instance overrides of the spec's visual states. Each entry
-                mirrors the symbol service's State shape; the wire format stores it
-                opaquely, consistent with how the symbol service stores specs.
+        state_overrides symbol.State[] = [] {
+            @doc value """
+                contains per-instance overrides of the spec's visual states, matched to
+                the spec's states by key.
             """
-            @ts preserve_case
         }
 
         @doc value "is the configuration for user-defined actuator symbols."
     }
     custom_static extends LabeledConfig {
-        spec_key        string       {
+        spec_key        string         {
             @doc value "is the key of the custom symbol spec this instance renders."
         }
-        color           color.Color? {
+        color           color.Color?   {
             @doc value "is the stroke color of the symbol."
         }
-        state_overrides record[] = [] {
-            @doc value        """
-                contains per-instance overrides of the spec's visual states. Each entry
-                mirrors the symbol service's State shape; the wire format stores it
-                opaquely, consistent with how the symbol service stores specs.
+        state_overrides symbol.State[] = [] {
+            @doc value """
+                contains per-instance overrides of the spec's visual states, matched to
+                the spec's states by key.
             """
-            @ts preserve_case
         }
 
         @doc value "is the configuration for user-defined static symbols."
@@ -1504,34 +1501,32 @@ ElementConfig union on variant {
     }
     t_junction                         StaticSymbolConfig
     custom_actuator extends ToggleConfig {
-        spec_key        string       {
+        spec_key        string         {
             @doc value "is the key of the custom symbol spec this instance renders."
         }
-        color           color.Color? {
+        color           color.Color?   {
             @doc value "is the stroke color of the symbol."
         }
-        state_overrides record[] = [] {
+        state_overrides symbol.State[] = [] {
             @doc value """
-                contains per-instance overrides of the spec's visual states. Each entry
-                mirrors the symbol service's State shape; the wire format stores it
-                opaquely, consistent with how the symbol service stores specs.
+                contains per-instance overrides of the spec's visual states, matched to
+                the spec's states by key.
             """
         }
 
         @doc value "is the configuration for user-defined actuator symbols."
     }
     custom_static extends LabeledConfig {
-        spec_key        string       {
+        spec_key        string         {
             @doc value "is the key of the custom symbol spec this instance renders."
         }
-        color           color.Color? {
+        color           color.Color?   {
             @doc value "is the stroke color of the symbol."
         }
-        state_overrides record[] = [] {
+        state_overrides symbol.State[] = [] {
             @doc value """
-                contains per-instance overrides of the spec's visual states. Each entry
-                mirrors the symbol service's State shape; the wire format stores it
-                opaquely, consistent with how the symbol service stores specs.
+                contains per-instance overrides of the spec's visual states, matched to
+                the spec's states by key.
             """
         }
 
