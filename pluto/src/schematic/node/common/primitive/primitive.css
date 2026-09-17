@@ -71,7 +71,7 @@
         }
     }
 
-    &:active {
+    &.pluto--pressed {
         &:not(.pluto--enabled) svg {
             fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
             stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
@@ -103,7 +103,7 @@
         outline: none;
     }
 
-    &:active {
+    &.pluto--pressed {
         opacity: 0.95;
     }
 
@@ -128,7 +128,7 @@
             pointer-events: none;
         }
 
-        &.pluto--held::after {
+        &.pluto--pressed::after {
             animation: delay var(--pluto-toggle-delay) linear;
             clip-path: inset(0 0 0 0);
         }

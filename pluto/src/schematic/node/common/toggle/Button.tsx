@@ -50,8 +50,8 @@ export const Button = ({
 }: ButtonProps): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // WebKit sets :active on a secondary press, so the hold fill follows this flag.
-  const [held, setHeld] = useState(false);
+  // WebKit sets :active on a secondary press, so pressed styling follows this flag.
+  const [pressed, setPressed] = useState(false);
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = (e) => {
     if (parsedDelay.isZero) onClick?.(e);
@@ -59,17 +59,18 @@ export const Button = ({
 
   const handleMouseDown: MouseEventHandler<HTMLButtonElement> = (e) => {
     onMouseDown?.(e);
-    if (parsedDelay.isZero || e.button !== 0) return;
-    setHeld(true);
+    if (e.button !== 0) return;
+    setPressed(true);
     document.addEventListener(
       "mouseup",
       () => {
-        setHeld(false);
+        setPressed(false);
         if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       },
       { once: true },
     );
+    if (parsedDelay.isZero) return;
     timeoutRef.current = setTimeout(() => {
       onClick?.(e);
       timeoutRef.current = null;
@@ -103,7 +104,7 @@ export const Button = ({
         orientation != null && CSS.loc(orientation),
         enabled && CSS.M("enabled"),
         triggered && CSS.M("triggered"),
-        held && CSS.M("held"),
+        pressed && CSS.M("pressed"),
         className,
       )}
       color={color.cssString(colorVal)}

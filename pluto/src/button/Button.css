@@ -166,7 +166,7 @@
             clip-path: inset(0 100% 0 0);
         }
 
-        &.pluto--held::after {
+        &.pluto--pressed::after {
             animation: delay var(--pluto-btn-delay) linear;
             clip-path: inset(0 0 0 0);
         }
@@ -374,7 +374,7 @@
             fill: var(--pluto-gray-l11);
         }
 
-        &.pluto--destructive:active svg {
+        &.pluto--destructive.pluto--pressed svg {
             fill: var(--pluto-error-z);
         }
     }
@@ -418,7 +418,7 @@
             --pluto-border-color: var(--pluto-hover-border-color);
         }
 
-        &:active:not(.pluto--focus-frozen:focus-within) {
+        &.pluto--pressed:not(.pluto--focus-frozen:focus-within) {
             --pluto-bg: var(--pluto-active-bg);
             --pluto-border-color: var(--pluto-active-border-color);
         }

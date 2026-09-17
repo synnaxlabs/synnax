@@ -155,8 +155,8 @@ const Base = <E extends ElementType = "button">({
   };
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // WebKit sets :active on a secondary press, so the hold fill follows this flag.
-  const [held, setHeld] = useState(false);
+  // WebKit sets :active on a secondary press, so pressed styling follows this flag.
+  const [pressed, setPressed] = useState(false);
 
   const handleMouseDown = (e: any) => {
     // Preventing default on mousedown cancels a native dragstart, so skip it for
@@ -170,16 +170,17 @@ const Base = <E extends ElementType = "button">({
     )
       e.preventDefault();
     onMouseDown?.(e);
-    if (isDisabled || preview === true || parsedDelay.isZero || e.button !== 0) return;
-    setHeld(true);
+    if (isDisabled || preview === true || e.button !== 0) return;
+    setPressed(true);
     document.addEventListener(
       "mouseup",
       () => {
-        setHeld(false);
+        setPressed(false);
         if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
       },
       { once: true },
     );
+    if (parsedDelay.isZero) return;
     timeoutRef.current = setTimeout(() => {
       onClick?.(e);
       timeoutRef.current = null;
@@ -245,7 +246,7 @@ const Base = <E extends ElementType = "button">({
         preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         reveal === true && CSS.M("reveal"),
-        held && CSS.M("held"),
+        pressed && CSS.M("pressed"),
         className,
       )}
       size={size}
