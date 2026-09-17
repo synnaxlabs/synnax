@@ -43,8 +43,8 @@ const needleOf = (body: string): string => {
   return text.slice(0, cut > 0 ? cut : NEEDLE_LENGTH);
 };
 
-// Every note must carry a variant the stylesheet knows and have content. The
-// zero-notes canary needs a full crawl.
+// Every note must carry a variant the stylesheet knows and have content. The zero-notes
+// canary needs a full crawl.
 export const notes = (fullCrawl: boolean): Check => {
   let seen = 0;
   return {
