@@ -25,9 +25,7 @@ const INTERNAL = "http://internal.invalid";
 
 // Release artifact links 404 until the release ships, so a 404 on a URL naming the
 // repo's own version warns instead of failing.
-const PENDING_VERSION = fs
-  .readFileSync("../core/pkg/version/VERSION", "utf8")
-  .trim();
+const PENDING_VERSION = fs.readFileSync("../core/pkg/version/VERSION", "utf8").trim();
 
 // npm's website blocks non-browser requests, so package links are validated against
 // the registry API instead: 200 = the package/version exists, 404 = dead.
