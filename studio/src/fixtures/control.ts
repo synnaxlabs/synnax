@@ -18,6 +18,8 @@ export interface ValveOptions {
   password?: string;
   /** Prefix of the created channel names. */
   name?: string;
+  /** Interval between state samples, so the symbol never goes stale. */
+  periodMs?: number;
 }
 
 export interface ValveFixture {
@@ -33,7 +35,8 @@ export interface ValveFixture {
  * echoValve creates a command/state channel pair and mirrors every command
  * back onto the state channel, so a schematic actuator bound to the pair
  * latches when it is clicked. Without the echo the symbol springs back: it
- * displays the state channel, which nothing else drives.
+ * displays the state channel, which nothing else drives. The state is written
+ * every `periodMs` whether or not it changed.
  */
 export const echoValve = async ({
   host = "localhost",
@@ -41,6 +44,7 @@ export const echoValve = async ({
   username = "synnax",
   password = "seldon",
   name = "valve",
+  periodMs = 40,
 }: ValveOptions = {}): Promise<ValveFixture> => {
   const client = new Synnax({ host, port, username, password });
   const create = async (channel: string, isIndex: boolean, index?: number) =>
@@ -59,28 +63,33 @@ export const echoValve = async ({
     start: TimeStamp.now(),
     channels: [stateTime.key, state.key],
   });
-  await writer.write({ [stateTime.key]: TimeStamp.now(), [state.key]: 0 });
 
+  let current = 0;
   const streamer = await client.openStreamer([command.key]);
-  const loop = (async () => {
+  const echo = (async () => {
     for await (const frame of streamer) {
       const series = frame.get(command.key);
-      if (series.length === 0) continue;
-      await writer.write({
-        [stateTime.key]: TimeStamp.now(),
-        [state.key]: Number(series.at(-1)),
-      });
+      if (series.length > 0) current = Number(series.at(-1));
+    }
+  })();
+
+  let running = true;
+  const heartbeat = (async () => {
+    while (running) {
+      await writer.write({ [stateTime.key]: TimeStamp.now(), [state.key]: current });
+      await new Promise((resolve) => setTimeout(resolve, periodMs));
     }
     await writer.close();
-    client.close();
   })();
 
   return {
     command: command.name,
     state: state.name,
     stop: async () => {
+      running = false;
       streamer.close();
-      await loop;
+      await Promise.all([echo, heartbeat]);
+      await client.close();
     },
   };
 };

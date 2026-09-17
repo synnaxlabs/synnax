@@ -59,6 +59,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       zoom: false,
     });
     await session.settle(600);
+    // The canvas only reaches its recorded size once the drawer closes.
+    const pane = await capture.canvas(page).boundingBox();
+    if (pane == null) throw new Error("schematic canvas is not on screen");
+    await session.drag(
+      valve.locator(".pluto-drag-handle").first(),
+      { x: pane.x + pane.width / 2, y: pane.y + pane.height / 2 },
+      { zoom: false },
+    );
+    await session.settle(400);
     // Park the cursor inside the schematic: the floating controls only show
     // while the panel is hovered.
     await session.moveTo({ x: 300, y: 700 });
@@ -75,10 +84,28 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-legend-entry").first());
     await session.hold(1400);
 
-    // An authored point zoom, not auto-zoom on the valve: the legend and the
-    // valve are far apart, and only a frame this wide carries both.
-    await session.moveTo({ x: 430, y: 440 });
-    await session.zoom({ x: 340, y: 210 }, 1.7);
+    // One frame carries both the legend and the valve, which sit far apart.
+    const [legend, body] = await Promise.all([
+      page.locator(".pluto-legend-entry").first().boundingBox(),
+      valve.boundingBox(),
+    ]);
+    const view = page.viewportSize();
+    if (legend == null || body == null || view == null)
+      throw new Error("legend or valve is hidden");
+    const left = Math.min(legend.x, body.x);
+    const top = Math.min(legend.y, body.y);
+    const right = Math.max(legend.x + legend.width, body.x + body.width);
+    const bottom = Math.max(legend.y + legend.height, body.y + body.height);
+    const aside = { x: body.x + body.width / 2 + 180, y: body.y + body.height + 120 };
+    await session.moveTo(aside);
+    await session.zoom(
+      { x: (left + right) / 2, y: (top + bottom) / 2 },
+      Math.min(
+        1.7,
+        view.width / (right - left + 192),
+        view.height / (bottom - top + 192),
+      ),
+    );
     await session.hold(900);
 
     await session.click(valve.locator("button.pluto-symbol-primitive-toggle").first(), {
@@ -90,7 +117,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1200);
 
     // Clear the cursor off the valve so the indicator stays readable.
-    await session.moveTo({ x: 430, y: 440 });
+    await session.moveTo(aside);
     await session.hold(2600);
   } finally {
     await fixture.stop();
