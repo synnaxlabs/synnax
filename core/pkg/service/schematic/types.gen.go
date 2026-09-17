@@ -161,6 +161,8 @@ const (
 	InputNodeConfigType NodeConfigType = versions.InputNodeConfigType
 	// LightNodeConfigType is the configuration for indicator light symbols.
 	LightNodeConfigType NodeConfigType = versions.LightNodeConfigType
+	// LineNodeConfigType is the configuration for straight line symbols.
+	LineNodeConfigType NodeConfigType = versions.LineNodeConfigType
 	// OffPageReferenceNodeConfigType is the configuration for off-page reference
 	// symbols.
 	OffPageReferenceNodeConfigType NodeConfigType = versions.OffPageReferenceNodeConfigType
@@ -249,6 +251,9 @@ const (
 	CustomActuatorNodeConfigType NodeConfigType = versions.CustomActuatorNodeConfigType
 	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
 	CustomStaticNodeConfigType NodeConfigType = versions.CustomStaticNodeConfigType
+	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxNodeConfigType NodeConfigType = versions.GroupBoxNodeConfigType
 )
 
 type CapNodeConfig = versions.CapNodeConfig
@@ -294,6 +299,9 @@ type InputNodeConfig = versions.InputNodeConfig
 
 // LightNodeConfig is the configuration for indicator light symbols.
 type LightNodeConfig = versions.LightNodeConfig
+
+// LineNodeConfig is the configuration for straight line symbols.
+type LineNodeConfig = versions.LineNodeConfig
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig = versions.OffPageReferenceNodeConfig
@@ -394,6 +402,10 @@ type CustomActuatorNodeConfig = versions.CustomActuatorNodeConfig
 // CustomStaticNodeConfig is the configuration for user-defined static symbols.
 type CustomStaticNodeConfig = versions.CustomStaticNodeConfig
 
+// GroupBoxNodeConfig is the configuration for a group box, the symbol that bounds a set
+// of grouped symbols. Groups nest: a member may itself be a group.
+type GroupBoxNodeConfig = versions.GroupBoxNodeConfig
+
 // ElementConfig is the per-element configuration stored in the schematic configs map: a
 // node config or an edge config, discriminated by variant.
 type ElementConfig = versions.ElementConfig
@@ -438,6 +450,8 @@ const (
 	InputElementConfigType ElementConfigType = versions.InputElementConfigType
 	// LightElementConfigType is the configuration for indicator light symbols.
 	LightElementConfigType ElementConfigType = versions.LightElementConfigType
+	// LineElementConfigType is the configuration for straight line symbols.
+	LineElementConfigType ElementConfigType = versions.LineElementConfigType
 	// OffPageReferenceElementConfigType is the configuration for off-page reference
 	// symbols.
 	OffPageReferenceElementConfigType ElementConfigType = versions.OffPageReferenceElementConfigType
@@ -528,13 +542,16 @@ const (
 	// CustomStaticElementConfigType is the configuration for user-defined static
 	// symbols.
 	CustomStaticElementConfigType ElementConfigType = versions.CustomStaticElementConfigType
-	PipeElementConfigType         ElementConfigType = versions.PipeElementConfigType
-	ElectricElementConfigType     ElementConfigType = versions.ElectricElementConfigType
-	SecondaryElementConfigType    ElementConfigType = versions.SecondaryElementConfigType
-	JacketedElementConfigType     ElementConfigType = versions.JacketedElementConfigType
-	HydraulicElementConfigType    ElementConfigType = versions.HydraulicElementConfigType
-	PneumaticElementConfigType    ElementConfigType = versions.PneumaticElementConfigType
-	DataElementConfigType         ElementConfigType = versions.DataElementConfigType
+	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxElementConfigType  ElementConfigType = versions.GroupBoxElementConfigType
+	PipeElementConfigType      ElementConfigType = versions.PipeElementConfigType
+	ElectricElementConfigType  ElementConfigType = versions.ElectricElementConfigType
+	SecondaryElementConfigType ElementConfigType = versions.SecondaryElementConfigType
+	JacketedElementConfigType  ElementConfigType = versions.JacketedElementConfigType
+	HydraulicElementConfigType ElementConfigType = versions.HydraulicElementConfigType
+	PneumaticElementConfigType ElementConfigType = versions.PneumaticElementConfigType
+	DataElementConfigType      ElementConfigType = versions.DataElementConfigType
 )
 
 type CapElementConfig = versions.CapElementConfig
@@ -580,6 +597,9 @@ type InputElementConfig = versions.InputElementConfig
 
 // LightElementConfig is the configuration for indicator light symbols.
 type LightElementConfig = versions.LightElementConfig
+
+// LineElementConfig is the configuration for straight line symbols.
+type LineElementConfig = versions.LineElementConfig
 
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
 type OffPageReferenceElementConfig = versions.OffPageReferenceElementConfig
@@ -679,6 +699,10 @@ type CustomActuatorElementConfig = versions.CustomActuatorElementConfig
 
 // CustomStaticElementConfig is the configuration for user-defined static symbols.
 type CustomStaticElementConfig = versions.CustomStaticElementConfig
+
+// GroupBoxElementConfig is the configuration for a group box, the symbol that bounds a
+// set of grouped symbols. Groups nest: a member may itself be a group.
+type GroupBoxElementConfig = versions.GroupBoxElementConfig
 type PipeElementConfig = versions.PipeElementConfig
 type ElectricElementConfig = versions.ElectricElementConfig
 type SecondaryElementConfig = versions.SecondaryElementConfig
@@ -695,3 +719,16 @@ type Schematic = versions.Schematic
 // ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
 // symbols that show a level against a numeric range.
 type ScaleIndicatorConfig = versions.ScaleIndicatorConfig
+
+// PageType names the kinds of page an off-page reference can link to.
+type PageType = versions.PageType
+
+const (
+	PageTypeSchematic PageType = versions.PageTypeSchematic
+	PageTypeLineplot  PageType = versions.PageTypeLineplot
+	PageTypeLog       PageType = versions.PageTypeLog
+	PageTypeTable     PageType = versions.PageTypeTable
+)
+
+// Page identifies a page an off-page reference links to.
+type Page = versions.Page

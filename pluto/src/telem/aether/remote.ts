@@ -177,6 +177,9 @@ const fetchChannelProperties = async (
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
+// Spans within the live buffer draw immediately and skip the loading state.
+const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
+
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
   channel: z.number().or(z.string()),
@@ -198,18 +201,29 @@ export class ChannelData
   private generation = 0;
   private channel: SelectedChannelProperties | null = null;
   private readonly onStatusChange?: status.Adder;
+  private readonly skipLoading: boolean;
 
   constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    const { channel, timeRange } = this.props;
+    this.skipLoading = channel === 0 || timeRange.span.isZero;
+    this.loading_ = true;
   }
 
   cleanup(): void {
     this.generation++;
     this.data.release();
     this.valid = false;
+    this.loading_ = false;
     this.channel = null;
+  }
+
+  loading(): boolean {
+    if (this.skipLoading || !this.loading_) return false;
+    if (!this.valid) void this.read();
+    return this.loading_;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
@@ -234,11 +248,11 @@ export class ChannelData
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
-    if (client == null) {
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
-    }
     try {
+      if (client == null) {
+        this.onStatusChange?.(DISCONNECTED_STATUS);
+        return;
+      }
       const { timeRange, channel, useIndexOfChannel } = this.props;
       const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
@@ -251,6 +265,8 @@ export class ChannelData
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to read channel data"));
+    } finally {
+      this.declareLoaded();
     }
   }
 }
@@ -277,6 +293,7 @@ export class StreamChannelData
   private channel: SelectedChannelProperties | null = null;
   private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
+  private readonly skipLoading: boolean;
   private generation = 0;
   private readonly breaker: breaker.Breaker;
   private readonly retryNotifier = new sync.Notifier();
@@ -294,6 +311,9 @@ export class StreamChannelData
     this.client = client;
     this.now = now;
     this.onStatusChange = options?.onStatusChange;
+    const { channel, timeSpan } = this.props;
+    this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
+    this.loading_ = true;
     this.breaker = new breaker.Breaker({
       baseInterval: TimeSpan.seconds(1),
       // A tall interval cap: live data flows independently of this loop, and a
@@ -309,6 +329,12 @@ export class StreamChannelData
       },
       ...breakerConfig,
     });
+  }
+
+  loading(): boolean {
+    if (this.skipLoading || !this.loading_) return false;
+    if (!this.valid) void this.read();
+    return this.loading_;
   }
 
   value(): [bounds.Bounds, MultiSeries] {
@@ -336,16 +362,20 @@ export class StreamChannelData
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.declareLoaded();
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
     while (generation === this.generation)
       try {
         await this.attempt(generation, client);
+        this.declareLoaded();
         this.breaker.reset();
         this.lastFailure = undefined;
         return;
       } catch (e) {
+        // Declare loaded on the first failure so retries never hold loading forever.
+        this.declareLoaded();
         // Retrying only fixes connectivity; a definitive rejection recurs on every
         // attempt.
         if (
@@ -445,6 +475,8 @@ export class StreamChannelData
     this.stopStreaming = undefined;
     this.data.release();
     this.valid = false;
+    // No notify so a read settling after cleanup cannot wake stale observers.
+    this.loading_ = false;
   }
 }
 

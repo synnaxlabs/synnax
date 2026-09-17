@@ -10,6 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { ReactFlowProvider } from "@xyflow/react";
 import { type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -24,13 +25,15 @@ const cfg = (overrides: Partial<schematic.LabelConfig> = {}): schematic.LabelCon
 const NODE_KEY = "n1";
 
 const Wrap = ({ children }: { children: ReactNode }): ReactElement => (
-  <Haul.Provider>
-    <div data-id={NODE_KEY}>
-      <Grid.Grid editable nodeKey={NODE_KEY}>
-        {children}
-      </Grid.Grid>
-    </div>
-  </Haul.Provider>
+  <ReactFlowProvider>
+    <Haul.Provider>
+      <div data-id={NODE_KEY}>
+        <Grid.Grid editable nodeKey={NODE_KEY}>
+          {children}
+        </Grid.Grid>
+      </div>
+    </Haul.Provider>
+  </ReactFlowProvider>
 );
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>

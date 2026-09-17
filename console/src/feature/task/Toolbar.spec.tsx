@@ -177,6 +177,13 @@ describe("task/Toolbar", () => {
       expect(await awaitTaskResourceTab(created)).toBe(t.key);
     });
 
+    it("offers Reload Console", async () => {
+      const t = await createTask();
+      await renderToolbar();
+      await openContextMenu(t.name);
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
     it("issues a start command for a stopped task", async () => {
       const t = await createTask({ running: false });
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);

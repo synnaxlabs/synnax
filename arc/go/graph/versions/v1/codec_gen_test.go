@@ -39,20 +39,16 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Edge{
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: "test_2", Param: "test_3"},
-					Target: ir.Handle{Node: "test_5", Param: "test_6"},
-					Kind:   ir.EdgeKind(0),
-				},
-				Key: "test_8",
+				Source: ir.Handle{Node: "test_2", Param: "test_3"},
+				Target: ir.Handle{Node: "test_5", Param: "test_6"},
+				Kind:   ir.EdgeKind(0),
+				Key:    "test_8",
 			}),
 			Entry("zero values", v1.Edge{
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: "", Param: ""},
-					Target: ir.Handle{Node: "", Param: ""},
-					Kind:   ir.EdgeKind(0),
-				},
-				Key: "",
+				Source: ir.Handle{Node: "", Param: ""},
+				Target: ir.Handle{Node: "", Param: ""},
+				Kind:   ir.EdgeKind(0),
+				Key:    "",
 			}),
 		)
 	})
@@ -76,10 +72,8 @@ var _ = Describe("Codec", func() {
 							{
 								Name: "test_6",
 								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
+									Inputs:        []types.Param{{}},
+									Outputs:       []types.Param{{}},
 									Kind:          types.Kind(0),
 									Name:          "test_11",
 									Elem:          new(types.Type{}),
@@ -94,10 +88,8 @@ var _ = Describe("Codec", func() {
 							{
 								Name: "test_18",
 								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
+									Inputs:        []types.Param{{}},
+									Outputs:       []types.Param{{}},
 									Kind:          types.Kind(0),
 									Name:          "test_23",
 									Elem:          new(types.Type{}),
@@ -116,12 +108,10 @@ var _ = Describe("Codec", func() {
 				},
 				Edges: []v1.Edge{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{Node: "test_34", Param: "test_35"},
-							Target: ir.Handle{Node: "test_37", Param: "test_38"},
-							Kind:   ir.EdgeKind(0),
-						},
-						Key: "test_40",
+						Source: ir.Handle{Node: "test_34", Param: "test_35"},
+						Target: ir.Handle{Node: "test_37", Param: "test_38"},
+						Kind:   ir.EdgeKind(0),
+						Key:    "test_40",
 					},
 				},
 				Nodes:  []v1.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
@@ -160,12 +150,10 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	seed := v1.Edge{
-		Edge: ir.Edge{
-			Source: ir.Handle{Node: "test_2", Param: "test_3"},
-			Target: ir.Handle{Node: "test_5", Param: "test_6"},
-			Kind:   ir.EdgeKind(0),
-		},
-		Key: "test_8",
+		Source: ir.Handle{Node: "test_2", Param: "test_3"},
+		Target: ir.Handle{Node: "test_5", Param: "test_6"},
+		Kind:   ir.EdgeKind(0),
+		Key:    "test_8",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -192,10 +180,8 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					{
 						Name: "test_6",
 						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_11",
 							Elem:          new(types.Type{}),
@@ -210,10 +196,8 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 					{
 						Name: "test_18",
 						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_23",
 							Elem:          new(types.Type{}),
@@ -232,12 +216,10 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		},
 		Edges: []v1.Edge{
 			{
-				Edge: ir.Edge{
-					Source: ir.Handle{Node: "test_34", Param: "test_35"},
-					Target: ir.Handle{Node: "test_37", Param: "test_38"},
-					Kind:   ir.EdgeKind(0),
-				},
-				Key: "test_40",
+				Source: ir.Handle{Node: "test_34", Param: "test_35"},
+				Target: ir.Handle{Node: "test_37", Param: "test_38"},
+				Kind:   ir.EdgeKind(0),
+				Key:    "test_40",
 			},
 		},
 		Nodes:  []v1.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
@@ -278,12 +260,10 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 func FuzzDecodeEdge(f *testing.F) {
 	{
 		seed := v1.Edge{
-			Edge: ir.Edge{
-				Source: ir.Handle{Node: "test_2", Param: "test_3"},
-				Target: ir.Handle{Node: "test_5", Param: "test_6"},
-				Kind:   ir.EdgeKind(0),
-			},
-			Key: "test_8",
+			Source: ir.Handle{Node: "test_2", Param: "test_3"},
+			Target: ir.Handle{Node: "test_5", Param: "test_6"},
+			Kind:   ir.EdgeKind(0),
+			Key:    "test_8",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -293,12 +273,10 @@ func FuzzDecodeEdge(f *testing.F) {
 	}
 	{
 		seed := v1.Edge{
-			Edge: ir.Edge{
-				Source: ir.Handle{Node: "", Param: ""},
-				Target: ir.Handle{Node: "", Param: ""},
-				Kind:   ir.EdgeKind(0),
-			},
-			Key: "",
+			Source: ir.Handle{Node: "", Param: ""},
+			Target: ir.Handle{Node: "", Param: ""},
+			Kind:   ir.EdgeKind(0),
+			Key:    "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -339,10 +317,8 @@ func FuzzDecodeGraph(f *testing.F) {
 						{
 							Name: "test_6",
 							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_11",
 								Elem:          new(types.Type{}),
@@ -357,10 +333,8 @@ func FuzzDecodeGraph(f *testing.F) {
 						{
 							Name: "test_18",
 							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_23",
 								Elem:          new(types.Type{}),
@@ -379,12 +353,10 @@ func FuzzDecodeGraph(f *testing.F) {
 			},
 			Edges: []v1.Edge{
 				{
-					Edge: ir.Edge{
-						Source: ir.Handle{Node: "test_34", Param: "test_35"},
-						Target: ir.Handle{Node: "test_37", Param: "test_38"},
-						Kind:   ir.EdgeKind(0),
-					},
-					Key: "test_40",
+					Source: ir.Handle{Node: "test_34", Param: "test_35"},
+					Target: ir.Handle{Node: "test_37", Param: "test_38"},
+					Kind:   ir.EdgeKind(0),
+					Key:    "test_40",
 				},
 			},
 			Nodes:  []v1.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},

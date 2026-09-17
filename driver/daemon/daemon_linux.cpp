@@ -104,10 +104,20 @@ x::errors::Error install_binary() {
     if (ec)
         return x::errors::Error("Failed to create binary directory: " + ec.message());
 
-    // Copy the binary
     const fs::path target_path = "/usr/local/bin/synnax-driver";
-    fs::copy_file(curr_bin_path, target_path, fs::copy_options::overwrite_existing, ec);
-    if (ec) return x::errors::Error("Failed to copy binary: " + ec.message());
+    // An install run from the installed binary would copy the file onto itself, which
+    // copy_file rejects. Skip the copy: the binary is already in place.
+    const bool already_installed = fs::exists(target_path, ec) &&
+                                   fs::equivalent(curr_bin_path, target_path, ec);
+    if (!already_installed) {
+        fs::copy_file(
+            curr_bin_path,
+            target_path,
+            fs::copy_options::overwrite_existing,
+            ec
+        );
+        if (ec) return x::errors::Error("Failed to copy binary: " + ec.message());
+    }
 
     if (chmod(target_path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) !=
         0)

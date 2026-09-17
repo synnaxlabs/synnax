@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { schematic } from "@synnaxlabs/client";
+import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Form } from "@/form";
+import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
   const el = container.querySelector<HTMLElement>(".pluto-btn");
@@ -164,5 +169,45 @@ describe("button symbol", () => {
         expect(btn.style.getPropertyValue("--pluto-btn-delay")).toBe("");
       });
     });
+  });
+});
+
+const CONFIG_Z = schematic.buttonNodeConfigZ;
+
+const CONFIG = CONFIG_Z.parse({ variant: "button", label: { label: "Button" } });
+
+const SynnaxWrapper = createSynnaxWrapper({ client: null });
+
+const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
+  const methods = Form.use<typeof CONFIG_Z>({
+    values: deep.copy(CONFIG),
+    schema: CONFIG_Z,
+  });
+  return (
+    <SynnaxWrapper>
+      <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
+    </SynnaxWrapper>
+  );
+};
+
+describe("ButtonForm", () => {
+  it("should show the size field with the schema default medium selected", () => {
+    const { getByText } = render(
+      <FormWrapper>
+        <ButtonForm />
+      </FormWrapper>,
+    );
+    expect(getByText("Size")).toBeDefined();
+    expect(getByText("M").closest("button")?.classList).toContain("pluto--selected");
+  });
+
+  it("should not render the label size and direction fields", () => {
+    const { queryByText } = render(
+      <FormWrapper>
+        <ButtonForm />
+      </FormWrapper>,
+    );
+    expect(queryByText("Label size")).toBeNull();
+    expect(queryByText("Label direction")).toBeNull();
   });
 });

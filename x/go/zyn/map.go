@@ -174,12 +174,10 @@ func (m MapZ) Validate(data any) error {
 // pair in the map will be validated according to the respective schemas.
 func Map(key, value Schema) MapZ {
 	m := MapZ{
-		baseZ: baseZ{
-			dataType:     MapT,
-			expectedType: reflect.TypeFor[map[string]any](),
-		},
-		key:   key,
-		value: value,
+		dataType:     MapT,
+		expectedType: reflect.TypeFor[map[string]any](),
+		key:          key,
+		value:        value,
 	}
 	m.wrapper = m
 	return m

@@ -82,7 +82,8 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 		if state.Graph.Nodes[i].Key == p.Key {
 			state.Graph.Nodes = append(
 				state.Graph.Nodes[:i],
-				state.Graph.Nodes[i+1:]...)
+				state.Graph.Nodes[i+1:]...,
+			)
 			break
 		}
 	}

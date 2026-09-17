@@ -47,11 +47,11 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 	if err != nil {
 		return err
 	}
-	plumber.SetSegment(pipe, "streamer", reader)
-	plumber.SetSource[Request](pipe, "tap", rcv)
-	plumber.SetSink[Response](pipe, "sender", sender)
-	plumber.MustConnect[Request](pipe, "tap", "streamer", 1)
-	plumber.MustConnect[Response](pipe, "streamer", "sender", 1)
+	pipe.SetSegment("streamer", reader)
+	pipe.SetSource[Request]("tap", rcv)
+	pipe.SetSink[Response]("sender", sender)
+	pipe.MustConnect[Request]("tap", "streamer", 1)
+	pipe.MustConnect[Response]("streamer", "sender", 1)
 	pipe.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

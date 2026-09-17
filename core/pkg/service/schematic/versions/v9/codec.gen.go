@@ -392,12 +392,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		if v.Size != nil {
-			w.Bool(true)
-			w.String(string(*v.Size))
-		} else {
-			w.Bool(false)
-		}
+		w.String(string(v.Size))
 		if v.Level != nil {
 			w.Bool(true)
 			w.String(string(*v.Level))
@@ -575,6 +570,23 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
+	case LineElementConfig:
+		w.String("line")
+		if v.Color != nil {
+			w.Bool(true)
+			if err := v.Color.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if err := v.Start.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.End.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.StrokeWidth))
 	case OffPageReferenceElementConfig:
 		w.String("off_page_reference")
 		w.String(string(v.Orientation))
@@ -591,7 +603,9 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		}
 		if v.Page != nil {
 			w.Bool(true)
-			w.String(*v.Page)
+			if err := v.Page.EncodeOrc(w); err != nil {
+				return err
+			}
 		} else {
 			w.Bool(false)
 		}
@@ -663,9 +677,11 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		}
 	case ScaleElementConfig:
 		w.String("scale")
-		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+		if err := v.Label.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(string(v.Orientation))
+		w.Float64(float64(v.Scale))
 		if v.Position != nil {
 			w.Bool(true)
 			if err := v.Position.EncodeOrc(w); err != nil {
@@ -1310,6 +1326,16 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 				}
 			}
 		}
+	case GroupBoxElementConfig:
+		w.String("group_box")
+		w.Bool(v.Members != nil)
+		if v.Members != nil {
+			w.Uint32(uint32(len(v.Members)))
+			for i := range v.Members {
+				w.String(v.Members[i])
+			}
+		}
+		w.Bool(v.Locked)
 	case PipeElementConfig:
 		w.String("pipe")
 		if err := v.SegmentedEdgeConfig.EncodeOrc(w); err != nil {
@@ -1562,21 +1588,11 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		{
-			present, err := r.Bool()
+			rawV, err := r.String()
 			if err != nil {
 				return err
 			}
-			if present {
-				var hv ComponentSize
-				{
-					rawV, err := r.String()
-					if err != nil {
-						return err
-					}
-					hv = ComponentSize(rawV)
-				}
-				v.Size = &hv
-			}
+			v.Size = ComponentSize(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -1937,6 +1953,31 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 		ec.Variant = v
+	case "line":
+		var v LineElementConfig
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Color = &hv
+			}
+		}
+		if err = v.Start.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.End.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.StrokeWidth, err = r.Float64(); err != nil {
+			return err
+		}
+		ec.Variant = v
 	case "off_page_reference":
 		var v OffPageReferenceElementConfig
 		{
@@ -1968,8 +2009,8 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv string
-				if hv, err = r.String(); err != nil {
+				var hv Page
+				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
 				v.Page = &hv
@@ -2108,7 +2149,17 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		ec.Variant = v
 	case "scale":
 		var v ScaleElementConfig
-		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+		if err = v.Label.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Orientation = spatial.OuterLocation(rawV)
+		}
+		if v.Scale, err = r.Float64(); err != nil {
 			return err
 		}
 		{
@@ -3110,6 +3161,30 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 		ec.Variant = v
+	case "group_box":
+		var v GroupBoxElementConfig
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Members = make([]string, n)
+				for i := range v.Members {
+					if v.Members[i], err = r.String(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if v.Locked, err = r.Bool(); err != nil {
+			return err
+		}
+		ec.Variant = v
 	case "pipe":
 		var v PipeElementConfig
 		if err := v.SegmentedEdgeConfig.DecodeOrc(r); err != nil {
@@ -3398,12 +3473,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		if v.Size != nil {
-			w.Bool(true)
-			w.String(string(*v.Size))
-		} else {
-			w.Bool(false)
-		}
+		w.String(string(v.Size))
 		if v.Level != nil {
 			w.Bool(true)
 			w.String(string(*v.Level))
@@ -3581,6 +3651,23 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
+	case LineNodeConfig:
+		w.String("line")
+		if v.Color != nil {
+			w.Bool(true)
+			if err := v.Color.EncodeOrc(w); err != nil {
+				return err
+			}
+		} else {
+			w.Bool(false)
+		}
+		if err := v.Start.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.End.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.Float64(float64(v.StrokeWidth))
 	case OffPageReferenceNodeConfig:
 		w.String("off_page_reference")
 		w.String(string(v.Orientation))
@@ -3597,7 +3684,9 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		}
 		if v.Page != nil {
 			w.Bool(true)
-			w.String(*v.Page)
+			if err := v.Page.EncodeOrc(w); err != nil {
+				return err
+			}
 		} else {
 			w.Bool(false)
 		}
@@ -3669,9 +3758,11 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		}
 	case ScaleNodeConfig:
 		w.String("scale")
-		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
+		if err := v.Label.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(string(v.Orientation))
+		w.Float64(float64(v.Scale))
 		if v.Position != nil {
 			w.Bool(true)
 			if err := v.Position.EncodeOrc(w); err != nil {
@@ -4316,6 +4407,16 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 				}
 			}
 		}
+	case GroupBoxNodeConfig:
+		w.String("group_box")
+		w.Bool(v.Members != nil)
+		if v.Members != nil {
+			w.Uint32(uint32(len(v.Members)))
+			for i := range v.Members {
+				w.String(v.Members[i])
+			}
+		}
+		w.Bool(v.Locked)
 	default:
 		return errors.Newf("NodeConfig: nil or unknown variant %T", nc.Variant)
 	}
@@ -4533,21 +4634,11 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		{
-			present, err := r.Bool()
+			rawV, err := r.String()
 			if err != nil {
 				return err
 			}
-			if present {
-				var hv ComponentSize
-				{
-					rawV, err := r.String()
-					if err != nil {
-						return err
-					}
-					hv = ComponentSize(rawV)
-				}
-				v.Size = &hv
-			}
+			v.Size = ComponentSize(rawV)
 		}
 		{
 			present, err := r.Bool()
@@ -4908,6 +4999,31 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 		nc.Variant = v
+	case "line":
+		var v LineNodeConfig
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv color.Color
+				if err = hv.DecodeOrc(r); err != nil {
+					return err
+				}
+				v.Color = &hv
+			}
+		}
+		if err = v.Start.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.End.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.StrokeWidth, err = r.Float64(); err != nil {
+			return err
+		}
+		nc.Variant = v
 	case "off_page_reference":
 		var v OffPageReferenceNodeConfig
 		{
@@ -4939,8 +5055,8 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv string
-				if hv, err = r.String(); err != nil {
+				var hv Page
+				if err = hv.DecodeOrc(r); err != nil {
 					return err
 				}
 				v.Page = &hv
@@ -5079,7 +5195,17 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		nc.Variant = v
 	case "scale":
 		var v ScaleNodeConfig
-		if err := v.LabeledConfig.DecodeOrc(r); err != nil {
+		if err = v.Label.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Orientation = spatial.OuterLocation(rawV)
+		}
+		if v.Scale, err = r.Float64(); err != nil {
 			return err
 		}
 		{
@@ -6081,8 +6207,55 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 		nc.Variant = v
+	case "group_box":
+		var v GroupBoxNodeConfig
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Members = make([]string, n)
+				for i := range v.Members {
+					if v.Members[i], err = r.String(); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if v.Locked, err = r.Bool(); err != nil {
+			return err
+		}
+		nc.Variant = v
 	default:
 		return errors.Newf("NodeConfig: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (p Page) EncodeOrc(w *orc.Writer) error {
+	w.String(string(p.Type))
+	w.String(p.Key)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (p *Page) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		p.Type = PageType(rawV)
+	}
+	if p.Key, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -6180,6 +6353,7 @@ func (sic ScaleIndicatorConfig) EncodeOrc(w *orc.Writer) error {
 	w.Bool(sic.CaretHidden)
 	w.Bool(sic.ScaleHidden)
 	w.String(string(sic.Side))
+	w.String(string(sic.CaretSide))
 	w.String(string(sic.Level))
 	w.Float64(float64(sic.StalenessTimeout))
 	if sic.StalenessColor != nil {
@@ -6298,7 +6472,14 @@ func (sic *ScaleIndicatorConfig) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		sic.Side = spatial.XLocation(rawV)
+		sic.Side = spatial.OuterLocation(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sic.CaretSide = spatial.OuterLocation(rawV)
 	}
 	{
 		rawV, err := r.String()

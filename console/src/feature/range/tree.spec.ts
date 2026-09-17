@@ -68,6 +68,13 @@ describe("range/ontology", () => {
   });
 
   describe("context menu", () => {
+    it("should offer Reload Console", async () => {
+      const { rng, root } = await createRangeInGroup();
+      await renderOntologyTree({ client, root, items: Range.TREE_ITEMS });
+      await openTreeRowContextMenu(rng.name);
+      expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
     it("renames the range in place and syncs the favorited copy", async () => {
       const { rng, root } = await createRangeInGroup();
       const { store } = await renderOntologyTree({

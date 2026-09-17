@@ -16,7 +16,7 @@ import {
   type Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { errors } from "@synnaxlabs/x";
+import { deep, errors } from "@synnaxlabs/x";
 
 import { configureMiddleware, type Middlewares } from "@/middleware";
 import { type Runtime } from "@/runtime";
@@ -75,12 +75,14 @@ const configureStoreInternal = async <
   // eslint-disable-next-line prefer-const
   store = base<S, A, M, E>({
     ...opts,
-    preloadedState: await receivePreloadedStateAndListen(
-      debug,
-      runtime,
-      () => store,
-      defaultWindowProps,
-      preloadedState,
+    preloadedState: deep.freeze(
+      await receivePreloadedStateAndListen(
+        debug,
+        runtime,
+        () => store,
+        defaultWindowProps,
+        preloadedState,
+      ),
     ),
     middleware: configureMiddleware(middleware, runtime, debug),
   });

@@ -23,14 +23,14 @@ function bodies.
 
 | Operator | Name             | Behavior                                                                                  |
 | -------- | ---------------- | ----------------------------------------------------------------------------------------- |
-| `->`     | Continuous flow  | Fires on every data arrival                                                               |
+| `->`     | Continuous flow  | Fires whenever the source produces a value                                                |
 | `=>`     | Conditional flow | Fires while the source is [truthy](/reference/control/arc/reference/operators#truthiness) |
 
 <Divider.Divider x />
 
 ## Continuous Flow (`->`)
 
-Runs every execution cycle when the source produces data:
+Runs whenever the source produces data:
 
 ```arc channels="sensor, output"
 sensor -> filter{} -> output
@@ -41,7 +41,7 @@ input. The chain executes whenever the leftmost source fires.
 
 ```arc channels="valve_cmd, sensor, output"
 stage active {
-    true -> valve_cmd               // keeps valve open every cycle
+    true -> valve_cmd               // writes true once on stage entry
     sensor -> filter{} -> output    // processes every sample
 }
 ```

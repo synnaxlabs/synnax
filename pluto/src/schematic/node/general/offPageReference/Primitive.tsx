@@ -6,7 +6,6 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
 import { type schematic } from "@synnaxlabs/client";
@@ -16,14 +15,15 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
-  page?: string,
+  page?: schematic.Page,
   dblClickNavDisabled?: boolean,
 ): string | undefined => {
-  if (page == null || page.length === 0) return undefined;
+  if (page == null || page.key.length === 0) return undefined;
   const mode = dblClickNavDisabled === true ? "Single" : "Double";
   return `${mode}-click to navigate`;
 };
@@ -38,6 +38,7 @@ interface RenderProps extends Partial<
   className?: string;
   title?: string;
   linked?: boolean;
+  pageType?: schematic.PageType;
   onLabelChange?: (label: string) => void;
 }
 
@@ -49,8 +50,10 @@ export const OffPageReference = ({
   color: colorVal,
   level = "p",
   linked = false,
+  pageType = "schematic",
   onLabelChange,
 }: RenderProps): ReactElement => {
+  const PageIcon = PAGE_ICONS[pageType];
   const element = document.querySelector(`[data-id="${id}"]`);
   if (element) element.classList.add(orientation);
 
@@ -75,6 +78,8 @@ export const OffPageReference = ({
       <div className="wrapper">
         <div className="outline">
           <div className="bg">
+            {/* Size must track the level prop, which CSS cannot read. */}
+            {linked && <PageIcon style={{ fontSize: `var(--pluto-${level}-size)` }} />}
             <Text.MaybeEditable
               value={label}
               onChange={onLabelChange}

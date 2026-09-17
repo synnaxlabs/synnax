@@ -14,6 +14,7 @@ import { useCallback } from "react";
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
+import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
@@ -41,6 +42,14 @@ export interface KeyParams {
 export const useAllNodes = Scope.bindHook(createSelector(({ nodes }) => nodes));
 
 export const useAllEdges = Scope.bindHook(createSelector(({ edges }) => edges));
+
+export const useAllConfigs = Scope.bindHook(createSelector(({ configs }) => configs));
+
+// Value equality keeps the map's reference stable across unrelated config edits,
+// so consumers memoizing on it re-run only when group membership changes.
+export const useParentOf = Scope.bindHook(
+  createSelector(({ configs }) => Group.buildParentOf(configs), compare.mapsEqual),
+);
 
 export interface ConfigParams extends KeyParams {
   elKey: string;
@@ -199,7 +208,9 @@ export const {
   useSingleDispatch: useSingleDispatchBase,
 } = Flux.createDispatch<schematic.Key, schematic.Schematic, schematic.Action>({
   domain: (client) => client.schematics,
-  preprocess: augmentWithEdgeSegments,
+  // Group fan-out runs first so member moves also get edge segment updates.
+  preprocess: (current, actions) =>
+    augmentWithEdgeSegments(current, Group.fanOutMoves(current, actions)),
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
@@ -248,5 +259,53 @@ export const useAddNode = () => {
       );
     },
     [dispatch, client],
+  );
+};
+
+/**
+ * useGroup returns a callback that groups the given selection, dispatched as a
+ * single undoable step. Returns the keys to select, the new group first, or null
+ * when the selection cannot be grouped.
+ */
+export const useGroup = (): ((selected: readonly string[]) => string[] | null) => {
+  const key = Scope.use();
+  const client = Synnax.use();
+  const dispatch = useSingleDispatch();
+  return useCallback(
+    (selected) => {
+      const s = client?.schematics.getCached({ key });
+      if (!query.isLive(s)) return null;
+      const result = Group.createActions({
+        selected,
+        nodes: s.nodes,
+        configs: s.configs,
+      });
+      if (result == null) return null;
+      dispatch(result.actions);
+      return result.selection;
+    },
+    [client, key, dispatch],
+  );
+};
+
+/**
+ * useUngroup returns a callback that dissolves the groups the given selection
+ * resolves to, dispatched as a single undoable step. Returns the freed member
+ * keys, or null when the selection touches no group.
+ */
+export const useUngroup = (): ((selected: readonly string[]) => string[] | null) => {
+  const key = Scope.use();
+  const client = Synnax.use();
+  const dispatch = useSingleDispatch();
+  return useCallback(
+    (selected) => {
+      const s = client?.schematics.getCached({ key });
+      if (!query.isLive(s)) return null;
+      const result = Group.ungroupActions(selected, s.configs);
+      if (result == null) return null;
+      dispatch(result.actions);
+      return result.freed;
+    },
+    [client, key, dispatch],
   );
 };

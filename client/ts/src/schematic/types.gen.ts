@@ -29,6 +29,10 @@ export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
 export const flexAlignmentZ = z.enum(FLEX_ALIGNMENTS);
 export type FlexAlignment = z.infer<typeof flexAlignmentZ>;
 
+export const PAGE_TYPES = ["schematic", "lineplot", "log", "table"] as const;
+export const pageTypeZ = z.enum(PAGE_TYPES);
+export type PageType = z.infer<typeof pageTypeZ>;
+
 export const COMPONENT_SIZES = ["tiny", "small", "medium", "large", "huge"] as const;
 export const componentSizeZ = z.enum(COMPONENT_SIZES);
 export type ComponentSize = z.infer<typeof componentSizeZ>;
@@ -166,7 +170,9 @@ export const scaleIndicatorConfigZ = z.object({
   /** scaleHidden hides the axis and its tick labels. */
   scaleHidden: z.boolean().default(false),
   /** side is the edge the axis is drawn along. */
-  side: spatial.xLocationZ.default("right"),
+  side: spatial.outerLocationZ.default("right"),
+  /** caretSide is the edge the value readout sits on. */
+  caretSide: spatial.outerLocationZ.default("right"),
   /** level is the typography level of the tick labels. */
   level: text.levelZ.default("small"),
   /**
@@ -178,6 +184,15 @@ export const scaleIndicatorConfigZ = z.object({
   stalenessColor: color.colorZ.optional(),
 });
 export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
+
+/** Page identifies a page an off-page reference links to. */
+export const pageZ = z.object({
+  /** type is the kind of page referenced. */
+  type: pageTypeZ,
+  /** key is the key of the referenced page. */
+  key: z.string(),
+});
+export interface Page extends z.infer<typeof pageZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -507,7 +522,7 @@ export interface BoxNodeConfig extends z.infer<typeof boxNodeConfigZ> {}
 export const buttonNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("button"),
   /** size is the rendered size preset of the button. */
-  size: componentSizeZ.optional(),
+  size: componentSizeZ.default("medium"),
   /** level is the typography level of the button text. */
   level: text.levelZ.optional(),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
@@ -576,7 +591,7 @@ export interface GaugeNodeConfig extends z.infer<typeof gaugeNodeConfigZ> {}
 export const inputNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("input"),
   /** size is the rendered size preset of the input. */
-  size: componentSizeZ.default("small"),
+  size: componentSizeZ.default("medium"),
   /** commandChannel is the channel submitted values are written to. */
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the input in pixels. */
@@ -609,6 +624,20 @@ export const lightNodeConfigZ = labeledConfigZ.extend({
 });
 export interface LightNodeConfig extends z.infer<typeof lightNodeConfigZ> {}
 
+/** LineNodeConfig is the configuration for straight line symbols. */
+export const lineNodeConfigZ = z.object({
+  variant: z.literal("line"),
+  /** color is the stroke color of the line. */
+  color: color.colorZ.optional(),
+  /** start is the first endpoint, offset from the node position. */
+  start: spatial.xyZ.prefault({ x: 0, y: 0 }),
+  /** end is the second endpoint, offset from the node position. */
+  end: spatial.xyZ.prefault({ x: 100, y: 0 }),
+  /** strokeWidth is the stroke width of the line in pixels. */
+  strokeWidth: z.number().default(2),
+});
+export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
+
 /** OffPageReferenceNodeConfig is the configuration for off-page reference symbols. */
 export const offPageReferenceNodeConfigZ = z.object({
   variant: z.literal("off_page_reference"),
@@ -618,11 +647,9 @@ export const offPageReferenceNodeConfigZ = z.object({
   label: labelConfigZ.prefault({}),
   /** color is the fill color of the reference. */
   color: color.colorZ.optional(),
-  /** page is the key of the schematic this reference links to. */
-  page: z.string().optional(),
-  /**
-   * dblClickNavDisabled stops double-clicking from navigating to the linked schematic.
-   */
+  /** page is the page this reference links to. */
+  page: pageZ.optional(),
+  /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
   dblClickNavDisabled: z.boolean().default(false),
 });
 export interface OffPageReferenceNodeConfig extends z.infer<
@@ -653,7 +680,7 @@ export interface PolygonNodeConfig extends z.infer<typeof polygonNodeConfigZ> {}
 export const selectNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("select"),
   /** size is the rendered size preset of the select. */
-  size: componentSizeZ.default("small"),
+  size: componentSizeZ.default("medium"),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
   /** color is the accent color of the select. */
@@ -670,12 +697,24 @@ export const selectNodeConfigZ = labeledConfigZ.extend({
 export interface SelectNodeConfig extends z.infer<typeof selectNodeConfigZ> {}
 
 /** ScaleNodeConfig is the configuration for standalone scale symbols. */
-export const scaleNodeConfigZ = labeledConfigZ.extend({
+export const scaleNodeConfigZ = z.object({
   variant: z.literal("scale"),
+  /** label is the symbol's label configuration. */
+  label: labelConfigZ.prefault({}),
+  /**
+   * orientation is the axis the bar fills along: top for vertical, right for
+   * horizontal. Any other value reads as vertical.
+   */
+  orientation: spatial.outerLocationZ.default("top"),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().default(1),
   /** position is the offset of the scale contents within the symbol. */
   position: spatial.xyZ.optional(),
-  /** dimensions is the rendered size of the scale in pixels. */
-  dimensions: spatial.dimensionsZ.prefault({ width: 60, height: 160 }),
+  /**
+   * dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+   * to the rendered size.
+   */
+  dimensions: spatial.dimensionsZ.prefault({ width: 34, height: 160 }),
   /**
    * color is the color of the fill, which is what the symbol reads as. The toolbar
    * recolors a selection through this field.
@@ -690,7 +729,7 @@ export interface ScaleNodeConfig extends z.infer<typeof scaleNodeConfigZ> {}
 export const setpointNodeConfigZ = labeledConfigZ.extend({
   variant: z.literal("setpoint"),
   /** size is the rendered size preset of the setpoint. */
-  size: componentSizeZ.default("small"),
+  size: componentSizeZ.default("medium"),
   /** commandChannel is the channel submitted setpoints are written to. */
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the setpoint in pixels. */
@@ -746,7 +785,7 @@ export const stringDisplayNodeConfigZ = labeledConfigZ.extend({
   /** channel is the channel whose string value the symbol displays. */
   channel: channel.keyZ.optional(),
   /** level is the typography level of the displayed text. */
-  level: text.levelZ.default("p"),
+  level: text.levelZ.default("h4"),
   /**
    * stalenessTimeout is the duration in seconds after which the value is considered
    * stale.
@@ -807,7 +846,7 @@ export const valueNodeConfigZ = labeledConfigZ.extend({
   /** rollingAverage is the sample window for rolling-average smoothing. */
   rollingAverage: z.int32().optional(),
   /** level is the typography level of the displayed value. */
-  level: text.levelZ.default("h5"),
+  level: text.levelZ.default("h4"),
   /** precision is the number of decimal places shown. */
   precision: z.number().default(2),
   /**
@@ -1278,6 +1317,22 @@ export interface CustomStaticNodeConfig extends z.infer<
   typeof customStaticNodeConfigZ
 > {}
 
+/**
+ * GroupBoxNodeConfig is the configuration for a group box, the symbol that bounds a set
+ * of grouped symbols. Groups nest: a member may itself be a group.
+ */
+export const groupBoxNodeConfigZ = z.object({
+  variant: z.literal("group_box"),
+  /** members lists the keys of the symbols the group contains. */
+  members: z
+    .string()
+    .array()
+    .default(() => []),
+  /** locked pins the group and its members in place. */
+  locked: z.boolean().default(false),
+});
+export interface GroupBoxNodeConfig extends z.infer<typeof groupBoxNodeConfigZ> {}
+
 export const NODE_CONFIG_TYPES = [
   "cap",
   "filter",
@@ -1310,6 +1365,7 @@ export const NODE_CONFIG_TYPES = [
   "gauge",
   "input",
   "light",
+  "line",
   "off_page_reference",
   "polygon",
   "select",
@@ -1381,6 +1437,7 @@ export const NODE_CONFIG_TYPES = [
   "t_junction",
   "custom_actuator",
   "custom_static",
+  "group_box",
 ] as const;
 export const nodeConfigTypeZ = z.enum(NODE_CONFIG_TYPES);
 export type NodeConfigType = z.infer<typeof nodeConfigTypeZ>;
@@ -1421,6 +1478,7 @@ export const nodeConfigZ = z.discriminatedUnion("variant", [
   gaugeNodeConfigZ,
   inputNodeConfigZ,
   lightNodeConfigZ,
+  lineNodeConfigZ,
   offPageReferenceNodeConfigZ,
   polygonNodeConfigZ,
   selectNodeConfigZ,
@@ -1492,6 +1550,7 @@ export const nodeConfigZ = z.discriminatedUnion("variant", [
   tJunctionNodeConfigZ,
   customActuatorNodeConfigZ,
   customStaticNodeConfigZ,
+  groupBoxNodeConfigZ,
 ]);
 export type NodeConfig =
   | CapNodeConfig
@@ -1525,6 +1584,7 @@ export type NodeConfig =
   | GaugeNodeConfig
   | InputNodeConfig
   | LightNodeConfig
+  | LineNodeConfig
   | OffPageReferenceNodeConfig
   | PolygonNodeConfig
   | SelectNodeConfig
@@ -1595,7 +1655,8 @@ export type NodeConfig =
   | TankNodeConfig
   | TJunctionNodeConfig
   | CustomActuatorNodeConfig
-  | CustomStaticNodeConfig;
+  | CustomStaticNodeConfig
+  | GroupBoxNodeConfig;
 
 export const NODE_CONFIG_SCHEMAS: {
   [K in NodeConfigType]: z.ZodType<Extract<NodeConfig, { variant: K }>>;
@@ -1631,6 +1692,7 @@ export const NODE_CONFIG_SCHEMAS: {
   gauge: gaugeNodeConfigZ,
   input: inputNodeConfigZ,
   light: lightNodeConfigZ,
+  line: lineNodeConfigZ,
   off_page_reference: offPageReferenceNodeConfigZ,
   polygon: polygonNodeConfigZ,
   select: selectNodeConfigZ,
@@ -1702,6 +1764,7 @@ export const NODE_CONFIG_SCHEMAS: {
   t_junction: tJunctionNodeConfigZ,
   custom_actuator: customActuatorNodeConfigZ,
   custom_static: customStaticNodeConfigZ,
+  group_box: groupBoxNodeConfigZ,
 };
 
 export const capElementConfigZ = staticSymbolConfigZ.extend({
@@ -1887,7 +1950,7 @@ export interface BoxElementConfig extends z.infer<typeof boxElementConfigZ> {}
 export const buttonElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("button"),
   /** size is the rendered size preset of the button. */
-  size: componentSizeZ.optional(),
+  size: componentSizeZ.default("medium"),
   /** level is the typography level of the button text. */
   level: text.levelZ.optional(),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
@@ -1956,7 +2019,7 @@ export interface GaugeElementConfig extends z.infer<typeof gaugeElementConfigZ> 
 export const inputElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("input"),
   /** size is the rendered size preset of the input. */
-  size: componentSizeZ.default("small"),
+  size: componentSizeZ.default("medium"),
   /** commandChannel is the channel submitted values are written to. */
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the input in pixels. */
@@ -1989,6 +2052,20 @@ export const lightElementConfigZ = labeledConfigZ.extend({
 });
 export interface LightElementConfig extends z.infer<typeof lightElementConfigZ> {}
 
+/** LineElementConfig is the configuration for straight line symbols. */
+export const lineElementConfigZ = z.object({
+  variant: z.literal("line"),
+  /** color is the stroke color of the line. */
+  color: color.colorZ.optional(),
+  /** start is the first endpoint, offset from the node position. */
+  start: spatial.xyZ.prefault({ x: 0, y: 0 }),
+  /** end is the second endpoint, offset from the node position. */
+  end: spatial.xyZ.prefault({ x: 100, y: 0 }),
+  /** strokeWidth is the stroke width of the line in pixels. */
+  strokeWidth: z.number().default(2),
+});
+export interface LineElementConfig extends z.infer<typeof lineElementConfigZ> {}
+
 /**
  * OffPageReferenceElementConfig is the configuration for off-page reference symbols.
  */
@@ -2000,11 +2077,9 @@ export const offPageReferenceElementConfigZ = z.object({
   label: labelConfigZ.prefault({}),
   /** color is the fill color of the reference. */
   color: color.colorZ.optional(),
-  /** page is the key of the schematic this reference links to. */
-  page: z.string().optional(),
-  /**
-   * dblClickNavDisabled stops double-clicking from navigating to the linked schematic.
-   */
+  /** page is the page this reference links to. */
+  page: pageZ.optional(),
+  /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
   dblClickNavDisabled: z.boolean().default(false),
 });
 export interface OffPageReferenceElementConfig extends z.infer<
@@ -2035,7 +2110,7 @@ export interface PolygonElementConfig extends z.infer<typeof polygonElementConfi
 export const selectElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("select"),
   /** size is the rendered size preset of the select. */
-  size: componentSizeZ.default("small"),
+  size: componentSizeZ.default("medium"),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
   /** color is the accent color of the select. */
@@ -2052,12 +2127,24 @@ export const selectElementConfigZ = labeledConfigZ.extend({
 export interface SelectElementConfig extends z.infer<typeof selectElementConfigZ> {}
 
 /** ScaleElementConfig is the configuration for standalone scale symbols. */
-export const scaleElementConfigZ = labeledConfigZ.extend({
+export const scaleElementConfigZ = z.object({
   variant: z.literal("scale"),
+  /** label is the symbol's label configuration. */
+  label: labelConfigZ.prefault({}),
+  /**
+   * orientation is the axis the bar fills along: top for vertical, right for
+   * horizontal. Any other value reads as vertical.
+   */
+  orientation: spatial.outerLocationZ.default("top"),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().default(1),
   /** position is the offset of the scale contents within the symbol. */
   position: spatial.xyZ.optional(),
-  /** dimensions is the rendered size of the scale in pixels. */
-  dimensions: spatial.dimensionsZ.prefault({ width: 60, height: 160 }),
+  /**
+   * dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+   * to the rendered size.
+   */
+  dimensions: spatial.dimensionsZ.prefault({ width: 34, height: 160 }),
   /**
    * color is the color of the fill, which is what the symbol reads as. The toolbar
    * recolors a selection through this field.
@@ -2072,7 +2159,7 @@ export interface ScaleElementConfig extends z.infer<typeof scaleElementConfigZ> 
 export const setpointElementConfigZ = labeledConfigZ.extend({
   variant: z.literal("setpoint"),
   /** size is the rendered size preset of the setpoint. */
-  size: componentSizeZ.default("small"),
+  size: componentSizeZ.default("medium"),
   /** commandChannel is the channel submitted setpoints are written to. */
   commandChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the setpoint in pixels. */
@@ -2130,7 +2217,7 @@ export const stringDisplayElementConfigZ = labeledConfigZ.extend({
   /** channel is the channel whose string value the symbol displays. */
   channel: channel.keyZ.optional(),
   /** level is the typography level of the displayed text. */
-  level: text.levelZ.default("p"),
+  level: text.levelZ.default("h4"),
   /**
    * stalenessTimeout is the duration in seconds after which the value is considered
    * stale.
@@ -2191,7 +2278,7 @@ export const valueElementConfigZ = labeledConfigZ.extend({
   /** rollingAverage is the sample window for rolling-average smoothing. */
   rollingAverage: z.int32().optional(),
   /** level is the typography level of the displayed value. */
-  level: text.levelZ.default("h5"),
+  level: text.levelZ.default("h4"),
   /** precision is the number of decimal places shown. */
   precision: z.number().default(2),
   /**
@@ -2693,6 +2780,22 @@ export interface CustomStaticElementConfig extends z.infer<
   typeof customStaticElementConfigZ
 > {}
 
+/**
+ * GroupBoxElementConfig is the configuration for a group box, the symbol that bounds a
+ * set of grouped symbols. Groups nest: a member may itself be a group.
+ */
+export const groupBoxElementConfigZ = z.object({
+  variant: z.literal("group_box"),
+  /** members lists the keys of the symbols the group contains. */
+  members: z
+    .string()
+    .array()
+    .default(() => []),
+  /** locked pins the group and its members in place. */
+  locked: z.boolean().default(false),
+});
+export interface GroupBoxElementConfig extends z.infer<typeof groupBoxElementConfigZ> {}
+
 export const pipeElementConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
 });
@@ -2766,6 +2869,7 @@ export const ELEMENT_CONFIG_TYPES = [
   "gauge",
   "input",
   "light",
+  "line",
   "off_page_reference",
   "polygon",
   "select",
@@ -2837,6 +2941,7 @@ export const ELEMENT_CONFIG_TYPES = [
   "t_junction",
   "custom_actuator",
   "custom_static",
+  "group_box",
   "pipe",
   "electric",
   "secondary",
@@ -2884,6 +2989,7 @@ export const elementConfigZ = z.discriminatedUnion("variant", [
   gaugeElementConfigZ,
   inputElementConfigZ,
   lightElementConfigZ,
+  lineElementConfigZ,
   offPageReferenceElementConfigZ,
   polygonElementConfigZ,
   selectElementConfigZ,
@@ -2955,6 +3061,7 @@ export const elementConfigZ = z.discriminatedUnion("variant", [
   tJunctionElementConfigZ,
   customActuatorElementConfigZ,
   customStaticElementConfigZ,
+  groupBoxElementConfigZ,
   pipeElementConfigZ,
   electricElementConfigZ,
   secondaryElementConfigZ,
@@ -2995,6 +3102,7 @@ export type ElementConfig =
   | GaugeElementConfig
   | InputElementConfig
   | LightElementConfig
+  | LineElementConfig
   | OffPageReferenceElementConfig
   | PolygonElementConfig
   | SelectElementConfig
@@ -3066,6 +3174,7 @@ export type ElementConfig =
   | TJunctionElementConfig
   | CustomActuatorElementConfig
   | CustomStaticElementConfig
+  | GroupBoxElementConfig
   | PipeElementConfig
   | ElectricElementConfig
   | SecondaryElementConfig
@@ -3108,6 +3217,7 @@ export const ELEMENT_CONFIG_SCHEMAS: {
   gauge: gaugeElementConfigZ,
   input: inputElementConfigZ,
   light: lightElementConfigZ,
+  line: lineElementConfigZ,
   off_page_reference: offPageReferenceElementConfigZ,
   polygon: polygonElementConfigZ,
   select: selectElementConfigZ,
@@ -3179,6 +3289,7 @@ export const ELEMENT_CONFIG_SCHEMAS: {
   t_junction: tJunctionElementConfigZ,
   custom_actuator: customActuatorElementConfigZ,
   custom_static: customStaticElementConfigZ,
+  group_box: groupBoxElementConfigZ,
   pipe: pipeElementConfigZ,
   electric: electricElementConfigZ,
   secondary: secondaryElementConfigZ,

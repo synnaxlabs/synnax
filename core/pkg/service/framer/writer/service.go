@@ -63,8 +63,8 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("service.framer.writer")
-	validate.NotNil(v, "framer", cfg.Framer)
-	validate.NotNil(v, "channel", cfg.Channel)
+	v.NotNil("framer", cfg.Framer)
+	v.NotNil("channel", cfg.Channel)
 	return v.Error()
 }
 
@@ -112,9 +112,9 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		return nil, err
 	}
 	pipe := plumber.New()
-	plumber.SetSegment[Request, Request](pipe, validatorAddr, newValidator(channelMap))
-	plumber.SetSegment[Request, Response](pipe, distributionAddr, dist)
-	plumber.MustConnect[Request](pipe, validatorAddr, distributionAddr, 30)
+	pipe.SetSegment[Request, Request](validatorAddr, newValidator(channelMap))
+	pipe.SetSegment[Request, Response](distributionAddr, dist)
+	pipe.MustConnect[Request](validatorAddr, distributionAddr, 30)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo(validatorAddr))
 	lo.Must0(seg.RouteOutletFrom(distributionAddr))

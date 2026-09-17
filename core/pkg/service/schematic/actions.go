@@ -12,6 +12,7 @@ package schematic
 import (
 	"encoding/json"
 	"maps"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
@@ -68,16 +69,36 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle removes the node with the matching key and discards any config entry
-// stored under that key.
+// Handle removes the node with the matching key, discards any config entry
+// stored under that key, and splices the key out of every group's members.
 func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
+	removed := false
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == p.Key {
 			state.Nodes = append(state.Nodes[:i], state.Nodes[i+1:]...)
+			removed = true
 			break
 		}
 	}
 	delete(state.Configs, p.Key)
+	if !removed {
+		return state, nil
+	}
+	for key, cfg := range state.Configs {
+		group, ok := cfg.Variant.(GroupBoxElementConfig)
+		if !ok {
+			continue
+		}
+		members := slices.DeleteFunc(
+			slices.Clone(group.Members),
+			func(m string) bool { return m == p.Key },
+		)
+		if len(members) == len(group.Members) {
+			continue
+		}
+		group.Members = members
+		state.Configs[key] = ElementConfig{Variant: group}
+	}
 	return state, nil
 }
 

@@ -60,7 +60,7 @@ const Fill = ({
 }: FillProps): null => {
   const telem = useMemo(() => Scale.source(fill), [fill]);
   VisScale.use({
-    ...fill,
+    ...Scale.visProps(fill),
     telem,
     aetherKey: nodeKey,
     box: box.construct(xy.translate(position ?? xy.ZERO, OVERLAP), {

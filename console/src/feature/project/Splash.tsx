@@ -75,6 +75,7 @@ export const Splash = (): ReactElement => {
   );
   const menuProps = Menu.useContextMenu();
   const getIsAnyModalOpen = Session.Modals.useGetIsAnyOpen();
+  const awaitingProject = Session.Link.useSelectAwaitingProject();
 
   return (
     <Shell.Frame className={CSS.B("project-splash")} connection={activeCore}>
@@ -110,6 +111,13 @@ export const Splash = (): ReactElement => {
               </PButton.Button>
             </Header.Actions>
           </Header.Header>
+          {awaitingProject && (
+            <Status.Summary
+              variant="success"
+              message="Select a project to open the link"
+              className={CSS.BE("project-splash", "link-notice")}
+            />
+          )}
           {hasRetrievePermission && (data.length > 0 || searchTerm !== "") && (
             <Input.Text
               value={searchTerm}

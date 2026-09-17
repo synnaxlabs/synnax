@@ -649,6 +649,7 @@ const (
 	GaugeNodeConfigType                          NodeConfigType = "gauge"
 	InputNodeConfigType                          NodeConfigType = "input"
 	LightNodeConfigType                          NodeConfigType = "light"
+	LineNodeConfigType                           NodeConfigType = "line"
 	OffPageReferenceNodeConfigType               NodeConfigType = "off_page_reference"
 	PolygonNodeConfigType                        NodeConfigType = "polygon"
 	SelectNodeConfigType                         NodeConfigType = "select"
@@ -720,6 +721,7 @@ const (
 	TJunctionNodeConfigType                      NodeConfigType = "t_junction"
 	CustomActuatorNodeConfigType                 NodeConfigType = "custom_actuator"
 	CustomStaticNodeConfigType                   NodeConfigType = "custom_static"
+	GroupBoxNodeConfigType                       NodeConfigType = "group_box"
 )
 
 type NodeConfigVariant interface {
@@ -1254,7 +1256,7 @@ func (b BoxNodeConfig) Validate() error {
 type ButtonNodeConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the button.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	Size ComponentSize `json:"size" msgpack:"size"`
 	// Level is the typography level of the button text.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
@@ -1273,6 +1275,9 @@ func (ButtonNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButtonNodeConfig) ApplyDefaults() {
+	if b.Size == "" {
+		b.Size = ComponentSizeMedium
+	}
 	if b.Mode == "" {
 		b.Mode = ButtonModeFire
 	}
@@ -1286,6 +1291,7 @@ func (b *ButtonNodeConfig) ApplyDefaults() {
 // schema constraints.
 func (b ButtonNodeConfig) Validate() error {
 	v := validate.New("ButtonNodeConfig")
+	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
@@ -1427,7 +1433,7 @@ func (InputNodeConfig) isNodeConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputNodeConfig) ApplyDefaults() {
 	if i.Size == "" {
-		i.Size = ComponentSizeSmall
+		i.Size = ComponentSizeMedium
 	}
 	i.LabeledConfig.ApplyDefaults()
 	if i.Control != nil {
@@ -1481,6 +1487,30 @@ func (l LightNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// LineNodeConfig is the configuration for straight line symbols.
+type LineNodeConfig struct {
+	// Color is the stroke color of the line.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Start is the first endpoint, offset from the node position.
+	Start spatial.XY `json:"start" msgpack:"start"`
+	// End is the second endpoint, offset from the node position.
+	End spatial.XY `json:"end" msgpack:"end"`
+	// StrokeWidth is the stroke width of the line in pixels.
+	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
+}
+
+func (LineNodeConfig) isNodeConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (l *LineNodeConfig) ApplyDefaults() {
+	if l.End.X == 0 {
+		l.End.X = 100
+	}
+	if l.StrokeWidth == 0 {
+		l.StrokeWidth = 2
+	}
+}
+
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig struct {
 	// Orientation is the direction the reference arrow points.
@@ -1489,10 +1519,9 @@ type OffPageReferenceNodeConfig struct {
 	Label LabelConfig `json:"label" msgpack:"label"`
 	// Color is the fill color of the reference.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Page is the key of the schematic this reference links to.
-	Page *string `json:"page,omitempty" msgpack:"page,omitempty"`
-	// DblClickNavDisabled stops double-clicking from navigating to the linked
-	// schematic.
+	// Page is the page this reference links to.
+	Page *Page `json:"page,omitempty" msgpack:"page,omitempty"`
+	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
 	DblClickNavDisabled bool `json:"dbl_click_nav_disabled" msgpack:"dbl_click_nav_disabled"`
 }
 
@@ -1512,6 +1541,9 @@ func (o OffPageReferenceNodeConfig) Validate() error {
 	v := validate.New("OffPageReferenceNodeConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
 	v.Exec(func() error { return validate.PathedError(o.Label.Validate(), "label") })
+	if o.Page != nil {
+		v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
+	}
 	return v.Error()
 }
 
@@ -1582,7 +1614,7 @@ func (SelectNodeConfig) isNodeConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SelectNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
-		s.Size = ComponentSizeSmall
+		s.Size = ComponentSizeMedium
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -1607,10 +1639,17 @@ func (s SelectNodeConfig) Validate() error {
 
 // ScaleNodeConfig is the configuration for standalone scale symbols.
 type ScaleNodeConfig struct {
-	LabeledConfig
+	// Label is the symbol's label configuration.
+	Label LabelConfig `json:"label" msgpack:"label"`
+	// Orientation is the axis the bar fills along: top for vertical, right for
+	// horizontal. Any other value reads as vertical.
+	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale float64 `json:"scale" msgpack:"scale"`
 	// Position is the offset of the scale contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
-	// Dimensions is the rendered size of the scale in pixels.
+	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+	// to the rendered size.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// Color is the color of the fill, which is what the symbol reads as. The toolbar
 	// recolors a selection through this field.
@@ -1623,13 +1662,19 @@ func (ScaleNodeConfig) isNodeConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScaleNodeConfig) ApplyDefaults() {
+	if s.Orientation == "" {
+		s.Orientation = spatial.OuterLocationTop
+	}
+	if s.Scale == 0 {
+		s.Scale = 1
+	}
 	if s.Dimensions.Width == 0 {
-		s.Dimensions.Width = 60
+		s.Dimensions.Width = 34
 	}
 	if s.Dimensions.Height == 0 {
 		s.Dimensions.Height = 160
 	}
-	s.LabeledConfig.ApplyDefaults()
+	s.Label.ApplyDefaults()
 	s.Indicator.ApplyDefaults()
 }
 
@@ -1637,7 +1682,8 @@ func (s *ScaleNodeConfig) ApplyDefaults() {
 // schema constraints.
 func (s ScaleNodeConfig) Validate() error {
 	v := validate.New("ScaleNodeConfig")
-	v.Exec(s.LabeledConfig.Validate)
+	v.Ternaryf("orientation", !s.Orientation.IsValid(), "invalid orientation: %v", s.Orientation)
+	v.Exec(func() error { return validate.PathedError(s.Label.Validate(), "label") })
 	v.Exec(func() error { return validate.PathedError(s.Indicator.Validate(), "indicator") })
 	return v.Error()
 }
@@ -1666,7 +1712,7 @@ func (SetpointNodeConfig) isNodeConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SetpointNodeConfig) ApplyDefaults() {
 	if s.Size == "" {
-		s.Size = ComponentSizeSmall
+		s.Size = ComponentSizeMedium
 	}
 	if s.Units == "" {
 		s.Units = "mV"
@@ -1758,7 +1804,7 @@ func (s *StringDisplayNodeConfig) ApplyDefaults() {
 		s.InlineSize = 100
 	}
 	if s.Level == "" {
-		s.Level = text.LevelP
+		s.Level = text.LevelH4
 	}
 	if s.StalenessTimeout == 0 {
 		s.StalenessTimeout = 5
@@ -1890,7 +1936,7 @@ func (va *ValueNodeConfig) ApplyDefaults() {
 		va.InlineSize = 70
 	}
 	if va.Level == "" {
-		va.Level = text.LevelH5
+		va.Level = text.LevelH4
 	}
 	if va.Precision == 0 {
 		va.Precision = 2
@@ -3075,7 +3121,7 @@ func (t *TankNodeConfig) ApplyDefaults() {
 		t.BorderRadius.BottomRight.Y = 10
 	}
 	if t.Fill.Side == "" {
-		t.Fill.Side = spatial.XLocationLeft
+		t.Fill.Side = spatial.OuterLocationLeft
 	}
 	t.LabeledConfig.ApplyDefaults()
 	t.Fill.ApplyDefaults()
@@ -3165,6 +3211,17 @@ func (c CustomStaticNodeConfig) Validate() error {
 	return v.Error()
 }
 
+// GroupBoxNodeConfig is the configuration for a group box, the symbol that bounds a set
+// of grouped symbols. Groups nest: a member may itself be a group.
+type GroupBoxNodeConfig struct {
+	// Members lists the keys of the symbols the group contains.
+	Members []string `json:"members,omitzero" msgpack:"members,omitzero"`
+	// Locked pins the group and its members in place.
+	Locked bool `json:"locked" msgpack:"locked"`
+}
+
+func (GroupBoxNodeConfig) isNodeConfigVariant() {}
+
 // NodeConfig is the per-node configuration stored in the schematic configs map. The
 // variant selects the symbol rendered for the node and the fields that accompany it.
 type NodeConfig struct {
@@ -3240,6 +3297,8 @@ func (u NodeConfig) MarshalJSON() ([]byte, error) {
 		t = InputNodeConfigType
 	case LightNodeConfig:
 		t = LightNodeConfigType
+	case LineNodeConfig:
+		t = LineNodeConfigType
 	case OffPageReferenceNodeConfig:
 		t = OffPageReferenceNodeConfigType
 	case PolygonNodeConfig:
@@ -3382,6 +3441,8 @@ func (u NodeConfig) MarshalJSON() ([]byte, error) {
 		t = CustomActuatorNodeConfigType
 	case CustomStaticNodeConfig:
 		t = CustomStaticNodeConfigType
+	case GroupBoxNodeConfig:
+		t = GroupBoxNodeConfigType
 	default:
 		return nil, errors.Newf("NodeConfig: nil or unknown variant %T", u.Variant)
 	}
@@ -3596,6 +3657,12 @@ func (u *NodeConfig) UnmarshalJSON(data []byte) error {
 		u.Variant = v
 	case LightNodeConfigType:
 		var v LightNodeConfig
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LineNodeConfigType:
+		var v LineNodeConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -4026,6 +4093,12 @@ func (u *NodeConfig) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		u.Variant = v
+	case GroupBoxNodeConfigType:
+		var v GroupBoxNodeConfig
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Newf("NodeConfig: unknown variant %q", disc.Type)
 	}
@@ -4127,6 +4200,9 @@ func (u *NodeConfig) ApplyDefaults() {
 		variant.ApplyDefaults()
 		u.Variant = variant
 	case LightNodeConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case LineNodeConfig:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	case OffPageReferenceNodeConfig:
@@ -4591,6 +4667,7 @@ const (
 	GaugeElementConfigType                          ElementConfigType = "gauge"
 	InputElementConfigType                          ElementConfigType = "input"
 	LightElementConfigType                          ElementConfigType = "light"
+	LineElementConfigType                           ElementConfigType = "line"
 	OffPageReferenceElementConfigType               ElementConfigType = "off_page_reference"
 	PolygonElementConfigType                        ElementConfigType = "polygon"
 	SelectElementConfigType                         ElementConfigType = "select"
@@ -4662,6 +4739,7 @@ const (
 	TJunctionElementConfigType                      ElementConfigType = "t_junction"
 	CustomActuatorElementConfigType                 ElementConfigType = "custom_actuator"
 	CustomStaticElementConfigType                   ElementConfigType = "custom_static"
+	GroupBoxElementConfigType                       ElementConfigType = "group_box"
 	PipeElementConfigType                           ElementConfigType = "pipe"
 	ElectricElementConfigType                       ElementConfigType = "electric"
 	SecondaryElementConfigType                      ElementConfigType = "secondary"
@@ -5203,7 +5281,7 @@ func (b BoxElementConfig) Validate() error {
 type ButtonElementConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the button.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	Size ComponentSize `json:"size" msgpack:"size"`
 	// Level is the typography level of the button text.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
@@ -5222,6 +5300,9 @@ func (ButtonElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (b *ButtonElementConfig) ApplyDefaults() {
+	if b.Size == "" {
+		b.Size = ComponentSizeMedium
+	}
 	if b.Mode == "" {
 		b.Mode = ButtonModeFire
 	}
@@ -5235,6 +5316,7 @@ func (b *ButtonElementConfig) ApplyDefaults() {
 // schema constraints.
 func (b ButtonElementConfig) Validate() error {
 	v := validate.New("ButtonElementConfig")
+	v.Ternaryf("size", !b.Size.IsValid(), "invalid size: %v", b.Size)
 	v.Ternaryf("mode", !b.Mode.IsValid(), "invalid mode: %v", b.Mode)
 	v.Exec(b.LabeledConfig.Validate)
 	if b.Control != nil {
@@ -5376,7 +5458,7 @@ func (InputElementConfig) isElementConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputElementConfig) ApplyDefaults() {
 	if i.Size == "" {
-		i.Size = ComponentSizeSmall
+		i.Size = ComponentSizeMedium
 	}
 	i.LabeledConfig.ApplyDefaults()
 	if i.Control != nil {
@@ -5430,6 +5512,30 @@ func (l LightElementConfig) Validate() error {
 	return v.Error()
 }
 
+// LineElementConfig is the configuration for straight line symbols.
+type LineElementConfig struct {
+	// Color is the stroke color of the line.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Start is the first endpoint, offset from the node position.
+	Start spatial.XY `json:"start" msgpack:"start"`
+	// End is the second endpoint, offset from the node position.
+	End spatial.XY `json:"end" msgpack:"end"`
+	// StrokeWidth is the stroke width of the line in pixels.
+	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
+}
+
+func (LineElementConfig) isElementConfigVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (l *LineElementConfig) ApplyDefaults() {
+	if l.End.X == 0 {
+		l.End.X = 100
+	}
+	if l.StrokeWidth == 0 {
+		l.StrokeWidth = 2
+	}
+}
+
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
 type OffPageReferenceElementConfig struct {
 	// Orientation is the direction the reference arrow points.
@@ -5438,10 +5544,9 @@ type OffPageReferenceElementConfig struct {
 	Label LabelConfig `json:"label" msgpack:"label"`
 	// Color is the fill color of the reference.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Page is the key of the schematic this reference links to.
-	Page *string `json:"page,omitempty" msgpack:"page,omitempty"`
-	// DblClickNavDisabled stops double-clicking from navigating to the linked
-	// schematic.
+	// Page is the page this reference links to.
+	Page *Page `json:"page,omitempty" msgpack:"page,omitempty"`
+	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
 	DblClickNavDisabled bool `json:"dbl_click_nav_disabled" msgpack:"dbl_click_nav_disabled"`
 }
 
@@ -5461,6 +5566,9 @@ func (o OffPageReferenceElementConfig) Validate() error {
 	v := validate.New("OffPageReferenceElementConfig")
 	v.Ternaryf("orientation", !o.Orientation.IsValid(), "invalid orientation: %v", o.Orientation)
 	v.Exec(func() error { return validate.PathedError(o.Label.Validate(), "label") })
+	if o.Page != nil {
+		v.Exec(func() error { return validate.PathedError(o.Page.Validate(), "page") })
+	}
 	return v.Error()
 }
 
@@ -5531,7 +5639,7 @@ func (SelectElementConfig) isElementConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SelectElementConfig) ApplyDefaults() {
 	if s.Size == "" {
-		s.Size = ComponentSizeSmall
+		s.Size = ComponentSizeMedium
 	}
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
@@ -5556,10 +5664,17 @@ func (s SelectElementConfig) Validate() error {
 
 // ScaleElementConfig is the configuration for standalone scale symbols.
 type ScaleElementConfig struct {
-	LabeledConfig
+	// Label is the symbol's label configuration.
+	Label LabelConfig `json:"label" msgpack:"label"`
+	// Orientation is the axis the bar fills along: top for vertical, right for
+	// horizontal. Any other value reads as vertical.
+	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale float64 `json:"scale" msgpack:"scale"`
 	// Position is the offset of the scale contents within the symbol.
 	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
-	// Dimensions is the rendered size of the scale in pixels.
+	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+	// to the rendered size.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// Color is the color of the fill, which is what the symbol reads as. The toolbar
 	// recolors a selection through this field.
@@ -5572,13 +5687,19 @@ func (ScaleElementConfig) isElementConfigVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScaleElementConfig) ApplyDefaults() {
+	if s.Orientation == "" {
+		s.Orientation = spatial.OuterLocationTop
+	}
+	if s.Scale == 0 {
+		s.Scale = 1
+	}
 	if s.Dimensions.Width == 0 {
-		s.Dimensions.Width = 60
+		s.Dimensions.Width = 34
 	}
 	if s.Dimensions.Height == 0 {
 		s.Dimensions.Height = 160
 	}
-	s.LabeledConfig.ApplyDefaults()
+	s.Label.ApplyDefaults()
 	s.Indicator.ApplyDefaults()
 }
 
@@ -5586,7 +5707,8 @@ func (s *ScaleElementConfig) ApplyDefaults() {
 // schema constraints.
 func (s ScaleElementConfig) Validate() error {
 	v := validate.New("ScaleElementConfig")
-	v.Exec(s.LabeledConfig.Validate)
+	v.Ternaryf("orientation", !s.Orientation.IsValid(), "invalid orientation: %v", s.Orientation)
+	v.Exec(func() error { return validate.PathedError(s.Label.Validate(), "label") })
 	v.Exec(func() error { return validate.PathedError(s.Indicator.Validate(), "indicator") })
 	return v.Error()
 }
@@ -5615,7 +5737,7 @@ func (SetpointElementConfig) isElementConfigVariant() {}
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SetpointElementConfig) ApplyDefaults() {
 	if s.Size == "" {
-		s.Size = ComponentSizeSmall
+		s.Size = ComponentSizeMedium
 	}
 	if s.Units == "" {
 		s.Units = "mV"
@@ -5707,7 +5829,7 @@ func (s *StringDisplayElementConfig) ApplyDefaults() {
 		s.InlineSize = 100
 	}
 	if s.Level == "" {
-		s.Level = text.LevelP
+		s.Level = text.LevelH4
 	}
 	if s.StalenessTimeout == 0 {
 		s.StalenessTimeout = 5
@@ -5839,7 +5961,7 @@ func (va *ValueElementConfig) ApplyDefaults() {
 		va.InlineSize = 70
 	}
 	if va.Level == "" {
-		va.Level = text.LevelH5
+		va.Level = text.LevelH4
 	}
 	if va.Precision == 0 {
 		va.Precision = 2
@@ -7024,7 +7146,7 @@ func (t *TankElementConfig) ApplyDefaults() {
 		t.BorderRadius.BottomRight.Y = 10
 	}
 	if t.Fill.Side == "" {
-		t.Fill.Side = spatial.XLocationLeft
+		t.Fill.Side = spatial.OuterLocationLeft
 	}
 	t.LabeledConfig.ApplyDefaults()
 	t.Fill.ApplyDefaults()
@@ -7113,6 +7235,17 @@ func (c CustomStaticElementConfig) Validate() error {
 	v.Exec(c.LabeledConfig.Validate)
 	return v.Error()
 }
+
+// GroupBoxElementConfig is the configuration for a group box, the symbol that bounds a
+// set of grouped symbols. Groups nest: a member may itself be a group.
+type GroupBoxElementConfig struct {
+	// Members lists the keys of the symbols the group contains.
+	Members []string `json:"members,omitzero" msgpack:"members,omitzero"`
+	// Locked pins the group and its members in place.
+	Locked bool `json:"locked" msgpack:"locked"`
+}
+
+func (GroupBoxElementConfig) isElementConfigVariant() {}
 
 type PipeElementConfig struct {
 	SegmentedEdgeConfig
@@ -7287,6 +7420,8 @@ func (u ElementConfig) MarshalJSON() ([]byte, error) {
 		t = InputElementConfigType
 	case LightElementConfig:
 		t = LightElementConfigType
+	case LineElementConfig:
+		t = LineElementConfigType
 	case OffPageReferenceElementConfig:
 		t = OffPageReferenceElementConfigType
 	case PolygonElementConfig:
@@ -7429,6 +7564,8 @@ func (u ElementConfig) MarshalJSON() ([]byte, error) {
 		t = CustomActuatorElementConfigType
 	case CustomStaticElementConfig:
 		t = CustomStaticElementConfigType
+	case GroupBoxElementConfig:
+		t = GroupBoxElementConfigType
 	case PipeElementConfig:
 		t = PipeElementConfigType
 	case ElectricElementConfig:
@@ -7657,6 +7794,12 @@ func (u *ElementConfig) UnmarshalJSON(data []byte) error {
 		u.Variant = v
 	case LightElementConfigType:
 		var v LightElementConfig
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LineElementConfigType:
+		var v LineElementConfig
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}
@@ -8087,6 +8230,12 @@ func (u *ElementConfig) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		u.Variant = v
+	case GroupBoxElementConfigType:
+		var v GroupBoxElementConfig
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	case PipeElementConfigType:
 		var v PipeElementConfig
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -8230,6 +8379,9 @@ func (u *ElementConfig) ApplyDefaults() {
 		variant.ApplyDefaults()
 		u.Variant = variant
 	case LightElementConfig:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case LineElementConfig:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	case OffPageReferenceElementConfig:
@@ -8705,7 +8857,7 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	validate.NotEmptyString(v, "name", s.Name)
+	v.NotEmptyString("name", s.Name)
 	for key, value := range s.Configs {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
 	}
@@ -8740,7 +8892,9 @@ type ScaleIndicatorConfig struct {
 	// ScaleHidden hides the axis and its tick labels.
 	ScaleHidden bool `json:"scale_hidden" msgpack:"scale_hidden"`
 	// Side is the edge the axis is drawn along.
-	Side spatial.XLocation `json:"side" msgpack:"side"`
+	Side spatial.OuterLocation `json:"side" msgpack:"side"`
+	// CaretSide is the edge the value readout sits on.
+	CaretSide spatial.OuterLocation `json:"caret_side" msgpack:"caret_side"`
 	// Level is the typography level of the tick labels.
 	Level text.Level `json:"level" msgpack:"level"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -8762,7 +8916,10 @@ func (s *ScaleIndicatorConfig) ApplyDefaults() {
 		s.Precision = 2
 	}
 	if s.Side == "" {
-		s.Side = spatial.XLocationRight
+		s.Side = spatial.OuterLocationRight
+	}
+	if s.CaretSide == "" {
+		s.CaretSide = spatial.OuterLocationRight
 	}
 	if s.Level == "" {
 		s.Level = text.LevelSmall
@@ -8778,6 +8935,44 @@ func (s ScaleIndicatorConfig) Validate() error {
 	v := validate.New("ScaleIndicatorConfig")
 	v.Ternaryf("notation", !s.Notation.IsValid(), "invalid notation: %v", s.Notation)
 	v.Ternaryf("side", !s.Side.IsValid(), "invalid side: %v", s.Side)
+	v.Ternaryf("caret_side", !s.CaretSide.IsValid(), "invalid caret_side: %v", s.CaretSide)
 	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	return v.Error()
+}
+
+// PageType names the kinds of page an off-page reference can link to.
+type PageType string
+
+const (
+	PageTypeSchematic PageType = "schematic"
+	PageTypeLineplot  PageType = "lineplot"
+	PageTypeLog       PageType = "log"
+	PageTypeTable     PageType = "table"
+)
+
+// IsValid reports whether p is one of the defined PageType
+// values.
+func (p PageType) IsValid() bool {
+	switch p {
+	case PageTypeSchematic, PageTypeLineplot, PageTypeLog, PageTypeTable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Page identifies a page an off-page reference links to.
+type Page struct {
+	// Type is the kind of page referenced.
+	Type PageType `json:"type" msgpack:"type"`
+	// Key is the key of the referenced page.
+	Key string `json:"key" msgpack:"key"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Page) Validate() error {
+	v := validate.New("Page")
+	v.Ternaryf("type", !p.Type.IsValid(), "invalid type: %v", p.Type)
 	return v.Error()
 }

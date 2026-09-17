@@ -161,6 +161,8 @@ const (
 	InputNodeConfigType NodeConfigType = v9.InputNodeConfigType
 	// LightNodeConfigType is the configuration for indicator light symbols.
 	LightNodeConfigType NodeConfigType = v9.LightNodeConfigType
+	// LineNodeConfigType is the configuration for straight line symbols.
+	LineNodeConfigType NodeConfigType = v9.LineNodeConfigType
 	// OffPageReferenceNodeConfigType is the configuration for off-page reference
 	// symbols.
 	OffPageReferenceNodeConfigType NodeConfigType = v9.OffPageReferenceNodeConfigType
@@ -249,6 +251,9 @@ const (
 	CustomActuatorNodeConfigType NodeConfigType = v9.CustomActuatorNodeConfigType
 	// CustomStaticNodeConfigType is the configuration for user-defined static symbols.
 	CustomStaticNodeConfigType NodeConfigType = v9.CustomStaticNodeConfigType
+	// GroupBoxNodeConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxNodeConfigType NodeConfigType = v9.GroupBoxNodeConfigType
 )
 
 type CapNodeConfig = v9.CapNodeConfig
@@ -294,6 +299,9 @@ type InputNodeConfig = v9.InputNodeConfig
 
 // LightNodeConfig is the configuration for indicator light symbols.
 type LightNodeConfig = v9.LightNodeConfig
+
+// LineNodeConfig is the configuration for straight line symbols.
+type LineNodeConfig = v9.LineNodeConfig
 
 // OffPageReferenceNodeConfig is the configuration for off-page reference symbols.
 type OffPageReferenceNodeConfig = v9.OffPageReferenceNodeConfig
@@ -394,6 +402,10 @@ type CustomActuatorNodeConfig = v9.CustomActuatorNodeConfig
 // CustomStaticNodeConfig is the configuration for user-defined static symbols.
 type CustomStaticNodeConfig = v9.CustomStaticNodeConfig
 
+// GroupBoxNodeConfig is the configuration for a group box, the symbol that bounds a set
+// of grouped symbols. Groups nest: a member may itself be a group.
+type GroupBoxNodeConfig = v9.GroupBoxNodeConfig
+
 // ElementConfig is the per-element configuration stored in the schematic configs map: a
 // node config or an edge config, discriminated by variant.
 type ElementConfig = v9.ElementConfig
@@ -438,6 +450,8 @@ const (
 	InputElementConfigType ElementConfigType = v9.InputElementConfigType
 	// LightElementConfigType is the configuration for indicator light symbols.
 	LightElementConfigType ElementConfigType = v9.LightElementConfigType
+	// LineElementConfigType is the configuration for straight line symbols.
+	LineElementConfigType ElementConfigType = v9.LineElementConfigType
 	// OffPageReferenceElementConfigType is the configuration for off-page reference
 	// symbols.
 	OffPageReferenceElementConfigType ElementConfigType = v9.OffPageReferenceElementConfigType
@@ -528,13 +542,16 @@ const (
 	// CustomStaticElementConfigType is the configuration for user-defined static
 	// symbols.
 	CustomStaticElementConfigType ElementConfigType = v9.CustomStaticElementConfigType
-	PipeElementConfigType         ElementConfigType = v9.PipeElementConfigType
-	ElectricElementConfigType     ElementConfigType = v9.ElectricElementConfigType
-	SecondaryElementConfigType    ElementConfigType = v9.SecondaryElementConfigType
-	JacketedElementConfigType     ElementConfigType = v9.JacketedElementConfigType
-	HydraulicElementConfigType    ElementConfigType = v9.HydraulicElementConfigType
-	PneumaticElementConfigType    ElementConfigType = v9.PneumaticElementConfigType
-	DataElementConfigType         ElementConfigType = v9.DataElementConfigType
+	// GroupBoxElementConfigType is the configuration for a group box, the symbol that
+	// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+	GroupBoxElementConfigType  ElementConfigType = v9.GroupBoxElementConfigType
+	PipeElementConfigType      ElementConfigType = v9.PipeElementConfigType
+	ElectricElementConfigType  ElementConfigType = v9.ElectricElementConfigType
+	SecondaryElementConfigType ElementConfigType = v9.SecondaryElementConfigType
+	JacketedElementConfigType  ElementConfigType = v9.JacketedElementConfigType
+	HydraulicElementConfigType ElementConfigType = v9.HydraulicElementConfigType
+	PneumaticElementConfigType ElementConfigType = v9.PneumaticElementConfigType
+	DataElementConfigType      ElementConfigType = v9.DataElementConfigType
 )
 
 type CapElementConfig = v9.CapElementConfig
@@ -580,6 +597,9 @@ type InputElementConfig = v9.InputElementConfig
 
 // LightElementConfig is the configuration for indicator light symbols.
 type LightElementConfig = v9.LightElementConfig
+
+// LineElementConfig is the configuration for straight line symbols.
+type LineElementConfig = v9.LineElementConfig
 
 // OffPageReferenceElementConfig is the configuration for off-page reference symbols.
 type OffPageReferenceElementConfig = v9.OffPageReferenceElementConfig
@@ -679,6 +699,10 @@ type CustomActuatorElementConfig = v9.CustomActuatorElementConfig
 
 // CustomStaticElementConfig is the configuration for user-defined static symbols.
 type CustomStaticElementConfig = v9.CustomStaticElementConfig
+
+// GroupBoxElementConfig is the configuration for a group box, the symbol that bounds a
+// set of grouped symbols. Groups nest: a member may itself be a group.
+type GroupBoxElementConfig = v9.GroupBoxElementConfig
 type PipeElementConfig = v9.PipeElementConfig
 type ElectricElementConfig = v9.ElectricElementConfig
 type SecondaryElementConfig = v9.SecondaryElementConfig
@@ -695,3 +719,16 @@ type Schematic = v9.Schematic
 // ScaleIndicatorConfig is a live fill indicator driven by a channel, rendered by
 // symbols that show a level against a numeric range.
 type ScaleIndicatorConfig = v9.ScaleIndicatorConfig
+
+// PageType names the kinds of page an off-page reference can link to.
+type PageType = v9.PageType
+
+const (
+	PageTypeSchematic PageType = v9.PageTypeSchematic
+	PageTypeLineplot  PageType = v9.PageTypeLineplot
+	PageTypeLog       PageType = v9.PageTypeLog
+	PageTypeTable     PageType = v9.PageTypeTable
+)
+
+// Page identifies a page an off-page reference links to.
+type Page = v9.Page

@@ -14,6 +14,14 @@
 }
 
 .console-view__views {
-    padding: 1.5rem 2rem;
+    padding: 1.5rem 1.25rem;
     flex-shrink: 0;
+}
+
+/* Anchors the list's fetch-more observer at the end of the strip. A zero-width child
+   never intersects its root, so it holds a hairline. */
+.console-view__sentinel {
+    flex-shrink: 0;
+    width: 1px;
+    align-self: stretch;
 }

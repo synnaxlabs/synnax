@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { Status, Synnax, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
+import { strings, TimeSpan } from "@synnaxlabs/x";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { useEffect, useRef } from "react";
 
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
@@ -19,6 +20,8 @@ import { Session } from "@/session";
 const BASE_LINK = `${Link.PREFIX}<cluster-key>`;
 
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
+
+const SETTLE_TIMEOUT = TimeSpan.seconds(30);
 
 // Deps are the runtime bindings useDeep relies on. They default to the live Tauri
 // deep-link plugin and runtime engine; tests inject fakes to drive links without Tauri.
@@ -34,6 +37,39 @@ const DEFAULT_DEPS: Deps = {
   onOpenURL: onOpenUrl,
 };
 
+// A link outlives the renders that turn its preconditions true, so callers park here
+// and an effect releases them when met transitions. A timeout rejects parked calls.
+const useWaitFor = (
+  met: boolean,
+  timeout?: TimeSpan,
+  timeoutMessage?: string,
+): (() => Promise<void>) => {
+  const metRef = useRef(met);
+  metRef.current = met;
+  const waitersRef = useRef<(() => void)[]>([]);
+  useEffect(() => {
+    if (!met) return;
+    waitersRef.current.forEach((resolve) => resolve());
+    waitersRef.current = [];
+  }, [met]);
+  return async (): Promise<void> => {
+    if (metRef.current) return;
+    await new Promise<void>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const release = (): void => {
+        clearTimeout(timer);
+        resolve();
+      };
+      if (timeout != null)
+        timer = setTimeout(() => {
+          waitersRef.current = waitersRef.current.filter((w) => w !== release);
+          reject(new Error(timeoutMessage));
+        }, timeout.milliseconds);
+      waitersRef.current.push(release);
+    });
+  };
+};
+
 export const useDeep = (
   connect: Link.Connect,
   handlers: Record<string, Link.Handler>,
@@ -44,6 +80,26 @@ export const useDeep = (
   if (deps.engine !== "tauri") return;
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
+  const store = Session.useStore();
+  const awaitSettled = useWaitFor(
+    Session.useSettled(),
+    SETTLE_TIMEOUT,
+    "Timed out waiting for the workspace to settle",
+  );
+  const waitProject = useWaitFor(Session.Project.useSelectIsAnySelected());
+  const awaitProject = async (): Promise<void> => {
+    dispatch(Session.Link.beginProjectWait());
+    try {
+      await waitProject();
+    } finally {
+      dispatch(Session.Link.endProjectWait());
+    }
+  };
+  const awaitPanel = useWaitFor(Session.Panel.useSelectSelected() != null);
+  // A parked link outlives the handlers and client of the render that received it.
+  // Synced refs resolve both at invoke time.
+  const handlersRef = useSyncedRef(handlers);
+  const clientRef = useSyncedRef(Synnax.use());
   const urlHandler = async (urls: string[]) => {
     try {
       dispatch(Drift.focusWindow({}));
@@ -56,13 +112,26 @@ export const useDeep = (
 
       const client = await connect(urlParts[0]);
       if (urlParts.length === 1) return;
+      const coreKey = Session.Core.selectSelectedKey(store.getState());
+
+      // A link opens only into a ready workspace.
+      await awaitSettled();
+      await awaitProject();
+      await awaitPanel();
+      // The workspace fills the panel cache lazily, so a selection the synchronizers
+      // repaired can stay cold. Retrieve it before placement.
+      const panelKey = Session.Panel.selectSelected(store.getState());
+      if (panelKey != null) await clientRef.current?.panels.retrieve(panelKey);
+      // A later link that switched Cores supersedes this one. The handler would run
+      // against the new Core's session, so drop it.
+      if (Session.Core.selectSelectedKey(store.getState()) !== coreKey) return;
 
       const resource = urlParts[1];
       const resourceKey = urlParts[2];
-      const handle = handlers[resource];
+      const handle = handlersRef.current[resource];
       if (handle == null)
         throw new Error(`Resource type "${resource}" is unknown to Synnax`);
-      await handle({ client, key: resourceKey });
+      await handle({ client: clientRef.current ?? client, key: resourceKey });
     } catch (e) {
       handleError(e, `Failed to open ${strings.naturalLanguageJoin(urls, "link")}`);
     }

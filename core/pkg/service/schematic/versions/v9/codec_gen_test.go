@@ -41,18 +41,16 @@ var (
 		Segments: []v9.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
 	}
 	fullyPopulatedStaticSymbolConfig = v9.StaticSymbolConfig{
-		LabeledConfig: v9.LabeledConfig{
-			Label: v9.LabelConfig{
-				Label:         "test_2",
-				Level:         text.Level("h1"),
-				Orientation:   spatial.Location("top"),
-				Direction:     spatial.Direction("x"),
-				MaxInlineSize: 6.5,
-				Align:         v9.FlexAlignment("start"),
-			},
-			Orientation: spatial.OuterLocation("top"),
-			Scale:       9.5,
+		Label: v9.LabelConfig{
+			Label:         "test_2",
+			Level:         text.Level("h1"),
+			Orientation:   spatial.Location("top"),
+			Direction:     spatial.Direction("x"),
+			MaxInlineSize: 6.5,
+			Align:         v9.FlexAlignment("start"),
 		},
+		Orientation: spatial.OuterLocation("top"),
+		Scale:       9.5,
 		Color: new(color.Color{
 			R: 12,
 			G: 13,
@@ -61,37 +59,33 @@ var (
 		}),
 	}
 	fullyPopulatedToggleSymbolConfig = v9.ToggleSymbolConfig{
-		ToggleConfig: v9.ToggleConfig{
-			LabeledConfig: v9.LabeledConfig{
-				Label: v9.LabelConfig{
-					Label:         "test_2",
-					Level:         text.Level("h1"),
-					Orientation:   spatial.Location("top"),
-					Direction:     spatial.Direction("x"),
-					MaxInlineSize: 6.5,
-					Align:         v9.FlexAlignment("start"),
-				},
-				Orientation: spatial.OuterLocation("top"),
-				Scale:       9.5,
-			},
-			StateChannel:   new(channel.Key(11)),
-			CommandChannel: new(channel.Key(12)),
-			Control: new(v9.ControlStateConfig{
-				Authority:       new(uint8(14)),
-				Hidden:          false,
-				ChipHidden:      true,
-				IndicatorHidden: false,
-				Orientation:     spatial.Location("top"),
-			}),
-			OnClickDelay:     18.5,
-			StalenessTimeout: 19.5,
-			StalenessColor: new(color.Color{
-				R: 22,
-				G: 23,
-				B: 24,
-				A: 24.5,
-			}),
+		Label: v9.LabelConfig{
+			Label:         "test_2",
+			Level:         text.Level("h1"),
+			Orientation:   spatial.Location("top"),
+			Direction:     spatial.Direction("x"),
+			MaxInlineSize: 6.5,
+			Align:         v9.FlexAlignment("start"),
 		},
+		Orientation:    spatial.OuterLocation("top"),
+		Scale:          9.5,
+		StateChannel:   new(channel.Key(11)),
+		CommandChannel: new(channel.Key(12)),
+		Control: new(v9.ControlStateConfig{
+			Authority:       new(uint8(14)),
+			Hidden:          false,
+			ChipHidden:      true,
+			IndicatorHidden: false,
+			Orientation:     spatial.Location("top"),
+		}),
+		OnClickDelay:     18.5,
+		StalenessTimeout: 19.5,
+		StalenessColor: new(color.Color{
+			R: 22,
+			G: 23,
+			B: 24,
+			A: 24.5,
+		}),
 		Color: new(color.Color{
 			R: 27,
 			G: 28,
@@ -112,20 +106,18 @@ var (
 		Scale:       9.5,
 	}
 	fullyPopulatedDummyToggleSymbolConfig = v9.DummyToggleSymbolConfig{
-		LabeledConfig: v9.LabeledConfig{
-			Label: v9.LabelConfig{
-				Label:         "test_2",
-				Level:         text.Level("h1"),
-				Orientation:   spatial.Location("top"),
-				Direction:     spatial.Direction("x"),
-				MaxInlineSize: 6.5,
-				Align:         v9.FlexAlignment("start"),
-			},
-			Orientation: spatial.OuterLocation("top"),
-			Scale:       9.5,
+		Label: v9.LabelConfig{
+			Label:         "test_2",
+			Level:         text.Level("h1"),
+			Orientation:   spatial.Location("top"),
+			Direction:     spatial.Direction("x"),
+			MaxInlineSize: 6.5,
+			Align:         v9.FlexAlignment("start"),
 		},
-		Enabled:   false,
-		Clickable: true,
+		Orientation: spatial.OuterLocation("top"),
+		Scale:       9.5,
+		Enabled:     false,
+		Clickable:   true,
 		Color: new(color.Color{
 			R: 14,
 			G: 15,
@@ -134,18 +126,16 @@ var (
 		}),
 	}
 	fullyPopulatedToggleConfig = v9.ToggleConfig{
-		LabeledConfig: v9.LabeledConfig{
-			Label: v9.LabelConfig{
-				Label:         "test_2",
-				Level:         text.Level("h1"),
-				Orientation:   spatial.Location("top"),
-				Direction:     spatial.Direction("x"),
-				MaxInlineSize: 6.5,
-				Align:         v9.FlexAlignment("start"),
-			},
-			Orientation: spatial.OuterLocation("top"),
-			Scale:       9.5,
+		Label: v9.LabelConfig{
+			Label:         "test_2",
+			Level:         text.Level("h1"),
+			Orientation:   spatial.Location("top"),
+			Direction:     spatial.Direction("x"),
+			MaxInlineSize: 6.5,
+			Align:         v9.FlexAlignment("start"),
 		},
+		Orientation:    spatial.OuterLocation("top"),
+		Scale:          9.5,
 		StateChannel:   new(channel.Key(11)),
 		CommandChannel: new(channel.Key(12)),
 		Control: new(v9.ControlStateConfig{
@@ -207,21 +197,19 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedDummyToggleSymbolConfig),
 			Entry("zero values", v9.DummyToggleSymbolConfig{
-				LabeledConfig: v9.LabeledConfig{
-					Label: v9.LabelConfig{
-						Label:         "",
-						Level:         text.Level(""),
-						Orientation:   spatial.Location(""),
-						Direction:     spatial.Direction(""),
-						MaxInlineSize: 0,
-						Align:         v9.FlexAlignment(""),
-					},
-					Orientation: spatial.OuterLocation(""),
-					Scale:       0,
+				Label: v9.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v9.FlexAlignment(""),
 				},
-				Enabled:   false,
-				Clickable: false,
-				Color:     nil,
+				Orientation: spatial.OuterLocation(""),
+				Scale:       0,
+				Enabled:     false,
+				Clickable:   false,
+				Color:       nil,
 			}),
 		)
 	})
@@ -341,7 +329,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("button variant", v9.ElementConfig{Variant: v9.ButtonElementConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
-				Size:           new(v9.ComponentSize("tiny")),
+				Size:           v9.ComponentSize("tiny"),
 				Level:          new(text.Level("h1")),
 				OnClickDelay:   3.5,
 				CommandChannel: new(channel.Key(5)),
@@ -444,6 +432,17 @@ var _ = Describe("Codec", func() {
 					A: 13.5,
 				}),
 			}}),
+			Entry("line variant", v9.ElementConfig{Variant: v9.LineElementConfig{
+				Color: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				Start:       spatial.XY{X: 7.5, Y: 8.5},
+				End:         spatial.XY{X: 10.5, Y: 11.5},
+				StrokeWidth: 12.5,
+			}}),
 			Entry("off_page_reference variant", v9.ElementConfig{Variant: v9.OffPageReferenceElementConfig{
 				Orientation: spatial.OuterLocation("top"),
 				Label: v9.LabelConfig{
@@ -460,7 +459,7 @@ var _ = Describe("Codec", func() {
 					B: 13,
 					A: 13.5,
 				}),
-				Page:                new(string("test_14")),
+				Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
 				DblClickNavDisabled: true,
 			}}),
 			Entry("polygon variant", v9.ElementConfig{Variant: v9.PolygonElementConfig{
@@ -517,51 +516,61 @@ var _ = Describe("Codec", func() {
 				}),
 			}}),
 			Entry("scale variant", v9.ElementConfig{Variant: v9.ScaleElementConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
-				Dimensions:    spatial.Dimensions{Width: 5.5, Height: 6.5},
+				Label: v9.LabelConfig{
+					Label:         "test_2",
+					Level:         text.Level("h1"),
+					Orientation:   spatial.Location("top"),
+					Direction:     spatial.Direction("x"),
+					MaxInlineSize: 6.5,
+					Align:         v9.FlexAlignment("start"),
+				},
+				Orientation: spatial.OuterLocation("top"),
+				Scale:       9.5,
+				Position:    new(spatial.XY{X: 11.5, Y: 12.5}),
+				Dimensions:  spatial.Dimensions{Width: 14.5, Height: 15.5},
 				Color: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 11.5,
+					R: 18,
+					G: 19,
+					B: 20,
+					A: 20.5,
 				}),
 				Indicator: v9.ScaleIndicatorConfig{
-					Channel:        new(channel.Key(14)),
-					RollingAverage: new(int32(15)),
+					Channel:        new(channel.Key(23)),
+					RollingAverage: new(int32(24)),
 					Bounds:         spatial.Bounds{},
 					Color: new(color.Color{
-						R: 18,
-						G: 19,
-						B: 20,
-						A: 20.5,
+						R: 27,
+						G: 28,
+						B: 29,
+						A: 29.5,
 					}),
 					AxisColor: new(color.Color{
-						R: 23,
-						G: 24,
-						B: 25,
-						A: 25.5,
+						R: 32,
+						G: 33,
+						B: 34,
+						A: 34.5,
 					}),
 					TextColor: new(color.Color{
-						R: 28,
-						G: 29,
-						B: 30,
-						A: 30.5,
+						R: 37,
+						G: 38,
+						B: 39,
+						A: 39.5,
 					}),
-					Units:            "test_31",
+					Units:            "test_40",
 					Notation:         notation.Notation("standard"),
-					Precision:        33.5,
-					FillHidden:       false,
-					CaretHidden:      true,
-					ScaleHidden:      false,
-					Side:             spatial.XLocation("left"),
+					Precision:        42.5,
+					FillHidden:       true,
+					CaretHidden:      false,
+					ScaleHidden:      true,
+					Side:             spatial.OuterLocation("top"),
+					CaretSide:        spatial.OuterLocation("top"),
 					Level:            text.Level("h1"),
-					StalenessTimeout: 39.5,
+					StalenessTimeout: 49.5,
 					StalenessColor: new(color.Color{
-						R: 42,
-						G: 43,
-						B: 44,
-						A: 44.5,
+						R: 52,
+						G: 53,
+						B: 54,
+						A: 54.5,
 					}),
 				},
 			}}),
@@ -919,14 +928,15 @@ var _ = Describe("Codec", func() {
 					FillHidden:       false,
 					CaretHidden:      true,
 					ScaleHidden:      false,
-					Side:             spatial.XLocation("left"),
+					Side:             spatial.OuterLocation("top"),
+					CaretSide:        spatial.OuterLocation("top"),
 					Level:            text.Level("h1"),
-					StalenessTimeout: 57.5,
+					StalenessTimeout: 58.5,
 					StalenessColor: new(color.Color{
-						R: 60,
-						G: 61,
-						B: 62,
-						A: 62.5,
+						R: 61,
+						G: 62,
+						B: 63,
+						A: 63.5,
 					}),
 				},
 			}}),
@@ -953,6 +963,7 @@ var _ = Describe("Codec", func() {
 				}),
 				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
 			}}),
+			Entry("group_box variant", v9.ElementConfig{Variant: v9.GroupBoxElementConfig{Members: []string{"test_1"}, Locked: false}}),
 			Entry("pipe variant", v9.ElementConfig{Variant: v9.PipeElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
 			Entry("electric variant", v9.ElementConfig{Variant: v9.ElectricElementConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
 			Entry("secondary variant", v9.ElementConfig{Variant: v9.SecondaryElementConfig{
@@ -1113,7 +1124,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("button variant", v9.NodeConfig{Variant: v9.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
-				Size:           new(v9.ComponentSize("tiny")),
+				Size:           v9.ComponentSize("tiny"),
 				Level:          new(text.Level("h1")),
 				OnClickDelay:   3.5,
 				CommandChannel: new(channel.Key(5)),
@@ -1216,6 +1227,17 @@ var _ = Describe("Codec", func() {
 					A: 13.5,
 				}),
 			}}),
+			Entry("line variant", v9.NodeConfig{Variant: v9.LineNodeConfig{
+				Color: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				Start:       spatial.XY{X: 7.5, Y: 8.5},
+				End:         spatial.XY{X: 10.5, Y: 11.5},
+				StrokeWidth: 12.5,
+			}}),
 			Entry("off_page_reference variant", v9.NodeConfig{Variant: v9.OffPageReferenceNodeConfig{
 				Orientation: spatial.OuterLocation("top"),
 				Label: v9.LabelConfig{
@@ -1232,7 +1254,7 @@ var _ = Describe("Codec", func() {
 					B: 13,
 					A: 13.5,
 				}),
-				Page:                new(string("test_14")),
+				Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
 				DblClickNavDisabled: true,
 			}}),
 			Entry("polygon variant", v9.NodeConfig{Variant: v9.PolygonNodeConfig{
@@ -1289,51 +1311,61 @@ var _ = Describe("Codec", func() {
 				}),
 			}}),
 			Entry("scale variant", v9.NodeConfig{Variant: v9.ScaleNodeConfig{
-				LabeledConfig: fullyPopulatedLabeledConfig,
-				Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
-				Dimensions:    spatial.Dimensions{Width: 5.5, Height: 6.5},
+				Label: v9.LabelConfig{
+					Label:         "test_2",
+					Level:         text.Level("h1"),
+					Orientation:   spatial.Location("top"),
+					Direction:     spatial.Direction("x"),
+					MaxInlineSize: 6.5,
+					Align:         v9.FlexAlignment("start"),
+				},
+				Orientation: spatial.OuterLocation("top"),
+				Scale:       9.5,
+				Position:    new(spatial.XY{X: 11.5, Y: 12.5}),
+				Dimensions:  spatial.Dimensions{Width: 14.5, Height: 15.5},
 				Color: new(color.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 11.5,
+					R: 18,
+					G: 19,
+					B: 20,
+					A: 20.5,
 				}),
 				Indicator: v9.ScaleIndicatorConfig{
-					Channel:        new(channel.Key(14)),
-					RollingAverage: new(int32(15)),
+					Channel:        new(channel.Key(23)),
+					RollingAverage: new(int32(24)),
 					Bounds:         spatial.Bounds{},
 					Color: new(color.Color{
-						R: 18,
-						G: 19,
-						B: 20,
-						A: 20.5,
+						R: 27,
+						G: 28,
+						B: 29,
+						A: 29.5,
 					}),
 					AxisColor: new(color.Color{
-						R: 23,
-						G: 24,
-						B: 25,
-						A: 25.5,
+						R: 32,
+						G: 33,
+						B: 34,
+						A: 34.5,
 					}),
 					TextColor: new(color.Color{
-						R: 28,
-						G: 29,
-						B: 30,
-						A: 30.5,
+						R: 37,
+						G: 38,
+						B: 39,
+						A: 39.5,
 					}),
-					Units:            "test_31",
+					Units:            "test_40",
 					Notation:         notation.Notation("standard"),
-					Precision:        33.5,
-					FillHidden:       false,
-					CaretHidden:      true,
-					ScaleHidden:      false,
-					Side:             spatial.XLocation("left"),
+					Precision:        42.5,
+					FillHidden:       true,
+					CaretHidden:      false,
+					ScaleHidden:      true,
+					Side:             spatial.OuterLocation("top"),
+					CaretSide:        spatial.OuterLocation("top"),
 					Level:            text.Level("h1"),
-					StalenessTimeout: 39.5,
+					StalenessTimeout: 49.5,
 					StalenessColor: new(color.Color{
-						R: 42,
-						G: 43,
-						B: 44,
-						A: 44.5,
+						R: 52,
+						G: 53,
+						B: 54,
+						A: 54.5,
 					}),
 				},
 			}}),
@@ -1669,14 +1701,15 @@ var _ = Describe("Codec", func() {
 					FillHidden:       false,
 					CaretHidden:      true,
 					ScaleHidden:      false,
-					Side:             spatial.XLocation("left"),
+					Side:             spatial.OuterLocation("top"),
+					CaretSide:        spatial.OuterLocation("top"),
 					Level:            text.Level("h1"),
-					StalenessTimeout: 57.5,
+					StalenessTimeout: 58.5,
 					StalenessColor: new(color.Color{
-						R: 60,
-						G: 61,
-						B: 62,
-						A: 62.5,
+						R: 61,
+						G: 62,
+						B: 63,
+						A: 63.5,
 					}),
 				},
 			}}),
@@ -1703,6 +1736,22 @@ var _ = Describe("Codec", func() {
 				}),
 				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
 			}}),
+			Entry("group_box variant", v9.NodeConfig{Variant: v9.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}),
+		)
+	})
+	Describe("Page", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v9.Page) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v9.Page
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v9.Page{Type: v9.PageType("schematic"), Key: "test_2"}),
+			Entry("zero values", v9.Page{Type: v9.PageType(""), Key: ""}),
 		)
 	})
 	Describe("Redline", func() {
@@ -1775,14 +1824,15 @@ var _ = Describe("Codec", func() {
 				FillHidden:       false,
 				CaretHidden:      true,
 				ScaleHidden:      false,
-				Side:             spatial.XLocation("left"),
+				Side:             spatial.OuterLocation("top"),
+				CaretSide:        spatial.OuterLocation("top"),
 				Level:            text.Level("h1"),
-				StalenessTimeout: 27.5,
+				StalenessTimeout: 28.5,
 				StalenessColor: new(color.Color{
-					R: 30,
-					G: 31,
-					B: 32,
-					A: 32.5,
+					R: 31,
+					G: 32,
+					B: 33,
+					A: 33.5,
 				}),
 			}),
 			Entry("zero values", v9.ScaleIndicatorConfig{
@@ -1798,7 +1848,8 @@ var _ = Describe("Codec", func() {
 				FillHidden:       false,
 				CaretHidden:      false,
 				ScaleHidden:      false,
-				Side:             spatial.XLocation(""),
+				Side:             spatial.OuterLocation(""),
+				CaretSide:        spatial.OuterLocation(""),
 				Level:            text.Level(""),
 				StalenessTimeout: 0,
 				StalenessColor:   nil,
@@ -1936,19 +1987,17 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedStaticSymbolConfig),
 			Entry("zero values", v9.StaticSymbolConfig{
-				LabeledConfig: v9.LabeledConfig{
-					Label: v9.LabelConfig{
-						Label:         "",
-						Level:         text.Level(""),
-						Orientation:   spatial.Location(""),
-						Direction:     spatial.Direction(""),
-						MaxInlineSize: 0,
-						Align:         v9.FlexAlignment(""),
-					},
-					Orientation: spatial.OuterLocation(""),
-					Scale:       0,
+				Label: v9.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v9.FlexAlignment(""),
 				},
-				Color: nil,
+				Orientation: spatial.OuterLocation(""),
+				Scale:       0,
+				Color:       nil,
 			}),
 		)
 	})
@@ -1965,18 +2014,16 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedToggleConfig),
 			Entry("zero values", v9.ToggleConfig{
-				LabeledConfig: v9.LabeledConfig{
-					Label: v9.LabelConfig{
-						Label:         "",
-						Level:         text.Level(""),
-						Orientation:   spatial.Location(""),
-						Direction:     spatial.Direction(""),
-						MaxInlineSize: 0,
-						Align:         v9.FlexAlignment(""),
-					},
-					Orientation: spatial.OuterLocation(""),
-					Scale:       0,
+				Label: v9.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v9.FlexAlignment(""),
 				},
+				Orientation:      spatial.OuterLocation(""),
+				Scale:            0,
 				StateChannel:     nil,
 				CommandChannel:   nil,
 				Control:          nil,
@@ -1999,27 +2046,23 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedToggleSymbolConfig),
 			Entry("zero values", v9.ToggleSymbolConfig{
-				ToggleConfig: v9.ToggleConfig{
-					LabeledConfig: v9.LabeledConfig{
-						Label: v9.LabelConfig{
-							Label:         "",
-							Level:         text.Level(""),
-							Orientation:   spatial.Location(""),
-							Direction:     spatial.Direction(""),
-							MaxInlineSize: 0,
-							Align:         v9.FlexAlignment(""),
-						},
-						Orientation: spatial.OuterLocation(""),
-						Scale:       0,
-					},
-					StateChannel:     nil,
-					CommandChannel:   nil,
-					Control:          nil,
-					OnClickDelay:     0,
-					StalenessTimeout: 0,
-					StalenessColor:   nil,
+				Label: v9.LabelConfig{
+					Label:         "",
+					Level:         text.Level(""),
+					Orientation:   spatial.Location(""),
+					Direction:     spatial.Direction(""),
+					MaxInlineSize: 0,
+					Align:         v9.FlexAlignment(""),
 				},
-				Color: nil,
+				Orientation:      spatial.OuterLocation(""),
+				Scale:            0,
+				StateChannel:     nil,
+				CommandChannel:   nil,
+				Control:          nil,
+				OnClickDelay:     0,
+				StalenessTimeout: 0,
+				StalenessColor:   nil,
+				Color:            nil,
 			}),
 		)
 	})
@@ -2157,6 +2200,23 @@ func BenchmarkEncodeDecodeNodeConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodePage(b *testing.B) {
+	seed := v9.Page{Type: v9.PageType("schematic"), Key: "test_2"}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v9.Page
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeRedline(b *testing.B) {
 	seed := v9.Redline{
 		Bounds: spatial.Bounds{},
@@ -2218,14 +2278,15 @@ func BenchmarkEncodeDecodeScaleIndicatorConfig(b *testing.B) {
 		FillHidden:       false,
 		CaretHidden:      true,
 		ScaleHidden:      false,
-		Side:             spatial.XLocation("left"),
+		Side:             spatial.OuterLocation("top"),
+		CaretSide:        spatial.OuterLocation("top"),
 		Level:            text.Level("h1"),
-		StalenessTimeout: 27.5,
+		StalenessTimeout: 28.5,
 		StalenessColor: new(color.Color{
-			R: 30,
-			G: 31,
-			B: 32,
-			A: 32.5,
+			R: 31,
+			G: 32,
+			B: 33,
+			A: 33.5,
 		}),
 	}
 	w := orc.NewWriter(0)
@@ -2453,21 +2514,19 @@ func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
 	}
 	{
 		seed := v9.DummyToggleSymbolConfig{
-			LabeledConfig: v9.LabeledConfig{
-				Label: v9.LabelConfig{
-					Label:         "",
-					Level:         text.Level(""),
-					Orientation:   spatial.Location(""),
-					Direction:     spatial.Direction(""),
-					MaxInlineSize: 0,
-					Align:         v9.FlexAlignment(""),
-				},
-				Orientation: spatial.OuterLocation(""),
-				Scale:       0,
+			Label: v9.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v9.FlexAlignment(""),
 			},
-			Enabled:   false,
-			Clickable: false,
-			Color:     nil,
+			Orientation: spatial.OuterLocation(""),
+			Scale:       0,
+			Enabled:     false,
+			Clickable:   false,
+			Color:       nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2845,7 +2904,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := v9.ElementConfig{Variant: v9.ButtonElementConfig{
 			LabeledConfig:  fullyPopulatedLabeledConfig,
-			Size:           new(v9.ComponentSize("tiny")),
+			Size:           v9.ComponentSize("tiny"),
 			Level:          new(text.Level("h1")),
 			OnClickDelay:   3.5,
 			CommandChannel: new(channel.Key(5)),
@@ -2983,6 +3042,24 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
+		seed := v9.ElementConfig{Variant: v9.LineElementConfig{
+			Color: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			Start:       spatial.XY{X: 7.5, Y: 8.5},
+			End:         spatial.XY{X: 10.5, Y: 11.5},
+			StrokeWidth: 12.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
 		seed := v9.ElementConfig{Variant: v9.OffPageReferenceElementConfig{
 			Orientation: spatial.OuterLocation("top"),
 			Label: v9.LabelConfig{
@@ -2999,7 +3076,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 13,
 				A: 13.5,
 			}),
-			Page:                new(string("test_14")),
+			Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
 			DblClickNavDisabled: true,
 		}}
 		w := orc.NewWriter(0)
@@ -3077,51 +3154,61 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := v9.ElementConfig{Variant: v9.ScaleElementConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
-			Dimensions:    spatial.Dimensions{Width: 5.5, Height: 6.5},
+			Label: v9.LabelConfig{
+				Label:         "test_2",
+				Level:         text.Level("h1"),
+				Orientation:   spatial.Location("top"),
+				Direction:     spatial.Direction("x"),
+				MaxInlineSize: 6.5,
+				Align:         v9.FlexAlignment("start"),
+			},
+			Orientation: spatial.OuterLocation("top"),
+			Scale:       9.5,
+			Position:    new(spatial.XY{X: 11.5, Y: 12.5}),
+			Dimensions:  spatial.Dimensions{Width: 14.5, Height: 15.5},
 			Color: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 11.5,
+				R: 18,
+				G: 19,
+				B: 20,
+				A: 20.5,
 			}),
 			Indicator: v9.ScaleIndicatorConfig{
-				Channel:        new(channel.Key(14)),
-				RollingAverage: new(int32(15)),
+				Channel:        new(channel.Key(23)),
+				RollingAverage: new(int32(24)),
 				Bounds:         spatial.Bounds{},
 				Color: new(color.Color{
-					R: 18,
-					G: 19,
-					B: 20,
-					A: 20.5,
+					R: 27,
+					G: 28,
+					B: 29,
+					A: 29.5,
 				}),
 				AxisColor: new(color.Color{
-					R: 23,
-					G: 24,
-					B: 25,
-					A: 25.5,
+					R: 32,
+					G: 33,
+					B: 34,
+					A: 34.5,
 				}),
 				TextColor: new(color.Color{
-					R: 28,
-					G: 29,
-					B: 30,
-					A: 30.5,
+					R: 37,
+					G: 38,
+					B: 39,
+					A: 39.5,
 				}),
-				Units:            "test_31",
+				Units:            "test_40",
 				Notation:         notation.Notation("standard"),
-				Precision:        33.5,
-				FillHidden:       false,
-				CaretHidden:      true,
-				ScaleHidden:      false,
-				Side:             spatial.XLocation("left"),
+				Precision:        42.5,
+				FillHidden:       true,
+				CaretHidden:      false,
+				ScaleHidden:      true,
+				Side:             spatial.OuterLocation("top"),
+				CaretSide:        spatial.OuterLocation("top"),
 				Level:            text.Level("h1"),
-				StalenessTimeout: 39.5,
+				StalenessTimeout: 49.5,
 				StalenessColor: new(color.Color{
-					R: 42,
-					G: 43,
-					B: 44,
-					A: 44.5,
+					R: 52,
+					G: 53,
+					B: 54,
+					A: 54.5,
 				}),
 			},
 		}}
@@ -3927,14 +4014,15 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				FillHidden:       false,
 				CaretHidden:      true,
 				ScaleHidden:      false,
-				Side:             spatial.XLocation("left"),
+				Side:             spatial.OuterLocation("top"),
+				CaretSide:        spatial.OuterLocation("top"),
 				Level:            text.Level("h1"),
-				StalenessTimeout: 57.5,
+				StalenessTimeout: 58.5,
 				StalenessColor: new(color.Color{
-					R: 60,
-					G: 61,
-					B: 62,
-					A: 62.5,
+					R: 61,
+					G: 62,
+					B: 63,
+					A: 63.5,
 				}),
 			},
 		}}
@@ -3982,6 +4070,14 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			}),
 			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
 		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v9.ElementConfig{Variant: v9.GroupBoxElementConfig{Members: []string{"test_1"}, Locked: false}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4438,7 +4534,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	{
 		seed := v9.NodeConfig{Variant: v9.ButtonNodeConfig{
 			LabeledConfig:  fullyPopulatedLabeledConfig,
-			Size:           new(v9.ComponentSize("tiny")),
+			Size:           v9.ComponentSize("tiny"),
 			Level:          new(text.Level("h1")),
 			OnClickDelay:   3.5,
 			CommandChannel: new(channel.Key(5)),
@@ -4576,6 +4672,24 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
+		seed := v9.NodeConfig{Variant: v9.LineNodeConfig{
+			Color: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			Start:       spatial.XY{X: 7.5, Y: 8.5},
+			End:         spatial.XY{X: 10.5, Y: 11.5},
+			StrokeWidth: 12.5,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
 		seed := v9.NodeConfig{Variant: v9.OffPageReferenceNodeConfig{
 			Orientation: spatial.OuterLocation("top"),
 			Label: v9.LabelConfig{
@@ -4592,7 +4706,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 13,
 				A: 13.5,
 			}),
-			Page:                new(string("test_14")),
+			Page:                new(v9.Page{Type: v9.PageType("schematic"), Key: "test_16"}),
 			DblClickNavDisabled: true,
 		}}
 		w := orc.NewWriter(0)
@@ -4670,51 +4784,61 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 	}
 	{
 		seed := v9.NodeConfig{Variant: v9.ScaleNodeConfig{
-			LabeledConfig: fullyPopulatedLabeledConfig,
-			Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
-			Dimensions:    spatial.Dimensions{Width: 5.5, Height: 6.5},
+			Label: v9.LabelConfig{
+				Label:         "test_2",
+				Level:         text.Level("h1"),
+				Orientation:   spatial.Location("top"),
+				Direction:     spatial.Direction("x"),
+				MaxInlineSize: 6.5,
+				Align:         v9.FlexAlignment("start"),
+			},
+			Orientation: spatial.OuterLocation("top"),
+			Scale:       9.5,
+			Position:    new(spatial.XY{X: 11.5, Y: 12.5}),
+			Dimensions:  spatial.Dimensions{Width: 14.5, Height: 15.5},
 			Color: new(color.Color{
-				R: 9,
-				G: 10,
-				B: 11,
-				A: 11.5,
+				R: 18,
+				G: 19,
+				B: 20,
+				A: 20.5,
 			}),
 			Indicator: v9.ScaleIndicatorConfig{
-				Channel:        new(channel.Key(14)),
-				RollingAverage: new(int32(15)),
+				Channel:        new(channel.Key(23)),
+				RollingAverage: new(int32(24)),
 				Bounds:         spatial.Bounds{},
 				Color: new(color.Color{
-					R: 18,
-					G: 19,
-					B: 20,
-					A: 20.5,
+					R: 27,
+					G: 28,
+					B: 29,
+					A: 29.5,
 				}),
 				AxisColor: new(color.Color{
-					R: 23,
-					G: 24,
-					B: 25,
-					A: 25.5,
+					R: 32,
+					G: 33,
+					B: 34,
+					A: 34.5,
 				}),
 				TextColor: new(color.Color{
-					R: 28,
-					G: 29,
-					B: 30,
-					A: 30.5,
+					R: 37,
+					G: 38,
+					B: 39,
+					A: 39.5,
 				}),
-				Units:            "test_31",
+				Units:            "test_40",
 				Notation:         notation.Notation("standard"),
-				Precision:        33.5,
-				FillHidden:       false,
-				CaretHidden:      true,
-				ScaleHidden:      false,
-				Side:             spatial.XLocation("left"),
+				Precision:        42.5,
+				FillHidden:       true,
+				CaretHidden:      false,
+				ScaleHidden:      true,
+				Side:             spatial.OuterLocation("top"),
+				CaretSide:        spatial.OuterLocation("top"),
 				Level:            text.Level("h1"),
-				StalenessTimeout: 39.5,
+				StalenessTimeout: 49.5,
 				StalenessColor: new(color.Color{
-					R: 42,
-					G: 43,
-					B: 44,
-					A: 44.5,
+					R: 52,
+					G: 53,
+					B: 54,
+					A: 54.5,
 				}),
 			},
 		}}
@@ -5498,14 +5622,15 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				FillHidden:       false,
 				CaretHidden:      true,
 				ScaleHidden:      false,
-				Side:             spatial.XLocation("left"),
+				Side:             spatial.OuterLocation("top"),
+				CaretSide:        spatial.OuterLocation("top"),
 				Level:            text.Level("h1"),
-				StalenessTimeout: 57.5,
+				StalenessTimeout: 58.5,
 				StalenessColor: new(color.Color{
-					R: 60,
-					G: 61,
-					B: 62,
-					A: 62.5,
+					R: 61,
+					G: 62,
+					B: 63,
+					A: 63.5,
 				}),
 			},
 		}}
@@ -5559,6 +5684,14 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		}
 		f.Add(w.Bytes())
 	}
+	{
+		seed := v9.NodeConfig{Variant: v9.GroupBoxNodeConfig{Members: []string{"test_1"}, Locked: false}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded v9.NodeConfig
 		r := orc.NewReader(nil)
@@ -5571,6 +5704,45 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v9.NodeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodePage(f *testing.F) {
+	{
+		seed := v9.Page{Type: v9.PageType("schematic"), Key: "test_2"}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v9.Page{Type: v9.PageType(""), Key: ""}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v9.Page
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v9.Page
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -5673,14 +5845,15 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			FillHidden:       false,
 			CaretHidden:      true,
 			ScaleHidden:      false,
-			Side:             spatial.XLocation("left"),
+			Side:             spatial.OuterLocation("top"),
+			CaretSide:        spatial.OuterLocation("top"),
 			Level:            text.Level("h1"),
-			StalenessTimeout: 27.5,
+			StalenessTimeout: 28.5,
 			StalenessColor: new(color.Color{
-				R: 30,
-				G: 31,
-				B: 32,
-				A: 32.5,
+				R: 31,
+				G: 32,
+				B: 33,
+				A: 33.5,
 			}),
 		}
 		w := orc.NewWriter(0)
@@ -5703,7 +5876,8 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			FillHidden:       false,
 			CaretHidden:      false,
 			ScaleHidden:      false,
-			Side:             spatial.XLocation(""),
+			Side:             spatial.OuterLocation(""),
+			CaretSide:        spatial.OuterLocation(""),
 			Level:            text.Level(""),
 			StalenessTimeout: 0,
 			StalenessColor:   nil,
@@ -5975,19 +6149,17 @@ func FuzzDecodeStaticSymbolConfig(f *testing.F) {
 	}
 	{
 		seed := v9.StaticSymbolConfig{
-			LabeledConfig: v9.LabeledConfig{
-				Label: v9.LabelConfig{
-					Label:         "",
-					Level:         text.Level(""),
-					Orientation:   spatial.Location(""),
-					Direction:     spatial.Direction(""),
-					MaxInlineSize: 0,
-					Align:         v9.FlexAlignment(""),
-				},
-				Orientation: spatial.OuterLocation(""),
-				Scale:       0,
+			Label: v9.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v9.FlexAlignment(""),
 			},
-			Color: nil,
+			Orientation: spatial.OuterLocation(""),
+			Scale:       0,
+			Color:       nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6028,18 +6200,16 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 	}
 	{
 		seed := v9.ToggleConfig{
-			LabeledConfig: v9.LabeledConfig{
-				Label: v9.LabelConfig{
-					Label:         "",
-					Level:         text.Level(""),
-					Orientation:   spatial.Location(""),
-					Direction:     spatial.Direction(""),
-					MaxInlineSize: 0,
-					Align:         v9.FlexAlignment(""),
-				},
-				Orientation: spatial.OuterLocation(""),
-				Scale:       0,
+			Label: v9.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v9.FlexAlignment(""),
 			},
+			Orientation:      spatial.OuterLocation(""),
+			Scale:            0,
 			StateChannel:     nil,
 			CommandChannel:   nil,
 			Control:          nil,
@@ -6086,27 +6256,23 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 	}
 	{
 		seed := v9.ToggleSymbolConfig{
-			ToggleConfig: v9.ToggleConfig{
-				LabeledConfig: v9.LabeledConfig{
-					Label: v9.LabelConfig{
-						Label:         "",
-						Level:         text.Level(""),
-						Orientation:   spatial.Location(""),
-						Direction:     spatial.Direction(""),
-						MaxInlineSize: 0,
-						Align:         v9.FlexAlignment(""),
-					},
-					Orientation: spatial.OuterLocation(""),
-					Scale:       0,
-				},
-				StateChannel:     nil,
-				CommandChannel:   nil,
-				Control:          nil,
-				OnClickDelay:     0,
-				StalenessTimeout: 0,
-				StalenessColor:   nil,
+			Label: v9.LabelConfig{
+				Label:         "",
+				Level:         text.Level(""),
+				Orientation:   spatial.Location(""),
+				Direction:     spatial.Direction(""),
+				MaxInlineSize: 0,
+				Align:         v9.FlexAlignment(""),
 			},
-			Color: nil,
+			Orientation:      spatial.OuterLocation(""),
+			Scale:            0,
+			StateChannel:     nil,
+			CommandChannel:   nil,
+			Control:          nil,
+			OnClickDelay:     0,
+			StalenessTimeout: 0,
+			StalenessColor:   nil,
+			Color:            nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

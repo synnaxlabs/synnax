@@ -13,9 +13,11 @@ import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
+import { HEIGHTS } from "@/component/size";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -47,8 +49,9 @@ export const StringDisplay = ({
     () => ({
       [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       width: inlineSize,
+      height: HEIGHTS[LEVEL_SIZES[level]],
     }),
-    [colorVal, inlineSize],
+    [colorVal, inlineSize, level],
   );
   const theme = Theming.use();
   const resolvedTextColor = stale

@@ -130,7 +130,8 @@ var _ = Describe("Ontology", Ordered, func() {
 							changesSlice = append(changesSlice, ch)
 						}
 						changes <- changesSlice
-					})
+					},
+				)
 				defer dc()
 				ch := &channel.Channel{
 					Name:     UniqueChannelName(),

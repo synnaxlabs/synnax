@@ -95,7 +95,7 @@ var _ = Describe("Config typing", func() {
 			"textColor": "#00ff00",
 		})).To(Equal(v9.StringDisplayElementConfig{
 			LabeledConfig:    labeled,
-			Level:            "p",
+			Level:            "h4",
 			InlineSize:       100,
 			StalenessTimeout: 5,
 			TextColor:        new(MustSucceed(color.FromHex("#00ff00"))),
@@ -125,6 +125,28 @@ var _ = Describe("Config typing", func() {
 		Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
 	})
 
+	// v8 stored an off-page reference's target as a bare schematic key; v9 stores a
+	// typed page reference, and an empty key meant no page.
+	It("Should lift a legacy page key into a schematic page reference", func(
+		ctx SpecContext,
+	) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant": "offPageReference",
+			"page":    "abc",
+		}).(v9.OffPageReferenceElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Page).To(HaveValue(Equal(v9.Page{Type: "schematic", Key: "abc"})))
+	})
+
+	It("Should drop an empty legacy page key", func(ctx SpecContext) {
+		cfg, ok := typed(ctx, msgpack.EncodedJSON{
+			"variant": "offPageReference",
+			"page":    "",
+		}).(v9.OffPageReferenceElementConfig)
+		Expect(ok).To(BeTrue())
+		Expect(cfg.Page).To(BeNil())
+	})
+
 	// A v8 config predates every schema default, so the lift is the only place the
 	// stored entry can pick them up.
 	It("Should fill schema defaults the stored config never carried", func(
@@ -133,7 +155,7 @@ var _ = Describe("Config typing", func() {
 		Expect(typed(ctx, msgpack.EncodedJSON{"variant": "value"})).To(
 			Equal(v9.ValueElementConfig{
 				LabeledConfig:    labeled,
-				Level:            "h5",
+				Level:            "h4",
 				InlineSize:       70,
 				StalenessTimeout: 5,
 				Notation:         "standard",

@@ -27,6 +27,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { ContextMenu } from "@/platform/context-menu";
@@ -60,7 +61,10 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   );
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
   const config = useMemo(
-    () => (spec == null ? null : Schematic.Node.createConfig(spec.key as Schematic.Node.Variant)),
+    () =>
+      spec == null
+        ? null
+        : Schematic.Node.createConfig(spec.key as Schematic.Node.Variant),
     [spec],
   );
   if (spec == null || config == null) return null;
@@ -294,7 +298,7 @@ const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   if (item == null) return null;
   const { Icon: GroupIcon } = item;
   // Static groups ship with the Console under non-UUID keys and have no server record.
-  const isRemote = group.keyZ.safeParse(itemKey).success;
+  const isRemote = z.validate(group.keyZ, itemKey);
   return (
     <Tabs.Tab itemKey={itemKey}>
       {GroupIcon != null && <GroupIcon />}
@@ -359,7 +363,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
     }, "Failed to create group");
   }, [updateAsync, rename, handleError, symbolGroupID]);
 
-  const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
+  const isRemoteGroup = z.validate(group.keyZ, selectedGroup);
 
   const handleCreateSymbol = useCallback(() => {
     if (!isRemoteGroup) return;
@@ -422,7 +426,7 @@ const GroupListContextMenu = ({
   keys,
 }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const firstKey = keys[0];
-  const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
+  const isRemoteGroup = z.validate(group.keyZ, firstKey);
   const item = List.useItem<group.Key, group.Group>(firstKey);
   const canRename = Access.useUpdateGranted(group.ontologyID(firstKey));
   const canDelete = Access.useDeleteGranted(group.ontologyID(firstKey));
@@ -511,7 +515,7 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
     itemKey,
   );
   if (item == null) return null;
-  const isRemote = schematic.symbol.keyZ.safeParse(itemKey).success;
+  const isRemote = z.validate(schematic.symbol.keyZ, itemKey);
   if (isRemote) return <RemoteListItem {...props} />;
   return <StaticListItem {...props} />;
 };
@@ -562,7 +566,7 @@ export const Symbols = (): ReactElement => {
       dispatch(Session.Schematic.setSelectedSymbolGroup({ key, group })),
     [dispatch, key],
   );
-  const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
+  const isRemoteGroup = z.validate(group.keyZ, groupKey);
 
   const [searchTerm, setSearchTerm] = useState("");
   const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});

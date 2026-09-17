@@ -143,8 +143,8 @@ func Union(schemas ...Schema) UnionZ {
 		panic("union must have at least 2 schemas")
 	}
 	u := UnionZ{
-		baseZ:   baseZ{dataType: UnionT},
-		schemas: schemas,
+		dataType: UnionT,
+		schemas:  schemas,
 	}
 	u.wrapper = u
 	return u

@@ -74,6 +74,7 @@ const Base = ({
   return (
     <List.Item
       className={CSS.cls(CSS.BE("range", "list-item"))}
+      aria-label={name}
       onSelect={handleSelect}
       justify="between"
       selected={selected}
@@ -126,7 +127,9 @@ const Base = ({
             </Tag.Tags>
           )}
           {showTimeRange && (
-            <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
+            <Telem.Text.TimeRange level="small" role="group" aria-label="Time range">
+              {timeRange}
+            </Telem.Text.TimeRange>
           )}
           {showFavorite && <Range.FavoriteButton range={item} reveal />}
         </Flex.Box>

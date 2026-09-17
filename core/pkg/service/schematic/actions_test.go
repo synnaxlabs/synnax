@@ -80,6 +80,16 @@ func edge(key, srcNode, srcParam, tgtNode, tgtParam string) schematic.Edge {
 	}
 }
 
+// groupCfg constructs a typed group box config listing the given members.
+func groupCfg(members ...string) schematic.ElementConfig {
+	if members == nil {
+		members = []string{}
+	}
+	return schematic.ElementConfig{
+		Variant: schematic.GroupBoxElementConfig{Members: members},
+	}
+}
+
 var _ = Describe("Reducer", func() {
 	Describe("SetNodePosition", func() {
 		It("Should move the matching node to the new position", func() {
@@ -262,6 +272,163 @@ var _ = Describe("Reducer", func() {
 			)
 			Expect(out.Nodes).To(Equal(state.Nodes))
 			Expect(out.Configs).To(Equal(state.Configs))
+		})
+	})
+
+	Describe("RemoveNode group member cascade", func() {
+		removeNode := func(state schematic.Schematic, key string) schematic.Schematic {
+			GinkgoHelper()
+			return MustSucceed(
+				schematic.Reduce(
+					state,
+					schematic.NewRemoveNodeAction(
+						schematic.RemoveNodePayload{Key: key},
+					),
+				),
+			)
+		}
+		DescribeTable("splicing",
+			func(
+				nodes []schematic.Node,
+				configs, expected map[string]schematic.ElementConfig,
+				key string,
+			) {
+				out := removeNode(
+					schematic.Schematic{Nodes: nodes, Configs: configs},
+					key,
+				)
+				Expect(out.Configs).To(Equal(expected))
+			},
+			Entry("splices the removed member from its group",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "n2")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n2")},
+				"n1",
+			),
+			Entry(
+				"splices the key from every group that lists it",
+				[]schematic.Node{node("g1", 0, 0), node("g2", 0, 0), node("n1", 0, 0)},
+				map[string]schematic.ElementConfig{
+					"g1": groupCfg("n1", "a"),
+					"g2": groupCfg("b", "n1"),
+				},
+				map[string]schematic.ElementConfig{
+					"g1": groupCfg("a"),
+					"g2": groupCfg("b"),
+				},
+				"n1",
+			),
+			Entry("removes duplicate member entries",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "n2", "n1")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n2")},
+				"n1",
+			),
+			Entry(
+				"splices a removed group out of the outer group listing it",
+				[]schematic.Node{
+					node("outer", 0, 0),
+					node("inner", 0, 0),
+					node("m1", 0, 0),
+				},
+				map[string]schematic.ElementConfig{
+					"outer": groupCfg("inner", "x"),
+					"inner": groupCfg("m1"),
+				},
+				map[string]schematic.ElementConfig{"outer": groupCfg("x")},
+				"inner",
+			),
+			Entry("leaves a former member's config untouched when its group is removed",
+				[]schematic.Node{node("g1", 0, 0), node("m1", 0, 0)},
+				map[string]schematic.ElementConfig{
+					"g1": groupCfg("m1"),
+					"m1": tankCfg("Pump", ""),
+				},
+				map[string]schematic.ElementConfig{"m1": tankCfg("Pump", "")},
+				"g1",
+			),
+			Entry("only splices the direct group in a nested chain",
+				[]schematic.Node{
+					node("outer", 0, 0),
+					node("mid", 0, 0),
+					node("inner", 0, 0),
+					node("n1", 0, 0),
+				},
+				map[string]schematic.ElementConfig{
+					"outer": groupCfg("mid"),
+					"mid":   groupCfg("inner"),
+					"inner": groupCfg("n1", "n2"),
+				},
+				map[string]schematic.ElementConfig{
+					"outer": groupCfg("mid"),
+					"mid":   groupCfg("inner"),
+					"inner": groupCfg("n2"),
+				},
+				"n1",
+			),
+			Entry("preserves other group config fields",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]schematic.ElementConfig{
+					"g1": {Variant: schematic.GroupBoxElementConfig{
+						Members: []string{"n1", "n2"},
+						Locked:  true,
+					}},
+				},
+				map[string]schematic.ElementConfig{
+					"g1": {Variant: schematic.GroupBoxElementConfig{
+						Members: []string{"n2"},
+						Locked:  true,
+					}},
+				},
+				"n1",
+			),
+			Entry("leaves groups untouched when the removed node is in no group",
+				[]schematic.Node{node("g1", 0, 0), node("loose", 5, 5)},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1")},
+				"loose",
+			),
+			Entry("leaves an empty members list untouched",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]schematic.ElementConfig{"g1": groupCfg()},
+				map[string]schematic.ElementConfig{"g1": groupCfg()},
+				"n1",
+			),
+			Entry("does not cascade on a no-op removal, even for a listed key",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "ghost")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "ghost")},
+				"ghost",
+			),
+			Entry("drops a self-listing group's config with the node",
+				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
+				map[string]schematic.ElementConfig{
+					"g1": groupCfg("g1", "n1"),
+					"n1": tankCfg("Pump", ""),
+				},
+				map[string]schematic.ElementConfig{"n1": tankCfg("Pump", "")},
+				"g1",
+			),
+		)
+		It("Should not panic when the schematic has no configs", func() {
+			out := removeNode(
+				schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}},
+				"n1",
+			)
+			Expect(out.Nodes).To(BeEmpty())
+			Expect(out.Configs).To(BeEmpty())
+		})
+		It("Should splice a membership cycle when one side is removed", func() {
+			out := removeNode(schematic.Schematic{
+				Nodes: []schematic.Node{node("g1", 0, 0), node("g2", 0, 0)},
+				Configs: map[string]schematic.ElementConfig{
+					"g1": groupCfg("g2"),
+					"g2": groupCfg("g1"),
+				},
+			}, "g1")
+			Expect(out.Configs).To(
+				Equal(map[string]schematic.ElementConfig{"g2": groupCfg()}),
+			)
 		})
 	})
 

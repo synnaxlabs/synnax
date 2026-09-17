@@ -15,6 +15,7 @@ import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
 import { Button as BaseButton } from "@/vis/button";
 
@@ -66,11 +67,18 @@ export const ButtonForm = (): ReactElement => (
       <Tabs.Tab itemKey="control">Control</Tabs.Tab>
     </Tabs.Selector>
     <Tabs.Content itemKey="style">
-      <Form.StyleForm
-        omit={["align", "maxInlineSize"]}
-        hideInnerOrientation
-        hideOuterOrientation
-      />
+      <Form.Wrapper x>
+        <Flex.Box y align="stretch" grow gap="small">
+          <Label.Form
+            path="label"
+            omit={["align", "maxInlineSize", "level", "direction"]}
+          />
+          <Flex.Box x>
+            <Form.ColorField path="color" />
+            <Form.SizeField defaultValue="medium" />
+          </Flex.Box>
+        </Flex.Box>
+      </Form.Wrapper>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <ButtonTelemForm path="" />

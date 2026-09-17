@@ -230,3 +230,20 @@ func segProp(spec any, segment, prop string) (any, bool) {
 	}
 	return v, true
 }
+
+// normalizePage lifts an off-page reference's legacy page, a bare schematic key, into
+// the typed page reference. An empty key meant no page.
+func normalizePage(cfg map[string]any) {
+	if cfg["variant"] != "off_page_reference" {
+		return
+	}
+	key, ok := cfg["page"].(string)
+	if !ok {
+		return
+	}
+	if key == "" {
+		delete(cfg, "page")
+		return
+	}
+	cfg["page"] = map[string]any{"type": "schematic", "key": key}
+}

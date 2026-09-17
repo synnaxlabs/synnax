@@ -155,7 +155,8 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 					if defaultGroupName(f) == "" {
 						vd.DefaultFills = append(
 							vd.DefaultFills,
-							goDefaultFills(f, data)...)
+							goDefaultFills(f, data)...,
+						)
 					}
 					if validateSkip(f, data) {
 						continue
@@ -165,7 +166,8 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 					}
 					vd.ConstraintChecks = append(
 						vd.ConstraintChecks,
-						goConstraintChecks(f, data)...)
+						goConstraintChecks(f, data)...,
+					)
 				}
 				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
 			}

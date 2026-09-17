@@ -6,7 +6,6 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
@@ -28,7 +27,8 @@ export const Symbol = ({
     level={labelConfig.level}
     orientation={orientation}
     color={color}
-    linked={page != null && page.length > 0}
+    linked={page != null && page.key.length > 0}
+    pageType={page?.type}
     title={offPageReferenceTooltip(page, dblClickNavDisabled)}
   />
 );

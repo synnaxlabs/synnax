@@ -93,7 +93,8 @@ type (
 
 func (d Digest) Operation() Operation {
 	return Operation{
-		Change:      xkv.Change{Key: d.Key, Variant: d.Variant},
+		Key:         d.Key,
+		Variant:     d.Variant,
 		Version:     d.Version,
 		Leaseholder: d.Leaseholder,
 	}

@@ -12,6 +12,7 @@ from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel
+from websockets.protocol import State
 
 import freighter.exceptions
 from freighter.context import Context
@@ -263,3 +264,16 @@ class TestSyncWebsocket:
             msg = stream.receive()
             assert msg.id == 4201
             assert msg.message == "the key to the universe"
+
+    def test_connection_closed_after_server_close(
+        self, sync_client: WebsocketClient
+    ) -> None:
+        """Should open the connection on stream and close it once the server closes."""
+        stream = sync_client.stream("/echo", Message, Message)
+        state = stream._internal.state
+        assert state is State.OPEN
+        stream.close_send()
+        with pytest.raises(freighter.EOF):
+            stream.receive()
+        state = stream._internal.state
+        assert state is State.CLOSED

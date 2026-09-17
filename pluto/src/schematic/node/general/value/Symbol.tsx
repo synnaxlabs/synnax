@@ -11,17 +11,18 @@ import { type schematic } from "@synnaxlabs/client";
 import { box, scale, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
+import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import * as CommonTelem from "@/schematic/node/common/telem";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);
-const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
+const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
+const VALUE_BACKGROUND_SHIFT = xy.construct(2, 2);
 
 export const Symbol = ({
   nodeKey,
@@ -45,8 +46,7 @@ export const Symbol = ({
     redline,
   },
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
-  const font = Theming.useTypography(level);
-  const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
+  const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
   const t = useMemo(
     () => CommonTelem.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],

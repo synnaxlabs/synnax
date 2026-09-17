@@ -356,7 +356,7 @@ NodeConfig union on variant {
         @doc value "is the configuration for box annotation symbols."
     }
     button extends LabeledConfig {
-        size            ComponentSize?      {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the button."
         }
         level           text.Level?         {
@@ -445,7 +445,7 @@ NodeConfig union on variant {
         @doc value "is the configuration for gauge symbols."
     }
     input extends LabeledConfig {
-        size            ComponentSize = ComponentSizeSmall {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the input."
         }
         command_channel channel.Key?        {
@@ -487,6 +487,22 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for indicator light symbols."
     }
+    line {
+        color        color.Color? {
+            @doc value "is the stroke color of the line."
+        }
+        start        spatial.XY = { x = 0, y = 0 } {
+            @doc value "is the first endpoint, offset from the node position."
+        }
+        end          spatial.XY = { x = 100, y = 0 } {
+            @doc value "is the second endpoint, offset from the node position."
+        }
+        stroke_width float64 = 2 {
+            @doc value "is the stroke width of the line in pixels."
+        }
+
+        @doc value "is the configuration for straight line symbols."
+    }
     off_page_reference {
         orientation            spatial.OuterLocation = spatial.OuterLocationRight {
             @doc value "is the direction the reference arrow points."
@@ -497,11 +513,11 @@ NodeConfig union on variant {
         color                  color.Color?          {
             @doc value "is the fill color of the reference."
         }
-        page                   string?               {
-            @doc value "is the key of the schematic this reference links to."
+        page                   Page?                 {
+            @doc value "is the page this reference links to."
         }
         dbl_click_nav_disabled bool = false {
-            @doc value "stops double-clicking from navigating to the linked schematic."
+            @doc value "stops double-clicking from navigating to the linked page."
         }
 
         @doc value "is the configuration for off-page reference symbols."
@@ -532,7 +548,7 @@ NodeConfig union on variant {
         @doc value "is the configuration for polygon annotation symbols."
     }
     select extends LabeledConfig {
-        size            ComponentSize = ComponentSizeSmall {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the select."
         }
         command_channel channel.Key?        {
@@ -556,27 +572,42 @@ NodeConfig union on variant {
 
         @doc value "is the configuration for select symbols."
     }
-    scale extends LabeledConfig {
-        position   spatial.XY?          {
+    scale {
+        label       LabelConfig = {} {
+            @doc value "is the symbol's label configuration."
+        }
+        orientation spatial.OuterLocation = spatial.OuterLocationTop {
+            @doc value """
+                is the axis the bar fills along: top for vertical, right for horizontal.
+                Any other value reads as vertical.
+            """
+        }
+        scale       float64 = 1 {
+            @doc value "is the rendered scale multiplier of the symbol."
+        }
+        position    spatial.XY?           {
             @doc value "is the offset of the scale contents within the symbol."
         }
-        dimensions spatial.Dimensions = { width = 60, height = 160 } {
-            @doc value "is the rendered size of the scale in pixels."
+        dimensions  spatial.Dimensions = { width = 34, height = 160 } {
+            @doc value """
+                is the size of the bar alone in pixels. The tick gutter beside it adds
+                to the rendered size.
+            """
         }
-        color      color.Color?         {
+        color       color.Color?          {
             @doc value """
                 is the color of the fill, which is what the symbol reads as. The toolbar
                 recolors a selection through this field.
             """
         }
-        indicator  ScaleIndicatorConfig = {} {
+        indicator   ScaleIndicatorConfig = {} {
             @doc value "is the live indicator the scale renders."
         }
 
         @doc value "is the configuration for standalone scale symbols."
     }
     setpoint extends LabeledConfig {
-        size            ComponentSize = ComponentSizeSmall {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the setpoint."
         }
         command_channel channel.Key?        {
@@ -640,7 +671,7 @@ NodeConfig union on variant {
         channel           channel.Key? {
             @doc value "is the channel whose string value the symbol displays."
         }
-        level             text.Level = text.LevelP {
+        level             text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed text."
         }
         staleness_timeout float64 = 5 {
@@ -705,7 +736,7 @@ NodeConfig union on variant {
         rolling_average   int32?             {
             @doc value "is the sample window for rolling-average smoothing."
         }
-        level             text.Level = text.LevelH5 {
+        level             text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."
         }
         precision         float64 = 2 {
@@ -833,7 +864,7 @@ NodeConfig union on variant {
         fill             ScaleIndicatorConfig = {
             caret_hidden = true,
             scale_hidden = true,
-            side = spatial.XLocationLeft
+            side = spatial.OuterLocationLeft
         } {
             @doc value """
                 is the live fill level drawn inside the tank. A tank without one renders
@@ -879,6 +910,19 @@ NodeConfig union on variant {
         }
 
         @doc value "is the configuration for user-defined static symbols."
+    }
+    group_box {
+        members string[] = [] {
+            @doc value "lists the keys of the symbols the group contains."
+        }
+        locked  bool = false {
+            @doc value "pins the group and its members in place."
+        }
+
+        @doc value """
+            is the configuration for a group box, the symbol that bounds a set of
+            grouped symbols. Groups nest: a member may itself be a group.
+        """
     }
 
     @doc value  """
@@ -940,7 +984,7 @@ ElementConfig union on variant {
         @doc value "is the configuration for box annotation symbols."
     }
     button extends LabeledConfig {
-        size            ComponentSize?      {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the button."
         }
         level           text.Level?         {
@@ -1029,7 +1073,7 @@ ElementConfig union on variant {
         @doc value "is the configuration for gauge symbols."
     }
     input extends LabeledConfig {
-        size            ComponentSize = ComponentSizeSmall {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the input."
         }
         command_channel channel.Key?        {
@@ -1071,6 +1115,22 @@ ElementConfig union on variant {
 
         @doc value "is the configuration for indicator light symbols."
     }
+    line {
+        color        color.Color? {
+            @doc value "is the stroke color of the line."
+        }
+        start        spatial.XY = { x = 0, y = 0 } {
+            @doc value "is the first endpoint, offset from the node position."
+        }
+        end          spatial.XY = { x = 100, y = 0 } {
+            @doc value "is the second endpoint, offset from the node position."
+        }
+        stroke_width float64 = 2 {
+            @doc value "is the stroke width of the line in pixels."
+        }
+
+        @doc value "is the configuration for straight line symbols."
+    }
     off_page_reference {
         orientation            spatial.OuterLocation = spatial.OuterLocationRight {
             @doc value "is the direction the reference arrow points."
@@ -1081,11 +1141,11 @@ ElementConfig union on variant {
         color                  color.Color?          {
             @doc value "is the fill color of the reference."
         }
-        page                   string?               {
-            @doc value "is the key of the schematic this reference links to."
+        page                   Page?                 {
+            @doc value "is the page this reference links to."
         }
         dbl_click_nav_disabled bool = false {
-            @doc value "stops double-clicking from navigating to the linked schematic."
+            @doc value "stops double-clicking from navigating to the linked page."
         }
 
         @doc value "is the configuration for off-page reference symbols."
@@ -1116,7 +1176,7 @@ ElementConfig union on variant {
         @doc value "is the configuration for polygon annotation symbols."
     }
     select extends LabeledConfig {
-        size            ComponentSize = ComponentSizeSmall {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the select."
         }
         command_channel channel.Key?        {
@@ -1140,27 +1200,42 @@ ElementConfig union on variant {
 
         @doc value "is the configuration for select symbols."
     }
-    scale extends LabeledConfig {
-        position   spatial.XY?          {
+    scale {
+        label       LabelConfig = {} {
+            @doc value "is the symbol's label configuration."
+        }
+        orientation spatial.OuterLocation = spatial.OuterLocationTop {
+            @doc value """
+                is the axis the bar fills along: top for vertical, right for horizontal.
+                Any other value reads as vertical.
+            """
+        }
+        scale       float64 = 1 {
+            @doc value "is the rendered scale multiplier of the symbol."
+        }
+        position    spatial.XY?           {
             @doc value "is the offset of the scale contents within the symbol."
         }
-        dimensions spatial.Dimensions = { width = 60, height = 160 } {
-            @doc value "is the rendered size of the scale in pixels."
+        dimensions  spatial.Dimensions = { width = 34, height = 160 } {
+            @doc value """
+                is the size of the bar alone in pixels. The tick gutter beside it adds
+                to the rendered size.
+            """
         }
-        color      color.Color?         {
+        color       color.Color?          {
             @doc value """
                 is the color of the fill, which is what the symbol reads as. The toolbar
                 recolors a selection through this field.
             """
         }
-        indicator  ScaleIndicatorConfig = {} {
+        indicator   ScaleIndicatorConfig = {} {
             @doc value "is the live indicator the scale renders."
         }
 
         @doc value "is the configuration for standalone scale symbols."
     }
     setpoint extends LabeledConfig {
-        size            ComponentSize = ComponentSizeSmall {
+        size            ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the setpoint."
         }
         command_channel channel.Key?        {
@@ -1224,7 +1299,7 @@ ElementConfig union on variant {
         channel           channel.Key? {
             @doc value "is the channel whose string value the symbol displays."
         }
-        level             text.Level = text.LevelP {
+        level             text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed text."
         }
         staleness_timeout float64 = 5 {
@@ -1289,7 +1364,7 @@ ElementConfig union on variant {
         rolling_average   int32?             {
             @doc value "is the sample window for rolling-average smoothing."
         }
-        level             text.Level = text.LevelH5 {
+        level             text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."
         }
         precision         float64 = 2 {
@@ -1417,7 +1492,7 @@ ElementConfig union on variant {
         fill             ScaleIndicatorConfig = {
             caret_hidden = true,
             scale_hidden = true,
-            side = spatial.XLocationLeft
+            side = spatial.OuterLocationLeft
         } {
             @doc value """
                 is the live fill level drawn inside the tank. A tank without one renders
@@ -1461,6 +1536,19 @@ ElementConfig union on variant {
         }
 
         @doc value "is the configuration for user-defined static symbols."
+    }
+    group_box {
+        members string[] = [] {
+            @doc value "lists the keys of the symbols the group contains."
+        }
+        locked  bool = false {
+            @doc value "pins the group and its members in place."
+        }
+
+        @doc value """
+            is the configuration for a group box, the symbol that bounds a set of
+            grouped symbols. Groups nest: a member may itself be a group.
+        """
     }
     pipe                               SegmentedEdgeConfig
     electric                           SegmentedEdgeConfig
@@ -1588,22 +1676,22 @@ Schematic struct {
 }
 
 ScaleIndicatorConfig struct {
-    channel           channel.Key?      {
+    channel           channel.Key?          {
         @doc value "is the channel whose value drives the indicator."
     }
-    rolling_average   int32?            {
+    rolling_average   int32?                {
         @doc value "is the sample window for rolling-average smoothing."
     }
     bounds            spatial.Bounds = { lower = 0, upper = 100 } {
         @doc value "is the numeric range the indicator maps onto its extent."
     }
-    color             color.Color?      {
+    color             color.Color?          {
         @doc value "is the color of the filled portion."
     }
-    axis_color        color.Color?      {
+    axis_color        color.Color?          {
         @doc value "is the color of the scale axis and its ticks."
     }
-    text_color        color.Color?      {
+    text_color        color.Color?          {
         @doc value "is the color of the tick labels."
     }
     units             string = "" {
@@ -1624,8 +1712,11 @@ ScaleIndicatorConfig struct {
     scale_hidden      bool = false {
         @doc value "hides the axis and its tick labels."
     }
-    side              spatial.XLocation = spatial.XLocationRight {
+    side              spatial.OuterLocation = spatial.OuterLocationRight {
         @doc value "is the edge the axis is drawn along."
+    }
+    caret_side        spatial.OuterLocation = spatial.OuterLocationRight {
+        @doc value "is the edge the value readout sits on."
     }
     level             text.Level = text.LevelSmall {
         @doc value "is the typography level of the tick labels."
@@ -1635,7 +1726,7 @@ ScaleIndicatorConfig struct {
             is the duration in seconds after which the value is considered stale.
         """
     }
-    staleness_color   color.Color?      {
+    staleness_color   color.Color?          {
         @doc value "is the color applied when the value is stale."
     }
 
@@ -1643,5 +1734,26 @@ ScaleIndicatorConfig struct {
         is a live fill indicator driven by a channel, rendered by symbols that show a
         level against a numeric range.
     """
+    @go marshal
+}
+
+PageType enum {
+    schematic = "schematic"
+    lineplot  = "lineplot"
+    log       = "log"
+    table     = "table"
+
+    @doc value "names the kinds of page an off-page reference can link to."
+}
+
+Page struct {
+    type PageType {
+        @doc value "is the kind of page referenced."
+    }
+    key  string   {
+        @doc value "is the key of the referenced page."
+    }
+
+    @doc value  "identifies a page an off-page reference links to."
     @go marshal
 }

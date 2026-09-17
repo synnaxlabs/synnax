@@ -15,6 +15,7 @@ import {
   type ControlPosition,
   NodeResizeControl,
   ResizeControlVariant,
+  useStore,
 } from "@xyflow/react";
 import {
   Children,
@@ -263,6 +264,8 @@ export const Grid: FC<GridProps> = ({
     reflowPane(nodeKey);
     prevEditable.current = editable;
   }
+  // Non-draggable symbols are grouped; their rotate and resize affordances hide too.
+  const locked = useStore((s) => s.nodeLookup.get(nodeKey)?.draggable === false);
   const [resizeCursor, setResizeCursor] = useState<string | null>(null);
   const resizeOverlayStyle = useMemo<CSSProperties>(
     () => ({ cursor: resizeCursor ?? undefined }),
@@ -272,7 +275,7 @@ export const Grid: FC<GridProps> = ({
   const handleRotate = () =>
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
   const resizeControls = useMemo(() => {
-    if (!editable || onResize == null) return null;
+    if (!editable || locked || onResize == null) return null;
     const controls =
       resizeHandles == null
         ? RESIZE_CONTROLS
@@ -291,7 +294,7 @@ export const Grid: FC<GridProps> = ({
         onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
       />
     ));
-  }, [editable, onResize, onResizeStart, keepAspectRatio, resizeHandles]);
+  }, [editable, locked, onResize, onResizeStart, keepAspectRatio, resizeHandles]);
   return (
     <>
       <Zone key="top" loc="top" editable={editable} nodeKey={nodeKey} items={items} />
@@ -313,7 +316,7 @@ export const Grid: FC<GridProps> = ({
       {allowCenter && (
         <Zone loc="center" editable={editable} nodeKey={nodeKey} items={items} />
       )}
-      {editable && allowRotate && (
+      {editable && !locked && allowRotate && (
         <Button.Button
           className={CSS.BE("grid", "rotate")}
           size="tiny"

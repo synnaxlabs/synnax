@@ -735,6 +735,90 @@ describe("fromException", () => {
   it("should leave the description empty without a cause or message", () => {
     expect(status.fromException(new Error("boom")).description).toBe("");
   });
+
+  describe("clone safety", () => {
+    it("should keep the original error instance when it is cloneable", () => {
+      const err = new Error("boom", { cause: new Error("root") });
+      expect(status.fromException(err).details.error).toBe(err);
+    });
+
+    it("should rebuild an error whose cause cannot be cloned", () => {
+      const err = new Error("boom", { cause: () => {} });
+      err.name = "SocketError";
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(stored.message).toBe("boom");
+      expect(stored.name).toBe("SocketError");
+      expect(stored.stack).toBe(err.stack);
+      expect(typeof stored.cause).toBe("string");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild an error carrying an un-cloneable own field", () => {
+      const err = new Error("boom");
+      (err as unknown as { cb: () => void }).cb = () => {};
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should preserve error causes as errors in the rebuilt chain", () => {
+      const root = new Error("root", { cause: () => {} });
+      const err = new Error("boom", { cause: root });
+      const stored = status.fromException(err).details.error;
+      expect(stored.cause).toBeInstanceOf(Error);
+      expect((stored.cause as Error).message).toBe("root");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should terminate on a cyclic cause chain", () => {
+      const err = new Error("boom");
+      err.cause = err;
+      (err as unknown as { cb: () => void }).cb = () => {};
+      const stored = status.fromException(err).details.error;
+      expect(stored.message).toBe("boom");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild an error carrying a throwing enumerable getter", () => {
+      const err = new Error("boom");
+      Object.defineProperty(err, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const stored = status.fromException(err).details.error;
+      // Passing err to expect would trip the getter while vitest inspects it.
+      expect(stored === err).toBe(false);
+      expect(stored.message).toBe("boom");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild when the cause carries a throwing enumerable getter", () => {
+      const cause: Record<string, unknown> = { ok: 1 };
+      Object.defineProperty(cause, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const err = new Error("boom", { cause });
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(typeof stored.cause).toBe("string");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild conservatively when the clone check budget is exhausted", () => {
+      const wide: Record<string, number> = {};
+      for (let i = 0; i < 100; i++) wide[`k${i}`] = i;
+      const err = new Error("boom", { cause: wide });
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+  });
 });
 
 describe("keepVariants", () => {

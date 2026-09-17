@@ -703,6 +703,10 @@ stage is active.
 `bool` `true`, a non-zero numeric, or a non-empty string). A transition to an
 already-active stage is a no-op, preventing re-entry.
 
+**Entry nodes**: Fire once per scope activation, and again on re-entry. A node is an
+entry node when nothing flows into it and it reads no channels: a literal, or a call
+taking only `{...}` inputs.
+
 ### Scope Entry Semantics
 
 When entering a stage or a sequence:
