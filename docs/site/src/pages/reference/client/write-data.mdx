@@ -417,7 +417,7 @@ await tempChannel.write(start, temperatures);
 
 </Client.Tabs>
 
-#### Index and Data Alignment
+#### Index and data alignment
 
 Notice how the two arrays are aligned using the common `start` timestamp. This tells
 Synnax that the first sample in the `temperatures` array is associated with the first
@@ -433,7 +433,7 @@ It's common to have multiple data channels that share the same index. For exampl
 weather station might record temperature, humidity, and pressure all at the same
 timestamps.
 
-#### Single Time Index
+#### Single time index
 
 When writing a single sample to multiple channels at the same instant, use a dictionary
 with scalar values.
@@ -474,7 +474,7 @@ await client.write(now, {
 
 </Client.Tabs>
 
-#### Multiple Time Indices
+#### Multiple time indices
 
 When writing multiple samples over time, use arrays for both the timestamps and data
 values.

@@ -40,7 +40,7 @@ Instead of returning a boolean from calls to `write`, writers will now directly 
 any errors encountered during a write operation. This removes the need for calls to the
 `error` method, so we've completely removed it.
 
-#### Migration Guide
+#### Migration guide
 
 To migrate to the new writer API:
 
@@ -107,7 +107,7 @@ lowering the memory consumption of the Core, Driver, and Console UI. The followi
 details are somewhat technical, and are provided for those curious about the inner
 workings of Synnax.
 
-#### Network Communication
+#### Network communication
 
 We've introduced a new telemetry encoding and decoding mechanism that reduces the amount
 of data transferred over the network. For small messages, such as digital write commands

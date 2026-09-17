@@ -32,12 +32,12 @@ Choose your operating system below to see the installation instructions:
 
 ### Prerequisites
 
-#### Supported Hardware and Software
+#### Supported hardware and software
 
 The Synnax Driver supports the cRIO-904x and cRIO-905x families of controllers running
 NI Linux Real-Time 2024 Q1 and later.
 
-#### NI-DAQmx Programming Mode
+#### NI-DAQmx programming mode
 
 Data acquisition hardware connected to the cRIO must be configured to use the NI-DAQmx
 real-time programming mode.
@@ -49,12 +49,12 @@ and the
 [NI-DAQmx on CompactRIO](https://www.ni.com/en/shop/compactrio/what-are-compactrio-controllers/what-is-compactrio-with-ni-daqmx-.html)
 guide.
 
-#### SSH Access
+#### SSH access
 
 The Driver is installed over an SSH connection to the cRIO. You can disable SSH after
 installation, but keeping it enabled makes updates and management easier.
 
-#### Network Access to a Synnax Core
+#### Network access to a Synnax Core
 
 The Driver must be able to reach a Synnax Core over the network. Make sure you have a
 [Core running](/reference/core/quick-start) and its connection parameters on hand.
@@ -362,7 +362,7 @@ Windows and macOS, run the Driver in the foreground with
 The `start` command starts the installed Driver service. With the `--standalone` flag,
 it runs the Driver in the foreground, which is the only mode on Windows and macOS.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver start
@@ -505,7 +505,7 @@ synnax-driver start --standalone
 The `stop` command stops the Driver service. If the Driver is running in the foreground,
 press Ctrl+C instead.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver stop
@@ -515,7 +515,7 @@ synnax-driver stop
 
 The `restart` command stops and then starts the Driver service.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver restart
@@ -526,7 +526,7 @@ synnax-driver restart
 The `login` command saves the connection parameters for a Synnax Core. On Linux, run it
 with `sudo`. If the Driver is already running, restart it to apply the new credentials.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver login
@@ -549,7 +549,7 @@ The `clear` command clears the persisted state file: the connection parameters s
 the `login` command and the cached rack identity. The next start creates a new rack. On
 Linux, run it with `sudo`.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver clear
@@ -559,7 +559,7 @@ synnax-driver clear
 
 The `status` command prints the Driver's status to the console.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver status
@@ -570,7 +570,7 @@ synnax-driver status
 The `uninstall` command removes the service. The binary and the `synnax` user are kept.
 On Windows and macOS, delete the binary instead.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver uninstall
@@ -580,7 +580,7 @@ synnax-driver uninstall
 
 The `logs` command streams the Driver's logs to the console until you press Ctrl+C.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver logs
@@ -590,7 +590,7 @@ synnax-driver logs
 
 The `version` command prints the Driver's version to the console.
 
-#### Example Usage
+#### Example usage
 
 ```bash
 synnax-driver version

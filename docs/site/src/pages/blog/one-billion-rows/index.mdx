@@ -102,7 +102,7 @@ the authors had different workloads and feature priorities in mind when building
 hardware sensor data. Unlike the other two databases, it is not designed for general
 purpose time series workloads, such as user analytics, log data, or financial tracking.
 
-#### Data Model
+#### Data model
 
 It follows a [channel](/reference/concepts/overview)-based data model, where every
 sensor, actuator, or data source has its own named bucket of data called a _channel_.
@@ -115,7 +115,7 @@ Synnax supports real-time streaming of data, much like you would find in a tool 
 This makes Synnax ideal for industrial applications requiring real-time control,
 monitoring, and data processing.
 
-#### Performance Characteristics
+#### Performance characteristics
 
 The Synnax storage engine,
 [Cesium](https://github.com/synnaxlabs/synnax/tree/main/cesium), is designed for high
@@ -136,7 +136,7 @@ critical environments such as firing rocket and jet engines.
 database built on top of PostgreSQL. Its flexibility allows it to serve a number of
 workloads including IoT, user analytics, and financial data.
 
-#### Data Model
+#### Data model
 
 Timescale uses a traditional,
 [relational](https://en.wikipedia.org/wiki/Relational_model) data model where each row
@@ -153,7 +153,7 @@ challenging. Timescale also requires knowledge of SQL to query data, which can b
 barrier for engineering teams that are familiar with scientific analysis tools like
 MATLAB and NumPy.
 
-#### Performance Characteristics
+#### Performance characteristics
 
 Timescale uses
 [hypertables](https://www.tigerdata.com/docs/use-timescale/latest/hypertables) to
@@ -169,7 +169,7 @@ users to quickly ingest and query data without needing to define a schema upfron
 also integrates well with popular analytics tools, such as
 [Grafana](https://grafana.com/).
 
-#### Data Model
+#### Data model
 
 InfluxDB uses a
 [tagset](https://docs.influxdata.com/influxdb3/cloud-serverless/write-data/best-practices/schema-design/)
@@ -1079,7 +1079,7 @@ Synnax is much closer to an object storage system than a traditional database. S
 engines like Timescale (Postgres) rely on a strategy calling _paging_ to organize writes
 on disk.
 
-#### Background - Paging, OLTP, and Concurrency Control
+#### Background - paging, OLTP, and concurrency control
 
 Data inside these databases is stored chunks called _pages_ that are between 4 kB and 16
 kB in size. These pages contain a certain number of rows. When accepting writes, the
@@ -1101,7 +1101,7 @@ time-series values), pages struggle for a few reasons:
    ensure ACID compliance is to use a write-ahead log (WAL). The WAL is a log of all the
    changes to the database. This means that I/O operations are repeated for each write.
 
-#### Individual Files for Each Channel - A Seemingly Terrible Idea
+#### Individual files for each channel - a seemingly terrible idea
 
 Synnax does not use traditional paging strategies. Instead, Synnax maintains an
 individual file for each channel in the database. At first glance, this seems like a
