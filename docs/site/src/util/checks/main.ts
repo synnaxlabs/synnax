@@ -20,13 +20,13 @@ import { preview } from "astro";
 import fs from "fs";
 import { styleText } from "util";
 
-import { type Check, type Context } from "./check.ts";
-import { crawlPages, enumerateRoutes, normalizeRoute } from "./crawl.ts";
-import { createFetcher } from "./fetch.ts";
-import { links } from "./links.ts";
-import { media } from "./media.ts";
-import { notes } from "./notes.ts";
-import { tabs } from "./tabs.ts";
+import { type Check, type Context } from "@/util/checks/check";
+import { crawlPages, enumerateRoutes, normalizeRoute } from "@/util/checks/crawl";
+import { createFetcher } from "@/util/checks/fetch";
+import { links } from "@/util/checks/links";
+import { media } from "@/util/checks/media";
+import { notes } from "@/util/checks/notes";
+import { tabs } from "@/util/checks/tabs";
 
 const PORT = 4399;
 // A trailing slash would defeat the fetcher's prefix-matched localhost bypass.

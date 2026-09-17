@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Check } from "./check.ts";
-import { locate } from "./crawl.ts";
-import { QUOTED, unescapeHTML } from "./html.ts";
+import { type Check } from "@/util/checks/check";
+import { locate } from "@/util/checks/crawl";
+import { QUOTED, unescapeHTML } from "@/util/checks/html";
 
 const VARIANTS = ["info", "warning", "error"];
 const DIV_OPEN = new RegExp(`<div\\b[^>]*\\sclass=${QUOTED}[^>]*>`, "g");
