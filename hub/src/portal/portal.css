@@ -1,0 +1,202 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.portal {
+    width: min(100% - 4rem, 96rem);
+    margin: 4rem auto 8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+.portal-nav {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: var(--pluto-border);
+}
+
+.portal-nav__link {
+    padding: 1rem 1.5rem;
+    color: var(--pluto-gray-l8);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.portal-nav__link--active {
+    color: var(--pluto-gray-l11);
+    border-bottom-color: var(--pluto-primary-z);
+}
+
+.portal-title {
+    margin: 0;
+}
+
+.portal-error {
+    margin: 0;
+    padding: 1.5rem 2rem;
+    border: var(--pluto-border);
+    border-color: var(--pluto-error-z);
+    border-radius: var(--pluto-border-radius);
+    color: var(--pluto-error-z);
+}
+
+.portal-notice {
+    margin: 0;
+    padding: 1.5rem 2rem;
+    border: var(--pluto-border);
+    border-color: var(--pluto-primary-z);
+    border-radius: var(--pluto-border-radius);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.portal-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.portal-section h2 {
+    margin: 0;
+}
+
+.portal-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.portal-table th,
+.portal-table td {
+    text-align: left;
+    padding: 1rem 1.5rem;
+    border-bottom: var(--pluto-border);
+    vertical-align: top;
+}
+
+.portal-table th {
+    color: var(--pluto-gray-l8);
+    font-weight: 500;
+}
+
+.portal-table code {
+    font-family: var(--pluto-code-font-family, "Geist Mono", monospace);
+    font-size: 0.9em;
+}
+
+.portal-fields {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 1rem 3rem;
+    margin: 0;
+}
+
+.portal-fields dt {
+    color: var(--pluto-gray-l8);
+}
+
+.portal-fields dd {
+    margin: 0;
+}
+
+.portal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    max-width: 60rem;
+}
+
+.portal-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.portal-form label > span {
+    color: var(--pluto-gray-l9);
+}
+
+.portal-form input,
+.portal-form select,
+.portal-form textarea {
+    font: inherit;
+    padding: 1rem 1.5rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l1);
+    color: var(--pluto-gray-l11);
+}
+
+.portal-form textarea {
+    min-height: 12rem;
+    font-family: var(--pluto-code-font-family, "Geist Mono", monospace);
+}
+
+.portal-form fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 2rem;
+}
+
+.portal-form fieldset label {
+    flex-direction: row;
+    align-items: center;
+}
+
+.portal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.portal-button {
+    font: inherit;
+    padding: 1rem 2rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l2);
+    color: var(--pluto-gray-l11);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+}
+
+.portal-button--primary {
+    background: var(--pluto-primary-z);
+    border-color: var(--pluto-primary-z);
+    color: var(--pluto-white);
+}
+
+.portal-button--danger {
+    color: var(--pluto-error-z);
+}
+
+.portal-muted {
+    color: var(--pluto-gray-l8);
+}
+
+.portal-hashes {
+    margin: 0;
+    padding: 1rem 1.5rem;
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-gray-l1);
+    font-family: var(--pluto-code-font-family, "Geist Mono", monospace);
+    font-size: 0.9em;
+    white-space: pre-wrap;
+    word-break: break-all;
+}

@@ -1,0 +1,63 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Root from "@/layouts/Root.astro";
+import type { Session } from "@/server/session";
+import "@/portal/portal.css";
+
+interface Props {
+    title: string;
+    session?: Session;
+    error?: string;
+}
+
+const { title, session, error } = Astro.props;
+const path = Astro.url.pathname;
+const tabs = [
+    { href: "/account", label: "Account" },
+    { href: "/licenses", label: "Licenses" },
+    ...(session?.staff === true ? [{ href: "/staff/licenses", label: "Staff" }] : []),
+];
+---
+
+<Root frontmatter={{ title }}>
+    <div class="portal">
+        {
+            session != null && (
+                <nav class="portal-nav" aria-label="Portal">
+                    {tabs.map((tab) => (
+                        <a
+                            href={tab.href}
+                            class:list={[
+                                "portal-nav__link",
+                                {
+                                    "portal-nav__link--active": path.startsWith(
+                                        tab.href,
+                                    ),
+                                },
+                            ]}
+                        >
+                            {tab.label}
+                        </a>
+                    ))}
+                </nav>
+            )
+        }
+        <h1 class="portal-title">{title}</h1>
+        {
+            error != null && error !== "" && (
+                <p class="portal-error" role="alert">
+                    {error}
+                </p>
+            )
+        }
+        <slot />
+    </div>
+</Root>

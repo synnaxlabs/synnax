@@ -1,5 +1,6 @@
 {
   "installCommand": "npx --yes pnpm@12.3.1 install --frozen-lockfile",
+  "crons": [{ "path": "/api/cron/expiry", "schedule": "0 9 * * *" }],
   "redirects": [
     {
       "source": "/guides/comparison/performance/one-billion-rows",

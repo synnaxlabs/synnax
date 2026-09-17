@@ -12,6 +12,7 @@ import { Logo } from "@synnaxlabs/media";
 import { Icon, Button, Flex } from "@synnaxlabs/pluto";
 import Search from "@/components/search/Search.astro";
 import { PageMobile } from "@/components/nav/Page";
+import { Account } from "@/components/account";
 import { fetchVersion } from "@/util/fetchVersion";
 const url = Astro.url.pathname;
 const version = await fetchVersion().catch(() => null);
@@ -71,6 +72,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <p class="version">{label}</p>
                     <Icon.Logo.Github />
                 </Button.Button>
+                <Account.Account client:only="react" />
                 <PageMobile client:only="react" currentPage={Astro.url.pathname} />
             </Flex.Box>
         </Flex.Box>
@@ -129,6 +131,10 @@ const label = version?.split(".").slice(0, -1).join(".");
             text-decoration: none;
             font-size: 2rem;
             font-weight: 500;
+        }
+
+        .account-button {
+            text-decoration: none;
         }
 
         .version-button {

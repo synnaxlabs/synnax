@@ -1,0 +1,201 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { desc, eq } from "drizzle-orm";
+import Portal from "@/portal/layouts/Portal.astro";
+import { requireStaff } from "@/portal/access";
+import { date, failure, load } from "@/portal/page";
+import { form } from "@/portal/respond";
+import { license, organization } from "@/server/db/schema";
+import { issue } from "@/server/license/issue";
+import { listAll } from "@/server/organization";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session } = loaded;
+
+let error: string | undefined;
+try {
+    requireStaff(session);
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+}
+
+let values: Record<string, string> = {};
+if (error == null && Astro.request.method === "POST") {
+    values = await form(Astro);
+    try {
+        const term = values.term === "perpetual" ? "perpetual" : "subscription";
+        const { key } = await issue(portal.store, {
+            organization: values.organization ?? "",
+            edition: "enterprise",
+            term,
+            nodes: Number(values.nodes),
+            channels: Number(values.channels || "0"),
+            label: (values.label ?? "").trim(),
+            expiresAt:
+                term === "subscription" && values.expiresAt
+                    ? new Date(`${values.expiresAt}T00:00:00Z`)
+                    : undefined,
+            maxVersion: values.maxVersion?.trim() || undefined,
+            actor: session.userID,
+            now: portal.now(),
+        });
+        return Astro.redirect(`/licenses/${key}`, 303);
+    } catch (err) {
+        const f = failure(err);
+        Astro.response.status = f.status;
+        error = f.message;
+    }
+}
+
+const organizations =
+    error == null || values.organization != null ? await listAll(portal.store) : [];
+const licenses = session.staff
+    ? await portal.store.query
+          .select({ license, organization })
+          .from(license)
+          .innerJoin(organization, eq(license.organization, organization.key))
+          .orderBy(desc(license.issuedAt))
+    : [];
+---
+
+<Portal title="Issue a license" session={session} error={error}>
+    {
+        session.staff && (
+            <>
+                <form method="post" class="portal-form">
+                    <label>
+                        <span>Organization</span>
+                        <select name="organization" required>
+                            {organizations.map((org) => (
+                                <option
+                                    value={org.key}
+                                    selected={org.key === values.organization}
+                                >
+                                    {org.name} ({org.kind})
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Label</span>
+                        <input name="label" required value={values.label ?? ""} />
+                    </label>
+                    <fieldset>
+                        <label>
+                            <input
+                                type="radio"
+                                name="term"
+                                value="subscription"
+                                checked={values.term !== "perpetual"}
+                            />
+                            <span>Subscription</span>
+                        </label>
+                        <label>
+                            <input
+                                type="radio"
+                                name="term"
+                                value="perpetual"
+                                checked={values.term === "perpetual"}
+                            />
+                            <span>Perpetual</span>
+                        </label>
+                    </fieldset>
+                    <label>
+                        <span>Nodes (machines that may activate)</span>
+                        <input
+                            type="number"
+                            name="nodes"
+                            min="1"
+                            required
+                            value={values.nodes ?? "1"}
+                        />
+                    </label>
+                    <label>
+                        <span>Channel cap per Core, 0 for unlimited</span>
+                        <input
+                            type="number"
+                            name="channels"
+                            min="0"
+                            value={values.channels ?? "0"}
+                        />
+                    </label>
+                    <label>
+                        <span>Expires (subscription only, UTC)</span>
+                        <input
+                            type="date"
+                            name="expiresAt"
+                            value={values.expiresAt ?? ""}
+                        />
+                    </label>
+                    <label>
+                        <span>
+                            Maximum Core minor version, like 0.62 (required on
+                            perpetual, optional fallback on subscription)
+                        </span>
+                        <input
+                            name="maxVersion"
+                            value={values.maxVersion ?? ""}
+                            placeholder="0.62"
+                        />
+                    </label>
+                    <div class="portal-actions">
+                        <button
+                            type="submit"
+                            class="portal-button portal-button--primary"
+                        >
+                            Issue
+                        </button>
+                    </div>
+                </form>
+                <section class="portal-section">
+                    <h2>All licenses</h2>
+                    <table class="portal-table">
+                        <thead>
+                            <tr>
+                                <th>Label</th>
+                                <th>Organization</th>
+                                <th>Term</th>
+                                <th>Nodes</th>
+                                <th>Issued</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {licenses.map(({ license: lic, organization: org }) => (
+                                <tr>
+                                    <td>
+                                        <a href={`/licenses/${lic.key}`}>
+                                            {lic.label || lic.key}
+                                        </a>
+                                    </td>
+                                    <td>{org.name}</td>
+                                    <td>
+                                        {lic.term === "perpetual"
+                                            ? `perpetual ≤ ${lic.maxVersion}`
+                                            : `until ${date(lic.expiresAt)}`}
+                                    </td>
+                                    <td>{lic.nodes}</td>
+                                    <td>{date(lic.issuedAt)}</td>
+                                    <td>
+                                        {lic.revokedAt == null ? "active" : "revoked"}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </section>
+            </>
+        )
+    }
+</Portal>

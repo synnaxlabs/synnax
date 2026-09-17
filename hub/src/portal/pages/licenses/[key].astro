@@ -1,0 +1,185 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Portal from "@/portal/layouts/Portal.astro";
+import { licenseFor } from "@/portal/access";
+import { date, failure, load, shortHash } from "@/portal/page";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session } = loaded;
+
+let error = Astro.url.searchParams.get("error") ?? undefined;
+let view: Awaited<ReturnType<typeof licenseFor>> | undefined;
+try {
+    view = await licenseFor(portal, session, Astro.params.key ?? "");
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+}
+const activated = Astro.url.searchParams.get("activated");
+const now = portal.now();
+const lic = view?.license;
+const revoked = lic?.revokedAt != null;
+const seats = view?.activations.filter((a) => a.releasedAt == null).length ?? 0;
+const expired = lic?.expiresAt != null && lic.expiresAt.getTime() <= now.getTime();
+const status = revoked
+    ? `Revoked ${date(lic?.revokedAt ?? null)}`
+    : expired
+      ? "Expired"
+      : "Active";
+---
+
+<Portal title={lic?.label || "License"} session={session} error={error}>
+    {
+        view != null && lic != null && (
+            <>
+                {activated != null && (
+                    <p class="portal-notice">
+                        <span>
+                            The machine is activated. Download its token and give it to
+                            the Core.
+                        </span>
+                        <a
+                            href={`/api/portal/activations/${activated}/token`}
+                            class="portal-button portal-button--primary"
+                        >
+                            Download token
+                        </a>
+                    </p>
+                )}
+                <section class="portal-section">
+                    <dl class="portal-fields">
+                        <dt>Organization</dt>
+                        <dd>{view.organization.name}</dd>
+                        <dt>Edition</dt>
+                        <dd>{lic.edition}</dd>
+                        <dt>Term</dt>
+                        <dd>
+                            {lic.term === "perpetual"
+                                ? `Perpetual, covers Core versions up to ${lic.maxVersion}`
+                                : `Subscription until ${date(lic.expiresAt)}` +
+                                  (lic.maxVersion == null
+                                      ? ""
+                                      : `, then covers versions up to ${lic.maxVersion}`)}
+                        </dd>
+                        <dt>Seats</dt>
+                        <dd>
+                            {seats} of {lic.nodes} in use
+                        </dd>
+                        <dt>Channels per Core</dt>
+                        <dd>{lic.channels === 0 ? "unlimited" : lic.channels}</dd>
+                        <dt>Issued</dt>
+                        <dd>{date(lic.issuedAt)}</dd>
+                        <dt>Status</dt>
+                        <dd>{status}</dd>
+                        <dt>Key</dt>
+                        <dd>
+                            <code>{lic.key}</code>
+                        </dd>
+                    </dl>
+                    <div class="portal-actions">
+                        {!revoked && (
+                            <a
+                                href={`/licenses/activate?license=${lic.key}`}
+                                class="portal-button portal-button--primary"
+                            >
+                                Activate a machine
+                            </a>
+                        )}
+                        {session.staff && !revoked && (
+                            <form
+                                method="post"
+                                action={`/api/portal/licenses/${lic.key}/floating`}
+                            >
+                                <button type="submit" class="portal-button">
+                                    Download floating token
+                                </button>
+                            </form>
+                        )}
+                        {session.staff && !revoked && (
+                            <form
+                                method="post"
+                                action={`/api/portal/licenses/${lic.key}/revoke`}
+                            >
+                                <button
+                                    type="submit"
+                                    class="portal-button portal-button--danger"
+                                >
+                                    Revoke
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </section>
+                <section class="portal-section">
+                    <h2>Machines</h2>
+                    {view.activations.length === 0 ? (
+                        <p class="portal-muted">No machine has activated yet.</p>
+                    ) : (
+                        <table class="portal-table">
+                            <thead>
+                                <tr>
+                                    <th>Host hashes</th>
+                                    <th>First seen</th>
+                                    <th>Last token</th>
+                                    <th>Status</th>
+                                    <th />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {view.activations.map((act) => (
+                                    <tr>
+                                        <td>
+                                            <code title={act.fingerprint.join(", ")}>
+                                                {shortHash(act.fingerprint)}
+                                            </code>
+                                        </td>
+                                        <td>{date(act.firstSeen)}</td>
+                                        <td>{date(act.lastSeen)}</td>
+                                        <td>
+                                            {act.releasedAt == null
+                                                ? "holds a seat"
+                                                : `released ${date(act.releasedAt)}`}
+                                        </td>
+                                        <td>
+                                            {act.releasedAt == null && (
+                                                <div class="portal-actions">
+                                                    <a
+                                                        href={`/api/portal/activations/${act.key}/token`}
+                                                        class="portal-button"
+                                                    >
+                                                        Download token
+                                                    </a>
+                                                    <form
+                                                        method="post"
+                                                        action={`/api/portal/activations/${act.key}/release`}
+                                                    >
+                                                        <button
+                                                            type="submit"
+                                                            class="portal-button portal-button--danger"
+                                                        >
+                                                            Release
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </section>
+            </>
+        )
+    }
+</Portal>

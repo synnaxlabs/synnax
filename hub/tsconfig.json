@@ -8,7 +8,10 @@
     }
   },
   "include": [
+    ".astro/types.d.ts",
     "src/**/*",
+    "scripts/**/*",
+    "drizzle.config.ts",
     "static/env.d.ts",
     "astro.check.config.ts",
     "astro.config.ts",

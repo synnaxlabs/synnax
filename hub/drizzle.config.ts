@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// <reference types="astro/client" />
+import { defineConfig } from "drizzle-kit";
 
-/// <reference types="@clerk/astro/env" />
-
-declare module "@fontsource/geist-mono";
+export default defineConfig({
+  dialect: "postgresql",
+  schema: "./src/server/db/schema.ts",
+  out: "./drizzle",
+  dbCredentials: { url: process.env.DATABASE_URL ?? "" },
+});
