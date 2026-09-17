@@ -264,20 +264,37 @@ export const searchPalette = async (
   query: string,
   { typeSpeed = 1 }: CommandPaletteOptions = {},
 ): Promise<void> => {
+  const dialog = await openPalette(session);
+  session.setSpeed(typeSpeed);
+  await session.type(query);
+  session.setSpeed(1);
+  await session.hold(PALETTE_READ_MS);
+  await session.click(dialog.locator(".pluto-list__item").first(), { text: true });
+  session.endZoom();
+};
+
+/** Holds long enough for the camera to settle or a viewer to read the results. */
+const PALETTE_READ_MS = 700;
+
+/**
+ * openPalette clicks the palette button, clears any stale query, and frames the
+ * dialog, holding until the camera settles so typing starts on a steady shot.
+ */
+const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const { page } = session;
-  await session.click(page.locator(".console-palette button").first());
+  // No zoom: the button is a corner target, and the dialog zoom follows at once.
+  await session.click(page.locator(".console-palette button").first(), {
+    zoom: false,
+  });
   const input = page.locator(".console-palette__input input[role='textbox']");
   await session.waitFor(input);
   await clearPaletteInput(session, input);
-  session.setSpeed(typeSpeed);
-  await session.zoom(
-    page.locator(".pluto-dialog__dialog:has(.console-palette__input)").first(),
-  );
-  await session.type(query);
-  await session.hold(400);
-  session.setSpeed(1);
-  await session.press("Enter");
-  session.endZoom();
+  const dialog = page
+    .locator(".pluto-dialog__dialog:has(.console-palette__input)")
+    .first();
+  await session.zoom(dialog);
+  await session.hold(PALETTE_READ_MS);
+  return dialog;
 };
 
 /**
@@ -360,18 +377,11 @@ export const commandPalette = async (
   { typeSpeed = 1 }: CommandPaletteOptions = {},
 ): Promise<void> => {
   const { page } = session;
-  await session.click(page.locator(".console-palette button").first());
-  const input = page.locator(".console-palette__input input[role='textbox']");
-  await session.waitFor(input);
-  await clearPaletteInput(session, input);
+  await openPalette(session);
   session.setSpeed(typeSpeed);
-  await session.type(">");
-  await session.zoom(
-    page.locator(".pluto-dialog__dialog:has(.console-palette__input)").first(),
-  );
-  await session.type(command);
-  await session.hold(400);
+  await session.type(`>${command}`);
   session.setSpeed(1);
+  await session.hold(PALETTE_READ_MS);
   // Click the exactly-matching command: fuzzy ranking can put a different
   // command first (e.g. "Create calculated channel" above "Create channel"),
   // so Enter on the top result is not safe.
