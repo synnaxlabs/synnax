@@ -9,41 +9,58 @@
 
 import { capture, fixtures } from "@/index";
 
+const RANGES = ["Hotfire 09", "Coldflow 22", "Burst Test 04"];
+
 /**
- * Docs `console/ranges/resources`: browse the Core's ranges in the range
- * explorer, favorite one into the Ranges toolbar, and click it there to make
- * it the active range.
+ * Docs `console/ranges/resources`: open the Ranges Toolbar, which lists the
+ * favorited ranges, and click one to load it as the active range.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedRanges(["Hotfire 09", "Coldflow 22", "Burst Test 04"]);
-  const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  const fixture = await fixtures.sineTelemetry();
+  try {
+    await fixtures.seedRanges(RANGES);
+    const { page } = session;
+    await capture.login(session, { username: "synnax", password: "seldon" });
 
-  await capture.openToolbar(session, "range");
-  await capture.resizeToolbar(session, 400);
-  await session.moveTo({ x: 756, y: 500 });
+    // The plot must exist before any range is favorited: favoriting also makes the
+    // range active, and a plot created under an active range inherits its historic
+    // window instead of a live rolling one.
+    await capture.commandPalette(session, "Create line plot");
+    await session.waitFor(page.locator(".pluto-line-plot").first());
+    await capture.addChannels(session, "Y1", fixture.channels, { search: "demo" });
+    await capture.hideBottomToolbar(session);
 
-  session.startRecording();
-  await session.hold(1000);
+    // Selecting a range from the palette favorites it into the toolbar and opens an
+    // overview tab the shot doesn't want.
+    for (const name of RANGES) {
+      await capture.searchPalette(session, name);
+      await session.waitFor(capture.tab(page, name));
+      await capture.closeTab(session, name);
+    }
+    await capture.openToolbar(session, "range");
+    await capture.resizeToolbar(session, 400);
+    await capture.closeToolbar(session);
+    // The plot's stream buffer restarts each time an overview tab covered it, and it
+    // fills on wall time: give it a full rolling window of data.
+    await session.settleWall(32000);
+    await session.settle(1000);
+    await session.moveTo({ x: 900, y: 480 });
 
-  // The link swaps the mosaic to the explorer tab, so the camera stays wide.
-  await session.click(page.getByText("Open range explorer", { exact: true }).first(), {
-    text: true,
-    zoom: false,
-  });
-  const row = page.getByText("Hotfire 09", { exact: true }).first();
-  await session.waitFor(row);
-  await session.hold(800);
+    session.startRecording();
+    await session.hold(1000);
 
-  await capture.contextMenu(session, row, "Favorite");
-  const drawer = page.locator(".console-nav__drawer").first();
-  const favorited = drawer.getByText("Hotfire 09", { exact: true }).first();
-  await session.waitFor(favorited);
-  await session.hold(600);
+    await capture.openToolbar(session, "range");
+    const drawer = page.locator(".console-nav__drawer").first();
+    const favorited = drawer.getByText("Hotfire 09", { exact: true }).first();
+    await session.waitFor(favorited);
+    await session.hold(1200);
 
-  await session.click(favorited, { text: true });
-  await session.waitFor(
-    drawer.locator(".console-range-list-item.pluto--selected").first(),
-  );
-  await session.hold(2200);
+    await session.click(favorited, { text: true });
+    await session.waitFor(
+      drawer.locator(".console-range-list-item.pluto--selected").first(),
+    );
+    await session.hold(2200);
+  } finally {
+    await fixture.stop();
+  }
 };

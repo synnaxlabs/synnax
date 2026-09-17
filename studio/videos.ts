@@ -67,10 +67,13 @@ export default manifest.define([
   },
   { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
   { id: "console/ranges/resources", script: "scripts/ranges-resources.ts" },
+  { id: "console/ranges/explorer", script: "scripts/ranges-explorer.ts" },
   { id: "console/ranges/palette", script: "scripts/ranges-palette.ts" },
   { id: "console/ranges/create-child", script: "scripts/ranges-create-child.ts" },
   { id: "console/ranges/add-meta-data", script: "scripts/ranges-add-meta-data.ts" },
   { id: "console/ranges/add-label", script: "scripts/ranges-add-label.ts" },
+  { id: "console/workspaces/create", script: "scripts/projects-create.ts" },
+  { id: "console/workspaces/load", script: "scripts/projects-load.ts" },
   { id: "console/users/register", script: "scripts/users-register.ts" },
   {
     id: "console/users/modal-change-role",

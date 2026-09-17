@@ -72,7 +72,8 @@ These come from user review and are not open for reinterpretation.
   interaction late.
 - `session.hold` advances the virtual clock only. `session.settleWall` waits
   real time, which is what live telemetry buffers need.
-- Workspaces are projects on rc. `console/workspaces/*` has no counterpart yet.
+- The `console/workspaces/*` ids embed on the Projects page: workspaces are projects on
+  rc, and the docs kept the old ids.
 
 ## Verifying
 

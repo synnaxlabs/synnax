@@ -357,6 +357,7 @@ export class CaptureSession {
     at: Point,
     button: "left" | "right",
     zoom?: boolean,
+    clickCount = 1,
   ): Promise<void> {
     this.events.push({
       type: "pointerdown",
@@ -366,10 +367,10 @@ export class CaptureSession {
       rect: this.cursorRect,
       ...(zoom === false && { zoom }),
     });
-    await this.page.mouse.down({ button });
+    await this.page.mouse.down({ button, clickCount });
     await this.hold(80);
     this.events.push({ type: "pointerup", tick: this.frame, ...at, button });
-    await this.page.mouse.up({ button });
+    await this.page.mouse.up({ button, clickCount });
     await this.tick();
   }
 
@@ -384,6 +385,20 @@ export class CaptureSession {
     opts?: { zoom?: boolean; text?: boolean },
   ): Promise<void> {
     await this.pressRelease(await this.moveTo(target, opts), "left", opts?.zoom);
+  }
+
+  /**
+   * doubleClick travels to the target and clicks twice. The browser pairs the
+   * clicks by click count, not timing, so the virtual clock cannot break them up.
+   */
+  async doubleClick(
+    target: Locator | Point,
+    opts?: { zoom?: boolean; text?: boolean },
+  ): Promise<void> {
+    const at = await this.moveTo(target, opts);
+    await this.pressRelease(at, "left", opts?.zoom);
+    await this.hold(60);
+    await this.pressRelease(at, "left", opts?.zoom, 2);
   }
 
   /** rightClick travels to the target and opens its context menu. */
