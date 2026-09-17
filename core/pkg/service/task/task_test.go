@@ -20,10 +20,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus"
+	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -87,9 +93,22 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-		configs = MustSucceed(config.NewRegistry(
-			append(pd.Stores(), at.Stores()...)...,
-		))
+		mb := MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{DB: db}))
+		ht := MustOpen(http.OpenService(ctx, http.ServiceConfig{DB: db}))
+		oc := MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{DB: db}))
+		nis := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{DB: db}))
+		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
+		ec := MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{DB: db}))
+		var stores []config.Store
+		stores = append(stores, pd.Stores()...)
+		stores = append(stores, at.Stores()...)
+		stores = append(stores, mb.Stores()...)
+		stores = append(stores, ht.Stores()...)
+		stores = append(stores, oc.Stores()...)
+		stores = append(stores, nis.Stores()...)
+		stores = append(stores, lj.Stores()...)
+		stores = append(stores, ec.Stores()...)
+		configs = MustSucceed(config.NewRegistry(stores...))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -249,6 +268,450 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.ConfigHash).To(Equal(
 				create(ctx, msgpack.EncodedJSON{"routing_key": "rk-1"}),
 			))
+		})
+		Describe("Row keys", func() {
+			createOf := func(
+				ctx context.Context,
+				typ string,
+				config msgpack.EncodedJSON,
+			) string {
+				GinkgoHelper()
+				t := &task.Task{
+					Type:   typ,
+					Rack:   testRack.Key,
+					Name:   "Row Task",
+					Config: config,
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				return t.ConfigHash
+			}
+			// rowTask builds one task type's config around a single keyed row and
+			// names a content edit to that row.
+			type rowTask struct {
+				field string
+				row   func(key string) map[string]any
+				edit  func(row map[string]any)
+			}
+			rowTasks := map[string]rowTask{
+				"modbus_read": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type": "coil", "key": key, "address": 3, "channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["address"] = 4 },
+				},
+				"modbus_write": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type": "coil", "key": key, "address": 3, "channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["address"] = 4 },
+				},
+				"opc_read": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"key": key, "node_id": "NS=2;I=8", "channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["node_id"] = "NS=2;I=9" },
+				},
+				"opc_write": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"key": key, "node_id": "NS=2;I=8", "cmd_channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["node_id"] = "NS=2;I=9" },
+				},
+				"ni_analog_read": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type":    "ai_voltage",
+							"key":     key,
+							"port":    0,
+							"device":  "dev-1",
+							"channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["device"] = "dev-2" },
+				},
+				"ni_analog_write": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type":          "ao_voltage",
+							"key":           key,
+							"port":          0,
+							"cmd_channel":   42,
+							"state_channel": 43,
+						}
+					},
+					edit: func(row map[string]any) { row["port"] = 1 },
+				},
+				"ni_counter_read": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type":    "ci_edge_count",
+							"key":     key,
+							"port":    0,
+							"device":  "dev-1",
+							"channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["port"] = 1 },
+				},
+				"ni_digital_read": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"key": key, "port": 0, "line": 1, "channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["line"] = 2 },
+				},
+				"ni_digital_write": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"key":           key,
+							"port":          0,
+							"line":          1,
+							"cmd_channel":   42,
+							"state_channel": 43,
+						}
+					},
+					edit: func(row map[string]any) { row["line"] = 2 },
+				},
+				"labjack_read": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type":    "analog",
+							"key":     key,
+							"port":    "AIN0",
+							"channel": 42,
+							"scale":   map[string]any{"type": "none"},
+						}
+					},
+					edit: func(row map[string]any) { row["port"] = "AIN1" },
+				},
+				"labjack_write": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type":          "analog",
+							"key":           key,
+							"port":          "DAC0",
+							"cmd_channel":   42,
+							"state_channel": 43,
+						}
+					},
+					edit: func(row map[string]any) { row["port"] = "DAC1" },
+				},
+				"ethercat_read": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type":    "automatic",
+							"key":     key,
+							"device":  "dev-1",
+							"pdo":     "Inputs.Ch1",
+							"channel": 42,
+						}
+					},
+					edit: func(row map[string]any) { row["pdo"] = "Inputs.Ch2" },
+				},
+				"ethercat_write": {
+					field: "channels",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"type":          "automatic",
+							"key":           key,
+							"device":        "dev-1",
+							"pdo":           "Outputs.Ch1",
+							"cmd_channel":   42,
+							"state_channel": 43,
+						}
+					},
+					edit: func(row map[string]any) { row["pdo"] = "Outputs.Ch2" },
+				},
+				"http_read": {
+					field: "endpoints",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"key":    key,
+							"method": "GET",
+							"path":   "/telemetry",
+							"fields": []any{map[string]any{
+								"key":     key + "-field",
+								"pointer": "/value",
+								"channel": 42,
+							}},
+						}
+					},
+					edit: func(row map[string]any) { row["path"] = "/other" },
+				},
+				"http_write": {
+					field: "endpoints",
+					row: func(key string) map[string]any {
+						return map[string]any{
+							"key":  key,
+							"path": "/command",
+							"fields": []any{map[string]any{
+								"type":      "static",
+								"key":       key + "-field",
+								"pointer":   "/value",
+								"json_type": "number",
+								"value":     1,
+							}},
+						}
+					},
+					edit: func(row map[string]any) { row["path"] = "/other" },
+				},
+			}
+			single := func(
+				typ, key string,
+				edits ...func(row map[string]any),
+			) msgpack.EncodedJSON {
+				rt := rowTasks[typ]
+				row := rt.row(key)
+				for _, edit := range edits {
+					edit(row)
+				}
+				return msgpack.EncodedJSON{rt.field: []any{row}}
+			}
+			coil := rowTasks["modbus_read"].row
+			modbusRead := func(
+				device string,
+				rows ...map[string]any,
+			) msgpack.EncodedJSON {
+				channels := make([]any, len(rows))
+				for i, r := range rows {
+					channels[i] = r
+				}
+				return msgpack.EncodedJSON{"device": device, "channels": channels}
+			}
+			httpRead := func(
+				fieldKey string,
+				headers ...map[string]any,
+			) msgpack.EncodedJSON {
+				ep := rowTasks["http_read"].row("ep-1")
+				ep["fields"] = []any{map[string]any{
+					"key": fieldKey, "pointer": "/value", "channel": 42,
+				}}
+				if len(headers) > 0 {
+					hs := make([]any, len(headers))
+					for i, h := range headers {
+						hs[i] = h
+					}
+					ep["headers"] = hs
+				}
+				return msgpack.EncodedJSON{"endpoints": []any{ep}}
+			}
+			httpWrite := func(fieldKey string) msgpack.EncodedJSON {
+				ep := rowTasks["http_write"].row("ep-1")
+				ep["fields"] = []any{map[string]any{
+					"type":      "static",
+					"key":       fieldKey,
+					"pointer":   "/value",
+					"json_type": "number",
+					"value":     1,
+				}}
+				return msgpack.EncodedJSON{"endpoints": []any{ep}}
+			}
+			DescribeTable(
+				"Should hash a re-added row identically",
+				func(ctx SpecContext, typ string) {
+					Expect(createOf(ctx, typ, single(typ, "row-1"))).To(
+						Equal(createOf(ctx, typ, single(typ, "row-2"))),
+					)
+				},
+				Entry("modbus_read", "modbus_read"),
+				Entry("modbus_write", "modbus_write"),
+				Entry("opc_read", "opc_read"),
+				Entry("opc_write", "opc_write"),
+				Entry("ni_analog_read", "ni_analog_read"),
+				Entry("ni_analog_write", "ni_analog_write"),
+				Entry("ni_counter_read", "ni_counter_read"),
+				Entry("ni_digital_read", "ni_digital_read"),
+				Entry("ni_digital_write", "ni_digital_write"),
+				Entry("labjack_read", "labjack_read"),
+				Entry("labjack_write", "labjack_write"),
+				Entry("ethercat_read", "ethercat_read"),
+				Entry("ethercat_write", "ethercat_write"),
+				Entry("http_read", "http_read"),
+				Entry("http_write", "http_write"),
+			)
+			DescribeTable(
+				"Should hash an edited row differently",
+				func(ctx SpecContext, typ string) {
+					edit := rowTasks[typ].edit
+					Expect(createOf(ctx, typ, single(typ, "row-1"))).ToNot(
+						Equal(createOf(ctx, typ, single(typ, "row-1", edit))),
+					)
+				},
+				Entry("modbus_read", "modbus_read"),
+				Entry("modbus_write", "modbus_write"),
+				Entry("opc_read", "opc_read"),
+				Entry("opc_write", "opc_write"),
+				Entry("ni_analog_read", "ni_analog_read"),
+				Entry("ni_analog_write", "ni_analog_write"),
+				Entry("ni_counter_read", "ni_counter_read"),
+				Entry("ni_digital_read", "ni_digital_read"),
+				Entry("ni_digital_write", "ni_digital_write"),
+				Entry("labjack_read", "labjack_read"),
+				Entry("labjack_write", "labjack_write"),
+				Entry("ethercat_read", "ethercat_read"),
+				Entry("ethercat_write", "ethercat_write"),
+				Entry("http_read", "http_read"),
+				Entry("http_write", "http_write"),
+			)
+			DescribeTable(
+				"Should hash configs that differ only in nested keys identically",
+				func(
+					ctx SpecContext,
+					typ string,
+					first, second msgpack.EncodedJSON,
+				) {
+					Expect(createOf(ctx, typ, first)).To(
+						Equal(createOf(ctx, typ, second)),
+					)
+				},
+				Entry(
+					"one of several Modbus rows",
+					"modbus_read",
+					modbusRead("dev-1", coil("row-1"), coil("row-2")),
+					modbusRead("dev-1", coil("row-1"), coil("row-3")),
+				),
+				Entry(
+					"a Modbus row with no key against one with a key",
+					"modbus_read",
+					modbusRead("dev-1", map[string]any{
+						"type": "coil", "address": 3, "channel": 42,
+					}),
+					modbusRead("dev-1", coil("row-1")),
+				),
+				Entry(
+					"an HTTP read field key nested inside an endpoint",
+					"http_read",
+					httpRead("field-1"),
+					httpRead("field-2"),
+				),
+				Entry(
+					"an HTTP write field key nested inside an endpoint",
+					"http_write",
+					httpWrite("field-1"),
+					httpWrite("field-2"),
+				),
+			)
+			DescribeTable(
+				"Should hash configs whose content differs differently",
+				func(
+					ctx SpecContext,
+					typ string,
+					first, second msgpack.EncodedJSON,
+				) {
+					Expect(createOf(ctx, typ, first)).ToNot(
+						Equal(createOf(ctx, typ, second)),
+					)
+				},
+				Entry(
+					"a row's channel",
+					"modbus_read",
+					single("modbus_read", "row-1"),
+					single("modbus_read", "row-1", func(r map[string]any) {
+						r["channel"] = 43
+					}),
+				),
+				Entry(
+					"a row's disabled flag",
+					"modbus_read",
+					single("modbus_read", "row-1"),
+					single("modbus_read", "row-1", func(r map[string]any) {
+						r["disabled"] = true
+					}),
+				),
+				Entry(
+					"the number of rows",
+					"modbus_read",
+					modbusRead("dev-1", coil("row-1")),
+					modbusRead("dev-1", coil("row-1"), coil("row-2")),
+				),
+				Entry(
+					"the order of rows",
+					"modbus_read",
+					modbusRead("dev-1", coil("row-1"), map[string]any{
+						"type": "coil", "key": "row-2", "address": 4, "channel": 43,
+					}),
+					modbusRead("dev-1", map[string]any{
+						"type": "coil", "key": "row-2", "address": 4, "channel": 43,
+					}, coil("row-1")),
+				),
+				Entry(
+					"the task's device",
+					"modbus_read",
+					modbusRead("dev-1", coil("row-1")),
+					modbusRead("dev-2", coil("row-1")),
+				),
+				Entry(
+					"an object nested in a row without a key",
+					"http_read",
+					httpRead("field-1", map[string]any{"name": "h", "value": "a"}),
+					httpRead("field-1", map[string]any{"name": "h", "value": "b"}),
+				),
+				Entry(
+					"a scalar array",
+					"ni_scanner",
+					msgpack.EncodedJSON{"ignored_models": []any{"^a.*"}},
+					msgpack.EncodedJSON{"ignored_models": []any{"^a.*", "^b.*"}},
+				),
+			)
+			It("Should keep the hash when a task's row is re-added", func(
+				ctx SpecContext,
+			) {
+				t := &task.Task{
+					Type:   "modbus_read",
+					Rack:   testRack.Key,
+					Name:   "Row Task",
+					Config: modbusRead("dev-1", coil("row-1")),
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				original := t.ConfigHash
+				t.Config = modbusRead("dev-1", coil("row-2"))
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(t.ConfigHash).To(Equal(original))
+			})
+			It("Should keep row keys in the stored config", func(ctx SpecContext) {
+				t := &task.Task{
+					Type:   "modbus_read",
+					Rack:   testRack.Key,
+					Name:   "Row Task",
+					Config: modbusRead("dev-1", coil("row-1")),
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(t.Config["channels"]).To(HaveExactElements(
+					HaveKeyWithValue("key", "row-1"),
+				))
+			})
+			It("Should reject a row that cannot be encoded", func(ctx SpecContext) {
+				t := &task.Task{
+					Type: "ni_analog_read",
+					Rack: testRack.Key,
+					Name: "Row Task",
+					Config: single("ni_analog_read", "row-1", func(r map[string]any) {
+						r["min_val"] = math.NaN()
+					}),
+				}
+				Expect(w.Create(ctx, t)).To(MatchError(validate.ErrValidation))
+			})
 		})
 		// A NaN cannot encode to JSON, so the config store must reject it before
 		// anything is persisted.

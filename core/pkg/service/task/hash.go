@@ -33,15 +33,35 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	return fmt.Sprintf("%016x", xxhash.Sum64(b)), nil
 }
 
-// configContent returns config without the record key, so hashes track config
-// content rather than record identity: equal configs on different tasks hash
-// equally.
+// configContent returns config without the record key and without the key of any
+// nested object, so hashes track content rather than identity.
 func configContent(config msgpack.EncodedJSON) msgpack.EncodedJSON {
 	content := make(msgpack.EncodedJSON, len(config))
 	for k, v := range config {
 		if k != "key" {
-			content[k] = v
+			content[k] = stripKeys(v)
 		}
 	}
 	return content
+}
+
+// stripKeys returns v with the key field removed from every nested object.
+func stripKeys(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, e := range t {
+			if k != "key" {
+				out[k] = stripKeys(e)
+			}
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, e := range t {
+			out[i] = stripKeys(e)
+		}
+		return out
+	}
+	return v
 }
