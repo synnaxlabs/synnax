@@ -21,8 +21,8 @@ export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => {
       label="Color"
       align="start"
       padHelpText={false}
-      // An unchosen color is absent, so the swatch reads the theme value it resolves
-      // to. Only a pick writes one.
+      // An unchosen color is absent, so the swatch shows the theme color it resolves
+      // to until a pick writes one.
       defaultValue={theme.colors.gray.l11}
       {...props}
     >

@@ -25,7 +25,7 @@ import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
-import { type Config, DEFAULT_SIDE } from "@/schematic/node/common/scale/config";
+import { type Config } from "@/schematic/node/common/scale/config";
 import { Select } from "@/select";
 import { Staleness } from "@/vis/staleness";
 
@@ -62,16 +62,8 @@ interface SideFieldProps {
 }
 
 // A field on the other axis takes the side facing the same way as the default.
-const defaultSide = (sides: readonly location.Outer[]): location.Outer =>
-  sides.includes(DEFAULT_SIDE) ? DEFAULT_SIDE : location.swapAxis(DEFAULT_SIDE);
-
 const SideField = ({ path, label, sides }: SideFieldProps): ReactElement => (
-  <Base.Field<location.Outer>
-    path={path}
-    label={label}
-    padHelpText={false}
-    defaultValue={defaultSide(sides)}
-  >
+  <Base.Field<location.Outer> path={path} label={label} padHelpText={false}>
     {({ value, onChange }) => (
       <Select.Buttons value={value} onChange={onChange} keys={sides}>
         {sides.map((side) => (

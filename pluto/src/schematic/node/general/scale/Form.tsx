@@ -35,14 +35,12 @@ export const ScaleForm = (): ReactElement => {
                 path="dimensions.width"
                 label="Width"
                 padHelpText={false}
-                defaultValue={Scale.DEFAULT_DIMENSIONS.width}
                 inputProps={Form.DIMENSIONS_INPUT_PROPS}
               />
               <Base.NumericField
                 path="dimensions.height"
                 label="Height"
                 padHelpText={false}
-                defaultValue={Scale.DEFAULT_DIMENSIONS.height}
                 inputProps={Form.DIMENSIONS_INPUT_PROPS}
               />
               <Scale.DisplayFields

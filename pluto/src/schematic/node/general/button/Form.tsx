@@ -72,7 +72,7 @@ export const ButtonForm = (): ReactElement => (
           />
           <Flex.Box x>
             <Form.ColorField path="color" />
-            <Form.SizeField defaultValue="medium" />
+            <Form.SizeField />
           </Flex.Box>
         </Flex.Box>
       </Form.Wrapper>

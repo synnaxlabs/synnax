@@ -32,7 +32,7 @@ const valueState = staleness.configZ.extend({
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   precision: z.number().default(2),
-  stalenessColor: color.colorZ.default(color.ZERO),
+  stalenessColor: color.colorZ.optional(),
   minWidth: z.number().default(60),
   width: z.number().optional(),
   notation: notation.notationZ.default("standard"),

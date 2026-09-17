@@ -214,12 +214,17 @@ describe("Form", () => {
       expect(result.current.required).toBe(true);
     });
 
-    it("should set the default value if the field is null", () => {
+    it("should return the default value without writing it when the field is null", () => {
       const { result } = renderHook(
-        () => Form.useField<string>("optionalField", { defaultValue: "cat" }),
+        () => {
+          const field = Form.useField<string>("optionalField", { defaultValue: "cat" });
+          const { get } = Form.useContext();
+          return { field, stored: get<string>("optionalField", { optional: true }) };
+        },
         { wrapper },
       );
-      expect(result.current.value).toBe("cat");
+      expect(result.current.field.value).toBe("cat");
+      expect(result.current.stored).toBeNull();
     });
 
     it("should respect the initial value if it is provided", () => {
