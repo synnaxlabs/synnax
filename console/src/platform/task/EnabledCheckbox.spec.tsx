@@ -26,6 +26,16 @@ describe("EnabledCheckbox", () => {
     expect(screen.getByRole("checkbox")).toHaveProperty("checked", true);
   });
 
+  it("should keep its name while the item is disabled", async () => {
+    await renderInTaskForm(<Task.EnabledCheckbox path="disabled" />, {
+      values: { disabled: true },
+    });
+    expect(screen.getByRole("checkbox", { name: "Enabled" })).toHaveProperty(
+      "checked",
+      false,
+    );
+  });
+
   it("should write the disabled flag when unchecked", async () => {
     const { form } = await renderInTaskForm(<Task.EnabledCheckbox path="disabled" />, {
       values: { disabled: false },

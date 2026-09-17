@@ -37,9 +37,21 @@ export const DetailsHeader = ({
     <Header.Header>
       <Flex.Box x align="center" gap="small" className={CSS.BE("panes", "title")}>
         {start}
-        <Header.Title weight={500} wrap={false} color={10}>
-          {disabled || children == null ? "Details" : children}
-        </Header.Title>
+        {disabled || children == null ? (
+          <Header.Title weight={500} wrap={false} color={10}>
+            Details
+          </Header.Title>
+        ) : (
+          // A rich title holds tags and paragraphs, which a Title's paragraph cannot.
+          <Flex.Box
+            x
+            align="center"
+            gap={1.5}
+            className={CSS.BE("panes", "item-title")}
+          >
+            {children}
+          </Flex.Box>
+        )}
       </Flex.Box>
       <Header.Actions>
         <Button.Copy
