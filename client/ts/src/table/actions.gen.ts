@@ -143,7 +143,19 @@ export const eraseCellsPayloadZ = z.object({
 
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "add_row"; addRow: AddRowPayload }
+  | { type: "remove_row"; removeRow: RemoveRowPayload }
+  | { type: "add_col"; addCol: AddColPayload }
+  | { type: "remove_col"; removeCol: RemoveColPayload }
+  | { type: "resize_row"; resizeRow: ResizeRowPayload }
+  | { type: "resize_col"; resizeCol: ResizeColPayload }
+  | { type: "set_cell"; setCell: SetCellPayload }
+  | { type: "erase_cells"; eraseCells: EraseCellsPayload };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("add_row"), addRow: addRowPayloadZ }),
@@ -155,8 +167,6 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("set_cell"), setCell: setCellPayloadZ }),
   z.object({ type: z.literal("erase_cells"), eraseCells: eraseCellsPayloadZ }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",

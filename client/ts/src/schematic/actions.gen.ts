@@ -90,7 +90,17 @@ export const setConfigPayloadZ = z.object({
 
 export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "set_node_position"; setNodePosition: SetNodePositionPayload }
+  | { type: "set_node"; setNode: SetNodePayload }
+  | { type: "remove_node"; removeNode: RemoveNodePayload }
+  | { type: "add_edge"; addEdge: AddEdgePayload }
+  | { type: "remove_edge"; removeEdge: RemoveEdgePayload }
+  | { type: "set_config"; setConfig: SetConfigPayload };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({
@@ -103,8 +113,6 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove_edge"), removeEdge: removeEdgePayloadZ }),
   z.object({ type: z.literal("set_config"), setConfig: setConfigPayloadZ }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
