@@ -7,20 +7,20 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Deploy - Docs
+name: Deploy - Hub
 
 on:
   push:
     branches:
       - main
     paths:
-      - .github/workflows/deploy.docs.yaml
+      - .github/workflows/deploy.hub.yaml
       - alamos/ts/**
       - client/ts/**
       - configs/ts/**
       - configs/vite/**
-      - docs/site/**
       - freighter/ts/**
+      - hub/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml
@@ -47,5 +47,5 @@ jobs:
           cache: true
 
       - name: Update Docs Search Index
-        working-directory: docs/site
+        working-directory: hub
         run: pnpm algolia
