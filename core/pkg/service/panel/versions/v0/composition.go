@@ -329,8 +329,11 @@ func convertNode(
 			continue
 		}
 		tabs = append(tabs, Tab{Variant: ResourceTab{
-			Key:      uuid.New(),
-			Resource: ontologyv0.ID{Type: ontologyv0.ResourceType(id.Type), Key: id.Key},
+			Key: uuid.New(),
+			Resource: ontologyv0.ID{
+				Type: ontologyv0.ResourceType(id.Type),
+				Key:  id.Key,
+			},
 		}})
 	}
 	if len(tabs) == 0 {

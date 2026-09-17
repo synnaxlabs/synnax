@@ -48,6 +48,7 @@ const mockUnary = (nodeTime: () => TimeStamp): UnaryClient => ({
     clusterKey: "test-cluster",
     nodeVersion: __VERSION__,
     nodeTime: nodeTime(),
+    verification: "ok",
   })),
   use: vi.fn(),
 });
@@ -74,7 +75,12 @@ const createScriptedUnary = ({
   return {
     send: vi.fn().mockImplementation(async () => {
       if (down) throw new Unreachable({ message: "server down" });
-      return { clusterKey: key, nodeVersion: __VERSION__, nodeTime: TimeStamp.now() };
+      return {
+        clusterKey: key,
+        nodeVersion: __VERSION__,
+        nodeTime: TimeStamp.now(),
+        verification: "ok",
+      };
     }),
     use: vi.fn(),
     setFailing: (next) => (down = next),
@@ -677,6 +683,7 @@ describe("connection", () => {
         "clockSkewExceeded",
         "retry",
         "checking",
+        "license",
       ];
       expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
       expect(Object.keys(asError("auth").details).sort()).toEqual(

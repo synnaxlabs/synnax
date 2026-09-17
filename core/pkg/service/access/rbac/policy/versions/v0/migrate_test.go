@@ -58,8 +58,14 @@ var _ = Describe("Migration", func() {
 	It(
 		"Should extract legacy policies into the KV mapping and delete them",
 		func(ctx SpecContext) {
-			u1 := ontologyv0.ID{Type: ontologyv0.ResourceTypeUser, Key: uuid.NewString()}
-			u2 := ontologyv0.ID{Type: ontologyv0.ResourceTypeUser, Key: uuid.NewString()}
+			u1 := ontologyv0.ID{
+				Type: ontologyv0.ResourceTypeUser,
+				Key:  uuid.NewString(),
+			}
+			u2 := ontologyv0.ID{
+				Type: ontologyv0.ResourceTypeUser,
+				Key:  uuid.NewString(),
+			}
 			shared := newLegacy(u1, u2)
 			single := newLegacy(u1)
 			modern := v0.Policy{
@@ -103,7 +109,9 @@ var _ = Describe("Migration", func() {
 			Expect(db.Set(
 				ctx, []byte("sy_rbac_migration_performed"), []byte{1},
 			)).To(Succeed())
-			legacy := newLegacy(ontologyv0.ID{Type: ontologyv0.ResourceTypeUser, Key: "u1"})
+			legacy := newLegacy(
+				ontologyv0.ID{Type: ontologyv0.ResourceTypeUser, Key: "u1"},
+			)
 			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
 				Entry(&legacy).Exec(ctx, legacyDB)).To(Succeed())
 			run(ctx)

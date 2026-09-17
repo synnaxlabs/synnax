@@ -45,8 +45,16 @@ func readHost() (Host, error) {
 	return slices.Compact(host), nil
 }
 
-// Intersects reports whether any of the given hashes belongs to the host.
-func (h Host) Intersects(hashes []string) bool {
+// Covers reports whether a grant bound to the given hashes applies to the host: an
+// unbound grant always does, and a bound one does when any hash belongs to the host.
+// Hashes from a scheme this Core does not implement never match.
+func (h Host) Covers(scheme uint8, hashes []string) bool {
+	if len(hashes) == 0 {
+		return true
+	}
+	if scheme != hostScheme {
+		return false
+	}
 	for _, hash := range hashes {
 		if slices.Contains(h, hash) {
 			return true

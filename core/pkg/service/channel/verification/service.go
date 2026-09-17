@@ -259,7 +259,7 @@ func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 			return Info{}, errors.Wrapf(ErrInvalid, "bad version ceiling %q", *grant.Mv)
 		}
 	}
-	if len(grant.Fp) != 0 && !s.host.Intersects(grant.Fp) {
+	if !s.host.Covers(grant.Fs, grant.Fp) {
 		return Info{}, ErrHost
 	}
 	info := s.evaluate(grant)
@@ -337,7 +337,7 @@ func (s *Service) load(ctx context.Context) error {
 		if err != nil {
 			continue
 		}
-		if len(grant.Fp) != 0 && !s.host.Intersects(grant.Fp) {
+		if !s.host.Covers(grant.Fs, grant.Fp) {
 			continue
 		}
 		info := s.evaluate(grant)
