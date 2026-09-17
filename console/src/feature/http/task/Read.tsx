@@ -33,6 +33,7 @@ import {
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
+import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
@@ -430,6 +431,25 @@ const Form: FC = () => {
   const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",
   );
+  const dev = useFromConfig();
+  // A field the config already binds keeps its channel, as the deploy honors it first.
+  const resolve = useCallback(
+    (ep: ReadEndpoint) => {
+      const props = dev?.properties.read[ep.path];
+      if (props == null) return null;
+      let changed = false;
+      const fields = ep.fields.map((field) => {
+        if (field.channel !== 0) return field;
+        const stored =
+          field.key === ep.index ? props.index : (props.channels[field.pointer] ?? 0);
+        if (stored === 0) return field;
+        changed = true;
+        return { ...field, channel: stored };
+      });
+      return changed ? { fields } : null;
+    },
+    [dev],
+  );
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
 
@@ -545,6 +565,7 @@ const Form: FC = () => {
           </Flex.Box>
         )}
       </Flex.Box>
+      <Task.BindChannels<ReadEndpoint> path="config.endpoints" resolve={resolve} />
     </Flex.Box>
   );
 };

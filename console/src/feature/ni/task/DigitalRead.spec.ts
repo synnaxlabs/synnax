@@ -115,6 +115,30 @@ describe("DigitalRead", () => {
       expect(index.isIndex).toBe(true);
     });
 
+    it("should bind a new entry to the channel the device already maps", async () => {
+      const dev = await createNIDevice(client);
+      const config = createConfig([createChannel(0, 0)], dev.key);
+      const first = await renderDigitalRead(config);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
+        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+      });
+      first.unmount();
+      const existing = await client.channels.retrieve(
+        firstTask.config.channels[0].channel,
+      );
+      const second = await renderDigitalRead(config);
+      await screen.findByText(existing.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: second.draft.key,
+          schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+        });
+        expect(saved.config.channels[0].channel).toBe(existing.key);
+      });
+    });
+
     it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
       const config = createConfig([createChannel(0, 0)], dev.key);

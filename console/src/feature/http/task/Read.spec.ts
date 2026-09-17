@@ -213,6 +213,46 @@ describe("HTTP Read form", () => {
       expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
     });
 
+    it("should bind a new field to the channel the device already stores", async () => {
+      const dev = await createHTTPDevice(client);
+      const idxCh = await client.channels.create({
+        name: uniqueName("http_idx"),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const dataCh = await client.channels.create({
+        name: uniqueName("http_data"),
+        dataType: "float64",
+        index: idxCh.key,
+      });
+      dev.properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        read: {
+          "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
+        },
+      };
+      await client.devices.create(dev);
+      const draft = await createDraft(
+        client,
+        createReadConfig(dev.key, [
+          {
+            ...http.readEndpointZ.parse({}),
+            key: "ep1",
+            path: "/data",
+            fields: [createReadField("f1", "/temperature")],
+          },
+        ]),
+      );
+      await renderRead({ client, taskKey: draft.key });
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: HTTP.Task.READ_SCHEMAS,
+        });
+        expect(saved.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
+      });
+    });
+
     it("should reuse channels already stored on the device instead of creating new ones", async () => {
       const dev = await createHTTPDevice(client);
       const idxCh = await client.channels.create({

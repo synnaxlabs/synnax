@@ -18,7 +18,10 @@ import { type Channel } from "@/feature/ethercat/task/types";
 export const { use: useSlave, useResult: useResultSlave } =
   Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { use: useSlaves } = Flux.createRetrieve<{ keys: device.Key[] }, SlaveDevice[]>({
+const { use: useSlaves, useResult: useResultSlaves } = Flux.createRetrieve<
+  { keys: device.Key[] },
+  SlaveDevice[]
+>({
   name: "EtherCAT slaves",
   retrieve: async ({ client, query: { keys } }) =>
     await client.devices.retrieve({ keys, schemas: SLAVE_SCHEMAS }),
@@ -30,6 +33,10 @@ const { use: useSlaves } = Flux.createRetrieve<{ keys: device.Key[] }, SlaveDevi
   getCached: ({ client, query }) =>
     client.devices.getCached(query) as query.Cached<SlaveDevice[]> | undefined,
 });
+
+/** The slaves the keys name, or undefined until they resolve or on failure. */
+export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
+  useResultSlaves(keys.length === 0 ? null : { keys }).data;
 
 export interface EnabledState {
   allEnabled: boolean;

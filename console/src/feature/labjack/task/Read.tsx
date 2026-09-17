@@ -201,6 +201,14 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
     ),
     [device.model],
   );
+  const resolve = useCallback(
+    (c: ReadChannel) => ({
+      channel:
+        device.properties[convertReadChannelTypeToPortType(c.type)].channels[c.port] ??
+        0,
+    }),
+    [device],
+  );
   return (
     <Task.Views.ListAndDetails<ReadChannel>
       listItem={listItem}
@@ -209,6 +217,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Task.readChannelContextMenuItem}
+      resolve={resolve}
     />
   );
 };

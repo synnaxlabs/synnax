@@ -105,6 +105,31 @@ describe("OPCUA.Write", () => {
     expect(index.isIndex).toBe(true);
   });
 
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createWriteChannel();
+    const firstDraft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    const first = await renderWrite({ client, taskKey: firstDraft.key });
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      OPCUA.Task.WRITE_SCHEMAS,
+    );
+    first.unmount();
+    const cmd = await client.channels.retrieve(firstTask.config.channels[0].cmdChannel);
+    const secondDraft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    await renderWrite({ client, taskKey: secondDraft.key });
+    await screen.findByText(cmd.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: secondDraft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0].cmdChannel).toBe(cmd.key);
+    });
+  });
+
   it("should reuse existing command channels when redeploying", async () => {
     const dev = await createOPCDevice(client);
     const ch = createWriteChannel();

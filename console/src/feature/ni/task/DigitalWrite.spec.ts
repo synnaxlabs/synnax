@@ -9,14 +9,17 @@
 
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Text } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
+import { act } from "react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
+import { Task } from "@/platform/task";
 import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -145,6 +148,43 @@ describe("DigitalWrite", () => {
       expect(state.name).toBe(stateName);
       const cmdIndex = await client.channels.retrieve(cmd.index);
       expect(cmdIndex.name).toBe(`${cmdName}_time`);
+    });
+
+    it("should bind a new entry to the channel the device already maps, so a rename reaches the Core", async () => {
+      const dev = await createNIDevice(client);
+      const first = await renderDigitalWrite(
+        createConfig([createChannel(0, 0)], dev.key),
+      );
+      await deployAndAwaitTask(client, first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
+        schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
+      });
+      first.unmount();
+      const [bound] = firstTask.config.channels;
+      const cmd = await client.channels.retrieve(bound.cmdChannel);
+      const state = await client.channels.retrieve(bound.stateChannel);
+      const ch = createChannel(0, 0);
+      const second = await renderDigitalWrite(createConfig([ch], dev.key));
+      await screen.findByText(cmd.name);
+      await screen.findByText(state.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: second.draft.key,
+          schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels[0].cmdChannel).toBe(bound.cmdChannel);
+        expect(saved.config.channels[0].stateChannel).toBe(bound.stateChannel);
+      });
+      const renamed = uniqueName("valve_cmd");
+      const editID = Task.getChannelNameID(ch.key, "cmd");
+      Text.edit(editID);
+      const el = await awaitTextEditing(editID);
+      act(() => commitTextEdit(el, renamed));
+      await waitFor(async () => {
+        const after = await client.channels.retrieve(bound.cmdChannel);
+        expect(after.name).toBe(renamed);
+      });
     });
 
     it("should reuse existing channels when redeployed", async () => {

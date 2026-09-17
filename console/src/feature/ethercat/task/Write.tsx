@@ -10,8 +10,9 @@
 import { channel } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
+import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
 import { WriteChannelDetails } from "@/feature/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
@@ -72,14 +73,31 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC = () => (
-  <Task.Views.ListAndDetails<WriteChannel>
-    listItem={listItem}
-    details={channelDetails}
-    createChannel={createWriteChannel}
-    contextMenuItems={Task.writeChannelContextMenuItems}
-  />
-);
+const Form: FC = () => {
+  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const resolve = useCallback(
+    (ch: WriteChannel) => {
+      const slave = slaves?.find(({ key }) => key === ch.device);
+      if (slave == null) return null;
+      const { channels } = slave.properties.write;
+      const mapKey = channelMapKey(ch);
+      return {
+        cmdChannel: getChannelByMapKey(channels, mapKey),
+        stateChannel: getChannelByMapKey(channels, `${mapKey}_state`),
+      };
+    },
+    [slaves],
+  );
+  return (
+    <Task.Views.ListAndDetails<WriteChannel>
+      listItem={listItem}
+      details={channelDetails}
+      createChannel={createWriteChannel}
+      contextMenuItems={Task.writeChannelContextMenuItems}
+      resolve={resolve}
+    />
+  );
+};
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
   name: "EtherCAT write task",
