@@ -122,10 +122,7 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 	}
 	if p.Type == pathErrorType {
 		var errDecodedPath encodedPathError
-		if err := json.Unmarshal(
-			[]byte(p.Data),
-			&errDecodedPath,
-		); err != nil {
+		if err := json.Unmarshal([]byte(p.Data), &errDecodedPath); err != nil {
 			return err, true
 		}
 		return PathError{

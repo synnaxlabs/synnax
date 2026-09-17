@@ -37,7 +37,7 @@ import (
 // Because the formatter chain is the *same* one sync uses (passed in via
 // the constructor, not reconstructed here), it is structurally
 // impossible for this gate to disagree with what sync would produce.
-type GeneratedGate struct {
+type generatedGate struct {
 	formatters *format.Registry
 	workers    int
 }
@@ -45,22 +45,22 @@ type GeneratedGate struct {
 // NewGeneratedGate constructs a generated-drift gate. The formatter
 // registry must be the same one sync uses; passing a different one
 // turns the gate into a lie.
-func NewGeneratedGate(formatters *format.Registry, workers int) *GeneratedGate {
-	return &GeneratedGate{formatters: formatters, workers: workers}
+func NewGeneratedGate(formatters *format.Registry, workers int) Checker {
+	return generatedGate{formatters: formatters, workers: workers}
 }
 
-func (GeneratedGate) Name() string { return "generated" }
+func (generatedGate) Name() string { return "generated" }
 
-func (g GeneratedGate) Run(
+func (g generatedGate) Run(
 	ctx context.Context,
-	p *pipeline.Result,
+	res *pipeline.Result,
 	env Env,
 ) GateReport {
 	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 
 	all := make([]plugin.File, 0)
-	for _, files := range p.Outputs {
+	for _, files := range res.Outputs {
 		all = append(all, files...)
 	}
 
@@ -120,7 +120,7 @@ func (g GeneratedGate) Run(
 // next run; for a CI gate the right thing is to attribute the failure
 // to the file that triggered it and keep going so the user sees every
 // failing file at once.
-func (g GeneratedGate) checkOne(
+func (g generatedGate) checkOne(
 	ctx context.Context,
 	env Env,
 	f plugin.File,

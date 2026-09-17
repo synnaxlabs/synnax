@@ -25,26 +25,25 @@ import (
 // from its resource's current version file. Versioning exists to decode stored
 // bytes; a persisted type outside the chain would ship bytes no frozen shape
 // records.
-type PersistenceGate struct {
+type persistenceGate struct {
 	// WarningsAsErrors promotes the gate's warnings to errors.
 	WarningsAsErrors bool
 }
 
-// NewPersistenceGate constructs a persistence gate.
-func NewPersistenceGate(warningsAsErrors bool) *PersistenceGate {
-	return &PersistenceGate{WarningsAsErrors: warningsAsErrors}
+func NewPersistenceGate(warningsAsErrors bool) Checker {
+	return persistenceGate{WarningsAsErrors: warningsAsErrors}
 }
 
-func (PersistenceGate) Name() string { return "persistence" }
+func (persistenceGate) Name() string { return "persistence" }
 
-func (g PersistenceGate) Run(
+func (g persistenceGate) Run(
 	ctx context.Context,
-	p *pipeline.Result,
+	res *pipeline.Result,
 	_ Env,
 ) GateReport {
 	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
-	if p.Resolutions == nil {
+	if res.Resolutions == nil {
 		r.Elapsed = telem.Since(start)
 		return r
 	}
@@ -52,8 +51,8 @@ func (g PersistenceGate) Run(
 	if g.WarningsAsErrors {
 		severity = SeverityError
 	}
-	closure := gotypes.PersistedClosure(p.Resolutions)
-	entries, members, err := gotypes.Survey(ctx, p.Resolutions, p.Versions)
+	closure := gotypes.PersistedClosure(res.Resolutions)
+	entries, members, err := gotypes.Survey(ctx, res.Resolutions, res.Versions)
 	if err != nil {
 		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
 		r.Elapsed = telem.Since(start)
@@ -63,7 +62,7 @@ func (g PersistenceGate) Run(
 	for goPath := range entries {
 		versionedPaths.Add(goPath)
 	}
-	for _, t := range p.Resolutions.Types {
+	for _, t := range res.Resolutions.Types {
 		if omit.IsSkipped(t, "go") || output.GetPath(t, "go") == "" {
 			continue
 		}
@@ -73,7 +72,7 @@ func (g PersistenceGate) Run(
 			continue
 		}
 		r.Findings = append(r.Findings, Finding{
-			Path:     schemaPathFor(p, t.Namespace),
+			Path:     schemaPathFor(res, t.Namespace),
 			Severity: severity,
 			Message: t.QualifiedName +
 				" is persisted but absent from its resource's current version file",
@@ -89,8 +88,8 @@ func (g PersistenceGate) Run(
 }
 
 // schemaPathFor best-effort maps a namespace to its schema file path.
-func schemaPathFor(p *pipeline.Result, namespace string) string {
-	for _, rel := range p.Schemas {
+func schemaPathFor(res *pipeline.Result, namespace string) string {
+	for _, rel := range res.Schemas {
 		if strings.HasSuffix(rel, "/"+namespace+".oracle") ||
 			rel == namespace+".oracle" {
 			return rel

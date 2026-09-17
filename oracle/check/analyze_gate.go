@@ -18,32 +18,30 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// AnalyzeGate surfaces every analyzer diagnostic the pipeline collected.
-// Errors fail the gate. Warnings, info, and hints are reported but only
-// fail the gate when WarningsAsErrors is set.
+// AnalyzeGate surfaces every analyzer diagnostic the pipeline collected. Errors fail
+// the gate. Warnings, info, and hints are reported but only fail the gate when
+// WarningsAsErrors is set.
 //
-// The previous `oracle check` implementation silently dropped warnings.
-// That made it possible for "unresolved type" or other soft analyzer
-// signals to land on disk and survive review. This gate forces them to
-// the surface.
-type AnalyzeGate struct {
-	// WarningsAsErrors promotes SeverityWarning findings to SeverityError
-	// for the purpose of this gate's pass/fail decision.
+// The previous `oracle check` implementation silently dropped warnings. That made it
+// possible for "unresolved type" or other soft analyzer signals to land on disk and
+// survive review. This gate forces them to the surface.
+type analyzeGate struct {
+	// WarningsAsErrors promotes SeverityWarning findings to SeverityError for the
+	// purpose of this gate's pass/fail decision.
 	WarningsAsErrors bool
 }
 
-// NewAnalyzeGate constructs an analyze gate.
-func NewAnalyzeGate(warningsAsErrors bool) *AnalyzeGate {
-	return &AnalyzeGate{WarningsAsErrors: warningsAsErrors}
+func NewAnalyzeGate(warningsAsErrors bool) Checker {
+	return analyzeGate{WarningsAsErrors: warningsAsErrors}
 }
 
-func (AnalyzeGate) Name() string { return "analyze" }
+func (analyzeGate) Name() string { return "analyze" }
 
-func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateReport {
+func (g analyzeGate) Run(_ context.Context, res *pipeline.Result, _ Env) GateReport {
 	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
-	if p.Diagnostics != nil {
-		p.Diagnostics.Each(func(file string, d diagnostics.Diagnostic) {
+	if res.Diagnostics != nil {
+		res.Diagnostics.Each(func(file string, d diagnostics.Diagnostic) {
 			// Positions are 0-indexed; render 1-indexed, with 0 meaning no location.
 			// Positioned diagnostics always set a non-zero End, so a zero Range means
 			// unpositioned even for a diagnostic starting at 0:0.

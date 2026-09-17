@@ -115,43 +115,45 @@ type Envelope struct {
 	body  map[string]any
 }
 
-// MarshalJSON emits the body built by Encode. It returns an error when the envelope has
-// no body, so a service that returns an empty Envelope from Export fails loudly instead
-// of sending null. The body keeps <, >, and & literal: the encoder that embeds this
-// output can add escapes but never remove them, so the choice belongs to it. Members
-// are sorted, because the method sets its own options rather than inheriting the
-// caller's, and an exported file must be byte-stable across runs.
-func (e Envelope) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo writes the body built by Encode. It returns an error when the envelope
+// has no body, so a service that returns an empty Envelope from Export fails loudly
+// instead of sending null. Indentation, member ordering and escaping come from the
+// encoder: the codec an export writes through owns them, not this method.
+func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if e.body == nil {
-		return nil, errors.New(
+		return errors.New(
 			"envelope has no body; build one with Encode before marshaling",
 		)
 	}
-	return json.Marshal(
-		e.body,
-		jsontext.EscapeForHTML(false),
-		json.Deterministic(true),
-	)
+	return json.MarshalEncode(enc, e.body)
 }
 
-// UnmarshalJSON reads a flat JSON object, promoting the headers and retaining the bytes
-// for a later Decode. Only the headers come from this decode; Decode reads the payload
-// from the raw bytes, so a value past float64's mantissa keeps every bit. A duplicate
-// object name or invalid UTF-8 fails the read: an import file comes from outside the
-// Core, so a defect there is corruption, not a value to guess.
-func (e *Envelope) UnmarshalJSON(b []byte) error {
-	if err := xjson.Validate(b); err != nil {
-		return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
+// UnmarshalJSONFrom reads a flat JSON object, promoting the headers and retaining the
+// bytes for a later Decode. Only the headers come from this decode; Decode reads the
+// payload from the raw bytes, so a value past float64's mantissa keeps every bit. A
+// duplicate object name or invalid UTF-8 fails the read: an import file comes from
+// outside the Core, so a defect there is corruption, not a value to guess.
+func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		var syntactic *jsontext.SyntacticError
+		if errors.As(err, &syntactic) {
+			return errors.Wrapf(validate.ErrValidation, "invalid JSON: %s", err)
+		}
+		return err
 	}
+	// ReadValue aliases the decoder's buffer, which the next read reuses. Decode hands
+	// these bytes back long after this call, so they must be copied.
+	raw = raw.Clone()
 	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
+	if err := json.Unmarshal(raw, &m); err != nil {
 		return err
 	}
 	// A JSON null decodes to a nil map rather than an error.
 	if m == nil {
 		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
 	}
-	return e.unmarshal(m, b, xjson.Codec)
+	return e.unmarshal(m, raw, xjson.Codec)
 }
 
 // unmarshal promotes the {version, type, name} headers onto the receiver and stashes

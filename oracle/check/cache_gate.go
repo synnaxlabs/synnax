@@ -19,35 +19,31 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// CacheGate validates that the sync cache is internally consistent with
-// what is actually on disk.
+// CacheGate validates that the sync cache is internally consistent with what is
+// actually on disk.
 //
-// The sync cache stores two hashes per generated file: the raw plugin
-// output and the canonical post-format output. On the next sync, if
-// the raw hash matches AND the on-disk file hashes to the cached
-// canonical value, sync skips the file. The canonical-hash check is
-// what makes the cache safe across formatter version bumps and hand
-// edits; without it sync would silently keep stale bytes in place.
+// The sync cache stores two hashes per generated file: the raw plugin output and the
+// canonical post-format output. On the next sync, if the raw hash matches AND the
+// on-disk file hashes to the cached canonical value, sync skips the file. The
+// canonical-hash check is what makes the cache safe across formatter version bumps and
+// hand edits; without it sync would silently keep stale bytes in place.
 //
-// This gate proves the cache is not lying: for every produced file
-// where the cache contains an entry, it verifies (1) the file exists
-// and (2) the on-disk bytes hash to the cached canonical value. A
-// mismatch means the cache says "skip" on a file whose contents no
-// longer match what sync claimed it wrote, which would let stale
-// output survive a sync with no warning.
-type CacheGate struct {
-	cache *format.Cache
+// This gate proves the cache is not lying: for every produced file where the cache
+// contains an entry, it verifies (1) the file exists and (2) the on-disk bytes hash to
+// the cached canonical value. A mismatch means the cache says "skip" on a file whose
+// contents no longer match what sync claimed it wrote, which would let stale output
+// survive a sync with no warning.
+type cacheGate struct{ cache *format.Cache }
+
+// NewCacheGate returns a Checker that reports the cache coherent. A nil cache skips
+// the gate, for a caller that loaded none.
+func NewCacheGate(cache *format.Cache) Checker {
+	return cacheGate{cache: cache}
 }
 
-// NewCacheGate constructs the gate. nil cache makes the gate a no-op
-// (skip-style), used by callers that did not load a cache.
-func NewCacheGate(cache *format.Cache) *CacheGate {
-	return &CacheGate{cache: cache}
-}
+func (cacheGate) Name() string { return "cache" }
 
-func (CacheGate) Name() string { return "cache" }
-
-func (g CacheGate) Run(_ context.Context, p *pipeline.Result, env Env) GateReport {
+func (g cacheGate) Run(_ context.Context, res *pipeline.Result, env Env) GateReport {
 	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	if g.cache == nil {
@@ -56,7 +52,7 @@ func (g CacheGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepor
 		return r
 	}
 
-	for _, files := range p.Outputs {
+	for _, files := range res.Outputs {
 		for _, f := range files {
 			entry, hit := g.cache.Lookup(f.Path)
 			if !hit {

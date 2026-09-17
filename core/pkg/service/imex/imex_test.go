@@ -12,6 +12,7 @@ package imex_test
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,7 +47,7 @@ func (bodyExported) ExportBody() any {
 
 var _ = Describe("ImEx", func() {
 	Describe("Envelope", func() {
-		Describe("UnmarshalJSON", func() {
+		Describe("UnmarshalJSONFrom", func() {
 			It(
 				"Should extract promoted headers and retain the body for typed decode",
 				func(ctx SpecContext) {
@@ -145,8 +146,8 @@ var _ = Describe("ImEx", func() {
 
 			It("Should reject a duplicate object name", func() {
 				var env imex.Envelope
-				Expect(env.UnmarshalJSON(
-					[]byte(`{"version":1,"name":"a","name":"b"}`),
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
 				)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("duplicate object member name")),
@@ -155,8 +156,8 @@ var _ = Describe("ImEx", func() {
 
 			It("Should reject invalid UTF-8", func() {
 				var env imex.Envelope
-				Expect(env.UnmarshalJSON(
-					[]byte("{\"version\":1,\"name\":\"\xff\"}"),
+				Expect(json.Unmarshal(
+					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
 				)).To(MatchError(ContainSubstring("invalid UTF-8")))
 			})
 
@@ -206,7 +207,7 @@ var _ = Describe("ImEx", func() {
 			)
 		})
 
-		Describe("MarshalJSON", func() {
+		Describe("MarshalJSONTo", func() {
 			It(
 				"Should emit the body built by Encode, with headers at the top level",
 				func() {
@@ -232,8 +233,9 @@ var _ = Describe("ImEx", func() {
 					Expect(
 						env.Encode(wirePayload{Name: "n", Bar: `<svg id="a"/>`}),
 					).To(Succeed())
-					Expect(string(MustSucceed(env.MarshalJSON()))).
-						To(ContainSubstring(`"<svg id=\"a\"/>"`))
+					Expect(string(MustSucceed(
+						json.Marshal(env, jsontext.EscapeForHTML(false)),
+					))).To(ContainSubstring(`"<svg id=\"a\"/>"`))
 					Expect(string(MustSucceed(
 						json.Marshal(env, jsontext.EscapeForHTML(true)),
 					))).To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
@@ -243,12 +245,12 @@ var _ = Describe("ImEx", func() {
 			It(
 				"Should error when marshaling a hand-constructed envelope with no body",
 				func() {
-					// Hand-constructed envelopes have a nil body. MarshalJSON refuses
-					// rather than silently emitting JSON null, so a service that
-					// accidentally returns an empty Envelope surfaces the bug at the
-					// transport boundary rather than over the wire.
+					// Hand-constructed envelopes have a nil body. The marshaler
+					// refuses rather than silently emitting JSON null, so a service
+					// that accidentally returns an empty Envelope surfaces the bug at
+					// the transport boundary rather than over the wire.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-					Expect(env.MarshalJSON()).Error().
+					Expect(json.MarshalWrite(io.Discard, env)).
 						To(MatchError(ContainSubstring("envelope has no body")))
 				},
 			)
