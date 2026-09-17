@@ -6,7 +6,7 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro check && astro build",
-    "check-site": "node src/util/checks/main.ts",
+    "check-site": "tsx src/util/checks/main.ts",
     "check-site:build": "astro build --config astro.check.config.ts",
     "check-types": "astro check",
     "preview": "astro preview",
@@ -61,6 +61,7 @@
     "remark-gfm": "catalog:",
     "strip-markdown": "catalog:",
     "stylelint": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:ts6",
     "vitest": "catalog:"
   }

@@ -914,6 +914,9 @@ importers:
       stylelint:
         specifier: 'catalog:'
         version: 17.14.1(supports-color@10.2.2)(typescript@6.0.3)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.13
       typescript:
         specifier: catalog:ts6
         version: 6.0.3
