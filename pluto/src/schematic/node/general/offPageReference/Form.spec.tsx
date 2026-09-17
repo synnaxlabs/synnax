@@ -54,12 +54,12 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
 
 describe("OffPageReferenceForm", () => {
   it("should render the form with label, page, and click mode fields", () => {
-    const { getByText } = render(
+    const { getAllByText, getByText } = render(
       <FormWrapper>
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Label")).toBeDefined();
+    expect(getAllByText("Label").length).toBeGreaterThan(0);
     expect(getByText("Page")).toBeDefined();
     expect(getByText("Click mode")).toBeDefined();
   });
@@ -89,7 +89,7 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Label size")).toBeDefined();
+    expect(getByText("Size")).toBeDefined();
   });
 
   interface PageFormFixtureArgs {

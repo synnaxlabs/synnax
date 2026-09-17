@@ -16,7 +16,7 @@ export const ControlChipField = (
 ): ReactElement => (
   <Form.SwitchField
     path="control.show"
-    label="Show control chip"
+    label="Control chip"
     hideIfNull
     optional
     padHelpText={false}
