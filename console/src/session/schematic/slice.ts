@@ -35,7 +35,7 @@ export const legendStateZ = z.object({
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 
-export const toolbarTabZ = z.enum(["symbols", "properties"]);
+export const toolbarTabZ = z.enum(["symbols", "properties", "control"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
 export const toolbarStateZ = z.object({
   selectedTab: toolbarTabZ.default("symbols"),
@@ -141,6 +141,12 @@ export interface RemovePayload {
 const withSelectedState = Window.createWithDocumentHandler(stateZ);
 const initializeDocument = Window.createDocumentInitializer(stateZ);
 
+// Properties only configures a selection, so emptying one leaves that tab.
+const clearSelection = (state: State): void => {
+  state.selected = [];
+  if (state.toolbar.selectedTab === "properties") state.toolbar.selectedTab = "symbols";
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -157,7 +163,7 @@ export const { actions, reducer } = createSlice({
       (state, { payload: { status: control } }) => {
         state.control.status = control;
         if (control !== "acquired") return;
-        state.selected = [];
+        clearSelection(state);
         state.editable = false;
       },
     ),
@@ -195,7 +201,7 @@ export const { actions, reducer } = createSlice({
     setEditable: withSelectedState<SetEditablePayload, SliceState>(
       (state, { payload: { editable } }) => {
         state.editable = editable;
-        if (!editable) state.selected = [];
+        if (!editable) clearSelection(state);
       },
     ),
     setFitViewOnResize: withSelectedState<SetFitViewOnResizePayload, SliceState>(
@@ -241,7 +247,7 @@ export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const purgeState = (state: State): State => {
   state.control.status = "released";
-  state.selected = [];
+  clearSelection(state);
   return state;
 };
 
