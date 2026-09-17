@@ -137,7 +137,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
           namePath={`${path}.name`}
           id={Task.getChannelNameID(itemKey)}
         />
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );

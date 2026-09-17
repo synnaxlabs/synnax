@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/pluto";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -16,8 +16,6 @@ import { renderInTaskForm } from "@/platform/task/testutil";
 import { type Channel } from "@/platform/task/types";
 import {
   getIconButton,
-  getToggleButton,
-  isToggled,
   queryIcon,
   queryIconButton,
 } from "@/testutil";
@@ -71,18 +69,19 @@ describe("layouts.ListAndDetailsChannelItem", () => {
 
   it("should toggle the channel's disabled flag in the form", async () => {
     const { container, form } = await renderItem({ hasTareButton: false });
-    const toggle = await waitFor(() => getToggleButton(container));
-    expect(isToggled(toggle)).toBe(true);
-    fireEvent.click(toggle);
+    const enabled = (): HTMLInputElement =>
+      within(container).getByRole<HTMLInputElement>("checkbox");
+    await waitFor(() => expect(enabled().checked).toBe(true));
+    fireEvent.click(enabled());
     await waitFor(() =>
       expect(form.current?.get("config.channels.a.disabled").value).toBe(true),
     );
-    expect(isToggled(getToggleButton(container))).toBe(false);
-    fireEvent.click(toggle);
+    expect(enabled().checked).toBe(false);
+    fireEvent.click(enabled());
     await waitFor(() =>
       expect(form.current?.get("config.channels.a.disabled").value).toBe(false),
     );
-    expect(isToggled(getToggleButton(container))).toBe(true);
+    expect(enabled().checked).toBe(true);
   });
 
   it("should render command and state names when a state channel is present", async () => {

@@ -12,7 +12,7 @@ export * from "@/platform/task/ChannelName";
 export * from "@/platform/task/controls";
 export * from "@/platform/task/createCommand";
 export * from "@/platform/task/CreateMenuItem";
-export * from "@/platform/task/EnableDisableButton";
+export * from "@/platform/task/EnabledCheckbox";
 export * from "@/platform/task/fields";
 export * from "@/platform/task/Form";
 export * from "@/platform/task/getChannelNameID";

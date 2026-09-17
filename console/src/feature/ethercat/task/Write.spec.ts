@@ -107,7 +107,7 @@ describe("EtherCAT Write", () => {
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [createManualWriteChannel(slave.key, 0x7000, 4)],
     });
-    fireEvent.click(await screen.findByText("0x7000:4"));
+    fireEvent.click(await screen.findByRole("option", { name: /0x7000:4/ }));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
     expect(screen.getByText("Subindex")).toBeTruthy();
     expect(screen.getByDisplayValue("4")).toBeTruthy();

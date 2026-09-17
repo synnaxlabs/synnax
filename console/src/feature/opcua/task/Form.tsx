@@ -96,7 +96,7 @@ const ChannelListItem = <C extends Channel>({
       </Flex.Box>
       <Flex.Box direction="x" align="center">
         {children({ path })}
-        <Task.EnableDisableButton path={`${path}.disabled`} />
+        <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );

@@ -36,6 +36,7 @@ export interface ChannelNameProps extends optional.Optional<
   "level"
 > {
   channel: channel.Key;
+  /** The name configure will give the channel; shown as a preview while it is 0. */
   defaultName?: string;
   namePath: string;
 }
@@ -139,12 +140,19 @@ export const ChannelName = (props: ChannelNameProps): ReactElement => {
     ),
     [propsRef],
   );
-  if (props.channel === 0)
+  if (props.channel === 0) {
+    if (props.defaultName != null)
+      return (
+        <Message variant="info" message="Created when the task is configured">
+          <Unresolved {...props} color={8} />
+        </Message>
+      );
     return (
       <Message variant="warning" message="No channel selected">
         <Unresolved {...props} status="warning" />
       </Message>
     );
+  }
   return (
     <Errors.SuspenseBoundary
       loading={<Unresolved {...props} status="loading" />}

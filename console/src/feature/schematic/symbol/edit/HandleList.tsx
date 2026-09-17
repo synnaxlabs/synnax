@@ -107,7 +107,7 @@ export const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) =>
         <Header.Title level="p" weight={500}>
           Handles
         </Header.Title>
-        <Button.Button onClick={onAddHandle} size="small" variant="filled">
+        <Button.Button onClick={onAddHandle} size="small" variant="text">
           <Icon.Add />
         </Button.Button>
       </Header.Header>
