@@ -18,8 +18,17 @@ import {
   type Page,
 } from "playwright";
 
-import { TRAVEL_MAX_S, TRAVEL_MIN_S, TRAVEL_SCALE_S } from "@/director/constants";
+import {
+  CLICK_DWELL_S,
+  CLICK_HOLD_S,
+  CLICK_ZOOM_SETTLE_S,
+  RECT_ZOOM_MIN,
+  TRAVEL_MAX_S,
+  TRAVEL_MIN_S,
+  TRAVEL_SCALE_S,
+} from "@/director/constants";
 import { minimumJerk } from "@/director/cursor";
+import { fitAmount } from "@/director/zoom";
 import {
   type CursorKind,
   type Event,
@@ -124,6 +133,8 @@ export class CaptureSession {
   private speed = 1;
   private cursor: Point;
   private cursorRect: Rect | undefined;
+  private travelStart = 0;
+  private lastPress = -Infinity;
   private origin: Point | null = null;
   private openZoom: {
     tick: number;
@@ -339,6 +350,7 @@ export class CaptureSession {
   async moveTo(target: Locator | Point, opts?: { text?: boolean }): Promise<Point> {
     let { point: to, rect, cursor } = await this.resolve(target, opts?.text);
     const duration = this.travelTicks(to);
+    this.travelStart = this.frame;
     for (let i = 0; i < duration; i++) await this.tick();
     // Layout can shift while travel ticks elapse (drawer/dialog animations), so
     // re-resolve locators right before input dispatch; raw mouse events land on
@@ -359,6 +371,8 @@ export class CaptureSession {
     zoom?: boolean,
     clickCount = 1,
   ): Promise<void> {
+    if (clickCount === 1) await this.dwell(zoom);
+    this.lastPress = this.frame;
     this.events.push({
       type: "pointerdown",
       tick: this.frame,
@@ -372,6 +386,27 @@ export class CaptureSession {
     this.events.push({ type: "pointerup", tick: this.frame, ...at, button });
     await this.page.mouse.up({ button, clickCount });
     await this.tick();
+  }
+
+  /**
+   * dwell holds a click that lands in a zoomed shot until the camera settles and
+   * the cursor rests on the target, so the viewer sees the target before the press.
+   * The zoom starts at the open authored zoom, or else at the cursor's departure,
+   * where the director anchors an auto zoom.
+   */
+  private async dwell(zoom?: boolean): Promise<void> {
+    if (!this.recording) return;
+    const { width, height, fps } = this.opts;
+    let start = this.openZoom?.tick;
+    if (start == null) {
+      if (zoom === false) return;
+      const rect = this.cursorRect;
+      if (rect != null && fitAmount(rect, width, height) < RECT_ZOOM_MIN) return;
+      start = this.travelStart;
+    }
+    const settle = Math.round(CLICK_ZOOM_SETTLE_S * fps) - (this.frame - start);
+    const ticks = Math.max(Math.round(CLICK_DWELL_S * fps), settle);
+    for (let i = 0; i < ticks; i++) await this.tick();
   }
 
   /**
@@ -421,6 +456,8 @@ export class CaptureSession {
     opts?: { zoom?: boolean },
   ): Promise<void> {
     const start = await this.moveTo(from);
+    await this.dwell(opts?.zoom);
+    this.lastPress = this.frame;
     this.events.push({
       type: "pointerdown",
       tick: this.frame,
@@ -467,26 +504,41 @@ export class CaptureSession {
    */
   async zoom(target: Locator | Point, amount?: number): Promise<void> {
     if (this.openZoom != null) this.endZoom();
+    this.clampZoomEnds();
     const { point, rect } = await this.resolve(target);
     if (amount == null && rect == null)
       throw new Error("zoom on a bare point requires an explicit amount");
     this.openZoom = { tick: this.frame, point, rect, amount };
   }
 
-  /** endZoom closes the open authored zoom, returning the camera to auto. */
+  /**
+   * endZoom closes the open authored zoom, returning the camera to auto. A zoom
+   * that saw a click holds until CLICK_HOLD_S past it, unless a later zoom opens
+   * or the recording ends first.
+   */
   endZoom(): void {
     if (this.openZoom == null) return;
     const { tick, point, rect, amount } = this.openZoom;
     this.openZoom = null;
     if (this.frame <= tick) return;
+    const hold =
+      this.lastPress >= tick
+        ? this.lastPress + Math.round(CLICK_HOLD_S * this.opts.fps)
+        : 0;
     this.events.push({
       type: "zoom",
       tick,
-      endTick: this.frame,
+      endTick: Math.max(this.frame, hold),
       amount,
       ...point,
       rect,
     });
+  }
+
+  /** clampZoomEnds cuts any authored zoom hold that runs past the current frame. */
+  private clampZoomEnds(): void {
+    for (const e of this.events)
+      if (e.type === "zoom" && e.endTick > this.frame) e.endTick = this.frame;
   }
 
   /** type enters text at a human cadence, one key per interval. */
@@ -535,6 +587,7 @@ export class CaptureSession {
   /** finish writes the timeline and closes the browser, returning the timeline. */
   async finish(): Promise<Timeline> {
     this.endZoom();
+    this.clampZoomEnds();
     const meta: Meta = {
       version: 1,
       fps: this.opts.fps,

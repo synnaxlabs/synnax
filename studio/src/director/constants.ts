@@ -93,6 +93,15 @@ export const RECT_ZOOM_MAX = 2.5;
  */
 export const RECT_ZOOM_MIN = 1.4;
 
+/** Seconds a zoomed click waits after its zoom starts, so the camera lands first. */
+export const CLICK_ZOOM_SETTLE_S = 0.9;
+
+/** Seconds the cursor rests on a zoomed click's target before it presses. */
+export const CLICK_DWELL_S = 0.35;
+
+/** Seconds an authored zoom holds past its last click, so the click reads. */
+export const CLICK_HOLD_S = 0.6;
+
 /** Minimum-jerk travel duration model: T = MIN + SCALE * sqrt(d / diagonal). */
 export const TRAVEL_MIN_S = 0.25;
 export const TRAVEL_SCALE_S = 0.35;
