@@ -29,7 +29,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 const VALUES: Values = {
-  label: Label.defaultConfig("Valve"),
+  label: Label.configZ.parse({ label: "Valve" }),
   scale: 1,
   orientation: "left",
 };

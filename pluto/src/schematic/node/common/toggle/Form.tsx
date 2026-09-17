@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, schematic } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
@@ -37,7 +38,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
     onChange({
       ...value,
       commandChannel: v ?? undefined,
-      control: schematic.controlStateConfigZ.parse(value.control ?? {}),
+      control: Control.reveal(value.control),
     });
 
   return (

@@ -12,7 +12,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
@@ -23,7 +23,7 @@ export const Symbol = ({
   onConfigChange,
   config: { label, orientation = "left", commandChannel, control, mode, ...rest },
 }: NodeProps<schematic.ButtonNodeConfig>): ReactElement => {
-  const sink = useMemo(() => CommonTelem.booleanSink(commandChannel), [commandChannel]);
+  const sink = useMemo(() => Telem.booleanSink(commandChannel), [commandChannel]);
   const { onClick, onMouseDown, onMouseUp } = BaseButton.use({
     aetherKey: nodeKey,
     sink,

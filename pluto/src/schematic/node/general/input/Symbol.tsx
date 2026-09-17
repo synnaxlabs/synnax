@@ -13,7 +13,7 @@ import { type ReactElement, useMemo } from "react";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Input as InputTelem } from "@/vis/input";
@@ -24,7 +24,7 @@ export const Symbol = ({
   selected,
   config: { label, control, commandChannel, ...rest },
 }: NodeProps<schematic.InputNodeConfig>): ReactElement => {
-  const sink = useMemo(() => CommonTelem.stringSink(commandChannel), [commandChannel]);
+  const sink = useMemo(() => Telem.stringSink(commandChannel), [commandChannel]);
   const { set } = InputTelem.use({ aetherKey: nodeKey, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>

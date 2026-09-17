@@ -69,7 +69,7 @@ export interface SmoothedNumberSourceArgs {
   rollingAverage?: number;
 }
 
-/** smoothedNumberSource builds the rolling-average read pipeline for a value channel. */
+/** smoothedNumberSource builds the rolling-average read pipeline for a channel. */
 export const smoothedNumberSource = ({
   channel = 0,
   rollingAverage = 1,

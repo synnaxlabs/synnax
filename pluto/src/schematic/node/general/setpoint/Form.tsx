@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, schematic } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
+import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -29,11 +30,7 @@ export const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({
       ...value,
       commandChannel: v,
-      control: schematic.controlStateConfigZ.parse({
-        ...value.control,
-        chipHidden: false,
-        indicatorHidden: false,
-      }),
+      control: Control.reveal(value.control),
       disabled: v == 0,
     });
   };

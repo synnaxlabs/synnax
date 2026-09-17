@@ -55,7 +55,8 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
       if (config?.variant !== "off_page_reference") return;
       const { page } = config;
       if (page == null || page.key.length === 0) return;
-      if (dblClick === config.dblClickNavDisabled) return;
+      const navigatesOnDblClick = !config.dblClickNavDisabled;
+      if (dblClick !== navigatesOnDblClick) return;
       const target = PAGE_TARGETS[page.type];
       const { label } = config.label;
       const name = label.length > 0 ? label : `Referenced ${target.noun.toLowerCase()}`;

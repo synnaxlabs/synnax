@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { NotFoundError, type schematic } from "@synnaxlabs/client";
 
 import { Data } from "@/schematic/edge/data";
 import { Electric } from "@/schematic/edge/electric";
@@ -28,14 +28,12 @@ export const REGISTRY = {
   data: Data.spec,
 } as const satisfies Record<schematic.EdgeConfigType, unknown>;
 
-export const variantZ = schematic.edgeConfigTypeZ;
 export type Variant = schematic.EdgeConfigType;
 
-export const configZ = schematic.edgeConfigZ;
 export type Config = schematic.EdgeConfig;
 
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Edge with variant ${variant} not found`);
-  return spec as unknown as Spec<Variant, Config>;
+  return spec;
 };

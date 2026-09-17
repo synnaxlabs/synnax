@@ -53,10 +53,8 @@ export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
   crossings: xy.XY[];
 }
 
-const create = <V extends schematic.EdgeConfigType>(
-  Path: FC<PathProps>,
-): Edge<Config<V>> => {
-  const E: Edge<Config<V>> = ({
+const create = (Path: FC<PathProps>): Edge => {
+  const E: Edge = ({
     edgeKey,
     source,
     target,
@@ -211,9 +209,7 @@ export const createSpec = <V extends schematic.EdgeConfigType>(
   key: variant,
   name,
   configZ: createConfigZ(variant),
-  Edge: create<V>(path),
+  Edge: create(path),
   Form,
   defaultConfig: () => createDefaultConfig(variant),
 });
-
-export { type Config, createConfigZ, createDefaultConfig };

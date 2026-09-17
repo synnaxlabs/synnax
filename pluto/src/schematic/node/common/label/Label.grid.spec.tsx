@@ -149,7 +149,7 @@ describe("Label.Label as GridItem", () => {
       });
       expect(onChange).toHaveBeenCalledTimes(1);
       expect(onChange).toHaveBeenCalledWith({
-        label: { label: "X", orientation: "right" },
+        label: cfg({ label: "X", orientation: "right" }),
       });
     });
   });

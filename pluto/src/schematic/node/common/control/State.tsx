@@ -14,11 +14,21 @@ import { useMemo } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Control } from "@/telem/control";
 
 export const stateConfigZ = schematic.controlStateConfigZ;
 export type StateConfig = schematic.ControlStateConfig;
+
+/** reveal clears every hidden flag, so the control state shows once a command channel
+ * is chosen. */
+export const reveal = (config?: StateConfig): StateConfig =>
+  stateConfigZ.parse({
+    ...config,
+    hidden: false,
+    chipHidden: false,
+    indicatorHidden: false,
+  });
 
 export interface State {
   config?: StateConfig;
@@ -38,13 +48,13 @@ const Internal = ({
 }: InternalProps) => {
   const chip = useMemo(
     () => ({
-      source: CommonTelem.chipStatusSource(channel),
-      sink: CommonTelem.chipSink({ channel, authority }),
+      source: Telem.chipStatusSource(channel),
+      sink: Telem.chipSink({ channel, authority }),
     }),
     [channel, authority],
   );
   const indicator = useMemo(
-    () => ({ statusSource: CommonTelem.chipStatusSource(channel) }),
+    () => ({ statusSource: Telem.chipStatusSource(channel) }),
     [channel],
   );
   return (

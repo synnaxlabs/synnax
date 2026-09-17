@@ -14,12 +14,12 @@ import { type z } from "zod";
 import { type FormProps } from "@/schematic/node/spec";
 import { type Diagram } from "@/vis/diagram";
 
-export interface EdgeProps<Config extends object = object> extends Diagram.EdgeProps {
+export interface EdgeProps extends Diagram.EdgeProps {
   onChange: (p: Partial<schematic.EdgeConfig>) => void;
-  config: Config;
+  config: schematic.EdgeConfig;
 }
 
-export type Edge<Config extends object = object> = FC<EdgeProps<Config>>;
+export type Edge = FC<EdgeProps>;
 
 export interface Spec<
   Variant extends string = string,
@@ -29,6 +29,6 @@ export interface Spec<
   name: string;
   configZ: z.ZodType<P>;
   Form: FC<FormProps>;
-  Edge: Edge<P>;
+  Edge: Edge;
   defaultConfig: () => P;
 }

@@ -12,7 +12,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Theming } from "@/theming";
@@ -34,7 +34,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.StateIndicatorNodeConfig>): ReactElement => {
   const theme = Theming.use();
-  const source = useMemo(() => CommonTelem.numberSource(channel), [channel]);
+  const source = useMemo(() => Telem.numberSource(channel), [channel]);
   const { key: optKey, stale } = BaseStateIndicator.use({
     aetherKey: nodeKey,
     source,

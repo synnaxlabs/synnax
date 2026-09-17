@@ -23,13 +23,7 @@ export const Symbol = ({
   position,
   onConfigChange,
   selected,
-  config: {
-    label,
-    color,
-    dimensions: dims = BaseScale.DEFAULT_DIMENSIONS,
-    orientation = "top",
-    indicator,
-  },
+  config: { label, color, dimensions: dims, orientation, indicator },
 }: NodeProps<schematic.ScaleNodeConfig>): ReactElement => {
   const dir = location.direction(orientation);
   // The configured dimensions are the bar's own. The ticks live beside it, so the
@@ -40,10 +34,7 @@ export const Symbol = ({
     dir === "y"
       ? { width: dims.width + gutter, height: dims.height }
       : { width: dims.width, height: dims.height + gutter };
-  const telem = useMemo(
-    () => (indicator == null ? undefined : BaseScale.source(indicator)),
-    [indicator],
-  );
+  const telem = useMemo(() => BaseScale.source(indicator), [indicator]);
   VisScale.use({
     ...vis,
     telem,

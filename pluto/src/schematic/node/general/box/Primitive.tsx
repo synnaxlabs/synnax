@@ -20,9 +20,5 @@ interface RenderProps extends Omit<
 }
 
 export const Box = ({ borderRadius, ...rest }: RenderProps): ReactElement => (
-  <TankPrimitive
-    {...rest}
-    dimensions={rest.dimensions ?? { width: 25, height: 50 }}
-    boxBorderRadius={borderRadius ?? 0}
-  />
+  <TankPrimitive {...rest} boxBorderRadius={borderRadius} />
 );

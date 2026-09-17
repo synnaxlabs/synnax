@@ -13,7 +13,7 @@ import { type ReactElement, useMemo, useState } from "react";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
@@ -34,7 +34,7 @@ export const Symbol = ({
     inlineSize,
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
-  const sink = useMemo(() => CommonTelem.numberSink(commandChannel), [commandChannel]);
+  const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
   const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
   const handleSelectionChange = (key: string | null): void =>

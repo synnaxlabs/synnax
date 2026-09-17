@@ -13,7 +13,7 @@ import { type FC, memo, type ReactElement, useMemo } from "react";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Theming } from "@/theming";
@@ -52,14 +52,8 @@ export const createToggle = <C extends ToggleConfig>(
       ...rest
     } = config;
     const theme = Theming.use();
-    const source = useMemo(
-      () => CommonTelem.booleanSource(stateChannel),
-      [stateChannel],
-    );
-    const sink = useMemo(
-      () => CommonTelem.booleanSink(commandChannel),
-      [commandChannel],
-    );
+    const source = useMemo(() => Telem.booleanSource(stateChannel), [stateChannel]);
+    const sink = useMemo(() => Telem.booleanSink(commandChannel), [commandChannel]);
     const { enabled, toggle, stale } = Base.use({
       aetherKey: nodeKey,
       source,

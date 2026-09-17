@@ -104,6 +104,6 @@ export const isCustomConfig = (config: Config): config is CustomConfig =>
 /// variant. Used by the symbols toolbar to render the built-in catalog.
 // groupBox is excluded by key: it is created only by grouping, and a spec-level
 // hidden flag is not worth the plumbing for one symbol.
-export const STATIC_SPECS: readonly Spec[] = (
-  Object.values(REGISTRY) as ReadonlyArray<Spec>
+export const STATIC_SPECS: readonly Spec<Variant, Config>[] = (
+  Object.values(REGISTRY) as ReadonlyArray<Spec<Variant, Config>>
 ).filter((s) => !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT);

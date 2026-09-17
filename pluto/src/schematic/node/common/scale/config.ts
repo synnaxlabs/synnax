@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type dimensions, type location } from "@synnaxlabs/x";
 
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { type telem } from "@/telem/aether";
 import { type Scale as VisScale } from "@/vis/scale";
 
@@ -25,7 +25,7 @@ export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 34, height: 16
 
 /** source builds the smoothed read pipeline the indicator's value is drawn from. */
 export const source = ({ channel, rollingAverage }: Config): telem.NumberSourceSpec =>
-  CommonTelem.smoothedNumberSource({ channel, rollingAverage });
+  Telem.smoothedNumberSource({ channel, rollingAverage });
 
 /** visProps translates the stored hidden flags into the vis scale's show flags. */
 export const visProps = ({

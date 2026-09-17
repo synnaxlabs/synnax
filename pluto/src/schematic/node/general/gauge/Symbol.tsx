@@ -14,7 +14,7 @@ import { type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
 
@@ -53,7 +53,7 @@ export const Symbol = ({
     [level],
   );
   const telem = useMemo(
-    () => CommonTelem.stringSource({ channel, rollingAverage, precision, notation }),
+    () => Telem.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
   BaseGauge.use({

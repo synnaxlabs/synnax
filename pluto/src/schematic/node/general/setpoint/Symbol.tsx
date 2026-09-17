@@ -13,7 +13,7 @@ import { type ReactElement, useMemo } from "react";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
@@ -33,7 +33,7 @@ export const Symbol = ({
     disabled,
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
-  const sink = useMemo(() => CommonTelem.numberSink(commandChannel), [commandChannel]);
+  const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
   const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>

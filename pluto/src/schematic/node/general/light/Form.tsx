@@ -14,7 +14,7 @@ import { Channel } from "@/channel";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Tabs } from "@/tabs";
 import { Staleness } from "@/vis/staleness";
 
@@ -22,7 +22,7 @@ type LightTelemFormT = Pick<schematic.LightNodeConfig, "channel" | "threshold">;
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<LightTelemFormT>(path);
-  const threshold = value.threshold ?? CommonTelem.DEFAULT_THRESHOLD;
+  const threshold = value.threshold ?? Telem.DEFAULT_THRESHOLD;
 
   const handleSourceChange = (v: channel.Key | null): void =>
     onChange({ ...value, channel: v ?? undefined });
@@ -40,13 +40,13 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
       </Input.Item>
       <Input.Item label="Lower threshold">
         <Input.Numeric
-          value={threshold.lower ?? 0.9}
+          value={threshold.lower}
           onChange={(v) => handleThresholdChange({ ...threshold, lower: v })}
         />
       </Input.Item>
       <Input.Item label="Upper threshold">
         <Input.Numeric
-          value={threshold.upper ?? 1.1}
+          value={threshold.upper}
           onChange={(v) => handleThresholdChange({ ...threshold, upper: v })}
         />
       </Input.Item>

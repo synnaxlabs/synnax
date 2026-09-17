@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { box, direction, location, xy } from "@synnaxlabs/x";
 
 import { type diagram } from "@/vis/diagram/aether";
@@ -112,8 +112,6 @@ export const prepareNode = ({
       setOrientationOnLength(orientationToTravelIn, STUMP_LENGTH),
   };
 };
-
-export const segmentZ = schematic.segmentZ;
 
 export type Segment = schematic.Segment;
 

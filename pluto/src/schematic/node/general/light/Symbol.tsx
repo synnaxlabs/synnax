@@ -12,7 +12,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Theming } from "@/theming";
@@ -36,7 +36,7 @@ export const Symbol = ({
 }: NodeProps<schematic.LightNodeConfig>): ReactElement => {
   const theme = Theming.use();
   const source = useMemo(
-    () => CommonTelem.booleanSource(channel, threshold),
+    () => Telem.booleanSource(channel, threshold),
     [channel, threshold],
   );
   const { enabled, stale } = BaseLight.use({

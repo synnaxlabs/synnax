@@ -61,16 +61,6 @@ export const useElementConfig = Scope.bindHook(
   ),
 );
 
-export interface EdgeParams extends KeyParams {
-  edgeKey: string;
-}
-
-export const useEdge = Scope.bindHook(
-  createSelector<schematic.Edge | undefined, EdgeParams>(({ edges }, { edgeKey }) =>
-    edges.find((e) => e.key === edgeKey),
-  ),
-);
-
 export interface ConfigsParams extends KeyParams {
   keys: string[];
 }

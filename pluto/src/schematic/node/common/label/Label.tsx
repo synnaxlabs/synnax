@@ -80,15 +80,6 @@ export const Label = Grid.createItem(({ config, onChange }: Partial<LabelProps>)
 });
 Label.displayName = "Label.GridItem";
 
-export const defaultConfig = (label: string): Config => ({
-  label,
-  level: "h5",
-  orientation: "top",
-  maxInlineSize: 150,
-  align: "center",
-  direction: "x",
-});
-
 export const labeledConfigZ = schematic.labeledConfigZ;
 export type LabeledConfig = schematic.LabeledConfig;
 

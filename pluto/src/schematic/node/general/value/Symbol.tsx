@@ -15,7 +15,7 @@ import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import * as CommonTelem from "@/schematic/node/common/telem";
+import { Telem } from "@/schematic/node/common/telem";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -48,7 +48,7 @@ export const Symbol = ({
 }: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
   const t = useMemo(
-    () => CommonTelem.stringSource({ channel, rollingAverage, precision, notation }),
+    () => Telem.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
   const backgroundTelem = useMemo(() => {
