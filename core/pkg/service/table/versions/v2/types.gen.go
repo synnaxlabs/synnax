@@ -104,8 +104,8 @@ func (t TextCellConfig) Validate() error {
 	v := validate.New("TextCellConfig")
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
 	v.Ternaryf("align", !t.Align.IsValid(), "invalid align: %v", t.Align)
-	validate.GreaterThanEq(v, "weight", t.Weight, 1)
-	validate.LessThanEq(v, "weight", t.Weight, 1000)
+	v.GreaterThanEq("weight", t.Weight, 1)
+	v.LessThanEq("weight", t.Weight, 1000)
 	return v.Error()
 }
 
@@ -162,8 +162,8 @@ func (va ValueCellConfig) Validate() error {
 	v := validate.New("ValueCellConfig")
 	v.Ternaryf("notation", !va.Notation.IsValid(), "invalid notation: %v", va.Notation)
 	v.Ternaryf("level", !va.Level.IsValid(), "invalid level: %v", va.Level)
-	validate.GreaterThanEq(v, "rolling_average", va.RollingAverage, 1)
-	validate.GreaterThanEq(v, "staleness_timeout", va.StalenessTimeout, 1)
+	v.GreaterThanEq("rolling_average", va.RollingAverage, 1)
+	v.GreaterThanEq("staleness_timeout", va.StalenessTimeout, 1)
 	return v.Error()
 }
 
@@ -279,7 +279,7 @@ func (r *Row) ApplyDefaults() {
 // schema constraints.
 func (r Row) Validate() error {
 	v := validate.New("Row")
-	validate.GreaterThanEq(v, "size", r.Size, 1)
+	v.GreaterThanEq("size", r.Size, 1)
 	return v.Error()
 }
 
@@ -300,7 +300,7 @@ func (c *Column) ApplyDefaults() {
 // schema constraints.
 func (c Column) Validate() error {
 	v := validate.New("Column")
-	validate.GreaterThanEq(v, "size", c.Size, 1)
+	v.GreaterThanEq("size", c.Size, 1)
 	return v.Error()
 }
 
@@ -340,7 +340,7 @@ func (t *Table) ApplyDefaults() {
 // schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
-	validate.NotEmptyString(v, "name", t.Name)
+	v.NotEmptyString("name", t.Name)
 	for i := range t.Rows {
 		v.Exec(func() error { return validate.PathedError(t.Rows[i].Validate(), "rows", strconv.Itoa(i)) })
 	}
