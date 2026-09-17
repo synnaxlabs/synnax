@@ -11,96 +11,59 @@
 
 .console-task-configure--http_read,
 .console-task-configure--http_write {
-    /* Both halves are load-bearing: the list must refuse to shrink, and the detail
-       column must be allowed to, or the list absorbs everything it will not give up. */
-    .console-endpoint-list {
-        width: 250px;
-        flex-shrink: 0;
+    .console-panes {
+        --console-list-width: 300px;
     }
 
-    .console-endpoint-details-pane {
+    .pluto-tree__item {
+        padding-right: 1.25rem;
+    }
+
+    /* The tree paints every icon in its rows one gray; the toggle's own color must
+       win so an enabled field still reads as on. */
+    .pluto-tree__item .pluto-btn .pluto-icon {
+        color: inherit;
+    }
+
+    /* The add button stays quiet until the endpoint is hovered or chosen, so a long
+       list reads as data rather than a column of buttons. */
+    .console-endpoint-item__add {
+        margin-left: auto;
+        opacity: 0;
+    }
+
+    .console-endpoint-item:is(:hover, :focus-within, .pluto--selected)
+        .console-endpoint-item__add {
+        opacity: 1;
+    }
+
+    .console-field-pointer {
         min-width: 0;
+        flex-grow: 1;
+        font-family: var(--pluto-code-font-family);
+    }
+
+    .console-field-item.console--off .console-field-pointer {
+        color: var(--pluto-gray-l8);
+        text-decoration: line-through;
+        text-decoration-color: var(--pluto-gray-l6);
     }
 
     .console-endpoint-details {
         overflow-y: auto;
 
-        .console-endpoint-details-form {
-            padding: 2rem;
+        .console-endpoint-form {
+            padding: var(--console-details-padding);
         }
 
-        .console-headers-kv-editor {
-            padding: 2rem 0;
-        }
-
-        .console-query-params-kv-editor {
-            padding: 2rem 0 0;
-        }
-
-        /* This pane is the only scroller. Its lists grow with their content and
-           hand the overflow up; pluto's paint containment would clip it instead. */
-        .console-channel-list,
-        .console-additional-fields {
-            overflow: visible;
-            flex-shrink: 0;
-        }
-
-        /* The shared rule sizes this list beside a detail column; stacked here, its
-           225px basis becomes a height that strands the enum mapping below the fold.
-           The :not() mirrors that rule so this one outweighs it. */
-        .console-channel-list:not(:only-child) {
-            flex-basis: auto;
-        }
-
-        .console-field-list-items,
-        .console-channel-list .pluto-list__items {
-            overflow: visible;
-            contain: layout;
-            height: auto;
-        }
-
-        /* Content height alone puts the placeholder right under the header. */
-        .pluto-list__items--empty {
-            min-height: 15rem;
-        }
-
-        .pluto-header__actions {
-            padding-right: 2rem;
-        }
-
-        .pluto-header__text {
-            padding-left: 2rem;
+        .console-request-body {
+            min-height: 12rem;
+            font-family: var(--pluto-font-family-mono, monospace);
         }
     }
 
     .console-rate-input {
         max-width: 20rem;
-    }
-
-    .console-enum-mapping {
-        min-height: 200px;
-        max-height: 200px;
-        padding: 1rem 2rem;
-    }
-
-    .console-time-format {
-        width: 160px;
-    }
-
-    .console-channel-field-section {
-        padding: 2rem;
-    }
-
-    .console-json-type-select {
-        width: 140px;
-    }
-
-    .console-data-type-select {
-        max-width: 25rem;
-    }
-
-    .console-field-data-type {
-        width: 22rem;
     }
 
     .console-static-field-value {

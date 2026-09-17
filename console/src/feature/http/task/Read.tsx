@@ -18,25 +18,25 @@ import {
 import {
   Button,
   Component,
-  Divider,
+  CSS as PCSS,
+  Device as PDevice,
   Flex,
   Form as PForm,
-  Header,
   Icon,
   Input,
-  List,
   Menu,
   Select,
   Telem,
   Text,
+  Tree,
 } from "@synnaxlabs/pluto";
-import { DataType, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useState } from "react";
+import { DataType, errors, id, primitive, type record } from "@synnaxlabs/x";
+import { type FC, type MouseEvent, useCallback, useMemo, useState } from "react";
 
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
-import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
+import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
   deployReadConfigZ,
@@ -47,6 +47,7 @@ import {
   type ReadMethod,
   type ReadSchemas,
 } from "@/feature/http/task/types";
+import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
@@ -73,73 +74,133 @@ const Properties = () => (
   </>
 );
 
-const ReadEndpointListItem = (props: List.ItemProps<string>) => {
-  const { itemKey } = props;
-  const fields = PForm.useFieldValue<ReadField[]>(`config.endpoints.${itemKey}.fields`);
+const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
+
+type TreeEntry =
+  | { kind: "endpoint"; epKey: string }
+  | { kind: "field"; epKey: string; fieldKey: string };
+
+interface TreeIndex {
+  nodes: Tree.Node[];
+  entries: Map<string, TreeEntry>;
+}
+
+/** Endpoints as tree nodes with their fields beneath; the timing field stays hidden. */
+const useTreeIndex = (): TreeIndex => {
+  // The form writes child paths into the same array, so the array's identity never
+  // changes; the field state's does on every write beneath it.
+  const state = PForm.useFieldState<ReadEndpoint[]>("config.endpoints");
+  return useMemo(() => {
+    const entries = new Map<string, TreeEntry>();
+    const nodes = state.value.map((ep) => {
+      entries.set(ep.key, { kind: "endpoint", epKey: ep.key });
+      const children = ep.fields
+        .filter((f) => !isTimingField(f))
+        .map((f) => {
+          entries.set(f.key, { kind: "field", epKey: ep.key, fieldKey: f.key });
+          return { key: f.key };
+        });
+      return { key: ep.key, children };
+    });
+    return { nodes, entries };
+  }, [state]);
+};
+
+const entryPath = (entry: TreeEntry): string =>
+  entry.kind === "endpoint"
+    ? `config.endpoints.${entry.epKey}`
+    : `config.endpoints.${entry.epKey}.fields.${entry.fieldKey}`;
+
+/** The name configure gives a field's channel when the field carries none. */
+const useDefaultChannelName = (epKey: string, pointer: string): string => {
+  const deviceKey = PForm.useFieldValue<string>("config.device");
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
+  const dev = PDevice.useResult({ key: deviceKey }).data;
+  if (dev == null) return "";
   return (
-    <EndpointListItem
-      {...props}
-      extra={
-        <Text.Text level="small" color={9}>
-          {fields.length}
-        </Text.Text>
-      }
-    />
+    channel.escapeInvalidName(dev.name) + channel.escapeInvalidName(epPath + pointer)
   );
 };
 
-const readEndpointListItem = Component.renderProp(ReadEndpointListItem);
+const isCaretTarget = (target: EventTarget | null): boolean =>
+  target instanceof Element &&
+  target.closest(`.${PCSS.BE("tree", "expansion-indicator")}`) != null;
 
-const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
+interface EndpointTreeItemProps extends Tree.ItemRenderProps<string> {
+  onAddField: (epKey: string) => void;
+  onToggle: (epKey: string) => void;
+}
 
-interface FieldListItemProps extends Task.ChannelListItemProps {
+const EndpointTreeItem = ({
+  onAddField,
+  onToggle,
+  ...props
+}: EndpointTreeItemProps) => {
+  const { itemKey } = props;
+  const isPreview = Task.useIsPreview();
+  const handleAdd = useCallback(
+    (e: MouseEvent) => {
+      e.stopPropagation();
+      onAddField(itemKey);
+    },
+    [onAddField, itemKey],
+  );
+  // The caret folds the fields; the rest of the row opens the endpoint to edit it.
+  const handleClickCapture = useCallback(
+    (e: MouseEvent) => {
+      if (!isCaretTarget(e.target)) return;
+      e.stopPropagation();
+      onToggle(itemKey);
+    },
+    [onToggle, itemKey],
+  );
+  return (
+    <Tree.Item
+      {...props}
+      onClickCapture={handleClickCapture}
+      className={CSS.B("endpoint-item")}
+    >
+      <EndpointLabel epKey={itemKey} />
+      {!isPreview && (
+        <Button.Button
+          onClick={handleAdd}
+          variant="text"
+          size="tiny"
+          tooltip="Add field"
+          tooltipLocation="right"
+          className={CSS.BE("endpoint-item", "add")}
+        >
+          <Icon.Add />
+        </Button.Button>
+      )}
+    </Tree.Item>
+  );
+};
+
+interface FieldTreeItemProps extends Tree.ItemRenderProps<string> {
   epKey: string;
 }
 
-const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
+const FieldTreeItem = ({ epKey, ...props }: FieldTreeItemProps) => {
   const { itemKey } = props;
   const path = `config.endpoints.${epKey}.fields.${itemKey}`;
-  const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
-  const enumValues = PForm.useFieldValue<Record<string, number>[]>(
-    `${path}.enumValues`,
-    { defaultValue: [] },
-  );
-  const enumCount = enumValues.length;
-  const enumCountText =
-    enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
+  const { disabled, pointer } = PForm.useFieldValue<ReadField>(path);
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
-      <PForm.TextField
-        path={`${path}.pointer`}
-        showLabel={false}
-        showHelpText={false}
-        inputProps={POINTER_INPUT_PROPS}
-        grow
-      />
-      {fieldChannel === 0 && (
-        <PForm.Field<string>
-          path={`${path}.dataType`}
-          showLabel={false}
-          showHelpText={false}
-          hideIfNull
-        >
-          {renderTelemSelectDataType}
-        </PForm.Field>
-      )}
-      {enumCountText !== "" && (
-        <Text.Text level="small" color={9}>
-          {enumCountText}
-        </Text.Text>
-      )}
-      <Flex.Box x align="center" grow justify="end">
-        <Task.ChannelName
-          channel={fieldChannel}
-          namePath={`${path}.name`}
-          id={Task.getChannelNameID(itemKey)}
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.ListItem>
+    <Tree.Item
+      {...props}
+      className={CSS.cls(CSS.B("field-item"), disabled && CSS.M("off"))}
+    >
+      <Text.Text
+        level="small"
+        weight={500}
+        color={pointer === "" ? 8 : 10}
+        overflow="ellipsis"
+        className={CSS.B("field-pointer")}
+      >
+        {pointer === "" ? "New field" : pointer}
+      </Text.Text>
+      <Task.EnabledCheckbox path={`${path}.disabled`} />
+    </Tree.Item>
   );
 };
 
@@ -154,12 +215,7 @@ const HIDDEN_DATA_TYPES = [
 
 const renderTelemSelectDataType = Component.renderProp(
   (p: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType
-      {...p}
-      className={CSS.B("field-data-type")}
-      hideDataTypes={HIDDEN_DATA_TYPES}
-      location="bottom"
-    />
+    <Telem.SelectDataType {...p} hideDataTypes={HIDDEN_DATA_TYPES} location="bottom" />
   ),
 );
 
@@ -193,125 +249,53 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
   );
 };
 
-interface FieldListProps {
-  epKey: string;
-}
-
-const FieldList = ({ epKey }: FieldListProps) => {
-  const path = `config.endpoints.${epKey}.fields`;
-  const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
-  const [selected, setSelected] = useState<string[]>([]);
-  const ctx = PForm.useContext();
-  const isPreview = Task.useIsPreview();
-
-  const allFields = PForm.useFieldValue<ReadField[]>(path);
-  const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
-  const data = allData.filter((key) => !indexKeys.has(key));
-
-  const handleAdd = useCallback(() => {
-    const fields = ctx.get<ReadField[]>(path).value;
-    const nonIndex = fields.filter((f) => !isTimingField(f));
-    const last = nonIndex[nonIndex.length - 1];
-    const field: ReadField = {
-      ...(last != null
-        ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
-        : http.readFieldZ.parse({})),
-      key: id.create(),
-    };
-    push(field);
-    setSelected([field.key]);
-  }, [push, ctx, path]);
-
-  const handleDuplicate = useCallback(
-    (channels: ReadField[], keys: string[]) => {
-      const duplicated = channels
-        .filter(({ key }) => keys.includes(key))
-        .map((ch) => ({
-          ...ch,
-          ...Task.READ_CHANNEL_OVERRIDE,
-          key: id.create(),
-        }));
-      push(duplicated);
-    },
-    [push],
-  );
-
-  const listItem = useCallback(
-    ({ key, ...p }: Task.ChannelListItemProps) => (
-      <FieldListItem {...p} key={key} epKey={epKey} />
-    ),
-    [epKey],
-  );
-
-  const selectedFieldKey = selected.length === 1 ? selected[0] : null;
-  const selectedFieldPath =
-    selectedFieldKey != null ? `${path}.${selectedFieldKey}.enumValues` : null;
-
+const FieldDetails: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => {
+  const path = `config.endpoints.${epKey}.fields.${fieldKey}`;
+  const { channel: fieldChannel, pointer } = PForm.useFieldValue<ReadField>(path);
+  const defaultName = useDefaultChannelName(epKey, pointer);
+  const bound = fieldChannel !== 0;
   return (
     <>
-      <Task.ChannelList<ReadField>
-        data={data}
-        remove={remove}
-        onDuplicate={handleDuplicate}
-        onSelect={setSelected}
-        selected={selected}
-        path={path}
-        style={FIELD_LIST_STYLE}
-        header={
-          <Header.Header>
-            <Header.Title weight={500} color={9}>
-              Fields
-            </Header.Title>
-            {!isPreview && (
-              <Header.Actions empty align="end">
-                <Button.Button
-                  onClick={handleAdd}
-                  variant="filled"
-                  tooltip="Add field"
-                  size="small"
-                >
-                  <Icon.Add />
-                </Button.Button>
-              </Header.Actions>
-            )}
-          </Header.Header>
-        }
-        emptyContent={
-          <Empty.Action
-            message="No fields"
-            action={isPreview ? undefined : "Add field"}
-            onClick={handleAdd}
-          />
-        }
-        listItem={listItem}
-        contextMenuItems={Task.readChannelContextMenuItem}
-      />
-      {selectedFieldPath != null && (
-        <Flex.Box y empty className={CSS.B("enum-mapping")}>
-          <Divider.Divider x padded />
-          <PlatformForm.KeyValueEditor
-            path={selectedFieldPath}
-            label="Enum mapping"
-            keyField="label"
-            keyPlaceholder="String (e.g. ON)"
-            valueType="number"
-          />
-        </Flex.Box>
-      )}
+      <PForm.Section title="Field">
+        <PForm.TextField
+          path={`${path}.pointer`}
+          label="Pointer"
+          padHelpText={false}
+          inputProps={POINTER_INPUT_PROPS}
+        />
+        <PForm.Field<string>
+          path={`${path}.dataType`}
+          label="Data type"
+          padHelpText={false}
+          helpText={bound ? "Set on the channel" : undefined}
+        >
+          {(p) => renderTelemSelectDataType({ ...p, disabled: bound })}
+        </PForm.Field>
+        <PForm.TextField
+          path={`${path}.name`}
+          label="Channel"
+          padHelpText={false}
+          inputProps={{
+            placeholder: defaultName === "" ? "Channel name" : defaultName,
+          }}
+        />
+      </PForm.Section>
+      <PForm.Section title="Enum mapping">
+        <PlatformForm.KeyValueEditor
+          path={`${path}.enumValues`}
+          keyField="label"
+          keyPlaceholder="String (e.g. ON)"
+          valueType="number"
+        />
+      </PForm.Section>
     </>
   );
 };
 
-const FIELD_LIST_STYLE = {
-  paddingBottom: "1rem",
-  maxWidth: "100%",
-  overflow: "visible",
-} as const;
-
 type TimingMode = "software" | "value";
 const TIMING_MODE_KEYS: TimingMode[] = ["software", "value"];
 
-const TimingToggle: FC<{ path: string }> = ({ path }) => {
+const TimestampFields: FC<{ path: string }> = ({ path }) => {
   const fields = PForm.useFieldValue<ReadField[]>(`${path}.fields`);
   const { set } = PForm.useContext();
   const indexField = fields.find(isTimingField);
@@ -339,24 +323,24 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
   );
 
   return (
-    <Flex.Box x align="end" wrap>
-      <Input.Item label="Timing mode" padHelpText>
+    <>
+      <Input.Item label="Source" padHelpText={false}>
         <Select.Buttons<TimingMode>
           value={isValueTiming ? "value" : "software"}
           onChange={handleChange}
           keys={TIMING_MODE_KEYS}
         >
-          <Select.Button<TimingMode> itemKey="software">Software</Select.Button>
-          <Select.Button<TimingMode> itemKey="value">Value</Select.Button>
+          <Select.Button<TimingMode> itemKey="software">Poll time</Select.Button>
+          <Select.Button<TimingMode> itemKey="value">Response value</Select.Button>
         </Select.Buttons>
       </Input.Item>
       {isValueTiming && indexField != null && (
         <>
           <PForm.TextField
             path={`${path}.fields.${indexField.key}.pointer`}
-            label="Timestamp pointer"
+            label="Pointer"
+            padHelpText={false}
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
-            grow
           />
           <TimeFormatField
             path={`${path}.fields.${indexField.key}.timeFormat`}
@@ -364,7 +348,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           />
         </>
       )}
-    </Flex.Box>
+    </>
   );
 };
 
@@ -375,177 +359,314 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const method = PForm.useFieldValue<string>(`${path}.method`);
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <Flex.Box gap="small" empty className={CSS.B("endpoint-details-form")}>
-        <Flex.Box x align="end" gap="large">
+      <PForm.Sections className={CSS.B("endpoint-form")}>
+        <PForm.Section title="Request">
           <MethodSelect path={`${path}.method`} epPath={path} />
           <PForm.TextField
             path={`${path}.path`}
             label="Path"
-            grow
+            padHelpText={false}
             inputProps={PATH_INPUT_PROPS}
           />
-        </Flex.Box>
-        {method === "POST" && (
-          <Flex.Box>
+          {method === "POST" && (
             <PForm.TextField
               path={`${path}.body`}
-              label="Request body"
-              grow
+              label="Body"
+              padHelpText={false}
               inputProps={REQUEST_BODY_INPUT_PROPS}
             />
-          </Flex.Box>
-        )}
-        <TimingToggle path={path} />
-        <Divider.Divider x />
-        <PlatformForm.KeyValueEditor
-          path={`${path}.headers`}
-          label="Headers"
-          keyField="name"
-          keyPlaceholder="Name"
-          valuePlaceholder="Value"
-          className={CSS.B("headers-kv-editor")}
-        />
-        <Divider.Divider x />
-        <PlatformForm.KeyValueEditor
-          path={`${path}.queryParams`}
-          label="Query parameters"
-          keyField="parameter"
-          keyPlaceholder="Parameter"
-          valuePlaceholder="Value"
-          className={CSS.B("query-params-kv-editor")}
-        />
-      </Flex.Box>
-      <Divider.Divider x />
-      <FieldList key={epKey} epKey={epKey} />
+          )}
+          <PlatformForm.KeyValueEditor
+            path={`${path}.queryParams`}
+            label="Query parameters"
+            keyField="parameter"
+            keyPlaceholder="limit"
+            valuePlaceholder="100"
+          />
+          <PlatformForm.KeyValueEditor
+            path={`${path}.headers`}
+            label="Headers"
+            keyField="name"
+            keyPlaceholder="Content-Type"
+            valuePlaceholder="application/json"
+          />
+        </PForm.Section>
+        <PForm.Section title="Timestamp">
+          <TimestampFields path={path} />
+        </PForm.Section>
+      </PForm.Sections>
     </Flex.Box>
   );
 };
 
+const FieldTitle: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => {
+  const pointer = PForm.useFieldValue<string>(
+    `config.endpoints.${epKey}.fields.${fieldKey}.pointer`,
+  );
+  return (
+    <Text.Text
+      level="p"
+      weight={500}
+      color={pointer === "" ? 8 : 10}
+      overflow="ellipsis"
+      className={CSS.B("field-pointer")}
+    >
+      {pointer === "" ? "New field" : pointer}
+    </Text.Text>
+  );
+};
+
+const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey }) => (
+  <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
+    <PForm.Sections className={CSS.B("endpoint-form")}>
+      <FieldDetails epKey={epKey} fieldKey={fieldKey} />
+    </PForm.Sections>
+  </Flex.Box>
+);
+
 const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
 
-const REQUEST_BODY_INPUT_PROPS = { placeholder: '{"query": "latest"}' } as const;
+const REQUEST_BODY_INPUT_PROPS = {
+  placeholder: '{"query": "latest"}',
+  area: true,
+  className: CSS.B("request-body"),
+} as const;
+
+const newField = (last?: ReadField): ReadField => ({
+  ...(last != null
+    ? { ...last, ...Task.READ_CHANNEL_OVERRIDE }
+    : http.readFieldZ.parse({})),
+  key: id.create(),
+});
+
+const TREE_ITEM_HEIGHT = 36;
+
+const EMPTY_CONTENT = <Empty.Action message="No endpoints" />;
 
 const Form: FC = () => {
-  const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
-  const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
-    "config.endpoints",
-  );
+  const [selected, setSelected] = useState<string[]>([]);
+  const { nodes, entries } = useTreeIndex();
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
+  const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
+  const treeProps = Tree.use({
+    nodes,
+    selected,
+    onSelectedChange: setSelected,
+    initialExpanded,
+  });
+  const { expand, contract, expanded, shape } = treeProps;
+
+  const handleSelect = useCallback<
+    Tree.TreeProps<string, record.Keyed<string>>["onSelect"]
+  >(
+    (keys, { clicked }) => {
+      setSelected(keys);
+      if (clicked != null && entries.get(clicked)?.kind === "endpoint") expand(clicked);
+    },
+    [entries, expand],
+  );
+
+  const handleToggle = useCallback(
+    (epKey: string) => {
+      if (expanded.includes(epKey)) contract(epKey);
+      else expand(epKey);
+    },
+    [expanded, expand, contract],
+  );
 
   const handleAddEndpoint = useCallback(() => {
     const ep: ReadEndpoint = { ...http.readEndpointZ.parse({}), key: id.create() };
-    push(ep);
-    setSelectedEndpoints([ep.key]);
-  }, [push]);
+    const endpoints = ctx.get<ReadEndpoint[]>("config.endpoints").value;
+    ctx.set("config.endpoints", [...endpoints, ep]);
+    setSelected([ep.key]);
+    expand(ep.key);
+  }, [ctx, expand]);
 
-  const handleRemoveEndpoints = useCallback(
-    (keys: string[]) => {
-      remove(keys);
-      setSelectedEndpoints([]);
+  const handleAddField = useCallback(
+    (epKey: string) => {
+      const path = `config.endpoints.${epKey}.fields`;
+      const fields = ctx.get<ReadField[]>(path).value;
+      const shown = fields.filter((f) => !isTimingField(f));
+      const field = newField(shown[shown.length - 1]);
+      ctx.set(path, [...fields, field]);
+      setSelected([field.key]);
+      expand(epKey);
     },
-    [remove],
+    [ctx, expand],
   );
 
-  const handleDuplicateEndpoints = useCallback(
+  const handleRemove = useCallback(
     (keys: string[]) => {
-      const allEndpoints = ctx.get<ReadEndpoint[]>("config.endpoints").value;
-      const duplicated = allEndpoints
-        .filter(({ key }) => keys.includes(key))
-        .map((ep) => ({
+      const removed = new Set(keys);
+      const endpoints = ctx.get<ReadEndpoint[]>("config.endpoints").value;
+      ctx.set(
+        "config.endpoints",
+        endpoints
+          .filter((ep) => !removed.has(ep.key))
+          .map((ep) => ({
+            ...ep,
+            fields: ep.fields.filter((f) => !removed.has(f.key)),
+          })),
+      );
+      // Selection moves to the nearest survivor in the visible list, below first.
+      const visible = shape.keys;
+      const first = visible.findIndex((k) => removed.has(k));
+      const after = visible.slice(first).find((k) => !removed.has(k));
+      const before = visible
+        .slice(0, Math.max(first, 0))
+        .reverse()
+        .find((k) => !removed.has(k));
+      const next = after ?? before;
+      setSelected(next == null ? [] : [next]);
+    },
+    [ctx, shape],
+  );
+
+  const handleDuplicate = useCallback(
+    (keys: string[]) => {
+      const chosen = new Set(keys);
+      const endpoints = ctx.get<ReadEndpoint[]>("config.endpoints").value;
+      const next: ReadEndpoint[] = [];
+      let first: string | null = null;
+      for (const ep of endpoints) {
+        const fields: ReadField[] = [];
+        for (const f of ep.fields) {
+          fields.push(f);
+          if (!chosen.has(f.key)) continue;
+          const copy = newField(f);
+          first ??= copy.key;
+          fields.push(copy);
+        }
+        next.push({ ...ep, fields });
+        if (!chosen.has(ep.key)) continue;
+        const copy: ReadEndpoint = {
           ...ep,
           key: id.create(),
           fields: ep.fields.map((f) => ({
             ...f,
+            ...Task.READ_CHANNEL_OVERRIDE,
             key: id.create(),
-            channel: 0,
-            name: "",
           })),
-        }));
-      push(duplicated);
-      if (duplicated.length > 0) setSelectedEndpoints([duplicated[0].key]);
+        };
+        first ??= copy.key;
+        next.push(copy);
+        expand(copy.key);
+      }
+      ctx.set("config.endpoints", next);
+      if (first != null) setSelected([first]);
     },
-    [ctx, push],
+    [ctx, expand],
+  );
+
+  // Only fields carry a disabled flag; an endpoint is dropped, never switched off.
+  const handleSetEnabled = useCallback(
+    (keys: string[], enabled: boolean) => {
+      for (const key of keys) {
+        const entry = entries.get(key);
+        if (entry?.kind === "field") ctx.set(`${entryPath(entry)}.disabled`, !enabled);
+      }
+    },
+    [ctx, entries],
   );
 
   const menuProps = Menu.useContextMenu();
   const menuRenderProp = useCallback(
-    (p: Menu.ContextMenuMenuProps) => (
-      <ContextMenu
-        keys={p.keys}
-        onRemove={handleRemoveEndpoints}
-        onDuplicate={handleDuplicateEndpoints}
-      />
-    ),
-    [handleRemoveEndpoints, handleDuplicateEndpoints],
+    ({ keys }: Menu.ContextMenuMenuProps) => {
+      const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
+      const fields = keys
+        .map((key) => entries.get(key))
+        .filter((e) => e?.kind === "field");
+      const disabledOf = (e: TreeEntry) =>
+        ctx.get<boolean>(`${entryPath(e)}.disabled`).value;
+      return (
+        <ContextMenu
+          keys={keys}
+          onRemove={handleRemove}
+          onDuplicate={handleDuplicate}
+          onAddField={
+            entry?.kind === "endpoint" ? () => handleAddField(entry.epKey) : undefined
+          }
+          onEnable={
+            fields.some(disabledOf) ? () => handleSetEnabled(keys, true) : undefined
+          }
+          onDisable={
+            fields.some((e) => !disabledOf(e))
+              ? () => handleSetEnabled(keys, false)
+              : undefined
+          }
+        />
+      );
+    },
+    [ctx, entries, handleRemove, handleDuplicate, handleAddField, handleSetEnabled],
   );
 
+  const renderItem = useCallback(
+    ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+      const entry = entries.get(p.itemKey);
+      if (entry?.kind === "field")
+        return <FieldTreeItem key={key} {...p} epKey={entry.epKey} />;
+      return (
+        <EndpointTreeItem
+          key={key}
+          {...p}
+          onAddField={handleAddField}
+          onToggle={handleToggle}
+        />
+      );
+    },
+    [entries, handleAddField, handleToggle],
+  );
+
+  const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
+
   return (
-    <Flex.Box x grow empty>
-      <Flex.Box className={CSS.B("endpoint-list")} y empty>
-        <Header.Header>
-          <Header.Title weight={500} color={10}>
-            Endpoints
-          </Header.Title>
-          {!isPreview && (
-            <Header.Actions>
-              <Button.Button
-                onClick={handleAddEndpoint}
-                variant="filled"
-                tooltip="Add endpoint"
-                size="small"
-              >
-                <Icon.Add />
-              </Button.Button>
-            </Header.Actions>
-          )}
-        </Header.Header>
-        <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
-          <Select.Frame<string, ReadEndpoint>
-            multiple
-            data={data}
-            value={selectedEndpoints}
-            onChange={setSelectedEndpoints}
-            replaceOnSingle
-            allowNone={false}
-            autoSelectOnNone
-          >
-            <List.Items<string, ReadEndpoint>
-              full="y"
+    <Task.Views.Panes
+      listTitle="Endpoints"
+      list={
+        <>
+          <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
+            <Tree.Tree<string, record.Keyed<string>>
+              {...treeProps}
+              onSelect={handleSelect}
+              itemHeight={TREE_ITEM_HEIGHT}
               className={menuProps.className}
               onContextMenu={menuProps.open}
-              emptyContent={
-                <Empty.Action
-                  message="No endpoints"
-                  action={isPreview ? undefined : "Add endpoint"}
-                  onClick={handleAddEndpoint}
-                />
-              }
+              emptyContent={EMPTY_CONTENT}
+              allowNone={false}
+              autoSelectOnNone
             >
-              {readEndpointListItem}
-            </List.Items>
-          </Select.Frame>
-        </Menu.ContextMenu>
-      </Flex.Box>
-      <Divider.Divider y />
-      <Flex.Box y grow empty className={CSS.B("endpoint-details-pane")}>
-        <Task.Views.DetailsHeader
-          path={
-            selectedEndpoints.length > 0
-              ? `config.endpoints.${selectedEndpoints[0]}`
-              : ""
-          }
-          disabled={selectedEndpoints.length === 0}
-        />
-        {selectedEndpoints.length > 0 ? (
-          <EndpointDetails epKey={selectedEndpoints[0]} />
-        ) : (
-          <Flex.Box y grow align="center" justify="center">
-            <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
-          </Flex.Box>
-        )}
-      </Flex.Box>
-    </Flex.Box>
+              {renderItem}
+            </Tree.Tree>
+          </Menu.ContextMenu>
+          {!isPreview && (
+            <PlatformButton.CreateListItem size="small" onClick={handleAddEndpoint}>
+              New endpoint
+            </PlatformButton.CreateListItem>
+          )}
+        </>
+      }
+      detailsPath={current != null ? entryPath(current) : null}
+      title={
+        current?.kind === "endpoint" ? (
+          <EndpointLabel epKey={current.epKey} />
+        ) : current?.kind === "field" ? (
+          <FieldTitle epKey={current.epKey} fieldKey={current.fieldKey} />
+        ) : undefined
+      }
+    >
+      {current == null ? (
+        <Flex.Box y grow align="center" justify="center">
+          <Text.Text status="disabled">
+            Select an endpoint or field to configure
+          </Text.Text>
+        </Flex.Box>
+      ) : current.kind === "endpoint" ? (
+        <EndpointDetails epKey={current.epKey} />
+      ) : (
+        <FieldPane epKey={current.epKey} fieldKey={current.fieldKey} />
+      )}
+    </Task.Views.Panes>
   );
 };
 

@@ -51,7 +51,7 @@ describe("task tab", () => {
       config: HTTP.Task.READ_SCHEMAS.config.parse({}),
     });
     await renderContent(draft.key);
-    await screen.findByText("Add endpoint");
+    await screen.findByRole("button", { name: "New endpoint" });
   });
 
   it("should show an error for a task type with no registered editor", async () => {

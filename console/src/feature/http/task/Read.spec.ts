@@ -9,7 +9,7 @@
 
 import { http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
@@ -33,9 +33,16 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
   return rendered;
 };
 
+// A field is added from its endpoint entry now, not from a list header.
+const addField = (): void => {
+  const button = document.querySelector<HTMLElement>(".console-endpoint-item__add");
+  if (button == null) throw new Error("no add field button");
+  fireEvent.click(button);
+};
+
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add endpoint"));
-  await screen.findByText("Timing mode");
+  fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+  await screen.findByText("Request");
 };
 
 const createReadField = (
@@ -71,7 +78,7 @@ const createDraft = async (client: Synnax, config: HTTP.Task.ReadPayload["config
 describe("HTTP Read form", () => {
   it("should show the empty state and add + select an endpoint", async () => {
     await renderRead();
-    await screen.findByText("Select an endpoint to configure");
+    await screen.findByText("Select an endpoint or field to configure");
     await screen.findByText("No endpoints");
     await addEndpoint();
     expect(screen.getByRole("button", { name: "GET" })).toBeTruthy();
@@ -79,8 +86,8 @@ describe("HTTP Read form", () => {
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
     expect(screen.getByText("Headers")).toBeTruthy();
     expect(screen.getByText("Query parameters")).toBeTruthy();
-    expect(screen.getByText("No fields")).toBeTruthy();
-    expect(screen.queryByText("Select an endpoint to configure")).toBeNull();
+    expect(screen.queryByText("New field")).toBeNull();
+    expect(screen.queryByText("Select an endpoint or field to configure")).toBeNull();
   });
 
   it("should reveal the request body field when the method switches to POST", async () => {
@@ -98,18 +105,18 @@ describe("HTTP Read form", () => {
   it("should add a timestamp field on value timing that stays out of the fields list", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByRole("button", { name: "Value" }));
-    await screen.findByText("Timestamp pointer");
+    fireEvent.click(screen.getByRole("button", { name: "Response value" }));
+    await screen.findByText("Pointer");
     expect(screen.getByText("Format")).toBeTruthy();
-    expect(screen.getByText("No fields")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Software" }));
-    await waitFor(() => expect(screen.queryByText("Timestamp pointer")).toBeNull());
+    expect(screen.queryByText("New field")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Poll time" }));
+    await waitFor(() => expect(screen.queryByText("Format")).toBeNull());
   });
 
   it("should add a field, select it, and show the enum mapping editor", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add field"));
+    addField();
     await screen.findByPlaceholderText("/temperature");
     await screen.findByText("Enum mapping");
   });
@@ -117,12 +124,16 @@ describe("HTTP Read form", () => {
   it("should copy the previous field's settings when adding another field", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add field"));
+    addField();
     const pointer = await screen.findByPlaceholderText("/temperature");
     fireEvent.change(pointer, { target: { value: "/a" } });
     fireEvent.blur(pointer);
-    fireEvent.click(getHeaderIconButton("Fields"));
-    await waitFor(() => expect(screen.getAllByDisplayValue("/a")).toHaveLength(2));
+    addField();
+    // Both entries carry the copied pointer. The details header repeats it, so the
+    // assertion reads the tree alone.
+    await waitFor(() =>
+      expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
+    );
   });
 
   it("should duplicate and delete endpoints through the context menu", async () => {
@@ -131,13 +142,17 @@ describe("HTTP Read form", () => {
     const path = screen.getByPlaceholderText("/api/data");
     fireEvent.change(path, { target: { value: "/api/v1" } });
     fireEvent.blur(path);
-    const item = await screen.findByText(/\/api\/v1/);
+    const item = await screen.findByRole("treeitem", { name: /\/api\/v1/ });
     fireEvent.contextMenu(item);
     fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(2));
-    fireEvent.contextMenu(screen.getAllByText(/\/api\/v1/)[0]);
+    await waitFor(() =>
+      expect(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })).toHaveLength(2),
+    );
+    fireEvent.contextMenu(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })[0]);
     fireEvent.click(await screen.findByText("Remove"));
-    await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })).toHaveLength(1),
+    );
   });
 
   it("should offer Reload Console from the endpoint context menu", async () => {
@@ -146,7 +161,7 @@ describe("HTTP Read form", () => {
     const path = screen.getByPlaceholderText("/api/data");
     fireEvent.change(path, { target: { value: "/api/v1" } });
     fireEvent.blur(path);
-    fireEvent.contextMenu(await screen.findByText(/\/api\/v1/));
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/api\/v1/ }));
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
