@@ -118,6 +118,7 @@ func (c Channel) Validate() error {
 	v.NotEmptyString("name", c.Name)
 	if c.Virtual {
 		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
+		v.Ternaryf("is_index", c.IsIndex, "virtual channel cannot be an index")
 	} else {
 		if c.IsIndex {
 			v.Ternary(

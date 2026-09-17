@@ -69,6 +69,30 @@ var _ = Describe("Meta", func() {
 				// A database written before IsIndex, Virtual and Concurrency carried
 				// json tags stored them under their Go field names. The meta codec
 				// matches names case-insensitively so those databases still open.
+				Specify("Should clear the index flag on a virtual channel", func(
+					ctx SpecContext,
+				) {
+					key := GenerateChannelKey()
+					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+					f := MustSucceed(subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY))
+					// Validate rejects this pair, so the record only stays readable
+					// because the migration runs first.
+					legacy := []byte(`{"name":"Faraday","data_type":"timestamp",` +
+						`"key":` + strconv.Itoa(int(key)) +
+						`,"index":0,"IsIndex":true,"Virtual":true,"version":2}`)
+					Expect(f.Write(legacy)).To(Equal(len(legacy)))
+					Expect(f.Close()).To(Succeed())
+
+					ch := MustSucceed(meta.Open(
+						ctx,
+						subFs,
+						channel.Channel{Key: key},
+						json.NewCodec(json.WithCaseInsensitiveNames()),
+					))
+					Expect(ch.Virtual).To(BeTrue())
+					Expect(ch.IsIndex).To(BeFalse())
+				})
+
 				Specify("Should rewrite a legacy file under the current names", func(
 					ctx SpecContext,
 				) {

@@ -22,28 +22,24 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// CacheVersion is the on-disk cache schema version. Bump this whenever
-// the cache file format changes incompatibly so stale caches are dropped
-// instead of misinterpreted. v1 keyed only the raw-content hash. v2
-// stores a per-file Entry that tracks BOTH the raw plugin-output hash
-// AND the canonical post-format hash, so sync can detect when its
-// cached "this file is up to date" decision is invalidated by a
-// formatter version bump or a hand edit.
+// CacheVersion is the on-disk cache schema version. Bump this whenever the cache file
+// format changes incompatibly so stale caches are dropped instead of misinterpreted. v1
+// keyed only the raw-content hash. v2 stores a per-file Entry that tracks BOTH the raw
+// plugin-output hash AND the canonical post-format hash, so sync can detect when its
+// cached "this file is up to date" decision is invalidated by a formatter version bump
+// or a hand edit.
 const CacheVersion = 2
 
-// Cache records, for each generated file, the SHA-256 of the raw plugin
-// output AND the SHA-256 of the canonical post-format bytes that were
-// last written. Sync's "skip this file" decision must verify BOTH:
-// the plugin emitted the same raw bytes (so re-formatting would
-// produce the same canonical bytes) AND the on-disk file currently
-// hashes to that canonical value (so the user has not hand-edited the
-// file and the formatter has not been version-bumped since the cache
-// was written).
+// Cache records, for each generated file, the SHA-256 of the raw plugin output AND the
+// SHA-256 of the canonical post-format bytes that were last written. Sync's "skip this
+// file" decision must verify BOTH: the plugin emitted the same raw bytes (so
+// re-formatting would produce the same canonical bytes) AND the on-disk file currently
+// hashes to that canonical value (so the user has not hand-edited the file and the
+// formatter has not been version-bumped since the cache was written).
 //
-// Verifying only the raw hash is unsafe: any change in the formatter
-// chain leaves stale on-disk bytes that sync would silently keep in
-// place, while `oracle check` (which always re-runs the chain) would
-// flag them as drift.
+// Verifying only the raw hash is unsafe: any change in the formatter chain leaves stale
+// on-disk bytes that sync would silently keep in place, while `oracle check` (which
+// always re-runs the chain) would flag them as drift.
 //
 // The cache is keyed by repo-relative path. It lives at
 // `<repoRoot>/.oracle/sync-cache.json` and is gitignored.
@@ -53,8 +49,8 @@ type Cache struct {
 	data cacheFile
 }
 
-// Entry is the per file cache value: hashes of both the raw plugin
-// output and the canonical formatted output.
+// Entry is the per file cache value: hashes of both the raw plugin output and the
+// canonical formatted output.
 type Entry struct {
 	Raw       string `json:"raw"`
 	Canonical string `json:"canonical"`
@@ -63,16 +59,16 @@ type Entry struct {
 type cacheFile struct {
 	Version int              `json:"version"`
 	Entries map[string]Entry `json:"entries"`
-	// Stamps holds opaque per-key stamps for non-file inputs (e.g. the
-	// hashed proto-tree input for buf generate). Not used for sync skip
-	// decisions on individual files.
+	// Stamps holds opaque per-key stamps for non-file inputs (e.g. the hashed
+	// proto-tree input for buf generate). Not used for sync skip decisions on
+	// individual files.
 	Stamps map[string]string `json:"stamps"`
 }
 
-// LoadCache reads the cache from disk. A missing or unreadable cache file
-// produces an empty cache without an error so first-run syncs work; a
-// version mismatch likewise yields an empty cache so an incompatible
-// upgrade discards stale entries instead of misapplying them.
+// LoadCache reads the cache from disk. A missing or unreadable cache file produces an
+// empty cache without an error so first-run syncs work; a version mismatch likewise
+// yields an empty cache so an incompatible upgrade discards stale entries instead of
+// misapplying them.
 func LoadCache(repoRoot string) *Cache {
 	c := &Cache{
 		path: filepath.Join(repoRoot, ".oracle", "sync-cache.json"),
@@ -103,15 +99,14 @@ func LoadCache(repoRoot string) *Cache {
 	return c
 }
 
-// Hash returns the canonical SHA-256 hex digest of content used as the
-// cache value for a generated file.
+// Hash returns the canonical SHA-256 hex digest of content used as the cache value for
+// a generated file.
 func Hash(content []byte) string {
 	h := sha256.Sum256(content)
 	return hex.EncodeToString(h[:])
 }
 
-// Lookup returns the cached Entry for a repo-relative path and whether
-// one was present.
+// Lookup returns the cached Entry for a repo-relative path and whether one was present.
 func (c *Cache) Lookup(repoRelPath string) (Entry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -141,8 +136,8 @@ func (c *Cache) PutStamp(key, value string) {
 	c.data.Stamps[key] = value
 }
 
-// PruneTo drops every entry whose key is not in keep. This removes
-// stale entries for files that are no longer generated.
+// PruneTo drops every entry whose key is not in keep. This removes stale entries for
+// files that are no longer generated.
 func (c *Cache) PruneTo(keep set.Set[string]) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -161,8 +156,8 @@ func (c *Cache) Save() error {
 	if err := os.MkdirAll(filepath.Dir(c.path), 0o755); err != nil {
 		return errors.Wrap(err, "create cache dir")
 	}
-	// Deterministic keeps the entry and stamp maps in a stable order, so a save
-	// that changes nothing rewrites the same bytes.
+	// Deterministic keeps the entry and stamp maps in a stable order, so a save that
+	// changes nothing rewrites the same bytes.
 	raw, err := json.Marshal(
 		c.data, jsontext.WithIndent("  "), json.Deterministic(true),
 	)
