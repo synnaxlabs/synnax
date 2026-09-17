@@ -33,7 +33,7 @@ export const EnabledCheckbox = ({ path }: EnabledCheckboxProps) => {
       uncheckedIcon={<Status.Indicator variant="disabled" />}
       size="small"
       disabled={isPreview}
-      aria-label={disabled ? "Disabled" : "Enabled"}
+      aria-label="Enabled"
       tooltip={isPreview ? undefined : disabled ? "Enable" : "Disable"}
     />
   );
