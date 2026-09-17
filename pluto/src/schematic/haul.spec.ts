@@ -18,7 +18,6 @@ import {
   type HaulItemData,
   isHaulItem,
 } from "@/schematic/haul";
-import { Node } from "@/schematic/node";
 
 const ITEM_DATA: HaulItemData = { key: "n1", variant: "tank" };
 
@@ -39,13 +38,12 @@ describe("createHaulItem", () => {
     });
   });
 
-  it("preserves optional position, specKey, and config on the data payload", () => {
+  it("preserves optional position and overrides on the data payload", () => {
     const data: HaulItemData = {
       key: "n2",
       variant: "valve",
       position: { x: 5, y: 7 },
-      specKey: "spec-1",
-      config: Node.createConfig("valve"),
+      overrides: { label: { label: "V1" } },
     };
     expect(createHaulItem(data).data).toEqual(data);
   });

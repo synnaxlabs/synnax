@@ -121,7 +121,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
   const isStatic =
     symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
-  const variant: Schematic.Node.Variant = isStatic
+  const variant: Schematic.Node.CustomVariant = isStatic
     ? "custom_static"
     : "custom_actuator";
   const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
@@ -132,7 +132,11 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
   const createParams = useCallback(
-    (): Schematic.AddNodeProps => ({ key: id.create(), variant, specKey: itemKey }),
+    (): Schematic.AddNodeProps<Schematic.Node.CustomVariant> => ({
+      key: id.create(),
+      variant,
+      overrides: { specKey: itemKey },
+    }),
     [variant, itemKey],
   );
   const handleDragStart = useCallback(

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { type z } from "zod";
 
 import {
   CUSTOM_ACTUATOR_VARIANT,
@@ -47,6 +48,22 @@ export const configZ = schematic.nodeConfigZ;
 export type Config = schematic.NodeConfig;
 export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 
+/**
+ * Overrides is the schema input for a variant without its discriminator. Fields with
+ * a schema default are optional; the rest are required.
+ */
+export type Overrides<V extends Variant> = Omit<
+  Extract<z.input<typeof configZ>, { variant: V }>,
+  "variant"
+>;
+
+/**
+ * CreateArgs is the trailing argument list of {@link createConfig}: the overrides are
+ * optional only when the variant has no required field.
+ */
+export type CreateArgs<V extends Variant> =
+  {} extends Overrides<V> ? [overrides?: Overrides<V>] : [overrides: Overrides<V>];
+
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
@@ -55,13 +72,21 @@ export const resolveSpec = (variant: string): Spec<Variant, Config> => {
 
 /**
  * Builds a fresh config for the variant. Every value comes from the schema, except the
- * label, which names the symbol.
+ * label, which names the symbol unless the overrides set it.
+ * @param variant - The node variant.
+ * @param overrides - Fields to set on top of the schema defaults. Required when the
+ * variant has a field with no default, such as the custom symbols' specKey.
  * @throws {NotFoundError} if no spec is registered for the variant.
  */
-export const createConfig = <V extends Variant>(variant: V): ConfigOf<V> => {
-  const config = configZ.parse({ variant }) as ConfigOf<V>;
+export const createConfig = <V extends Variant>(
+  variant: V,
+  ...[overrides]: CreateArgs<V>
+): ConfigOf<V> => {
+  const config = configZ.parse({ variant, ...overrides }) as ConfigOf<V>;
   const spec = resolveSpec(variant);
-  if ("label" in config) config.label.label = spec.label ?? spec.name;
+  const labeled = overrides as { label?: { label?: string } } | undefined;
+  if ("label" in config && labeled?.label?.label == null)
+    config.label.label = spec.label ?? spec.name;
   return config;
 };
 

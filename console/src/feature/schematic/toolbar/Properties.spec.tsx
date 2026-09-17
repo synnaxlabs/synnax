@@ -102,13 +102,8 @@ describe("Schematic toolbar Properties", () => {
     it("shows the missing symbol form when the referenced spec does not exist", async () => {
       await renderProperties({
         nodeKeys: ["n1"],
-        createConfig: () => ({
-          ...(PSchematic.Node.createConfig("custom_static") as unknown as Record<
-            string,
-            unknown
-          >),
-          specKey: uuid.create(),
-        }),
+        createConfig: () =>
+          PSchematic.Node.createConfig("custom_static", { specKey: uuid.create() }),
       });
       expect(
         await screen.findByText(

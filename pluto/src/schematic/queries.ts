@@ -231,31 +231,35 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface AddNodeProps {
+export type AddNodeProps<V extends Node.Variant = Node.Variant> = {
   key: string;
-  variant: Node.Variant;
+  variant: V;
   position?: xy.XY;
-  specKey?: string;
-  config?: Node.Config;
-}
+} & ({} extends Node.Overrides<V>
+  ? { overrides?: Node.Overrides<V> }
+  : { overrides: Node.Overrides<V> });
 
 export const useAddNode = () => {
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
 
   return useCallback(
-    ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
-      const config = Node.createConfig(variant);
-      if (Node.isCustomConfig(config) && specKey != null) {
-        config.specKey = specKey;
-        const sym = client?.schematics.symbols.getCached(specKey);
+    <V extends Node.Variant>({
+      key,
+      variant,
+      position,
+      overrides,
+    }: AddNodeProps<V>) => {
+      const config: Node.Config = Node.createConfig(
+        variant,
+        ...([overrides] as Node.CreateArgs<V>),
+      );
+      if (Node.isCustomConfig(config)) {
+        const sym = client?.schematics.symbols.getCached(config.specKey);
         if (query.isLive(sym)) config.label.label = sym.name;
       }
       dispatch(
-        schematic.setNode({
-          node: { key, position: position ?? xy.ZERO },
-          config: { ...config, ...override, variant },
-        }),
+        schematic.setNode({ node: { key, position: position ?? xy.ZERO }, config }),
       );
     },
     [dispatch, client],

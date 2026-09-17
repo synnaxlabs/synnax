@@ -39,16 +39,11 @@ import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
-  const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
-    ...PSchematic.Node.createConfig("value"),
-    label: { ...PSchematic.Node.createConfig("value").label, label: name },
-    channel: Number(otgID.key),
-  };
   const items = [
     PSchematic.createHaulItem({
       key: id.create(),
       variant: "value",
-      config: nodeConfig,
+      overrides: { label: { label: name }, channel: Number(otgID.key) },
     }),
   ];
   if (data?.internal === true) return items;
