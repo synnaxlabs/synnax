@@ -91,11 +91,11 @@ describe("table/Toolbar", () => {
     fireEvent.change(input, { target: { value: "Updated" } });
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.a.props.value).toBe("Updated");
+      expect(t.cells.a).toMatchObject({ variant: "text", value: "Updated" });
     });
   });
 
-  it("swaps the cell variant while preserving compatible props", async () => {
+  it("swaps the cell variant while preserving compatible fields", async () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a"], lastSelected: "a" },
     });
@@ -126,8 +126,8 @@ describe("table/Toolbar", () => {
     fireEvent.click(screen.getByText("M"));
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.a.props.level).toBe("h4");
-      expect(t.cells.b.props.level).toBe("h4");
+      expect(t.cells.a).toMatchObject({ level: "h4" });
+      expect(t.cells.b).toMatchObject({ level: "h4" });
     });
   });
 });
