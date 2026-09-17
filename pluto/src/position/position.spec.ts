@@ -471,6 +471,145 @@ describe("position", () => {
       },
     };
 
+    // The side order a tooltip or dialog passes: above, below, right, left.
+    const SIDES: position.Preference[] = [
+      { targetCorner: location.TOP_CENTER, dialogCorner: location.BOTTOM_CENTER },
+      { targetCorner: location.BOTTOM_CENTER, dialogCorner: location.TOP_CENTER },
+      { targetCorner: location.CENTER_RIGHT, dialogCorner: location.CENTER_LEFT },
+      { targetCorner: location.CENTER_LEFT, dialogCorner: location.CENTER_RIGHT },
+    ];
+
+    const ROW_ROOM_BOTH_SIDES: Spec = {
+      name: "row-pinned location with room on both sides prefers the right",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { y: "center" },
+        prefer: SIDES,
+      },
+      expected: {
+        targetCorner: location.CENTER_RIGHT,
+        dialogCorner: location.CENTER_LEFT,
+        adjustedDialog: box.construct(50, 35, 20, 20),
+      },
+    };
+
+    const ROW_AT_RIGHT_EDGE: Spec = {
+      name: "row-pinned location at the right edge falls back to the left",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(85, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { y: "center" },
+        prefer: SIDES,
+      },
+      expected: {
+        targetCorner: location.CENTER_LEFT,
+        dialogCorner: location.CENTER_RIGHT,
+        adjustedDialog: box.construct(65, 35, 20, 20),
+      },
+    };
+
+    const ROW_AT_LEFT_EDGE: Spec = {
+      name: "row-pinned location at the left edge stays on the right",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(5, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { y: "center" },
+        prefer: SIDES,
+      },
+      expected: {
+        targetCorner: location.CENTER_RIGHT,
+        dialogCorner: location.CENTER_LEFT,
+        adjustedDialog: box.construct(15, 35, 20, 20),
+      },
+    };
+
+    const COLUMN_ROOM_BOTH_SIDES: Spec = {
+      name: "column-pinned location with room on both sides prefers above",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { x: "center" },
+        prefer: SIDES,
+      },
+      expected: {
+        targetCorner: location.TOP_CENTER,
+        dialogCorner: location.BOTTOM_CENTER,
+        adjustedDialog: box.construct(35, 20, 20, 20),
+      },
+    };
+
+    const COLUMN_AT_TOP_EDGE: Spec = {
+      name: "column-pinned location at the top edge falls back to below",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 5, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { x: "center" },
+        prefer: SIDES,
+      },
+      expected: {
+        targetCorner: location.BOTTOM_CENTER,
+        dialogCorner: location.TOP_CENTER,
+        adjustedDialog: box.construct(35, 15, 20, 20),
+      },
+    };
+
+    const COLUMN_AT_BOTTOM_EDGE: Spec = {
+      name: "column-pinned location at the bottom edge stays above",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 85, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { x: "center" },
+        prefer: SIDES,
+      },
+      expected: {
+        targetCorner: location.TOP_CENTER,
+        dialogCorner: location.BOTTOM_CENTER,
+        adjustedDialog: box.construct(35, 65, 20, 20),
+      },
+    };
+
+    const FULL_LOCATION_NEVER_FALLS_BACK: Spec = {
+      name: "full location at the right edge stays pinned even when it overflows",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(85, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: location.CENTER_RIGHT,
+        prefer: SIDES,
+      },
+      expected: {
+        targetCorner: location.CENTER_RIGHT,
+        dialogCorner: location.CENTER_LEFT,
+        adjustedDialog: box.construct(95, 35, 20, 20),
+      },
+    };
+
+    const ROW_WITH_PREFERRED_SIDE_DISABLED: Spec = {
+      name: "row-pinned location skips a disabled side",
+      params: {
+        container: box.construct(0, 0, 100, 100),
+        target: box.construct(40, 40, 10, 10),
+        dialog: box.construct(0, 0, 20, 20),
+        initial: { y: "center" },
+        prefer: SIDES,
+        disable: [
+          { targetCorner: location.CENTER_RIGHT, dialogCorner: location.CENTER_LEFT },
+        ],
+      },
+      expected: {
+        targetCorner: location.CENTER_LEFT,
+        dialogCorner: location.CENTER_RIGHT,
+        adjustedDialog: box.construct(20, 35, 20, 20),
+      },
+    };
+
     const SPECS: Spec[] = [
       CENTER,
       TOP_LEFT,
@@ -497,6 +636,14 @@ describe("position", () => {
       INITIAL_CONSTRAINED,
       INITIAL_WITH_DISABLE,
       INITIAL_SINGLE_AXIS,
+      ROW_ROOM_BOTH_SIDES,
+      ROW_AT_RIGHT_EDGE,
+      ROW_AT_LEFT_EDGE,
+      COLUMN_ROOM_BOTH_SIDES,
+      COLUMN_AT_TOP_EDGE,
+      COLUMN_AT_BOTTOM_EDGE,
+      FULL_LOCATION_NEVER_FALLS_BACK,
+      ROW_WITH_PREFERRED_SIDE_DISABLED,
     ];
 
     SPECS.forEach(({ name, params, expected }) =>
