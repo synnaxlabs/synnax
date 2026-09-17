@@ -19,24 +19,52 @@ additional steps compared to development use.
 
 <Divider.Divider x />
 
-## License Keys
+## Licensing
 
-If your organization has an enterprise license for Synnax, you'll need to provide your
-license key on startup. The easiest way to do this is using the `--license-key` flag
-when starting the Core. Here's an example:
+A standalone Core needs a license. Without one it starts, answers login and connectivity
+checks, and refuses every other request until a license is activated. Synnax Labs issues
+licenses to your organization, and the [portal](https://docs.synnaxlabs.com/licenses)
+lists them and issues the token that activates a Core.
+
+A token is bound to the machine it is issued for, so activation takes two steps:
+
+1. Start the Core. The start log prints the host fingerprint and the address of the
+   Console it serves. Open that Console and log in. The activation screen shows the same
+   fingerprint with a copy button.
+2. On the portal's activation page, paste the fingerprint and download the token. Paste
+   the token into the activation screen, or pick the downloaded file.
+
+The Core stores an accepted token, so a restart does not ask for it again. A Core that
+starts with `--mem` keeps nothing between runs, so pass the token at start instead:
 
 ```sh
-synnax start --listen=localhost:9090 --license-key=000000-00000000-0000000000
+synnax start --listen=localhost:9090 --license-key=<token>
 ```
 
-In production, we recommend using an environment variable or configuration file to store
-your license key. This is more secure than passing the key as a command line argument.
-The following example shows how to set the license key using an environment variable:
+In production, keep the token off the command line. Set it in the environment, or point
+the Core at a file that holds it:
 
 ```sh
-export SYNNAX_LICENSE_KEY=000000-00000000-0000000000
+export SYNNAX_LICENSE_KEY=<token>
 synnax start --listen=localhost:9090
 ```
+
+```sh
+synnax start --listen=localhost:9090 --license-file=/usr/local/synnax/synnax.license
+```
+
+To read the license state from a script, log in and call the retrieve endpoint:
+
+```sh
+TOKEN=$(curl -s -X POST https://localhost:9090/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"synnax","password":"seldon"}' | jq -r .token)
+curl -s -X POST https://localhost:9090/api/v1/license/retrieve \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{}'
+```
+
+The response carries `state` (`ok`, `missing`, or `expired`), the host fingerprint, and
+the license that applies.
 
 To see the full list of command line options, environment variables, and configuration
 file parameters, see the [CLI reference](/reference/core/cli-reference).
