@@ -137,7 +137,10 @@ var _ = Describe("Config typing", func() {
 				Expect(cfg.RollingAverage).To(HaveValue(BeEquivalentTo(5)))
 			}),
 		Entry("string_display",
-			msgpack.EncodedJSON{"variant": "string_display", "telem": pipeline(valueStream)},
+			msgpack.EncodedJSON{
+				"variant": "string_display",
+				"telem":   pipeline(valueStream),
+			},
 			func(v v9.ElementConfigVariant) {
 				cfg := v.(v9.StringDisplayElementConfig)
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
@@ -146,15 +149,22 @@ var _ = Describe("Config typing", func() {
 			"variant": "light",
 			"source": pipeline(map[string]map[string]any{
 				"valueStream": {"channel": 7.0},
-				"threshold":   {"trueBound": map[string]any{"lower": 1.0, "upper": 2.0}},
+				"threshold": {
+					"trueBound": map[string]any{"lower": 1.0, "upper": 2.0},
+				},
 			}),
 		}, func(v v9.ElementConfigVariant) {
 			cfg := v.(v9.LightElementConfig)
 			Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
-			Expect(cfg.Threshold).To(HaveValue(Equal(spatial.Bounds{Lower: 1, Upper: 2})))
+			Expect(cfg.Threshold).To(
+				HaveValue(Equal(spatial.Bounds{Lower: 1, Upper: 2})),
+			)
 		}),
 		Entry("state_indicator",
-			msgpack.EncodedJSON{"variant": "state_indicator", "source": pipeline(valueStream)},
+			msgpack.EncodedJSON{
+				"variant": "state_indicator",
+				"source":  pipeline(valueStream),
+			},
 			func(v v9.ElementConfigVariant) {
 				cfg := v.(v9.StateIndicatorElementConfig)
 				Expect(cfg.Channel).To(HaveValue(BeEquivalentTo(7)))
@@ -167,12 +177,14 @@ var _ = Describe("Config typing", func() {
 			cfg := v.(v9.SetpointElementConfig)
 			Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
 		}),
-		Entry("button", msgpack.EncodedJSON{"variant": "button", "sink": pipeline(setter)},
+		Entry("button",
+			msgpack.EncodedJSON{"variant": "button", "sink": pipeline(setter)},
 			func(v v9.ElementConfigVariant) {
 				cfg := v.(v9.ButtonElementConfig)
 				Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
 			}),
-		Entry("input", msgpack.EncodedJSON{"variant": "input", "sink": pipeline(setter)},
+		Entry("input",
+			msgpack.EncodedJSON{"variant": "input", "sink": pipeline(setter)},
 			func(v v9.ElementConfigVariant) {
 				cfg := v.(v9.InputElementConfig)
 				Expect(cfg.CommandChannel).To(HaveValue(BeEquivalentTo(8)))
@@ -278,7 +290,8 @@ var _ = Describe("Config typing", func() {
 		Expect(ok).To(BeTrue())
 		Expect(cfg.BackgroundColor).To(BeNil())
 		Expect(cfg.Fill.Color).To(BeNil())
-		Expect(cfg.Fill.AxisColor).To(HaveValue(Equal(MustSucceed(color.FromHex("#00ff00")))))
+		green := MustSucceed(color.FromHex("#00ff00"))
+		Expect(cfg.Fill.AxisColor).To(HaveValue(Equal(green)))
 	})
 
 	It("Should keep a zero color on a gradient stop", func(ctx SpecContext) {
@@ -516,7 +529,9 @@ var _ = Describe("Migration", func() {
 		).All()
 		Expect(reset).To(HaveLen(1))
 		Expect(reset[0].ContextMap()).To(HaveKeyWithValue("node", "a"))
-		Expect(reset[0].ContextMap()).To(HaveKeyWithValue("schematic", seed.Key.String()))
+		Expect(reset[0].ContextMap()).To(
+			HaveKeyWithValue("schematic", seed.Key.String()),
+		)
 		dropped := logs.FilterMessage(
 			"dropped a schematic config naming no known variant",
 		).All()

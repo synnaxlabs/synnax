@@ -63,7 +63,10 @@ func migrateStored(
 			zap.Error(loss.err),
 		}
 		if loss.reset {
-			ins.L.Warn("reset a rejected schematic config to its variant's defaults", fields...)
+			ins.L.Warn(
+				"reset a rejected schematic config to its variant's defaults",
+				fields...,
+			)
 		} else {
 			ins.L.Warn("dropped a schematic config naming no known variant", fields...)
 		}
