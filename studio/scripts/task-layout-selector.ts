@@ -25,7 +25,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.clickPanelCreate(session);
   await session.hold(800);
+  await session.zoom(
+    page
+      .locator(".console-layout-selector__frame")
+      .getByRole("button", { name: "NI analog read task" })
+      .first(),
+    1.8,
+  );
   await capture.createComponent(session, "NI analog read task");
   await session.waitFor(page.locator(".console-task-configure").first());
+  session.endZoom();
   await session.hold(3000);
 };

@@ -69,10 +69,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1200);
 
   await capture.contextMenu(session, item, `Snapshot to ${RANGE}`);
-  await session.waitFor(
-    page.locator(".console-snapshots__list-item").filter({ hasText: NAME }).first(),
-  );
-  await session.hold(2800);
+  const snapshot = page
+    .locator(".console-snapshots__list-item")
+    .filter({ hasText: NAME })
+    .first();
+  await session.waitFor(snapshot);
+  await session.zoom(snapshot, 1.8);
+  await session.hold(2000);
+  session.endZoom();
+  await session.hold(800);
 };
 
 /** key extracts a resource's key from its tree item's ontology-id DOM id. */

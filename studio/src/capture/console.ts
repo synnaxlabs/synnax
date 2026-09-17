@@ -83,14 +83,16 @@ export const contextMenu = async (
   option: string,
 ): Promise<void> => {
   const { page } = session;
-  // No zoom: the menu opens beside its target and both must stay visible.
+  // The menu opens at the click point, so framing the menu keeps its target in view.
   await session.rightClick(target, { zoom: false });
   const menu = page.locator(".pluto-menu-context").first();
   await session.waitFor(menu);
+  await session.zoom(menu);
   await session.hold(300);
   await session.click(menu.getByText(option, { exact: true }).first(), {
     zoom: false,
   });
+  session.endZoom();
 };
 
 /**

@@ -32,8 +32,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.selectSymbols(session, [tank, valve, pump]);
   await session.hold(1000);
 
-  // No zoom on any of these: the symbols must stay in frame so the recolor
-  // shows up live.
   const swatch = page
     .locator(".console-schematic__properties-multi .pluto-color-swatch")
     .first();
@@ -41,11 +39,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(swatch, { zoom: false });
   const hex = page.locator(".pluto-color-picker input").first();
   await session.waitFor(hex);
+  await session.zoom(page.locator(".pluto-color-picker").first());
   await session.hold(600);
 
   await session.click(hex, { zoom: false });
   await session.press("ControlOrMeta+a");
   await session.type("EF4444");
+  // Leave the picker before Enter so the recolor lands in a wide frame.
+  session.endZoom();
+  await session.hold(300);
   await session.press("Enter");
   await session.hold(1000);
 

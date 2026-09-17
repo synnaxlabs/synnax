@@ -29,8 +29,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     session.startRecording();
     await session.hold(1600);
 
+    await session.zoom(page.locator(".console-main-nav__item").last(), 2);
     await capture.showVisualizationToolbar(session);
-    await session.hold(3000);
+    await session.hold(500);
+    await session.zoom(page.locator("label").filter({ hasText: "Y1" }).first(), 1.8);
+    await session.hold(2200);
+    session.endZoom();
+    await session.hold(900);
   } finally {
     await fixture.stop();
   }

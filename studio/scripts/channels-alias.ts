@@ -38,6 +38,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .locator(".pluto-text--editable[contenteditable='true']")
     .first();
   await session.waitFor(editable);
+  await session.zoom(editable, 2);
   await session.hold(400);
   await session.type("pressure_01");
   await session.hold(400);
@@ -48,5 +49,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     .getByText("pressure_01", { exact: true })
     .first();
   await session.waitFor(aliased);
-  await session.hold(2200);
+  await session.hold(1400);
+  session.endZoom();
+  await session.hold(1000);
 };
