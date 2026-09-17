@@ -35,6 +35,7 @@ export const Input = ({
   size,
   onSend,
   disabled,
+  onClickDelay,
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
   const style = useMemo(
@@ -66,6 +67,7 @@ export const Input = ({
           variant="filled"
           className={CSS.B("symbol-button")}
           onClick={() => onSend?.(value)}
+          onClickDelay={onClickDelay}
           onKeyDown={Keyboard.blockActivation}
           onKeyUp={Keyboard.blockActivation}
         >

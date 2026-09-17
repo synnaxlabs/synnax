@@ -36,6 +36,7 @@ export const Setpoint = ({
   onChange,
   size = "small",
   disabled,
+  onClickDelay,
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(0);
   const symbolColor = symbolColorVar(color);
@@ -94,6 +95,7 @@ export const Setpoint = ({
           variant="filled"
           className={CSS.B("symbol-button")}
           onClick={() => onChange(currValue)}
+          onClickDelay={onClickDelay}
           onKeyDown={Keyboard.blockActivation}
           onKeyUp={Keyboard.blockActivation}
         >
