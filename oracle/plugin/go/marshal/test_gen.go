@@ -505,9 +505,6 @@ func (b *testValueBuilder) buildFieldExprs(
 		}
 		resolved, ok := f.Type.Resolve(b.table)
 		if !ok {
-			if f.Type.IsTypeParam() {
-				continue
-			}
 			continue
 		}
 		b.fieldIndex++
@@ -540,7 +537,34 @@ func (b *testValueBuilder) buildStructFieldExprs(
 		return b.buildEmbeddedStructFieldExprs(form)
 	}
 	fields := resolution.UnifiedFields(typ, b.table)
-	return b.buildFieldExprs(fields)
+	return b.buildFieldExprs(substituteDefaultTypeParams(form, fields))
+}
+
+// substituteDefaultTypeParams rewrites fields typed by a type parameter that carries a
+// default to the default's type. Go monomorphizes such a parameter away, so the
+// generated struct holds the default and the fixture must build a value for it.
+func substituteDefaultTypeParams(
+	form resolution.StructForm,
+	fields []resolution.Field,
+) []resolution.Field {
+	if !form.IsGeneric() {
+		return fields
+	}
+	typeArgs := make(map[string]resolution.TypeRef)
+	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			typeArgs[tp.Name] = *tp.Default
+		}
+	}
+	if len(typeArgs) == 0 {
+		return fields
+	}
+	out := make([]resolution.Field, len(fields))
+	for i, f := range fields {
+		out[i] = f
+		out[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
+	}
+	return out
 }
 
 func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
@@ -984,7 +1008,19 @@ func (b *testValueBuilder) zeroPrimitiveExpr(
 		base = "uuid.Nil()"
 	case "bytes":
 		return "nil", nil
-	case "record", "any":
+	case "record":
+		// A record is a map, and a nil map decodes as an allocated empty one, so the
+		// round-trippable zero is the empty value rather than nil.
+		const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
+		if _, registered := b.imports[importPath]; !registered {
+			b.imports[importPath] = ""
+		}
+		qualifier := b.imports[importPath]
+		if qualifier == "" {
+			qualifier = "msgpack"
+		}
+		return qualifier + ".EncodedJSON{}", nil
+	case "any":
 		return "nil", nil
 	default:
 		return "", errors.Newf(
@@ -1027,10 +1063,9 @@ func (b *testValueBuilder) arrayExpr(elemRef resolution.TypeRef) (string, error)
 	if err != nil {
 		return "", err
 	}
-	if b.mode == modeZeroValue {
-		return "nil", nil
-	}
-	if b.mode == modeEmptyCollections {
+	// A nil collection decodes as an allocated empty one, so the round-trippable zero
+	// of a collection field is the empty value, not nil.
+	if b.mode == modeZeroValue || b.mode == modeEmptyCollections {
 		return fmt.Sprintf("[]%s{}", goType), nil
 	}
 	elemExpr, err := b.valueExpr(elemType, elemRef)
@@ -1061,10 +1096,7 @@ func (b *testValueBuilder) mapExpr(keyRef, valRef resolution.TypeRef) (string, e
 		return "", err
 	}
 	mapType := fmt.Sprintf("map[%s]%s", goKeyType, goValType)
-	if b.mode == modeZeroValue {
-		return "nil", nil
-	}
-	if b.mode == modeEmptyCollections {
+	if b.mode == modeZeroValue || b.mode == modeEmptyCollections {
 		return mapType + "{}", nil
 	}
 	keyExpr, err := b.valueExpr(keyType, keyRef)

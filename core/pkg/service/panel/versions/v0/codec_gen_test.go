@@ -89,7 +89,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Panel{
 				Key:  uuid.Nil(),
 				Name: "",
-				Root: v0.Node{Variant: v0.LeafNode{Tabs: nil}},
+				Root: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{}}},
 			}),
 		)
 	})
@@ -138,7 +138,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedView),
-			Entry("zero values", v0.View{Type: "", Args: nil}),
+			Entry("zero values", v0.View{Type: "", Args: msgpack.EncodedJSON{}}),
 		)
 	})
 })
@@ -328,7 +328,7 @@ func FuzzDecodePanel(f *testing.F) {
 		seed := v0.Panel{
 			Key:  uuid.Nil(),
 			Name: "",
-			Root: v0.Node{Variant: v0.LeafNode{Tabs: nil}},
+			Root: v0.Node{Variant: v0.LeafNode{Tabs: []v0.Tab{}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -449,7 +449,7 @@ func FuzzDecodeView(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.View{Type: "", Args: nil}
+		seed := v0.View{Type: "", Args: msgpack.EncodedJSON{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

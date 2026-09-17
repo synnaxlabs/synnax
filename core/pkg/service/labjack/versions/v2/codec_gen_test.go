@@ -155,7 +155,7 @@ var _ = Describe("Codec", func() {
 				SampleRate:                   telem.Rate(0),
 				StreamRate:                   telem.Rate(0),
 				Device:                       "",
-				Channels:                     nil,
+				Channels:                     []v2.ReadChannel{},
 				DeviceScanBacklogWarnOnCount: 0,
 				LjmScanBacklogWarnOnCount:    0,
 			}),
@@ -258,7 +258,7 @@ var _ = Describe("Codec", func() {
 				DataSavingDisabled: false,
 				Device:             "",
 				StateRate:          telem.Rate(0),
-				Channels:           nil,
+				Channels:           []v2.WriteChannel{},
 			}),
 			Entry("empty collections", v2.WriteConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -629,7 +629,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			SampleRate:                   telem.Rate(0),
 			StreamRate:                   telem.Rate(0),
 			Device:                       "",
-			Channels:                     nil,
+			Channels:                     []v2.ReadChannel{},
 			DeviceScanBacklogWarnOnCount: 0,
 			LjmScanBacklogWarnOnCount:    0,
 		}
@@ -842,7 +842,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			DataSavingDisabled: false,
 			Device:             "",
 			StateRate:          telem.Rate(0),
-			Channels:           nil,
+			Channels:           []v2.WriteChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

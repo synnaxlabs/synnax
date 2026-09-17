@@ -80,7 +80,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v2.Region{
 				Key:         "",
 				Name:        "",
-				Selectors:   nil,
+				Selectors:   []string{},
 				StrokeColor: nil,
 				FillColor:   nil,
 			}),
@@ -155,9 +155,9 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v2.Spec{
 				SVG:             "",
-				States:          nil,
+				States:          []v2.State{},
 				Variant:         "",
-				Handles:         nil,
+				Handles:         []v2.Handle{},
 				Scale:           0,
 				StrokeScaled:    false,
 				PreviewViewport: nil,
@@ -210,7 +210,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v2.State{
 				Key:     "",
 				Name:    "",
-				Regions: nil,
+				Regions: []v2.Region{},
 			}),
 			Entry("empty collections", v2.State{
 				Key:     "test_1",
@@ -268,9 +268,9 @@ var _ = Describe("Codec", func() {
 				Name: "",
 				Data: v2.Spec{
 					SVG:             "",
-					States:          nil,
+					States:          []v2.State{},
 					Variant:         "",
-					Handles:         nil,
+					Handles:         []v2.Handle{},
 					Scale:           0,
 					StrokeScaled:    false,
 					PreviewViewport: nil,
@@ -553,7 +553,7 @@ func FuzzDecodeRegion(f *testing.F) {
 		seed := v2.Region{
 			Key:         "",
 			Name:        "",
-			Selectors:   nil,
+			Selectors:   []string{},
 			StrokeColor: nil,
 			FillColor:   nil,
 		}
@@ -659,9 +659,9 @@ func FuzzDecodeSpec(f *testing.F) {
 	{
 		seed := v2.Spec{
 			SVG:             "",
-			States:          nil,
+			States:          []v2.State{},
 			Variant:         "",
-			Handles:         nil,
+			Handles:         []v2.Handle{},
 			Scale:           0,
 			StrokeScaled:    false,
 			PreviewViewport: nil,
@@ -745,7 +745,7 @@ func FuzzDecodeState(f *testing.F) {
 		seed := v2.State{
 			Key:     "",
 			Name:    "",
-			Regions: nil,
+			Regions: []v2.Region{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -834,9 +834,9 @@ func FuzzDecodeSymbol(f *testing.F) {
 			Name: "",
 			Data: v2.Spec{
 				SVG:             "",
-				States:          nil,
+				States:          []v2.State{},
 				Variant:         "",
-				Handles:         nil,
+				Handles:         []v2.Handle{},
 				Scale:           0,
 				StrokeScaled:    false,
 				PreviewViewport: nil,

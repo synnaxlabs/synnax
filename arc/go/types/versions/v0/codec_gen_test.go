@@ -38,7 +38,7 @@ var _ = Describe("Codec", func() {
 				Read:  map[uint32]string{2: "test_1"},
 				Write: map[uint32]string{3: "test_2"},
 			}),
-			Entry("zero values", v0.Channels{Read: nil, Write: nil}),
+			Entry("zero values", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
 			Entry("empty collections", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
 		)
 	})
@@ -266,9 +266,9 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v0.FunctionProperties{
-				Inputs:  nil,
-				Outputs: nil,
-				Config:  nil,
+				Inputs:  []v0.Param{},
+				Outputs: []v0.Param{},
+				Config:  []v0.Param{},
 			}),
 			Entry("empty collections", v0.FunctionProperties{
 				Inputs:  []v0.Param{},
@@ -471,9 +471,9 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Param{
 				Name: "",
 				Type: v0.Type{
-					Inputs:        nil,
-					Outputs:       nil,
-					Config:        nil,
+					Inputs:        []v0.Param{},
+					Outputs:       []v0.Param{},
+					Config:        []v0.Param{},
 					Kind:          v0.Kind(0),
 					Name:          "",
 					Elem:          nil,
@@ -1045,9 +1045,9 @@ var _ = Describe("Codec", func() {
 				ChanDirection: v0.ChanDirection(0),
 			}),
 			Entry("zero values", v0.Type{
-				Inputs:        nil,
-				Outputs:       nil,
-				Config:        nil,
+				Inputs:        []v0.Param{},
+				Outputs:       []v0.Param{},
+				Config:        []v0.Param{},
 				Kind:          v0.Kind(0),
 				Name:          "",
 				Elem:          nil,
@@ -2350,7 +2350,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Channels{Read: nil, Write: nil}
+		seed := v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2633,9 +2633,9 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 	}
 	{
 		seed := v0.FunctionProperties{
-			Inputs:  nil,
-			Outputs: nil,
-			Config:  nil,
+			Inputs:  []v0.Param{},
+			Outputs: []v0.Param{},
+			Config:  []v0.Param{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2869,9 +2869,9 @@ func FuzzDecodeParam(f *testing.F) {
 		seed := v0.Param{
 			Name: "",
 			Type: v0.Type{
-				Inputs:        nil,
-				Outputs:       nil,
-				Config:        nil,
+				Inputs:        []v0.Param{},
+				Outputs:       []v0.Param{},
+				Config:        []v0.Param{},
 				Kind:          v0.Kind(0),
 				Name:          "",
 				Elem:          nil,
@@ -3467,9 +3467,9 @@ func FuzzDecodeType(f *testing.F) {
 	}
 	{
 		seed := v0.Type{
-			Inputs:        nil,
-			Outputs:       nil,
-			Config:        nil,
+			Inputs:        []v0.Param{},
+			Outputs:       []v0.Param{},
+			Config:        []v0.Param{},
 			Kind:          v0.Kind(0),
 			Name:          "",
 			Elem:          nil,

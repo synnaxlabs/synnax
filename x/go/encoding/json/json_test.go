@@ -12,7 +12,6 @@ package json_test
 import (
 	"bytes"
 	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
 	"strings"
 	"time"
 
@@ -287,32 +286,6 @@ var _ = Describe("NewCodec", func() {
 			),
 			)
 		})
-	})
-})
-
-var _ = Describe("PreserveNil", func() {
-	type shape struct {
-		Slice []int          `json:"slice"`
-		Map   map[string]int `json:"map"`
-	}
-	It("Should encode a nil slice and map as null", func() {
-		Expect(MustSucceed(jsonv2.Marshal(shape{}, json.PreserveNil))).
-			To(MatchJSON(`{"slice":null,"map":null}`))
-	})
-	It("Should make an encode-decode round trip an identity", func() {
-		var decoded shape
-		Expect(jsonv2.Unmarshal(
-			MustSucceed(jsonv2.Marshal(shape{}, json.PreserveNil)), &decoded,
-		)).To(Succeed())
-		Expect(decoded).To(Equal(shape{}))
-	})
-	It("Should decode the default encoding to an allocated empty value", func() {
-		var decoded shape
-		Expect(jsonv2.Unmarshal(
-			MustSucceed(jsonv2.Marshal(shape{})), &decoded,
-		)).To(Succeed())
-		Expect(decoded.Slice).To(Equal([]int{}))
-		Expect(decoded.Map).To(Equal(map[string]int{}))
 	})
 })
 

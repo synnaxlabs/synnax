@@ -447,7 +447,7 @@ var _ = Describe("Codec", func() {
 				DataSavingDisabled: false,
 				SampleRate:         telem.Rate(0),
 				StreamRate:         telem.Rate(0),
-				Channels:           nil,
+				Channels:           []v2.AIChannel{},
 			}),
 			Entry("empty collections", v2.AnalogReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -490,7 +490,7 @@ var _ = Describe("Codec", func() {
 				DataSavingDisabled: false,
 				Device:             "",
 				StateRate:          telem.Rate(0),
-				Channels:           nil,
+				Channels:           []v2.AOChannel{},
 			}),
 			Entry("empty collections", v2.AnalogWriteConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -597,8 +597,8 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedBridgePolynomial),
 			Entry("zero values", v2.BridgePolynomial{
-				ForwardCoeffs:   nil,
-				ReverseCoeffs:   nil,
+				ForwardCoeffs:   []float64{},
+				ReverseCoeffs:   []float64{},
 				ElectricalUnits: v2.ElectricalUnits(""),
 			}),
 			Entry("empty collections", v2.BridgePolynomial{
@@ -777,7 +777,7 @@ var _ = Describe("Codec", func() {
 				DataSavingDisabled: false,
 				SampleRate:         telem.Rate(0),
 				StreamRate:         telem.Rate(0),
-				Channels:           nil,
+				Channels:           []v2.CIChannel{},
 			}),
 			Entry("empty collections", v2.CounterReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -927,7 +927,7 @@ var _ = Describe("Codec", func() {
 				SampleRate:         telem.Rate(0),
 				StreamRate:         telem.Rate(0),
 				Device:             "",
-				Channels:           nil,
+				Channels:           []v2.DIChannel{},
 			}),
 			Entry("empty collections", v2.DigitalReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -976,7 +976,7 @@ var _ = Describe("Codec", func() {
 				DataSavingDisabled: false,
 				Device:             "",
 				StateRate:          telem.Rate(0),
-				Channels:           nil,
+				Channels:           []v2.DOChannel{},
 			}),
 			Entry("empty collections", v2.DigitalWriteConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -1079,7 +1079,7 @@ var _ = Describe("Codec", func() {
 				Key:           uuid.Nil(),
 				Rate:          telem.Rate(0),
 				Disabled:      false,
-				IgnoredModels: nil,
+				IgnoredModels: []string{},
 			}),
 			Entry("empty collections", v2.ScanConfig{
 				Key:           uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -1117,9 +1117,9 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedTable),
 			Entry("zero values", v2.Table{
-				ElectricalVals:  nil,
+				ElectricalVals:  []float64{},
 				ElectricalUnits: v2.ElectricalUnits(""),
-				PhysicalVals:    nil,
+				PhysicalVals:    []float64{},
 			}),
 			Entry("empty collections", v2.Table{
 				ElectricalVals:  []float64{},
@@ -2451,7 +2451,7 @@ func FuzzDecodeAnalogReadConfig(f *testing.F) {
 			DataSavingDisabled: false,
 			SampleRate:         telem.Rate(0),
 			StreamRate:         telem.Rate(0),
-			Channels:           nil,
+			Channels:           []v2.AIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2525,7 +2525,7 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 			DataSavingDisabled: false,
 			Device:             "",
 			StateRate:          telem.Rate(0),
-			Channels:           nil,
+			Channels:           []v2.AOChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2759,8 +2759,8 @@ func FuzzDecodeBridgePolynomial(f *testing.F) {
 	}
 	{
 		seed := v2.BridgePolynomial{
-			ForwardCoeffs:   nil,
-			ReverseCoeffs:   nil,
+			ForwardCoeffs:   []float64{},
+			ReverseCoeffs:   []float64{},
 			ElectricalUnits: v2.ElectricalUnits(""),
 		}
 		w := orc.NewWriter(0)
@@ -3088,7 +3088,7 @@ func FuzzDecodeCounterReadConfig(f *testing.F) {
 			DataSavingDisabled: false,
 			SampleRate:         telem.Rate(0),
 			StreamRate:         telem.Rate(0),
-			Channels:           nil,
+			Channels:           []v2.CIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3365,7 +3365,7 @@ func FuzzDecodeDigitalReadConfig(f *testing.F) {
 			SampleRate:         telem.Rate(0),
 			StreamRate:         telem.Rate(0),
 			Device:             "",
-			Channels:           nil,
+			Channels:           []v2.DIChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3445,7 +3445,7 @@ func FuzzDecodeDigitalWriteConfig(f *testing.F) {
 			DataSavingDisabled: false,
 			Device:             "",
 			StateRate:          telem.Rate(0),
-			Channels:           nil,
+			Channels:           []v2.DOChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3672,7 +3672,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 			Key:           uuid.Nil(),
 			Rate:          telem.Rate(0),
 			Disabled:      false,
-			IgnoredModels: nil,
+			IgnoredModels: []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3765,9 +3765,9 @@ func FuzzDecodeTable(f *testing.F) {
 	}
 	{
 		seed := v2.Table{
-			ElectricalVals:  nil,
+			ElectricalVals:  []float64{},
 			ElectricalUnits: v2.ElectricalUnits(""),
-			PhysicalVals:    nil,
+			PhysicalVals:    []float64{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

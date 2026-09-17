@@ -73,7 +73,7 @@ var _ = Describe("Codec", func() {
 				TaskCounter:  0,
 				Embedded:     false,
 				Status:       nil,
-				Integrations: nil,
+				Integrations: []string{},
 			}),
 			Entry("empty collections", v0.Rack{
 				Key:         v0.Key(2),
@@ -183,7 +183,7 @@ func FuzzDecodeRack(f *testing.F) {
 			TaskCounter:  0,
 			Embedded:     false,
 			Status:       nil,
-			Integrations: nil,
+			Integrations: []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

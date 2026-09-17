@@ -82,7 +82,7 @@ var _ = Describe("Codec", func() {
 				Model:      "",
 				Name:       "",
 				Configured: false,
-				Properties: nil,
+				Properties: msgpack.EncodedJSON{},
 				Status:     nil,
 				Parent:     nil,
 			}),
@@ -187,7 +187,7 @@ func FuzzDecodeDevice(f *testing.F) {
 			Model:      "",
 			Name:       "",
 			Configured: false,
-			Properties: nil,
+			Properties: msgpack.EncodedJSON{},
 			Status:     nil,
 			Parent:     nil,
 		}

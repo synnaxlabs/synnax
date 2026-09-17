@@ -47,8 +47,8 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v1.Policy{
 				Key:      uuid.Nil(),
 				Name:     "",
-				Objects:  nil,
-				Actions:  nil,
+				Objects:  []ontology.ID{},
+				Actions:  []access.Action{},
 				Internal: false,
 			}),
 			Entry("empty collections", v1.Policy{
@@ -104,8 +104,8 @@ func FuzzDecodePolicy(f *testing.F) {
 		seed := v1.Policy{
 			Key:      uuid.Nil(),
 			Name:     "",
-			Objects:  nil,
-			Actions:  nil,
+			Objects:  []ontology.ID{},
+			Actions:  []access.Action{},
 			Internal: false,
 		}
 		w := orc.NewWriter(0)

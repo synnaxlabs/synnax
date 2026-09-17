@@ -102,9 +102,9 @@ var _ = Describe("Codec", func() {
 				Mode: v1.Mode(""),
 				Graph: graph.Graph{
 					Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-					Functions: nil,
-					Edges:     nil,
-					Nodes:     nil,
+					Functions: []ir.Function{},
+					Edges:     []ir.Edge{},
+					Nodes:     []graph.Node{},
 				},
 				Text: text.Text{Raw: ""},
 			}),
@@ -253,9 +253,9 @@ func FuzzDecodeArc(f *testing.F) {
 			Mode: v1.Mode(""),
 			Graph: graph.Graph{
 				Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-				Functions: nil,
-				Edges:     nil,
-				Nodes:     nil,
+				Functions: []ir.Function{},
+				Edges:     []ir.Edge{},
+				Nodes:     []graph.Node{},
 			},
 			Text: text.Text{Raw: ""},
 		}

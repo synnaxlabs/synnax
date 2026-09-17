@@ -72,7 +72,7 @@ var _ = Describe("Codec", func() {
 				Name:       "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: nil,
+				EnumValues: []v2.EnumEntry{},
 			}),
 			Entry("empty collections", v2.ChannelField{
 				Pointer:    "test_1",
@@ -177,7 +177,7 @@ var _ = Describe("Codec", func() {
 				DataSavingDisabled: false,
 				Device:             "",
 				Rate:               telem.Rate(0),
-				Endpoints:          nil,
+				Endpoints:          []v2.ReadEndpoint{},
 			}),
 			Entry("empty collections", v2.ReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -225,10 +225,10 @@ var _ = Describe("Codec", func() {
 				Key:         "",
 				Method:      v2.Method(""),
 				Path:        "",
-				Headers:     nil,
-				QueryParams: nil,
+				Headers:     []v2.Header{},
+				QueryParams: []v2.QueryParam{},
 				Body:        "",
-				Fields:      nil,
+				Fields:      []v2.ReadField{},
 				Index:       "",
 			}),
 			Entry("empty collections", v2.ReadEndpoint{
@@ -272,7 +272,7 @@ var _ = Describe("Codec", func() {
 				Pointer:    "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: nil,
+				EnumValues: []v2.EnumEntry{},
 			}),
 			Entry("empty collections", v2.ReadField{
 				Key:        "test_1",
@@ -355,7 +355,7 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.Nil(),
 				AutoStart: false,
 				Device:    "",
-				Endpoints: nil,
+				Endpoints: []v2.WriteEndpoint{},
 			}),
 			Entry("empty collections", v2.WriteConfig{
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -405,8 +405,8 @@ var _ = Describe("Codec", func() {
 				Disabled:    false,
 				Method:      v2.Method(""),
 				Path:        "",
-				Headers:     nil,
-				QueryParams: nil,
+				Headers:     []v2.Header{},
+				QueryParams: []v2.QueryParam{},
 				Channel: v2.ChannelField{
 					Pointer:    "",
 					JSONType:   v2.JSONType(""),
@@ -414,9 +414,9 @@ var _ = Describe("Codec", func() {
 					Name:       "",
 					DataType:   telem.DataType(""),
 					TimeFormat: nil,
-					EnumValues: nil,
+					EnumValues: []v2.EnumEntry{},
 				},
-				Fields: nil,
+				Fields: []v2.WriteField{},
 			}),
 			Entry("empty collections", v2.WriteEndpoint{
 				Key:         "test_1",
@@ -858,7 +858,7 @@ func FuzzDecodeChannelField(f *testing.F) {
 			Name:       "",
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
-			EnumValues: nil,
+			EnumValues: []v2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1066,7 +1066,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			DataSavingDisabled: false,
 			Device:             "",
 			Rate:               telem.Rate(0),
-			Endpoints:          nil,
+			Endpoints:          []v2.ReadEndpoint{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1145,10 +1145,10 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Key:         "",
 			Method:      v2.Method(""),
 			Path:        "",
-			Headers:     nil,
-			QueryParams: nil,
+			Headers:     []v2.Header{},
+			QueryParams: []v2.QueryParam{},
 			Body:        "",
-			Fields:      nil,
+			Fields:      []v2.ReadField{},
 			Index:       "",
 		}
 		w := orc.NewWriter(0)
@@ -1223,7 +1223,7 @@ func FuzzDecodeReadField(f *testing.F) {
 			Pointer:    "",
 			DataType:   telem.DataType(""),
 			TimeFormat: nil,
-			EnumValues: nil,
+			EnumValues: []v2.EnumEntry{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1361,7 +1361,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			Key:       uuid.Nil(),
 			AutoStart: false,
 			Device:    "",
-			Endpoints: nil,
+			Endpoints: []v2.WriteEndpoint{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1442,8 +1442,8 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 			Disabled:    false,
 			Method:      v2.Method(""),
 			Path:        "",
-			Headers:     nil,
-			QueryParams: nil,
+			Headers:     []v2.Header{},
+			QueryParams: []v2.QueryParam{},
 			Channel: v2.ChannelField{
 				Pointer:    "",
 				JSONType:   v2.JSONType(""),
@@ -1451,9 +1451,9 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 				Name:       "",
 				DataType:   telem.DataType(""),
 				TimeFormat: nil,
-				EnumValues: nil,
+				EnumValues: []v2.EnumEntry{},
 			},
-			Fields: nil,
+			Fields: []v2.WriteField{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

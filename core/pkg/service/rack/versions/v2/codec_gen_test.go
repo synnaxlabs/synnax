@@ -44,7 +44,7 @@ var _ = Describe("Codec", func() {
 				Key:          v2.Key(0),
 				Name:         "",
 				Embedded:     false,
-				Integrations: nil,
+				Integrations: []string{},
 			}),
 			Entry("empty collections", v2.Rack{
 				Key:          v2.Key(2),
@@ -97,7 +97,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Key:          v2.Key(0),
 			Name:         "",
 			Embedded:     false,
-			Integrations: nil,
+			Integrations: []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

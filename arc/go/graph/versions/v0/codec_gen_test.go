@@ -119,9 +119,9 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v0.Graph{
 				Viewport:  v0.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-				Functions: nil,
-				Edges:     nil,
-				Nodes:     nil,
+				Functions: []ir.Function{},
+				Edges:     []ir.Edge{},
+				Nodes:     []v0.Node{},
 			}),
 			Entry("empty collections", v0.Graph{
 				Viewport:  v0.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
@@ -151,7 +151,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Node{
 				Key:      "",
 				Type:     "",
-				Config:   nil,
+				Config:   msgpack.EncodedJSON{},
 				Position: spatial.XY{X: 0, Y: 0},
 			}),
 		)
@@ -397,9 +397,9 @@ func FuzzDecodeGraph(f *testing.F) {
 	{
 		seed := v0.Graph{
 			Viewport:  v0.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
-			Functions: nil,
-			Edges:     nil,
-			Nodes:     nil,
+			Functions: []ir.Function{},
+			Edges:     []ir.Edge{},
+			Nodes:     []v0.Node{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -460,7 +460,7 @@ func FuzzDecodeNode(f *testing.F) {
 		seed := v0.Node{
 			Key:      "",
 			Type:     "",
-			Config:   nil,
+			Config:   msgpack.EncodedJSON{},
 			Position: spatial.XY{X: 0, Y: 0},
 		}
 		w := orc.NewWriter(0)

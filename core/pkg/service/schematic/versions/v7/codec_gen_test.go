@@ -125,9 +125,9 @@ var _ = Describe("Codec", func() {
 				Key:      uuid.Nil(),
 				Name:     "",
 				Snapshot: false,
-				Nodes:    nil,
-				Edges:    nil,
-				Configs:  nil,
+				Nodes:    []v7.Node{},
+				Edges:    []v7.Edge{},
+				Configs:  map[string]msgpack.EncodedJSON{},
 			}),
 			Entry("empty collections", v7.Schematic{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -407,9 +407,9 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Key:      uuid.Nil(),
 			Name:     "",
 			Snapshot: false,
-			Nodes:    nil,
-			Edges:    nil,
-			Configs:  nil,
+			Nodes:    []v7.Node{},
+			Edges:    []v7.Edge{},
+			Configs:  map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

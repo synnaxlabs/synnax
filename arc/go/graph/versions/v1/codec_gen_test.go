@@ -118,10 +118,10 @@ var _ = Describe("Codec", func() {
 				Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 			}),
 			Entry("zero values", v1.Graph{
-				Functions: nil,
-				Edges:     nil,
-				Nodes:     nil,
-				Inputs:    nil,
+				Functions: []ir.Function{},
+				Edges:     []v1.Edge{},
+				Nodes:     []v1.Node{},
+				Inputs:    map[string]msgpack.EncodedJSON{},
 			}),
 			Entry("empty collections", v1.Graph{
 				Functions: []ir.Function{},
@@ -370,10 +370,10 @@ func FuzzDecodeGraph(f *testing.F) {
 	}
 	{
 		seed := v1.Graph{
-			Functions: nil,
-			Edges:     nil,
-			Nodes:     nil,
-			Inputs:    nil,
+			Functions: []ir.Function{},
+			Edges:     []v1.Edge{},
+			Nodes:     []v1.Node{},
+			Inputs:    map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

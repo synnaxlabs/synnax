@@ -155,7 +155,10 @@ var _ = Describe("Composition migrations", func() {
 		}}
 	}
 	appViewTab := func(viewType string) v0.Tab {
-		return v0.Tab{Variant: v0.ViewTab{Type: viewType}}
+		return v0.Tab{Variant: v0.ViewTab{
+			Type: viewType,
+			Args: msgpack.EncodedJSON{},
+		}}
 	}
 	leaf := func(tabs ...v0.Tab) *v0.Node {
 		return &v0.Node{Variant: v0.LeafNode{Tabs: tabs}}
@@ -760,7 +763,7 @@ var _ = Describe("Composition migrations", func() {
 			Expect(ok).To(BeTrue())
 			explorer, ok := last.Tabs[0].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
-			Expect(explorer.Args).To(BeNil())
+			Expect(explorer.Args).To(BeEmpty())
 			other, ok := last.Tabs[1].Variant.(v0.ViewTab)
 			Expect(ok).To(BeTrue())
 			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))

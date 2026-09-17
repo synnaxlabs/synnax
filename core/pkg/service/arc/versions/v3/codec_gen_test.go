@@ -101,12 +101,14 @@ var _ = Describe("Codec", func() {
 				Name: "",
 				Mode: v3.Mode(""),
 				Graph: graph.Graph{
-					Functions: nil,
-					Edges:     nil,
-					Nodes:     nil,
-					Inputs:    nil,
+					Functions: []ir.Function{},
+					Edges:     []graph.Edge{},
+					Nodes:     []graph.Node{},
+					Inputs:    map[string]msgpack.EncodedJSON{},
 				},
-				Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+				Text: text.Text{
+					Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
+				},
 			}),
 		)
 	})
@@ -250,12 +252,14 @@ func FuzzDecodeArc(f *testing.F) {
 			Name: "",
 			Mode: v3.Mode(""),
 			Graph: graph.Graph{
-				Functions: nil,
-				Edges:     nil,
-				Nodes:     nil,
-				Inputs:    nil,
+				Functions: []ir.Function{},
+				Edges:     []graph.Edge{},
+				Nodes:     []graph.Node{},
+				Inputs:    map[string]msgpack.EncodedJSON{},
 			},
-			Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+			Text: text.Text{
+				Doc: text.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

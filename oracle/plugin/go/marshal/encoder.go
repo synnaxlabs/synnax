@@ -122,7 +122,6 @@ func generateEncoderCodecFile(
 			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
-				fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
 			}
 			uc.Recursive = typeIsRecursive(e.Type, table)
 			fo.ConcreteCodecs = append(fo.ConcreteCodecs, uc)
@@ -162,7 +161,6 @@ func generateEncoderCodecFile(
 			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
-				fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
 			}
 			fo.GenericCodecs = append(fo.GenericCodecs, genericCodec{
 				GoName:     e.GoName,
@@ -184,7 +182,6 @@ func generateEncoderCodecFile(
 			}
 			if b.needsJSON {
 				fo.NeedsJSON = true
-				fo.ExtraImports["github.com/synnaxlabs/x/encoding/json"] = "xjson"
 			}
 			fo.ConcreteCodecs = append(fo.ConcreteCodecs, concreteCodec{
 				GoName:     e.GoName,
@@ -419,7 +416,7 @@ func (b *encoderBuilder) processTypeParamField(
 	if jsonOnly {
 		b.encodeLines = append(b.encodeLines,
 			ind+"{",
-			ind+fmt.Sprintf("\tb, err := json.Marshal(%s, xjson.PreserveNil)", getPath),
+			ind+fmt.Sprintf("\tb, err := json.Marshal(%s)", getPath),
 			ind+"\tif err != nil { return err }",
 			ind+"\tw.WriteWithLen(b)",
 			ind+"}",
@@ -439,7 +436,7 @@ func (b *encoderBuilder) processTypeParamField(
 			ind+fmt.Sprintf("if m, ok := any(%s).(orc.SelfEncoder); ok {", getPath),
 			ind+"\tif err := m.EncodeOrc(w); err != nil { return err }",
 			ind+"} else {",
-			ind+fmt.Sprintf("\tb, err := json.Marshal(%s, xjson.PreserveNil)", getPath),
+			ind+fmt.Sprintf("\tb, err := json.Marshal(%s)", getPath),
 			ind+"\tif err != nil { return err }",
 			ind+"\tw.WriteWithLen(b)",
 			ind+"}",
@@ -1012,7 +1009,7 @@ func (b *encoderBuilder) processLeaf(
 	case "record", "any":
 		b.needsJSON = true
 		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("{ b, err := json.Marshal(%s, xjson.PreserveNil)", valPath),
+			ind+fmt.Sprintf("{ b, err := json.Marshal(%s)", valPath),
 			ind+"\tif err != nil { return err }",
 			ind+"\tw.WriteWithLen(b) }",
 		)

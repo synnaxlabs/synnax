@@ -261,10 +261,10 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Function{
 				Key:      "",
 				Body:     v0.Body{Raw: ""},
-				Config:   nil,
-				Inputs:   nil,
-				Outputs:  nil,
-				Channels: types.Channels{Read: nil, Write: nil},
+				Config:   []types.Param{},
+				Inputs:   []types.Param{},
+				Outputs:  []types.Param{},
+				Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 			}),
 			Entry("empty collections", v0.Function{
 				Key:      "test_1",
@@ -832,10 +832,10 @@ func FuzzDecodeFunction(f *testing.F) {
 		seed := v0.Function{
 			Key:      "",
 			Body:     v0.Body{Raw: ""},
-			Config:   nil,
-			Inputs:   nil,
-			Outputs:  nil,
-			Channels: types.Channels{Read: nil, Write: nil},
+			Config:   []types.Param{},
+			Inputs:   []types.Param{},
+			Outputs:  []types.Param{},
+			Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

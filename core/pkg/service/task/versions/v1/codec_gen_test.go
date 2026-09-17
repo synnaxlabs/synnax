@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -37,12 +38,16 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Task{
 				Key:      v1.Key(2),
 				Name:     "test_2",
+				Type:     "test_3",
+				Config:   msgpack.EncodedJSON{"key_4": "value_4"},
 				Internal: true,
 				Snapshot: false,
 			}),
 			Entry("zero values", v1.Task{
 				Key:      v1.Key(0),
 				Name:     "",
+				Type:     "",
+				Config:   msgpack.EncodedJSON{},
 				Internal: false,
 				Snapshot: false,
 			}),
@@ -54,6 +59,8 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 	seed := v1.Task{
 		Key:      v1.Key(2),
 		Name:     "test_2",
+		Type:     "test_3",
+		Config:   msgpack.EncodedJSON{"key_4": "value_4"},
 		Internal: true,
 		Snapshot: false,
 	}
@@ -77,6 +84,8 @@ func FuzzDecodeTask(f *testing.F) {
 		seed := v1.Task{
 			Key:      v1.Key(2),
 			Name:     "test_2",
+			Type:     "test_3",
+			Config:   msgpack.EncodedJSON{"key_4": "value_4"},
 			Internal: true,
 			Snapshot: false,
 		}
@@ -90,6 +99,8 @@ func FuzzDecodeTask(f *testing.F) {
 		seed := v1.Task{
 			Key:      v1.Key(0),
 			Name:     "",
+			Type:     "",
+			Config:   msgpack.EncodedJSON{},
 			Internal: false,
 			Snapshot: false,
 		}

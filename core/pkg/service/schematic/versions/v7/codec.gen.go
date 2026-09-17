@@ -14,7 +14,6 @@ package v7
 import (
 	"encoding/json/v2"
 
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -125,7 +124,7 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 		for key, val := range s.Configs {
 			w.String(key)
 			{
-				b, err := json.Marshal(val, xjson.PreserveNil)
+				b, err := json.Marshal(val)
 				if err != nil {
 					return err
 				}

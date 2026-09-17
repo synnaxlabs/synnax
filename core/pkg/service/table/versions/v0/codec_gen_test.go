@@ -44,7 +44,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Table{
 				Key:  uuid.Nil(),
 				Name: "",
-				Data: nil,
+				Data: msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -88,7 +88,7 @@ func FuzzDecodeTable(f *testing.F) {
 		seed := v0.Table{
 			Key:  uuid.Nil(),
 			Name: "",
-			Data: nil,
+			Data: msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

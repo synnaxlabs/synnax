@@ -109,7 +109,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v2.Log{
 				Key:                    uuid.Nil(),
 				Name:                   "",
-				Channels:               nil,
+				Channels:               []v2.ChannelEntry{},
 				TimestampPrecision:     0,
 				ChannelNamesHidden:     false,
 				ReceiptTimestampHidden: false,
@@ -340,7 +340,7 @@ func FuzzDecodeLog(f *testing.F) {
 		seed := v2.Log{
 			Key:                    uuid.Nil(),
 			Name:                   "",
-			Channels:               nil,
+			Channels:               []v2.ChannelEntry{},
 			TimestampPrecision:     0,
 			ChannelNamesHidden:     false,
 			ReceiptTimestampHidden: false,

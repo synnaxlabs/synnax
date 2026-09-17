@@ -47,7 +47,7 @@ var _ = Describe("Codec", func() {
 				},
 				Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
 			}),
-			Entry("zero values", v1.Document{Inserts: nil, Deletes: nil}),
+			Entry("zero values", v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}),
 			Entry("empty collections", v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}),
 		)
 	})
@@ -75,7 +75,7 @@ var _ = Describe("Codec", func() {
 					Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
 				},
 			}),
-			Entry("zero values", v1.Text{Doc: v1.Document{Inserts: nil, Deletes: nil}}),
+			Entry("zero values", v1.Text{Doc: v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}}),
 		)
 	})
 })
@@ -156,7 +156,7 @@ func FuzzDecodeDocument(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Document{Inserts: nil, Deletes: nil}
+		seed := v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -215,7 +215,7 @@ func FuzzDecodeText(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Text{Doc: v1.Document{Inserts: nil, Deletes: nil}}
+		seed := v1.Text{Doc: v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 
 	ir "github.com/synnaxlabs/arc/ir/versions/v1"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -90,7 +89,7 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 		for key, val := range g.Inputs {
 			w.String(key)
 			{
-				b, err := json.Marshal(val, xjson.PreserveNil)
+				b, err := json.Marshal(val)
 				if err != nil {
 					return err
 				}

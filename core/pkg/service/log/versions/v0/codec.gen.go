@@ -14,7 +14,6 @@ package v0
 import (
 	"encoding/json/v2"
 
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -23,7 +22,7 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Write(lv.Key[:])
 	w.String(lv.Name)
 	{
-		b, err := json.Marshal(lv.Data, xjson.PreserveNil)
+		b, err := json.Marshal(lv.Data)
 		if err != nil {
 			return err
 		}

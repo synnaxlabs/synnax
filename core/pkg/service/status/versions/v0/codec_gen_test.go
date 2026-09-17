@@ -67,7 +67,7 @@ var _ = Describe("Codec", func() {
 				Description: "",
 				Time:        telem.TimeStamp(0),
 				Details:     "",
-				Labels:      nil,
+				Labels:      []label.Label{},
 			}),
 			Entry("empty collections", v0.Status[string]{
 				Key:         "test_1",
@@ -158,7 +158,7 @@ func FuzzDecodeStatus(f *testing.F) {
 			Description: "",
 			Time:        telem.TimeStamp(0),
 			Details:     "",
-			Labels:      nil,
+			Labels:      []label.Label{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -22,7 +22,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
@@ -168,7 +168,7 @@ func checkChain(
 				})
 				return
 			}
-			if gotypes.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
+			if types.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
 				r.fail(Finding{
 					Path:     chain.FilePath(k) + ".oracle",
 					Severity: SeverityError,

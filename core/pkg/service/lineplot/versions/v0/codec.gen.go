@@ -14,7 +14,6 @@ package v0
 import (
 	"encoding/json/v2"
 
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -23,7 +22,7 @@ func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 	w.Write(lp.Key[:])
 	w.String(lp.Name)
 	{
-		b, err := json.Marshal(lp.Data, xjson.PreserveNil)
+		b, err := json.Marshal(lp.Data)
 		if err != nil {
 			return err
 		}

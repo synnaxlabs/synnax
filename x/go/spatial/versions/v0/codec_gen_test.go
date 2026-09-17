@@ -34,8 +34,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Bounds{}),
-			Entry("zero values", v0.Bounds{}),
+			Entry("fully populated", v0.Bounds{Lower: 1.5, Upper: 2.5}),
+			Entry("zero values", v0.Bounds{Lower: 0, Upper: 0}),
 		)
 	})
 	Describe("CornerLocation", func() {
@@ -141,7 +141,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeBounds(b *testing.B) {
-	seed := v0.Bounds{}
+	seed := v0.Bounds{Lower: 1.5, Upper: 2.5}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -266,7 +266,7 @@ func BenchmarkEncodeDecodeXY(b *testing.B) {
 
 func FuzzDecodeBounds(f *testing.F) {
 	{
-		seed := v0.Bounds{}
+		seed := v0.Bounds{Lower: 1.5, Upper: 2.5}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -274,7 +274,7 @@ func FuzzDecodeBounds(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Bounds{}
+		seed := v0.Bounds{Lower: 0, Upper: 0}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

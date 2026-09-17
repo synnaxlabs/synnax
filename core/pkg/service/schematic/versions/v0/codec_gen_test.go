@@ -45,7 +45,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Schematic{
 				Key:      uuid.Nil(),
 				Name:     "",
-				Data:     nil,
+				Data:     msgpack.EncodedJSON{},
 				Snapshot: false,
 			}),
 		)
@@ -92,7 +92,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 		seed := v0.Schematic{
 			Key:      uuid.Nil(),
 			Name:     "",
-			Data:     nil,
+			Data:     msgpack.EncodedJSON{},
 			Snapshot: false,
 		}
 		w := orc.NewWriter(0)

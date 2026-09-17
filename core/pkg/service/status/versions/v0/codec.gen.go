@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -29,7 +28,7 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Description)
 	w.Int64(int64(s.Time))
 	{
-		b, err := json.Marshal(s.Details, xjson.PreserveNil)
+		b, err := json.Marshal(s.Details)
 		if err != nil {
 			return err
 		}

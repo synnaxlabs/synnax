@@ -14,7 +14,6 @@ package v0
 import (
 	"encoding/json/v2"
 
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -24,7 +23,7 @@ func (vv View) EncodeOrc(w *orc.Writer) error {
 	w.String(vv.Name)
 	w.String(vv.Type)
 	{
-		b, err := json.Marshal(vv.Query, xjson.PreserveNil)
+		b, err := json.Marshal(vv.Query)
 		if err != nil {
 			return err
 		}

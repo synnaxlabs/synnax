@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -122,7 +121,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	w.String(nv.Type)
 	{
-		b, err := json.Marshal(nv.Config, xjson.PreserveNil)
+		b, err := json.Marshal(nv.Config)
 		if err != nil {
 			return err
 		}

@@ -66,7 +66,7 @@ var _ = Describe("Codec", func() {
 				Virtual:     false,
 				Concurrency: control.Concurrency(0),
 				Internal:    false,
-				Operations:  nil,
+				Operations:  []v0.Operation{},
 				Expression:  "",
 			}),
 			Entry("empty collections", v0.Channel{
@@ -203,7 +203,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Virtual:     false,
 			Concurrency: control.Concurrency(0),
 			Internal:    false,
-			Operations:  nil,
+			Operations:  []v0.Operation{},
 			Expression:  "",
 		}
 		w := orc.NewWriter(0)

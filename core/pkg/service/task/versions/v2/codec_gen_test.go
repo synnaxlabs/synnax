@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -40,7 +41,9 @@ var _ = Describe("Codec", func() {
 				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Rack:       rack.Key(3),
 				Name:       "test_3",
-				ConfigHash: "test_4",
+				Type:       "test_4",
+				Config:     msgpack.EncodedJSON{"key_5": "value_5"},
+				ConfigHash: "test_6",
 				Internal:   true,
 				Snapshot:   false,
 			}),
@@ -48,6 +51,8 @@ var _ = Describe("Codec", func() {
 				Key:        uuid.Nil(),
 				Rack:       rack.Key(0),
 				Name:       "",
+				Type:       "",
+				Config:     msgpack.EncodedJSON{},
 				ConfigHash: "",
 				Internal:   false,
 				Snapshot:   false,
@@ -61,7 +66,9 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Rack:       rack.Key(3),
 		Name:       "test_3",
-		ConfigHash: "test_4",
+		Type:       "test_4",
+		Config:     msgpack.EncodedJSON{"key_5": "value_5"},
+		ConfigHash: "test_6",
 		Internal:   true,
 		Snapshot:   false,
 	}
@@ -86,7 +93,9 @@ func FuzzDecodeTask(f *testing.F) {
 			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Rack:       rack.Key(3),
 			Name:       "test_3",
-			ConfigHash: "test_4",
+			Type:       "test_4",
+			Config:     msgpack.EncodedJSON{"key_5": "value_5"},
+			ConfigHash: "test_6",
 			Internal:   true,
 			Snapshot:   false,
 		}
@@ -101,6 +110,8 @@ func FuzzDecodeTask(f *testing.F) {
 			Key:        uuid.Nil(),
 			Rack:       rack.Key(0),
 			Name:       "",
+			Type:       "",
+			Config:     msgpack.EncodedJSON{},
 			ConfigHash: "",
 			Internal:   false,
 			Snapshot:   false,

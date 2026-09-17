@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -26,7 +25,7 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 	w.String(t.Name)
 	w.String(t.Type)
 	{
-		b, err := json.Marshal(t.Config, xjson.PreserveNil)
+		b, err := json.Marshal(t.Config)
 		if err != nil {
 			return err
 		}

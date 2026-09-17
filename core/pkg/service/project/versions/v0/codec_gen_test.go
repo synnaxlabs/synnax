@@ -46,7 +46,7 @@ var _ = Describe("Codec", func() {
 				Key:    uuid.Nil(),
 				Name:   "",
 				Author: uuid.Nil(),
-				Layout: nil,
+				Layout: msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -93,7 +93,7 @@ func FuzzDecodeWorkspace(f *testing.F) {
 			Key:    uuid.Nil(),
 			Name:   "",
 			Author: uuid.Nil(),
-			Layout: nil,
+			Layout: msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

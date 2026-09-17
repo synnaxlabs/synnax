@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -666,7 +665,7 @@ func (wf WriteField) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.JSONType))
 		{
-			b, err := json.Marshal(v.Value, xjson.PreserveNil)
+			b, err := json.Marshal(v.Value)
 			if err != nil {
 				return err
 			}

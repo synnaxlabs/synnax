@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
-	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -29,7 +28,7 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.String(d.Name)
 	w.Bool(d.Configured)
 	{
-		b, err := json.Marshal(d.Properties, xjson.PreserveNil)
+		b, err := json.Marshal(d.Properties)
 		if err != nil {
 			return err
 		}

@@ -86,7 +86,7 @@ var _ = Describe("Codec", func() {
 				Key:        uuid.Nil(),
 				AutoStart:  false,
 				RoutingKey: "",
-				Alerts:     nil,
+				Alerts:     []v1.Alert{},
 			}),
 			Entry("empty collections", v1.TaskConfig{
 				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -239,7 +239,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 			Key:        uuid.Nil(),
 			AutoStart:  false,
 			RoutingKey: "",
-			Alerts:     nil,
+			Alerts:     []v1.Alert{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
