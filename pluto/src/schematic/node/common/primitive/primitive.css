@@ -111,7 +111,9 @@
         fill: none;
     }
 
-    &.pluto-symbol-primitive-toggle--delayed {
+    /* A custom symbol's SVG is injected, so its hold fill stays a box over the
+       button. Built-in symbols draw the fill inside their shapes below. */
+    &.pluto-symbol-primitive-toggle--delayed.pluto-symbol--custom {
         position: relative;
 
         &::after {
@@ -119,6 +121,7 @@
             position: absolute;
             inset: 0;
             z-index: 1;
+
             /* An image, not a color: the keyframe owns background-color for the dim. */
             background-image: linear-gradient(
                 oklch(from var(--pluto-symbol-display) l c h / 20%),
@@ -132,5 +135,40 @@
             animation: delay var(--pluto-toggle-delay) linear;
             clip-path: inset(0 0 0 0);
         }
+    }
+
+    &.pluto--pressed .pluto-symbol-hold__fill {
+        display: inline;
+        animation: symbol-hold var(--pluto-toggle-delay) linear;
+    }
+}
+
+/* Alpha, so a stroke-only symbol masks along its lines and a closed one masks its
+   interior, whatever color the symbol paints. */
+.pluto-symbol-hold__mask {
+    mask-type: alpha;
+    fill: white;
+    stroke: white;
+}
+
+.pluto-symbol-hold__fill {
+    display: none;
+    pointer-events: none;
+    fill: oklch(from var(--pluto-symbol-display) l c h / 20%);
+}
+
+@keyframes symbol-hold {
+    0% {
+        clip-path: inset(0 100% 0 0);
+        fill: rgb(0 0 0 / 40%);
+    }
+
+    99% {
+        clip-path: inset(0 0 0 0);
+        fill: rgb(0 0 0 / 40%);
+    }
+
+    100% {
+        clip-path: inset(0 0 0 0);
     }
 }

@@ -10,6 +10,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 
 const getButton = (container: HTMLElement): HTMLButtonElement =>
@@ -152,6 +153,27 @@ describe("Toggle.Button", () => {
       const btn = getButton(container);
       fireEvent.mouseDown(btn, { button: 2 });
       expect(btn.className).not.toContain("pluto--pressed");
+    });
+  });
+
+  describe("hold fill", () => {
+    const renderWithSVG = (delay: number): HTMLElement =>
+      render(
+        <Toggle.Button onClickDelay={delay}>
+          <Primitive.SVG dimensions={{ width: 10, height: 10 }}>
+            <rect />
+          </Primitive.SVG>
+        </Toggle.Button>,
+      ).container;
+
+    it("should host the fill inside the SVG when delayed", () => {
+      expect(
+        renderWithSVG(500).querySelector(".pluto-symbol-hold__fill"),
+      ).not.toBeNull();
+    });
+
+    it("should host no fill without a delay", () => {
+      expect(renderWithSVG(0).querySelector(".pluto-symbol-hold__fill")).toBeNull();
     });
   });
 

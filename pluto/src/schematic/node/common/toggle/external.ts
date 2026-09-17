@@ -9,4 +9,5 @@
 
 export * from "@/schematic/node/common/toggle/Button";
 export * from "@/schematic/node/common/toggle/Form";
+export * from "@/schematic/node/common/toggle/hold";
 export * from "@/schematic/node/common/toggle/toggle";

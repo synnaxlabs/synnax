@@ -10,8 +10,11 @@
 import { dimensions, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
+  createContext,
   type CSSProperties,
   type ReactElement,
+  use,
+  useId,
   useMemo,
 } from "react";
 
@@ -31,6 +34,13 @@ export interface SVGProps
 
 export const BASE_SCALE = 0.8;
 
+/** True inside a delayed toggle, so the SVG draws the hold fill within its shapes. */
+export const HoldFill = createContext(false);
+HoldFill.displayName = "Primitive.HoldFill";
+
+// Strokes overflow the view box, so the fill reaches past it by a stroke width.
+const HOLD_FILL_MARGIN = 2;
+
 export const SVG = ({
   dimensions: dimsProp,
   orientation = "left",
@@ -41,6 +51,8 @@ export const SVG = ({
   scale = 1,
   ...rest
 }: SVGProps): ReactElement => {
+  const holdFill = use(HoldFill);
+  const id = `hold-${useId().replace(/[^A-Za-z0-9]/g, "")}`;
   const dir = direction.construct(orientation);
   const dims = useMemo(
     () => (dir === "y" ? dimensions.swap(dimsProp) : dimsProp),
@@ -64,7 +76,34 @@ export const SVG = ({
       {...rest}
       style={pStyle}
     >
-      <g>{children}</g>
+      <g>
+        {holdFill ? (
+          <>
+            <g id={id}>{children}</g>
+            <mask
+              id={`${id}-mask`}
+              className={CSS.BE("symbol-hold", "mask")}
+              maskUnits="userSpaceOnUse"
+              x={-HOLD_FILL_MARGIN}
+              y={-HOLD_FILL_MARGIN}
+              width={dimsProp.width + 2 * HOLD_FILL_MARGIN}
+              height={dimsProp.height + 2 * HOLD_FILL_MARGIN}
+            >
+              <use href={`#${id}`} />
+            </mask>
+            <rect
+              className={CSS.BE("symbol-hold", "fill")}
+              mask={`url(#${id}-mask)`}
+              x={-HOLD_FILL_MARGIN}
+              y={-HOLD_FILL_MARGIN}
+              width={dimsProp.width + 2 * HOLD_FILL_MARGIN}
+              height={dimsProp.height + 2 * HOLD_FILL_MARGIN}
+            />
+          </>
+        ) : (
+          children
+        )}
+      </g>
     </svg>
   );
 };
