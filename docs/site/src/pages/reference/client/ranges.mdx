@@ -17,7 +17,7 @@ import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Diagram preview>
+<Diagram preview style="padding: 1rem">
   <Image client:only="react" id="client/ranges/preview" />
 </Diagram>
 
@@ -26,7 +26,7 @@ into tests, runs, and events, and carry metadata about them.
 
 <Divider.Divider x />
 
-## Range Configuration Reference
+## Range Parameters
 
 | Parameter                                                 | Type                                        | Required | Default                                        | Description                                                                                                     |
 | --------------------------------------------------------- | ------------------------------------------- | -------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -742,11 +742,17 @@ const data2 = await burstTest.read("daq_analog_input_1");
 
 ## Delete a Range
 
-Delete a range by passing its key to the `client.ranges.delete` method.
+<Client.Tabs client:load exclude={["cpp"]}>
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="console">
+
+<Image client:only="react" id="client/ranges/delete" />
+
+  </Fragment>
 
   <Fragment slot="python">
+
+Delete a range by passing its key to the `client.ranges.delete` method.
 
 ```python
 # Delete a single range
@@ -759,6 +765,8 @@ client.ranges.delete([my_range.key, my_other_range.key])
   </Fragment>
 
   <Fragment slot="typescript">
+
+Delete a range by passing its key to the `client.ranges.delete` method.
 
 ```typescript
 // Delete a single range
