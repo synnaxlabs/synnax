@@ -83,17 +83,16 @@ const parseClock = (text: string): Clock | null => {
   if (match == null) return null;
   const [, h, m, s, fraction, meridiem] = match;
   let hour = Number(h);
+  const minute = Number(m);
+  const second = Number(s ?? 0);
   if (meridiem != null) {
-    if (hour > 12) return null;
+    if (hour < 1 || hour > 12) return null;
     hour %= 12;
     if (meridiem.toLowerCase() === "pm") hour += 12;
   }
-  return {
-    hour,
-    minute: Number(m),
-    second: Number(s ?? 0),
-    fraction: fractionToNanoseconds(fraction),
-  };
+  // Date rolls an out-of-range field into the next unit instead of rejecting it.
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  return { hour, minute, second, fraction: fractionToNanoseconds(fraction) };
 };
 
 const fromLocalDate = (date: Date, fraction: bigint): TimeStamp =>
@@ -120,6 +119,8 @@ const parseAbsolute = (text: string, now: TimeStamp): TimeStamp | null => {
   if (date != null) {
     const [, y, mo, d] = date;
     const local = new Date(Number(y), Number(mo) - 1, Number(d));
+    if (local.getMonth() !== Number(mo) - 1 || local.getDate() !== Number(d))
+      return null;
     if (timeParts.length === 0) return fromLocalDate(local, 0n);
     const clock = parseClock(timeParts.join(" "));
     if (clock == null) return null;
@@ -177,7 +178,8 @@ const pad = (n: number, width: number): string => n.toString().padStart(width, "
  */
 export const roundNumeric = (value: number): bigint => {
   const ns = BigInt(Math.trunc(value));
-  return ((ns + 500n) / 1000n) * 1000n;
+  // bigint division truncates toward zero, so the half step takes the value's sign.
+  return ((ns + (ns < 0n ? -500n : 500n)) / 1000n) * 1000n;
 };
 
 /** Converts a form value to an instant, rounded by {@link roundNumeric}. */

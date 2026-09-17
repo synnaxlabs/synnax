@@ -260,11 +260,15 @@ export const DateTime = ({
   const revertRef = useRef(false);
   const caretRef = useRef<number | null>(null);
 
-  const isEmpty = emptyValue != null && value >= emptyValue;
+  const isEmpty = emptyValue != null && value === emptyValue;
 
   const anchors: Anchors = { now: TimeStamp.now() };
-  if (propsAnchors?.start != null) anchors.start = new TimeStamp(propsAnchors.start);
-  if (propsAnchors?.end != null) anchors.end = new TimeStamp(propsAnchors.end);
+  // An end at the edge of time is open, not an instant to offset from.
+  const { start: anchorStart, end: anchorEnd } = propsAnchors ?? {};
+  if (anchorStart != null && anchorStart > TimeStamp.MIN.nanoseconds)
+    anchors.start = new TimeStamp(anchorStart);
+  if (anchorEnd != null && anchorEnd < TimeStamp.MAX.nanoseconds)
+    anchors.end = new TimeStamp(anchorEnd);
   if (propsAnchors?.parent != null)
     anchors.parent = new TimeStamp(propsAnchors.parent.start);
 
