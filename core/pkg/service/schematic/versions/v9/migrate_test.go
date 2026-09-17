@@ -28,6 +28,9 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // labeled holds the LabeledConfig values ApplyDefaults fills in, including the nested
@@ -229,6 +232,14 @@ var _ = Describe("Config typing", func() {
 		)
 	})
 
+	It("Should reset a config its variant cannot hold to the variant's defaults", func(
+		ctx SpecContext,
+	) {
+		Expect(typed(ctx, msgpack.EncodedJSON{
+			"variant": "circle", "radius": "wide",
+		})).To(Equal(typed(ctx, msgpack.EncodedJSON{"variant": "circle"})))
+	})
+
 	It("Should drop an entry naming no known variant", func(ctx SpecContext) {
 		out := MustSucceed(v9.MigrateSchematic(ctx, v8.Schematic{
 			Configs: map[string]msgpack.EncodedJSON{
@@ -337,6 +348,55 @@ var _ = Describe("DecodeElementConfig", func() {
 })
 
 var _ = Describe("Migration", func() {
+	It("Should log every config it resets or drops", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		seed := v8.Schematic{
+			Key:   uuid.New(),
+			Name:  "Stored",
+			Nodes: []v8.Node{{Key: "a"}, {Key: "b"}, {Key: "c"}},
+			Configs: map[string]msgpack.EncodedJSON{
+				"a": {"variant": "circle", "radius": "wide"},
+				"b": {"variant": "not-a-symbol"},
+				"c": {"variant": "valve"},
+			},
+		}
+		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v8.Key, v8.Schematic]{DB: db}))
+		Expect(gorp.NewCreate[v8.Key, v8.Schematic]().
+			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			DB:              db,
+			Namespace:       "Schematic",
+			Migrations:      []migrate.Migration{v9.Migration},
+		})).To(Succeed())
+		var got v9.Schematic
+		Expect(gorp.NewRetrieve[v9.Key, v9.Schematic]().
+			Where(gorp.MatchKeys[v9.Key, v9.Schematic](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		fresh := MustSucceed(v9.MigrateSchematic(ctx, v8.Schematic{
+			Configs: map[string]msgpack.EncodedJSON{"a": {"variant": "circle"}},
+		}))
+		Expect(got.Configs).To(HaveLen(2))
+		Expect(got.Configs["a"]).To(Equal(fresh.Configs["a"]))
+		Expect(got.Configs).To(HaveKey("c"))
+		Expect(logs.Len()).To(Equal(2))
+		reset := logs.FilterMessage(
+			"reset a rejected schematic config to its variant's defaults",
+		).All()
+		Expect(reset).To(HaveLen(1))
+		Expect(reset[0].ContextMap()).To(HaveKeyWithValue("node", "a"))
+		Expect(reset[0].ContextMap()).To(HaveKeyWithValue("schematic", seed.Key.String()))
+		dropped := logs.FilterMessage(
+			"dropped a schematic config naming no known variant",
+		).All()
+		Expect(dropped).To(HaveLen(1))
+		Expect(dropped[0].ContextMap()).To(HaveKeyWithValue("node", "b"))
+	})
+
 	// A Core that ran v0.57 has v8's key in its applied set, so the upgrade must reach
 	// stored configs through a key of its own or leave every schematic untyped.
 	It("Should type configs a Core already lifted to v8", func(ctx SpecContext) {
