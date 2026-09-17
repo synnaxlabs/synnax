@@ -14,7 +14,7 @@ import { capture, fixtures } from "@/index";
 const PROJECT = capture.PROJECT;
 const CORE_NAME = "Local Core";
 
-/** Mirrors DEV_DETACH_KEY in console/src/platform/cluster/detectConnection.ts. */
+/** Mirrors DEV_DETACH_KEY in console/src/platform/core/detectConnection.ts. */
 const DETACH_KEY = "synnax-dev-connection-detach";
 
 /**
@@ -31,12 +31,12 @@ const createProject = async (port: number): Promise<void> => {
   try {
     await client.projects.create({ name: PROJECT });
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
 const coreItem = (session: capture.CaptureSession, name: string) =>
-  session.page.locator(".console-cluster-list-item").filter({ hasText: name }).first();
+  session.page.locator(".console-core-list-item").filter({ hasText: name }).first();
 
 /**
  * removeCore drops a Core from the list off camera. The session ships with a
@@ -97,10 +97,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(300);
   await session.click(modal.getByPlaceholder("localhost").first());
   await session.type("localhost");
-  await session.hold(300);
-  await session.click(modal.getByPlaceholder("9090").first());
-  await session.type(String(port));
-  await session.hold(500);
+  // The port field defaults to 9090, the port this shot's Core runs on.
+  await session.hold(800);
 
   await capture.clickButton(session, "Connect");
   await session.waitForHidden(modal);
@@ -109,7 +107,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const item = coreItem(session, CORE_NAME);
   await session.waitFor(item);
   await session.hold(2000);
-  await session.click(item.locator(".console-cluster-list-item__name").first(), {
+  await session.click(item.locator(".console-core-list-item__name").first(), {
     zoom: false,
     text: true,
   });
