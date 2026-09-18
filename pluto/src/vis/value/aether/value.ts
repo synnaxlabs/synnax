@@ -33,11 +33,8 @@ const valueState = staleness.configZ.extend({
   color: color.colorZ.default(color.ZERO),
   precision: z.number().default(2),
   stalenessColor: color.colorZ.default(color.ZERO),
-  minWidth: z.number().default(60),
-  width: z.number().optional(),
   notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
-  useWidthForBackground: z.boolean().default(false),
   valueBackgroundShift: xy.xyZ.default(xy.ZERO),
   valueBackgroundOverScan: xy.xyZ.default(xy.ZERO),
   // clip restricts canvas drawing to the configured box. Use when the
@@ -135,19 +132,6 @@ export class Value
     return theme.typography[this.state.level].size * theme.sizes.base;
   }
 
-  private maybeUpdateWidth(width: number) {
-    const { theme } = this.internal;
-    const requiredWidth = width + theme.sizes.base + this.fontHeight;
-    if (
-      this.state.width == null ||
-      this.state.width + this.fontHeight * 0.5 < requiredWidth ||
-      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
-    )
-      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-    else if (this.state.width - this.fontHeight > requiredWidth)
-      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-  }
-
   private getTextColor(): color.Color {
     const { theme } = this.internal;
     if (this.internal.stale)
@@ -187,7 +171,6 @@ export class Value
     const height = dims.height;
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
-    this.maybeUpdateWidth(width);
     const labelOffset = { ...xy.ZERO };
     if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
     else if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;
@@ -204,12 +187,9 @@ export class Value
         const isZero = color.isZero(colorValue);
         if (!isZero) {
           canvas.fillStyle = color.hex(colorValue);
-          const width = this.state.useWidthForBackground
-            ? (this.state.width ?? this.state.minWidth)
-            : box.width(b);
           canvas.fillRect(
             ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
-            width + this.state.valueBackgroundOverScan.x,
+            bWidth + this.state.valueBackgroundOverScan.x,
             bHeight + this.state.valueBackgroundOverScan.y,
           );
         }

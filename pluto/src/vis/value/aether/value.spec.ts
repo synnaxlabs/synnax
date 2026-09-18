@@ -101,12 +101,10 @@ describe("value/aether/Value", () => {
       const parsed = value.Value.z.parse({ box: BOX });
       expect(parsed.precision).toBe(2);
       expect(parsed.stalenessTimeout).toBe(5);
-      expect(parsed.minWidth).toBe(60);
       expect(parsed.notation).toBe("standard");
       expect(parsed.level).toBe("p");
       expect(parsed.location).toEqual({ x: "left", y: "center" });
       expect(parsed.clip).toBe(false);
-      expect(parsed.useWidthForBackground).toBe(false);
     });
 
     it("should accept explicit overrides", () => {
@@ -268,44 +266,6 @@ describe("value/aether/Value", () => {
     });
   });
 
-  describe("width", () => {
-    it("should grow width to at least minWidth on first render", () => {
-      const { component } = setup({ value: "1" });
-      component.render({});
-      expect(component.state.width).toBeGreaterThanOrEqual(60);
-    });
-
-    it("should grow width beyond minWidth for a long value", () => {
-      const { component } = setup({ value: "1".repeat(40) });
-      component.render({});
-      expect(component.state.width).toBeGreaterThan(60);
-    });
-
-    it("should grow width when the value gets longer", () => {
-      const { component, source } = setup({ value: "1" });
-      component.render({});
-      const before = component.state.width ?? 0;
-      source.setValue("1".repeat(60));
-      expect(component.state.width ?? 0).toBeGreaterThan(before);
-    });
-
-    it("should shrink width when the value gets much shorter", () => {
-      const { component, source } = setup({ value: "1".repeat(60) });
-      component.render({});
-      const before = component.state.width ?? 0;
-      source.setValue("1");
-      expect(component.state.width ?? 0).toBeLessThan(before);
-    });
-
-    it("should leave width unchanged when the value is stable", () => {
-      const { component, source } = setup({ value: "12345" });
-      component.render({});
-      const before = component.state.width;
-      source.setValue("12345");
-      expect(component.state.width).toBe(before);
-    });
-  });
-
   describe("text color", () => {
     it("should use the high-contrast gray when no color is set", () => {
       const { component, recorder } = setup({ value: "1" });
@@ -459,18 +419,15 @@ describe("value/aether/Value", () => {
       expect(h).toBe(box.height(BOX));
     });
 
-    it("should size the background to the component width when useWidthForBackground is set", () => {
-      const { component, recorder } = setup({
+    it("should keep the background at the box width when the value gets longer", () => {
+      const { source, recorder } = setup({
         value: "1",
         background: color.construct("#00ff00"),
-        state: { useWidthForBackground: true },
       });
-      component.render({});
       recorder.clear();
-      component.render({});
+      source.setValue("1".repeat(60));
       const [, , w] = fillRectArgs(recorder);
-      expect(w).toBe(component.state.width);
-      expect(w).not.toBe(box.width(BOX));
+      expect(w).toBe(box.width(BOX));
     });
 
     it("should shift the background by valueBackgroundShift", () => {

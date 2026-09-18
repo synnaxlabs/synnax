@@ -31,10 +31,8 @@ export const configZ = Label.labeledConfigZ.extend({
   level: text.levelZ.optional(),
   precision: z.number().optional(),
   ...Staleness.configZ.shape,
-  minWidth: z.number().optional(),
   notation: notation.notationZ.optional(),
   location: location.xy.optional(),
-  useWidthForBackground: z.boolean().optional(),
   valueBackgroundShift: xy.xyZ.optional(),
   valueBackgroundOverScan: xy.xyZ.optional(),
 });
