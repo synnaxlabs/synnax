@@ -120,10 +120,10 @@ var _ = Describe("NewMigration", func() {
 			Expect(record).To(HaveKeyWithValue("arc_key", arcKey.String()))
 			Expect(record).To(HaveKeyWithValue("hash", "abc123"))
 
-			// The hash must follow the frozen rule — xxhash64 of the JSON
-			// encoding of the canonical record without its key — or drivers
-			// see phantom config drift after the upgrade. Deterministic holds
-			// the member order the frozen rule was defined against.
+			// The hash must follow the frozen rule — xxhash64 of the JSON encoding of
+			// the canonical record without its key — or drivers see phantom config
+			// drift after the upgrade. Deterministic holds the member order the frozen
+			// rule was defined against.
 			content := make(map[string]any, len(record))
 			for k, v := range record {
 				if k != "key" {

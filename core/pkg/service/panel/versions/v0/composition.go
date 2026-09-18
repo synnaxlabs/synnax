@@ -346,11 +346,7 @@ func taskKeyCandidates(slice legacySlice, tabKey string) []string {
 		var args struct {
 			TaskKey string `json:"taskKey"`
 		}
-		if err := json.Unmarshal(
-			l.Args,
-			&args,
-		); err == nil &&
-			args.TaskKey != "" {
+		if err := json.Unmarshal(l.Args, &args); err == nil && args.TaskKey != "" {
 			candidates = append(candidates, args.TaskKey)
 		}
 	}

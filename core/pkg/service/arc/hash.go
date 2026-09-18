@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// semanticContent is the hash input: the fields that change an arc's compiled
-// behavior. Node positions and edge identities are excluded, so layout edits and a
+// semanticContent is the hash input: the fields that change an arc's compiled behavior.
+// Node positions and edge identities are excluded, so layout edits and a
 // rebuilt-but-identical connection hash equally. Every field serializes, so the hash is
 // a function of all of them and the inactive mode's fields contribute their zero.
 type semanticContent struct {

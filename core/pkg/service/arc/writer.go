@@ -194,9 +194,7 @@ func (w Writer) writeTask(
 	existing []task.Key,
 	hash string,
 ) (*task.Task, error) {
-	b, err := json.Marshal(
-		taskversions.Config{ArcKey: a.Key, Hash: hash},
-	)
+	b, err := json.Marshal(taskversions.Config{ArcKey: a.Key, Hash: hash})
 	if err != nil {
 		return nil, err
 	}
