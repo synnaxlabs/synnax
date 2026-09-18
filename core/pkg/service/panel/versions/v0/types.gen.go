@@ -306,7 +306,7 @@ type Panel struct {
 	// Parent is the parent resource for the panel in the ontology, required on create.
 	// Parenthood lives in the ontology graph, so the field is not persisted on the
 	// panel record and is absent on retrieve.
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitzero"`
+	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

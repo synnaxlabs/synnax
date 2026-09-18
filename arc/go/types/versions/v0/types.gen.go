@@ -77,11 +77,11 @@ type Type struct {
 	Name string `json:"name" msgpack:"name"`
 	// Elem is the element type for compound types (chan, series) and the value type of
 	// var_ref types.
-	Elem *Type `json:"elem,omitzero" msgpack:"elem,omitzero"`
+	Elem *Type `json:"elem,omitzero" msgpack:"elem,omitempty"`
 	// Unit is the physical unit metadata for dimensional analysis.
-	Unit *Unit `json:"unit,omitzero" msgpack:"unit,omitzero"`
+	Unit *Unit `json:"unit,omitzero" msgpack:"unit,omitempty"`
 	// Constraint is the type constraint for type variables.
-	Constraint *Type `json:"constraint,omitzero" msgpack:"constraint,omitzero"`
+	Constraint *Type `json:"constraint,omitzero" msgpack:"constraint,omitempty"`
 	// ChanDirection indicates read/write direction for channel-typed config parameters.
 	ChanDirection ChanDirection `json:"chan_direction" msgpack:"chan_direction"`
 }

@@ -52,7 +52,7 @@ type AddRowPayload struct {
 	Index        uint32  `json:"index" msgpack:"index"`
 	Size         float64 `json:"size" msgpack:"size"`
 	Cells        []Cell  `json:"cells" msgpack:"cells"`
-	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitzero"`
+	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
 }
 
 // RemoveRowPayload removes the row at the given index. All cells referenced by the
@@ -78,7 +78,7 @@ type AddColPayload struct {
 	Index        uint32  `json:"index" msgpack:"index"`
 	Size         float64 `json:"size" msgpack:"size"`
 	Cells        []Cell  `json:"cells" msgpack:"cells"`
-	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitzero"`
+	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
 }
 
 // RemoveColPayload removes the column at the given index. All cells in that column
@@ -122,16 +122,16 @@ type EraseCellsPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type       string             `json:"type" msgpack:"type"`
-	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitzero"`
-	Rename     *RenamePayload     `json:"rename,omitzero" msgpack:"rename,omitzero"`
-	AddRow     *AddRowPayload     `json:"add_row,omitzero" msgpack:"add_row,omitzero"`
-	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitzero" msgpack:"remove_row,omitzero"`
-	AddCol     *AddColPayload     `json:"add_col,omitzero" msgpack:"add_col,omitzero"`
-	RemoveCol  *RemoveColPayload  `json:"remove_col,omitzero" msgpack:"remove_col,omitzero"`
-	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitzero" msgpack:"resize_row,omitzero"`
-	ResizeCol  *ResizeColPayload  `json:"resize_col,omitzero" msgpack:"resize_col,omitzero"`
-	SetCell    *SetCellPayload    `json:"set_cell,omitzero" msgpack:"set_cell,omitzero"`
-	EraseCells *EraseCellsPayload `json:"erase_cells,omitzero" msgpack:"erase_cells,omitzero"`
+	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitempty"`
+	Rename     *RenamePayload     `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	AddRow     *AddRowPayload     `json:"add_row,omitzero" msgpack:"add_row,omitempty"`
+	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitzero" msgpack:"remove_row,omitempty"`
+	AddCol     *AddColPayload     `json:"add_col,omitzero" msgpack:"add_col,omitempty"`
+	RemoveCol  *RemoveColPayload  `json:"remove_col,omitzero" msgpack:"remove_col,omitempty"`
+	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitzero" msgpack:"resize_row,omitempty"`
+	ResizeCol  *ResizeColPayload  `json:"resize_col,omitzero" msgpack:"resize_col,omitempty"`
+	SetCell    *SetCellPayload    `json:"set_cell,omitzero" msgpack:"set_cell,omitempty"`
+	EraseCells *EraseCellsPayload `json:"erase_cells,omitzero" msgpack:"erase_cells,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on

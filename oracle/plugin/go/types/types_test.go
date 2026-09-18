@@ -1654,10 +1654,10 @@ var _ = Describe("Go Types Plugin", func() {
 					// Optional fields get a pointer and omitzero
 					Expect(
 						content,
-					).To(ContainSubstring("Nickname *string `json:\"nickname,omitzero\" msgpack:\"nickname,omitzero\"`"))
+					).To(ContainSubstring("Nickname *string `json:\"nickname,omitzero\" msgpack:\"nickname,omitempty\"`"))
 					Expect(
 						content,
-					).To(ContainSubstring("Age *int32 `json:\"age,omitzero\" msgpack:\"age,omitzero\"`"))
+					).To(ContainSubstring("Age *int32 `json:\"age,omitzero\" msgpack:\"age,omitempty\"`"))
 				},
 			)
 
@@ -1684,10 +1684,10 @@ var _ = Describe("Go Types Plugin", func() {
 				// omitted while a present empty slice still serializes as [].
 				Expect(
 					content,
-				).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
+				).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitempty\"`"))
 				Expect(
 					content,
-				).To(ContainSubstring("Counts []int32 `json:\"counts,omitzero\" msgpack:\"counts,omitzero\"`"))
+				).To(ContainSubstring("Counts []int32 `json:\"counts,omitzero\" msgpack:\"counts,omitempty\"`"))
 			})
 
 			It("Should keep maps plain and tag them omitzero", func(ctx SpecContext) {
@@ -1710,7 +1710,7 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
-				).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitzero\"`"))
+				).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitempty\"`"))
 			})
 
 			It(

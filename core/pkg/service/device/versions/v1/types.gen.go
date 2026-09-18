@@ -54,10 +54,10 @@ type Device struct {
 	// Structure varies by device make and model.
 	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
 	// Status is the current operational status of the device.
-	Status *Status `json:"status,omitzero" msgpack:"status,omitzero"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization
 	// (e.g., NI chassis containing modules).
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitzero"`
+	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

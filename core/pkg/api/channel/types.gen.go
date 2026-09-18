@@ -47,7 +47,7 @@ type Channel struct {
 	// with a timestamp.
 	Index servicechannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
-	Alias *string `json:"alias,omitzero" msgpack:"alias,omitzero"`
+	Alias *string `json:"alias,omitzero" msgpack:"alias,omitempty"`
 	// Virtual is true if this channel does not store data in the database but can still
 	// be used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
@@ -63,7 +63,7 @@ type Channel struct {
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
-	Status *Status `json:"status,omitzero" msgpack:"status,omitzero"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

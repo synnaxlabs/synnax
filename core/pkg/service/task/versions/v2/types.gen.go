@@ -39,7 +39,7 @@ type StatusDetails struct {
 	// Rack is the key of the rack running the task instance.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Data contains task-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
 }
 
 // Status is task-specific status information including execution state and
@@ -72,7 +72,7 @@ type Task struct {
 	// Snapshot is true if this task is an immutable snapshot copy of another task.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Status is the current execution status of the task.
-	Status *Status `json:"status,omitzero" msgpack:"status,omitzero"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
 // KeyedConfig is the base for every stored task configuration record.

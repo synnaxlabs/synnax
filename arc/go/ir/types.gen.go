@@ -75,7 +75,7 @@ type Transition struct {
 	On Handle `json:"on" msgpack:"on"`
 	// TargetKey is the sibling step key to activate. Null when the transition exits the
 	// scope, yielding to the parent.
-	TargetKey *string `json:"target_key,omitzero" msgpack:"target_key,omitzero"`
+	TargetKey *string `json:"target_key,omitzero" msgpack:"target_key,omitempty"`
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -84,9 +84,9 @@ type Transition struct {
 type Member struct {
 	// NodeKey is the key of the referenced node in IR.nodes. Null when this member is a
 	// nested scope.
-	NodeKey *string `json:"node_key,omitzero" msgpack:"node_key,omitzero"`
+	NodeKey *string `json:"node_key,omitzero" msgpack:"node_key,omitempty"`
 	// Scope is set when this member is a nested scope.
-	Scope *Scope `json:"scope,omitzero" msgpack:"scope,omitzero"`
+	Scope *Scope `json:"scope,omitzero" msgpack:"scope,omitempty"`
 }
 
 // Members is an ordered collection of Scope members, one per position.
@@ -104,7 +104,7 @@ type Scope struct {
 	Liveness Liveness `json:"liveness" msgpack:"liveness"`
 	// Activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
-	Activation *Handle `json:"activation,omitzero" msgpack:"activation,omitzero"`
+	Activation *Handle `json:"activation,omitzero" msgpack:"activation,omitempty"`
 	// Strata contains stratified execution layers for parallel scopes. On sequential
 	// scopes, strata hold variable nodes that run every pass alongside the active step.
 	// Stratum N depends only on strata 0 to N-1.
@@ -136,7 +136,7 @@ type Nodes []Node
 // Authorities holds the static authority declarations from an Arc program.
 type Authorities struct {
 	// Default is the default authority for all write channels not explicitly listed.
-	Default *uint8 `json:"default,omitzero" msgpack:"default,omitzero"`
+	Default *uint8 `json:"default,omitzero" msgpack:"default,omitempty"`
 	// Channels maps channel keys to their specific authority values.
 	Channels map[uint32]uint8 `json:"channels" msgpack:"channels"`
 }

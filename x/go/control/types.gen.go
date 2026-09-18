@@ -60,9 +60,9 @@ type State[R any] struct {
 // and From.Subject != To.Subject, a transfer occurred.
 type Transfer[R comparable] struct {
 	// From is the previous authority holder. Null on initial acquire.
-	From *State[R] `json:"from,omitzero" msgpack:"from,omitzero"`
+	From *State[R] `json:"from,omitzero" msgpack:"from,omitempty"`
 	// To is the new authority holder. Null on release.
-	To *State[R] `json:"to,omitzero" msgpack:"to,omitzero"`
+	To *State[R] `json:"to,omitzero" msgpack:"to,omitempty"`
 }
 
 // Update represents a batch of control transfers that occurred atomically.

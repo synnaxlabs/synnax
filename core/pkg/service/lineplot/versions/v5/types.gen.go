@@ -248,7 +248,7 @@ type Axis struct {
 	TickSpacing float64 `json:"tick_spacing" msgpack:"tick_spacing"`
 	// Type selects the tick label style. Null means default (linear). X-axes typically
 	// carry "time" when bound to a timestamp channel.
-	Type *TickType `json:"type,omitzero" msgpack:"type,omitzero"`
+	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -351,10 +351,10 @@ type Line struct {
 	Key string `json:"key" msgpack:"key"`
 	// Label is the user-specified line label. Null means derive from the channel name
 	// at render time; non-null is an override.
-	Label *string `json:"label,omitzero" msgpack:"label,omitzero"`
+	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
 	// Color is the line color. When null, the Console assigns one from the
 	// visualization palette at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitzero"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 	// Downsample is the downsample factor applied before rendering. 1 means render
@@ -393,7 +393,7 @@ type Rule struct {
 	Label string `json:"label" msgpack:"label"`
 	// Color is the display color of the rule. When null, the Console assigns a default
 	// at render time.
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitzero"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
 	// LineWidth is the rule line width in pixels.

@@ -113,7 +113,7 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitzero"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the response to numeric channel values.
 	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
@@ -251,7 +251,7 @@ type ChannelField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the output encoding when the command channel holds timestamps.
 	// Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitzero"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.
 	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
@@ -326,7 +326,7 @@ type GeneratedWriteField struct {
 	// Generator is the generator that produces a fresh value per request.
 	Generator GeneratorType `json:"generator" msgpack:"generator"`
 	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitzero"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}

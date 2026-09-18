@@ -181,7 +181,7 @@ type Ranges struct {
 	// X2 are the range keys plotted against the x2 axis.
 	X2 []string `json:"x2" msgpack:"x2"`
 	// Custom is the window the "custom" range key resolves to.
-	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitzero"`
+	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
 }
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side

@@ -33,9 +33,9 @@ type Region struct {
 	// Selectors contains CSS selectors targeting SVG elements within the symbol.
 	Selectors []string `json:"selectors" msgpack:"selectors"`
 	// StrokeColor is an optional stroke color override for the region.
-	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitzero"`
+	StrokeColor *color.Color `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
 	// FillColor is an optional fill color override for the region.
-	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitzero"`
+	FillColor *color.Color `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
 }
 
 // State is a named visual state of a symbol with regional styling configurations.
@@ -83,7 +83,7 @@ type Spec struct {
 	StrokeScaled bool `json:"stroke_scaled" msgpack:"stroke_scaled"`
 	// PreviewViewport is an optional viewport configuration for symbol preview
 	// rendering.
-	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitzero" msgpack:"preview_viewport,omitzero"`
+	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitzero" msgpack:"preview_viewport,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

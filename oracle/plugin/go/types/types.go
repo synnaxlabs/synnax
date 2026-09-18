@@ -1044,13 +1044,22 @@ type fieldData struct {
 	IsOptional bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field. An optional field uses
+// JSONTagSuffix returns the JSON tag suffix for the field. An optional field uses
 // `,omitzero` so its Go zero — a nil slice, map or pointer — is omitted while any
 // allocated value serializes, including an empty collection or a pointer to "". A
 // required field always serializes, because the schema says it always applies.
-func (f fieldData) TagSuffix() string {
+func (f fieldData) JSONTagSuffix() string {
 	if f.IsOptional {
 		return ",omitzero"
+	}
+	return ""
+}
+
+// MsgpackTagSuffix returns the msgpack tag suffix for the field. vmihailenco/msgpack
+// honors only `,omitempty`, which also omits an allocated empty collection.
+func (f fieldData) MsgpackTagSuffix() string {
+	if f.IsOptional {
+		return ",omitempty"
 	}
 	return ""
 }
@@ -1234,7 +1243,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1246,7 +1255,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1365,7 +1374,7 @@ type {{.TypeName}} struct {
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 }
 
