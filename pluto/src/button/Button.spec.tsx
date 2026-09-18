@@ -274,6 +274,15 @@ describe("Button", () => {
   });
 
   describe("pressed", () => {
+    it("should drop the pressed state when a drag starts", () => {
+      const c = render(<Button.Button draggable>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.mouseDown(btn);
+      expect(btn.className).toContain("pluto--pressed");
+      fireEvent.dragStart(btn);
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+
     it("should mark a primary press and clear it on mouseup", () => {
       const c = render(<Button.Button>Hello</Button.Button>);
       const btn = c.getByText("Hello");

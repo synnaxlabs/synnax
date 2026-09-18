@@ -181,5 +181,21 @@ describe("useHold", () => {
       });
       expect(onClick).not.toHaveBeenCalled();
     });
+
+    it("should release the hold when a drag starts", () => {
+      const onClick = vi.fn();
+      const { result } = renderHook(() =>
+        Button.useHold({ onClick, onClickDelay: 500 }),
+      );
+      act(() => result.current.onMouseDown(press()));
+      act(() => {
+        fireEvent.dragStart(document);
+      });
+      expect(result.current.pressed).toBe(false);
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(onClick).not.toHaveBeenCalled();
+    });
   });
 });

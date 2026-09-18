@@ -27,10 +27,13 @@ export interface UseHoldReturn<E extends Element> {
   onMouseDown: MouseEventHandler<E>;
 }
 
+// A native drag swallows the mouseup, so dragstart releases the hold too.
+const RELEASE_EVENTS = ["mouseup", "dragstart"];
+
 /**
  * Gates onClick behind a press-and-hold of onClickDelay. A primary press starts the
  * hold, and a release before the delay cancels it. Secondary buttons never actuate.
- * Unmounting or disabling the control cancels a hold in progress.
+ * A drag, unmounting, or disabling the control releases a hold in progress.
  */
 export const useHold = <E extends Element>({
   onClick,
@@ -39,13 +42,13 @@ export const useHold = <E extends Element>({
   disabled = false,
 }: UseHoldProps<E>): UseHoldReturn<E> => {
   const delay = TimeSpan.fromMilliseconds(onClickDelay);
-  const cancelRef = useRef<(() => void) | null>(null);
+  const releaseRef = useRef<(() => void) | null>(null);
   // WebKit sets :active on a secondary press, so pressed styling follows this flag.
   const [pressed, setPressed] = useState(false);
 
   useEffect(() => {
-    if (disabled) cancelRef.current?.();
-    return () => cancelRef.current?.();
+    if (disabled) releaseRef.current?.();
+    return () => releaseRef.current?.();
   }, [disabled]);
 
   const handleClick: MouseEventHandler<E> = (e) => {
@@ -55,24 +58,19 @@ export const useHold = <E extends Element>({
   const handleMouseDown: MouseEventHandler<E> = (e) => {
     onMouseDown?.(e);
     if (disabled || e.button !== 0) return;
-    cancelRef.current?.();
+    releaseRef.current?.();
     setPressed(true);
     const timeout = delay.isZero
       ? null
-      : setTimeout(() => {
-          cancelRef.current = null;
-          onClick?.(e);
-        }, delay.milliseconds);
+      : setTimeout(() => onClick?.(e), delay.milliseconds);
     const release = (): void => {
-      cancelRef.current = null;
+      releaseRef.current = null;
       setPressed(false);
       if (timeout != null) clearTimeout(timeout);
+      for (const ev of RELEASE_EVENTS) document.removeEventListener(ev, release);
     };
-    document.addEventListener("mouseup", release, { once: true });
-    cancelRef.current = () => {
-      document.removeEventListener("mouseup", release);
-      release();
-    };
+    for (const ev of RELEASE_EVENTS) document.addEventListener(ev, release);
+    releaseRef.current = release;
   };
 
   return { delay, pressed, onClick: handleClick, onMouseDown: handleMouseDown };
