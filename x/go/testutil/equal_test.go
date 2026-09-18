@@ -19,8 +19,8 @@ import (
 
 type rate float64
 
-// unit carries an Equal method that follows IEEE semantics, so NaN never equals
-// itself through it.
+// unit carries an Equal method that follows IEEE semantics, so NaN never equals itself
+// through it.
 type unit struct{ scale float64 }
 
 func (u unit) Equal(other unit) bool { return u.scale == other.scale }
