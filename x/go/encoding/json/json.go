@@ -25,11 +25,8 @@ import (
 var Codec = NewCodec()
 
 type codec struct {
-	// trailingNewline is whether an encode ends with a newline, set for indented output
-	// so a file a person reads ends in one.
 	trailingNewline bool
-	// opts configures both directions of the underlying codec.
-	opts json.Options
+	opts            json.Options
 }
 
 // NewCodec returns a JSON implementation of http.FileCodec configured with the given

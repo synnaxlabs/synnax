@@ -44,13 +44,6 @@ type Version uint64
 func (v *Version) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	kind := dec.PeekKind()
 	if kind != '0' && kind != '"' {
-		if err := dec.SkipValue(); err != nil {
-			return err
-		}
-		// A JSON null leaves the receiver untouched, per the Unmarshaler convention.
-		if kind == 'n' {
-			return nil
-		}
 		return errors.Newf("version must be a number or semver string, got %s", kind)
 	}
 	tok, err := dec.ReadToken()
@@ -129,10 +122,9 @@ func (e Envelope) MarshalJSONTo(enc *jsontext.Encoder) error {
 }
 
 // UnmarshalJSONFrom reads a flat JSON object, promoting the headers and retaining the
-// bytes for a later Decode. Only the headers come from this decode; Decode reads the
-// payload from the raw bytes, so a value past float64's mantissa keeps every bit. A
-// duplicate object name or invalid UTF-8 fails the read: an import file comes from
-// outside the Core, so a defect there is corruption, not a value to guess.
+// bytes for a later Decode. A duplicate object name or invalid UTF-8 fails the read: an
+// import file comes from outside the Core, so a defect there is corruption, not a value
+// to guess.
 func (e *Envelope) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {

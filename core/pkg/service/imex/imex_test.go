@@ -245,10 +245,10 @@ var _ = Describe("ImEx", func() {
 			It(
 				"Should error when marshaling a hand-constructed envelope with no body",
 				func() {
-					// Hand-constructed envelopes have a nil body. The marshaler
-					// refuses rather than silently emitting JSON null, so a service
-					// that accidentally returns an empty Envelope surfaces the bug at
-					// the transport boundary rather than over the wire.
+					// Hand-constructed envelopes have a nil body. The marshaler refuses
+					// rather than silently emitting JSON null, so a service that
+					// accidentally returns an empty Envelope surfaces the bug at the
+					// transport boundary rather than over the wire.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
 					Expect(json.MarshalWrite(io.Discard, env)).
 						To(MatchError(ContainSubstring("envelope has no body")))
@@ -847,12 +847,7 @@ var _ = Describe("ImEx", func() {
 			Entry("fractional number", "1.5"),
 			Entry("negative number", "-1"),
 			Entry("composite value", "[1]"),
+			Entry("null", "null"),
 		)
-
-		It("Should leave the receiver untouched on a JSON null", func() {
-			v := imex.Version(7)
-			Expect(json.Unmarshal([]byte("null"), &v)).To(Succeed())
-			Expect(v).To(Equal(imex.Version(7)))
-		})
 	})
 })
