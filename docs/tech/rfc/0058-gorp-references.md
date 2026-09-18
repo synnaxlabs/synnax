@@ -19,9 +19,10 @@ at a row that exists, and nothing deletes a dependent when its owner is deleted.
 This RFC removes the ontology. A relationship is a field on one table, declared in the
 Oracle schema with `@ref`. Gorp validates the target on write, keeps a reverse index on
 the field, and applies a declared policy (`cascade`, `restrict`, `detach`) when the
-target is deleted, inside the caller's transaction. Oracle generates the rest. The
-`/ontology/*` API, the client relationship caches, both ontology tables, and the
-ontology signals are deleted. The `{type, key}` identifier survives as `resource.ID`.
+target is deleted, inside the caller's transaction and under one node-local write lock.
+Oracle generates the rest. The `/ontology/*` API, the client relationship caches, both
+ontology tables, and the ontology signals are deleted. The `{type, key}` identifier
+survives as `resource.ID`.
 
 ## 1 Motivation
 
@@ -30,34 +31,33 @@ without coupling their services. RFC 0026 §1.1.10 named the result: three patte
 one job. RFC 0042 §7 deferred the fix to this RFC.
 
 - **One relationship type carries eight meanings**: Two edge types exist, `parent`
-  (`core/pkg/service/ontology/versions/v0/relationship.go:26`) and `labeled_by`
-  (`core/pkg/service/label/relationship.go:18`). `parent` means group membership,
-  project ownership, rack ownership, device chassis, range nesting, range snapshot, Arc
-  binding, and role assignment. Readers recover the meaning by filtering on endpoint
-  types (`core/pkg/service/ranger/service.go:176`,
-  `client/ts/src/ranger/client.ts:336`).
+  (`core/pkg/service/ontology/versions/v0/relationship.go`) and `labeled_by`
+  (`core/pkg/service/label/relationship.go`). `parent` means group membership, project
+  ownership, rack ownership, device chassis, range nesting, range snapshot, Arc binding,
+  and role assignment. Readers recover the meaning by filtering on endpoint types
+  (`core/pkg/service/ranger/service.go`, `client/ts/src/ranger/client.ts`).
 - **Identity is stored twice**: The resource table persists `Resource{ID}` only
-  (`core/pkg/service/ontology/writer.go:34`); the owning service fills name and data at
+  (`core/pkg/service/ontology/writer.go`); the owning service fills name and data at
   read time. SY-4804 traced the entry-versus-resource orphan window to this copy.
 - **Integrity is hand-written and leaks**: Rack, role, policy, and range alias deletes
-  leave the resource behind (`writer.go:127`, `:63`, `:59`, `:62` in
+  leave the resource behind (`writer.go` in
   `core/pkg/service/{rack,access/rbac/role,access/rbac/policy,ranger/alias}`). Project
-  delete orphans every visualization under it (`core/pkg/service/project/writer.go:94`).
+  delete orphans every visualization under it (`core/pkg/service/project/writer.go`).
   Range delete leaves aliases and key-value pairs. Every Arc, internal task, copied
   task, and alias has no parent. Migrations write both ontology tables through raw Gorp
   writers, skipping the cycle and existence checks
-  (`core/pkg/service/panel/versions/v0/composition.go:198`).
+  (`core/pkg/service/panel/versions/v0/composition.go`).
 - **The one duplicate drifts**: `device.rack` is persisted and a `rack parent_of device`
-  edge is written from it (`core/pkg/service/device/writer.go:82`). Rack delete reads
-  the field (`core/pkg/api/rack/rack.go:199`); the tree reads the edge.
+  edge is written from it (`core/pkg/service/device/writer.go`). Rack delete reads the
+  field (`core/pkg/api/rack/rack.go`); the tree reads the edge.
 - **Readers assume a tree; the model is a DAG**: Fourteen readers take the first parent
-  (`client/ts/src/ontology/store.ts:66`, `core/pkg/api/device/device.go:168`). The
-  project bundle walk needs a visited set (`core/pkg/service/project/bundle.go:124`).
+  (`client/ts/src/ontology/store.ts`, `core/pkg/api/device/device.go`). The project
+  bundle walk needs a visited set (`core/pkg/service/project/bundle.go`).
 - **The graph is slow where it matters**: Resource delete scans the whole relationship
-  table per ID for incoming edges (`core/pkg/service/ontology/writer.go:194`). Children
-  traversal prefix-scans past the index (`core/pkg/service/ontology/retrieve.go:244`).
-  The limit applies after every child is materialized (SY-4763). The TypeScript cache
-  scans every edge on every delete (SY-4754).
+  table per ID for incoming edges (`core/pkg/service/ontology/writer.go`). Children
+  traversal prefix-scans past the index (`core/pkg/service/ontology/retrieve.go`). The
+  limit applies after every child is materialized (SY-4763). The TypeScript cache scans
+  every edge on every delete (SY-4754).
 
 ## 2 Vocabulary
 
@@ -130,7 +130,7 @@ Status struct {
     labels label.Key[] = [] {
         @ref on_delete detach
     }
-    owner  resource.ID {
+    owner  resource.ID? {
         @ref { types task rack device channel
                on_delete cascade
                unique }
@@ -145,9 +145,9 @@ Status struct {
   so the field must be optional or have a default, and removes the element from an
   array.
 - `types ...`: Required on a `resource.ID` field. The tables the reference may point at.
-- `unique`: At most one dependent per target, enforced by the reverse index on write.
-  The scalar already gives a status one owner; `unique` gives an owner one status, which
-  is what lets the Driver upsert by owner.
+- `unique`: At most one dependent per target, enforced by the reverse index on write. A
+  nil value never counts. The scalar already gives a status one owner; `unique` gives an
+  owner one status, which is what lets the Driver upsert by owner.
 - `acyclic`: A self-reference may not form a cycle, checked by walking the chain.
 
 `@ref` implies `@filter` and `@index lookup`, so every reference gets a generated
@@ -160,25 +160,46 @@ Every piece below is node-local and runs in the caller's transaction.
 
 **Registry**: `gorp.DB` holds a schema registry. `OpenTable` registers the table's name,
 key parser, and references; `Table.Close` unregisters. This is Gorp's first cross-table
-state, attached as `TableConfig.Indexes` are today (`x/go/gorp/table.go:141`).
+state, attached as `TableConfig.Indexes` are today (`x/go/gorp/table.go`).
 `TableConfig.References` carries one `gorp.Reference` per field, each owning a
 `LookupIndex` on the field; for arrays it fans out one entry per element, the
 multi-valued extractor RFC 0034 did not ship. The per-tx delta overlay
 (`x/go/gorp/delta.go`) gives index probes read-your-own-writes. Indexes populate
-asynchronously at open; existence and delete paths wait on `Table.WaitForIndexes`, and a
-sticky populate failure falls back to a scan (`x/go/gorp/retrieve.go:246`).
+asynchronously at open, as today. An existence check is a primary-key get and needs no
+index. A policy probe waits on `Table.WaitForIndexes`, and a populate failure is an
+error on the probe, never a fallback scan: a table that could not be scanned at open
+cannot be scanned at delete, and a scan per delete is the slow path §1 removes.
+
+**Locking**: Gorp has no isolation between transactions. One tx can read that a rack
+exists and create a device under it while another reads that the rack has no devices and
+deletes it; both commit. `gorp.DB` holds one write lock. A `Create` or `Update` on a
+table with references takes it before the first check, a `Delete` on a table that is a
+reference target takes it before the first probe, and the tx holds it until commit or
+close. `unique` runs under the same lock, so the Driver's upsert by owner is safe
+against the Core's own status writes. The lock is node-local.
 
 **Existence on write**: `Create` and `Update` resolve each reference through the
 registry and probe the target in the tx. A Pebble indexed batch reads its own writes
-(`x/go/kv/pebblekv/pebblekv.go:123`) and the Aspen tx reads through its batch
-(`aspen/internal/kv/tx.go:34`), so a rack and its device created in one tx validate if
-the rack is written first. Checks are immediate, never deferred; `unique` and `acyclic`
-run with them.
+(`x/go/kv/pebblekv/pebblekv.go`) and the Aspen tx reads through its batch
+(`aspen/internal/kv/tx.go`), so a rack and its device created in one tx validate if the
+rack is written first. Checks are immediate, never deferred; `unique` and `acyclic` run
+with them.
 
-**Policy on delete**: `Delete.Exec` runs guards, then probes every reverse index that
-targets this table with the doomed keys. `restrict` fails before any mutation. `cascade`
-deletes dependents through the same path, with a visited set for self-references.
-`detach` updates the dependent rows. The whole graph commits in the caller's tx.
+**Policy on delete**: `Delete.Exec` runs guards, then computes the closure: it probes
+every reverse index that targets the doomed keys, adds `cascade` dependents to the
+closure, and repeats on them until nothing is added, with a visited set for
+self-references. `restrict` is then checked against dependents outside the closure, the
+SQL `NO ACTION` rule, so a project delete succeeds when its groups hold only schematics
+the same delete removes. `detach` updates the dependents that remain. Nothing mutates
+until every check passes. The whole graph commits in the caller's tx, whatever its size.
+
+**Aspen**: A tx reads its local store (`aspen/internal/kv/tx.go`); a write from another
+node arrives by gossip and reaches the indexes through the observer that feeds them
+today. Every check is node-local. A target created on another node fails the existence
+check until gossip lands, a dependent created there is invisible to a probe for the same
+window, and the write lock does not reach across nodes. Conflicting writes on two nodes
+in that window leave a dangling reference. The populate scan at open logs each one it
+finds.
 
 **Polymorphic targets**: The registry is keyed by table name, the `@resource type`
 string. A `resource.ID` reference probes the table named by `id.Type` and parses
@@ -205,11 +226,14 @@ objects, and status owners use them unchanged. Nothing else from the ontology su
 | `group parent_of group`, project, rack                     | `group.parent resource.ID?` (§4.4)                   | cascade, acyclic   |
 | `role parent_of user`                                      | `user.roles role.Key[]`                              | detach             |
 | `role parent_of policy`                                    | `policy.role role.Key`                               | cascade            |
-| alias `range---channel`, kv `range<--->key` keys           | references on the key components                     | cascade            |
+| alias `range---channel`, kv `range<--->key` keys           | `alias.range`, `pair.range` (composite `@key`)       | cascade            |
 | `Tasks`, `Statuses`, `Views`, `Metrics` groups             | deleted; `Metrics` becomes an ordinary channel group |                    |
 
 Composite keys stay: alias and key-value pairs are natural keys whose pair is the
-uniqueness constraint, and a reference on a key component gives them cascade.
+uniqueness constraint. Both pair fields carry `@key`, Oracle derives the string
+`GorpKey` from them, and the hand-written builders and parsers
+(`core/pkg/service/ranger/alias/alias.go`) are deleted. The reference index reads the
+row fields, so nothing parses a key.
 
 ### 4.4 Groups
 
@@ -230,25 +254,28 @@ Group struct {
 ```
 
 `scope` names the tree the group belongs to (`channel`, `device`, `project`,
-`schematic_symbol`) and is constant down a nesting chain, checked by a service guard. A
-tree root is "groups of my scope whose parent is nil or the project" plus "resources of
-my type with no group". Grouping devices under a rack sets `group.parent = rack:1`; the
-device guard checks that `device.rack` matches the group's rack ancestor. No builtin
-root group exists; the seven created by `Group.CreateOrRetrieve`
-(`core/pkg/service/channel/service.go:161` and siblings) are deleted by the migration in
-§4.9. Group delete is `restrict` on members, keeping today's "cannot delete a group with
-children" (`core/pkg/service/group/service.go:206`); the Console ungroups first.
+`schematic_symbol`) and is constant down a nesting chain, checked by the group service
+on write. A tree root is "groups of my scope whose parent is nil or the project" plus
+"resources of my type with no group". Grouping devices under a rack sets
+`group.parent = rack:1`; the device service checks on write that `device.rack` matches
+the group's rack ancestor. No builtin root group exists; the seven created by
+`Group.CreateOrRetrieve` (`core/pkg/service/channel/service.go` and siblings) are
+deleted by the migration in §4.9. Group delete is `restrict` on members, keeping today's
+"cannot delete a group with children" (`core/pkg/service/group/service.go`); the Console
+ungroups first.
 
 ### 4.5 Statuses
 
-Status keys embed the owner (`rack.StatusKey`, `core/pkg/service/rack/rack.go:22`), the
-Driver recomputes them at more than twenty sites (`driver/common/status.h:72`), and
+Status keys embed the owner (`rack.StatusKey`, `core/pkg/service/rack/rack.go`), the
+Driver recomputes them at more than twenty sites (`driver/common/status.h`), and
 `details` carries a second copy of the rack and task keys. The key becomes a UUID and
-`owner resource.ID` is a unique cascade reference. The status set endpoint accepts an
+`owner resource.ID?` is a unique cascade reference. The status set endpoint accepts an
 owner and upserts through the unique index, so the Driver sends `{owner: task_id, ...}`
-and keeps its idempotent write with no round trip. `Status.Details.{Task,Rack,Device}`,
-`rack.StatusKey`, `calculation.StatusKey`, and the C++ `status_key` functions are
-deleted. Calculation statuses take the channel as owner.
+and keeps its idempotent write with no round trip. A status with no owner, such as one
+from the Console's "Create status" command or the client `set` call, keeps `owner` nil
+and is never cascaded. `Status.Details.{Task,Rack,Device}`, `rack.StatusKey`,
+`calculation.StatusKey`, and the C++ `status_key` functions are deleted. Calculation
+statuses take the channel as owner.
 
 ### 4.6 Services
 
@@ -257,20 +284,23 @@ call is deleted; 22 services register today and each defines resources and edges
 hand. Generated `Match<Field>s` filters route through the reference index, so
 `device.retrieve({rack})`, `range.retrieve({parent})`, `schematic.retrieve({project})`,
 `user.retrieve({role})`, and `group.retrieve({parent, scope})` cost one index probe.
-Range delete drops its BFS (`core/pkg/service/ranger/writer.go:174`); cascade walks
+Range delete drops its BFS (`core/pkg/service/ranger/writer.go`); cascade walks
 `parent`. Project delete cascades. `schematic.findParentProject`,
 `ranger.RetrieveParentKey`, `symbol.rescueStrays`, and
 `metrics.maybeDefineGroupRelationship` go with the edges they read.
 
-Rack delete refuses while non-internal tasks remain and cascades internal ones:
-`task.rack` is `cascade`; the refusal is a `gorp.Delete.Guard` in the rack service, like
-`embeddedGuard` (`core/pkg/api/rack/rack.go:171`).
+Rack delete keeps today's refusals (`core/pkg/api/rack/rack.go`): `device.rack` is
+`restrict`, and the refusal while non-internal tasks remain is a `gorp.Delete.Guard` in
+the rack service like `embeddedGuard`. `task.rack` is `cascade`, so internal tasks go
+with the rack. A schematic, line plot, log, table, or panel holds exactly one of
+`project` and `range`. The schema cannot say so, and each visualization service
+validates it on create and update.
 
 Side effects that are not data follow the change stream. Channel delete calls Cesium
 storage delete after the row delete, outside the tx
-(`core/pkg/service/channel/writer.go:643`). It moves to a subscriber on the channel
-table's delete stream, paired with the startup reclaim sweep from RFC 0042 §7, so a
-cascaded channel delete takes the same path as a direct one.
+(`core/pkg/service/channel/writer.go`). It moves to a subscriber on the channel table's
+delete stream, paired with the startup reclaim sweep from RFC 0042 §7, so a cascaded
+channel delete takes the same path as a direct one.
 
 ### 4.7 API and clients
 
@@ -291,21 +321,29 @@ The Console tree stays generic over a root `resource.ID`, but children come from
 item types. Each `Tree.createItem` gains a `children` resolver: the rack item lists
 devices whose `rack` is the rack, the group item lists child groups and grouped
 resources of its scope. Toolbars keep `Tree.Tree root={...}`
-(`console/src/feature/channel/Toolbar.tsx:63`) with a synthetic scope root instead of a
-builtin group found by name (`pluto/src/device/queries.ts:125`). Python deletes
-`synnax.ontology`; `Range.children` becomes a `parent` filter. C++ renames
-`ontology::ID` to `resource::ID`; the Driver's status writes send an owner.
+(`console/src/feature/channel/Toolbar.tsx`) with a synthetic scope root instead of a
+builtin group found by name (`pluto/src/device/queries.ts`).
+
+An expanded node stays live through the table streams. The TypeScript client keeps one
+streamer per table on its `sy_<table>_set` and `sy_<table>_delete` channels
+(`client/ts/src/query/cache.ts`) and applies each change to that table's cache. An
+expanded rack node is a device list query with `rack` as its parameter; a device set
+whose `rack` changed leaves one list and enters another through the lookup index on the
+field, which is the move the ontology signals carried. Subscriptions scale with tables,
+not with expanded nodes. Python deletes `synnax.ontology`; `Range.children` becomes a
+`parent` filter. C++ renames `ontology::ID` to `resource::ID`; the Driver's status
+writes send an owner.
 
 ### 4.8 Search, access, export, and signals
 
 Search registers services by `resource.Type` and indexes flat documents
-(`core/pkg/service/search/search.go:36`), unchanged but for its import. Access
-enforcement matches `resource.ID` exactly or by type wildcard
-(`core/pkg/service/access/rbac/service.go:269`). Its one traversal, subject to role to
-policy (`core/pkg/service/access/rbac/policy/retriever.go:30`), becomes `user.roles`
-then `policy.retrieve({role})`. The export request stays a `resource.ID`. The project
-bundle walk (`core/pkg/service/project/bundle.go:157`) becomes typed queries by parent,
-project, and group; its visited set goes because a visualization has one group.
+(`core/pkg/service/search/search.go`), unchanged but for its import. Access enforcement
+matches `resource.ID` exactly or by type wildcard
+(`core/pkg/service/access/rbac/service.go`). Its one traversal, subject to role to
+policy (`core/pkg/service/access/rbac/policy/retriever.go`), becomes `user.roles` then
+`policy.retrieve({role})`. The export request stays a `resource.ID`. The project bundle
+walk (`core/pkg/service/project/bundle.go`) becomes typed queries by parent, project,
+and group; its visited set goes because a visualization has one group.
 
 The four `sy_ontology_*` channels are deleted. Every Gorp-backed table publishes set and
 delete channels through `signals.PublishFromGorp`; a set signal carries the row, so a
@@ -315,8 +353,8 @@ reference change is an entity change, and a cascade emits one delete per depende
 
 One startup migration per table derives its reference fields from the old edges. It
 reads the relationship table through `gorp.WrapReader[string, Relationship]`, as the
-project v1 migration does (`core/pkg/service/project/versions/v1/migrate.go:170`), so
-the relationship type stays frozen in `ontology/versions/v0` and its chain ends with a
+project v1 migration does (`core/pkg/service/project/versions/v1/migrate.go`), so the
+relationship type stays frozen in `ontology/versions/v0` and its chain ends with a
 tombstone per RFC 0053. Derivations, from `parent` edges unless noted:
 
 - `device.parent` from device-to-device edges. Every `group` field from group-to-X edges
@@ -327,8 +365,11 @@ tombstone per RFC 0053. Derivations, from `parent` edges unless noted:
 - `group.parent` from the edge into the group: a builtin root maps to nil, a project or
   group to its ID. `group.scope` from the builtin root at the top of the chain.
 - `user.roles` and `policy.role` from role edges.
-- `status.key` becomes a UUID and `status.owner` is parsed from the old key. The
-  PagerDuty alert config that holds status keys is rewritten in the same migration.
+- `status.key` becomes UUIDv5 of the old key over a fixed namespace (`uuid.NewSHA1`), so
+  every node derives the same key, and `status.owner` is parsed from the old key. A key
+  that parses to no owner leaves `owner` nil. The PagerDuty alert config's `status`
+  field is rewritten by the same function as a plain value migration; it becomes a
+  declared reference in Phase 4.
 
 After every service has opened, a service-layer step behind a marker key drops both
 ontology tables and the builtin groups. Rows that resolve to nothing (a visualization
@@ -338,10 +379,10 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
 ## 5 Implementation phases
 
 - **Phase 1: Gorp references and Oracle `@ref`.** The registry, `gorp.Reference`, the
-  multi-valued index, existence, unique, acyclic, and the three policies, tested in
-  `x/go/gorp`. The `resource` package and the `@resource type` rename. Oracle emits
-  reference registration and index-routed filters. No Core table declares a reference
-  yet, so the store change is reviewed alone.
+  write lock, the multi-valued index, existence, unique, acyclic, the three policies,
+  and composite `@key`, tested in `x/go/gorp`. The `resource` package and the
+  `@resource type` rename. Oracle emits reference registration and index-routed filters.
+  No Core table declares a reference yet, so the store change is reviewed alone.
 - **Phase 2: Domain cutovers.** One pull request per domain: add its fields and
   migration, delete its ontology writes and readers, update its TypeScript, Python, and
   Console code. The ontology keeps serving the domains not yet cut over, so every
@@ -353,8 +394,9 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
   modules, the generic children query, and the table-drop step. A pure deletion.
 - **Phase 4: Nested references.** `@ref` on a field inside a record or array
   (`lineplot.channels`, `log.channels`, task config `device` and `channel` keys, `panel`
-  tab resources, `policy.objects`). Oracle emits a path extractor, as FoundationDB's
-  nested index key expressions do; `detach` removes the element or nulls the field.
+  tab resources, `policy.objects`, the PagerDuty `status` key). Oracle emits a path
+  extractor, as FoundationDB's nested index key expressions do; `detach` removes the
+  element or nulls the field.
 - **Phase 5: Channel references.** `index channel.Key` and a stored, compiler-derived
   `requires channel.Key[]`, both `restrict`. The leaseholder stays in the key; a node is
   not a table. Phases 4 and 5 are named now so the declaration language is designed for
@@ -362,9 +404,10 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
 
 ## 6 What this RFC does not cover
 
-- Cross-leaseholder atomicity on Aspen. A Gorp tx still splits into one batch per
-  leaseholder (`aspen/internal/kv/tx.go:29`). A reference is atomic with its row on
-  every store; a cascade that spans leaseholders keeps today's guarantee.
+- Cross-node integrity on Aspen. A Gorp tx still splits into one batch per leaseholder
+  (`aspen/internal/kv/tx.go`), and every check reads the local replica (§4.2). A
+  reference is atomic with its row on every store; a cascade that spans leaseholders
+  keeps today's guarantee.
 - Storage-first channel create atomicity (RFC 0042 §7).
 - Search index structure and the Console search palette, which change only an import.
 - Console session state, which never held relationships.
@@ -389,7 +432,8 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
 6. **UUID status keys**: Owner-derived string keys were rejected. The key encoding is a
    hidden reference, and the unique index gives the Driver the same idempotent upsert.
 7. **Composite keys stay for alias and key-value**: A UUID migration was rejected. The
-   pair is the identity, and a reference on a key component gives cascade.
+   pair is the identity; Oracle derives the key from the `@key` fields, and the
+   reference on those fields gives cascade.
 8. **Immediate existence checks**: Deferred constraints (SQL `INITIALLY DEFERRED`) were
    rejected. Parent-first ordering is a small rule; deferral adds a commit-time phase.
 9. **Restrict on group members**: Cascade was rejected. Deleting a folder must not
@@ -398,6 +442,19 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
     reintroduces the untyped graph.
 11. **Orphans are deleted in migration**: Preserving unreachable rows was rejected. They
     are invisible today, and a required reference cannot hold nothing.
+12. **One write lock per DB**: A lock per target table was rejected. A cascade acquires
+    locks lazily across tables, so two transactions acquiring in opposite orders
+    deadlock. Metadata write rates make one lock cheap.
+13. **Restrict is checked after the closure**: Immediate `restrict` (SQL `RESTRICT`) was
+    rejected because a project delete would fail on its own groups.
+14. **Deterministic status keys**: A random UUID was rejected. RFC 0033 §4.2.5 migrates
+    each replica independently, so two nodes would derive two keys for one row.
+15. **`status.owner` is optional**: A required owner was rejected. The Console and the
+    clients create statuses with no owner today.
+16. **Unbounded fan-out**: A batch limit on cascade and detach was rejected. A delete of
+    any size is one transaction.
+17. **No fallback scan on a policy probe**: A failed index populate makes the probe
+    fail. A scan per delete is the cost §1 removes.
 
 ## 8 Open questions
 
@@ -405,3 +462,4 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
 - The `@ref` block grammar: newline-separated like `@ts { }`, or a delimiter.
 - Device chassis policy: `cascade` (discovered subdevices) or `detach` (hand-created).
 - The reclaim sweep cadence for Cesium storage after a cascaded channel delete.
+- Repair of the dangling references the populate scan logs on Aspen.
