@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { border, box, color, location, scale, text, xy } from "@synnaxlabs/x";
+import {
+  border,
+  box,
+  color,
+  type dimensions,
+  location,
+  scale,
+  text,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -15,7 +24,10 @@ import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import {
+  type FillTextOptions,
+  type SugaredOffscreenCanvasRenderingContext2D,
+} from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -28,6 +40,8 @@ const MIN_LEGIBLE_CONTRAST = 1.1;
 // How far left of the first digit the negative sign sits, as a multiple of the font
 // height. The draw and the clamp that keeps the sign in the box must use the same one.
 const SIGN_OFFSET = 0.6;
+
+const ELLIPSIS = "\u2026";
 
 const valueState = staleness.configZ.extend({
   box: box.box,
@@ -133,6 +147,29 @@ export class Value
     return theme.typography[this.state.level].size * theme.sizes.base;
   }
 
+  // Longest head of the value that fits in available, with an ellipsis standing in for
+  // what was cut. Returns the value unchanged when it already fits. The value font is
+  // monospaced, so one advance estimates the fit and a single remeasure confirms it.
+  private ellipsize(
+    canvas: SugaredOffscreenCanvasRenderingContext2D,
+    value: string,
+    available: number,
+    dims: dimensions.Dimensions,
+  ): string {
+    if (dims.width <= available || value.length < 2) return value;
+    const advance = dims.width / value.length;
+    let head = Math.max(1, Math.floor(available / advance) - 1);
+    let fitted = `${value.slice(0, head)}${ELLIPSIS}`;
+    while (
+      head > 1 &&
+      canvas.textDimensions(fitted, FILL_TEXT_OPTIONS).width > available
+    ) {
+      head -= 1;
+      fitted = `${value.slice(0, head)}${ELLIPSIS}`;
+    }
+    return fitted;
+  }
+
   private getTextColor(): color.Color {
     const { theme } = this.internal;
     if (this.internal.stale)
@@ -166,20 +203,32 @@ export class Value
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);
 
-    const dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
-    const labelOffset = { ...xy.ZERO };
+    // The leftmost the text may start: enough room for the sign, and the inset a
+    // left-located value already sits at.
     const inset = 6 + fontHeight * 0.75;
+    const start =
+      location.x === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
+    let dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
+    if (this.state.clip) {
+      const fitted = this.ellipsize(canvas, value, bWidth - start, dims);
+      if (fitted !== value) {
+        value = fitted;
+        dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
+      }
+    }
+
+    const labelOffset = { ...xy.ZERO };
     if (location.x === "left") labelOffset.x = inset;
     else if (location.x === "center") labelOffset.x = bWidth / 2 - dims.width / 2;
     else labelOffset.x = bWidth - dims.width - inset;
     if (location.y === "center") labelOffset.y = bHeight / 2 + dims.height / 2;
     else if (location.y === "bottom") labelOffset.y = bHeight;
-    // The sign hangs to the left of the first digit, so an overflowing value would clip
-    // it and show a negative number as a positive one. Losing a digit on the right is
-    // visible; losing the sign is not.
-    if (isNegative) labelOffset.x = Math.max(labelOffset.x, fontHeight * SIGN_OFFSET);
+    // Overflow must never eat the sign or the leading digits: both change what the
+    // value reads as, and neither loss is visible. Pinning the start keeps the cut at
+    // the right end, where the ellipsis shows it.
+    labelOffset.x = Math.max(labelOffset.x, start);
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 

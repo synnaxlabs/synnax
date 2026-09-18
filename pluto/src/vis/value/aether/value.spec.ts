@@ -256,6 +256,60 @@ describe("value/aether/Value", () => {
     });
   });
 
+  describe("overflow", () => {
+    const INSET = 6 + FONT_HEIGHT * 0.75;
+    const firstFillTextX = (recorder: canvasTest.Recorder): number =>
+      drawCalls(recorder, "fillText")[0].args[1] as number;
+
+    it("should trim a clipped value to an ellipsis rather than cut it at the edge", () => {
+      const { component, recorder } = setup({
+        value: "1234567890".repeat(4),
+        state: { clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      const [drawn] = fillTexts(recorder);
+      expect(drawn.startsWith("1234567890")).toBe(true);
+      expect(drawn.endsWith("\u2026")).toBe(true);
+      expect(drawn.length * CHAR_WIDTH).toBeLessThanOrEqual(box.width(BOX) - INSET);
+    });
+
+    it("should keep the leading digits of a clipped centered value inside the box", () => {
+      const { component, recorder } = setup({
+        value: "1".repeat(40),
+        state: { location: { x: "center", y: "center" }, clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
+    });
+
+    it("should keep the leading digits of a clipped right-located value inside the box", () => {
+      const { component, recorder } = setup({
+        value: "1".repeat(40),
+        state: { location: { x: "right", y: "center" }, clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
+    });
+
+    it("should leave a value that fits untouched", () => {
+      const { component, recorder } = setup({ value: "12.50", state: { clip: true } });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toContain("12.50");
+    });
+
+    it("should not trim an unclipped value", () => {
+      const long = "1234567890".repeat(4);
+      const { component, recorder } = setup({ value: long });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toContain(long);
+    });
+  });
+
   describe("ambient canvas text state", () => {
     afterEach(() => {
       vi.unstubAllGlobals();
@@ -304,6 +358,39 @@ describe("value/aether/Value", () => {
       const before = { ...component.state };
       source.setValue("1".repeat(60));
       expect(component.state).toEqual(before);
+    });
+  });
+
+  // Ink positions from the atlas surface, so these check where the glyphs land rather
+  // than the baseline the component asks for.
+  describe("ink geometry", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const ink = (location: { x: string; y: string }): xy.XY[] => {
+      const surface = canvasTest.atlasSurface();
+      const { component } = setup({
+        value: "72.55",
+        render: surface.context,
+        state: { location },
+      });
+      surface.clear();
+      component.render({});
+      return surface.glyphs();
+    };
+
+    it("should end a right-located value an inset in from the box right", () => {
+      const glyphs = ink({ x: "right", y: "center" });
+      const last = glyphs[glyphs.length - 1];
+      expect(box.width(BOX) - (last.x + canvasTest.ATLAS_ADVANCE)).toBeCloseTo(
+        6 + FONT_HEIGHT * 0.75,
+      );
+    });
+
+    it("should sit a bottom-located value's baseline on the box bottom", () => {
+      const [first] = ink({ x: "left", y: "bottom" });
+      expect(first.y + canvasTest.ATLAS_BASELINE_OFFSET).toBeCloseTo(box.height(BOX));
     });
   });
 
