@@ -37,7 +37,7 @@ export const CLIENT_NAV: PageNavNode = {
     {
       key: "/reference/client/series-and-frames",
       href: "/reference/client/series-and-frames",
-      name: "Series & Frames",
+      name: "Series and Frames",
     },
     {
       key: "/reference/client/time-types",
