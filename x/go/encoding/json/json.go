@@ -49,8 +49,6 @@ func (c *codec) Decode(_ context.Context, data []byte, value any) error {
 	return nil
 }
 
-// DecodeStream reads one value from r and leaves anything after it unread, so a reader
-// holding a stream of values, or a file with bytes past the value, still decodes.
 func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	dec := jsontext.NewDecoder(r, c.opts)
 	if err := json.UnmarshalDecode(dec, value, c.opts); err != nil {
