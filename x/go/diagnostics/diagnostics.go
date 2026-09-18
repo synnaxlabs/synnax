@@ -256,7 +256,7 @@ func (d Diagnostics) Warnings() []Diagnostic {
 }
 
 // String formats all diagnostics as a human-readable string with line:column severity:
-// message format.
+// message format. The line:column prefix is omitted for diagnostics without a range.
 func (d Diagnostics) String() string {
 	if len(d) == 0 {
 		return "analysis successful"
@@ -267,20 +267,23 @@ func (d Diagnostics) String() string {
 			sb.WriteString("\n")
 		}
 		// Positions are stored 0-indexed; display lines 1-indexed for humans.
-		if diag.Code != "" {
+		if diag.Range != (protocol.Range{}) {
 			_, _ = fmt.Fprintf(&sb,
-				"%d:%d %s [%s]: %s",
+				"%d:%d ",
 				diag.Range.Start.Line+1,
 				diag.Range.Start.Character,
+			)
+		}
+		if diag.Code != "" {
+			_, _ = fmt.Fprintf(&sb,
+				"%s [%s]: %s",
 				severityLabel(diag.Severity),
 				diag.Code,
 				diag.Message,
 			)
 		} else {
 			_, _ = fmt.Fprintf(&sb,
-				"%d:%d %s: %s",
-				diag.Range.Start.Line+1,
-				diag.Range.Start.Character,
+				"%s: %s",
 				severityLabel(diag.Severity),
 				diag.Message,
 			)
