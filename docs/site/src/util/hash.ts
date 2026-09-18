@@ -10,10 +10,16 @@
 const SETTLE_MS = 5000;
 const READER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"];
 
+const hashTarget = (): HTMLElement | null => {
+  try {
+    return document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+  } catch {
+    return null;
+  }
+};
+
 const pin = (): void => {
-  const id = decodeURIComponent(window.location.hash.slice(1));
-  if (id === "") return;
-  const el = document.getElementById(id);
+  const el = hashTarget();
   if (el == null) return;
   const controller = new AbortController();
   const { signal } = controller;

@@ -75,6 +75,12 @@ describe("startPinningHashTarget", () => {
     expect(MockResizeObserver.last).toBeUndefined();
   });
 
+  it("should not pin when the hash is not a valid percent encoding", () => {
+    window.location.hash = "#%100";
+    navigate("push");
+    expect(MockResizeObserver.last).toBeUndefined();
+  });
+
   it("should leave history traversals alone", () => {
     navigate("traverse");
     expect(MockResizeObserver.last).toBeUndefined();
