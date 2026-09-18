@@ -25,10 +25,10 @@ import { type Data, type FetchOptions, type Params } from "@/query/types";
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 /**
- * Returns the keys of a request that addresses keys and nothing else: a
- * non-empty `keys` field with every other field nullish. Such requests resolve
- * through the table's fetch primitive instead of the request fetch. Returns
- * null for any other request.
+ * Returns the keys of a request that addresses keys and nothing else: a non-empty
+ * `keys` field with every other field nullish. Such requests resolve through the
+ * table's fetch primitive instead of the request fetch. Returns null for any other
+ * request.
  */
 const keysOnly = (query: unknown): unknown[] | null => {
   if (typeof query !== "object" || query === null || Array.isArray(query)) return null;
@@ -43,8 +43,8 @@ const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
 
 /**
- * Request schema arm reading a bare key list as `{ keys }`. Union it onto a
- * domain's request schema to opt that domain into the shorthand:
+ * Request schema arm reading a bare key list as `{ keys }`. Union it onto a domain's
+ * request schema to opt that domain into the shorthand:
  * `retrieveRequestZ.or(keyListZ(keyZ))`.
  */
 export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
@@ -52,23 +52,23 @@ export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
 
 interface ComposeProp<V, D> {
   /**
-   * Per-record enrichment applied to every answer, receiving the normalized
-   * query the record answers. Defaults to identity.
+   * Per-record enrichment applied to every answer, receiving the normalized query the
+   * record answers. Defaults to identity.
    */
   compose: (record: V, query: Params) => D;
 }
 
-/** Optional only when a record is a valid answer as-is (V assignable to D):
- *  the identity default is unsound for any narrower D. */
+/** Optional only when a record is a valid answer as-is (V assignable to D): the
+ *  identity default is unsound for any narrower D. */
 type ComposeParam<V, D> = [V] extends [D]
   ? Partial<ComposeProp<V, D>>
   : ComposeProp<V, D>;
 
 /**
- * Declaration of a domain client's read surface. The single space is derived
- * from the table and its fetch: `{ key }` params resolve one record, with
- * deletion flipping the answer to deleted. Declare `single` only when the
- * domain's single query is richer than a key.
+ * Declaration of a domain client's read surface. The single space is derived from the
+ * table and its fetch: `{ key }` params resolve one record, with deletion flipping the
+ * answer to deleted. Declare `single` only when the domain's single query is richer
+ * than a key.
  */
 export type RetrieverParams<
   Z extends z.ZodType<Params>,
@@ -85,14 +85,14 @@ export type RetrieverParams<
   /** The space answering every non-single query shape. */
   request: {
     /**
-     * Parses and canonicalizes request params so equivalent queries hash
-     * identically; its output type is the space's query type.
+     * Parses and canonicalizes request params so equivalent queries hash identically;
+     * its output type is the space's query type.
      */
     schema: Z;
     /**
-     * Fetches matching records from the cluster. Keys-only requests never
-     * reach it; they resolve through the table's fetch. Results hydrate the
-     * table under its declared mode.
+     * Fetches matching records from the cluster. Keys-only requests never reach it;
+     * they resolve through the table's fetch. Results hydrate the table under its
+     * declared mode.
      */
     fetch: (query: z.output<Z>, options?: FetchOptions) => Promise<V[]>;
     /** Rule 2: whether a record satisfies the query. Pure; no network. */
@@ -105,10 +105,10 @@ export type RetrieverParams<
   /** Custom single space for domains whose single query is richer than a key. */
   single?: {
     /**
-     * Discriminates and canonicalizes single params: parse success routes the
-     * query to the single space, and the output is the space's query. Object
-     * schemas must reject unknown keys so request params fall through. Union
-     * in a bare-key arm to accept `retrieve(key)`.
+     * Discriminates and canonicalizes single params: parse success routes the query to
+     * the single space, and the output is the space's query. Object schemas must reject
+     * unknown keys so request params fall through. Union in a bare-key arm to accept
+     * `retrieve(key)`.
      */
     schema: z.ZodType<SingleQuery, SingleInput | record.Key>;
     /** The space answering single queries, built via the cache. */
@@ -117,9 +117,9 @@ export type RetrieverParams<
 };
 
 /**
- * A domain client's cached read surface, routing each query to the single or
- * request answer space. The arity of the result follows the query: params
- * addressing one record yield a record, every other shape yields an array.
+ * A domain client's cached read surface, routing each query to the single or request
+ * answer space. The arity of the result follows the query: params addressing one record
+ * yield a record, every other shape yields an array.
  *
  * Extend it and call `super(cache, { ... })`:
  *
@@ -132,12 +132,12 @@ export type RetrieverParams<
  * }
  * ```
  *
- * Anything evaluated eagerly inside `super` must come from a local, since
- * `this` is unavailable until it returns. Closures may reference `this`: an
- * arrow captures it lexically and does not read it until called.
+ * Anything evaluated eagerly inside `super` must come from a local, since `this` is
+ * unavailable until it returns. Closures may reference `this`: an arrow captures it
+ * lexically and does not read it until called.
  *
- * The read surface is not designed for overriding: a domain with more query
- * kinds exposes them as named {@link Retrieves} members instead.
+ * The read surface is not designed for overriding: a domain with more query kinds
+ * exposes them as named {@link Retrieves} members instead.
  */
 export abstract class Retriever<
   Z extends z.ZodType<Params>,
@@ -192,8 +192,8 @@ export abstract class Retriever<
     if (single != null) {
       this.singleSpace = single.space as Retrieves<Params, D | D[]>;
       const singleSchema = single.schema;
-      // Params carrying `key` that fail the single schema are malformed
-      // single queries; falling through would silently fetch every record.
+      // Params carrying `key` that fail the single schema are malformed single queries;
+      // falling through would silently fetch every record.
       this.trySingle = (p) => {
         const res = singleSchema.safeParse(p);
         if (res.success) return { query: res.data };
@@ -239,8 +239,8 @@ export abstract class Retriever<
 
   /**
    * Routes params to their answer space, memoized per params object identity.
-   * {@link Params} is readonly, so a given object always routes identically;
-   * repeat reads of the same object skip schema validation entirely.
+   * {@link Params} is readonly, so a given object always routes identically; repeat
+   * reads of the same object skip schema validation entirely.
    */
   private route(params: unknown): [Retrieves<Params, D | D[]>, Params] {
     const cacheable = typeof params === "object" && params !== null;
@@ -258,14 +258,14 @@ export abstract class Retriever<
   }
 
   /**
-   * Reads the record the params address, or every record matching them.
-   * Serves the cache when the answer is fresh, fetching otherwise. A bare key
-   * is shorthand for `{ key }`; a bare key list is accepted by domains whose
-   * request schema unions in {@link keyListZ}.
-   * @throws {NotFoundError} if a single-record query matches nothing or the
-   * record was deleted.
-   * @throws {ValidationError} if params contain `key` (or are a bare key)
-   * but fail the single-query schema.
+   * Reads the record the params address, or every record matching them. Serves the
+   * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
+   * key }`; a bare key list is accepted by domains whose request schema unions in
+   * {@link keyListZ}.
+   * @throws {NotFoundError} if a single-record query matches nothing or the record was
+   * deleted.
+   * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
+   * single-query schema.
    */
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: K[] | z.input<Z>, options?: FetchOptions): Promise<D[]>;
@@ -278,8 +278,8 @@ export abstract class Retriever<
   }
 
   /**
-   * Subscribes to changes in the cached answer to the given query. The handler
-   * fires on every change or deletion. Returns a destructor that unsubscribes.
+   * Subscribes to changes in the cached answer to the given query. The handler fires on
+   * every change or deletion. Returns a destructor that unsubscribes.
    */
   onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(
