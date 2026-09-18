@@ -38,9 +38,10 @@ export const Switch = ({
   orientation = "left",
   color: colorVal,
   scale = 1,
+  disabled,
 }: Props): ReactElement => {
   const colorVar = symbolColorVar(colorVal);
-  const hold = Button.useHold<HTMLElement>({ onClick, onClickDelay });
+  const hold = Button.useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
   const style = useMemo<CSSProperties>(
     () => ({
@@ -67,6 +68,7 @@ export const Switch = ({
     >
       <BaseInput.Switch
         value={enabled}
+        disabled={disabled}
         onClick={hold.onClick}
         onChange={() => {}}
         onKeyDown={Keyboard.blockActivation}

@@ -157,6 +157,16 @@ describe("switch symbol", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should not actuate after the switch is disabled mid-hold", () => {
+      const onClick = vi.fn();
+      const c = render(<Switch onClick={onClick} onClickDelay={500} />);
+      fireEvent.mouseDown(getInput(c.container));
+      c.rerender(<Switch onClick={onClick} onClickDelay={500} disabled />);
+      vi.advanceTimersByTime(1000);
+      expect(onClick).not.toHaveBeenCalled();
+      expect(getRoot(c.container).className).not.toContain("pluto--pressed");
+    });
+
     it("should ignore a secondary-button hold", () => {
       const onClick = vi.fn();
       const { container } = render(<Switch onClick={onClick} onClickDelay={500} />);
@@ -183,5 +193,29 @@ describe("switch symbol", () => {
       expect(root.className).not.toContain("pluto-switch-symbol--delayed");
       expect(root.style.getPropertyValue("--pluto-toggle-delay")).toBe("");
     });
+  });
+
+  describe("disabled", () => {
+    it("should disable the input", () => {
+      const { container } = render(<Switch disabled />);
+      expect(getInput(container).disabled).toBe(true);
+    });
+
+    it("should leave the input enabled by default", () => {
+      const { container } = render(<Switch />);
+      expect(getInput(container).disabled).toBe(false);
+    });
+  });
+
+  describe("keyboard activation", () => {
+    it.each([" ", "Enter"])(
+      "should prevent the default keydown and keyup for %j",
+      (key) => {
+        const { container } = render(<Switch />);
+        const target = getInput(container);
+        expect(fireEvent.keyDown(target, { key })).toBe(false);
+        expect(fireEvent.keyUp(target, { key })).toBe(false);
+      },
+    );
   });
 });
