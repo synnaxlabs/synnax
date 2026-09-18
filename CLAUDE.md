@@ -181,9 +181,6 @@ Red flags. If any of these appear, rewrite immediately:
 - Never reference removed, renamed, or historical implementations the reader can't see
   ("reproduces the previous NOOP service"). Describe what the code does now; history
   belongs in the PR description.
-- Treat existing comments as load-bearing. Don't rewrite, reformat, or delete one as a
-  side effect of editing nearby code. Only touch one when it's factually wrong, clearly
-  redundant after careful reading, or the user asked. When unsure, leave it alone.
 
 ### Doc comments
 
