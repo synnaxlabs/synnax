@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// semanticContent is the hash input: the fields that change an arc's compiled behavior.
+// semanticContent is the hash input: the fields that change an Arc's compiled behavior.
 // Node positions and edge identities are excluded, so layout edits and a
 // rebuilt-but-identical connection hash equally. Every field serializes, so the hash is
 // a function of all of them and the inactive mode's fields contribute their zero.
@@ -34,7 +34,7 @@ type semanticContent struct {
 	Inputs    map[string]msgpack.EncodedJSON `json:"inputs"`
 }
 
-// Hash returns the xxhash64 of the arc's semantic content as 16 lowercase hex
+// Hash returns the xxhash64 of the Arc's semantic content as 16 lowercase hex
 // characters. Only the active mode's source contributes: text mode hashes the
 // materialized source, graph mode hashes the graph without layout data. Equal content
 // hashes equally regardless of edit history, so an edit that is undone restores the
