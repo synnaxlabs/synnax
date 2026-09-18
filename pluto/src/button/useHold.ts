@@ -32,8 +32,8 @@ const RELEASE_EVENTS = ["mouseup", "dragstart"];
 
 /**
  * Gates onClick behind a press-and-hold of onClickDelay. A primary press starts the
- * hold, and a release before the delay cancels it. Secondary buttons never actuate.
- * A drag, unmounting, or disabling the control releases a hold in progress.
+ * hold, and a release before the delay cancels it. Secondary buttons never actuate. A
+ * drag, unmounting, or disabling the control releases a hold in progress.
  */
 export const useHold = <E extends Element>({
   onClick,
