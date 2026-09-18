@@ -11,6 +11,7 @@ package meta_test
 
 import (
 	"context"
+	jsonv2 "encoding/json/v2"
 	"io"
 	"os"
 	"strconv"
@@ -87,7 +88,7 @@ var _ = Describe("Meta", func() {
 						ctx,
 						subFs,
 						channel.Channel{Key: key},
-						json.NewCodec(json.WithCaseInsensitiveNames()),
+						json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true)),
 					))
 					Expect(ch.Virtual).To(BeTrue())
 					Expect(ch.IsIndex).To(BeFalse())
@@ -105,7 +106,7 @@ var _ = Describe("Meta", func() {
 					Expect(f.Write(legacy)).To(Equal(len(legacy)))
 					Expect(f.Close()).To(Succeed())
 
-					codec := json.NewCodec(json.WithCaseInsensitiveNames())
+					codec := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
 					ch := MustSucceed(meta.Open(
 						ctx, subFs, channel.Channel{Key: key}, codec,
 					))
@@ -134,7 +135,9 @@ var _ = Describe("Meta", func() {
 					Expect(f.Close()).To(Succeed())
 
 					ch := MustSucceed(meta.Read(
-						ctx, subFs, json.NewCodec(json.WithCaseInsensitiveNames()),
+						ctx,
+						subFs,
+						json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true)),
 					))
 					Expect(ch.Key).To(Equal(key))
 					Expect(ch.IsIndex).To(BeTrue())

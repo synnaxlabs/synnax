@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	jsonv2 "encoding/json/v2"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -26,7 +27,7 @@ type Option func(*options)
 // defaultMetaCodec reads and writes each channel's meta.json. It matches object names
 // case-insensitively because databases written before Channel.Virtual and
 // Channel.Concurrency carried json tags stored them under their Go field names.
-var defaultMetaCodec = json.NewCodec(json.WithCaseInsensitiveNames())
+var defaultMetaCodec = json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
 
 type options struct {
 	alamos.Instrumentation

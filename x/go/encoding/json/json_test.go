@@ -12,6 +12,7 @@ package json_test
 import (
 	"bytes"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"strings"
 	"time"
 
@@ -180,8 +181,8 @@ var _ = Describe("NewCodec", func() {
 		b := MustSucceed(json.NewCodec().Encode(ctx, toEncode{1}))
 		Expect(string(b)).To(Equal(`{"Value":1}`))
 	})
-	Describe("WithCaseInsensitiveNames", func() {
-		loose := json.NewCodec(json.WithCaseInsensitiveNames())
+	Describe("MatchCaseInsensitiveNames", func() {
+		loose := json.NewCodec(jsonv2.MatchCaseInsensitiveNames(true))
 
 		It("Should match an object name differing only in case", func(
 			ctx SpecContext,
@@ -197,8 +198,8 @@ var _ = Describe("NewCodec", func() {
 		})
 	})
 
-	Describe("WithDeterministic", func() {
-		stable := json.NewCodec(json.WithDeterministic())
+	Describe("Deterministic", func() {
+		stable := json.NewCodec(jsonv2.Deterministic(true))
 		m := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
 
 		It("Should encode map members in sorted order", func(ctx SpecContext) {
@@ -214,8 +215,8 @@ var _ = Describe("NewCodec", func() {
 		})
 	})
 
-	Describe("WithoutHTMLEscaping", func() {
-		plain := json.NewCodec(json.WithoutHTMLEscaping())
+	Describe("EscapeForHTML", func() {
+		plain := json.NewCodec(jsontext.EscapeForHTML(false))
 
 		It("Should write <, >, and & literally", func(ctx SpecContext) {
 			b := MustSucceed(plain.Encode(ctx, markup{`<a href="x">1 & 2</a>`}))
@@ -249,15 +250,18 @@ var _ = Describe("NewCodec", func() {
 			Expect(literal).To(Equal(original))
 		})
 
-		It("Should compose with WithIndent", func(ctx SpecContext) {
-			c := json.NewCodec(json.WithIndent("  "), json.WithoutHTMLEscaping())
+		It("Should compose with an indent", func(ctx SpecContext) {
+			c := json.NewCodec(
+				jsontext.WithIndent("  "),
+				jsontext.EscapeForHTML(false),
+			)
 			Expect(string(MustSucceed(c.Encode(ctx, markup{"<x>"})))).
 				To(Equal("{\n  \"Value\": \"<x>\"\n}\n"))
 		})
 	})
 
 	Describe("WithIndent", func() {
-		pretty := json.NewCodec(json.WithIndent("  "))
+		pretty := json.NewCodec(jsontext.WithIndent("  "))
 		Describe("ContentType", func() {
 			It("Should report the JSON content type", func() {
 				Expect(pretty.ContentType()).To(Equal("application/json"))

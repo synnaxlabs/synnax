@@ -11,6 +11,7 @@ package imex
 
 import (
 	"context"
+	"encoding/json/jsontext"
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/freighter"
@@ -37,9 +38,9 @@ const EncodingJSON = "JSON"
 // placed into an HTML document unparsed. Its output is deterministic, so re-exporting
 // an unchanged project rewrites the same bytes rather than a spurious diff.
 var JSONCodec http.FileCodec = xjson.NewCodec(
-	xjson.WithIndent("  "),
-	xjson.WithoutHTMLEscaping(),
-	xjson.WithDeterministic(),
+	jsontext.WithIndent("  "),
+	jsontext.EscapeForHTML(false),
+	json.Deterministic(true),
 )
 
 // ResolveEncoding returns the file encoder for the named export serialization. It

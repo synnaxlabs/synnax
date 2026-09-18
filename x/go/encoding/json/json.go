@@ -40,25 +40,21 @@ type codec struct {
 	opts json.Options
 }
 
-// NewCodec returns a JSON implementation of http.FileCodec configured with the given
-// options.
-func NewCodec(opts ...Option) http.FileCodec {
-	c := &codec{}
-	all := []json.Options{
+// NewCodec returns a JSON implementation of http.FileCodec. The given options are
+// applied after the codec's own, so a caller's option overrides the default it names.
+// Indented output also ends in a newline.
+func NewCodec(opts ...json.Options) http.FileCodec {
+	all := append([]json.Options{
 		json.WithMarshalers(durationMarshaler),
 		json.WithUnmarshalers(durationUnmarshaler),
-		// U+2028 and U+2029 stay escaped whatever WithoutHTMLEscaping says, so encoded
-		// output is always safe to embed in a script. No option displaces this or the
-		// duration handling above, because a later option overrides an earlier one and
-		// neither is reachable through Option.
+		// U+2028 and U+2029 stay escaped whatever EscapeForHTML says, so encoded output
+		// is always safe to embed in a script.
 		jsontext.EscapeForJS(true),
 		jsontext.EscapeForHTML(true),
-	}
-	for _, opt := range opts {
-		all = append(all, opt(c)...)
-	}
-	c.opts = json.JoinOptions(all...)
-	return c
+	}, opts...)
+	joined := json.JoinOptions(all...)
+	indent, _ := json.GetOption(joined, jsontext.WithIndent)
+	return &codec{opts: joined, trailingNewline: indent != ""}
 }
 
 // v2 has no default representation for time.Duration and rejects the `format` tag on
@@ -82,52 +78,6 @@ var (
 		},
 	)
 )
-
-// Option configures a codec built by NewCodec. It returns the encoder options it sets,
-// and takes the codec for the rare setting an encoder option alone cannot carry.
-type Option func(*codec) []json.Options
-
-// WithIndent encodes each level of nesting with the given indentation and appends a
-// trailing newline, for files a user reads. Decoding is unaffected.
-func WithIndent(indent string) Option {
-	return func(c *codec) []json.Options {
-		c.trailingNewline = true
-		return []json.Options{jsontext.WithIndent(indent)}
-	}
-}
-
-// WithoutHTMLEscaping writes <, >, and & literally rather than as \u003c, \u003e, and
-// \u0026, for files a user reads: JSON holding markup or source is unreadable escaped.
-// U+2028 and U+2029 stay escaped either way, so the output is safe to embed in a
-// script. Decoding is unaffected, so output encoded either way reads back the same.
-//
-// The escape only guards bytes placed into an HTML document without a parse, so drop it
-// only where that cannot happen.
-func WithoutHTMLEscaping() Option {
-	return func(*codec) []json.Options {
-		return []json.Options{jsontext.EscapeForHTML(false)}
-	}
-}
-
-// WithCaseInsensitiveNames matches an object name to a field whose name differs only
-// in case, for reading documents written before a field carried an explicit name. New
-// documents are unaffected: encoding always writes the field's declared name. Reach for
-// it only where such documents exist, because a decoder that ignores case cannot tell
-// two fields apart when their names collide.
-func WithCaseInsensitiveNames() Option {
-	return func(*codec) []json.Options {
-		return []json.Options{json.MatchCaseInsensitiveNames(true)}
-	}
-}
-
-// WithDeterministic encodes map members in sorted order, so the same value always
-// encodes to the same bytes. Go randomizes map iteration, so reach for it where the
-// bytes are written to a file, hashed, or compared. Decoding is unaffected.
-func WithDeterministic() Option {
-	return func(*codec) []json.Options {
-		return []json.Options{json.Deterministic(true)}
-	}
-}
 
 func (*codec) ContentType() string { return "application/json" }
 
