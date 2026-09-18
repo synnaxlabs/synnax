@@ -176,6 +176,8 @@ export class Table<
   private readonly indexes: Array<LookupIndex<Key, Value>>;
   private gen = 0;
   private writeSeq = 0;
+  // Holds a stamp only for present entries: applyDelete drops the key's stamp, so the
+  // map never outgrows the entries.
   private readonly writeStamps = new Map<Key, Stamp>();
 
   constructor({
@@ -237,6 +239,7 @@ export class Table<
 
   private applyDelete(key: Key): void {
     this.entries.delete(key);
+    this.writeStamps.delete(key);
     for (const index of this.indexes) index.delete(key);
   }
 
@@ -291,12 +294,14 @@ export class Table<
     value?: state.SetArg<Value | undefined>,
   ): destructor.Destructor {
     if (typeof keyOrValues !== "object") {
+      const rollback = this.setOne(keyOrValues as Key, value) ?? destructor.NOOP;
       this.stampWrite(keyOrValues as Key);
-      return this.setOne(keyOrValues as Key, value) ?? destructor.NOOP;
+      return rollback;
     }
     const values = array.toArray(keyOrValues);
+    const rollback = this.setMany(values);
     values.forEach(({ key }) => this.stampWrite(key));
-    return this.setMany(values);
+    return rollback;
   }
 
   private setMany(values: Array<Keyed<Key, Value>>): destructor.Destructor {
@@ -311,7 +316,7 @@ export class Table<
   }
 
   private stampWrite(key: Key): void {
-    this.writeStamps.set(key, ++this.writeSeq);
+    if (this.entries.has(key)) this.writeStamps.set(key, ++this.writeSeq);
   }
 
   private writtenSince(key: Key, since: Stamp): boolean {
@@ -489,7 +494,6 @@ export class Table<
 
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
-        this.stampWrite(k);
         this.applyDelete(k);
         if (tombstone && value != null)
           this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
