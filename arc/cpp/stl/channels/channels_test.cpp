@@ -1489,4 +1489,22 @@ TEST(BoolChannelTest, NormalizesNonzeroWriteToOne) {
     EXPECT_EQ(f.read_bool(4), 1);
 }
 
+TEST(StateTest, HasValueTracksTheBufferedSample) {
+    arc::stl::channels::State st;
+    EXPECT_FALSE(st.has_value(7));
+    x::telem::Frame fr(1);
+    fr.emplace(7, x::telem::Series(3.0f));
+    st.ingest(fr);
+    EXPECT_TRUE(st.has_value(7));
+    st.reset();
+    EXPECT_FALSE(st.has_value(7));
+}
+
+TEST(StateTest, HasValueIsFalseForAnEmptySeries) {
+    arc::stl::channels::State st;
+    x::telem::Frame fr(1);
+    fr.emplace(7, x::telem::Series(x::telem::FLOAT32_T, 0));
+    st.ingest(fr);
+    EXPECT_FALSE(st.has_value(7));
+}
 }

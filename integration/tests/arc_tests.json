@@ -47,6 +47,10 @@
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
+          "case": "arc/silent_reads",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
           "case": "arc/load_current",
           "parameters": { "rack_key": [65537, 65538] }
         },

@@ -29,46 +29,52 @@ type ProgramState struct {
 	writes          map[uint32]telem.Series
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
-	// clock provides monotonically increasing timestamps for indexed
-	// channel writes, avoiding duplicate timestamps on platforms with
-	// coarse clock resolution (e.g. Windows).
+	// clock provides monotonically increasing timestamps for indexed channel writes,
+	// avoiding duplicate timestamps on platforms with coarse clock resolution (e.g.
+	// Windows).
 	clock telem.MonoClock
+}
+
+// HasValue reports whether key holds a buffered value for a host read to return.
+func (ps *ProgramState) HasValue(key uint32) bool {
+	ms, ok := ps.reads[key]
+	return ok && len(ms.Series) > 0 && ms.Series[len(ms.Series)-1].Len() > 0
 }
 
 // NewProgramState creates a new ProgramState from channel digests.
 func NewProgramState(digests []Digest) *ProgramState {
-	cs := &ProgramState{
+	ps := &ProgramState{
 		reads:   make(map[uint32]telem.MultiSeries),
 		writes:  make(map[uint32]telem.Series),
 		indexes: make(map[uint32]uint32),
 	}
 	for _, d := range digests {
-		cs.indexes[d.Key] = d.Index
+		ps.indexes[d.Key] = d.Index
 	}
-	return cs
+	return ps
 }
 
 // Ingest adds external channel data to the read buffer.
-func (cs *ProgramState) Ingest(fr telem.Frame[uint32]) {
+func (ps *ProgramState) Ingest(fr telem.Frame[uint32]) {
 	for rawI, key := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		cs.reads[key] = cs.reads[key].Append(fr.RawSeriesAt(rawI))
+		ps.reads[key] = ps.reads[key].Append(fr.RawSeriesAt(rawI))
 	}
 }
 
-// Flush extracts buffered channel writes into a frame and clears the write
-// buffer. Only channels written in the current cycle are flushed.
-func (cs *ProgramState) Flush(
+// Flush extracts buffered channel writes into a frame and clears the write buffer. Only
+// channels written in the current cycle are flushed.
+func (ps *ProgramState) Flush(
 	fr telem.Frame[uint32],
 ) (telem.Frame[uint32], bool) {
-	if len(cs.activeWriteKeys) == 0 {
+	if len(ps.activeWriteKeys) == 0 {
 		return fr, false
 	}
 	flushed := false
-	for _, key := range cs.activeWriteKeys {
-		data, ok := cs.writes[key]
+	for _, key := range ps.activeWriteKeys {
+		data, ok := ps.writes[key]
 		if !ok || len(data.Data) == 0 {
 			continue
 		}
@@ -77,22 +83,21 @@ func (cs *ProgramState) Flush(
 		data.Data = data.Data[:0]
 		data.TimeRange = telem.TimeRangeZero
 		data.Alignment = 0
-		cs.writes[key] = data
+		ps.writes[key] = data
 	}
-	cs.activeWriteKeys = cs.activeWriteKeys[:0]
+	ps.activeWriteKeys = ps.activeWriteKeys[:0]
 	return fr, flushed
 }
 
-// clearReadsReallocThreshold is the backing array capacity above which
-// ClearReads allocates a fresh slice instead of re-slicing in place. Below
-// this threshold, slices.Delete zeroes old references (allowing GC) without
-// allocating.
+// clearReadsReallocThreshold is the backing array capacity above which ClearReads
+// allocates a fresh slice instead of re-slicing in place. Below this threshold,
+// slices.Delete zeroes old references (allowing GC) without allocating.
 const clearReadsReallocThreshold = 64
 
-// ClearReads clears accumulated channel read buffers while preserving the
-// latest series for each channel.
-func (cs *ProgramState) ClearReads() {
-	for key, ser := range cs.reads {
+// ClearReads clears accumulated channel read buffers while preserving the latest series
+// for each channel.
+func (ps *ProgramState) ClearReads() {
+	for key, ser := range ps.reads {
 		if len(ser.Series) <= 1 {
 			continue
 		}
@@ -103,13 +108,13 @@ func (cs *ProgramState) ClearReads() {
 				ser.Series, 0, len(ser.Series)-1,
 			)
 		}
-		cs.reads[key] = ser
+		ps.reads[key] = ser
 	}
 }
 
-// ReadValue reads a single value from a channel (for WASM runtime bindings).
-func (cs *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
-	ms, ok := cs.reads[key]
+// readValue returns the latest series buffered on key.
+func (ps *ProgramState) readValue(key uint32) (telem.Series, bool) {
+	ms, ok := ps.reads[key]
 	if !ok || len(ms.Series) == 0 {
 		return telem.Series{}, false
 	}
@@ -117,86 +122,43 @@ func (cs *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
 }
 
 // writeValue writes a single value to a channel (for WASM runtime bindings).
-func (cs *ProgramState) writeValue(key uint32, value telem.Series) {
-	cs.appendWriteSeries(key, value)
-	cs.writeIndexedTimestamp(key)
+func (ps *ProgramState) writeValue(key uint32, value telem.Series) {
+	ps.appendWriteSeries(key, value)
+	ps.writeIndexedTimestamp(key)
 }
 
-func (cs *ProgramState) WriteChannelU8(key uint32, v uint8) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
+// writeSample appends one fixed-size sample to key's write buffer and stamps its index
+// channel when it has one.
+func writeSample[T telem.FixedSample](ps *ProgramState, key uint32, v T) {
+	appendFixedWriteSample(ps, key, v)
+	ps.writeIndexedTimestamp(key)
 }
 
-func (cs *ProgramState) WriteChannelU16(key uint32, v uint16) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelU32(key, v uint32) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelU64(key uint32, v uint64) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelI8(key uint32, v int8) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelI16(key uint32, v int16) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelI32(key uint32, v int32) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelI64(key uint32, v int64) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelF32(key uint32, v float32) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) WriteChannelF64(key uint32, v float64) {
-	appendFixedWriteSample(cs, key, v)
-	cs.writeIndexedTimestamp(key)
-}
-
-func (cs *ProgramState) writeIndexedTimestamp(key uint32) {
-	idx := cs.indexes[key]
+func (ps *ProgramState) writeIndexedTimestamp(key uint32) {
+	idx := ps.indexes[key]
 	if idx != 0 {
-		appendFixedWriteSample(cs, idx, cs.clock.Now())
+		appendFixedWriteSample(ps, idx, ps.clock.Now())
 	}
 }
 
 func appendFixedWriteSample[T telem.FixedSample](
-	cs *ProgramState,
+	ps *ProgramState,
 	key uint32,
 	value T,
 ) {
 	dt := telem.InferDataType[T]()
-	acc, exists := cs.writes[key]
+	acc, exists := ps.writes[key]
 	if !exists {
 		acc = telem.Series{DataType: dt}
 	}
 	if len(acc.Data) == 0 {
-		cs.activeWriteKeys = append(cs.activeWriteKeys, key)
+		ps.activeWriteKeys = append(ps.activeWriteKeys, key)
 	}
 	if acc.DataType == telem.UnknownT {
 		acc.DataType = dt
 	}
 	if acc.DataType != dt && len(acc.Data) > 0 {
-		cs.writes[key] = telem.NewSeriesV(value)
+		ps.writes[key] = telem.NewSeriesV(value)
 		return
 	}
 	den := int(dt.Density())
@@ -204,54 +166,54 @@ func appendFixedWriteSample[T telem.FixedSample](
 	acc.Data = slices.Grow(acc.Data, den)
 	acc.Data = acc.Data[:sampleStart+den]
 	unsafe.CastSlice[byte, T](acc.Data)[sampleStart/den] = value
-	cs.writes[key] = acc
+	ps.writes[key] = acc
 }
 
 // readSeries reads buffered data and time series from a channel.
-func (cs *ProgramState) readSeries(
+func (ps *ProgramState) readSeries(
 	key uint32,
 ) (data, time telem.MultiSeries, ok bool) {
-	data, ok = cs.reads[key]
+	data, ok = ps.reads[key]
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
 	}
-	indexKey := cs.indexes[key]
+	indexKey := ps.indexes[key]
 	if indexKey == 0 {
 		return data, telem.MultiSeries{}, len(data.Series) > 0
 	}
-	time, ok = cs.reads[indexKey]
+	time, ok = ps.reads[indexKey]
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
 	}
 	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
-func (cs *ProgramState) writeChannel(key uint32, data, time telem.Series) {
-	cs.appendWriteSeries(key, data)
-	idx := cs.indexes[key]
+func (ps *ProgramState) writeChannel(key uint32, data, time telem.Series) {
+	ps.appendWriteSeries(key, data)
+	idx := ps.indexes[key]
 	if idx != 0 {
-		cs.appendWriteSeries(idx, time)
+		ps.appendWriteSeries(idx, time)
 	}
 }
 
-func (cs *ProgramState) appendWriteSeries(key uint32, source telem.Series) {
-	acc, exists := cs.writes[key]
+func (ps *ProgramState) appendWriteSeries(key uint32, source telem.Series) {
+	acc, exists := ps.writes[key]
 	if !exists {
 		acc = telem.Series{DataType: source.DataType}
 	}
 	if len(acc.Data) == 0 {
-		cs.activeWriteKeys = append(cs.activeWriteKeys, key)
+		ps.activeWriteKeys = append(ps.activeWriteKeys, key)
 	}
 	if acc.DataType == telem.UnknownT {
 		acc.DataType = source.DataType
 	}
 	if len(source.Data) == 0 {
-		cs.writes[key] = acc
+		ps.writes[key] = acc
 		return
 	}
 	if acc.DataType != source.DataType && len(acc.Data) > 0 {
 		acc = source.DeepCopy()
-		cs.writes[key] = acc
+		ps.writes[key] = acc
 		return
 	}
 	if len(acc.Data) == 0 {
@@ -266,5 +228,5 @@ func (cs *ProgramState) appendWriteSeries(key uint32, source telem.Series) {
 		}
 	}
 	acc.Data = append(acc.Data, source.Data...)
-	cs.writes[key] = acc
+	ps.writes[key] = acc
 }

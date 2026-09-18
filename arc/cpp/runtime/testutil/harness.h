@@ -61,10 +61,18 @@ class Harness {
     mutable x::telem::Frame pending;
 
 public:
-    Harness(const synnax::Synnax &client, const std::string &source):
-        Harness(client, compile_text(client, source)) {}
+    Harness(
+        const synnax::Synnax &client,
+        const std::string &source,
+        errors::Handler handler = errors::noop_handler
+    ):
+        Harness(client, compile_text(client, source), std::move(handler)) {}
 
-    Harness(const synnax::Synnax &client, arc::program::Program prog):
+    Harness(
+        const synnax::Synnax &client,
+        arc::program::Program prog,
+        errors::Handler handler = errors::noop_handler
+    ):
         program(std::move(prog)) {
         std::set<types::ChannelKey> reads;
         std::set<types::ChannelKey> writes;
@@ -103,7 +111,7 @@ public:
             str_st,
             series_st,
             var_st,
-            errors::noop_handler
+            handler
         );
 
         auto time_mod = std::make_shared<stl::time::Module>();
@@ -114,7 +122,7 @@ public:
             std::make_shared<stl::strings::Module>(str_st),
             std::make_shared<stl::math::Module>(),
             time_mod,
-            std::make_shared<stl::error::Module>(errors::noop_handler),
+            std::make_shared<stl::error::Module>(handler),
             std::make_shared<stl::constant::Module>(),
             std::make_shared<stl::control::Module>(this->node_state),
             std::make_shared<stl::stable::Module>(),
@@ -163,7 +171,7 @@ public:
             prog_ir,
             nodes,
             tolerance,
-            errors::noop_handler
+            handler
         );
     }
 

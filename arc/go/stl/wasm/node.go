@@ -11,10 +11,13 @@ package wasm
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -24,15 +27,6 @@ import (
 )
 
 var _ node.Node = (*nodeImpl)(nil)
-
-// NodeKeySetter is implemented by modules that need to know which node is
-// currently executing (e.g., stateful variable scoping). The runtime calls
-// SetNodeKey before each WASM invocation. This follows the same optional
-// interface pattern as MemorySetter.
-type NodeKeySetter interface {
-	SetNodeKey(key string)
-	ClearNode(key string)
-}
 
 type result struct {
 	Value   uint64
@@ -53,12 +47,44 @@ type nodeImpl struct {
 	offsets       []int
 	selIdx        int
 	clock         telem.MonoClock
-	nodeKeySetter NodeKeySetter
+	stateful      *stateful.Host
 	stringInputs  []bool
 	chanInputs    []bool
 	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
+	channels      *channels.ProgramState
+	// gatedKeys are the channels the body reads by a fixed key.
+	gatedKeys []uint32
+	// gatedParams index the chan params the body reads through a bound key.
+	gatedParams []int
+	// warnedMissing is set once a skipped evaluation has been reported and cleared when
+	// an evaluation succeeds.
+	warnedMissing bool
+}
+
+// silentRead returns the first channel the body would read that has no value yet.
+func (n *nodeImpl) silentRead() (uint32, bool) {
+	for _, k := range n.gatedKeys {
+		if !n.channels.HasValue(k) {
+			return k, true
+		}
+	}
+	for _, i := range n.gatedParams {
+		if k := uint32(n.params[i]); !n.channels.HasValue(k) {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
+// channelName returns the program's name for key, or the key itself when the node does
+// not declare it.
+func (n *nodeImpl) channelName(key uint32) string {
+	if name, ok := n.ir.Channels.Read[key]; ok {
+		return name
+	}
+	return strconv.FormatUint(uint64(key), 10)
 }
 
 func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
@@ -120,8 +146,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		return
 	}
 
-	// A KindChan param holds the key of the channel the body targets. The key
-	// is edge-fed and can rebind at runtime, so re-read the latest each pass.
+	// A KindChan param holds the key of the channel the body targets. The key is
+	// edge-fed and can rebind at runtime, so re-read the latest each pass.
 	for i := range n.ir.Inputs {
 		if !n.chanInputs[i] || n.ir.Inputs[i].Value != nil {
 			continue
@@ -149,6 +175,23 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 	}
 
+	// A read of a channel with no value yet cannot evaluate honestly. Skip the
+	// pass before the body runs, keep the inputs armed, and retry next cycle.
+	if n.channels != nil {
+		if key, silent := n.silentRead(); silent {
+			n.Rearm()
+			ctx.MarkSelfChanged()
+			if !n.warnedMissing {
+				n.warnedMissing = true
+				ctx.ReportError(errors.Newf(
+					"channel %s has no value yet", n.channelName(key),
+				))
+			}
+			return
+		}
+		n.warnedMissing = false
+	}
+
 	maxLength := int64(0)
 	longestInputIdx := -1
 	for i := range n.ir.Inputs {
@@ -171,10 +214,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.offsets {
 		n.offsets[j] = 0
 	}
-	// String outputs are variable-density and cannot be resized . Their
-	// Data buffer is built once at the end of the loop from accumulated
-	// strings. Numeric outputs are pre-sized here so setValueAt can do
-	// fixed-stride writes per sample.
+	// String outputs are variable-density and cannot be resized . Their Data buffer is
+	// built once at the end of the loop from accumulated strings. Numeric outputs are
+	// pre-sized here so setValueAt can do fixed-stride writes per sample.
 	var stringResults [][]string
 	for i := range n.ir.Outputs {
 		if n.stringOutputs[i] {
@@ -187,8 +229,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		n.OutputTime(i).Resize(maxLength)
 	}
-	// Copy alignment and time range from inputs to outputs.
-	// Alignments are summed to guarantee uniqueness across different input sources.
+	// Copy alignment and time range from inputs to outputs. Alignments are summed to
+	// guarantee uniqueness across different input sources.
 	var alignmentSum telem.Alignment
 	var timeRange telem.TimeRange
 	for i := range n.ir.Inputs {
@@ -216,8 +258,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
 	clockStamp := longestInputIdx < 0 || n.selIdx >= 0
-	if n.nodeKeySetter != nil {
-		n.nodeKeySetter.SetNodeKey(n.ir.Key)
+	if n.stateful != nil {
+		n.stateful.SetNodeKey(n.ir.Key)
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
@@ -229,9 +271,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			if !n.stringInputs[j] {
 				n.params[j] = valueAt(n.Input(j), idx)
 			} else {
-				// String channels are variable-length but WASM expects
-				// i32 handles. Convert inline — string channels are
-				// virtual (length 1), so At(idx) is always O(1).
+				// String channels are variable-length but WASM expects i32 handles.
+				// Convert inline — string channels are virtual (length 1), so At(idx)
+				// is always O(1).
 				data := n.Input(j).At(idx)
 				n.params[j] = uint64(n.strings.Create(string(data)))
 			}
@@ -256,13 +298,12 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		for j, value := range res {
 			if value.Changed {
 				if n.stringOutputs[j] {
-					// WASM returned an i32 string handle; materialize it
-					// to its actual string value, mirroring the input-side
-					// conversion above.
+					// WASM returned an i32 string handle; materialize it to its actual
+					// string value, mirroring the input-side conversion above.
 					s, ok := n.strings.Get(uint32(value.Value))
 					if !ok {
-						// An unregistered handle is an Arc compiler/runtime
-						// bug, not anything a .arc program can provoke.
+						// An unregistered handle is an Arc compiler/runtime bug, not
+						// anything a .arc program can provoke.
 						zap.S().DPanicf(
 							"node %s output %d returned unregistered string handle %d at sample %d/%d",
 							n.ir.Key,
@@ -298,8 +339,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 
 func (n *nodeImpl) Reset() {
 	n.State.Reset()
-	if n.nodeKeySetter != nil {
-		n.nodeKeySetter.ClearNode(n.ir.Key)
+	if n.stateful != nil {
+		n.stateful.ClearNode(n.ir.Key)
 	}
 }
 

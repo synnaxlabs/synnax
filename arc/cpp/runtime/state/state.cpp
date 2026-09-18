@@ -392,6 +392,15 @@ void Node::absorb_inputs() {
         this->absorb_input(i);
 }
 
+void Node::rearm_inputs() {
+    for (size_t i = 0; i < this->accumulated.size(); i++)
+        if (!this->is_reference[i]) this->accumulated[i].consumed = false;
+}
+
+bool Node::has_channel_value(const types::ChannelKey key) const {
+    return this->state.channel->has_value(key);
+}
+
 void Node::absorb_input(const size_t i) {
     if (this->is_reference[i]) return;
     const auto src_idx = this->input_source_idx[i];
