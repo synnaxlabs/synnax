@@ -1200,7 +1200,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 		// otherwise the codec emits map[string]any which cannot be assigned to the
 		// declared field type. Reuse the existing alias if the file already imports the
 		// package (flex method generation registers it as "xmsgpack") so the codec does
-		// not double- import under conflicting names.
+		// not double-import under conflicting names.
 		if prim.Name == "record" {
 			const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
 			alias, registered := b.imports[importPath]
