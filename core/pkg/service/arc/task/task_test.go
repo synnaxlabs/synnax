@@ -1810,16 +1810,14 @@ var _ = Describe("Task", Ordered, func() {
 				dupName := "dup_alarm_" + uuid.New().String()[:8]
 				w := statusSvc.NewWriter(nil)
 				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.New().
-						String(),
+					Key:     uuid.New().String(),
 					Name:    dupName,
 					Variant: status.VariantInfo,
 					Message: "first",
 					Time:    telem.Now(),
 				})).To(Succeed())
 				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.New().
-						String(),
+					Key:     uuid.New().String(),
 					Name:    dupName,
 					Variant: status.VariantInfo,
 					Message: "second",

@@ -651,12 +651,9 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should replace an x-axis's whole range set via SetRanges",
 				func(ctx SpecContext) {
-					r1, r2, r3 := uuid.New().
-						String(),
-						uuid.New().
-							String(),
-						uuid.New().
-							String()
+					r1, r2, r3 := uuid.New().String(),
+						uuid.New().String(),
+						uuid.New().String()
 					plot := lineplot.LinePlot{
 						Name:   "test",
 						Ranges: lineplot.Ranges{X1: []string{r1, r2}},

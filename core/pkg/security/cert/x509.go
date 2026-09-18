@@ -25,7 +25,7 @@ func newBasex509() (*x509.Certificate, error) {
 	return &x509.Certificate{
 		SerialNumber: sn,
 		Subject:      pkix.Name{CommonName: "Synnax CA"},
-		NotBefore:    time.Now().Add(-time.Hour),
+		NotBefore:    time.Now().Add(-time.Hour * 24),
 		NotAfter:     time.Now().Add(time.Hour * 24 * 365),
 		KeyUsage:     x509.KeyUsageKeyAgreement | x509.KeyUsageDigitalSignature,
 	}, nil
