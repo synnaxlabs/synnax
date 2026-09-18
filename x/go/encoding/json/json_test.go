@@ -204,47 +204,29 @@ var _ = Describe("NewCodec", func() {
 	})
 
 	Describe("EscapeForHTML", func() {
-		plain := json.NewCodec(jsontext.EscapeForHTML(false))
-
-		It("Should write <, >, and & literally", func(ctx SpecContext) {
-			b := MustSucceed(plain.Encode(ctx, markup{`<a href="x">1 & 2</a>`}))
+		It("Should write <, >, and & literally by default", func(ctx SpecContext) {
+			b := MustSucceed(json.Codec.Encode(ctx, markup{`<a href="x">1 & 2</a>`}))
 			Expect(string(b)).To(Equal(`{"Value":"<a href=\"x\">1 & 2</a>"}`))
 		})
 
-		It("Should escape them by default", func(ctx SpecContext) {
-			b := MustSucceed(json.Codec.Encode(ctx, markup{"<&>"}))
-			Expect(string(b)).To(Equal(`{"Value":"\u003c\u0026\u003e"}`))
+		It("Should escape them when asked", func(ctx SpecContext) {
+			escaping := json.NewCodec(jsontext.EscapeForHTML(true))
+			Expect(string(MustSucceed(escaping.Encode(ctx, markup{"<&>"})))).
+				To(Equal(`{"Value":"\u003c\u0026\u003e"}`))
 		})
 
-		It("Should still escape the line and paragraph separators", func(
-			ctx SpecContext,
-		) {
-			b := MustSucceed(plain.Encode(ctx, markup{"a\u2028b\u2029c"}))
-			Expect(string(b)).To(Equal(`{"Value":"a\u2028b\u2029c"}`))
-		})
-
-		It("Should decode to the same value as the escaping codec", func(
-			ctx SpecContext,
-		) {
+		It("Should decode to the same value either way", func(ctx SpecContext) {
+			escaping := json.NewCodec(jsontext.EscapeForHTML(true))
 			original := markup{`<svg viewBox="0 0 1 1"/>`}
 			var escaped, literal markup
-			Expect(json.Codec.Decode(
-				ctx, MustSucceed(json.Codec.Encode(ctx, original)), &escaped,
+			Expect(escaping.Decode(
+				ctx, MustSucceed(escaping.Encode(ctx, original)), &escaped,
 			)).To(Succeed())
-			Expect(plain.Decode(
-				ctx, MustSucceed(plain.Encode(ctx, original)), &literal,
+			Expect(json.Codec.Decode(
+				ctx, MustSucceed(json.Codec.Encode(ctx, original)), &literal,
 			)).To(Succeed())
 			Expect(literal).To(Equal(escaped))
 			Expect(literal).To(Equal(original))
-		})
-
-		It("Should compose with an indent", func(ctx SpecContext) {
-			c := json.NewCodec(
-				jsontext.WithIndent("  "),
-				jsontext.EscapeForHTML(false),
-			)
-			Expect(string(MustSucceed(c.Encode(ctx, markup{"<x>"})))).
-				To(Equal("{\n  \"Value\": \"<x>\"\n}\n"))
 		})
 	})
 

@@ -39,17 +39,10 @@ type codec struct {
 	opts json.Options
 }
 
-// NewCodec returns a JSON implementation of http.FileCodec. The given options are
-// applied after the codec's own, so a caller's option overrides the default it names.
-// Indented output also ends in a newline.
+// NewCodec returns a JSON implementation of http.FileCodec configured with the given
+// options. Indented output also ends in a newline.
 func NewCodec(opts ...json.Options) http.FileCodec {
-	all := append([]json.Options{
-		// U+2028 and U+2029 stay escaped whatever EscapeForHTML says, so encoded output
-		// is always safe to embed in a script.
-		jsontext.EscapeForJS(true),
-		jsontext.EscapeForHTML(true),
-	}, opts...)
-	joined := json.JoinOptions(all...)
+	joined := json.JoinOptions(opts...)
 	indent, _ := json.GetOption(joined, jsontext.WithIndent)
 	return &codec{opts: joined, trailingNewline: indent != ""}
 }
