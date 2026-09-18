@@ -208,6 +208,29 @@ describe("value/aether/Value", () => {
       expect(fillTextAt(recorder, "5")?.y).toBeCloseTo(0);
     });
 
+    it("should align the value to the box right when location.x is right", () => {
+      const { component, recorder } = setup({
+        value: "5",
+        state: { location: { x: "right", y: "center" } },
+      });
+      recorder.clear();
+      component.render({});
+      const inset = 6 + FONT_HEIGHT * 0.75;
+      expect(fillTextAt(recorder, "5")?.x).toBeCloseTo(
+        box.width(BOX) - CHAR_WIDTH - inset,
+      );
+    });
+
+    it("should align the value to the box bottom when location.y is bottom", () => {
+      const { component, recorder } = setup({
+        value: "5",
+        state: { location: { x: "left", y: "bottom" } },
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTextAt(recorder, "5")?.y).toBeCloseTo(box.height(BOX));
+    });
+
     it("should draw the negative sign to the left of the first digit", () => {
       const { component, recorder } = setup({ value: "-5" });
       recorder.clear();

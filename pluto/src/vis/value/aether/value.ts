@@ -170,9 +170,12 @@ export class Value
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
     const labelOffset = { ...xy.ZERO };
-    if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
+    const inset = 6 + fontHeight * 0.75;
+    if (location.x === "left") labelOffset.x = inset;
     else if (location.x === "center") labelOffset.x = bWidth / 2 - dims.width / 2;
+    else labelOffset.x = bWidth - dims.width - inset;
     if (location.y === "center") labelOffset.y = bHeight / 2 + dims.height / 2;
+    else if (location.y === "bottom") labelOffset.y = bHeight;
     // The sign hangs to the left of the first digit, so an overflowing value would clip
     // it and show a negative number as a positive one. Losing a digit on the right is
     // visible; losing the sign is not.
