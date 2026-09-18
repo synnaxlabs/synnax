@@ -19,7 +19,7 @@ at a row that exists, and nothing deletes a dependent when its owner is deleted.
 This RFC removes the ontology. A relationship is a field on one table, declared in the
 Oracle schema with `@ref`. Gorp validates the target on write, keeps a reverse index on
 the field, and applies a declared policy (`cascade`, `restrict`, `detach`) when the
-target is deleted, inside the caller's transaction and under one node-local write lock.
+target is deleted, inside the caller's transaction and under node-local table locks.
 Oracle generates the rest. The `/ontology/*` API, the client relationship caches, both
 ontology tables, and the ontology signals are deleted. The `{type, key}` identifier
 survives as `resource.ID`.
@@ -160,23 +160,39 @@ Every piece below is node-local and runs in the caller's transaction.
 
 **Registry**: `gorp.DB` holds a schema registry. `OpenTable` registers the table's name,
 key parser, and references; `Table.Close` unregisters. This is Gorp's first cross-table
-state, attached as `TableConfig.Indexes` are today (`x/go/gorp/table.go`).
-`TableConfig.References` carries one `gorp.Reference` per field, each owning a
-`LookupIndex` on the field; for arrays it fans out one entry per element, the
-multi-valued extractor RFC 0034 did not ship. The per-tx delta overlay
-(`x/go/gorp/delta.go`) gives index probes read-your-own-writes. Indexes populate
-asynchronously at open, as today. An existence check is a primary-key get and needs no
-index. A policy probe waits on `Table.WaitForIndexes`, and a populate failure is an
-error on the probe, never a fallback scan: a table that could not be scanned at open
-cannot be scanned at delete, and a scan per delete is the slow path §1 removes.
+state, attached as `TableConfig.Indexes` are today (`x/go/gorp/table.go`). A reference
+names its target by table name, resolved at the first probe, so open order stays the
+service dependency order; a name no table ever registers is a composition bug and
+panics. The registry is the reverse graph of the whole schema, so it answers "what
+points at this row" for debugging and for the migration report. `TableConfig.References`
+carries one `gorp.Reference` per field, each owning a `LookupIndex` on the field; for
+arrays it fans out one entry per element, the multi-valued extractor RFC 0034 did not
+ship. The per-tx delta overlay (`x/go/gorp/delta.go`) gives index probes
+read-your-own-writes. Indexes populate asynchronously at open, as today. An existence
+check is a primary-key get and needs no index. A policy probe waits on
+`Table.WaitForIndexes`, and a populate failure is an error on the probe, never a
+fallback scan: a table that could not be scanned at open cannot be scanned at delete,
+and a scan per delete is the slow path §1 removes.
 
 **Locking**: Gorp has no isolation between transactions. One tx can read that a rack
 exists and create a device under it while another reads that the rack has no devices and
-deletes it; both commit. `gorp.DB` holds one write lock. A `Create` or `Update` on a
-table with references takes it before the first check, a `Delete` on a table that is a
-reference target takes it before the first probe, and the tx holds it until commit or
-close. `unique` runs under the same lock, so the Driver's upsert by owner is safe
-against the Core's own status writes. The lock is node-local.
+deletes it; both commit. Every check therefore runs under a write lock held to commit.
+
+The lock is per table. An operation computes its lock set before the first check, the
+table it writes plus every table it probes, and takes them sorted by table name: a
+status create locks `label`, `rack`, and `status`. Two transactions can then never take
+locks in opposite orders, so no deadlock is reachable. A delete cannot know its closure
+in advance, so a walk that reaches a new table drops every lock, adds that table, and
+restarts the walk. Nothing has mutated at that point (see below), the table set only
+grows, and there are finitely many tables, so the restart terminates. `unique` runs
+under the target's lock, so the Driver's upsert by owner is safe against the Core's own
+status writes.
+
+A per-DB lock is simpler and wrong: the most frequent write in the Core is the rack
+status, one per rack per second (`driver/rack/status/status.h`), and it would serialize
+against every project and range delete. Per-table locks share nothing between the two.
+Lock wait, lock hold, closure size, and probe count are Alamos metrics; a lock in the
+metadata write path has to be measurable.
 
 **Existence on write**: `Create` and `Update` resolve each reference through the
 registry and probe the target in the tx. A Pebble indexed batch reads its own writes
@@ -188,18 +204,34 @@ with them.
 **Policy on delete**: `Delete.Exec` runs guards, then computes the closure: it probes
 every reverse index that targets the doomed keys, adds `cascade` dependents to the
 closure, and repeats on them until nothing is added, with a visited set for
-self-references. `restrict` is then checked against dependents outside the closure, the
-SQL `NO ACTION` rule, so a project delete succeeds when its groups hold only schematics
-the same delete removes. `detach` updates the dependents that remain. Nothing mutates
-until every check passes. The whole graph commits in the caller's tx, whatever its size.
+self-references. Guards run on the keys the caller asked to delete, never on the
+closure, so a rule like "refuse a group that holds members" applies to a direct delete
+and does not block a cascade that removes the group with its container. `restrict` is
+then checked against dependents outside the closure, the SQL `NO ACTION` rule, so a
+delete never fails on a dependent it removes itself. `detach` updates the dependents
+outside the closure; one inside it is deleted, not cleared. Nothing mutates until every
+check passes.
+
+The whole graph commits in the caller's tx, under a configured maximum closure size. The
+cap is a safety valve, not a product limit: the closure is one in-memory batch, and
+Pebble notifies observers inside the commit (`x/go/kv/pebblekv/pebblekv.go`), so every
+delete signal drains through a 300-entry inline buffer
+(`core/pkg/service/signals/publisher.go`) and the search index updates synchronously
+(`core/pkg/service/search/search.go`), all with the closure's locks held. Exceeding the
+cap fails the delete and names the size, which is a bug report rather than an
+out-of-memory crash.
 
 **Aspen**: A tx reads its local store (`aspen/internal/kv/tx.go`); a write from another
 node arrives by gossip and reaches the indexes through the observer that feeds them
-today. Every check is node-local. A target created on another node fails the existence
-check until gossip lands, a dependent created there is invisible to a probe for the same
-window, and the write lock does not reach across nodes. Conflicting writes on two nodes
-in that window leave a dangling reference. The populate scan at open logs each one it
-finds.
+today. Every check is node-local, and the locks are node-local. A target created on
+another node fails the existence check until gossip lands, a dependent created there is
+invisible to a probe for the same window, and a cascade that spans leaseholders is not
+atomic, which Aspen already states (`aspen/internal/kv/tx.go`). Conflicting writes on
+two nodes in that window leave a dangling reference.
+
+Referential integrity is therefore a single-node guarantee, which is the deployment
+Synnax supports today; §6 keeps the cross-node work out of scope. The populate scan at
+open reports every dangling reference it finds.
 
 **Polymorphic targets**: The registry is keyed by table name, the `@resource type`
 string. A `resource.ID` reference probes the table named by `id.Type` and parses
@@ -222,7 +254,7 @@ objects, and status owners use them unchanged. Nothing else from the ontology su
 | status key `type:key`                                      | `status.owner resource.ID` (§4.5)                    | cascade, unique    |
 | `range parent_of task`, schematic (snapshot)               | `task.range`, `schematic.range ranger.Key?`          | cascade            |
 | `project parent_of` schematic, lineplot, log, table, panel | `X.project project.Key?`                             | cascade            |
-| `group parent_of` X                                        | `X.group group.Key?`                                 | restrict           |
+| `group parent_of` X                                        | `X.group group.Key?`                                 | detach             |
 | `group parent_of group`, project, rack                     | `group.parent resource.ID?` (§4.4)                   | cascade, acyclic   |
 | `role parent_of user`                                      | `user.roles role.Key[]`                              | detach             |
 | `role parent_of policy`                                    | `policy.role role.Key`                               | cascade            |
@@ -260,9 +292,16 @@ on write. A tree root is "groups of my scope whose parent is nil or the project"
 `group.parent = rack:1`; the device service checks on write that `device.rack` matches
 the group's rack ancestor. No builtin root group exists; the seven created by
 `Group.CreateOrRetrieve` (`core/pkg/service/channel/service.go` and siblings) are
-deleted by the migration in §4.9. Group delete is `restrict` on members, keeping today's
-"cannot delete a group with children" (`core/pkg/service/group/service.go`); the Console
-ungroups first.
+deleted by the migration in §4.9.
+
+Membership is `detach`, and today's "cannot delete a group with children"
+(`core/pkg/service/group/service.go`) stays as a `gorp.Delete.Guard`. Guards run on the
+keys the caller named, so a direct group delete still refuses and the Console still
+ungroups first, while a cascade that removes the group with its container detaches the
+members it does not own. `restrict` would let placement veto ownership: a project delete
+cascades its groups, and a grouped channel would block it from inside a folder the user
+cannot see. A folder must never keep a channel alive, and deleting one must never delete
+a channel.
 
 ### 4.5 Statuses
 
@@ -293,8 +332,8 @@ Rack delete keeps today's refusals (`core/pkg/api/rack/rack.go`): `device.rack` 
 `restrict`, and the refusal while non-internal tasks remain is a `gorp.Delete.Guard` in
 the rack service like `embeddedGuard`. `task.rack` is `cascade`, so internal tasks go
 with the rack. A schematic, line plot, log, table, or panel holds exactly one of
-`project` and `range`. The schema cannot say so, and each visualization service
-validates it on create and update.
+`project` and `range`. The schema cannot say so, so the rule lives in one shared
+validator the five services call, not in five copies of it.
 
 Side effects that are not data follow the change stream. Channel delete calls Cesium
 storage delete after the row delete, outside the tx
@@ -308,8 +347,15 @@ channel delete takes the same path as a direct one.
 (`core/pkg/api/ontology/ontology.go`), the `/ontology/*-group` endpoints, and the
 ontology access checks are deleted. Group create, rename, and delete become `/group/*`.
 Moving a resource into a group is an update of its `group` field through its own
-service; Console drag-and-drop issues one typed update per resource type instead of
-`moveChildren`.
+service.
+
+`moveChildren` is one request today, so dropping it costs atomicity: a drag of a mixed
+selection becomes one typed update per resource type, and a failure halfway leaves the
+tree half moved. `/batch` restores it, taking an ordered list of typed requests, each
+naming an existing endpoint and carrying its payload, run in one `gorp.WithTx` and
+failed on the first error. It is generic over requests, not over the graph: every entry
+is a typed call, access is enforced per entry, and nothing in it names a relationship.
+Project import wants the same envelope.
 
 The TypeScript client deletes `client/ts/src/ontology` except the ID payload, which
 moves to `resource`, along with the relationship cache, `Cache.parentID`, every
@@ -373,16 +419,27 @@ tombstone per RFC 0053. Derivations, from `parent` edges unless noted:
 
 After every service has opened, a service-layer step behind a marker key drops both
 ontology tables and the builtin groups. Rows that resolve to nothing (a visualization
-with neither project nor range) are deleted; they are unreachable today. Migrations run
-per node with no coordination (RFC 0033 §4.2.5); every derivation is deterministic.
+with neither project nor range) are deleted; they are unreachable today. Every
+derivation is deterministic, as RFC 0033 §4.2.5 requires, but unlike the migrations that
+rule was written for, this one deletes rows rather than re-encoding them. It is one-way:
+a Core that has run it cannot be downgraded to a release that reads the ontology, and it
+assumes the single-node deployment of §6.
 
 ## 5 Implementation phases
 
+- **Phase 0: Gorp becomes a top-level module.** `x/go/gorp` moves to `/gorp` with its
+  own `go.mod`, taking `x` and `alamos` through sibling `replace` directives like
+  `cesium` and `aspen`. Nothing inside `x` imports gorp, so the split is a move and an
+  import rewrite across `core` and `freighter/go/gorp`. Gorp is about to gain a schema
+  registry, reference policies, and table locking, which is a database rather than a
+  utility, and the boundary is cheaper to draw before that code lands.
 - **Phase 1: Gorp references and Oracle `@ref`.** The registry, `gorp.Reference`, the
-  write lock, the multi-valued index, existence, unique, acyclic, the three policies,
-  and composite `@key`, tested in `x/go/gorp`. The `resource` package and the
-  `@resource type` rename. Oracle emits reference registration and index-routed filters.
-  No Core table declares a reference yet, so the store change is reviewed alone.
+  table locks, the multi-valued index, existence, unique, acyclic, the three policies,
+  the closure cap, and composite `@key`, tested in `gorp`. The `resource` package and
+  the `@resource type` rename. Oracle emits reference registration and index-routed
+  filters. One nested reference ships here too, `policy.objects`, to prove the path
+  extractor before the declaration language is frozen; the rest wait for Phase 4. No
+  Core table declares a top-level reference yet, so the store change is reviewed alone.
 - **Phase 2: Domain cutovers.** One pull request per domain: add its fields and
   migration, delete its ontology writes and readers, update its TypeScript, Python, and
   Console code. The ontology keeps serving the domains not yet cut over, so every
@@ -392,22 +449,28 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
   visualizations, panels, and bundle export; users, roles, and policies.
 - **Phase 3: Delete the ontology.** The package, the API, the signals, the client
   modules, the generic children query, and the table-drop step. A pure deletion.
-- **Phase 4: Nested references.** `@ref` on a field inside a record or array
-  (`lineplot.channels`, `log.channels`, task config `device` and `channel` keys, `panel`
-  tab resources, `policy.objects`, the PagerDuty `status` key). Oracle emits a path
-  extractor, as FoundationDB's nested index key expressions do; `detach` removes the
+- **Phase 4: Nested references.** `@ref` on the remaining fields inside a record or
+  array (`lineplot.channels`, `log.channels`, task config `device` and `channel` keys,
+  `panel` tab resources, the PagerDuty `status` key), on the path extractor Phase 1
+  proved, as FoundationDB's nested index key expressions do. `detach` removes the
   element or nulls the field.
 - **Phase 5: Channel references.** `index channel.Key` and a stored, compiler-derived
   `requires channel.Key[]`, both `restrict`. The leaseholder stays in the key; a node is
   not a table. Phases 4 and 5 are named now so the declaration language is designed for
-  them, and sequenced last because nothing earlier depends on them.
+  them, and sequenced last because nothing earlier depends on them. They also carry the
+  integrity users feel most, a deleted channel that breaks a plot, a calculation, and a
+  task config, so leaving them undone is how this work fails to pay off.
 
 ## 6 What this RFC does not cover
 
 - Cross-node integrity on Aspen. A Gorp tx still splits into one batch per leaseholder
-  (`aspen/internal/kv/tx.go`), and every check reads the local replica (§4.2). A
-  reference is atomic with its row on every store; a cascade that spans leaseholders
-  keeps today's guarantee.
+  (`aspen/internal/kv/tx.go`), and every check and lock is node-local (§4.2).
+  Referential integrity is a single-node guarantee, which is the deployment Synnax
+  supports today. Multi-node integrity needs a lease-aware lock and a repair sweep, and
+  neither is worth building before a cluster ships.
+- Validation of stored data. A reference is checked when a row is written, never in
+  place, so a later schema change leaves violating rows alone until something writes
+  them. The populate scan reports them; nothing repairs them.
 - Storage-first channel create atomicity (RFC 0042 §7).
 - Search index structure and the Console search palette, which change only an import.
 - Console session state, which never held relationships.
@@ -436,25 +499,42 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
    reference on those fields gives cascade.
 8. **Immediate existence checks**: Deferred constraints (SQL `INITIALLY DEFERRED`) were
    rejected. Parent-first ordering is a small rule; deferral adds a commit-time phase.
-9. **Restrict on group members**: Cascade was rejected. Deleting a folder must not
-   delete channels, and the Console ungroups first.
-10. **No generic endpoint of any kind**: A typed `/relationship` façade was rejected; it
-    reintroduces the untyped graph.
+9. **Detach on group members**: Cascade was rejected because deleting a folder must not
+   delete channels. `restrict` was rejected because placement would then veto ownership:
+   a project delete cascades its groups, and a grouped channel would block it from
+   inside a folder the user cannot see. "Cannot delete a group with children" survives
+   as a guard on the direct delete (§4.4).
+10. **No generic relationship endpoint, but a generic transaction envelope**: A typed
+    `/relationship` façade was rejected; it reintroduces the untyped graph. `/batch`
+    (§4.7) is not one: it is generic over requests, so it restores the atomicity
+    `moveChildren` had without letting any caller name a relationship it does not own.
 11. **Orphans are deleted in migration**: Preserving unreachable rows was rejected. They
     are invisible today, and a required reference cannot hold nothing.
-12. **One write lock per DB**: A lock per target table was rejected. A cascade acquires
-    locks lazily across tables, so two transactions acquiring in opposite orders
-    deadlock. Metadata write rates make one lock cheap.
+12. **A lock per table, taken in table-name order**: One lock per DB was rejected; it
+    serializes the rack status write, one per rack per second, against every project and
+    range delete. A fixed acquisition order removes the deadlock per-table locks are
+    usually rejected for.
 13. **Restrict is checked after the closure**: Immediate `restrict` (SQL `RESTRICT`) was
-    rejected because a project delete would fail on its own groups.
+    rejected; a delete must not fail on a dependent it removes itself.
 14. **Deterministic status keys**: A random UUID was rejected. RFC 0033 §4.2.5 migrates
     each replica independently, so two nodes would derive two keys for one row.
 15. **`status.owner` is optional**: A required owner was rejected. The Console and the
     clients create statuses with no owner today.
-16. **Unbounded fan-out**: A batch limit on cascade and detach was rejected. A delete of
-    any size is one transaction.
+16. **One transaction, with a closure cap**: Chunking a cascade across transactions was
+    rejected; a delete of any size is one transaction. The cap is a safety valve: the
+    closure is one in-memory batch whose signals drain inline, so the failure to design
+    for is an out-of-memory crash (§4.2).
 17. **No fallback scan on a policy probe**: A failed index populate makes the probe
     fail. A scan per delete is the cost §1 removes.
+18. **Gorp becomes a top-level module**: Leaving it in `x` was rejected. A schema
+    registry, reference policies, and table locking are a database, and nothing in `x`
+    imports gorp, so the move costs an import rewrite (Phase 0).
+19. **Constraints are checked on write only**: A validation pass over stored rows was
+    rejected. Every reference here is backfilled by a migration that derives it, so
+    reporting the rest is enough.
+20. **No mutual required references between two tables**: Immediate checks (decision 8)
+    mean neither row can be written first. Every relationship in §4.3 is
+    one-directional; a future pair needs one side optional.
 
 ## 8 Open questions
 
@@ -462,4 +542,8 @@ per node with no coordination (RFC 0033 §4.2.5); every derivation is determinis
 - The `@ref` block grammar: newline-separated like `@ts { }`, or a delimiter.
 - Device chassis policy: `cascade` (discovered subdevices) or `detach` (hand-created).
 - The reclaim sweep cadence for Cesium storage after a cascaded channel delete.
-- Repair of the dangling references the populate scan logs on Aspen.
+- The default closure cap, and whether the range-to-alias cascade can reach it. A range
+  can hold one alias per channel.
+- Whether a reference can opt out of its reverse index. `@ref` implies one today, and an
+  index is two resident maps per field (`x/go/gorp/index.go`). Phase 5 puts one over the
+  channel table, which caps near a million rows.
