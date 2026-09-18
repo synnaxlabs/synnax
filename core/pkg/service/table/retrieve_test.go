@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -22,7 +23,7 @@ var _ = Describe("Retrieve", func() {
 			Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
 			Columns: []table.Column{{Size: 80}},
 			Cells: map[string]table.Cell{
-				"a": {Key: "a", Variant: "text"},
+				"a": {Key: "a", Variant: "text", Props: msgpack.EncodedJSON{}},
 			},
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
