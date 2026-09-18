@@ -33,13 +33,9 @@ var codecOptions = Codec.(*codec).opts
 func Marshal(value any) ([]byte, error) { return json.Marshal(value, codecOptions) }
 
 type codec struct {
-	// indent is the per-level indentation for encoded output; empty means compact.
-	indent string
-	// escapeHTML is whether <, >, and & are escaped in encoded string values.
-	escapeHTML bool
-	// caseInsensitiveNames is whether decoding matches an object name to a field whose
-	// name differs only in case.
-	caseInsensitiveNames bool
+	// trailingNewline is whether an encode ends with a newline, set for indented output
+	// so a file a person reads ends in one.
+	trailingNewline bool
 	// opts configures both directions of the underlying codec.
 	opts json.Options
 }
@@ -47,25 +43,19 @@ type codec struct {
 // NewCodec returns a JSON implementation of http.FileCodec configured with the given
 // options.
 func NewCodec(opts ...Option) http.FileCodec {
-	c := &codec{escapeHTML: true}
-	for _, opt := range opts {
-		opt(c)
-	}
+	c := &codec{}
 	all := []json.Options{
-		// Map members are written in sorted order. This is not a v1 carry-over: an
-		// exported file must be byte-stable across runs, and Go randomizes map
-		// iteration.
-		json.Deterministic(true),
 		json.WithMarshalers(durationMarshaler),
 		json.WithUnmarshalers(durationUnmarshaler),
 		// U+2028 and U+2029 stay escaped whatever WithoutHTMLEscaping says, so encoded
-		// output is always safe to embed in a script.
+		// output is always safe to embed in a script. No option displaces this or the
+		// duration handling above, because a later option overrides an earlier one and
+		// neither is reachable through Option.
 		jsontext.EscapeForJS(true),
-		jsontext.EscapeForHTML(c.escapeHTML),
-		json.MatchCaseInsensitiveNames(c.caseInsensitiveNames),
+		jsontext.EscapeForHTML(true),
 	}
-	if c.indent != "" {
-		all = append(all, jsontext.WithIndent(c.indent))
+	for _, opt := range opts {
+		all = append(all, opt(c)...)
 	}
 	c.opts = json.JoinOptions(all...)
 	return c
@@ -93,12 +83,18 @@ var (
 	)
 )
 
-// Option configures a codec built by NewCodec.
-type Option func(*codec)
+// Option configures a codec built by NewCodec. It returns the encoder options it sets,
+// and takes the codec for the rare setting an encoder option alone cannot carry.
+type Option func(*codec) []json.Options
 
 // WithIndent encodes each level of nesting with the given indentation and appends a
 // trailing newline, for files a user reads. Decoding is unaffected.
-func WithIndent(indent string) Option { return func(c *codec) { c.indent = indent } }
+func WithIndent(indent string) Option {
+	return func(c *codec) []json.Options {
+		c.trailingNewline = true
+		return []json.Options{jsontext.WithIndent(indent)}
+	}
+}
 
 // WithoutHTMLEscaping writes <, >, and & literally rather than as \u003c, \u003e, and
 // \u0026, for files a user reads: JSON holding markup or source is unreadable escaped.
@@ -107,7 +103,11 @@ func WithIndent(indent string) Option { return func(c *codec) { c.indent = inden
 //
 // The escape only guards bytes placed into an HTML document without a parse, so drop it
 // only where that cannot happen.
-func WithoutHTMLEscaping() Option { return func(c *codec) { c.escapeHTML = false } }
+func WithoutHTMLEscaping() Option {
+	return func(*codec) []json.Options {
+		return []json.Options{jsontext.EscapeForHTML(false)}
+	}
+}
 
 // WithCaseInsensitiveNames matches an object name to a field whose name differs only
 // in case, for reading documents written before a field carried an explicit name. New
@@ -115,7 +115,18 @@ func WithoutHTMLEscaping() Option { return func(c *codec) { c.escapeHTML = false
 // it only where such documents exist, because a decoder that ignores case cannot tell
 // two fields apart when their names collide.
 func WithCaseInsensitiveNames() Option {
-	return func(c *codec) { c.caseInsensitiveNames = true }
+	return func(*codec) []json.Options {
+		return []json.Options{json.MatchCaseInsensitiveNames(true)}
+	}
+}
+
+// WithDeterministic encodes map members in sorted order, so the same value always
+// encodes to the same bytes. Go randomizes map iteration, so reach for it where the
+// bytes are written to a file, hashed, or compared. Decoding is unaffected.
+func WithDeterministic() Option {
+	return func(*codec) []json.Options {
+		return []json.Options{json.Deterministic(true)}
+	}
 }
 
 func (*codec) ContentType() string { return "application/json" }
@@ -143,7 +154,7 @@ func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
 	if err != nil {
 		return nil, encoding.SugarEncodingError(value, err)
 	}
-	if c.indent != "" {
+	if c.trailingNewline {
 		b = append(b, '\n')
 	}
 	return b, nil
@@ -153,7 +164,7 @@ func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	if err := json.MarshalWrite(w, value, c.opts); err != nil {
 		return encoding.SugarEncodingError(value, err)
 	}
-	if c.indent == "" {
+	if !c.trailingNewline {
 		return nil
 	}
 	_, err := w.Write([]byte{'\n'})

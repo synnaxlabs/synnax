@@ -34,10 +34,12 @@ const EncodingJSON = "JSON"
 
 // JSONCodec is the encoder for the JSON serialization. It pretty-prints its output and
 // writes <, >, and & literally, since an exported file is read by a person and never
-// placed into an HTML document unparsed.
+// placed into an HTML document unparsed. Its output is deterministic, so re-exporting
+// an unchanged project rewrites the same bytes rather than a spurious diff.
 var JSONCodec http.FileCodec = xjson.NewCodec(
 	xjson.WithIndent("  "),
 	xjson.WithoutHTMLEscaping(),
+	xjson.WithDeterministic(),
 )
 
 // ResolveEncoding returns the file encoder for the named export serialization. It

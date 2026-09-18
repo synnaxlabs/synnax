@@ -163,14 +163,6 @@ var _ = Describe("Wire format", func() {
 		Expect(json.Codec.Decode(ctx, []byte(`{"Value":1,"Value":2}`), &d)).
 			To(MatchError(ContainSubstring("failed to decode")))
 	})
-	It("Should order map members deterministically", func(ctx SpecContext) {
-		m := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
-		first := MustSucceed(json.Codec.Encode(ctx, m))
-		for range 8 {
-			Expect(json.Codec.Encode(ctx, m)).To(Equal(first))
-		}
-		Expect(string(first)).To(Equal(`{"a":2,"b":4,"m":3,"q":5,"z":1}`))
-	})
 	It("Should encode a duration as nanoseconds", func(ctx SpecContext) {
 		Expect(MustSucceed(json.Codec.Encode(ctx, wireShapes{Duration: time.Second}))).
 			To(ContainSubstring(`"duration":1000000000`))
@@ -202,6 +194,23 @@ var _ = Describe("NewCodec", func() {
 		It("Should still write the field's declared name", func(ctx SpecContext) {
 			Expect(MustSucceed(loose.Encode(ctx, toEncode{7}))).
 				To(MatchJSON(`{"Value":7}`))
+		})
+	})
+
+	Describe("WithDeterministic", func() {
+		stable := json.NewCodec(json.WithDeterministic())
+		m := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
+
+		It("Should encode map members in sorted order", func(ctx SpecContext) {
+			Expect(string(MustSucceed(stable.Encode(ctx, m)))).
+				To(Equal(`{"a":2,"b":4,"m":3,"q":5,"z":1}`))
+		})
+
+		It("Should encode the same bytes on every call", func(ctx SpecContext) {
+			first := MustSucceed(stable.Encode(ctx, m))
+			for range 20 {
+				Expect(MustSucceed(stable.Encode(ctx, m))).To(Equal(first))
+			}
 		})
 	})
 
@@ -297,11 +306,6 @@ var _ = Describe("Marshal", func() {
 	It("Should encode a duration as nanoseconds", func() {
 		Expect(MustSucceed(json.Marshal(wireShapes{Duration: time.Second}))).
 			To(ContainSubstring(`"duration":1000000000`))
-	})
-	It("Should order map members deterministically", func() {
-		m := map[string]int{"z": 1, "a": 2, "m": 3, "b": 4, "q": 5}
-		Expect(MustSucceed(json.Marshal(m))).
-			To(Equal([]byte(`{"a":2,"b":4,"m":3,"q":5,"z":1}`)))
 	})
 })
 
