@@ -87,14 +87,18 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 			Embedded:     true,
 			Integrations: integrations,
 		}
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	} else if !ok(err, nil) {
 		return nil, err
 	} else {
 		d.rack.Integrations = integrations
-		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); !ok(err, nil) {
+		if err = cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return cfg.Rack.NewWriter(tx).Create(ctx, &d.rack)
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -111,20 +115,21 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 }
 
 func (d *Driver) startHeartbeat() {
-	statusWriter := d.cfg.Status.NewWriter(nil)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.closer = append(d.closer, signal.NewHardShutdown(sCtx, cancel))
 	signal.GoTick(
 		sCtx,
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
-			if err := statusWriter.Set(ctx, &rack.Status{
-				Key:     rack.StatusKey(d.rack.Key),
-				Name:    d.rack.Name,
-				Time:    telem.Now(),
-				Variant: status.VariantSuccess,
-				Message: "Driver is running",
-				Details: rack.StatusDetails{Rack: d.rack.Key},
+			if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return d.cfg.Status.NewWriter(tx).Set(ctx, &rack.Status{
+					Key:     rack.StatusKey(d.rack.Key),
+					Name:    d.rack.Name,
+					Time:    telem.Now(),
+					Variant: status.VariantSuccess,
+					Message: "Driver is running",
+					Details: rack.StatusDetails{Rack: d.rack.Key},
+				})
 			}); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
 			}
@@ -277,15 +282,16 @@ func (d *Driver) ackFailure(
 ) {
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmd.Key
-	if sErr := d.cfg.Status.NewWriter(nil).
-		Set(ctx, &status.Status[task.StatusDetails]{
+	if sErr := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return d.cfg.Status.NewWriter(tx).Set(ctx, &status.Status[task.StatusDetails]{
 			Key:     task.OntologyID(t.Key).String(),
 			Name:    t.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantError,
 			Message: err.Error(),
 			Details: details,
-		}); sErr != nil {
+		})
+	}); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
 	}
 }

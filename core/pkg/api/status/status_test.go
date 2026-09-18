@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -71,9 +72,11 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			"Should update an existing row when the input matches its Key",
 			func(ctx SpecContext) {
 				key := uuid.NewString()
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
-					Key: key, Name: "api_uuid",
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
+						Key: key, Name: "api_uuid",
+					})
 				})).To(Succeed())
 				grantOn(ctx, author.OntologyID(),
 					[]access.Action{access.ActionUpdate},
@@ -99,13 +102,17 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 			"Should report multipleMatches when the name resolves to multiple rows",
 			func(ctx SpecContext) {
 				name := "api_multi_" + uuid.New().String()
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Variant: status.VariantInfo, Message: "a", Time: telem.Now(),
-					Key: uuid.NewString(), Name: name,
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Variant: status.VariantInfo, Message: "a", Time: telem.Now(),
+						Key: uuid.NewString(), Name: name,
+					})
 				})).To(Succeed())
-				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
-					Key: uuid.NewString(), Name: name,
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
+						Key: uuid.NewString(), Name: name,
+					})
 				})).To(Succeed())
 				grantOn(ctx, author.OntologyID(),
 					[]access.Action{access.ActionUpdate},
@@ -227,7 +234,9 @@ func createStatus(ctx SpecContext, name string) status.Status[any] {
 		Variant: status.VariantInfo,
 		Time:    telem.Now(),
 	}
-	Expect(statusSvc.NewWriter(nil).Set(ctx, &s)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return statusSvc.NewWriter(tx).Set(ctx, &s)
+	})).To(Succeed())
 	return s
 }
 

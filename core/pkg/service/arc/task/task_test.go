@@ -30,6 +30,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -80,6 +81,7 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
+		db            *gorp.DB
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
@@ -90,6 +92,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := mock.NewNode(ctx)
+		db = node.DB
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -120,10 +123,16 @@ var _ = Describe("Task", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
-		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  node.Framer,
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:      node.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
@@ -136,6 +145,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+			DB:         db,
 			Channel:    channelSvc,
 			Framer:     framerSvc,
 			Status:     statusSvc,
@@ -289,6 +299,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should return ErrTaskNotHandled for non-Arc task types",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:      db,
 					Channel: channelSvc,
 					Framer:  framerSvc,
 					Status:  statusSvc,
@@ -320,6 +331,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -337,6 +349,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -374,6 +387,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -399,6 +413,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -557,6 +572,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -582,6 +598,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -607,6 +624,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write an error status when GetProgram fails at boot with auto-start",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -697,6 +715,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -717,6 +736,11 @@ var _ = Describe("Task", Ordered, func() {
 					clear(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
+				Entry(
+					"db",
+					func(c *arctask.FactoryConfig) { c.DB = nil },
+					"db",
+				),
 				Entry(
 					"channel",
 					func(c *arctask.FactoryConfig) { c.Channel = nil },
@@ -1808,14 +1832,20 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.NewString()[:8]
-				w := statusSvc.NewWriter(nil)
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "first", Time: telem.Now(),
-				})).To(Succeed())
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "second", Time: telem.Now(),
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := statusSvc.NewWriter(tx)
+					if err := w.Set(ctx, &status.Status[any]{
+						Key: uuid.NewString(), Name: dupName,
+						Variant: status.VariantInfo,
+						Message: "first", Time: telem.Now(),
+					}); err != nil {
+						return err
+					}
+					return w.Set(ctx, &status.Status[any]{
+						Key: uuid.NewString(), Name: dupName,
+						Variant: status.VariantInfo,
+						Message: "second", Time: telem.Now(),
+					})
 				})).To(Succeed())
 
 				reportNodes, reportConfigs := buildGraphNodes(
