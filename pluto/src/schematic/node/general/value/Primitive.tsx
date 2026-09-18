@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { type dimensions, type text } from "@synnaxlabs/x";
+import { type text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type PropsWithChildren,
@@ -26,14 +26,14 @@ import { Text } from "@/text";
 
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
   className?: string;
-  dimensions?: dimensions.Dimensions;
+  height?: number;
   unitsLevel?: text.Level;
 }
 
 export const Value = ({
   className,
   color: colorVal,
-  dimensions,
+  height,
   orientation = "left",
   units = "psi",
   unitsLevel = "small",
@@ -44,18 +44,11 @@ export const Value = ({
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.variable("symbol-color")]: symbolColor,
-      height: dimensions?.height,
+      height,
     }),
-    [symbolColor, dimensions?.height],
+    [symbolColor, height],
   );
-  const contentStyle = useMemo<CSSProperties>(
-    () => ({
-      minWidth: dimensions?.width,
-      inlineSize,
-      maxWidth: dimensions?.width,
-    }),
-    [dimensions?.width, inlineSize],
-  );
+  const contentStyle = useMemo<CSSProperties>(() => ({ inlineSize }), [inlineSize]);
   return (
     <Primitive.Div
       className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"), className)}

@@ -83,7 +83,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
-        dimensions={{ height: valueBoxHeight, width: inlineSize }}
+        height={valueBoxHeight}
         inlineSize={inlineSize}
         units={units}
         unitsLevel={text.downLevel(level)}

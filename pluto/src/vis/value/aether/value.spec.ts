@@ -266,6 +266,16 @@ describe("value/aether/Value", () => {
     });
   });
 
+  describe("sizing", () => {
+    it("should not change state when the value gets longer", () => {
+      const { component, source } = setup({ value: "1" });
+      component.render({});
+      const before = { ...component.state };
+      source.setValue("1".repeat(60));
+      expect(component.state).toEqual(before);
+    });
+  });
+
   describe("text color", () => {
     it("should use the high-contrast gray when no color is set", () => {
       const { component, recorder } = setup({ value: "1" });
