@@ -10,7 +10,7 @@
 import fs from "fs";
 import path from "path";
 
-import { type Page } from "./check.ts";
+import { type Page } from "@/util/checks/check";
 
 export const PAGES_DIR = "./src/pages";
 const CONCURRENCY = 4;
