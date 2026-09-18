@@ -55,8 +55,8 @@ nav {
 
 /* Page navigation sidebar */
 .page-nav {
-    width: 270px;
-    min-width: 270px;
+    width: 45rem;
+    min-width: 45rem;
     overflow: hidden;
     padding-left: 2rem;
     align-self: flex-start;

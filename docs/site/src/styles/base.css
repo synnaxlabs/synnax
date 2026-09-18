@@ -36,13 +36,16 @@ html {
     /* Docs body text - softer than l10 */
     --docs-body-color: #3f4140;
 
+    /* Root font size that rem resolves against. Pluto's default is 6px. */
+    --pluto-base-size: 5.3px;
+
     /* Box geometry shared by notes, code blocks, and media */
     --docs-block-inset: 1.5rem;
     --docs-block-padding: 3rem;
     --docs-block-gap: 4rem;
 
     @media (width <= 800px) {
-        --docs-block-inset: 0;
+        --docs-block-inset: 0px;
     }
 
     /* Astro code block styling */
@@ -243,6 +246,21 @@ table thead tr {
 table th {
     border-bottom: var(--pluto-border);
     text-align: start;
+}
+
+@media (max-width: 800px) {
+    table > :not(caption) > * > * {
+        padding: 1rem;
+    }
+
+    table td,
+    table td code {
+        font-size: calc(var(--pluto-small-size) * 0.9);
+    }
+
+    .astro-code code {
+        font-size: calc(var(--pluto-small-size) * 0.9);
+    }
 }
 
 /* Strong text */
