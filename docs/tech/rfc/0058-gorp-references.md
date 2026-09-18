@@ -138,10 +138,16 @@ Status struct {
 }
 ```
 
-- `on_delete cascade | restrict | detach`: Required. `detach` zeroes a scalar, so the
-  field must be optional or have a default, and removes the element from an array.
+- `on_delete cascade | restrict | detach`: Required. What happens to dependents when the
+  target is deleted: `cascade` deletes them (a project's schematics), `restrict` fails
+  the delete while any exist (a rack with devices), and `detach` keeps them and clears
+  the reference (a deleted label leaves every `range.labels`). `detach` zeroes a scalar,
+  so the field must be optional or have a default, and removes the element from an
+  array.
 - `types ...`: Required on a `resource.ID` field. The tables the reference may point at.
 - `unique`: At most one dependent per target, enforced by the reverse index on write.
+  The scalar already gives a status one owner; `unique` gives an owner one status, which
+  is what lets the Driver upsert by owner.
 - `acyclic`: A self-reference may not form a cycle, checked by walking the chain.
 
 `@ref` implies `@filter` and `@index lookup`, so every reference gets a generated
