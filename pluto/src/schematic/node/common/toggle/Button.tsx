@@ -15,11 +15,11 @@ import {
   useMemo,
 } from "react";
 
+import { Button as Base } from "@/button";
 import { CSS } from "@/css";
 import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
-import { useHold } from "@/schematic/node/common/toggle/hold";
 
 export interface ButtonBaseProps extends Omit<
   ComponentPropsWithRef<"button">,
@@ -48,7 +48,7 @@ export const Button = ({
   children,
   ...rest
 }: ButtonProps): ReactElement => {
-  const hold = useHold<HTMLButtonElement>({ onClick, onMouseDown, onClickDelay });
+  const hold = Base.useHold<HTMLButtonElement>({ onClick, onMouseDown, onClickDelay });
   const delayed = !hold.delay.isZero;
 
   const handleKeyDown: KeyboardEventHandler<HTMLButtonElement> = (e) => {

@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import { type MouseEventHandler, useRef, useState } from "react";
+import { type MouseEventHandler, useEffect, useRef, useState } from "react";
 
 export interface UseHoldProps<E extends Element> {
   onClick?: MouseEventHandler<E>;
   onMouseDown?: MouseEventHandler<E>;
   onClickDelay?: CrudeTimeSpan;
+  /** Ignores presses and cancels a hold in progress. */
+  disabled?: boolean;
 }
 
 export interface UseHoldReturn<E extends Element> {
@@ -28,16 +30,23 @@ export interface UseHoldReturn<E extends Element> {
 /**
  * Gates onClick behind a press-and-hold of onClickDelay. A primary press starts the
  * hold, and a release before the delay cancels it. Secondary buttons never actuate.
+ * Unmounting or disabling the control cancels a hold in progress.
  */
 export const useHold = <E extends Element>({
   onClick,
   onMouseDown,
   onClickDelay = 0,
+  disabled = false,
 }: UseHoldProps<E>): UseHoldReturn<E> => {
   const delay = TimeSpan.fromMilliseconds(onClickDelay);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelRef = useRef<(() => void) | null>(null);
   // WebKit sets :active on a secondary press, so pressed styling follows this flag.
   const [pressed, setPressed] = useState(false);
+
+  useEffect(() => {
+    if (disabled) cancelRef.current?.();
+    return () => cancelRef.current?.();
+  }, [disabled]);
 
   const handleClick: MouseEventHandler<E> = (e) => {
     if (delay.isZero) onClick?.(e);
@@ -45,22 +54,25 @@ export const useHold = <E extends Element>({
 
   const handleMouseDown: MouseEventHandler<E> = (e) => {
     onMouseDown?.(e);
-    if (e.button !== 0) return;
+    if (disabled || e.button !== 0) return;
+    cancelRef.current?.();
     setPressed(true);
-    document.addEventListener(
-      "mouseup",
-      () => {
-        setPressed(false);
-        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      },
-      { once: true },
-    );
-    if (delay.isZero) return;
-    timeoutRef.current = setTimeout(() => {
-      onClick?.(e);
-      timeoutRef.current = null;
-    }, delay.milliseconds);
+    const timeout = delay.isZero
+      ? null
+      : setTimeout(() => {
+          cancelRef.current = null;
+          onClick?.(e);
+        }, delay.milliseconds);
+    const release = (): void => {
+      cancelRef.current = null;
+      setPressed(false);
+      if (timeout != null) clearTimeout(timeout);
+    };
+    document.addEventListener("mouseup", release, { once: true });
+    cancelRef.current = () => {
+      document.removeEventListener("mouseup", release);
+      release();
+    };
   };
 
   return { delay, pressed, onClick: handleClick, onMouseDown: handleMouseDown };

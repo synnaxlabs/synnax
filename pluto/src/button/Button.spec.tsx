@@ -346,6 +346,37 @@ describe("Button", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should not fire after the button unmounts mid-hold", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"));
+      c.unmount();
+      vi.advanceTimersByTime(2000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it("should cancel the hold when the button becomes disabled", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"));
+      c.rerender(
+        <Button.Button onClickDelay={1000} onClick={onClick} disabled>
+          Hello
+        </Button.Button>,
+      );
+      vi.advanceTimersByTime(2000);
+      expect(onClick).not.toHaveBeenCalled();
+      expect(c.getByText("Hello").className).not.toContain("pluto--pressed");
+    });
+
     it("should ignore a secondary-button hold", () => {
       const onClick = vi.fn();
       const c = render(

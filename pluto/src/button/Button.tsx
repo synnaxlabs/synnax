@@ -9,9 +9,10 @@
 
 import "@/button/Button.css";
 
-import { color, record, text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { color, record, text, type TimeSpan } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo } from "react";
 
+import { useHold } from "@/button/useHold";
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
@@ -125,17 +126,22 @@ const Base = <E extends ElementType = "button">({
   href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
-  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
   if (preview) preventClick = true;
+  const hold = useHold<HTMLButtonElement>({
+    // The chassis element is generic, but the hold only needs the event's button.
+    onClick: onClick as React.MouseEventHandler<HTMLButtonElement> | undefined,
+    onClickDelay,
+    disabled: isDisabled || preview === true,
+  });
+  const parsedDelay = hold.delay;
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!propagateClick) e.stopPropagation();
     if (isDisabled || preview === true || preventClick === true) return;
-    // @ts-expect-error - TODO: fix this
-    if (parsedDelay.isZero) return onClick?.(e);
+    hold.onClick(e);
   };
 
   // A non-button chassis has no native Enter/Space activation, so a focusable one gets
@@ -154,10 +160,6 @@ const Base = <E extends ElementType = "button">({
     handleClick(e);
   };
 
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // WebKit sets :active on a secondary press, so pressed styling follows this flag.
-  const [pressed, setPressed] = useState(false);
-
   const handleMouseDown = (e: any) => {
     // Preventing default on mousedown cancels a native dragstart, so skip it for
     // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
@@ -170,21 +172,7 @@ const Base = <E extends ElementType = "button">({
     )
       e.preventDefault();
     onMouseDown?.(e);
-    if (isDisabled || preview === true || e.button !== 0) return;
-    setPressed(true);
-    document.addEventListener(
-      "mouseup",
-      () => {
-        setPressed(false);
-        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
-      },
-      { once: true },
-    );
-    if (parsedDelay.isZero) return;
-    timeoutRef.current = setTimeout(() => {
-      onClick?.(e);
-      timeoutRef.current = null;
-    }, parsedDelay.milliseconds);
+    hold.onMouseDown(e);
   };
 
   Triggers.use({
@@ -246,7 +234,7 @@ const Base = <E extends ElementType = "button">({
         preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         reveal === true && CSS.M("reveal"),
-        pressed && CSS.M("pressed"),
+        hold.pressed && CSS.M("pressed"),
         className,
       )}
       size={size}

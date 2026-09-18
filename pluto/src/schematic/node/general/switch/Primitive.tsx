@@ -17,12 +17,13 @@ import {
   useMemo,
 } from "react";
 
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { Toggle } from "@/schematic/node/common/toggle";
+import { type Toggle } from "@/schematic/node/common/toggle";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown"> {
@@ -39,7 +40,7 @@ export const Switch = ({
   scale = 1,
 }: Props): ReactElement => {
   const colorVar = symbolColorVar(colorVal);
-  const hold = Toggle.useHold<HTMLElement>({ onClick, onClickDelay });
+  const hold = Button.useHold<HTMLElement>({ onClick, onClickDelay });
   const delayed = !hold.delay.isZero;
   const style = useMemo<CSSProperties>(
     () => ({

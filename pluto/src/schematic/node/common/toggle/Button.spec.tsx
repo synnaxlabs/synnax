@@ -92,6 +92,15 @@ describe("Toggle.Button", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should not fire after the toggle unmounts mid-hold", () => {
+      const onClick = vi.fn();
+      const c = render(<Toggle.Button onClick={onClick} onClickDelay={500} />);
+      fireEvent.mouseDown(getButton(c.container));
+      c.unmount();
+      vi.advanceTimersByTime(1000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
     it("should ignore a secondary-button press", () => {
       const onClick = vi.fn();
       const { container } = render(
