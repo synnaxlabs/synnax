@@ -339,7 +339,7 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached arc and sends them to the server, recording an
+   * Applies actions to the cached Arc and sends them to the server, recording an
    * undoable entry. Returns false without side effects when the Arc isn't cached. Rolls
    * back the local apply and rethrows on send failure.
    */
