@@ -36,7 +36,6 @@ export const Symbol = ({
     telem: t,
     units,
     inlineSize = 70,
-    notation,
     stalenessColor,
     stalenessTimeout,
     redline,
@@ -73,7 +72,6 @@ export const Symbol = ({
     backgroundTelem,
     stalenessColor,
     stalenessTimeout,
-    notation,
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });

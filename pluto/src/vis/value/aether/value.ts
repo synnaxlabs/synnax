@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { border, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
+import { border, box, color, location, scale, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -25,15 +25,17 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 // swapped for a legible gray. Rough guard, tune later.
 const MIN_LEGIBLE_CONTRAST = 1.1;
 
+// How far left of the first digit the negative sign sits, as a multiple of the font
+// height. The draw and the clamp that keeps the sign in the box must use the same one.
+const SIGN_OFFSET = 0.6;
+
 const valueState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
-  precision: z.number().default(2),
   stalenessColor: color.colorZ.default(color.ZERO),
-  notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
   valueBackgroundShift: xy.xyZ.default(xy.ZERO),
   valueBackgroundOverScan: xy.xyZ.default(xy.ZERO),
@@ -60,7 +62,6 @@ interface InternalState {
   backgroundTelem: telem.ColorSource;
   stopListeningBackground?: () => void;
   requestRender: render.Requestor | null;
-  textColor: color.Color;
   fontString: string;
   staleness: staleness.Registration;
   // Staleness stays on the worker here, which draws the value itself.
@@ -165,16 +166,17 @@ export class Value
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);
 
-    const { theme } = this.internal;
     const dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
-    const width = dims.width + theme.sizes.base;
-    const height = dims.height;
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
     const labelOffset = { ...xy.ZERO };
     if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
-    else if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;
-    if (location.y === "center") labelOffset.y = bHeight / 2 + height / 2;
+    else if (location.x === "center") labelOffset.x = bWidth / 2 - dims.width / 2;
+    if (location.y === "center") labelOffset.y = bHeight / 2 + dims.height / 2;
+    // The sign hangs to the left of the first digit, so an overflowing value would clip
+    // it and show a negative number as a positive one. Losing a digit on the right is
+    // visible; losing the sign is not.
+    if (isNegative) labelOffset.x = Math.max(labelOffset.x, fontHeight * SIGN_OFFSET);
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
@@ -198,14 +200,12 @@ export class Value
       const textColor = this.getTextColor();
       canvas.fillStyle = color.hex(textColor);
 
-      // If the value is negative, chop of the negative sign and draw it separately
-      // so that the first digit always stays in the same position, regardless of the sign.
+      // If the value is negative, chop of the negative sign and draw it separately so
+      // that the first digit always stays in the same position, regardless of the sign.
       if (isNegative)
         canvas.fillText(
           "-",
-          // 0.6 is a multiplier of the font height that seems to keep the sign in
-          // the right place.
-          ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
+          ...xy.couple(xy.translateX(labelPosition, -fontHeight * SIGN_OFFSET)),
           undefined,
           FILL_TEXT_OPTIONS,
         );

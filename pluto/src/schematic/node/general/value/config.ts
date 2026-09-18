@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, location, notation, text, xy } from "@synnaxlabs/x";
+import { color, location, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
@@ -29,9 +29,7 @@ export const configZ = Label.labeledConfigZ.extend({
   telem: telem.stringSourceSpecZ.optional(),
   backgroundTelem: telem.colorSourceSpecZ.optional(),
   level: text.levelZ.optional(),
-  precision: z.number().optional(),
   ...Staleness.configZ.shape,
-  notation: notation.notationZ.optional(),
   location: location.xy.optional(),
   valueBackgroundShift: xy.xyZ.optional(),
   valueBackgroundOverScan: xy.xyZ.optional(),

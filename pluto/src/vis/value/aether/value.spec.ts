@@ -99,9 +99,7 @@ describe("value/aether/Value", () => {
   describe("schema", () => {
     it("should apply defaults for unspecified fields", () => {
       const parsed = value.Value.z.parse({ box: BOX });
-      expect(parsed.precision).toBe(2);
       expect(parsed.stalenessTimeout).toBe(5);
-      expect(parsed.notation).toBe("standard");
       expect(parsed.level).toBe("p");
       expect(parsed.location).toEqual({ x: "left", y: "center" });
       expect(parsed.clip).toBe(false);
@@ -110,15 +108,13 @@ describe("value/aether/Value", () => {
     it("should accept explicit overrides", () => {
       const parsed = value.Value.z.parse({
         box: BOX,
-        precision: 4,
         level: "h2",
         clip: true,
-        notation: "scientific",
+        location: { x: "center", y: "top" },
       });
-      expect(parsed.precision).toBe(4);
       expect(parsed.level).toBe("h2");
       expect(parsed.clip).toBe(true);
-      expect(parsed.notation).toBe("scientific");
+      expect(parsed.location).toEqual({ x: "center", y: "top" });
     });
   });
 
@@ -197,9 +193,8 @@ describe("value/aether/Value", () => {
       });
       recorder.clear();
       component.render({});
-      const valueWidth = CHAR_WIDTH + BASE;
       expect(fillTextAt(recorder, "5")?.x).toBeCloseTo(
-        box.width(BOX) / 2 - valueWidth / 2,
+        box.width(BOX) / 2 - CHAR_WIDTH / 2,
       );
     });
 
@@ -222,6 +217,19 @@ describe("value/aether/Value", () => {
       expect(sign?.x).toBeCloseTo((digit?.x ?? 0) - FONT_HEIGHT * 0.6);
       expect(sign?.y).toBeCloseTo(digit?.y ?? 0);
       expect(sign?.x ?? 0).toBeLessThan(digit?.x ?? 0);
+    });
+
+    // A clipped box drops the sign before any digit, so the cell would read as a
+    // positive number with nothing to show it had been cut.
+    it("should keep the negative sign inside a clipped box when the value overflows", () => {
+      const digits = "1".repeat(Math.ceil(box.width(BOX) / CHAR_WIDTH));
+      const { component, recorder } = setup({
+        value: `-${digits}`,
+        state: { location: { x: "center", y: "center" }, clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTextAt(recorder, "-")?.x).toBeGreaterThanOrEqual(box.left(BOX));
     });
   });
 
