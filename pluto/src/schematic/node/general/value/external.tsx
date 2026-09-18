@@ -47,10 +47,16 @@ export const defaultConfig = (): Config => ({
   redline: BaseValue.ZERO_READLINE,
 });
 
-const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
+const PREVIEW_HEIGHT = 25;
+const PREVIEW_INLINE_SIZE = 60;
 
 const Preview = ({ color }: Config): ReactElement => (
-  <Value color={color} dimensions={PREVIEW_DIMENSIONS} units="psi">
+  <Value
+    color={color}
+    height={PREVIEW_HEIGHT}
+    inlineSize={PREVIEW_INLINE_SIZE}
+    units="psi"
+  >
     <Text.Text>50.00</Text.Text>
   </Value>
 );

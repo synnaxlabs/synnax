@@ -99,28 +99,22 @@ describe("value/aether/Value", () => {
   describe("schema", () => {
     it("should apply defaults for unspecified fields", () => {
       const parsed = value.Value.z.parse({ box: BOX });
-      expect(parsed.precision).toBe(2);
       expect(parsed.stalenessTimeout).toBe(5);
-      expect(parsed.minWidth).toBe(60);
-      expect(parsed.notation).toBe("standard");
       expect(parsed.level).toBe("p");
       expect(parsed.location).toEqual({ x: "left", y: "center" });
       expect(parsed.clip).toBe(false);
-      expect(parsed.useWidthForBackground).toBe(false);
     });
 
     it("should accept explicit overrides", () => {
       const parsed = value.Value.z.parse({
         box: BOX,
-        precision: 4,
         level: "h2",
         clip: true,
-        notation: "scientific",
+        location: { x: "center", y: "top" },
       });
-      expect(parsed.precision).toBe(4);
       expect(parsed.level).toBe("h2");
       expect(parsed.clip).toBe(true);
-      expect(parsed.notation).toBe("scientific");
+      expect(parsed.location).toEqual({ x: "center", y: "top" });
     });
   });
 
@@ -199,9 +193,8 @@ describe("value/aether/Value", () => {
       });
       recorder.clear();
       component.render({});
-      const valueWidth = CHAR_WIDTH + BASE;
       expect(fillTextAt(recorder, "5")?.x).toBeCloseTo(
-        box.width(BOX) / 2 - valueWidth / 2,
+        box.width(BOX) / 2 - CHAR_WIDTH / 2,
       );
     });
 
@@ -215,6 +208,29 @@ describe("value/aether/Value", () => {
       expect(fillTextAt(recorder, "5")?.y).toBeCloseTo(0);
     });
 
+    it("should align the value to the box right when location.x is right", () => {
+      const { component, recorder } = setup({
+        value: "5",
+        state: { location: { x: "right", y: "center" } },
+      });
+      recorder.clear();
+      component.render({});
+      const inset = 6 + FONT_HEIGHT * 0.75;
+      expect(fillTextAt(recorder, "5")?.x).toBeCloseTo(
+        box.width(BOX) - CHAR_WIDTH - inset,
+      );
+    });
+
+    it("should align the value to the box bottom when location.y is bottom", () => {
+      const { component, recorder } = setup({
+        value: "5",
+        state: { location: { x: "left", y: "bottom" } },
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTextAt(recorder, "5")?.y).toBeCloseTo(box.height(BOX));
+    });
+
     it("should draw the negative sign to the left of the first digit", () => {
       const { component, recorder } = setup({ value: "-5" });
       recorder.clear();
@@ -224,6 +240,73 @@ describe("value/aether/Value", () => {
       expect(sign?.x).toBeCloseTo((digit?.x ?? 0) - FONT_HEIGHT * 0.6);
       expect(sign?.y).toBeCloseTo(digit?.y ?? 0);
       expect(sign?.x ?? 0).toBeLessThan(digit?.x ?? 0);
+    });
+
+    // A clipped box drops the sign before any digit, so the cell would read as a
+    // positive number with nothing to show it had been cut.
+    it("should keep the negative sign inside a clipped box when the value overflows", () => {
+      const digits = "1".repeat(Math.ceil(box.width(BOX) / CHAR_WIDTH));
+      const { component, recorder } = setup({
+        value: `-${digits}`,
+        state: { location: { x: "center", y: "center" }, clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTextAt(recorder, "-")?.x).toBeGreaterThanOrEqual(box.left(BOX));
+    });
+  });
+
+  describe("overflow", () => {
+    const INSET = 6 + FONT_HEIGHT * 0.75;
+    const firstFillTextX = (recorder: canvasTest.Recorder): number =>
+      drawCalls(recorder, "fillText")[0].args[1] as number;
+
+    it("should trim a clipped value to an ellipsis rather than cut it at the edge", () => {
+      const { component, recorder } = setup({
+        value: "1234567890".repeat(4),
+        state: { clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      const [drawn] = fillTexts(recorder);
+      expect(drawn.startsWith("1234567890")).toBe(true);
+      expect(drawn.endsWith("\u2026")).toBe(true);
+      expect(drawn.length * CHAR_WIDTH).toBeLessThanOrEqual(box.width(BOX) - INSET);
+    });
+
+    it("should keep the leading digits of a clipped centered value inside the box", () => {
+      const { component, recorder } = setup({
+        value: "1".repeat(40),
+        state: { location: { x: "center", y: "center" }, clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
+    });
+
+    it("should keep the leading digits of a clipped right-located value inside the box", () => {
+      const { component, recorder } = setup({
+        value: "1".repeat(40),
+        state: { location: { x: "right", y: "center" }, clip: true },
+      });
+      recorder.clear();
+      component.render({});
+      expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
+    });
+
+    it("should leave a value that fits untouched", () => {
+      const { component, recorder } = setup({ value: "12.50", state: { clip: true } });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toContain("12.50");
+    });
+
+    it("should not trim an unclipped value", () => {
+      const long = "1234567890".repeat(4);
+      const { component, recorder } = setup({ value: long });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toContain(long);
     });
   });
 
@@ -268,41 +351,46 @@ describe("value/aether/Value", () => {
     });
   });
 
-  describe("width", () => {
-    it("should grow width to at least minWidth on first render", () => {
-      const { component } = setup({ value: "1" });
-      component.render({});
-      expect(component.state.width).toBeGreaterThanOrEqual(60);
-    });
-
-    it("should grow width beyond minWidth for a long value", () => {
-      const { component } = setup({ value: "1".repeat(40) });
-      component.render({});
-      expect(component.state.width).toBeGreaterThan(60);
-    });
-
-    it("should grow width when the value gets longer", () => {
+  describe("sizing", () => {
+    it("should not change state when the value gets longer", () => {
       const { component, source } = setup({ value: "1" });
       component.render({});
-      const before = component.state.width ?? 0;
+      const before = { ...component.state };
       source.setValue("1".repeat(60));
-      expect(component.state.width ?? 0).toBeGreaterThan(before);
+      expect(component.state).toEqual(before);
+    });
+  });
+
+  // Ink positions from the atlas surface, so these check where the glyphs land rather
+  // than the baseline the component asks for.
+  describe("ink geometry", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
     });
 
-    it("should shrink width when the value gets much shorter", () => {
-      const { component, source } = setup({ value: "1".repeat(60) });
+    const ink = (location: { x: string; y: string }): xy.XY[] => {
+      const surface = canvasTest.atlasSurface();
+      const { component } = setup({
+        value: "72.55",
+        render: surface.context,
+        state: { location },
+      });
+      surface.clear();
       component.render({});
-      const before = component.state.width ?? 0;
-      source.setValue("1");
-      expect(component.state.width ?? 0).toBeLessThan(before);
+      return surface.glyphs();
+    };
+
+    it("should end a right-located value an inset in from the box right", () => {
+      const glyphs = ink({ x: "right", y: "center" });
+      const last = glyphs[glyphs.length - 1];
+      expect(box.width(BOX) - (last.x + canvasTest.ATLAS_ADVANCE)).toBeCloseTo(
+        6 + FONT_HEIGHT * 0.75,
+      );
     });
 
-    it("should leave width unchanged when the value is stable", () => {
-      const { component, source } = setup({ value: "12345" });
-      component.render({});
-      const before = component.state.width;
-      source.setValue("12345");
-      expect(component.state.width).toBe(before);
+    it("should sit a bottom-located value's baseline on the box bottom", () => {
+      const [first] = ink({ x: "left", y: "bottom" });
+      expect(first.y + canvasTest.ATLAS_BASELINE_OFFSET).toBeCloseTo(box.height(BOX));
     });
   });
 
@@ -459,18 +547,15 @@ describe("value/aether/Value", () => {
       expect(h).toBe(box.height(BOX));
     });
 
-    it("should size the background to the component width when useWidthForBackground is set", () => {
-      const { component, recorder } = setup({
+    it("should keep the background at the box width when the value gets longer", () => {
+      const { source, recorder } = setup({
         value: "1",
         background: color.construct("#00ff00"),
-        state: { useWidthForBackground: true },
       });
-      component.render({});
       recorder.clear();
-      component.render({});
+      source.setValue("1".repeat(60));
       const [, , w] = fillRectArgs(recorder);
-      expect(w).toBe(component.state.width);
-      expect(w).not.toBe(box.width(BOX));
+      expect(w).toBe(box.width(BOX));
     });
 
     it("should shift the background by valueBackgroundShift", () => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
+import { bounds, box, color, location, scale, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -34,10 +34,6 @@ const gaugeState = staleness.configZ.extend({
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   stalenessColor: color.colorZ.default(color.ZERO),
-  precision: z.number().default(2),
-  minWidth: z.number().default(60),
-  width: z.number().optional(),
-  notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
   units: z.string().default("RPM"),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),

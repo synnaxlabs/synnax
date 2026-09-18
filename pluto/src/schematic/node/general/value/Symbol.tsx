@@ -36,7 +36,6 @@ export const Symbol = ({
     telem: t,
     units,
     inlineSize = 70,
-    notation,
     stalenessColor,
     stalenessTimeout,
     redline,
@@ -61,7 +60,7 @@ export const Symbol = ({
       outlet: "gradient",
     });
   }, [t, redline]);
-  const { width: oWidth } = BaseValue.use({
+  BaseValue.use({
     aetherKey: nodeKey,
     color: textColor,
     level,
@@ -71,11 +70,8 @@ export const Symbol = ({
     }),
     telem: t,
     backgroundTelem,
-    minWidth: inlineSize,
     stalenessColor,
     stalenessTimeout,
-    notation,
-    useWidthForBackground: true,
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
@@ -85,7 +81,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
-        dimensions={{ height: valueBoxHeight, width: oWidth }}
+        height={valueBoxHeight}
         inlineSize={inlineSize}
         units={units}
         unitsLevel={text.downLevel(level)}

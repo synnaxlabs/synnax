@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { border, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
+import {
+  border,
+  box,
+  color,
+  type dimensions,
+  location,
+  scale,
+  text,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -15,7 +24,10 @@ import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
-import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import {
+  type FillTextOptions,
+  type SugaredOffscreenCanvasRenderingContext2D,
+} from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -25,19 +37,20 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 // swapped for a legible gray. Rough guard, tune later.
 const MIN_LEGIBLE_CONTRAST = 1.1;
 
+// How far left of the first digit the negative sign sits, as a multiple of the font
+// height. The draw and the clamp that keeps the sign in the box must use the same one.
+const SIGN_OFFSET = 0.6;
+
+const ELLIPSIS = "\u2026";
+
 const valueState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
-  precision: z.number().default(2),
   stalenessColor: color.colorZ.default(color.ZERO),
-  minWidth: z.number().default(60),
-  width: z.number().optional(),
-  notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
-  useWidthForBackground: z.boolean().default(false),
   valueBackgroundShift: xy.xyZ.default(xy.ZERO),
   valueBackgroundOverScan: xy.xyZ.default(xy.ZERO),
   // clip restricts canvas drawing to the configured box. Use when the
@@ -63,7 +76,6 @@ interface InternalState {
   backgroundTelem: telem.ColorSource;
   stopListeningBackground?: () => void;
   requestRender: render.Requestor | null;
-  textColor: color.Color;
   fontString: string;
   staleness: staleness.Registration;
   // Staleness stays on the worker here, which draws the value itself.
@@ -135,17 +147,27 @@ export class Value
     return theme.typography[this.state.level].size * theme.sizes.base;
   }
 
-  private maybeUpdateWidth(width: number) {
-    const { theme } = this.internal;
-    const requiredWidth = width + theme.sizes.base + this.fontHeight;
-    if (
-      this.state.width == null ||
-      this.state.width + this.fontHeight * 0.5 < requiredWidth ||
-      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
-    )
-      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
-    else if (this.state.width - this.fontHeight > requiredWidth)
-      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+  // Longest head of the value that fits in available, with an ellipsis standing in for
+  // what was cut. Returns the value unchanged when it already fits. The value font is
+  // monospaced, so one advance estimates the fit and a single remeasure confirms it.
+  private ellipsize(
+    canvas: SugaredOffscreenCanvasRenderingContext2D,
+    value: string,
+    available: number,
+    dims: dimensions.Dimensions,
+  ): string {
+    if (dims.width <= available || value.length < 2) return value;
+    const advance = dims.width / value.length;
+    let head = Math.max(1, Math.floor(available / advance) - 1);
+    let fitted = `${value.slice(0, head)}${ELLIPSIS}`;
+    while (
+      head > 1 &&
+      canvas.textDimensions(fitted, FILL_TEXT_OPTIONS).width > available
+    ) {
+      head -= 1;
+      fitted = `${value.slice(0, head)}${ELLIPSIS}`;
+    }
+    return fitted;
   }
 
   private getTextColor(): color.Color {
@@ -181,17 +203,32 @@ export class Value
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);
 
-    const { theme } = this.internal;
-    const dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
-    const width = dims.width + theme.sizes.base;
-    const height = dims.height;
     if (requestRender == null) renderCtx.erase(box.construct(this.prevState.box));
 
-    this.maybeUpdateWidth(width);
+    // The leftmost the text may start: enough room for the sign, and the inset a
+    // left-located value already sits at.
+    const inset = 6 + fontHeight * 0.75;
+    const start =
+      location.x === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
+    let dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
+    if (this.state.clip) {
+      const fitted = this.ellipsize(canvas, value, bWidth - start, dims);
+      if (fitted !== value) {
+        value = fitted;
+        dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
+      }
+    }
+
     const labelOffset = { ...xy.ZERO };
-    if (location.x === "left") labelOffset.x = 6 + fontHeight * 0.75;
-    else if (location.x === "center") labelOffset.x = bWidth / 2 - width / 2;
-    if (location.y === "center") labelOffset.y = bHeight / 2 + height / 2;
+    if (location.x === "left") labelOffset.x = inset;
+    else if (location.x === "center") labelOffset.x = bWidth / 2 - dims.width / 2;
+    else labelOffset.x = bWidth - dims.width - inset;
+    if (location.y === "center") labelOffset.y = bHeight / 2 + dims.height / 2;
+    else if (location.y === "bottom") labelOffset.y = bHeight;
+    // Overflow must never eat the sign or the leading digits: both change what the
+    // value reads as, and neither loss is visible. Pinning the start keeps the cut at
+    // the right end, where the ellipsis shows it.
+    labelOffset.x = Math.max(labelOffset.x, start);
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
@@ -204,12 +241,9 @@ export class Value
         const isZero = color.isZero(colorValue);
         if (!isZero) {
           canvas.fillStyle = color.hex(colorValue);
-          const width = this.state.useWidthForBackground
-            ? (this.state.width ?? this.state.minWidth)
-            : box.width(b);
           canvas.fillRect(
             ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
-            width + this.state.valueBackgroundOverScan.x,
+            bWidth + this.state.valueBackgroundOverScan.x,
             bHeight + this.state.valueBackgroundOverScan.y,
           );
         }
@@ -218,14 +252,12 @@ export class Value
       const textColor = this.getTextColor();
       canvas.fillStyle = color.hex(textColor);
 
-      // If the value is negative, chop of the negative sign and draw it separately
-      // so that the first digit always stays in the same position, regardless of the sign.
+      // If the value is negative, chop of the negative sign and draw it separately so
+      // that the first digit always stays in the same position, regardless of the sign.
       if (isNegative)
         canvas.fillText(
           "-",
-          // 0.6 is a multiplier of the font height that seems to keep the sign in
-          // the right place.
-          ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
+          ...xy.couple(xy.translateX(labelPosition, -fontHeight * SIGN_OFFSET)),
           undefined,
           FILL_TEXT_OPTIONS,
         );

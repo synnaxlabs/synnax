@@ -155,10 +155,9 @@ export const Value = ({
     borderRadius,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
-  // Use the column-driven box width, not BaseValue's natural text width: when
-  // row indicators are hidden, the first data row determines column widths via
-  // table-layout: fixed, so the cell must be locked to the stored column size
-  // or canvas/DOM alignment drifts.
+  // When row indicators are hidden, the first data row determines column widths via
+  // table-layout: fixed, so the cell must be locked to the stored column size or
+  // canvas/DOM alignment drifts.
   const cellStyle = useMemo(() => ({ width: box.width(b) }), [b]);
 
   return (
