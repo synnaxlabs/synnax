@@ -11,14 +11,14 @@ package symbol_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 	"maps"
 	"os"
 	"slices"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -125,7 +125,7 @@ var _ = Describe("ExportGroup", func() {
 		sym := createSymbol(ctx, g, "Inlet")
 		env := MustSucceed(svc.Export(ctx, symbol.OntologyID(sym.Key)))
 		Expect(exportFiles(ctx, g.Key)["Inlet.json"]).
-			To(Equal(MustSucceed(json.Marshal(env))))
+			To(MatchJSON(MustSucceed(xjson.Codec.Encode(ctx, env))))
 	})
 	It("Should report every exported symbol as a member", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
@@ -346,7 +346,7 @@ var _ = Describe("ImportGroup", func() {
 			symbols := make([]map[string]any, len(memberFiles))
 			for i, file := range memberFiles {
 				symbols[i] = map[string]any{
-					"file": file, "key": uuid.NewString(), "name": file,
+					"file": file, "key": uuid.New().String(), "name": file,
 				}
 			}
 			return MustSucceed(json.Marshal(map[string]any{

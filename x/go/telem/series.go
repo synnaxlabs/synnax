@@ -10,7 +10,7 @@
 package telem
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 	"fmt"
 	"iter"
 	"slices"
@@ -113,7 +113,7 @@ func (s *Series) validateVariable() error {
 			)
 		}
 		sample := s.Data[offset : offset+length]
-		if s.DataType == JSONT && !json.Valid(sample) {
+		if s.DataType == JSONT && !jsontext.Value(sample).IsValid() {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"sample %q is not valid JSON",

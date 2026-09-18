@@ -84,7 +84,7 @@ Examples:
 			return nil
 		}
 		// Gate failures already rendered via check.Render; suppress the duplicate. Any
-		// other error (no schemas, repo not git, render failure) is unexpected and gets
+		// other error (no schemas, repo not Git, render failure) is unexpected and gets
 		// printed once here so the user sees what went wrong.
 		if _, ok := err.(*exitCodeError); !ok {
 			printError(err.Error())
@@ -113,7 +113,7 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		return errors.Wrap(err, "check must be run within a git repository")
+		return errors.Wrap(err, "check must be run within a Git repository")
 	}
 
 	if outputFormat == string(check.FormatText) {
@@ -186,9 +186,8 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// buildCheckers wires the canonical gate set. The order matters and is
-// part of the documented contract: format runs before analyze runs
-// before generated, etc.
+// buildCheckers wires the canonical gate set. The order matters and is part of the
+// documented contract: format runs before analyze runs before generated, etc.
 func buildCheckers(
 	formatters *format.Registry,
 	cache *format.Cache,
@@ -200,7 +199,7 @@ func buildCheckers(
 		check.NewGeneratedGate(formatters, runtime.GOMAXPROCS(0)),
 		check.NewCacheGate(cache),
 		check.NewPersistenceGate(warningsAsErrors),
-		check.VersionsGate{},
+		check.NewVersionsGate(),
 	}
 }
 

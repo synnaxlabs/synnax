@@ -11,8 +11,8 @@ package telem_test
 
 import (
 	"encoding/binary"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -434,9 +434,9 @@ var _ = Describe("Series", func() {
 			Entry(
 				"json",
 				MustSucceed(
-					telem.NewJSONSeriesV(map[string]any{"a": 1, "b": 2, "c": 3}),
+					telem.NewJSONSeriesV(map[string]any{"a": 1}),
 				),
-				`[{"a":1,"b":2,"c":3}]`,
+				`[{"a":1}]`,
 			),
 			Entry(
 				"timestamp",

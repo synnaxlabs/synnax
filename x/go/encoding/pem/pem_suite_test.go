@@ -7,12 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package version
+package pem_test
 
-type Version = uint8
+import (
+	"testing"
 
-const (
-	Version1       Version = 1
-	Version2       Version = 2
-	VersionCurrent         = Version2
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func TestPEM(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Encoding PEM Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
