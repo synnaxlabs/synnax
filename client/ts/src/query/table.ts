@@ -507,6 +507,7 @@ export class Table<
           if (value == null) return;
           this.tombstones.delete(k);
           this.applySet(k, value);
+          this.stampWrite(k);
           this.notify({ variant: "set", key: k, value });
         }),
       );

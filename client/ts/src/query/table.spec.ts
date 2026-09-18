@@ -1503,6 +1503,19 @@ describe("Table", () => {
       expect(table.get("a")).toEqual(item("a", "recreated"));
     });
 
+    it("should keep a write restored by a rolled back delete", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "renamed")]);
+      table.delete("a")();
+      release([item("a", "old")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+    });
+
     it("should skip ingesting entries written after the given stamp", () => {
       const table = fetchTable(async () => []);
       const since = table.stamp();
