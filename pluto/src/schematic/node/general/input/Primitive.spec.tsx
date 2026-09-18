@@ -52,4 +52,16 @@ describe("input symbol", () => {
       expect(onSend).toHaveBeenCalledWith("hi");
     });
   });
+
+  describe("keyboard activation", () => {
+    it.each([" ", "Enter"])(
+      "should prevent the default keydown and keyup for %j",
+      (key) => {
+        const { getByText } = render(<Input initialValue="hi" />);
+        const target = getByText("Send");
+        expect(fireEvent.keyDown(target, { key })).toBe(false);
+        expect(fireEvent.keyUp(target, { key })).toBe(false);
+      },
+    );
+  });
 });
