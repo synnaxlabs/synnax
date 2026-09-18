@@ -109,17 +109,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-type wireShapes struct {
-	NilSlice   []int          `json:"nil_slice"`
-	NilMap     map[string]int `json:"nil_map"`
-	NilBytes   []byte         `json:"nil_bytes"`
-	EmptySlice []int          `json:"empty_slice"`
-	Bytes      []byte         `json:"bytes"`
-	ZeroInt    int            `json:"zero_int,omitempty"`
-	ZeroBool   bool           `json:"zero_bool,omitempty"`
-	EmptyPtr   *toEncode      `json:"empty_ptr,omitempty"`
-}
-
 var _ = Describe("Wire format", func() {
 	It("Should encode a nil slice and a nil map as empty, not null", func(
 		ctx SpecContext,
@@ -269,13 +258,6 @@ var _ = Describe("NewCodec", func() {
 			),
 			)
 		})
-	})
-})
-
-var _ = Describe("Marshal", func() {
-	It("Should match what Codec encodes", func(ctx SpecContext) {
-		v := wireShapes{Bytes: []byte("ab"), EmptySlice: []int{}}
-		Expect(json.Marshal(v)).To(Equal(MustSucceed(json.Codec.Encode(ctx, v))))
 	})
 })
 

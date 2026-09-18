@@ -24,13 +24,6 @@ import (
 // Codec is a JSON implementation of http.FileCodec with compact encoding.
 var Codec = NewCodec()
 
-// codecOptions is the option set Codec was built with.
-var codecOptions = Codec.(*codec).opts
-
-// Marshal encodes value with the options Codec uses, for a caller holding no Codec and
-// no context. Output matches what Codec writes for the same value.
-func Marshal(value any) ([]byte, error) { return json.Marshal(value, codecOptions) }
-
 type codec struct {
 	// trailingNewline is whether an encode ends with a newline, set for indented output
 	// so a file a person reads ends in one.
