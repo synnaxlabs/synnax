@@ -15,11 +15,12 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitiv
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 
-const Preview = ({ color }: schematic.StateIndicatorNodeConfig): ReactElement => (
+const Preview = ({ color, size }: schematic.StateIndicatorNodeConfig): ReactElement => (
   <StateIndicator
     matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
     color={color}
+    size={size}
   />
 );
 

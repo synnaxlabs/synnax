@@ -602,6 +602,7 @@ var _ = Describe("Codec", func() {
 						}),
 					},
 				},
+				Size: v9.ComponentSize("tiny"),
 			}}),
 			Entry("string_display variant", v9.ElementConfig{Variant: v9.StringDisplayElementConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -1372,6 +1373,7 @@ var _ = Describe("Codec", func() {
 						}),
 					},
 				},
+				Size: v9.ComponentSize("tiny"),
 			}}),
 			Entry("string_display variant", v9.NodeConfig{Variant: v9.StringDisplayNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -3273,6 +3275,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 					}),
 				},
 			},
+			Size: v9.ComponentSize("tiny"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4878,6 +4881,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					}),
 				},
 			},
+			Size: v9.ComponentSize("tiny"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

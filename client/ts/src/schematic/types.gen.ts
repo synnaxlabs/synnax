@@ -730,6 +730,8 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
     inlineSize: z.number().default(100),
     /** options is the set of displayable states. */
     options: stateMappingZ.array().default(() => []),
+    /** size is the rendered size preset of the indicator. */
+    size: componentSizeZ.default("medium"),
   });
 export interface StateIndicatorNodeConfig extends z.infer<
   typeof stateIndicatorNodeConfigZ
@@ -2103,6 +2105,8 @@ export const stateIndicatorElementConfigZ = labeledConfigZ
     inlineSize: z.number().default(100),
     /** options is the set of displayable states. */
     options: stateMappingZ.array().default(() => []),
+    /** size is the rendered size preset of the indicator. */
+    size: componentSizeZ.default("medium"),
   });
 export interface StateIndicatorElementConfig extends z.infer<
   typeof stateIndicatorElementConfigZ

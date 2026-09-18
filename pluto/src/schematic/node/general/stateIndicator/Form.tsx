@@ -52,6 +52,7 @@ export const StateIndicatorForm = (): ReactElement => (
           <Label.Form path="label" />
           <Flex.Box x>
             <Form.ColorField path="color" />
+            <Form.SizeField />
             <Base.NumericField
               path="inlineSize"
               label="Width"

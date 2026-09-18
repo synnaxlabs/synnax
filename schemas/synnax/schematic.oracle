@@ -595,6 +595,9 @@ NodeConfig union on variant {
         options     StateMapping[] = [] {
             @doc value "is the set of displayable states."
         }
+        size        ComponentSize = ComponentSizeMedium {
+            @doc value "is the rendered size preset of the indicator."
+        }
 
         @doc value "is the configuration for multi-state indicator symbols."
     }
@@ -1140,6 +1143,9 @@ ElementConfig union on variant {
         }
         options     StateMapping[] = [] {
             @doc value "is the set of displayable states."
+        }
+        size        ComponentSize = ComponentSizeMedium {
+            @doc value "is the rendered size preset of the indicator."
         }
 
         @doc value "is the configuration for multi-state indicator symbols."

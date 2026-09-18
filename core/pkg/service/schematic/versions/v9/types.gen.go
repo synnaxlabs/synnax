@@ -1701,6 +1701,8 @@ type StateIndicatorNodeConfig struct {
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
+	// Size is the rendered size preset of the indicator.
+	Size ComponentSize `json:"size" msgpack:"size"`
 }
 
 func (StateIndicatorNodeConfig) isNodeConfigVariant() {}
@@ -1710,6 +1712,9 @@ func (s *StateIndicatorNodeConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
 	}
+	if s.Size == "" {
+		s.Size = ComponentSizeMedium
+	}
 	s.LabeledConfig.ApplyDefaults()
 	s.StalenessConfig.ApplyDefaults()
 }
@@ -1718,6 +1723,7 @@ func (s *StateIndicatorNodeConfig) ApplyDefaults() {
 // schema constraints.
 func (s StateIndicatorNodeConfig) Validate() error {
 	v := validate.New("StateIndicatorNodeConfig")
+	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Exec(s.LabeledConfig.Validate)
 	return v.Error()
 }
@@ -5654,6 +5660,8 @@ type StateIndicatorElementConfig struct {
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
 	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
+	// Size is the rendered size preset of the indicator.
+	Size ComponentSize `json:"size" msgpack:"size"`
 }
 
 func (StateIndicatorElementConfig) isElementConfigVariant() {}
@@ -5663,6 +5671,9 @@ func (s *StateIndicatorElementConfig) ApplyDefaults() {
 	if s.InlineSize == 0 {
 		s.InlineSize = 100
 	}
+	if s.Size == "" {
+		s.Size = ComponentSizeMedium
+	}
 	s.LabeledConfig.ApplyDefaults()
 	s.StalenessConfig.ApplyDefaults()
 }
@@ -5671,6 +5682,7 @@ func (s *StateIndicatorElementConfig) ApplyDefaults() {
 // schema constraints.
 func (s StateIndicatorElementConfig) Validate() error {
 	v := validate.New("StateIndicatorElementConfig")
+	v.Ternaryf("size", !s.Size.IsValid(), "invalid size: %v", s.Size)
 	v.Exec(s.LabeledConfig.Validate)
 	return v.Error()
 }

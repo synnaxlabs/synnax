@@ -42,6 +42,7 @@ export default defineConfig({
     "/reference/console/clusters": "/reference/console/get-started",
     "/reference/console/cores": "/reference/console/get-started",
     "/reference/console/requirements": "/reference/console/get-started",
+    "/reference/console/ranges": "/reference/client/ranges",
     "/reference/console/workspaces": "/reference/console/projects",
     "/reference/control/arc/concepts":
       "/reference/control/arc/concepts/control-authority",

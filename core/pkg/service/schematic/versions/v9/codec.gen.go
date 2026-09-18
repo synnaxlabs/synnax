@@ -746,6 +746,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 				}
 			}
 		}
+		w.String(string(v.Size))
 	case StringDisplayElementConfig:
 		w.String("string_display")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -2184,6 +2185,13 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Size = ComponentSize(rawV)
+		}
 		ec.Variant = v
 	case "string_display":
 		var v StringDisplayElementConfig
@@ -3596,6 +3604,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 				}
 			}
 		}
+		w.String(string(v.Size))
 	case StringDisplayNodeConfig:
 		w.String("string_display")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -4998,6 +5007,13 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 					}
 				}
 			}
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.Size = ComponentSize(rawV)
 		}
 		nc.Variant = v
 	case "string_display":
