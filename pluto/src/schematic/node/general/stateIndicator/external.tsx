@@ -26,6 +26,7 @@ export const defaultConfig = (): Config => ({
   orientation: "left",
   color: color.ZERO,
   inlineSize: 100,
+  size: "medium",
   options: [],
   label: Label.defaultConfig("State indicator"),
   ...Staleness.ZERO_CONFIG,
@@ -36,11 +37,12 @@ export const defaultConfig = (): Config => ({
   }),
 });
 
-const Preview = ({ color }: Config): ReactElement => (
+const Preview = ({ color, size }: Config): ReactElement => (
   <StateIndicator
     matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
     color={color}
+    size={size}
   />
 );
 
