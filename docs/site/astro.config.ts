@@ -43,6 +43,7 @@ export default defineConfig({
     "/reference/console/cores": "/reference/console/get-started",
     "/reference/console/requirements": "/reference/console/get-started",
     "/reference/console/channels": "/reference/client/channels",
+    "/reference/console/calculated-channels": "/reference/client/calculated-channels",
     "/reference/console/ranges": "/reference/client/ranges",
     "/reference/console/workspaces": "/reference/console/projects",
     "/reference/control/arc/concepts":
