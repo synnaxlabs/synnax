@@ -15,7 +15,6 @@ import (
 	"encoding/json/v2"
 	"io"
 	"strconv"
-	"time"
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
@@ -45,8 +44,6 @@ type codec struct {
 // Indented output also ends in a newline.
 func NewCodec(opts ...json.Options) http.FileCodec {
 	all := append([]json.Options{
-		json.WithMarshalers(durationMarshaler),
-		json.WithUnmarshalers(durationUnmarshaler),
 		// U+2028 and U+2029 stay escaped whatever EscapeForHTML says, so encoded output
 		// is always safe to embed in a script.
 		jsontext.EscapeForJS(true),
@@ -56,28 +53,6 @@ func NewCodec(opts ...json.Options) http.FileCodec {
 	indent, _ := json.GetOption(joined, jsontext.WithIndent)
 	return &codec{opts: joined, trailingNewline: indent != ""}
 }
-
-// v2 has no default representation for time.Duration and rejects the `format` tag on
-// it, so the codec supplies one. Nanoseconds keep durations a plain JSON number, which
-// every client already reads. See go.dev/issue/71631.
-var (
-	durationMarshaler = json.MarshalToFunc(
-		func(enc *jsontext.Encoder, d time.Duration) error {
-			return enc.WriteToken(jsontext.Int(int64(d)))
-		},
-	)
-	durationUnmarshaler = json.UnmarshalFromFunc(
-		func(dec *jsontext.Decoder, d *time.Duration) error {
-			digits, err := readDigits(dec)
-			if err != nil {
-				return err
-			}
-			n, err := strconv.ParseInt(digits, 10, 64)
-			*d = time.Duration(n)
-			return err
-		},
-	)
-)
 
 func (*codec) ContentType() string { return "application/json" }
 

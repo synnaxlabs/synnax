@@ -14,7 +14,6 @@ import (
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -119,7 +118,6 @@ type wireShapes struct {
 	ZeroInt    int            `json:"zero_int,omitempty"`
 	ZeroBool   bool           `json:"zero_bool,omitempty"`
 	EmptyPtr   *toEncode      `json:"empty_ptr,omitempty"`
-	Duration   time.Duration  `json:"duration"`
 }
 
 var _ = Describe("Wire format", func() {
@@ -163,16 +161,6 @@ var _ = Describe("Wire format", func() {
 		var d toEncode
 		Expect(json.Codec.Decode(ctx, []byte(`{"Value":1,"Value":2}`), &d)).
 			To(MatchError(ContainSubstring("failed to decode")))
-	})
-	It("Should encode a duration as nanoseconds", func(ctx SpecContext) {
-		Expect(MustSucceed(json.Codec.Encode(ctx, wireShapes{Duration: time.Second}))).
-			To(ContainSubstring(`"duration":1000000000`))
-	})
-	It("Should decode a duration from nanoseconds", func(ctx SpecContext) {
-		var v wireShapes
-		Expect(json.Codec.Decode(ctx, []byte(`{"duration":1500000000}`), &v)).
-			To(Succeed())
-		Expect(v.Duration).To(Equal(1500 * time.Millisecond))
 	})
 })
 
@@ -304,12 +292,8 @@ var _ = Describe("NewCodec", func() {
 
 var _ = Describe("Marshal", func() {
 	It("Should match what Codec encodes", func(ctx SpecContext) {
-		v := wireShapes{Duration: time.Second}
+		v := wireShapes{Bytes: []byte("ab"), EmptySlice: []int{}}
 		Expect(json.Marshal(v)).To(Equal(MustSucceed(json.Codec.Encode(ctx, v))))
-	})
-	It("Should encode a duration as nanoseconds", func() {
-		Expect(MustSucceed(json.Marshal(wireShapes{Duration: time.Second}))).
-			To(ContainSubstring(`"duration":1000000000`))
 	})
 })
 
