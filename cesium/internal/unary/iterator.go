@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"bufio"
 	"context"
 	"io"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 type IteratorConfig struct {
@@ -29,6 +31,10 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
 	// iterator when using AutoSpan in calls ot Next or Prev.
 	AutoChunkSize int64
+	// DownsampleFactor keeps every n-th sample of each series the iterator reads,
+	// striding the read so the discarded samples are never materialized. Values below
+	// 2 keep every sample.
+	DownsampleFactor uint32
 }
 
 func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
@@ -39,6 +45,7 @@ func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds = override.Zero(i.Bounds, other.Bounds)
 	i.AutoChunkSize = override.Numeric(i.AutoChunkSize, other.AutoChunkSize)
+	i.DownsampleFactor = override.Numeric(i.DownsampleFactor, other.DownsampleFactor)
 	return i
 }
 
@@ -83,11 +90,12 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	}
 	iter := db.domain.OpenIterator(cfg.domainIteratorConfig())
 	i := &Iterator{
-		idx:            db.index(),
-		Channel:        db.cfg.Channel,
-		resolver:       db.resolver,
-		internal:       iter,
-		IteratorConfig: cfg,
+		Instrumentation: db.cfg.Instrumentation,
+		idx:             db.index(),
+		Channel:         db.cfg.Channel,
+		resolver:        db.resolver,
+		internal:        iter,
+		IteratorConfig:  cfg,
 	}
 	i.SetBounds(cfg.Bounds)
 	return i, nil
@@ -263,12 +271,12 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, dmn, startOffset, endOffset-startOffset)
+		series, srcLen, err := i.read(ctx, dmn, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= series.Len()
+		nRemaining -= srcLen
 		i.insert(series)
 		if nRemaining <= 0 || !i.internal.Next() {
 			break
@@ -334,12 +342,17 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
+		series, srcLen, err := i.read(
+			ctx,
+			alignment,
+			startOffset,
+			endOffset-startOffset,
+		)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-		nRemaining -= series.Len()
+		nRemaining -= srcLen
 		i.insert(series)
 		if nRemaining <= 0 || !i.internal.Prev() {
 			break
@@ -358,10 +371,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return false
 	}
 	ctx, spn := i.T.Bench(ctx, "Prev")
-	defer func() {
-		ok = i.Valid()
-		spn.End()
-	}()
+	defer func() { ok = i.Valid(); spn.End() }()
 
 	if i.atStart() {
 		i.reset(i.bounds.Start.SpanRange(0))
@@ -429,7 +439,7 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	series, err := i.read(ctx, alignment, offset, size)
+	series, _, err := i.read(ctx, alignment, offset, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
@@ -450,30 +460,171 @@ func (i *Iterator) insert(series telem.Series) {
 	}
 }
 
+// read reads the slice [offset, offset+size) of the current domain into a series,
+// keeping every DownsampleFactor-th sample. It returns the series and the number of
+// source samples the slice held, which exceeds the series length when the read is
+// downsampled.
 func (i *Iterator) read(
 	ctx context.Context,
 	alignment telem.Alignment,
 	offset telem.Size,
 	size telem.Size,
-) (series telem.Series, err error) {
+) (series telem.Series, srcLen int64, err error) {
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
-	series.Data = make([]byte, size)
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
 	series.Alignment = alignment
 	r, err := i.internal.OpenReader(ctx)
 	if err != nil {
-		return series, err
+		return telem.Series{}, 0, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
+	if i.DownsampleFactor > 1 {
+		series.Data, srcLen, err = i.readStrided(r, offset, size)
+		if err != nil {
+			return telem.Series{}, 0, err
+		}
+		return series, srcLen, nil
+	}
+	series.Data = make([]byte, size)
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return series, err
+		return telem.Series{}, 0, err
 	}
 	if n < len(series.Data) {
 		series.Data = series.Data[:n]
 	}
-	return series, err
+	return series, series.Len(), nil
+}
+
+// strideBufferSize bounds the scratch buffer a strided read holds, so the buffer
+// never scales with the size of the slice being read.
+const strideBufferSize = 64 * telem.Kilobyte
+
+// errPrefixOverrunsSlice reports a variable-length prefix claiming more bytes than the
+// domain slice holds. Log-only: no caller branches on it.
+var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
+
+// readStrided reads every DownsampleFactor-th sample of the slice [offset, offset+size)
+// in r, packing the kept samples into a buffer sized to them alone. It returns the
+// packed data and the number of source samples the slice held. A slice shorter than
+// size yields the samples that were available.
+func (i *Iterator) readStrided(
+	r io.ReaderAt,
+	offset telem.Size,
+	size telem.Size,
+) ([]byte, int64, error) {
+	if i.Channel.DataType.IsVariable() {
+		return i.readStridedVariable(r, offset, size)
+	}
+	return i.readStridedFixed(r, offset, size)
+}
+
+func (i *Iterator) readStridedFixed(
+	r io.ReaderAt,
+	offset telem.Size,
+	size telem.Size,
+) ([]byte, int64, error) {
+	var (
+		density    = i.Channel.DataType.Density()
+		factor     = int64(i.DownsampleFactor)
+		srcSamples = density.SampleCount(size)
+		kept       = srcSamples/factor + min(srcSamples%factor, 1)
+		stride     = int64(density.Size(factor))
+		// batch is how many kept samples a single ReadAt covers. A stride wider than
+		// the buffer drops it to one, so the read skips the discarded samples instead
+		// of pulling them through the buffer.
+		batch = max(int64(strideBufferSize)/stride, 1)
+		buf   = make([]byte, stride*(batch-1)+int64(density))
+		out   = make([]byte, 0, density.Size(kept))
+	)
+	for read := int64(0); read < kept; {
+		n := min(batch, kept-read)
+		b := buf[:stride*(n-1)+int64(density)]
+		count, err := r.ReadAt(b, int64(offset+density.Size(read*factor)))
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, 0, err
+		}
+		avail := density.SampleCount(telem.Size(count))
+		for j := int64(0); j < n && j*factor < avail; j++ {
+			out = append(out, b[j*stride:j*stride+int64(density)]...)
+		}
+		if count < len(b) {
+			return out, read*factor + avail, nil
+		}
+		read += n
+	}
+	return out, srcSamples, nil
+}
+
+func (i *Iterator) readStridedVariable(
+	r io.ReaderAt,
+	offset telem.Size,
+	size telem.Size,
+) ([]byte, int64, error) {
+	var (
+		factor = int64(i.DownsampleFactor)
+		br     = bufio.NewReaderSize(
+			io.NewSectionReader(r, int64(offset), int64(size)),
+			int(min(strideBufferSize, size)),
+		)
+		lenBuf = make([]byte, 4)
+		out    []byte
+		src    int64
+	)
+	for pos := int64(0); pos+4 <= int64(size); src++ {
+		start := pos
+		if _, err := io.ReadFull(br, lenBuf); err != nil {
+			if errors.IsAny(err, io.EOF, io.ErrUnexpectedEOF) {
+				i.logShortStride(offset, start, err)
+				return out, src, nil
+			}
+			return nil, 0, err
+		}
+		length := int64(telem.ByteOrder.Uint32(lenBuf))
+		// A length prefix is stored data. Without this bound a corrupt one would
+		// drive an allocation of up to 4GiB before the short read caught it.
+		if pos+4+length > int64(size) {
+			i.logShortStride(offset, start, errPrefixOverrunsSlice)
+			return out, src, nil
+		}
+		pos += 4 + length
+		if src%factor != 0 {
+			if _, err := br.Discard(int(length)); err != nil {
+				if errors.Is(err, io.EOF) {
+					i.logShortStride(offset, start, err)
+					return out, src, nil
+				}
+				return nil, 0, err
+			}
+			continue
+		}
+		out = append(out, lenBuf...)
+		payload := len(out)
+		out = append(out, make([]byte, length)...)
+		if _, err := io.ReadFull(br, out[payload:]); err != nil {
+			if errors.IsAny(err, io.EOF, io.ErrUnexpectedEOF) {
+				i.logShortStride(offset, start, err)
+				return out[:payload-4], src, nil
+			}
+			return nil, 0, err
+		}
+	}
+	return out, src, nil
+}
+
+// logShortStride reports a strided read that stopped before the end of its slice,
+// because the domain file ended early or because a length prefix claimed more bytes
+// than the slice holds. The offset cache scans the same prefixes and usually reports
+// the domain first, but its table survives a truncation that leaves End untouched.
+func (i *Iterator) logShortStride(offset telem.Size, pos int64, cause error) {
+	i.L.Error(
+		"strided read stopped short of the domain slice",
+		zap.Stringer("range", i.internal.TimeRange()),
+		zap.Int64("domain_size", int64(i.internal.Size())),
+		zap.Int64("stopped_at", int64(offset)+pos),
+		zap.Error(cause),
+	)
 }
 
 func (i *Iterator) sliceDomain(ctx context.Context) (

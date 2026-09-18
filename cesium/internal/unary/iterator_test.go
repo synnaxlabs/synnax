@@ -10,8 +10,12 @@
 package unary_test
 
 import (
+	"math"
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -23,6 +27,8 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Iterator Behavior", Ordered, func() {
@@ -2497,4 +2503,243 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			)
 		})
 	})
+})
+
+// corruptPrefixLength is the payload size the forged prefix claims. Large enough that
+// an unbounded read allocating it is unmistakable against a spec's normal footprint.
+const corruptPrefixLength = 1 << 30
+
+var _ = Describe("Downsampled Iteration", func() {
+	for fsName, openFS := range FileSystems {
+		Context("FS: "+fsName, func() {
+			var (
+				fs         fs.FS
+				indexDB    *unary.DB
+				dataDB     *unary.DB
+				stringDB   *unary.DB
+				stringLogs *observer.ObservedLogs
+			)
+			BeforeEach(func(ctx SpecContext) {
+				fs = openFS()
+				indexKey := GenerateChannelKey()
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
+					FS:        MustSucceed(fs.Sub("index")),
+					MetaCodec: json.Codec,
+					Channel: channel.Channel{
+						Key:      indexKey,
+						Name:     "index",
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+						Index:    indexKey,
+					},
+				}))
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
+					FS:        MustSucceed(fs.Sub("data")),
+					MetaCodec: json.Codec,
+					Channel: channel.Channel{
+						Key:      GenerateChannelKey(),
+						Name:     "data",
+						DataType: telem.Int64T,
+						Index:    indexKey,
+					},
+				}))
+				dataDB.SetIndex(indexDB.Index())
+				var stringIns alamos.Instrumentation
+				stringIns, stringLogs = ObservedInstrumentation(zapcore.ErrorLevel)
+				stringDB = MustOpen(unary.Open(ctx, unary.Config{
+					FS:              MustSucceed(fs.Sub("strings")),
+					MetaCodec:       json.Codec,
+					Instrumentation: stringIns,
+					Channel: channel.Channel{
+						Key:      GenerateChannelKey(),
+						Name:     "strings",
+						DataType: telem.StringT,
+						Index:    indexKey,
+					},
+				}))
+				stringDB.SetIndex(indexDB.Index())
+			})
+			// writeInt64 writes count samples starting at start seconds, one sample per
+			// second, where the value of each sample is its one-based index.
+			writeInt64 := func(ctx SpecContext, start telem.TimeStamp, count int) {
+				GinkgoHelper()
+				stamps := make([]telem.TimeStamp, count)
+				values := make([]int64, count)
+				for i := range count {
+					stamps[i] = start + telem.TimeStamp(i)*telem.SecondTS
+					values[i] = int64(i) + 1
+				}
+				Expect(
+					unary.Write(ctx, indexDB, stamps[0], telem.NewSeries(stamps)),
+				).To(Succeed())
+				Expect(
+					unary.Write(ctx, dataDB, stamps[0], telem.NewSeries(values)),
+				).To(Succeed())
+			}
+
+			readAll := func(
+				ctx SpecContext,
+				db *unary.DB,
+				factor uint32,
+			) []telem.Series {
+				GinkgoHelper()
+				cfg := unary.IterRange(telem.TimeRangeMax)
+				cfg.DownsampleFactor = factor
+				iter := MustOpen(db.OpenIterator(cfg))
+				Expect(iter.SeekFirst(ctx)).To(BeTrue())
+				Expect(iter.Next(ctx, telem.TimeSpan(1e6)*telem.Second)).To(BeTrue())
+				frame := iter.Value()
+				series := make([]telem.Series, frame.Count())
+				for i := range series {
+					series[i] = frame.SeriesAt(i)
+				}
+				return series
+			}
+
+			DescribeTable("Fixed-density channels",
+				func(ctx SpecContext, count int, factor uint32, expected []int64) {
+					writeInt64(ctx, telem.SecondTS, count)
+					series := readAll(ctx, dataDB, factor)
+					Expect(series).To(HaveLen(1))
+					Expect(series[0].Unmarshal[int64]()).To(Equal(expected))
+				},
+				Entry(
+					"Should keep every other sample",
+					8,
+					uint32(2),
+					[]int64{1, 3, 5, 7},
+				),
+				Entry(
+					"Should keep every third sample",
+					9,
+					uint32(3),
+					[]int64{1, 4, 7},
+				),
+				Entry(
+					"Should keep every sample when the factor is one",
+					4,
+					uint32(1),
+					[]int64{1, 2, 3, 4},
+				),
+				Entry(
+					"Should keep every sample when the factor is unset",
+					4,
+					uint32(0),
+					[]int64{1, 2, 3, 4},
+				),
+				Entry(
+					"Should keep the first sample when the factor exceeds the count",
+					4,
+					uint32(10),
+					[]int64{1},
+				),
+				Entry(
+					"Should keep the first sample when the factor is unbounded",
+					4,
+					uint32(math.MaxUint32),
+					[]int64{1},
+				),
+			)
+
+			It("Should skip ahead when the stride exceeds the read buffer", func(
+				ctx SpecContext,
+			) {
+				writeInt64(ctx, telem.SecondTS, 20000)
+				series := readAll(ctx, dataDB, 9000)
+				Expect(series).To(HaveLen(1))
+				Expect(
+					series[0].Unmarshal[int64](),
+				).To(Equal([]int64{1, 9001, 18001}))
+			})
+
+			It("Should restart the stride at each domain", func(ctx SpecContext) {
+				writeInt64(ctx, telem.SecondTS, 4)
+				writeInt64(ctx, 100*telem.SecondTS, 4)
+				series := readAll(ctx, dataDB, 3)
+				Expect(series).To(HaveLen(2))
+				Expect(series[0].Unmarshal[int64]()).To(Equal([]int64{1, 4}))
+				Expect(series[1].Unmarshal[int64]()).To(Equal([]int64{1, 4}))
+			})
+
+			It("Should stop at a corrupt variable-length prefix", func(
+				ctx SpecContext,
+			) {
+				// The write path persists a series' bytes verbatim, so a prefix can
+				// claim more payload than the domain holds.
+				data := make([]byte, 0, 16)
+				for _, v := range []string{"ab", "cd"} {
+					data = telem.ByteOrder.AppendUint32(data, uint32(len(v)))
+					data = append(data, v...)
+				}
+				data = telem.ByteOrder.AppendUint32(data, corruptPrefixLength)
+				corrupt := telem.Series{DataType: telem.StringT, Data: data}
+				Expect(corrupt.Len()).To(Equal(int64(2)))
+
+				Expect(unary.Write(
+					ctx,
+					indexDB,
+					telem.SecondTS,
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+				)).To(Succeed())
+				Expect(
+					unary.Write(ctx, stringDB, telem.SecondTS, corrupt),
+				).To(Succeed())
+
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				series := readAll(ctx, stringDB, 2)
+				runtime.ReadMemStats(&after)
+
+				Expect(series).To(HaveLen(1))
+				Expect(series[0].Unmarshal[string]()).To(Equal([]string{"ab"}))
+				// TotalAlloc is cumulative, so this is the read's own allocation. An
+				// unbounded read would take the prefix at its word and claim 1GiB.
+				Expect(after.TotalAlloc - before.TotalAlloc).
+					To(BeNumerically("<", uint64(corruptPrefixLength)))
+				Expect(
+					stringLogs.FilterMessageSnippet("stopped short").All(),
+				).ToNot(BeEmpty())
+			})
+
+			It("Should keep every other variable-length sample", func(
+				ctx SpecContext,
+			) {
+				Expect(unary.Write(
+					ctx,
+					indexDB,
+					telem.SecondTS,
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
+				)).To(Succeed())
+				Expect(unary.Write(
+					ctx,
+					stringDB,
+					telem.SecondTS,
+					telem.NewSeriesV("alpha", "be", "gamma", "d", "epsilon"),
+				)).To(Succeed())
+				series := readAll(ctx, stringDB, 2)
+				Expect(series).To(HaveLen(1))
+				Expect(
+					series[0].Unmarshal[string](),
+				).To(Equal([]string{"alpha", "gamma", "epsilon"}))
+			})
+
+			It("Should size auto spans by source samples", func(ctx SpecContext) {
+				writeInt64(ctx, telem.SecondTS, 4)
+				writeInt64(ctx, 100*telem.SecondTS, 4)
+				cfg := unary.IterRange(telem.TimeRangeMax)
+				cfg.DownsampleFactor = 2
+				cfg.AutoChunkSize = 6
+				iter := MustOpen(dataDB.OpenIterator(cfg))
+				Expect(iter.SeekFirst(ctx)).To(BeTrue())
+				Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+				Expect(iter.Value().Count()).To(Equal(2))
+				Expect(
+					iter.Value().SeriesAt(0).Unmarshal[int64](),
+				).To(Equal([]int64{1, 3}))
+				Expect(
+					iter.Value().SeriesAt(1).Unmarshal[int64](),
+				).To(Equal([]int64{1}))
+			})
+		})
+	}
 })
