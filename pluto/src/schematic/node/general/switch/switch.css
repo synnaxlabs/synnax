@@ -54,9 +54,9 @@
 }
 
 /*
- * The shared svg rotation in primitive.css cannot rotate this HTML symbol, and
- * rotating an HTML element leaves its layout box unrotated. So swap the box by hand
- * and rotate the flex-centered indicator inside it.
+ * The shared svg rotation in primitive.css cannot rotate this HTML symbol, and rotating
+ * an HTML element leaves its layout box unrotated. So swap the box by hand and rotate
+ * the flex-centered indicator inside it.
  */
 .pluto-symbol-primitive.pluto--direction-y > .pluto-input__switch {
     width: var(--pluto-switch-height);
@@ -68,8 +68,8 @@
 }
 
 /*
- * The hold fill sweeps the track. The knob is the track's ::before, so ::after is
- * free and the pill radius clips the sweep.
+ * The hold fill sweeps the track. The knob is the track's ::before, so ::after is free
+ * and the pill radius clips the sweep.
  */
 .pluto-switch-symbol--delayed {
     .pluto-input__switch-indicator::after {

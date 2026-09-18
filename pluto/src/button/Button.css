@@ -302,8 +302,8 @@
         color: var(--pluto-selected-color);
     }
 
-    /* Placed after the selected block so a preview strips the selected chassis
-       too: the value reads as plain text, never as a still-active control. */
+    /* Placed after the selected block so a preview strips the selected chassis too: the
+       value reads as plain text, never as a still-active control. */
     &.pluto-btn--preview {
         cursor: default;
         pointer-events: none;
@@ -355,9 +355,9 @@
         }
     }
 
-    /* Inline glyph action: a chassis-nested micro-button (tab close, tag close).
-       No fill feedback; the glyph alone carries hover and press. The bg re-point
-       shields it from the host chassis's inherited fill vars. */
+    /* Inline glyph action: a chassis-nested micro-button (tab close, tag close). No
+       fill feedback; the glyph alone carries hover and press. The bg re-point shields
+       it from the host chassis's inherited fill vars. */
     &.pluto-btn--glyph {
         --pluto-bg: transparent;
         --pluto-hover-bg: transparent;
@@ -405,11 +405,11 @@
         --pluto-border-color: var(--haul-border-color) !important;
     }
 
-    /* We use the flex selector that is always present in order to increase
-     specificity of the hover and active states. */
+    /* We use the flex selector that is always present in order to increase specificity
+     of the hover and active states. */
 
-    /* pluto--focus-frozen marks a control whose pointer states freeze while it
-       holds focus: hover and press swap nothing until it blurs. */
+    /* pluto--focus-frozen marks a control whose pointer states freeze while it holds
+       focus: hover and press swap nothing until it blurs. */
     &:not(.pluto-btn--prevent-click, .pluto--disabled) {
         &:is(:hover, .pluto--hovered, [data-context-menu-open]):not(
                 .pluto--focus-frozen:focus-within
