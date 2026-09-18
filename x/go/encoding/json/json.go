@@ -10,7 +10,6 @@
 package json
 
 import (
-	"bytes"
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
@@ -162,13 +161,6 @@ func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 }
 
 func (*codec) Extension() string { return ".json" }
-
-// Validate reports the first defect in data under strict JSON rules: malformed syntax,
-// a duplicate object name, or invalid UTF-8. The error names the offending location as
-// a JSON Pointer.
-func Validate(data []byte) error {
-	return jsontext.NewDecoder(bytes.NewReader(data)).SkipValue()
-}
 
 // MarshalStringInt64To writes the int64 to enc as a JSON string.
 func MarshalStringInt64To(enc *jsontext.Encoder, n int64) error {

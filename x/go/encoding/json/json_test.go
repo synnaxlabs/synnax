@@ -305,24 +305,6 @@ var _ = Describe("Marshal", func() {
 	})
 })
 
-var _ = Describe("Validate", func() {
-	It("Should accept a well-formed document", func() {
-		Expect(json.Validate([]byte(`{"a":[1,{"b":null}]}`))).To(Succeed())
-	})
-	It("Should reject a duplicate object name and name its location", func() {
-		Expect(json.Validate([]byte(`{"a":{"b":1,"b":2}}`))).To(MatchError(
-			SatisfyAll(ContainSubstring("duplicate"), ContainSubstring(`"/a"`)),
-		))
-	})
-	It("Should reject invalid UTF-8", func() {
-		Expect(json.Validate([]byte("{\"a\":\"\xff\"}"))).
-			To(MatchError(ContainSubstring("invalid UTF-8")))
-	})
-	It("Should reject malformed syntax", func() {
-		Expect(json.Validate([]byte(`{"a":1,}`))).To(HaveOccurred())
-	})
-})
-
 var _ = Describe("MarshalStringInt64To", func() {
 	It("Should encode an int64 value as a string", func() {
 		Expect(encodeWith(json.MarshalStringInt64To, int64(12))).To(Equal(`"12"`))
