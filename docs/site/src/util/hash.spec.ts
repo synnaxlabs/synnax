@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { startPinningHashTarget } from "@/util/hash";
 
@@ -33,7 +33,7 @@ const navigate = (navigationType: string): void => {
 };
 
 describe("startPinningHashTarget", () => {
-  let scrollIntoView: ReturnType<typeof vi.fn>;
+  let scrollIntoView: Mock<() => void>;
   let stop: () => void;
 
   beforeEach(() => {
@@ -42,7 +42,7 @@ describe("startPinningHashTarget", () => {
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
     const heading = document.createElement("h2");
     heading.id = "read-from-a-range";
-    scrollIntoView = vi.fn();
+    scrollIntoView = vi.fn<() => void>();
     heading.scrollIntoView = scrollIntoView;
     document.body.appendChild(heading);
     window.location.hash = "#read-from-a-range";
