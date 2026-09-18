@@ -19,8 +19,7 @@ export const components = mdxOverrides;
 
 ## Prerequisites
 
-Before creating any tasks, you'll need to have connected and configured a hardware
-device:
+Before creating a task, connect and configure a device:
 
 - [EtherCAT](/reference/driver/ethercat/configure-device)
 - [HTTP](/reference/driver/http/connect-server)
@@ -34,13 +33,11 @@ device:
 
 ## What Are Tasks?
 
-Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
-can be used for both control and data acquisition purposes. A task defines a background
-process that either reads data from or writes data to your hardware.
+A task is a background process on the Driver that reads data from or writes data to a
+device. Tasks are how Synnax acquires data from and controls hardware.
 
-Tasks can be started, stopped, and re-configured at any time. Synnax permanently stores
-the configuration of each task, so it's easy to set up multiple tasks for different
-purposes and switch between them as needed.
+Tasks can be started, stopped, and reconfigured at any time. Synnax stores every task's
+configuration, so you can keep several tasks and switch between them.
 
 <Divider.Divider x />
 
@@ -56,9 +53,8 @@ purposes and switch between them as needed.
 >
 <Fragment slot="tab1">
 
-Click on the device icon (<Icon.Device />) on the left-hand side of the screen. Find the
-device you'd like to create the task for, right-click on it, and select the appropriate
-task type.
+Click the device icon (<Icon.Device />) on the left-hand side of the screen. Right-click
+the device you want to create the task for and select the task type.
 
 <Video client:only="react" id="device-drivers/task/toolbar" />
 
@@ -73,7 +69,7 @@ and type `Create`. Select the task type you need to open the task configuration 
 </Fragment>
 <Fragment slot="tab3">
 
-Click on the add icon (<Icon.Add />) in the top-right corner of the central mosaic and
+Click the add icon (<Icon.Add />) in the top-right corner of the central mosaic and
 select the task type from the menu.
 
 <Video client:only="react" id="device-drivers/task/layout-selector" />
@@ -227,6 +223,7 @@ for task in all_tasks:
 analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 # Available task types:
+#   arc,
 #   ethercat_read, ethercat_write,
 #   ni_analog_read, ni_analog_write,
 #   ni_counter_read,
@@ -356,6 +353,7 @@ allTasks.forEach((task) => {
 const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 
 // Available task types:
+//   arc,
 //   ethercat_read, ethercat_write,
 //   ni_analog_read, ni_analog_write,
 //   ni_counter_read,

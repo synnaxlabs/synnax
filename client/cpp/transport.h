@@ -23,14 +23,7 @@
 
 namespace synnax::details {
 struct Transport {
-    Transport(
-        uint16_t port,
-        const std::string &ip,
-        const std::string &ca_cert_file,
-        const std::string &client_cert_file,
-        const std::string &client_key_file,
-        bool secure
-    );
+    Transport(uint16_t port, const std::string &ip, bool secure);
 
     void use(const std::shared_ptr<freighter::Middleware> &) const;
 

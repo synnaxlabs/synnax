@@ -219,7 +219,7 @@ sensor -> demux{} -> {
 }
 ```
 
-#### Inline Stage Body
+#### Inline stage body
 
 An anonymous `stage { ... }` written directly as a case body. Its flows run in parallel
 while the branch is active:
@@ -235,7 +235,7 @@ flag -> select{} -> {
 }
 ```
 
-#### Inline Sequence Body
+#### Inline sequence body
 
 An anonymous `sequence { ... }` written directly as a case body. Its items run in order:
 
@@ -249,7 +249,7 @@ sensor -> decide_stage{low=30.0, high=80.0} -> {
 }
 ```
 
-#### Mixed Entries
+#### Mixed entries
 
 A single routing table may freely mix all of the above:
 

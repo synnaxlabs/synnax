@@ -49,7 +49,7 @@ new Lua-based calculations will not be allowed.
 
 ### Breaking Changes
 
-#### Auto-Commit is now Enabled by Default with All Writers
+#### Auto-commit is now enabled by default with all writers
 
 [Auto-Commit](/reference/concepts/writes#auto-commit) is used to immediately persist
 written data to Synnax, as opposed to calling `commit` manually.
@@ -62,7 +62,7 @@ As a result, we've made the decision to enable auto-commit by default with write
 all of our client libraries. Any code that implicitly disables auto-commit will now need
 to explicitly disable it.
 
-#### Changes to Writer Behavior Under Mixed Control Authority
+#### Changes to writer behavior under mixed control authority
 
 Synnax v0.47 fixes a critical issue that caused schematics to become unresponsive across
 all channels when a higher authority process acquired control of a channel on the

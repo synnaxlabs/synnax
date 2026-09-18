@@ -55,9 +55,6 @@ TEST(ConfigPersist, AllFields) {
     cfg.port = 8080;
     cfg.username = "op";
     cfg.password = "op123";
-    cfg.ca_cert_file = "/certs/ca.crt";
-    cfg.client_cert_file = "/certs/client.crt";
-    cfg.client_key_file = "/certs/client.key";
     cfg.secure = true;
     cfg.max_retries = 9;
 
@@ -66,42 +63,34 @@ TEST(ConfigPersist, AllFields) {
     EXPECT_EQ(loaded.port, 8080);
     EXPECT_EQ(loaded.username, "op");
     EXPECT_EQ(loaded.password, "op123");
-    EXPECT_EQ(loaded.ca_cert_file, "/certs/ca.crt");
-    EXPECT_EQ(loaded.client_cert_file, "/certs/client.crt");
-    EXPECT_EQ(loaded.client_key_file, "/certs/client.key");
     EXPECT_TRUE(loaded.secure);
     EXPECT_EQ(loaded.max_retries, 9);
 }
 
-/// @brief a pre-flag config with only a CA loads secure.
-TEST(ConfigOverride, LegacySecureViaCAFile) {
-    const auto cfg = load(R"({"ca_cert_file":"/certs/ca.crt"})");
-    EXPECT_TRUE(cfg.secure);
-}
-
-/// @brief a pre-flag config with only a client certificate and key loads secure.
-TEST(ConfigOverride, LegacySecureViaClientCert) {
-    const auto cfg = load(
-        R"({"client_cert_file":"/c/client.crt","client_key_file":"/c/client.key"})"
-    );
-    EXPECT_TRUE(cfg.secure);
-}
-
-/// @brief a client certificate without its key does not imply secure.
-TEST(ConfigOverride, LegacyClientCertWithoutKey) {
-    const auto cfg = load(R"({"client_cert_file":"/certs/client.crt"})");
-    EXPECT_FALSE(cfg.secure);
-}
-
-/// @brief an explicit secure flag wins over the certificate inference.
-TEST(ConfigOverride, ExplicitFlagOverridesInference) {
-    const auto cfg = load(R"({"ca_cert_file":"/certs/ca.crt","secure":false})");
-    EXPECT_FALSE(cfg.secure);
-}
-
-/// @brief a pre-flag config with no CA loads insecure.
-TEST(ConfigOverride, LegacyInsecure) {
+/// @brief a config without the secure flag loads insecure.
+TEST(ConfigOverride, AbsentFlagIsInsecure) {
     const auto cfg = load(R"({"username":"op"})");
+    EXPECT_FALSE(cfg.secure);
+}
+
+/// @brief a later override without the secure flag keeps the earlier value.
+TEST(ConfigOverride, SecureSurvivesLaterOverride) {
+    synnax::Config cfg;
+    auto first = x::json::Parser(std::string(R"({"secure":true})"));
+    cfg.override(first);
+    auto second = x::json::Parser(std::string(R"({"host":"node1"})"));
+    cfg.override(second);
+    EXPECT_TRUE(cfg.secure);
+    EXPECT_EQ(cfg.host, "node1");
+}
+
+/// @brief a later override with an explicit secure flag replaces the earlier value.
+TEST(ConfigOverride, LaterExplicitFlagWins) {
+    synnax::Config cfg;
+    auto first = x::json::Parser(std::string(R"({"secure":true})"));
+    cfg.override(first);
+    auto second = x::json::Parser(std::string(R"({"secure":false})"));
+    cfg.override(second);
     EXPECT_FALSE(cfg.secure);
 }
 
@@ -118,24 +107,6 @@ TEST(ConfigOverride, PartialDoesNotClobber) {
     const auto cfg = load(R"({"secure":true})");
     EXPECT_TRUE(cfg.secure);
     EXPECT_EQ(cfg.host, "localhost");
-}
-
-/// @brief an insecure config omits the cert-file lines.
-TEST(ConfigStream, InsecureOmitsCertLines) {
-    const synnax::Config cfg;
-    std::ostringstream os;
-    os << cfg;
-    EXPECT_EQ(os.str().find("ca_cert_file"), std::string::npos);
-}
-
-/// @brief a secure config prints the cert-file lines.
-TEST(ConfigStream, SecureIncludesCertLines) {
-    synnax::Config cfg;
-    cfg.secure = true;
-    cfg.ca_cert_file = "/certs/ca.crt";
-    std::ostringstream os;
-    os << cfg;
-    EXPECT_NE(os.str().find("ca_cert_file"), std::string::npos);
 }
 
 /// @brief the secure field always prints.
@@ -166,10 +137,10 @@ public:
     }
 };
 
-/// @brief the connectivity check skips client middleware so it can probe a
-/// cluster before authenticating.
+/// @brief the connectivity check skips client middleware so it can probe a Core before
+/// authenticating.
 TEST(TransportMiddleware, ConnectivityCheckSkipsMiddleware) {
-    synnax::details::Transport t(1, "localhost", "", "", "", false);
+    synnax::details::Transport t(1, "localhost", false);
     auto mw = std::make_shared<CountingMiddleware>();
     t.use(mw);
     google::protobuf::Empty req;
@@ -180,7 +151,7 @@ TEST(TransportMiddleware, ConnectivityCheckSkipsMiddleware) {
 
 /// @brief every other client runs middleware.
 TEST(TransportMiddleware, OtherClientsRunMiddleware) {
-    synnax::details::Transport t(1, "localhost", "", "", "", false);
+    synnax::details::Transport t(1, "localhost", false);
     auto mw = std::make_shared<CountingMiddleware>();
     t.use(mw);
     grpc::channel::RetrieveRequest req;
@@ -192,7 +163,7 @@ TEST(TransportMiddleware, OtherClientsRunMiddleware) {
 /// @brief middleware runs once per call, so repeated requests each pass
 /// through it.
 TEST(TransportMiddleware, MiddlewareRunsPerCall) {
-    synnax::details::Transport t(1, "localhost", "", "", "", false);
+    synnax::details::Transport t(1, "localhost", false);
     auto mw = std::make_shared<CountingMiddleware>();
     t.use(mw);
     grpc::channel::RetrieveRequest req;
@@ -203,9 +174,9 @@ TEST(TransportMiddleware, MiddlewareRunsPerCall) {
     EXPECT_EQ(mw->calls, 2);
 }
 
-/// @brief the full client probes connectivity against an unreachable cluster
-/// without needing credentials, mirroring the login flow.
-TEST(SynnaxConnectivity, ProbeFailsAgainstUnreachableCluster) {
+/// @brief the full client probes connectivity against an unreachable Core without
+/// needing credentials, mirroring the login flow.
+TEST(SynnaxConnectivity, ProbeFailsAgainstUnreachableCore) {
     synnax::Config cfg;
     cfg.port = 1;
     cfg.username = "";

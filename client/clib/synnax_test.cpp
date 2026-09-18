@@ -69,9 +69,6 @@ TEST(ClibClient, testOpenWithNullOutClientReturnsValidationError) {
         "synnax",
         "seldon",
         0,
-        nullptr,
-        nullptr,
-        nullptr,
         0,
         0,
         nullptr,
@@ -80,30 +77,6 @@ TEST(ClibClient, testOpenWithNullOutClientReturnsValidationError) {
     EXPECT_NE(code, OK);
     EXPECT_EQ(err.code, code);
     EXPECT_STREQ(err.type, "sy.validation");
-}
-
-/// @brief it should reject a secure client open that omits the CA certificate.
-TEST(ClibClient, testOpenSecureWithoutCACertReturnsValidationError) {
-    SynnaxError err;
-    SynnaxClient *client = nullptr;
-    const int32_t code = synnax_client_open(
-        "localhost",
-        9090,
-        "synnax",
-        "seldon",
-        1,
-        nullptr,
-        nullptr,
-        nullptr,
-        0,
-        0,
-        &client,
-        &err
-    );
-    EXPECT_NE(code, OK);
-    EXPECT_EQ(client, nullptr);
-    EXPECT_STREQ(err.type, "sy.validation");
-    EXPECT_NE(std::strstr(err.message, "ca_cert_file"), nullptr);
 }
 
 /// @brief it should tolerate a null error pointer on a failing client open.
@@ -115,9 +88,6 @@ TEST(ClibClient, testOpenWithNullErrorDoesNotCrash) {
             "synnax",
             "seldon",
             1,
-            nullptr,
-            nullptr,
-            nullptr,
             0,
             0,
             nullptr,
@@ -142,9 +112,6 @@ TEST(ClibClient, testConnectsToLocalCluster) {
         "synnax",
         "seldon",
         0,
-        nullptr,
-        nullptr,
-        nullptr,
         0,
         0,
         &client,
@@ -166,9 +133,6 @@ TEST(ClibClient, testOpenAgainstUnreachableClusterReturnsError) {
         "synnax",
         "seldon",
         0,
-        nullptr,
-        nullptr,
-        nullptr,
         1,
         0,
         &client,
