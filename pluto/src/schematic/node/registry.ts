@@ -57,10 +57,10 @@ export type Input<V extends Variant> = { variant: V } & Omit<
   "variant"
 >;
 
-export const resolveSpec = (variant: string): Spec<Variant, Config> => {
+export const resolveSpec = (variant: string): Spec => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
-  return spec as Spec<Variant, Config>;
+  return spec as Spec;
 };
 
 /**
@@ -104,6 +104,6 @@ export const isCustomConfig = (config: Config): config is CustomConfig =>
 /// variant. Used by the symbols toolbar to render the built-in catalog.
 // groupBox is excluded by key: it is created only by grouping, and a spec-level
 // hidden flag is not worth the plumbing for one symbol.
-export const STATIC_SPECS: readonly Spec<Variant, Config>[] = (
-  Object.values(REGISTRY) as ReadonlyArray<Spec<Variant, Config>>
-).filter((s) => !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT);
+export const STATIC_SPECS: readonly Spec[] = (Object.values(REGISTRY) as Spec[]).filter(
+  (s) => !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT,
+);

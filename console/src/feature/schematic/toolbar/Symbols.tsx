@@ -37,8 +37,6 @@ import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-type NodeSpec = Schematic.Node.Spec<Schematic.Node.Variant, Schematic.Node.Config>;
-
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {
   type: "Diagram-Elements",
   key: "symbols",
@@ -61,7 +59,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     () => addNode(createParams()),
     [addNode, createParams],
   );
-  const spec = List.useItem<string, NodeSpec>(itemKey);
+  const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
   const config = useMemo(
     () => (spec == null ? null : Schematic.Node.createConfig({ variant })),
     [spec, variant],
@@ -95,17 +93,15 @@ export interface SymbolListProps {
 }
 
 const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
-  const symbols = useMemo<NodeSpec[]>(() => {
+  const symbols = useMemo(() => {
     const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
-    return Object.values(Schematic.Node.REGISTRY).filter((s) =>
-      g?.symbols.includes(s.key),
-    ) as unknown as NodeSpec[];
+    return Schematic.Node.STATIC_SPECS.filter((s) => g?.symbols.includes(s.key));
   }, [groupKey]);
-  const { data, getItem } = List.useStaticData<string, NodeSpec>({
+  const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols,
   });
   return (
-    <List.Frame<string, NodeSpec> data={data} getItem={getItem}>
+    <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
       <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
         {staticListItem}
       </List.Items>
@@ -513,7 +509,9 @@ interface SearchSymbolListProps {
 
 const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
-  const item = List.useItem<string, NodeSpec | schematic.symbol.Symbol>(itemKey);
+  const item = List.useItem<string, Schematic.Node.Spec | schematic.symbol.Symbol>(
+    itemKey,
+  );
   if (item == null) return null;
   const isRemote = z.validate(schematic.symbol.keyZ, itemKey);
   if (isRemote) return <RemoteListItem {...props} />;
@@ -526,12 +524,12 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
   const remote = Schematic.Symbol.useList({
     initialQuery: { searchTerm },
   });
-  const staticData = List.useStaticData<string, NodeSpec>({
+  const staticData = List.useStaticData<string, Schematic.Node.Spec>({
     data: Schematic.Node.STATIC_SPECS,
   });
   const { data, getItem, subscribe } = List.useCombinedData<
     string,
-    NodeSpec | schematic.symbol.Symbol
+    Schematic.Node.Spec | schematic.symbol.Symbol
   >({ first: staticData, second: remote });
   const { search } = List.usePager({
     retrieve: useCallback(
@@ -545,7 +543,7 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
 
   useEffect(() => search(searchTerm), [search, searchTerm]);
   return (
-    <List.Frame<string, NodeSpec | schematic.symbol.Symbol>
+    <List.Frame<string, Schematic.Node.Spec | schematic.symbol.Symbol>
       data={data}
       getItem={getItem}
       subscribe={subscribe}
