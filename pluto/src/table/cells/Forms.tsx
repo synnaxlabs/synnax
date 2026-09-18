@@ -20,6 +20,7 @@ import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
+import { TelemForm } from "@/table/cells/TelemForm";
 import { Tabs } from "@/tabs";
 import { Value } from "@/vis/value";
 
@@ -72,7 +73,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
     </Tabs.Content>
     <Tabs.Content itemKey="telem">
       <ValueFormWrapper>
-        <Value.TelemForm path="" />
+        <TelemForm path="" />
       </ValueFormWrapper>
     </Tabs.Content>
     <Tabs.Content itemKey="redline">

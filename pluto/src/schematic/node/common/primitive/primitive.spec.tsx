@@ -151,12 +151,12 @@ describe("Primitive.SVG", () => {
       expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
 
-    it("should treat the ZERO sentinel as unset so it falls back to the theme", () => {
+    it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(
         <Primitive.SVG dimensions={{ width: 10, height: 10 }} color={color.ZERO} />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
       expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
 

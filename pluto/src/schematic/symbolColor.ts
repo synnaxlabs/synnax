@@ -10,9 +10,7 @@
 import { color } from "@synnaxlabs/x";
 
 /// symbolColorVar returns the value for the --pluto-symbol-color custom property: the
-/// rgba channels of a symbol's color, or undefined for an unset or ZERO color so the
-/// display var falls back to the theme default.
+/// rgba channels of a symbol's color, or undefined when no color is set so the display
+/// var falls back to the role's theme seed.
 export const symbolColorVar = (c?: color.Crude): string | undefined =>
-  c != null && !color.isZero(c)
-    ? `${color.rgbString(c)}, ${color.aValue(c)}`
-    : undefined;
+  c != null ? `${color.rgbString(c)}, ${color.aValue(c)}` : undefined;

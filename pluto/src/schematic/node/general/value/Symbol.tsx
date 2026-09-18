@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { box, scale, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
@@ -14,7 +15,7 @@ import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import { type Config } from "@/schematic/node/general/value/config";
+import { Telem } from "@/schematic/node/common/telem";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -33,18 +34,25 @@ export const Symbol = ({
     level = "p",
     textColor,
     color,
-    telem: t,
+    channel,
+    rollingAverage,
+    precision,
     units,
     inlineSize = 70,
+    orientation,
     notation,
     stalenessColor,
     stalenessTimeout,
     redline,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
+  const t = useMemo(
+    () => Telem.stringSource({ channel, rollingAverage, precision, notation }),
+    [channel, rollingAverage, precision, notation],
+  );
   const backgroundTelem = useMemo(() => {
-    if (t == null || redline == null) return undefined;
+    if (redline == null) return undefined;
     const { bounds, gradient } = redline;
     return telem.sourcePipeline("color", {
       connections: [
@@ -85,6 +93,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
+        orientation={orientation}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}

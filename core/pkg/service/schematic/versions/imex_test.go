@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -25,14 +26,14 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
 	}
 
-	config := func(s versions.Schematic, node string) map[string]any {
+	valveConfig := func(s versions.Schematic, node string) versions.ValveElementConfig {
 		GinkgoHelper()
-		var out map[string]any
-		Expect(s.Configs[node].Unmarshal(&out)).To(Succeed())
-		return out
+		cfg, ok := s.Configs[node].Variant.(versions.ValveElementConfig)
+		Expect(ok).To(BeTrue())
+		return cfg
 	}
 
-	It("Should decode a current-version envelope", func(ctx SpecContext) {
+	It("Should lift a v8 envelope", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_v8.json")
 		Expect(sch.Snapshot).To(BeTrue())
 		Expect(sch.Nodes).To(Equal([]versions.Node{
@@ -43,7 +44,18 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Source: versions.Handle{Node: "n1", Param: "out"},
 			Target: versions.Handle{Node: "n2", Param: "in"},
 		}}))
-		Expect(config(sch, "n1")).To(HaveKeyWithValue("variant", "valve"))
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+			Label: versions.LabelConfig{
+				Level:         "h5",
+				Orientation:   "top",
+				Direction:     "x",
+				MaxInlineSize: 150,
+				Align:         "center",
+			},
+			Orientation:      "left",
+			Scale:            1,
+			StalenessTimeout: 5,
+		}))
 	})
 
 	It("Should lift a v7 envelope, dropping measured", func(ctx SpecContext) {
@@ -57,8 +69,31 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			Source: versions.Handle{Node: "n1", Param: "out"},
 			Target: versions.Handle{Node: "n2", Param: "in"},
 		}}))
-		Expect(config(sch, "n1")).To(HaveKeyWithValue("variant", "valve"))
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+			Label: versions.LabelConfig{
+				Level:         "h5",
+				Orientation:   "top",
+				Direction:     "x",
+				MaxInlineSize: 150,
+				Align:         "center",
+			},
+			Orientation:      "left",
+			Scale:            1,
+			StalenessTimeout: 5,
+		}))
 	})
+
+	DescribeTable("Should restate a legacy scale as a vertical bar without its gutter",
+		func(ctx SpecContext, path string) {
+			sch := decode(ctx, path)
+			cfg, ok := sch.Configs["s1"].Variant.(versions.ScaleElementConfig)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Orientation).To(BeEquivalentTo("top"))
+			Expect(cfg.Dimensions).To(Equal(spatial.Dimensions{Width: 34, Height: 160}))
+		},
+		Entry("server v7 export", "testdata/import_v7_scale.json"),
+		Entry("Console export", "testdata/import_console_scale.json"),
+	)
 
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sch := decode(ctx, "testdata/import_typed_console.json")
@@ -66,7 +101,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(4)))
 		Expect(sch.Edges[0].Source).
 			To(Equal(versions.Handle{Node: "n1", Param: "out"}))
-		Expect(config(sch, "n1")).To(HaveKeyWithValue("strokeWidth", 2.0))
+		Expect(valveConfig(sch, "n1").OnClickDelay).To(HaveValue(Equal(2.0)))
 	})
 
 	It("Should lift a Console state through the legacy chain", func(ctx SpecContext) {
@@ -74,7 +109,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(3)))
 		Expect(sch.Edges[0].Source).To(Equal(versions.Handle{Node: "n1", Param: "a"}))
 		Expect(sch.Edges[0].Target).To(Equal(versions.Handle{Node: "n2", Param: "b"}))
-		Expect(config(sch, "n1")).To(HaveKeyWithValue("color", "#ff0000"))
+		Expect(valveConfig(sch, "n1").Color).
+			To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 	})
 
 	// The fixtures below are schematics a shipped Console exported.

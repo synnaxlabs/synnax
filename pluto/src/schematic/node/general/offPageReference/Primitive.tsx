@@ -9,39 +9,37 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { direction } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { type color, direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import {
-  type Config,
-  PAGE_ICONS,
-  type PageType,
-} from "@/schematic/node/general/offPageReference/config";
+import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
-  pageKey?: string,
-  dblClickNav?: boolean,
+  page?: schematic.Page,
+  dblClickNavDisabled?: boolean,
 ): string | undefined => {
-  if (pageKey == null || pageKey.length === 0) return undefined;
-  const mode = dblClickNav !== false ? "Double" : "Single";
+  if (page == null || page.key.length === 0) return undefined;
+  const mode = dblClickNavDisabled === true ? "Single" : "Double";
   return `${mode}-click to navigate`;
 };
 
-interface RenderProps extends Omit<
-  Config,
-  "label" | "page" | "dblClickNav" | "variant"
+interface RenderProps extends Partial<
+  Pick<schematic.OffPageReferenceNodeConfig, "orientation">
 > {
+  level?: text.Level;
+  color?: color.Crude;
   id?: string;
   label?: string;
   className?: string;
   title?: string;
   linked?: boolean;
-  pageType?: PageType;
+  pageType?: schematic.PageType;
   onLabelChange?: (label: string) => void;
 }
 

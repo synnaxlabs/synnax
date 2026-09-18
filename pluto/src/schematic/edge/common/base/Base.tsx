@@ -16,7 +16,7 @@ import { CSS } from "@/css";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
-  color: color.Crude;
+  color?: color.Crude;
 }
 
 const INTERACTION_WIDTH = 30;

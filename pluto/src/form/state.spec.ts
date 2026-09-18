@@ -519,14 +519,14 @@ describe("State", () => {
       expect(fieldState).toBeNull();
     });
 
-    it("should set and return default value when field is null", () => {
+    it("should return the default value without writing it when the field is null", () => {
       const state = new State(
         { ...initialValues, optionalField: undefined },
         basicSchema,
       );
       const fieldState = state.getState("optionalField", { defaultValue: "default" });
       expect(fieldState?.value).toBe("default");
-      expect(state.values.optionalField).toBe("default");
+      expect(state.values.optionalField).toBeUndefined();
     });
 
     it("should not override existing value with default value", () => {
