@@ -44,11 +44,17 @@ export const Button = ({
   onMouseDown,
   onKeyDown,
   onKeyUp,
+  disabled,
   style,
   children,
   ...rest
 }: ButtonProps): ReactElement => {
-  const hold = Base.useHold<HTMLButtonElement>({ onClick, onMouseDown, onClickDelay });
+  const hold = Base.useHold<HTMLButtonElement>({
+    onClick,
+    onMouseDown,
+    onClickDelay,
+    disabled,
+  });
   const delayed = !hold.delay.isZero;
 
   const handleKeyDown: KeyboardEventHandler<HTMLButtonElement> = (e) => {
@@ -86,6 +92,7 @@ export const Button = ({
       onMouseDown={hold.onMouseDown}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
+      disabled={disabled}
       style={pStyle}
       {...rest}
     >
