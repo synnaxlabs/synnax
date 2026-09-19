@@ -167,6 +167,32 @@ describe("CounterRead", () => {
       expect(index.isIndex).toBe(true);
     });
 
+    it("should bind a new entry to the channel the device already maps", async () => {
+      const dev = await createNIDevice(client);
+      const config = createConfig([
+        createChannel("ci_frequency", 0, { device: dev.key }),
+      ]);
+      const first = await renderCounterRead(config);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
+        schemas: NI.Task.COUNTER_READ_SCHEMAS,
+      });
+      first.unmount();
+      const existing = await client.channels.retrieve(
+        firstTask.config.channels[0].channel,
+      );
+      const second = await renderCounterRead(config);
+      await screen.findByText(existing.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: second.draft.key,
+          schemas: NI.Task.COUNTER_READ_SCHEMAS,
+        });
+        expect(saved.config.channels[0].channel).toBe(existing.key);
+      });
+    });
+
     it("should surface an error when the task has no channels", async () => {
       const { statuses, container } = await renderCounterRead(createConfig([]));
       await clickDeploy(container);

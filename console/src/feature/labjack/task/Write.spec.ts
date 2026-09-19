@@ -208,6 +208,36 @@ describe("LabJack Write", () => {
       expect(state.name).toBe(stateName);
     });
 
+    it("should bind a new entry to the channels the device already maps", async () => {
+      const dev = await createLabJackDevice(client);
+      const config = createConfig(dev.key, [createDigitalWriteChannel("DIO4")]);
+      const firstDraft = await createDraft(client, config);
+      const first = await renderWrite({ client, taskKey: firstDraft.key });
+      const firstTask = await deployAndAwaitTask(
+        client,
+        first.container,
+        firstDraft.key,
+        LabJack.Task.WRITE_SCHEMAS,
+      );
+      first.unmount();
+      const cmd = await client.channels.retrieve(
+        firstTask.config.channels[0].cmdChannel,
+      );
+      const secondDraft = await createDraft(client, config);
+      await renderWrite({ client, taskKey: secondDraft.key });
+      await screen.findByText(cmd.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: secondDraft.key,
+          schemas: LabJack.Task.WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels[0].cmdChannel).toBe(cmd.key);
+        expect(saved.config.channels[0].stateChannel).toBe(
+          firstTask.config.channels[0].stateChannel,
+        );
+      });
+    });
+
     it("should reuse existing command and state channels when redeployed", async () => {
       const dev = await createLabJackDevice(client);
       const config = createConfig(dev.key, [createDigitalWriteChannel("DIO4")]);

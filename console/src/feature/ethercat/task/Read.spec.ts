@@ -199,6 +199,38 @@ describe("EtherCAT Read", () => {
       expect(index.isIndex).toBe(true);
     });
 
+    it("should bind a new entry to the channel the device already maps", async () => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const config = {
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [createAutoReadChannel(slave.key, "Status")],
+      };
+      const first = await renderRead(config);
+      const firstTask = await deployAndAwaitTask(
+        client,
+        first.container,
+        first.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      first.unmount();
+      const existing = await client.channels.retrieve(
+        firstTask.config.channels[0].channel,
+      );
+      const second = await renderRead(config);
+      await screen.findByText(existing.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: second.draft.key,
+          schemas: EtherCAT.Task.READ_SCHEMAS,
+        });
+        expect(saved.config.channels[0].channel).toBe(existing.key);
+      });
+    });
+
     it("should reuse the existing index and channels when redeployed", async () => {
       const slave = await createSlaveDevice(client, testRack.key, {
         identifier: createIdentifier(),

@@ -30,6 +30,7 @@ const renderItem = (
   renderInTaskForm(
     <Task.Views.List<Channel>
       createChannel={() => null}
+      resolve={() => null}
       listItem={Component.renderProp((p) => (
         <Task.Views.ListAndDetailsChannelItem
           {...p}

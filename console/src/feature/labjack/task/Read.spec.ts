@@ -233,6 +233,33 @@ describe("LabJack Read", () => {
       expect(index.isIndex).toBe(true);
     });
 
+    it("should bind a new entry to the channel the device already maps", async () => {
+      const dev = await createLabJackDevice(client);
+      const config = createConfig(dev.key, [createAnalogReadChannel("AIN0")]);
+      const firstDraft = await createDraft(client, config);
+      const first = await renderRead({ client, taskKey: firstDraft.key });
+      const firstTask = await deployAndAwaitTask(
+        client,
+        first.container,
+        firstDraft.key,
+        LabJack.Task.READ_SCHEMAS,
+      );
+      first.unmount();
+      const existing = await client.channels.retrieve(
+        firstTask.config.channels[0].channel,
+      );
+      const secondDraft = await createDraft(client, config);
+      await renderRead({ client, taskKey: secondDraft.key });
+      await screen.findByText(existing.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: secondDraft.key,
+          schemas: LabJack.Task.READ_SCHEMAS,
+        });
+        expect(saved.config.channels[0].channel).toBe(existing.key);
+      });
+    });
+
     it("should reuse existing channels when redeployed", async () => {
       const dev = await createLabJackDevice(client);
       const config = createConfig(dev.key, [createAnalogReadChannel("AIN0")]);

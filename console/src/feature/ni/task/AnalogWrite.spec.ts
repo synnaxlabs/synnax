@@ -183,6 +183,33 @@ describe("AnalogWrite", () => {
       expect(cmdIndex.name).toBe(`${cmdName}_time`);
     });
 
+    it("should bind a new entry to the channel the device already maps", async () => {
+      const dev = await createNIDevice(client);
+      const config = createConfig(
+        [createChannel("ao_voltage", 0, { cmdChannelName: "", stateChannelName: "" })],
+        dev.key,
+      );
+      const first = await renderAnalogWrite(config);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
+        schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+      });
+      first.unmount();
+      const [bound] = firstTask.config.channels;
+      const cmd = await client.channels.retrieve(bound.cmdChannel);
+      const second = await renderAnalogWrite(config);
+      await screen.findByText(cmd.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: second.draft.key,
+          schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels[0].cmdChannel).toBe(bound.cmdChannel);
+        expect(saved.config.channels[0].stateChannel).toBe(bound.stateChannel);
+      });
+    });
+
     it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
       const config = createConfig(

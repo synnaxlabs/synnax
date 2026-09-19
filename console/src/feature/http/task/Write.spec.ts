@@ -228,6 +228,35 @@ describe("HTTP Write form", () => {
       expect(created.config.endpoints[1].channel.channel).toBe(virtualKey);
     });
 
+    it("should bind a new endpoint to the command channel the device already stores", async () => {
+      const dev = await createHTTPDevice(client);
+      const storedCh = await client.channels.create({
+        name: uniqueName("http_cmd"),
+        dataType: "string",
+        virtual: true,
+      });
+      dev.properties = {
+        ...HTTP.Device.ZERO_PROPERTIES,
+        write: { "/cmd": storedCh.key },
+      };
+      await client.devices.create(dev);
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          createWriteEndpoint("ep1", "/cmd", { dataType: "string" }),
+        ]),
+      );
+      await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(storedCh.name);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: HTTP.Task.WRITE_SCHEMAS,
+        });
+        expect(saved.config.endpoints[0].channel.channel).toBe(storedCh.key);
+      });
+    });
+
     it("should adopt existing channels from the config and the device instead of creating new ones", async () => {
       const dev = await createHTTPDevice(client);
       const configuredCh = await client.channels.create({

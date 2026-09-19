@@ -28,6 +28,7 @@ import {
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
+import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
@@ -478,6 +479,17 @@ const Form: FC = () => {
   const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
     "config.endpoints",
   );
+  const dev = useFromConfig();
+  // An endpoint the config already binds keeps its channel, as the deploy honors it
+  // first.
+  const resolve = useCallback(
+    (ep: WriteEndpoint) => {
+      if (dev == null || ep.channel.channel !== 0) return null;
+      const stored = dev.properties.write[ep.path] ?? 0;
+      return stored === 0 ? null : { channel: { ...ep.channel, channel: stored } };
+    },
+    [dev],
+  );
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
 
@@ -595,6 +607,7 @@ const Form: FC = () => {
           </Flex.Box>
         )}
       </Flex.Box>
+      <Task.BindChannels<WriteEndpoint> path="config.endpoints" resolve={resolve} />
     </Flex.Box>
   );
 };

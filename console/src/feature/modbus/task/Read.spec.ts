@@ -103,6 +103,38 @@ describe("Modbus.Read", () => {
     expect(registerCh.dataType.toString()).toBe("uint8");
   });
 
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createModbusDevice(client);
+    const config = { ...Modbus.Task.READ_SCHEMAS.config.parse({}), device: dev.key };
+    const firstDraft = await createDraft(client, config);
+    const first = await renderRead({ client, taskKey: firstDraft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click(getIconButton(first.container, "add"));
+    await screen.findByText("Coil");
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      Modbus.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const secondDraft = await createDraft(client, config);
+    const second = await renderRead({ client, taskKey: secondDraft.key });
+    await screen.findByText(dev.name);
+    fireEvent.click(getIconButton(second.container, "add"));
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: secondDraft.key,
+        schemas: Modbus.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(existing.key);
+    });
+  });
+
   it("should reuse the existing index and channels when redeploying", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {

@@ -21,6 +21,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
 import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
 
@@ -126,6 +127,8 @@ export interface ChannelListProps<C extends Channel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
+  /** Omitted only by a nested list whose entries an outer BindChannels binds. */
+  resolve?: BindChannelsProps<C>["resolve"];
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
@@ -143,6 +146,7 @@ export const ChannelList = <C extends Channel>({
   selected,
   grow,
   style,
+  resolve,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
@@ -153,6 +157,7 @@ export const ChannelList = <C extends Channel>({
   const menuProps = Menu.useContextMenu();
   return (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
+      {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
       {header}
       <Menu.ContextMenu
         {...menuProps}
