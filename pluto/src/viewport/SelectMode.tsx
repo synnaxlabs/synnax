@@ -54,7 +54,13 @@ export const SelectMode = ({
     size: "small",
   };
   return (
-    <Select.Buttons {...rest} keys={data} value={value} onChange={onChange}>
+    <Select.Buttons
+      variant="outlined"
+      {...rest}
+      keys={data}
+      value={value}
+      onChange={onChange}
+    >
       <Select.Button
         itemKey="zoom"
         tooltip={<TooltipText mode="zoom" triggers={triggers.modes.zoom} />}

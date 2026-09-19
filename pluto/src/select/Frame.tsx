@@ -27,10 +27,13 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
 }: MultipleProviderProps<K>): ReactElement => {
-  const { value } = rest;
+  const { value, allowNone } = rest;
   const res = useMultiple(rest);
+  // Mirrors useMultiple: a click that would empty the selection returns before
+  // onChange and before the dialog closes.
+  const reselectNoop = allowNone === false;
   return (
-    <Context value={value} {...res}>
+    <Context value={value} reselectNoop={reselectNoop} {...res}>
       {children}
     </Context>
   );
@@ -44,10 +47,13 @@ const SingleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
 }: SingleProviderProps<K>): ReactElement => {
-  const { value } = rest;
+  const { value, allowNone, closeDialogOnSelect } = rest;
   const res = useSingle(rest);
+  // Mirrors useSingle: without allowNone a re-select returns before onChange,
+  // so it is a no-op unless it closes a dialog.
+  const reselectNoop = allowNone !== true && closeDialogOnSelect !== true;
   return (
-    <Context<K> value={value} {...res}>
+    <Context<K> value={value} reselectNoop={reselectNoop} {...res}>
       {children}
     </Context>
   );
