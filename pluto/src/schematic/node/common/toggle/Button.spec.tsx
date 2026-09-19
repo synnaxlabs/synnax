@@ -195,25 +195,8 @@ describe("Toggle.Button", () => {
     });
   });
 
-  describe("keyboard activation", () => {
-    it.each([" ", "Enter"])(
-      "should prevent the default keydown and keyup for %j",
-      (key) => {
-        const { container } = render(<Toggle.Button />);
-        const btn = getButton(container);
-        expect(fireEvent.keyDown(btn, { key })).toBe(false);
-        expect(fireEvent.keyUp(btn, { key })).toBe(false);
-      },
-    );
-
-    it("should leave other keys untouched", () => {
-      const { container } = render(<Toggle.Button />);
-      const btn = getButton(container);
-      expect(fireEvent.keyDown(btn, { key: "a" })).toBe(true);
-      expect(fireEvent.keyUp(btn, { key: "a" })).toBe(true);
-    });
-
-    it("should still forward onKeyDown and onKeyUp", () => {
+  describe("keyboard handlers", () => {
+    it("should forward onKeyDown and onKeyUp", () => {
       const onKeyDown = vi.fn();
       const onKeyUp = vi.fn();
       const { container } = render(

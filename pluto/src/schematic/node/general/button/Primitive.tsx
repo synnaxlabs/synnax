@@ -19,10 +19,10 @@ import {
 import { Button as Base } from "@/button";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
+import { Triggers } from "@/triggers";
 
 interface ButtonProps extends Omit<Config, "variant"> {
   className?: string;
@@ -39,7 +39,7 @@ const primaryOnly = (
   handler == null
     ? undefined
     : (e) => {
-        if (e.button === 0) handler(e);
+        if (e.button === Triggers.MOUSE_LEFT_NUMBER) handler(e);
       };
 
 export const Button = ({
@@ -81,8 +81,6 @@ export const Button = ({
         className={CSS.cls(CSS.B("symbol-colored"), CSS.B("symbol-button"))}
         style={style}
         {...handlers}
-        onKeyDown={Keyboard.blockActivation}
-        onKeyUp={Keyboard.blockActivation}
         size={size}
         level={level}
         direction={label?.direction}

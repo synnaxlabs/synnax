@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import { type MouseEventHandler, useEffect, useRef, useState } from "react";
+import { type MouseEventHandler, useEffect, useMemo, useState } from "react";
+
+import { useDestructors } from "@/hooks";
+import { Triggers } from "@/triggers";
 
 export interface UseHoldProps<E extends Element> {
   onClick?: MouseEventHandler<E>;
@@ -41,15 +44,12 @@ export const useHold = <E extends Element>({
   onClickDelay = 0,
   disabled = false,
 }: UseHoldProps<E>): UseHoldReturn<E> => {
-  const delay = TimeSpan.fromMilliseconds(onClickDelay);
-  const releaseRef = useRef<(() => void) | null>(null);
+  const delay = useMemo(() => TimeSpan.fromMilliseconds(onClickDelay), [onClickDelay]);
+  const destructors = useDestructors();
   // WebKit sets :active on a secondary press, so pressed styling follows this flag.
   const [pressed, setPressed] = useState(false);
 
-  useEffect(() => {
-    if (disabled) releaseRef.current?.();
-    return () => releaseRef.current?.();
-  }, [disabled]);
+  useEffect(() => destructors.cleanup, [disabled, destructors]);
 
   const handleClick: MouseEventHandler<E> = (e) => {
     if (delay.isZero) onClick?.(e);
@@ -57,20 +57,19 @@ export const useHold = <E extends Element>({
 
   const handleMouseDown: MouseEventHandler<E> = (e) => {
     onMouseDown?.(e);
-    if (disabled || e.button !== 0) return;
-    releaseRef.current?.();
+    if (disabled || e.button !== Triggers.MOUSE_LEFT_NUMBER) return;
+    destructors.cleanup();
     setPressed(true);
     const timeout = delay.isZero
       ? null
       : setTimeout(() => onClick?.(e), delay.milliseconds);
     const release = (): void => {
-      releaseRef.current = null;
       setPressed(false);
       if (timeout != null) clearTimeout(timeout);
       for (const ev of RELEASE_EVENTS) document.removeEventListener(ev, release);
     };
     for (const ev of RELEASE_EVENTS) document.addEventListener(ev, release);
-    releaseRef.current = release;
+    destructors.set(release);
   };
 
   return { delay, pressed, onClick: handleClick, onMouseDown: handleMouseDown };

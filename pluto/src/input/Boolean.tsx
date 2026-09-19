@@ -13,6 +13,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useLabelledBy } from "@/input/Item";
 import { type InputProps } from "@/input/types";
+import { preventDefault } from "@/util/event";
 
 export interface BooleanProps
   extends Omit<InputProps<boolean>, "onClick">, Omit<Button.ExtensionProps, "variant"> {
@@ -32,10 +33,6 @@ const parseTextColor = (
   if (preview === true && value === true) return "var(--pluto-primary-z)";
   return textColor;
 };
-
-// WebKit toggles a checkbox on a secondary-button click and reports it only as an
-// auxclick, which React's onChange never sees, so the controlled value cannot restore.
-const preventDefault = (e: React.SyntheticEvent): void => e.preventDefault();
 
 /**
  * Base Boolean input component for switch and checkbox variants.
@@ -109,6 +106,9 @@ export const Boolean = ({
             value=""
             disabled={disabled}
             onClick={onClick}
+            // WebKit toggles a checkbox on a secondary-button click and reports it
+            // only as an auxclick, which React's onChange never sees, so the
+            // controlled value cannot restore.
             onAuxClick={preventDefault}
             {...rest}
             aria-labelledby={ariaLabelledBy}

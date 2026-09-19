@@ -48,16 +48,4 @@ describe("setpoint symbol", () => {
       expect(onChange).toHaveBeenCalledWith(0);
     });
   });
-
-  describe("keyboard activation", () => {
-    it.each([" ", "Enter"])(
-      "should prevent the default keydown and keyup for %j",
-      (key) => {
-        const { getByText } = render(<Setpoint onChange={vi.fn()} />);
-        const target = getByText("Set");
-        expect(fireEvent.keyDown(target, { key })).toBe(false);
-        expect(fireEvent.keyUp(target, { key })).toBe(false);
-      },
-    );
-  });
 });

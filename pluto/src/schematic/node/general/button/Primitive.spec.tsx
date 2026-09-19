@@ -210,18 +210,6 @@ describe("button symbol", () => {
       });
     });
   });
-
-  describe("keyboard activation", () => {
-    it.each([" ", "Enter"])(
-      "should prevent the default keydown and keyup for %j",
-      (key) => {
-        const { container } = render(<Button />);
-        const target = getButton(container);
-        expect(fireEvent.keyDown(target, { key })).toBe(false);
-        expect(fireEvent.keyUp(target, { key })).toBe(false);
-      },
-    );
-  });
 });
 
 const LEGACY_CONFIG: Config = {

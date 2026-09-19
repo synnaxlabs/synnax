@@ -10,18 +10,12 @@
 import "@/schematic/node/general/switch/switch.css";
 
 import { location } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type MouseEventHandler,
-  type ReactElement,
-  useMemo,
-} from "react";
+import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
-import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -43,16 +37,13 @@ export const Switch = ({
   const colorVar = symbolColorVar(colorVal);
   const hold = Button.useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
-  const style = useMemo<CSSProperties>(
-    () => ({
-      [CSS.variable("switch-scale")]: scale,
-      [CSS.variable("symbol-color")]: colorVar,
-      ...(delayed && {
-        [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
-      }),
+  const style: CSSProperties = {
+    [CSS.variable("switch-scale")]: scale,
+    [CSS.variable("symbol-color")]: colorVar,
+    ...(delayed && {
+      [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
     }),
-    [scale, colorVar, delayed, hold.delay.milliseconds],
-  );
+  };
   return (
     <Primitive.Div
       orientation={orientation}
@@ -71,8 +62,6 @@ export const Switch = ({
         disabled={disabled}
         onClick={hold.onClick}
         onChange={() => {}}
-        onKeyDown={Keyboard.blockActivation}
-        onKeyUp={Keyboard.blockActivation}
       />
       <Handle.Linear orientation={orientation} left={0} right={100} />
     </Primitive.Div>

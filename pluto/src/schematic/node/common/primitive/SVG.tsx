@@ -14,11 +14,11 @@ import {
   type CSSProperties,
   type ReactElement,
   use,
-  useId,
   useMemo,
 } from "react";
 
 import { CSS } from "@/css";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
@@ -52,7 +52,13 @@ export const SVG = ({
   ...rest
 }: SVGProps): ReactElement => {
   const holdFill = use(HoldFill);
-  const id = `hold-${useId().replace(/[^A-Za-z0-9]/g, "")}`;
+  const id = useUniqueKey();
+  const holdBox = {
+    x: -HOLD_FILL_MARGIN,
+    y: -HOLD_FILL_MARGIN,
+    width: dimsProp.width + 2 * HOLD_FILL_MARGIN,
+    height: dimsProp.height + 2 * HOLD_FILL_MARGIN,
+  };
   const dir = direction.construct(orientation);
   const dims = useMemo(
     () => (dir === "y" ? dimensions.swap(dimsProp) : dimsProp),
@@ -84,20 +90,14 @@ export const SVG = ({
               id={`${id}-mask`}
               className={CSS.BE("symbol-hold", "mask")}
               maskUnits="userSpaceOnUse"
-              x={-HOLD_FILL_MARGIN}
-              y={-HOLD_FILL_MARGIN}
-              width={dimsProp.width + 2 * HOLD_FILL_MARGIN}
-              height={dimsProp.height + 2 * HOLD_FILL_MARGIN}
+              {...holdBox}
             >
               <use href={`#${id}`} />
             </mask>
             <rect
               className={CSS.BE("symbol-hold", "fill")}
               mask={`url(#${id}-mask)`}
-              x={-HOLD_FILL_MARGIN}
-              y={-HOLD_FILL_MARGIN}
-              width={dimsProp.width + 2 * HOLD_FILL_MARGIN}
-              height={dimsProp.height + 2 * HOLD_FILL_MARGIN}
+              {...holdBox}
             />
           </>
         ) : (

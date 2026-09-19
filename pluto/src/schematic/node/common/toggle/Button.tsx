@@ -8,16 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { color, type CrudeTimeSpan } from "@synnaxlabs/x";
-import {
-  type ComponentPropsWithRef,
-  type KeyboardEventHandler,
-  type ReactElement,
-  useMemo,
-} from "react";
+import { type ComponentPropsWithRef, type ReactElement, useMemo } from "react";
 
 import { Button as Base } from "@/button";
 import { CSS } from "@/css";
-import { Keyboard } from "@/schematic/node/common/keyboard";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
@@ -42,8 +36,6 @@ export const Button = ({
   onClickDelay = 0,
   onClick,
   onMouseDown,
-  onKeyDown,
-  onKeyUp,
   disabled,
   style,
   children,
@@ -57,23 +49,13 @@ export const Button = ({
   });
   const delayed = !hold.delay.isZero;
 
-  const handleKeyDown: KeyboardEventHandler<HTMLButtonElement> = (e) => {
-    onKeyDown?.(e);
-    Keyboard.blockActivation(e);
-  };
-
-  const handleKeyUp: KeyboardEventHandler<HTMLButtonElement> = (e) => {
-    onKeyUp?.(e);
-    Keyboard.blockActivation(e);
-  };
-
   const pStyle = useMemo(() => {
     if (!delayed) return style;
     return {
       ...style,
       [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
     };
-  }, [hold.delay.milliseconds, style]);
+  }, [hold.delay, style]);
 
   return (
     <button
@@ -90,8 +72,6 @@ export const Button = ({
       color={color.cssString(colorVal)}
       onClick={hold.onClick}
       onMouseDown={hold.onMouseDown}
-      onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
       disabled={disabled}
       style={pStyle}
       {...rest}

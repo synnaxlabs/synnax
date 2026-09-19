@@ -128,13 +128,13 @@ const Base = <E extends ElementType = "button">({
 }: ButtonProps<E>): ReactElement => {
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
   if (preview) preventClick = true;
+  // The chassis element is generic, but the hold only needs the event's button.
   const hold = useHold<HTMLButtonElement>({
-    // The chassis element is generic, but the hold only needs the event's button.
     onClick: onClick as React.MouseEventHandler<HTMLButtonElement> | undefined,
+    onMouseDown: onMouseDown as React.MouseEventHandler<HTMLButtonElement> | undefined,
     onClickDelay,
     disabled: isDisabled || preview === true,
   });
-  const parsedDelay = hold.delay;
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
@@ -171,7 +171,6 @@ const Base = <E extends ElementType = "button">({
       (e.target as HTMLElement).closest(FOCUSABLE) === e.currentTarget
     )
       e.preventDefault();
-    onMouseDown?.(e);
     hold.onMouseDown(e);
   };
 
@@ -203,13 +202,13 @@ const Base = <E extends ElementType = "button">({
           color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
         ),
       };
-    if (!parsedDelay.isZero)
+    if (!hold.delay.isZero)
       s = {
         ...s,
-        [CSS.variable("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+        [CSS.variable("btn-delay")]: `${hold.delay.seconds.toString()}s`,
       };
     return s;
-  }, [style, hasCustomColor, colorVal, theme, parsedDelay]);
+  }, [style, hasCustomColor, colorVal, theme, hold.delay]);
 
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];

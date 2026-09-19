@@ -61,18 +61,4 @@ describe("select symbol", () => {
       expect(onSend).toHaveBeenCalledWith(7);
     });
   });
-
-  describe("keyboard activation", () => {
-    it.each([" ", "Enter"])(
-      "should prevent the default keydown and keyup for %j",
-      (key) => {
-        const { getByText } = render(
-          <Select value="a" options={OPTIONS} onChange={() => {}} onSend={vi.fn()} />,
-        );
-        const target = getByText("Send");
-        expect(fireEvent.keyDown(target, { key })).toBe(false);
-        expect(fireEvent.keyUp(target, { key })).toBe(false);
-      },
-    );
-  });
 });
