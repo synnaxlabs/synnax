@@ -13,6 +13,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useLabelledBy } from "@/input/Item";
 import { type InputProps } from "@/input/types";
+import { preventDefault } from "@/util/event";
 
 export interface BooleanProps
   extends Omit<InputProps<boolean>, "onClick">, Omit<Button.ExtensionProps, "variant"> {
@@ -105,6 +106,10 @@ export const Boolean = ({
             value=""
             disabled={disabled}
             onClick={onClick}
+            // WebKit toggles a checkbox on a secondary-button click and reports it
+            // only as an auxclick, which React's onChange never sees, so the
+            // controlled value cannot restore.
+            onAuxClick={preventDefault}
             {...rest}
             aria-labelledby={ariaLabelledBy}
           />

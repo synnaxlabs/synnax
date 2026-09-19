@@ -223,6 +223,48 @@ describe("Primitive.SVG", () => {
     });
   });
 
+  describe("hold fill", () => {
+    const renderSVG = (holdFill: boolean): HTMLElement =>
+      render(
+        <Primitive.HoldFill value={holdFill}>
+          <Primitive.SVG dimensions={{ width: 10, height: 20 }}>
+            <rect data-testid="child" />
+          </Primitive.SVG>
+        </Primitive.HoldFill>,
+      ).container;
+
+    it("should draw nothing outside a delayed toggle", () => {
+      const container = renderSVG(false);
+      expect(container.querySelector("mask")).toBeNull();
+      expect(container.querySelector(".pluto-symbol-hold__fill")).toBeNull();
+    });
+
+    it("should mask a fill rect with the symbol's own shapes", () => {
+      const container = renderSVG(true);
+      const shapes = container.querySelector('[data-testid="child"]')
+        ?.parentElement as Element;
+      const use = container.querySelector("mask use") as SVGUseElement;
+      const fill = container.querySelector(
+        ".pluto-symbol-hold__fill",
+      ) as SVGRectElement;
+      expect(use.getAttribute("href")).toBe(`#${shapes.id}`);
+      expect(fill.getAttribute("mask")).toBe(
+        `url(#${container.querySelector("mask")?.id})`,
+      );
+      expect(fill.getAttribute("width")).toBe("14");
+      expect(fill.getAttribute("height")).toBe("24");
+    });
+
+    it("should keep the fill inside the rotating group", () => {
+      const container = renderSVG(true);
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.children).toHaveLength(1);
+      expect(container.querySelector(".pluto-symbol-hold__fill")?.parentElement).toBe(
+        svg.children[0],
+      );
+    });
+  });
+
   describe("style merging", () => {
     it("should merge user-supplied style under the computed aspect-ratio and width", () => {
       const { container } = render(

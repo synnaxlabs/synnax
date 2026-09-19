@@ -10,6 +10,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 
 const getButton = (container: HTMLElement): HTMLButtonElement =>
@@ -91,6 +92,34 @@ describe("Toggle.Button", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should not fire after the toggle unmounts mid-hold", () => {
+      const onClick = vi.fn();
+      const c = render(<Toggle.Button onClick={onClick} onClickDelay={500} />);
+      fireEvent.mouseDown(getButton(c.container));
+      c.unmount();
+      vi.advanceTimersByTime(1000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it("should not fire after the toggle is disabled mid-hold", () => {
+      const onClick = vi.fn();
+      const c = render(<Toggle.Button onClick={onClick} onClickDelay={500} />);
+      fireEvent.mouseDown(getButton(c.container));
+      c.rerender(<Toggle.Button onClick={onClick} onClickDelay={500} disabled />);
+      vi.advanceTimersByTime(1000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it("should ignore a secondary-button press", () => {
+      const onClick = vi.fn();
+      const { container } = render(
+        <Toggle.Button onClick={onClick} onClickDelay={500} />,
+      );
+      fireEvent.mouseDown(getButton(container), { button: 2 });
+      vi.advanceTimersByTime(1000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
     it("should still call onMouseDown immediately even though onClick is deferred", () => {
       const onClick = vi.fn();
       const onMouseDown = vi.fn();
@@ -124,6 +153,60 @@ describe("Toggle.Button", () => {
       fireEvent.mouseUp(document);
       vi.advanceTimersByTime(1000);
       expect(onClick).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("pressed", () => {
+    it("should mark a primary press and clear it on mouseup", () => {
+      const { container } = render(<Toggle.Button />);
+      const btn = getButton(container);
+      fireEvent.mouseDown(btn);
+      expect(btn.className).toContain("pluto--pressed");
+      fireEvent.mouseUp(document);
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+
+    it("should not mark a secondary press", () => {
+      const { container } = render(<Toggle.Button />);
+      const btn = getButton(container);
+      fireEvent.mouseDown(btn, { button: 2 });
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+  });
+
+  describe("hold fill", () => {
+    const renderWithSVG = (delay: number): HTMLElement =>
+      render(
+        <Toggle.Button onClickDelay={delay}>
+          <Primitive.SVG dimensions={{ width: 10, height: 10 }}>
+            <rect />
+          </Primitive.SVG>
+        </Toggle.Button>,
+      ).container;
+
+    it("should host the fill inside the SVG when delayed", () => {
+      expect(
+        renderWithSVG(500).querySelector(".pluto-symbol-hold__fill"),
+      ).not.toBeNull();
+    });
+
+    it("should host no fill without a delay", () => {
+      expect(renderWithSVG(0).querySelector(".pluto-symbol-hold__fill")).toBeNull();
+    });
+  });
+
+  describe("keyboard handlers", () => {
+    it("should forward onKeyDown and onKeyUp", () => {
+      const onKeyDown = vi.fn();
+      const onKeyUp = vi.fn();
+      const { container } = render(
+        <Toggle.Button onKeyDown={onKeyDown} onKeyUp={onKeyUp} />,
+      );
+      const btn = getButton(container);
+      fireEvent.keyDown(btn, { key: " " });
+      fireEvent.keyUp(btn, { key: " " });
+      expect(onKeyDown).toHaveBeenCalledTimes(1);
+      expect(onKeyUp).toHaveBeenCalledTimes(1);
     });
   });
 

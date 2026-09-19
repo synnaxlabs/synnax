@@ -9,9 +9,10 @@
 
 import "@/button/Button.css";
 
-import { color, record, text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { color, record, text, type TimeSpan } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo } from "react";
 
+import { useHold } from "@/button/useHold";
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
@@ -125,23 +126,28 @@ const Base = <E extends ElementType = "button">({
   href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
-  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
   if (preview) preventClick = true;
+  // The chassis element is generic, but the hold only needs the event's button.
+  const hold = useHold<HTMLButtonElement>({
+    onClick: onClick as React.MouseEventHandler<HTMLButtonElement> | undefined,
+    onMouseDown: onMouseDown as React.MouseEventHandler<HTMLButtonElement> | undefined,
+    onClickDelay,
+    disabled: isDisabled || preview === true,
+  });
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!propagateClick) e.stopPropagation();
     if (isDisabled || preview === true || preventClick === true) return;
-    // @ts-expect-error - TODO: fix this
-    if (parsedDelay.isZero) return onClick?.(e);
+    hold.onClick(e);
   };
 
-  // A non-button chassis has no native Enter/Space activation, so a focusable one
-  // gets it from the component. tabIndex -1 still counts: roving-tabindex tabs hold
-  // focus programmatically. The target guard keeps keystrokes on nested interactives
-  // (inputs, editables) from activating the chassis.
+  // A non-button chassis has no native Enter/Space activation, so a focusable one gets
+  // it from the component. tabIndex -1 still counts: roving-tabindex tabs hold focus
+  // programmatically. The target guard keeps keystrokes on nested interactives (inputs,
+  // editables) from activating the chassis.
   const resolvedEl = Text.parseElement(level, el, defaultEl, textVariant, href);
   const ownsActivation =
     (resolvedEl === "div" || resolvedEl === "label") && tabIndex != null;
@@ -154,8 +160,6 @@ const Base = <E extends ElementType = "button">({
     handleClick(e);
   };
 
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const handleMouseDown = (e: any) => {
     // Preventing default on mousedown cancels a native dragstart, so skip it for
     // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
@@ -167,16 +171,7 @@ const Base = <E extends ElementType = "button">({
       (e.target as HTMLElement).closest(FOCUSABLE) === e.currentTarget
     )
       e.preventDefault();
-    onMouseDown?.(e);
-    if (isDisabled || preview === true || parsedDelay.isZero) return;
-    document.addEventListener(
-      "mouseup",
-      () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
-    );
-    timeoutRef.current = setTimeout(() => {
-      onClick?.(e);
-      timeoutRef.current = null;
-    }, parsedDelay.milliseconds);
+    hold.onMouseDown(e);
   };
 
   Triggers.use({
@@ -207,13 +202,13 @@ const Base = <E extends ElementType = "button">({
           color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
         ),
       };
-    if (!parsedDelay.isZero)
+    if (!hold.delay.isZero)
       s = {
         ...s,
-        [CSS.variable("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+        [CSS.variable("btn-delay")]: `${hold.delay.seconds.toString()}s`,
       };
     return s;
-  }, [style, hasCustomColor, colorVal, theme, parsedDelay]);
+  }, [style, hasCustomColor, colorVal, theme, hold.delay]);
 
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
@@ -238,6 +233,7 @@ const Base = <E extends ElementType = "button">({
         preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         reveal === true && CSS.M("reveal"),
+        hold.pressed && CSS.M("pressed"),
         className,
       )}
       size={size}

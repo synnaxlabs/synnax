@@ -33,6 +33,7 @@ import {
   type ComponentPropsWithRef,
   type FC,
   Fragment,
+  type KeyboardEvent as ReactKeyboardEvent,
   memo,
   type MouseEvent as ReactMouseEvent,
   type PropsWithChildren,
@@ -51,6 +52,7 @@ import { CSS } from "@/css";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
 import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
+import { blockActivation, isInputOrContentEditable } from "@/util/event";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -554,6 +556,20 @@ export const create = ({
       [onPaste, cursorInDiagramSpace],
     );
 
+    // Inside the canvas, Space and Enter belong to the diagram, never to whichever
+    // control holds focus: the browser's synthetic click would actuate it. Triggers
+    // listen on the window and React Flow ignores defaultPrevented, so selection and
+    // shortcuts still fire. A dialog opened from a node portals out of this element,
+    // and keeps its own keyboard activation.
+    const handleActivationKey = useCallback(
+      (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+        if (!e.currentTarget.contains(e.target as HTMLElement)) return;
+        if (isInputOrContentEditable(e)) return;
+        blockActivation(e);
+      },
+      [],
+    );
+
     return (
       <div
         className={CSS.BE("diagram", "container")}
@@ -564,6 +580,8 @@ export const create = ({
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
         onContextMenu={onContextMenu}
+        onKeyDownCapture={handleActivationKey}
+        onKeyUpCapture={handleActivationKey}
         tabIndex={-1}
       >
         <Context value={ctxValue}>

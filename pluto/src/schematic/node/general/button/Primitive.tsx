@@ -22,6 +22,7 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
+import { Triggers } from "@/triggers";
 
 interface ButtonProps extends Omit<Config, "variant"> {
   className?: string;
@@ -29,6 +30,17 @@ interface ButtonProps extends Omit<Config, "variant"> {
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
 }
+
+// A context menu swallows the release of a secondary-button press, so momentary would
+// stay pressed. Only the primary button drives the raw press edges.
+const primaryOnly = (
+  handler?: MouseEventHandler<HTMLButtonElement>,
+): MouseEventHandler<HTMLButtonElement> | undefined =>
+  handler == null
+    ? undefined
+    : (e) => {
+        if (e.button === Triggers.MOUSE_LEFT_NUMBER) handler(e);
+      };
 
 export const Button = ({
   onClick,
@@ -52,9 +64,15 @@ export const Button = ({
   // the hold is the actuation, so a hold delay has no meaning there.
   const delayed = (delay ?? 0) > 0;
   let handlers: Pick<ButtonProps, "onClick" | "onMouseDown" | "onMouseUp">;
-  if (mode === "momentary") handlers = { onMouseDown, onMouseUp };
+  if (mode === "momentary")
+    handlers = {
+      onMouseDown: primaryOnly(onMouseDown),
+      onMouseUp: primaryOnly(onMouseUp),
+    };
   else if (mode === "pulse")
-    handlers = delayed ? { onClick: onMouseDown } : { onMouseDown };
+    handlers = delayed
+      ? { onClick: onMouseDown }
+      : { onMouseDown: primaryOnly(onMouseDown) };
   else handlers = { onClick };
   return (
     <Primitive.Div orientation={orientation}>

@@ -12,3 +12,29 @@ export const preventDefault = (e: { preventDefault: () => void }): void =>
 
 export const stopPropagation = (e: { stopPropagation: () => void }): void =>
   e.stopPropagation();
+
+const ACTIVATION_KEYS = [" ", "Enter"];
+
+/**
+ * Cancels the browser's synthetic click for Space and Enter so a focused control never
+ * actuates from the keyboard. Attach to both keydown and keyup: Enter clicks on keydown
+ * and Space on keyup.
+ */
+export const blockActivation = (e: {
+  key: string;
+  preventDefault: () => void;
+}): void => {
+  if (ACTIVATION_KEYS.includes(e.key)) e.preventDefault();
+};
+
+/** True when the target accepts text entry, so the keystroke belongs to it. */
+export const isInputOrContentEditable = (e: {
+  target: EventTarget | null;
+}): boolean => {
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
+    return true;
+  if (!(e.target instanceof HTMLElement)) return false;
+  return (
+    e.target.getAttribute("contenteditable") === "true" || e.target.role === "textbox"
+  );
+};

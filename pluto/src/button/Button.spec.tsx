@@ -273,6 +273,40 @@ describe("Button", () => {
     });
   });
 
+  describe("pressed", () => {
+    it("should drop the pressed state when a drag starts", () => {
+      const c = render(<Button.Button draggable>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.mouseDown(btn);
+      expect(btn.className).toContain("pluto--pressed");
+      fireEvent.dragStart(btn);
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+
+    it("should mark a primary press and clear it on mouseup", () => {
+      const c = render(<Button.Button>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.mouseDown(btn);
+      expect(btn.className).toContain("pluto--pressed");
+      fireEvent.mouseUp(document);
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+
+    it("should not mark a secondary press", () => {
+      const c = render(<Button.Button>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.mouseDown(btn, { button: 2 });
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+
+    it("should not mark a disabled button", () => {
+      const c = render(<Button.Button disabled>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.mouseDown(btn);
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+  });
+
   describe("onClickDelay", () => {
     beforeEach(() => {
       vi.useFakeTimers();
@@ -318,6 +352,49 @@ describe("Button", () => {
       vi.advanceTimersByTime(10);
       fireEvent.mouseUp(c.getByText("Hello"));
       vi.advanceTimersByTime(1000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it("should not fire after the button unmounts mid-hold", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"));
+      c.unmount();
+      vi.advanceTimersByTime(2000);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it("should cancel the hold when the button becomes disabled", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"));
+      c.rerender(
+        <Button.Button onClickDelay={1000} onClick={onClick} disabled>
+          Hello
+        </Button.Button>,
+      );
+      vi.advanceTimersByTime(2000);
+      expect(onClick).not.toHaveBeenCalled();
+      expect(c.getByText("Hello").className).not.toContain("pluto--pressed");
+    });
+
+    it("should ignore a secondary-button hold", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"), { button: 2 });
+      vi.advanceTimersByTime(10000);
       expect(onClick).not.toHaveBeenCalled();
     });
   });

@@ -39,6 +39,7 @@ export const Select = ({
   size,
   disabled,
   inlineSize,
+  onClickDelay,
 }: RenderProps): ReactElement => {
   const data = useMemo(
     () => options.map((o) => ({ key: o.key, name: o.name || `Option ${o.value}` })),
@@ -104,6 +105,7 @@ export const Select = ({
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
+            onClickDelay={onClickDelay}
             disabled={disabled}
           >
             Send
