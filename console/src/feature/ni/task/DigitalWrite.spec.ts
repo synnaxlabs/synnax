@@ -121,6 +121,37 @@ describe("DigitalWrite", () => {
       expect(stateIndex.isIndex).toBe(true);
     });
 
+    // A row still showing the channel its old line mapped would rename that channel
+    // instead of the one the row now names.
+    it("should unbind a row moved to a line the device maps nothing for", async () => {
+      const dev = await createNIDevice(client);
+      const rendered = await renderDigitalWrite(
+        createConfig([createChannel(0, 0)], dev.key),
+      );
+      const deployed = await deployAndAwaitTask(
+        client,
+        rendered.container,
+        rendered.draft.key,
+        NI.Task.DIGITAL_WRITE_SCHEMAS,
+      );
+      const cmd = await client.channels.retrieve(
+        deployed.config.channels[0].cmdChannel,
+      );
+      await screen.findByText(cmd.name);
+      const inputs = rendered.container.querySelectorAll("input");
+      commitFieldInput(inputs[inputs.length - 1], "7");
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: rendered.draft.key,
+          schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels[0].line).toBe(7);
+        expect(saved.config.channels[0].cmdChannel).toBe(0);
+        expect(saved.config.channels[0].stateChannel).toBe(0);
+      });
+      expect(screen.queryByText(cmd.name)).toBeNull();
+    });
+
     it("should use custom command and state channel names when provided", async () => {
       const dev = await createNIDevice(client);
       const cmdName = uniqueName("do_cmd");

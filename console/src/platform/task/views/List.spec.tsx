@@ -20,10 +20,16 @@ const listItem = Component.renderProp(({ itemKey }: { itemKey: string }) => (
   <span>item-{itemKey}</span>
 ));
 
+const resolve = () => null;
+
 describe("layouts.List", () => {
   it("should render an item for each seeded channel", async () => {
     await renderInTaskForm(
-      <Task.Views.List<Channel> createChannel={() => null} listItem={listItem} />,
+      <Task.Views.List<Channel>
+        createChannel={() => null}
+        listItem={listItem}
+        resolve={resolve}
+      />,
       {
         values: {
           config: {
@@ -42,7 +48,11 @@ describe("layouts.List", () => {
   it("should append a channel to the form when the header add button is pressed", async () => {
     const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
     const { container, form } = await renderInTaskForm(
-      <Task.Views.List<Channel> createChannel={createChannel} listItem={listItem} />,
+      <Task.Views.List<Channel>
+        createChannel={createChannel}
+        listItem={listItem}
+        resolve={resolve}
+      />,
       { values: { config: { channels: [] } } },
     );
     fireEvent.click(getIconButton(container, "add"));
@@ -56,7 +66,11 @@ describe("layouts.List", () => {
   it("should create a channel from the empty-state action", async () => {
     const createChannel = vi.fn((): Channel => ({ key: "new", disabled: false }));
     const { form } = await renderInTaskForm(
-      <Task.Views.List<Channel> createChannel={createChannel} listItem={listItem} />,
+      <Task.Views.List<Channel>
+        createChannel={createChannel}
+        listItem={listItem}
+        resolve={resolve}
+      />,
       { values: { config: { channels: [] } } },
     );
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
@@ -68,7 +82,11 @@ describe("layouts.List", () => {
 
   it("should append nothing when createChannel returns null", async () => {
     const { container, form } = await renderInTaskForm(
-      <Task.Views.List<Channel> createChannel={() => null} listItem={listItem} />,
+      <Task.Views.List<Channel>
+        createChannel={() => null}
+        listItem={listItem}
+        resolve={resolve}
+      />,
       { values: { config: { channels: [] } } },
     );
     fireEvent.click(getIconButton(container, "add"));
@@ -78,7 +96,11 @@ describe("layouts.List", () => {
 
   it("should hide the add button when the form is in preview", async () => {
     const { container } = await renderInTaskForm(
-      <Task.Views.List<Channel> createChannel={() => null} listItem={listItem} />,
+      <Task.Views.List<Channel>
+        createChannel={() => null}
+        listItem={listItem}
+        resolve={resolve}
+      />,
       { values: { config: { channels: [] } }, mode: "preview" },
     );
     await waitFor(() => expect(screen.getByText("Channels")).toBeTruthy());

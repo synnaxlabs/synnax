@@ -126,8 +126,9 @@ export interface ChannelListItemProps extends List.ItemProps<string> {}
 export interface ChannelListProps<C extends Channel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
-    Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style">,
-    Partial<Pick<BindChannelsProps<C>, "resolve">> {
+    Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
+  /** Omitted only by a nested list whose entries an outer BindChannels binds. */
+  resolve?: BindChannelsProps<C>["resolve"];
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;

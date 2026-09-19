@@ -23,10 +23,10 @@ export interface DetailsProps {
   path: string;
 }
 
-export interface ListAndDetailsProps<C extends Channel> extends Pick<
-  ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "resolve"
-> {
+export interface ListAndDetailsProps<C extends Channel>
+  extends
+    Pick<ChannelListProps<C>, "onTare" | "allowTare" | "listItem" | "contextMenuItems">,
+    Required<Pick<ChannelListProps<C>, "resolve">> {
   details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
 }
