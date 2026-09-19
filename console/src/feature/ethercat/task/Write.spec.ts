@@ -226,6 +226,40 @@ describe("EtherCAT Write", () => {
       });
     });
 
+    it("should recreate only the deleted half of a command and state pair", async () => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const config = {
+        ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+        channels: [createAutoWriteChannel(slave.key, "Control")],
+      };
+      const first = await renderWrite(config);
+      const firstTask = await deployAndAwaitTask(
+        client,
+        first.container,
+        first.draft.key,
+        EtherCAT.Task.WRITE_SCHEMAS,
+      );
+      first.unmount();
+      const [bound] = firstTask.config.channels;
+      await client.channels.delete(bound.stateChannel);
+
+      const second = await renderWrite(config);
+      const secondTask = await deployAndAwaitTask(
+        client,
+        second.container,
+        second.draft.key,
+        EtherCAT.Task.WRITE_SCHEMAS,
+      );
+      const [rebound] = secondTask.config.channels;
+      expect(rebound.cmdChannel).toBe(bound.cmdChannel);
+      expect(rebound.stateChannel).not.toBe(bound.stateChannel);
+      expect(rebound.stateChannel).not.toBe(0);
+    });
+
     it("should surface an error when slaves are on different networks", async () => {
       const slaveA = await createSlaveDevice(client, testRack.key, {
         identifier: createIdentifier(),

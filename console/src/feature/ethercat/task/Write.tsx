@@ -83,7 +83,7 @@ const Form: FC = () => {
       const mapKey = channelMapKey(ch);
       return {
         cmdChannel: getChannelByMapKey(channels, mapKey),
-        stateChannel: getChannelByMapKey(channels, `${mapKey}_state`),
+        stateChannel: getChannelByMapKey(channels, `${mapKey}${STATE_KEY_SUFFIX}`),
       };
     },
     [slaves],
@@ -105,6 +105,9 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
   config: WRITE_SCHEMAS.config.parse(config ?? {}),
 });
 
+// The state half of a pair lives beside its command under this suffix.
+const STATE_KEY_SUFFIX = "_state";
+
 const WRITE_INDEX_OPTIONS = {
   indexProperty: "writeStateIndex" as const,
   channelsProperty: "write" as const,
@@ -121,24 +124,29 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
     let modified = await checkOrCreateIndex(client, slave, WRITE_INDEX_OPTIONS);
-    const toCreate = await findChannelsToCreate(
+    const existingChannels = slave.properties.write.channels;
+    // The command and state of a pair are checked apart: deleting one must recreate
+    // only that one, leaving the other bound where the device already maps it.
+    const cmdToCreate = await findChannelsToCreate(client, channels, existingChannels);
+    const stateToCreate = await findChannelsToCreate(
       client,
       channels,
-      slave.properties.write.channels,
+      existingChannels,
+      STATE_KEY_SUFFIX,
     );
+    const identifier = channel.escapeInvalidName(slave.properties.identifier);
+    const describe = (ch: WriteChannel) => ({
+      ch,
+      pdoName: getPDOName(ch),
+      dataType:
+        ch.type === "automatic"
+          ? resolvePDODataType(slave, ch.pdo, "outputs")
+          : ch.dataType,
+    });
 
-    if (toCreate.length > 0) {
+    if (cmdToCreate.length > 0) {
       modified = true;
-      const identifier = channel.escapeInvalidName(slave.properties.identifier);
-
-      const channelData = toCreate.map((ch) => ({
-        ch,
-        pdoName: getPDOName(ch),
-        dataType:
-          ch.type === "automatic"
-            ? resolvePDODataType(slave, ch.pdo, "outputs")
-            : ch.dataType,
-      }));
+      const channelData = cmdToCreate.map(describe);
 
       const cmdIndexes = await client.channels.create(
         channelData.map(({ ch, pdoName }) => ({
@@ -160,8 +168,15 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         })),
       );
 
+      cmdToCreate.forEach((ch, i) => {
+        existingChannels[channelMapKey(ch)] = cmdChannels[i].key;
+      });
+    }
+
+    if (stateToCreate.length > 0) {
+      modified = true;
       const stateChannels = await client.channels.create(
-        channelData.map(({ ch, pdoName, dataType }) => ({
+        stateToCreate.map(describe).map(({ ch, pdoName, dataType }) => ({
           name: primitive.isNonZero(ch.stateChannelName)
             ? ch.stateChannelName
             : `${identifier}_${pdoName}_state`,
@@ -170,10 +185,9 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         })),
       );
 
-      toCreate.forEach((ch, i) => {
-        const mapKey = channelMapKey(ch);
-        slave.properties.write.channels[mapKey] = cmdChannels[i].key;
-        slave.properties.write.channels[`${mapKey}_state`] = stateChannels[i].key;
+      stateToCreate.forEach((ch, i) => {
+        existingChannels[`${channelMapKey(ch)}${STATE_KEY_SUFFIX}`] =
+          stateChannels[i].key;
       });
     }
 
@@ -184,7 +198,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       ch.cmdChannel = getChannelByMapKey(slave.properties.write.channels, mapKey);
       ch.stateChannel = getChannelByMapKey(
         slave.properties.write.channels,
-        `${mapKey}_state`,
+        `${mapKey}${STATE_KEY_SUFFIX}`,
       );
     });
   }
