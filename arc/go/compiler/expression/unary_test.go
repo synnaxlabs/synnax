@@ -12,6 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -119,7 +120,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"NOT of comparison",
 			"not (i32(5) > i32(3))",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(5),
 			OpI32Const,
@@ -131,7 +132,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"NOT of equality",
 			"not (i32(10) == i32(10))",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(10),
 			OpI32Const,
@@ -143,7 +144,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"double NOT",
 			"not not (i32(5) < i32(10))",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(5),
 			OpI32Const,
@@ -157,7 +158,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"NOT with arithmetic comparison",
 			"not ((i32(2) + i32(3)) > i32(4))",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(2),
 			OpI32Const,
@@ -173,7 +174,7 @@ var _ = Describe("Unary Operations", func() {
 		Entry(
 			"negation and NOT in same expression",
 			"not (-i32(5) < i32(0))",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(5),
 			OpI32Const,
@@ -197,6 +198,31 @@ var _ = Describe("Unary Operations", func() {
 			OpI32Const,
 			int32(3),
 			OpI32Mul,
+		),
+	)
+
+	DescribeTable("should compile series unary expressions",
+		expectSeriesExpression,
+		Entry("not bool series", "not a",
+			[]symbol.Symbol{seriesSymbol("a", types.Bool(), 0)},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpCall, uint32(0),
+		),
+
+		Entry("negate signed series", "-a",
+			[]symbol.Symbol{seriesSymbol("a", types.I32(), 0)},
+			types.Series(types.I32()),
+			OpLocalGet, 0, OpCall, uint32(0),
+		),
+	)
+
+	DescribeTable(
+		"should reject invalid unary operands",
+		expectCompileError,
+		Entry(
+			"logical NOT on a non-bool series",
+			"not s",
+			"logical NOT on series requires a bool element type, got i64",
 		),
 	)
 })

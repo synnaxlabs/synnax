@@ -9,8 +9,8 @@
 
 export type { Status } from "@/telem/control/aether/controller";
 export * from "@/telem/control/Chip";
+export * from "@/telem/control/Colors";
 export * from "@/telem/control/Controller";
 export * from "@/telem/control/Indicator";
 export * from "@/telem/control/Legend";
 export * from "@/telem/control/menu";
-export * from "@/telem/control/StateProvider";

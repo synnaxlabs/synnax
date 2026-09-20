@@ -375,9 +375,9 @@ func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(rf.Channel))
 	w.String(rf.Pointer)
 	w.String(string(rf.DataType))
-	if rf.TimestampFormat != nil {
+	if rf.TimeFormat != nil {
 		w.Bool(true)
-		w.String(string(*rf.TimestampFormat))
+		w.String(string(*rf.TimeFormat))
 	} else {
 		w.Bool(false)
 	}
@@ -436,7 +436,7 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 				}
 				hv = TimeFormat(rawV)
 			}
-			rf.TimestampFormat = &hv
+			rf.TimeFormat = &hv
 		}
 	}
 	{

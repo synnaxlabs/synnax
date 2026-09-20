@@ -59,12 +59,10 @@ var _ = Describe("MigrateParam", func() {
 		"Should carry function inputs and outputs while dropping the removed config",
 		func(ctx SpecContext) {
 			migrated := migrateType(ctx, v0.Type{
-				FunctionProperties: v0.FunctionProperties{
-					Inputs:  v0.Params{{Name: "in"}},
-					Outputs: v0.Params{{Name: "out"}},
-					Config:  v0.Params{{Name: "cfg"}},
-				},
-				Kind: v0.KindFunction,
+				Inputs:  v0.Params{{Name: "in"}},
+				Outputs: v0.Params{{Name: "out"}},
+				Config:  v0.Params{{Name: "cfg"}},
+				Kind:    v0.KindFunction,
 			})
 			Expect(migrated.Inputs).To(HaveLen(1))
 			Expect(migrated.Inputs[0].Name).To(Equal("in"))

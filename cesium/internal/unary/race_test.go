@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -49,7 +50,7 @@ var _ = Describe("Unary racing", func() {
 						Name:     "Anker",
 						Key:      indexKey,
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					},
 					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),

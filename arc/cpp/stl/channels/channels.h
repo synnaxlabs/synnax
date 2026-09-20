@@ -161,7 +161,6 @@ class Write : public runtime::node::Node {
     /// @brief channel_idx is the channel ref input's index; NO_CHANNEL when not
     /// alias-bound.
     size_t channel_idx;
-    ::x::telem::MonoClock clock;
 
 public:
     Write(
@@ -179,19 +178,21 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(this->input_idx);
         if (data->empty()) return x::errors::NIL;
-        const auto start = this->clock.now();
-        const auto time = x::mem::local_shared(
-            ::x::telem::Series::linspace(
-                start,
-                start + 100 * ::x::telem::MICROSECOND,
-                data->size()
-            )
-        );
-        this->state.write_series(
-            bound_key(this->state, this->channel_idx, this->key),
-            data,
-            time
-        );
+        const auto k = bound_key(this->state, this->channel_idx, this->key);
+        const auto &time = this->state.input_time(this->input_idx);
+        // A length disagreement is an upstream aligner bug. Refuse the write
+        // instead of persisting a corrupt index.
+        if (time->size() != data->size()) {
+            ctx.report_error(
+                x::errors::Error(
+                    "write to channel " + std::to_string(k) + ": sample count " +
+                    std::to_string(data->size()) + " does not match timestamp count " +
+                    std::to_string(time->size())
+                )
+            );
+            return x::errors::NIL;
+        }
+        this->state.write_series(k, data, time);
         auto &out = this->state.output(0);
         out->resize(1);
         out->set(0, static_cast<uint8_t>(1));
@@ -281,6 +282,7 @@ public:
         bind_ops<int64_t>(linker, "i64", x::telem::INT64_T);
         bind_ops<float>(linker, "f32", x::telem::FLOAT32_T);
         bind_ops<double>(linker, "f64", x::telem::FLOAT64_T);
+        bind_bool_ops(linker);
         bind_str_ops(linker);
     }
 
@@ -317,6 +319,38 @@ private:
                         static_cast<types::ChannelKey>(channel_id),
                         dt,
                         static_cast<T>(value)
+                    );
+                }
+            )
+            .unwrap();
+    }
+
+    void bind_bool_ops(wasmtime::Linker &linker) {
+        auto ch = this->channel;
+        linker
+            .func_wrap(
+                MODULE_NAME,
+                "read_bool",
+                [ch](uint32_t channel_id) -> uint32_t {
+                    auto [multi_series, ok] = ch->read_value(
+                        static_cast<types::ChannelKey>(channel_id)
+                    );
+                    if (!ok || multi_series.series.empty()) return 0;
+                    const auto &last = multi_series.series.back();
+                    if (last.size() == 0) return 0;
+                    return last.at<uint8_t>(-1) != 0 ? 1 : 0;
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                MODULE_NAME,
+                "write_bool",
+                [ch](uint32_t channel_id, uint32_t value) {
+                    ch->write_channel_typed(
+                        static_cast<types::ChannelKey>(channel_id),
+                        x::telem::BOOLEAN_T,
+                        static_cast<bool>(value != 0)
                     );
                 }
             )

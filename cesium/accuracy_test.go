@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -56,7 +56,7 @@ var _ = Describe("Accuracy", func() {
 							Name:     "Rufus",
 							Key:      idxKey,
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Name:     "Du",
@@ -110,7 +110,8 @@ var _ = Describe("Accuracy", func() {
 						for series := range frame.Series() {
 							actual = append(
 								actual,
-								telem.UnmarshalSeries[int64](series)...)
+								series.Unmarshal[int64]()...,
+							)
 						}
 						Expect(actual).To(Equal(expected))
 					},
@@ -199,13 +200,13 @@ var _ = Describe("Accuracy", func() {
 							cesium.Channel{
 								Name:     "Albert",
 								Key:      idxKey1,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
 								Name:     "Park",
 								Key:      idxKey2,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -269,11 +270,13 @@ var _ = Describe("Accuracy", func() {
 								if k == key1 {
 									actual1 = append(
 										actual1,
-										telem.UnmarshalSeries[int64](series)...)
+										series.Unmarshal[int64]()...,
+									)
 								} else {
 									actual2 = append(
 										actual2,
-										telem.UnmarshalSeries[int64](series)...)
+										series.Unmarshal[int64]()...,
+									)
 								}
 							}
 							Expect(actual1).To(Equal(expected1))

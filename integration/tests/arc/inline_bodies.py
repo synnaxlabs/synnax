@@ -127,9 +127,9 @@ trigger_1 -> select{} -> {
 // Triple-nested select (stage): the innermost branch fires in-cycle.
 trigger_1 -> select{} -> {
     true: stage {
-        1 -> select{} -> {
+        true -> select{} -> {
             true: stage {
-                1 -> select{} -> {
+                true -> select{} -> {
                     true: stage { 1 -> nested_select_stage_out }
                 }
             }
@@ -140,9 +140,9 @@ trigger_1 -> select{} -> {
 // Triple-nested select (sequence): the innermost branch fires in-cycle.
 trigger_1 -> select{} -> {
     true: sequence {
-        1 -> select{} -> {
+        true -> select{} -> {
             true: sequence {
-                1 -> select{} -> {
+                true -> select{} -> {
                     true: sequence { 1 -> nested_select_seq_out }
                 }
             }
@@ -152,7 +152,7 @@ trigger_1 -> select{} -> {
 
 // Cross-nested: a flow stage body wrapping a select.
 trigger_1 -> stage {
-    1 -> select{} -> {
+    true -> select{} -> {
         true: stage { 1 -> cross_flow_select_out }
     }
 }
@@ -166,7 +166,7 @@ trigger_1 -> select{} -> {
 
 // Cross-nested: a flow sequence body wrapping a select.
 trigger_1 -> sequence {
-    1 -> select{} -> {
+    true -> select{} -> {
         true: stage { 1 -> cross_seq_select_out }
     }
 }
@@ -205,7 +205,7 @@ sequence main {
     }
 }
 
-// Select branch selection (stage): truthy fires true, falsy fires false.
+// Select branch selection (stage): true fires the true branch, false the false.
 select_stage_flag -> select{} -> {
     true: stage { 1 -> select_stage_true_out },
     false: stage { 1 -> select_stage_false_out }
@@ -217,7 +217,7 @@ select_seq_flag -> select{} -> {
     false: sequence { 1 -> select_seq_false_out }
 }
 
-// Single-branch select (false-only): the stage branch fires on a falsy input.
+// Single-branch select (false-only): the stage branch fires on a false input.
 select_stage_flag -> select{} -> {
     false: stage { 1 -> select_false_stage_out }
 }
@@ -233,7 +233,7 @@ trigger_2 => select_main
 
 sequence select_main {
     stage sel_first_stage {
-        1 -> select{} -> {
+        true -> select{} -> {
             true: stage {
                 1 -> select_sibling_first_a
                 1 -> select_sibling_first_b
@@ -243,7 +243,7 @@ sequence select_main {
         }
     }
     stage sel_second_stage {
-        1 -> select{} -> {
+        true -> select{} -> {
             true: sequence {
                 1 -> select_sibling_second_a
                 1 -> select_sibling_second_b
@@ -261,7 +261,7 @@ sequence select_main {
 trigger_3 => select_gated_stage_main
 
 stage select_gated_stage_main {
-    1 -> select{} -> {
+    true -> select{} -> {
         true: stage { 1 -> select_gated_stage_out }
     }
 }
@@ -271,7 +271,7 @@ stage select_gated_stage_main {
 trigger_4 => select_gated_seq_main
 
 sequence select_gated_seq_main {
-    1 -> select{} -> {
+    true -> select{} -> {
         true: sequence { 1 -> select_gated_seq_out }
     }
 }
@@ -405,16 +405,17 @@ OUTPUTS = (
     + REENTRY_OUTS
 )
 
-# Inputs the test drives. trigger_1 is created by the base class as the start cmd.
+# Inputs the test drives. trigger_1 (the start cmd) is bool: it feeds select{}.
 INPUTS = [
     "trigger_2",
     "trigger_3",
     "trigger_4",
     "trigger_5",
     "trigger_6",
-    "select_stage_flag",
-    "select_seq_flag",
 ]
+
+# Bool inputs: channels routed into select{}, which takes a bool discriminator.
+BOOL_INPUTS = ["trigger_1", "select_stage_flag", "select_seq_flag"]
 
 # Float inputs driving the ported lifecycle flows' reactive conditions.
 FLOAT_INPUTS = ["race_cond", "reentry_cond"]
@@ -440,12 +441,12 @@ class InlineBodies(ArcCase):
       same cycle regardless of kind.
     - Alternating-kind nesting: inline bodies nested several levels deep with the
       kind switching at each level; the innermost body fires in the same cycle.
-    - Select multi-write branch: a truthy value routed into a ``select`` fires a
-      multi-write branch body — a ``stage`` writes all outputs in parallel, a
+    - Select multi-write branch: a ``true`` value routed into a ``select`` fires
+      a multi-write branch body — a ``stage`` writes all outputs in parallel, a
       ``sequence`` as ordered steps.
     - Single-branch select: a ``select`` with a single branch fires it when its
-      routed value matches — a ``true``-only branch on a truthy value, a
-      ``false``-only branch on a falsy value — for both ``stage`` and
+      routed value matches — a ``true``-only branch on a ``true`` value, a
+      ``false``-only branch on a ``false`` value — for both ``stage`` and
       ``sequence`` bodies.
     - Nested select: a ``select`` branch body routes into a further ``select``,
       three deep; the innermost branch fires in the same cycle.
@@ -456,8 +457,8 @@ class InlineBodies(ArcCase):
       ``stage`` body (first stage) and a multi-step inline ``sequence`` body
       (second stage) each write their outputs and transition to the next sibling
       stage, walking the sequence through to a third stage.
-    - Select branch selection: a value routed into a ``select`` fires the
-      matching branch body — truthy routes the ``true`` branch, falsy the
+    - Select branch selection: a bool routed into a ``select`` fires the
+      matching branch body — ``true`` routes the ``true`` branch, ``false`` the
       ``false`` branch — for both ``stage`` and ``sequence`` bodies.
     - Select sibling transition: a constant routed through a ``select`` inside a
       sequence stage fires the matching branch body, which writes an output and
@@ -485,6 +486,8 @@ class InlineBodies(ArcCase):
             create_virtual_channel(self.client, channel, sy.DataType.UINT8)
         for channel in FLOAT_INPUTS:
             create_virtual_channel(self.client, channel, sy.DataType.FLOAT32)
+        for channel in BOOL_INPUTS:
+            create_virtual_channel(self.client, channel, sy.DataType.BOOLEAN)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

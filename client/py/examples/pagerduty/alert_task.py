@@ -44,7 +44,7 @@ alert_task = sy.pagerduty.AlertTask(
     alerts=[
         sy.pagerduty.Alert(
             status=STATUS_KEY,
-            treat_error_as_critical=True,
+            errors_critical=True,
             component="example-service",
             group="examples",
             class_="service_error",

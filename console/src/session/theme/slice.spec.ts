@@ -16,6 +16,10 @@ describe("Theme Slice", () => {
     expect(Theme.ZERO_SLICE_STATE.mode).toBe("system");
   });
 
+  it("should fall back to the system theme for stored state with no mode", () => {
+    expect(Theme.sliceStateZ.parse({ version: 0 }).mode).toBe("system");
+  });
+
   it("should set the mode", () => {
     let state = Theme.reducer(Theme.ZERO_SLICE_STATE, Theme.set("dark"));
     expect(state.mode).toBe("dark");

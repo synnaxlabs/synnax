@@ -28,7 +28,7 @@ export const defaultConfig = (): Config => ({
   orientation: "left",
   color: color.ZERO,
   units: "psi",
-  level: "h5",
+  level: "h4",
   inlineSize: 70,
   label: Label.defaultConfig("Value"),
   ...Staleness.ZERO_CONFIG,

@@ -84,7 +84,7 @@ export class Diagram extends aether.Composite<
     try {
       this.children.forEach((child) => child.render?.({ viewportScale }));
     } catch (e) {
-      handleError(e, "failed to render diagram");
+      handleError(e, "Failed to render diagram");
     } finally {
       clearScissor();
     }

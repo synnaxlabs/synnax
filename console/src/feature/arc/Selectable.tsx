@@ -14,7 +14,7 @@ import { Arc } from "@/platform/arc";
 import { Selector } from "@/platform/selector";
 
 export const Selectable = Selector.createSelectable({
-  title: "Arc Automation",
+  title: "Arc automation",
   icon: <Icon.Arc />,
   useOnSelect: Arc.useCreate,
   type: arc.TYPE_ONTOLOGY_ID.type,

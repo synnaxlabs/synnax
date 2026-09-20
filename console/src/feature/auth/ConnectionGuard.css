@@ -25,35 +25,6 @@
     height: 1lh;
 }
 
-.console-connection__target {
-    flex-wrap: wrap;
-
-    & > .pluto-text--overflow-ellipsis {
-        min-width: 0;
-    }
-}
-
-.console-connection__status {
-    flex-shrink: 0;
-    display: inline-grid;
-    justify-items: start;
-
-    & > * {
-        grid-area: 1 / 1;
-    }
-
-    & > .console--ghost {
-        visibility: hidden;
-    }
-}
-
-/* .pluto-icon pins icons to 1em, so the status dot is sized here instead of
-   via the size prop. */
-.console-connection__target > .pluto-icon {
-    width: 2rem;
-    height: 2rem;
-}
-
 .console-connection__actions > * {
     flex-basis: 0;
 }

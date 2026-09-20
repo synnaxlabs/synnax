@@ -76,7 +76,7 @@ var _ = Describe("DispatchRequest", func() {
 
 var _ = Describe("State", func() {
 	It("Should hand out a usable Dispatcher", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction]()
+		state := actions.NewState[uuid.UUID, testAction](nil)
 		received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
 		state.OnAction(
 			func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
@@ -96,7 +96,7 @@ var _ = Describe("State", func() {
 	It(
 		"Should stamp a monotonically increasing Seq across dispatches",
 		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction]()
+			state := actions.NewState[uuid.UUID, testAction](nil)
 			seqs := make(chan uint64, 3)
 			state.OnAction(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
@@ -119,7 +119,7 @@ var _ = Describe("State", func() {
 	It(
 		"Should share the Seq counter across Dispatchers handed out by the same State",
 		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction]()
+			state := actions.NewState[uuid.UUID, testAction](nil)
 			var maxSeq atomic.Uint64
 			state.OnAction(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
@@ -142,7 +142,7 @@ var _ = Describe("State", func() {
 	)
 
 	It("Should serialize Seq under concurrent Notify", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction]()
+		state := actions.NewState[uuid.UUID, testAction](nil)
 		const N = 200
 		var mu sync.Mutex
 		seen := make([]uint64, 0, N)
@@ -180,7 +180,7 @@ var _ = Describe("State", func() {
 	It(
 		"Should fan out to every subscriber registered via OnAction",
 		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction]()
+			state := actions.NewState[uuid.UUID, testAction](nil)
 			a := make(chan actions.Scoped[uuid.UUID, testAction], 1)
 			b := make(chan actions.Scoped[uuid.UUID, testAction], 1)
 			state.OnAction(
@@ -196,7 +196,7 @@ var _ = Describe("State", func() {
 	)
 
 	It("Should stop notifying a subscriber after Disconnect", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction]()
+		state := actions.NewState[uuid.UUID, testAction](nil)
 		var hits atomic.Uint64
 		disconnect := state.OnAction(
 			func(_ context.Context, _ actions.Scoped[uuid.UUID, testAction]) {
@@ -214,7 +214,7 @@ var _ = Describe("State", func() {
 	It(
 		"Should carry the action sequence verbatim onto the Scoped envelope",
 		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction]()
+			state := actions.NewState[uuid.UUID, testAction](nil)
 			received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
 			state.OnAction(
 				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {

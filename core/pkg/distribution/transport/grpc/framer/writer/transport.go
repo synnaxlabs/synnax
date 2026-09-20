@@ -63,12 +63,12 @@ func New(pool *fgrpc.Pool) Transport {
 			},
 			ServiceDesc: &pb.WriterService_ServiceDesc,
 		},
-		server: &server{serverCore: serverCore{
+		server: &server{
 			Internal:           true,
 			RequestTranslator:  pb.WriterRequestTranslator{},
 			ResponseTranslator: pb.WriterResponseTranslator{},
 			ServiceDesc:        &pb.WriterService_ServiceDesc,
-		}},
+		},
 	}
 }
 

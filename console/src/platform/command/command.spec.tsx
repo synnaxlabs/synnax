@@ -44,4 +44,32 @@ describe("Command.create", () => {
     fireEvent.click(screen.getByText("Hook Command"), { detail: 1 });
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("should show the shortcut of a command that a global trigger also runs", async () => {
+    const Cmd = Command.create({
+      key: "cc",
+      name: "Hook Command",
+      icon: <Icon.Close />,
+      useOnSelect: () => vi.fn(),
+      trigger: ["Control", "O"],
+    });
+    const { wrapper } = await createConsoleWrapper({ client: null });
+    const c = render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
+    // Some palette entries duplicate a shortcut bound elsewhere in the app. Without
+    // the hint, the entry is the only place that shortcut is discoverable.
+    expect(c.getByText("O")).toBeTruthy();
+  });
+
+  it("should leave a command with no shortcut unadorned", async () => {
+    const Cmd = Command.create({
+      key: "cc",
+      name: "Hook Command",
+      icon: <Icon.Close />,
+      useOnSelect: () => vi.fn(),
+    });
+    const { wrapper } = await createConsoleWrapper({ client: null });
+    const c = render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
+    expect(c.getByText("Hook Command")).toBeTruthy();
+    expect(c.container.querySelector(".pluto-text--keyboard")).toBeNull();
+  });
 });

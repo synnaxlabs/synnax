@@ -18,6 +18,7 @@ from synnax.ni.types import (
 )
 from synnax.ni.types_gen import (
     CJC,
+    AccelChargeSensitivityUnits,
     AccelSensitivityUnits,
     AccelUnits,
     AIAccel4WireDCVoltageChannel,
@@ -182,6 +183,7 @@ _DEPRECATED: dict[str, str | tuple[str, str]] = {
 __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 
 __all__ = [
+    "AccelChargeSensitivityUnits",
     "AccelSensitivityUnits",
     "AccelUnits",
     "AIAccel4WireDCVoltageChannel",

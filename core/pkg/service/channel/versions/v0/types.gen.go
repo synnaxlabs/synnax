@@ -49,15 +49,16 @@ func (o OperationType) IsValid() bool {
 }
 
 // Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, or average values over a time duration or triggered by a reset
-// channel.
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
 type Operation struct {
-	// Type is the aggregation operation type: min, max, avg, or none.
+	// Type is the aggregation operation type: min, max, avg, derivative, or none.
 	Type OperationType `json:"type" msgpack:"type"`
-	// ResetChannel is the channel key that triggers reset of the aggregation. If 0,
-	// duration-based reset is used.
+	// ResetChannel is the key of a channel that resets the aggregation when it receives
+	// a sample. If 0, no reset channel is used.
 	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
-	// Duration is the time window for aggregation when reset_channel is 0.
+	// Duration is the interval at which the aggregation resets. If 0, the aggregation
+	// is not reset on a timer.
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 
@@ -82,12 +83,11 @@ type Channel struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this channel is an index channel. Index channels must have
 	// int64 values (TIMESTAMP data type) written in ascending order, and are most
-	// commonly unix nanosecond timestamps.
+	// commonly Unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// LocalKey is the locally-unique portion of this channel's key.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	// LocalIndex is the channel used to index this channel's values, associating each
-	// value with a timestamp.
+	// LocalIndex is the locally-unique portion of the index channel's key.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Virtual is true if this channel does not persist data and is used only for
 	// streaming.

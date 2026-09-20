@@ -7,8 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ranger } from "@synnaxlabs/client";
+import {
+  group,
+  label,
+  NotFoundError,
+  panel,
+  project,
+  ranger,
+  type Synnax as Client,
+  view,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +29,14 @@ import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
+  awaitTextEditing,
+  commitTextEdit,
+  countEditableText,
   createConsoleWrapper,
+  createTestClientWithGrants,
+  getBySelector,
+  type Grants,
+  queryIconButton,
   resolveFocusedTab,
   selectTestProject,
   type TestStore,
@@ -35,8 +52,8 @@ const expectFocusedRange = async (store: TestStore, key: string): Promise<void> 
   expect(tab.resource.key).toBe(key);
 };
 
-const renderExplorer = async (): Promise<{ store: TestStore }> => {
-  const { wrapper, store } = await createConsoleWrapper({ client });
+const renderExplorer = async (as: Client = client): Promise<{ store: TestStore }> => {
+  const { wrapper, store } = await createConsoleWrapper({ client: as });
   await selectTestProject(store, client);
   render(
     <>
@@ -45,12 +62,12 @@ const renderExplorer = async (): Promise<{ store: TestStore }> => {
     </>,
     { wrapper },
   );
-  await screen.findByText("All Ranges");
+  await screen.findByText("All ranges");
   return { store };
 };
 
-// The shared cluster accumulates ranges across runs, so a fresh range may fall outside
-// the list's first page. Narrow to it through the view search before interacting.
+// The shared Core accumulates ranges across runs, so a fresh range may fall outside the
+// list's first page. Narrow to it through the view search before interacting.
 const revealRange = async (name: string): Promise<HTMLElement> => {
   await enableEditing();
   const search = await waitFor(() =>
@@ -80,7 +97,7 @@ const focusedTabs = (store: TestStore): string[] => {
 };
 
 describe("range/Explorer", () => {
-  it("lists ranges stored on the cluster", async () => {
+  it("lists ranges stored on the Core", async () => {
     const rng = await createTestRange(client);
     await renderExplorer();
     expect(await revealRange(rng.name)).toBeTruthy();
@@ -151,23 +168,18 @@ describe("range/Explorer", () => {
       fireEvent.click(await screen.findByText("Favorite"));
       await waitFor(() => {
         const state = Session.Range.selectState(store.getState(), rng.key);
-        expect(state?.persisted).toBe(true);
+        expect(state?.variant).toBe("persisted");
       });
     });
 
-    it("renames the range through the rename modal", async () => {
+    it("renames the range in place from the context menu", async () => {
       const rng = await createTestRange(client);
       await renderExplorer();
       fireEvent.contextMenu(await revealRange(rng.name));
       fireEvent.click(await screen.findByText("Rename"));
-      const input = await waitFor(() => {
-        const el = screen.getByPlaceholderText<HTMLInputElement>("Name");
-        expect(el.value).toBe(rng.name);
-        return el;
-      });
+      const el = await awaitTextEditing(List.itemNameID(rng.key));
       const renamed = uniqueRangeName("renamed");
-      fireEvent.change(input, { target: { value: renamed } });
-      fireEvent.click(findButton("Save"));
+      commitTextEdit(el, renamed);
       await waitFor(async () =>
         expect((await client.ranges.retrieve(rng.key)).name).toBe(renamed),
       );
@@ -181,18 +193,10 @@ describe("range/Explorer", () => {
       expect(await screen.findByText("Save locally")).toBeTruthy();
     });
 
-    it("deletes the range from the cluster after confirmation", async () => {
+    it("deletes the range from the Core after confirmation", async () => {
       const rng = await createTestRange(client);
       const { store } = await renderExplorer();
-      store.dispatch(
-        Session.Range.add({
-          key: rng.key,
-          name: rng.name,
-          persisted: true,
-          variant: "static",
-          timeRange: rng.timeRange.numeric,
-        }),
-      );
+      store.dispatch(Session.Range.add({ variant: "persisted", key: rng.key }));
       fireEvent.contextMenu(await revealRange(rng.name));
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
@@ -205,6 +209,70 @@ describe("range/Explorer", () => {
           NotFoundError.matches(e),
         );
       });
+    });
+  });
+});
+
+describe("range/Explorer permissions", () => {
+  const createEditor = async (grants: Grants = {}) =>
+    await createTestClientWithGrants(client, {
+      ...grants,
+      retrieve: [
+        ranger.TYPE_ONTOLOGY_ID,
+        view.TYPE_ONTOLOGY_ID,
+        label.TYPE_ONTOLOGY_ID,
+        group.TYPE_ONTOLOGY_ID,
+        project.TYPE_ONTOLOGY_ID,
+        panel.TYPE_ONTOLOGY_ID,
+      ],
+      update: [view.TYPE_ONTOLOGY_ID, ...(grants.update ?? [])],
+      create: [view.TYPE_ONTOLOGY_ID, ...(grants.create ?? [])],
+    });
+
+  it("should withhold the create button from a subject who cannot create ranges", async () => {
+    await renderExplorer(await createEditor({}));
+    await enableEditing();
+    await waitFor(() =>
+      expect(
+        queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
+      ).toBeTruthy(),
+    );
+    expect(
+      queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
+    ).toBeNull();
+  });
+
+  it("should offer the create button to a subject who may create ranges", async () => {
+    await renderExplorer(await createEditor({ create: [ranger.TYPE_ONTOLOGY_ID] }));
+    await enableEditing();
+    expect(await findToolbarIconButton("add")).toBeTruthy();
+  });
+
+  describe("context menu", () => {
+    it("should offer reads but no writes to a subject with no range grants", async () => {
+      const rng = await createTestRange(client);
+      await renderExplorer(await createEditor({}));
+      fireEvent.contextMenu(await revealRange(rng.name));
+      expect(await screen.findByText("View details")).toBeTruthy();
+      expect(screen.queryByText("Rename")).toBeNull();
+      expect(screen.queryByText("Create child range")).toBeNull();
+      expect(screen.queryByText("Delete")).toBeNull();
+      expect(countEditableText(List.itemNameID(rng.key))).toBe(0);
+    });
+
+    it("should offer every write to a subject granted them", async () => {
+      const rng = await createTestRange(client);
+      await renderExplorer(
+        await createEditor({
+          create: [ranger.TYPE_ONTOLOGY_ID],
+          update: [ranger.TYPE_ONTOLOGY_ID],
+          delete: [ranger.TYPE_ONTOLOGY_ID],
+        }),
+      );
+      fireEvent.contextMenu(await revealRange(rng.name));
+      expect(await screen.findByText("Rename")).toBeTruthy();
+      expect(await screen.findByText("Create child range")).toBeTruthy();
+      expect(await screen.findByText("Delete")).toBeTruthy();
     });
   });
 });

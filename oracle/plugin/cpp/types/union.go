@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -57,15 +58,15 @@ func (p *Plugin) processUnion(
 ) ([]structData, unionData) {
 	form := entry.Form.(resolution.UnionForm)
 	name := domain.GetName(entry, "cpp")
-	data.includes.addSystem("variant")
-	data.includes.addSystem("string")
+	data.AddSystem("variant")
+	data.AddSystem("string")
 
-	discField := keywords.Escape(toSnakeCase(form.Discriminator))
+	discField := keywords.Escape(casing.FieldSnake(form.Discriminator))
 	ud := unionData{
 		Name:      name,
-		SnakeName: toSnakeCase(name),
+		SnakeName: casing.FieldSnake(name),
 		Doc:       doc.Get(entry.Domains),
-		DiscJSON:  toSnakeCase(form.Discriminator),
+		DiscJSON:  casing.FieldSnake(form.Discriminator),
 	}
 
 	variants := make([]structData, 0, len(form.Variants))
@@ -80,7 +81,8 @@ func (p *Plugin) processUnion(
 				DefaultValue: fmt.Sprintf("%q", v.Name),
 			}},
 		}
-		for _, ext := range form.Extends {
+		inherited, declared := resolver.VariantBases(form, v, data.table)
+		for _, ext := range inherited {
 			if parent, ok := ext.Resolve(data.table); ok {
 				sd.ExtendsTypes = append(
 					sd.ExtendsTypes,
@@ -91,21 +93,12 @@ func (p *Plugin) processUnion(
 		if payload, ok := v.Type.Resolve(data.table); ok {
 			if v.Inline {
 				pform := payload.Form.(resolution.StructForm)
-				for _, ext := range pform.Extends {
-					if parent, ok := ext.Resolve(data.table); ok {
-						sd.ExtendsTypes = append(sd.ExtendsTypes,
-							p.resolveExtendsType(ext, parent, data))
-					}
-				}
 				// A field that only restates an inherited default keeps the base's
 				// member; the new default moves into a generated constructor.
-				inherited := append(
-					slices.Clone(form.Extends), pform.Extends...,
-				)
 				defaultOnly := resolver.DefaultOnlyOverrides(
 					inherited, pform.Fields, data.table,
 				)
-				for _, f := range pform.Fields {
+				for _, f := range append(slices.Clone(declared), pform.Fields...) {
 					fd := p.processField(f, payload, data)
 					if !defaultOnly.Contains(f.Name) {
 						sd.Fields = append(sd.Fields, fd)
@@ -127,7 +120,7 @@ func (p *Plugin) processUnion(
 			}
 		}
 		sd.HasExtends = len(sd.ExtendsTypes) > 0
-		data.includes.addInternal("x/cpp/json/json.h")
+		data.AddInternal("x/cpp/json/json.h")
 		variants = append(variants, sd)
 		ud.Variants = append(ud.Variants, unionVariantData{
 			TypeName: variantName,

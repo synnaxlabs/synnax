@@ -31,6 +31,7 @@ export const StartStopButton = ({
     onClick={onClick}
     size="medium"
     variant="filled"
+    tooltip={running ? "Stop" : "Start"}
     {...props}
   >
     {running ? <Icon.Stop /> : <Icon.Play />}

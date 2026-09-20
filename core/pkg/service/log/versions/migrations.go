@@ -16,4 +16,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored logs.
-var Migrations = []migrate.Migration{v0.Migration, v2.Migration}
+var Migrations = []migrate.Migration{v0.NormalizeKeys, v0.Migration, v2.Migration}

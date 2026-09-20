@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
+import { ranger } from "@synnaxlabs/client";
+import { Access, Button, Flex, Header, Icon, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { List } from "@/feature/range/list/List";
@@ -19,6 +20,7 @@ export interface ChildRangesProps {
 
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const openCreate = Range.useCreateModal();
+  const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve, answered } = Ranger.useListChildren({
     initialQuery: { key: rangeKey },
   });
@@ -26,16 +28,18 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
     <Flex.Box y>
       <Header.Header level="h4" bordered borderColor={6}>
         <Header.Title color={11} weight={450}>
-          Child Ranges
+          Child ranges
         </Header.Title>
         <Header.Actions>
-          <Button.Button
-            size="medium"
-            variant="text"
-            onClick={() => openCreate({ parent: rangeKey })}
-          >
-            <Icon.Add />
-          </Button.Button>
+          {hasCreatePermission && (
+            <Button.Button
+              size="medium"
+              variant="text"
+              onClick={() => openCreate({ parent: rangeKey })}
+            >
+              <Icon.Add />
+            </Button.Button>
+          )}
         </Header.Actions>
       </Header.Header>
       <List

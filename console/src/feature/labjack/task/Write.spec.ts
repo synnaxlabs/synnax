@@ -19,17 +19,25 @@ import {
   createLabJackDevice,
 } from "@/feature/labjack/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
-  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(LabJack.Task.Write, { task: ZERO_DRAFT, ...options });
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(LabJack.Task.Write, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
+  await awaitEditableForm();
+  return rendered;
+};
 
 const createConfig = (
   device: string,
@@ -42,7 +50,7 @@ const createConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<LabJack.Task.WriteSchemas> = {
-  name: "LabJack Write Task",
+  name: "LabJack write task",
   type: LabJack.Task.WRITE_TYPE,
   config: LabJack.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -86,7 +94,7 @@ describe("LabJack Write", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig(dev.key, []));
     const { container } = await renderWrite({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getByText("No channels in task.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
     fireEvent.click(getIconButton(container, "add"));
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
   });
@@ -115,7 +123,7 @@ describe("LabJack Write", () => {
     await waitFor(() => expect(screen.queryByText("EIO2")).toBeTruthy());
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create command and state channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
       const draft = await createDraft(

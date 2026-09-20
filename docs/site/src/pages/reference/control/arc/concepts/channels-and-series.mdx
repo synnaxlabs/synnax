@@ -31,7 +31,7 @@ declare channels. Just use them by name:
 // Read from a pressure transducer and scale it into another channel
 tank_pressure -> scale{factor=2.0} -> pressure_scaled
 // Write a fixed value to a valve command
-1 -> valve_cmd
+true -> valve_cmd
 ```
 
 Channel names follow the same conventions as Synnax channels: start with a letter or
@@ -95,7 +95,7 @@ You can also bind a channel, or an expression over channels, to a
 Channels can be passed to functions as input parameters:
 
 ```arc channels="tank_pressure, pressure_high"
-func monitor{sensor chan f64, limit f64} () u8 {
+func monitor{sensor chan f64, limit f64} () bool {
     return sensor > limit
 }
 // Wire it up on a 50ms cadence
@@ -126,8 +126,8 @@ stage control {
 <Fragment slot="function">
 
 ```arc
-func control{valve chan u8} (pressure f64) {
-    if pressure > 500 { valve = 1 }
+func control{valve chan bool} (pressure f64) {
+    if pressure > 500 { valve = true }
 }
 ```
 
@@ -191,8 +191,8 @@ offset := data + 10.0 // [11.0, 12.0, 13.0]
 other := [4.0, 5.0, 6.0]
 sum := data + other // [5.0, 7.0, 9.0]
 
-// Comparisons return series u8
-mask := data > 2.0  // [0, 0, 1]
+// Comparisons return series bool
+mask := data > 2.0  // [false, false, true]
 ```
 
 Binary operations between two series require them to have equal length. Mismatched

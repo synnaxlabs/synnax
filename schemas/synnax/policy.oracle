@@ -10,13 +10,12 @@
 import "schemas/synnax/access"
 import "schemas/synnax/ontology"
 
-@ts output "client/ts/src/access/policy"
-@py output "client/py/synnax/access/policy"
 @go output "core/pkg/service/access/rbac/policy"
+@py output "client/py/synnax/access/policy"
+@ts output "client/ts/src/access/policy"
 
 Key = uuid {
-    @go version 1
-    @doc value  "is a unique identifier for a policy, represented as a UUID."
+    @doc value "is a unique identifier for a policy, represented as a UUID."
 }
 
 Policy struct {
@@ -35,19 +34,16 @@ Policy struct {
         @doc value "is the list of actions this policy permits."
     }
     internal bool = false {
-        @doc value """
-            is true if this is a built-in system policy that cannot be deleted.
-        """
+        @doc value "is true if this is a built-in system policy that cannot be deleted."
         @filter
     }
 
-    @go version      1
-    @doc value       """
-        is an access control policy that defines which actions are permitted on
-        which resources. Policies are attached to roles, and roles are assigned
-        to users via ontology relationships.
-    """
     @create
+    @doc value       """
+        is an access control policy that defines which actions are permitted on which
+        resources. Policies are attached to roles, and roles are assigned to users via
+        ontology relationships.
+    """
     @go marshal
     @go migrate
     @ontology type   "policy"

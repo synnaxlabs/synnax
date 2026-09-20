@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { channel as clientChannel } from "@synnaxlabs/client";
+import { Access, Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 
 import { type ContextMenuItemProps } from "@/platform/task/ChannelList";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
@@ -19,8 +20,9 @@ export const WriteChannelContextMenuItems: React.FC<
   WriteChannelContextMenuItemsProps
 > = ({ channels, keys }) => {
   const key = keys[0];
+  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
   const channel = channels.find((ch) => ch.key === key);
-  if (channel == null) return null;
+  if (channel == null || !canRename) return null;
   const handleRename = (type: WriteChannelType) =>
     Text.edit(getChannelNameID(key, type));
   return (

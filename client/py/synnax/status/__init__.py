@@ -21,6 +21,7 @@ from synnax.status.types_gen import (
     VARIANT_LOADING,
     VARIANT_SUCCESS,
     VARIANT_WARNING,
+    Key,
     Status,
     Variant,
 )
@@ -40,6 +41,7 @@ __getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
 __all__ = [
     "Client",
     "DELETE_CHANNEL",
+    "Key",
     "ONTOLOGY_TYPE",
     "SET_CHANNEL",
     "Status",

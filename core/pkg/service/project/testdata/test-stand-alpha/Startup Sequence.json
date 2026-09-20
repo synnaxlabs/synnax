@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "type": "arc",
+  "name": "Startup Sequence",
+  "mode": "text",
+  "graph": {},
+  "text": {
+    "raw": "stage chamber_pressure -> ok\n"
+  }
+}

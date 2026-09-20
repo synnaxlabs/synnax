@@ -21,31 +21,34 @@ import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Session } from "@/session";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
+const CHECK_INTERVAL = TimeSpan.seconds(30);
 
 export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAdder();
   const [available, setAvailable, availableRef] =
     useCombinedStateAndRef<boolean>(false);
 
+  /** Never rejects: a check the network cannot serve is logged and retried later. */
   const checkForUpdates = async () => {
     if (Session.Runtime.ENGINE !== "tauri" || availableRef.current) return;
-    const update = await check();
-    if (update == null) return;
-    setAvailable(true);
-    addStatus({
-      key: `${STATUS_KEY_PREFIX}-${id.create()}`,
-      variant: "info",
-      message: `Update available`,
-    });
+    try {
+      const update = await check();
+      if (update == null) return;
+      setAvailable(true);
+      addStatus({
+        key: `${STATUS_KEY_PREFIX}-${id.create()}`,
+        variant: "info",
+        message: `Update available`,
+      });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useAsyncEffect(async (signal) => {
     await checkForUpdates();
     if (signal.aborted) return;
-    const i = setInterval(
-      () => void checkForUpdates(),
-      TimeSpan.seconds(30).milliseconds,
-    );
+    const i = setInterval(() => void checkForUpdates(), CHECK_INTERVAL.milliseconds);
     return () => clearInterval(i);
   }, []);
 

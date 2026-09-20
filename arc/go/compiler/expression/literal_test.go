@@ -120,11 +120,11 @@ var _ = Describe("Literal Compilation", func() {
 			int64(5_400_000_000_000),
 		),
 
-		// Boolean Literals (parsed as identifiers in the grammar)
+		// Boolean Literals
 		Entry(
 			"boolean true",
 			"true",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(1),
 		),
@@ -132,7 +132,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"boolean false",
 			"false",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(0),
 		),
@@ -140,7 +140,7 @@ var _ = Describe("Literal Compilation", func() {
 		Entry(
 			"parenthesized boolean",
 			"(true)",
-			types.U8(),
+			types.Bool(),
 			OpI32Const,
 			int32(1),
 		),

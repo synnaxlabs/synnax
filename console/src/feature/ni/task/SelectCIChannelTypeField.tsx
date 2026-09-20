@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
+import { deep, record } from "@synnaxlabs/x";
 
 import {
   CI_CHANNEL_SCHEMAS,
@@ -26,7 +26,7 @@ export type SelectCIChannelTypeFieldProps = Form.SelectFieldProps<CIChannelType,
 export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Entry>({
   fieldKey: "type",
   fieldProps: {
-    label: "Channel Type",
+    label: "Channel type",
     onChange: (value, { get, set, path }) => {
       const prevType = get<CIChannelType>(path).value;
       if (prevType === value) return;
@@ -44,9 +44,8 @@ export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType, Ent
     },
   },
   inputProps: {
-    resourceName: "Channel Type",
-    data: Object.keys(CI_CHANNEL_TYPE_NAMES).map((key) => {
-      const type = key as CIChannelType;
+    resourceName: "channel type",
+    data: record.keys(CI_CHANNEL_TYPE_NAMES).map((type) => {
       const Icon = CI_CHANNEL_TYPE_ICONS[type];
       return {
         key: type,

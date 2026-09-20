@@ -18,20 +18,18 @@ export type AsyncHandler<T> = (value: T) => Promise<void>;
 /** A generic interface for an entity whose value can be observed when it changes. */
 export interface Observable<T> {
   /**
-   * Binds the given handler to the Observable, and starts calling it whenever the
-   * value of the Observable changes.
-   * @param handler The handler to bind to the Observable.
+   * Binds the given handler to the Observable, and starts calling it whenever the value
+   * of the Observable changes.
    * @returns A function that can be called to unbind the handler from the Observable.
    */
   onChange: (handler: Handler<T>) => destructor.Destructor;
 }
 
 /**
- * Resolves with the first observed value satisfying the predicate. The current
- * value is evaluated first, so an already-satisfied observable resolves without
- * waiting.
- * @param current - Reads the observable's present value, which `onChange` alone
- * cannot supply.
+ * Resolves with the first observed value satisfying the predicate. The current value is
+ * evaluated first, so an already-satisfied observable resolves without waiting.
+ * @param current - Reads the observable's present value, which `onChange` alone cannot
+ * supply.
  * @param timeout - How long to wait before rejecting. Omit to wait forever.
  * @throws {Error} if the timeout elapses first.
  */

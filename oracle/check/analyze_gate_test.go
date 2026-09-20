@@ -67,6 +67,41 @@ var _ = Describe("AnalyzeGate", func() {
 		},
 	)
 
+	It("reports non-warning severities as info", func(ctx SpecContext) {
+		r := &pipeline.Result{Diagnostics: fileDiag(diagnostics.Diagnostic{
+			Severity: protocol.DiagnosticSeverityHint,
+			Message:  "fyi",
+		})}
+		report := check.NewAnalyzeGate(true).Run(ctx, r, check.Env{})
+		Expect(report.Status).To(Equal(check.StatusPass))
+		Expect(report.Findings[0].Severity).To(Equal(check.SeverityInfo))
+	})
+
+	It("renders positions 1-indexed and zero when absent", func(ctx SpecContext) {
+		diag := diagnostics.NewFiles()
+		diag.Report("schemas/x.oracle", diagnostics.Diagnostic{
+			Severity: protocol.DiagnosticSeverityError,
+			Message:  "positioned",
+			Range: protocol.Range{
+				Start: protocol.Position{Line: 4, Character: 2},
+				End:   protocol.Position{Line: 4, Character: 9},
+			},
+		})
+		diag.Report("schemas/y.oracle", diagnostics.Diagnostic{
+			Severity: protocol.DiagnosticSeverityError,
+			Message:  "unpositioned",
+		})
+		r := &pipeline.Result{Diagnostics: diag}
+		report := check.NewAnalyzeGate(false).Run(ctx, r, check.Env{})
+		byMessage := map[string]check.Finding{}
+		for _, f := range report.Findings {
+			byMessage[f.Message] = f
+		}
+		Expect(byMessage["positioned"].Line).To(Equal(5))
+		Expect(byMessage["positioned"].Col).To(Equal(2))
+		Expect(byMessage["unpositioned"].Line).To(Equal(0))
+	})
+
 	It("includes hint from notes when present", func(ctx SpecContext) {
 		r := &pipeline.Result{Diagnostics: fileDiag(diagnostics.Diagnostic{
 			Severity: protocol.DiagnosticSeverityError,

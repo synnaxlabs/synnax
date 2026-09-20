@@ -15,8 +15,9 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  awaitEditableForm,
+  createChannelReadOnlyClient,
   deployAndAwaitTask,
-  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -24,16 +25,25 @@ import {
 import {
   awaitTextEditingElement,
   commitTextEdit,
+  findDialogTriggerByText,
   getHeaderIconButton,
   uniqueName,
 } from "@/testutil";
 
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Write, { task: ZERO_DRAFT, ...options });
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(HTTP.Task.Write, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
+  await awaitEditableForm();
+  return rendered;
+};
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {
-  name: "HTTP Write Task",
+  name: "HTTP write task",
   type: HTTP.Task.WRITE_TYPE,
   config: HTTP.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -42,7 +52,7 @@ const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["confi
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add an endpoint"));
+  fireEvent.click(await screen.findByText("Add endpoint"));
   await screen.findByText("JSON pointer");
 };
 
@@ -76,7 +86,7 @@ describe("HTTP Write form", () => {
     expect(screen.getByRole("button", { name: "PATCH" })).toBeTruthy();
     expect(screen.getByPlaceholderText("/api/control")).toBeTruthy();
     expect(screen.getByText("Synnax data type")).toBeTruthy();
-    expect(screen.getByText("No additional fields.")).toBeTruthy();
+    expect(screen.getByText("No additional fields")).toBeTruthy();
   });
 
   it("should show the enum mapping editor when the channel JSON type is string", async () => {
@@ -109,15 +119,15 @@ describe("HTTP Write form", () => {
     await findDialogTriggerByText("Timestamp (s)");
   });
 
-  it("should delete additional fields through a context menu without a duplicate option", async () => {
+  it("should remove additional fields through a context menu without a duplicate option", async () => {
     await renderWrite();
     await addEndpoint();
     fireEvent.click(getHeaderIconButton("Additional fields", "add"));
     const pointer = await screen.findByPlaceholderText("field");
     fireEvent.contextMenu(pointer);
-    await screen.findByText("Delete");
+    await screen.findByText("Remove");
     expect(screen.queryByText("Duplicate")).toBeNull();
-    fireEvent.click(screen.getByText("Delete"));
+    fireEvent.click(screen.getByText("Remove"));
     await waitFor(() => expect(screen.queryByText("static")).toBeNull());
   });
 
@@ -133,6 +143,17 @@ describe("HTTP Write form", () => {
     const editable = await awaitTextEditingElement();
     commitTextEdit(editable, "my_cmd_channel");
     await screen.findByText("my_cmd_channel");
+  });
+
+  it("should withhold rename from a subject who cannot update channels", async () => {
+    const client = createTestClient();
+    await renderWrite({ client, as: await createChannelReadOnlyClient(client) });
+    await addEndpoint();
+    fireEvent.contextMenu(await screen.findByText("No channel"));
+    // Duplicate is ungated, so its presence proves the menu resolved before the
+    // absence below is read.
+    expect(await screen.findByText("Duplicate")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
   });
 
   it("should seed the form from the task row's config", async () => {
@@ -171,7 +192,7 @@ describe("HTTP Write form", () => {
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     const client = createTestClient();
 
     it("should create command channels, virtual when variable, and persist them to the device", async () => {

@@ -55,7 +55,7 @@ class DevicesToolbar(ConsoleCase):
             name="NI 9205",
             make="NI",
             model="NI 9205",
-            location="Analog Input",
+            location="Analog input",
             parent=self.chassis_a.key,
             properties={"is_simulated": True, "resource_name": "cDAQ1Mod1"},
         )
@@ -142,7 +142,7 @@ class DevicesToolbar(ConsoleCase):
         )
         self.http_dev = self._create_device(
             key="http",
-            name="HTTP Server",
+            name="HTTP server",
             make="http",
             model="REST API",
             location="http://localhost:8080",
@@ -256,7 +256,7 @@ class DevicesToolbar(ConsoleCase):
             (self.configured_dev, "ni"),
             (self.chassis_b, "ni"),
             (self.labjack_dev, "labjack"),
-            (self.opc_dev, "opc"),
+            (self.opc_dev, "opcua"),
             (self.modbus_dev, "modbus"),
             (self.http_dev, "http"),
             (self.ethercat_dev, "ethercat"),
@@ -306,7 +306,12 @@ class DevicesToolbar(ConsoleCase):
         self._assert_modules_under(self.chassis_a.name)
 
     def test_device_state_display(self) -> None:
-        """All devices should show 'warning' with 'state unknown'."""
+        """Devices with no reported status show the disabled 'unknown' state.
+
+        The Core no longer stamps a default status on device creation, so a
+        device the Driver has never reported on renders the disabled variant
+        with 'Device status unknown'.
+        """
         self.log("Testing: Device state display")
         for dev in [
             self.chassis_a,
@@ -323,8 +328,8 @@ class DevicesToolbar(ConsoleCase):
             self.ethercat_dev,
         ]:
             status = self.console.devices.get_status(dev.name)
-            assert status["variant"] == "warning", (
-                f"Expected 'warning' variant for '{dev.name}', "
+            assert status["variant"] == "disabled", (
+                f"Expected 'disabled' variant for '{dev.name}', "
                 f"got '{status['variant']}'"
             )
 

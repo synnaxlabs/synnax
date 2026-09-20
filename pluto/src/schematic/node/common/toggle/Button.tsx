@@ -71,13 +71,13 @@ export const Button = ({
     if (parsedDelay.isZero) return style;
     return {
       ...style,
-      [CSS.var("toggle-delay")]: `${parsedDelay.seconds.toString()}s`,
+      [CSS.variable("toggle-delay")]: `${parsedDelay.seconds.toString()}s`,
     };
   }, [parsedDelay.milliseconds, style]);
 
   return (
     <button
-      className={CSS(
+      className={CSS.cls(
         CSS.B("symbol-primitive"),
         CSS.B("symbol-primitive-toggle"),
         !parsedDelay.isZero && CSS.BM("symbol-primitive-toggle", "delayed"),

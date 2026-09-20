@@ -55,6 +55,8 @@ Request build_request(const ConnectionConfig &conn, const RequestConfig &req) {
 
     Request r;
     r.url = build_url(conn.base_url, req.path, query_params);
+    r.base_url = conn.base_url;
+    r.max_concurrent_requests = conn.max_concurrent_requests;
     r.method = req.method;
     r.timeout = conn.timeout;
     r.verify_ssl = conn.verify_ssl;

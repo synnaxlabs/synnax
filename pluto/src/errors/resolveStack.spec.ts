@@ -7,174 +7,233 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SourceMapGenerator } from "source-map-js";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveStack } from "@/errors/resolveStack";
 
-const { fromError } = vi.hoisted(() => ({ fromError: vi.fn() }));
+// The consumer cache inside resolveStack is keyed by script URL and lives for the
+// whole session, so every spec uses a distinct script URL to stay isolated.
+const HOST = "https://app.test";
 
-vi.mock("stacktrace-js", () => ({ default: { fromError } }));
+const buildMap = (
+  mappings: {
+    generated: { line: number; column: number };
+    original: { line: number; column: number };
+    source: string;
+    name?: string;
+  }[],
+): string => {
+  const gen = new SourceMapGenerator({ file: "bundle.js" });
+  mappings.forEach((m) => gen.addMapping(m));
+  return gen.toString();
+};
+
+interface Fixture {
+  bundleURL: string;
+  bundle: string;
+  map: string | null;
+}
+
+const fixtures: Fixture[] = [];
+
+const addFixture = (key: string, map: string | null): string => {
+  const bundleURL = `${HOST}/${key}.js`;
+  const bundle =
+    map != null ? `var x = 1;\n//# sourceMappingURL=${key}.js.map\n` : "var x = 1;\n";
+  fixtures.push({ bundleURL, bundle, map });
+  return bundleURL;
+};
+
+const fetchMock = vi.fn(async (url: string) => {
+  for (const f of fixtures) {
+    if (url === f.bundleURL) return new Response(f.bundle, { status: 200 });
+    if (f.map != null && url === f.bundleURL.replace(/\.js$/, ".js.map"))
+      return new Response(f.map, { status: 200 });
+  }
+  return new Response("not found", { status: 404 });
+});
 
 describe("resolveStack", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
+  beforeAll(() => {
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
-    fromError.mockReset();
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    return () => {
+      warnSpy.mockRestore();
+    };
   });
 
-  afterEach(() => {
-    warnSpy.mockRestore();
-  });
-
-  it("resolves both error and component stacks into formatted source-mapped frames", async () => {
+  it("resolves both error and component stacks into source-mapped frames", async () => {
+    const url = addFixture(
+      "resolve-both",
+      buildMap([
+        {
+          generated: { line: 1, column: 10 },
+          original: { line: 42, column: 8 },
+          source: "client/ts/src/channel/payload.ts",
+          name: "decode",
+        },
+        {
+          generated: { line: 1, column: 20 },
+          original: { line: 155, column: 4 },
+          source: "console/src/schematic/Schematic.tsx",
+          name: "SchematicLayout",
+        },
+      ]),
+    );
     const error = new Error("boom");
-    error.stack = "ERROR_STACK";
-    fromError.mockImplementation(async (err: Error) => {
-      if (err.stack === "ERROR_STACK")
-        return [
-          {
-            functionName: "decode",
-            fileName: "client/ts/src/channel/payload.ts",
-            lineNumber: 42,
-            columnNumber: 8,
-          },
-          {
-            functionName: "loadSchematic",
-            fileName: "console/src/schematic/retrieve.ts",
-            lineNumber: 67,
-            columnNumber: 14,
-          },
-        ];
-      if (err.stack === "COMPONENT_STACK")
-        return [
-          {
-            functionName: "SchematicLayout",
-            fileName: "console/src/schematic/Schematic.tsx",
-            lineNumber: 155,
-          },
-        ];
-      throw new Error(`unexpected stack: ${err.stack}`);
-    });
-    const result = await resolveStack(error, "COMPONENT_STACK");
-    expect(result.stack).toBe(
-      "  at decode (client/ts/src/channel/payload.ts:42:8)\n" +
-        "  at loadSchematic (console/src/schematic/retrieve.ts:67:14)",
-    );
+    // Stack columns are 1-based, so generated column 10 is stack column 11.
+    error.stack = `Error: boom\n    at yte (${url}:1:11)`;
+    const result = await resolveStack(error, `    at Cmp (${url}:1:21)`);
+    expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:9)");
     expect(result.componentStack).toBe(
-      "  at SchematicLayout (console/src/schematic/Schematic.tsx:155)",
+      "  at SchematicLayout (console/src/schematic/Schematic.tsx:155:5)",
     );
   });
 
-  it("leaves componentStack null when none is provided", async () => {
-    fromError.mockResolvedValue([
-      {
-        functionName: "decode",
-        fileName: "client/ts/src/channel/payload.ts",
-        lineNumber: 42,
-        columnNumber: 8,
-      },
-    ]);
-    const result = await resolveStack(new Error("boom"), null);
-    expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:8)");
+  it("falls back to the raw minified name when the map carries none", async () => {
+    const url = addFixture(
+      "no-name",
+      buildMap([
+        {
+          generated: { line: 1, column: 10 },
+          original: { line: 7, column: 2 },
+          source: "console/src/foo.ts",
+        },
+      ]),
+    );
+    const error = new Error("boom");
+    error.stack = `Error: boom\n    at yte (${url}:1:11)`;
+    const result = await resolveStack(error, null);
+    expect(result.stack).toBe("  at yte (console/src/foo.ts:7:3)");
     expect(result.componentStack).toBeNull();
   });
 
-  it("falls back to raw stacks and warns when stacktrace-js throws for both legs", async () => {
-    fromError.mockRejectedValue(new Error("parse failed"));
+  it("leaves componentStack null when none is provided", async () => {
+    const url = addFixture(
+      "no-component",
+      buildMap([
+        {
+          generated: { line: 1, column: 10 },
+          original: { line: 42, column: 8 },
+          source: "client/ts/src/channel/payload.ts",
+          name: "decode",
+        },
+      ]),
+    );
     const error = new Error("boom");
-    error.stack = "RAW_ERROR_STACK";
-    const result = await resolveStack(error, "RAW_COMPONENT_STACK");
-    expect(result.stack).toBe("RAW_ERROR_STACK");
-    expect(result.componentStack).toBe("RAW_COMPONENT_STACK");
-    expect(warnSpy).toHaveBeenCalledTimes(2);
+    error.stack = `Error: boom\n    at yte (${url}:1:11)`;
+    const result = await resolveStack(error, null);
+    expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:9)");
+    expect(result.componentStack).toBeNull();
   });
 
-  it("preserves the resolved component stack when only the error leg fails", async () => {
+  it("resolves through a base64 data: URL sourcemap without a map fetch", async () => {
+    const map = buildMap([
+      {
+        generated: { line: 1, column: 10 },
+        original: { line: 3, column: 6 },
+        source: "console/src/inline.ts",
+        name: "inlineFn",
+      },
+    ]);
+    const bundleURL = `${HOST}/data-url.js`;
+    const bundle =
+      "var x = 1;\n" +
+      `//# sourceMappingURL=data:application/json;base64,${btoa(map)}\n`;
+    fixtures.push({ bundleURL, bundle, map: null });
     const error = new Error("boom");
-    error.stack = "ERROR_STACK";
-    fromError.mockImplementation(async (err: Error) => {
-      if (err.stack === "ERROR_STACK") throw new Error("error leg failed");
-      if (err.stack === "COMPONENT_STACK")
-        return [
-          {
-            functionName: "Comp",
-            fileName: "console/src/foo.tsx",
-            lineNumber: 5,
-            columnNumber: 2,
-          },
-        ];
-      throw new Error(`unexpected stack: ${err.stack}`);
-    });
-    const result = await resolveStack(error, "COMPONENT_STACK");
-    expect(result.stack).toBe("ERROR_STACK");
-    expect(result.componentStack).toBe("  at Comp (console/src/foo.tsx:5:2)");
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    error.stack = `Error: boom\n    at yte (${bundleURL}:1:11)`;
+    fetchMock.mockClear();
+    const result = await resolveStack(error, null);
+    expect(result.stack).toBe("  at inlineFn (console/src/inline.ts:3:7)");
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([bundleURL]);
   });
 
-  it("preserves the resolved error stack when only the component leg fails", async () => {
+  it("keeps raw frames when the script has no sourcemap", async () => {
+    const url = addFixture("no-map", null);
     const error = new Error("boom");
-    error.stack = "ERROR_STACK";
-    fromError.mockImplementation(async (err: Error) => {
-      if (err.stack === "ERROR_STACK")
-        return [
-          {
-            functionName: "decode",
-            fileName: "client/ts/src/channel/payload.ts",
-            lineNumber: 42,
-            columnNumber: 8,
-          },
-        ];
-      if (err.stack === "COMPONENT_STACK") throw new Error("component leg failed");
-      throw new Error(`unexpected stack: ${err.stack}`);
-    });
-    const result = await resolveStack(error, "COMPONENT_STACK");
-    expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:8)");
-    expect(result.componentStack).toBe("COMPONENT_STACK");
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    error.stack = `Error: boom\n    at fn (${url}:1:11)`;
+    const result = await resolveStack(error, null);
+    expect(result.stack).toBe(`  at fn (${HOST}/no-map.js:1:11)`);
   });
 
-  it("formats frames missing function names as <anonymous>", async () => {
+  it("keeps raw frames and warns when the script cannot be fetched", async () => {
     const error = new Error("boom");
-    error.stack = "ERROR_STACK";
-    fromError.mockImplementation(async (err: Error) => {
-      if (err.stack === "ERROR_STACK")
-        return [{ fileName: "a.ts", lineNumber: 1, columnNumber: 1 }];
-      if (err.stack === "COMPONENT_STACK")
-        return [{ fileName: "b.tsx", lineNumber: 2, columnNumber: 3 }];
-      throw new Error(`unexpected stack: ${err.stack}`);
-    });
-    const result = await resolveStack(error, "COMPONENT_STACK");
-    expect(result.stack).toBe("  at <anonymous> (a.ts:1:1)");
-    expect(result.componentStack).toBe("  at <anonymous> (b.tsx:2:3)");
+    error.stack = `Error: boom\n    at fn (${HOST}/missing.js:1:11)`;
+    const result = await resolveStack(error, null);
+    expect(result.stack).toBe(`  at fn (${HOST}/missing.js:1:11)`);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("no usable sourcemap"),
+      expect.any(Error),
+    );
   });
 
-  it("strips webpack:/// and leading ../ from file names", async () => {
+  it("keeps the raw stack and warns when the stack cannot be parsed", async () => {
     const error = new Error("boom");
-    error.stack = "ERROR_STACK";
-    fromError.mockImplementation(async (err: Error) => {
-      if (err.stack === "ERROR_STACK")
-        return [
-          {
-            functionName: "fn",
-            fileName: "webpack:///../../console/src/foo.ts",
-            lineNumber: 10,
-            columnNumber: 5,
-          },
-        ];
-      if (err.stack === "COMPONENT_STACK")
-        return [
-          {
-            functionName: "Comp",
-            fileName: "webpack-internal:///../pluto/src/bar.tsx",
-            lineNumber: 20,
-            columnNumber: 1,
-          },
-        ];
-      throw new Error(`unexpected stack: ${err.stack}`);
-    });
-    const result = await resolveStack(error, "COMPONENT_STACK");
-    expect(result.stack).toBe("  at fn (console/src/foo.ts:10:5)");
-    expect(result.componentStack).toBe("  at Comp (pluto/src/bar.tsx:20:1)");
+    error.stack = "";
+    const result = await resolveStack(error, null);
+    expect(result.stack).toBe("");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "resolveStack: failed to resolve error stack",
+      expect.anything(),
+    );
+  });
+
+  it("keeps the resolved error stack when only the component leg fails", async () => {
+    const url = addFixture(
+      "component-fails",
+      buildMap([
+        {
+          generated: { line: 1, column: 10 },
+          original: { line: 42, column: 8 },
+          source: "client/ts/src/channel/payload.ts",
+          name: "decode",
+        },
+      ]),
+    );
+    const error = new Error("boom");
+    error.stack = `Error: boom\n    at yte (${url}:1:11)`;
+    // An unparseable component stack fails its leg while the error leg resolves.
+    const result = await resolveStack(error, "");
+    expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:9)");
+    expect(result.componentStack).toBe("");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "resolveStack: failed to resolve component stack",
+      expect.anything(),
+    );
+  });
+
+  it("fetches each script and map exactly once across resolutions", async () => {
+    const url = addFixture(
+      "cached",
+      buildMap([
+        {
+          generated: { line: 1, column: 10 },
+          original: { line: 1, column: 0 },
+          source: "console/src/foo.ts",
+          name: "fn",
+        },
+      ]),
+    );
+    const makeError = (): Error => {
+      const error = new Error("boom");
+      error.stack = `Error: boom\n    at a (${url}:1:11)\n    at b (${url}:1:11)`;
+      return error;
+    };
+    fetchMock.mockClear();
+    await resolveStack(makeError(), `    at Cmp (${url}:1:11)`);
+    await resolveStack(makeError(), null);
+    const fetched = fetchMock.mock.calls.map((call) => call[0]);
+    expect(fetched).toEqual([url, url.replace(/\.js$/, ".js.map")]);
   });
 });

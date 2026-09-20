@@ -174,6 +174,32 @@ describe("caseconv", () => {
     });
   });
 
+  describe("toSentence", () => {
+    const SPECS: [string, string][] = [
+      ["sampleRate", "Sample rate"],
+      ["state_update_rate", "State update rate"],
+      ["data-type", "Data type"],
+      ["FooBar", "Foo bar"],
+      ["name", "Name"],
+      ["XMLParser", "XML parser"],
+      ["parseXMLDocument", "Parse XML document"],
+      ["IODevice", "IO device"],
+      ["apiKey", "Api key"],
+      ["cjcSource", "Cjc source"],
+      ["PIDController", "PID controller"],
+      ["valve-actuator-v2", "Valve actuator v2"],
+      ["", ""],
+      ["a", "A"],
+      ["ABC", "ABC"],
+      ["test_123_value", "Test 123 value"],
+    ];
+    SPECS.forEach(([input, expected]) => {
+      it(`should convert ${input} to ${expected}`, () => {
+        expect(caseconv.toSentence(input)).toBe(expected);
+      });
+    });
+  });
+
   describe("preserveKeys", () => {
     const configZ = z.object({
       variant: z.string(),

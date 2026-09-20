@@ -29,10 +29,10 @@ const (
 
 var (
 	Channels = []cesium.Channel{
-		{Key: Index1Key, IsIndex: true, DataType: telem.TimeStampT},
+		{Key: Index1Key, IsIndex: true, DataType: telem.TimestampT},
 		{Key: Data1Uint8Key, Index: Index1Key, DataType: telem.Uint8T},
 		{Key: Data1Int64Key, Index: Index1Key, DataType: telem.Int64T},
-		{Key: Index2Key, IsIndex: true, DataType: telem.TimeStampT},
+		{Key: Index2Key, IsIndex: true, DataType: telem.TimestampT},
 		{Key: Data2Uint16Key, Index: Index2Key, DataType: telem.Uint16T},
 		{Key: Data2Int64Key, Index: Index2Key, DataType: telem.Int64T},
 		{Key: LegacyRateKey, Index: Index2Key, DataType: telem.Uint32T},

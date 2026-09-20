@@ -162,7 +162,7 @@ func (g *csvGroup) ready() bool {
 // time returns the timestamp of the group's next row. Only valid when ready.
 func (g *csvGroup) time() telem.TimeStamp {
 	c := &g.columns[0]
-	return telem.ValueAt[telem.TimeStamp](c.pending[0], int(c.sample))
+	return c.pending[0].ValueAt[telem.TimeStamp](int(c.sample))
 }
 
 // advance moves every column in the group to its next sample.
@@ -259,7 +259,7 @@ func appendCSVSample(dst []byte, c *csvColumn) []byte {
 	case telem.Float32T:
 		v := math.Float32frombits(telem.ByteOrder.Uint32(b))
 		return strconv.AppendFloat(dst, float64(v), 'f', -1, 32)
-	case telem.Int64T, telem.TimeStampT:
+	case telem.Int64T, telem.TimestampT:
 		return strconv.AppendInt(dst, int64(telem.ByteOrder.Uint64(b)), 10)
 	case telem.Int32T:
 		return strconv.AppendInt(dst, int64(int32(telem.ByteOrder.Uint32(b))), 10)
@@ -273,7 +273,7 @@ func appendCSVSample(dst []byte, c *csvColumn) []byte {
 		return strconv.AppendUint(dst, uint64(telem.ByteOrder.Uint32(b)), 10)
 	case telem.Uint16T:
 		return strconv.AppendUint(dst, uint64(telem.ByteOrder.Uint16(b)), 10)
-	case telem.Uint8T, telem.BoolT:
+	case telem.Uint8T, telem.BooleanT:
 		return strconv.AppendUint(dst, uint64(b[0]), 10)
 	default:
 		return appendCSVText(dst, b)

@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -25,13 +24,13 @@ import (
 )
 
 var _ = Describe("HttpRedirect", func() {
-	It("Should redirect http requests to https", func() {
+	It("Should redirect HTTP requests to HTTPS", func() {
 		fs := xfs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
-			Insecure:     new(false),
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
 		}))
 		src := MustSucceed(file.NewSource(fs,
 			"/usr/local/synnax/certs/node.crt",
@@ -40,7 +39,7 @@ var _ = Describe("HttpRedirect", func() {
 		received := false
 		b := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{{
-				Address: "localhost:26260",
+				Address: "localhost:0",
 				TLS:     prov.TLSConfigFor(src),
 			}},
 			Security: server.SecurityConfig{Insecure: new(false)},
@@ -60,7 +59,7 @@ var _ = Describe("HttpRedirect", func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		client := &http.Client{Transport: tr}
-		resp, err := client.Get("http://localhost:26260")
+		resp, err := client.Get("http://" + b.Addresses()[0].String())
 		Expect(err).To(Succeed())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(received).To(BeTrue())

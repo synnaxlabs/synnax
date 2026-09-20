@@ -14,6 +14,7 @@ import {
   type destructor,
   type MultiSeries,
   observe,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -66,6 +67,8 @@ export interface Telem {
 
 export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => V;
+  /** @returns true while the source's initial read is in flight. */
+  loading?: () => boolean;
 }
 
 export interface Sink<V> extends Telem {
@@ -145,22 +148,29 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   }
 
   get props(): z.infer<P> {
-    if (this.props_ == null) {
-      const res = this.schema.safeParse(this.uProps_);
-      if (res.success) this.props_ = res.data;
-      else
-        throw new ValidationError(
-          `[BaseTelem] - expected props to be valid, but found the following errors:
-          ${res.error.message}`,
-        );
-    }
+    this.props_ ??= zod.parse(this.schema, this.uProps_, {
+      label: "telemetry props",
+    });
     return this.props_;
   }
 
   cleanup(): void {}
 }
 
-export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {}
+export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {
+  protected loading_ = false;
+
+  loading(): boolean {
+    return this.loading_;
+  }
+
+  // Idempotent and notifies so a failure still wakes observers of the loading state.
+  protected declareLoaded(): void {
+    if (!this.loading_) return;
+    this.loading_ = false;
+    this.notify();
+  }
+}
 
 export abstract class AbstractSink<P extends z.ZodType> extends Base<P> {}
 

@@ -20,6 +20,10 @@ export interface UseCombinedDataParams<
   second: Pick<FrameProps<K, E>, "data" | "getItem" | "subscribe">;
 }
 
+/**
+ * Concatenates two list data sources into one, `first` before `second`. Reads and
+ * subscriptions hit both.
+ */
 export const useCombinedData = <
   K extends record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,

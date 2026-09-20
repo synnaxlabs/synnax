@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
-import { primitive, type record, uuid, verbs } from "@synnaxlabs/x";
+import { primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -119,7 +119,7 @@ export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({
-  name: "Device Group",
+  name: "device group",
   retrieve: async ({ client }) => {
     const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
     return res.find((r) => r.name === "Devices")?.id;
@@ -150,8 +150,15 @@ export const createForm = <
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: device.DeviceSchemas<Properties, Make, Model>,
-) =>
-  Flux.createForm<FormQuery, typeof formSchema>({
+) => {
+  const schema = device.deviceZ(schemas);
+  // Cached records and streamed set events are parsed generically, so they can carry
+  // shapes that predate the vendor's migrations and defaults.
+  const parseRecord = (record: unknown): z.infer<typeof formSchema> | undefined => {
+    const parsed = schema.safeParse(record);
+    return parsed.success ? (parsed.data as z.infer<typeof formSchema>) : undefined;
+  };
+  return Flux.createForm<FormQuery, typeof formSchema>({
     name: RESOURCE_NAME,
     schema: formSchema,
     initialValues: {
@@ -171,7 +178,7 @@ export const createForm = <
         : await client.devices.retrieve(query),
     getCached: ({ client, query }) => {
       const cached = client.devices.getCached(query);
-      return clientQuery.isLive(cached) ? cached : undefined;
+      return clientQuery.isLive(cached) ? parseRecord(cached) : undefined;
     },
     update: async ({ value, client, set }) => {
       const data = value();
@@ -188,22 +195,19 @@ export const createForm = <
     },
     mountListeners: ({ client, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];
-      const schema = device.deviceZ(schemas);
       return [
-        // Streamed set events are parsed generically, so they can carry shapes
-        // that predate the vendor's migrations and defaults. Only reset the form
-        // when the event satisfies the vendor schemas.
         client.devices.onSet((changed) => {
           if (changed.key !== key) return;
-          const parsed = schema.safeParse(changed);
-          if (parsed.success) reset(parsed.data as z.infer<typeof formSchema>);
+          const parsed = parseRecord(changed);
+          if (parsed != null) reset(parsed);
         }),
         client.statuses.onSet((changed) => {
           if (changed.key !== device.statusKey(key)) return;
-          set("status", device.statusZ.parse(changed));
+          set("status", zod.parse(device.statusZ, changed, { label: "device status" }));
         }),
       ];
     },
   });
+};
 
 export const useForm = createForm();

@@ -17,7 +17,7 @@ const useVisible = () => Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
 
 const CreateCommand = Command.create({
   key: "create_channel",
-  name: "Create a channel",
+  name: "Create channel",
   icon: <PChannel.CreateIcon />,
   useOnSelect: PlatformChannel.useCreateModal,
   useVisible,
@@ -25,7 +25,7 @@ const CreateCommand = Command.create({
 
 const CreateCalculatedCommand = Command.create({
   key: "create_calculated_channel",
-  name: "Create a calculated channel",
+  name: "Create calculated channel",
   icon: <PChannel.CreateCalculatedIcon />,
   useOnSelect: PlatformChannel.useCalculatedModal,
   useVisible,

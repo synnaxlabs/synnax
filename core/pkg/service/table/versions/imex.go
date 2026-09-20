@@ -37,7 +37,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		// Console states embed the structural model inline: ride the storage lift,
 		// which decodes the body through the legacy chain.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err == nil {
 			if err = imex.RequireFields(
 				body, "a table", "layout", "cells",
 			); err == nil {

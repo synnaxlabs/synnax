@@ -28,7 +28,7 @@ export const ThreeWayBall = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS(CSS.B("three-way-ball-valve"), className)}
+    className={CSS.cls(CSS.B("three-way-ball-valve"), className)}
     enabled={enabled}
   >
     <Handle.Boundary orientation={orientation}>

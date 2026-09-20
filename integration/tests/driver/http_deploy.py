@@ -53,7 +53,6 @@ class HTTPDeployOnStart(SimulatorCase):
             name=name,
             device=self.device.key,
             rate=rate,
-            data_saving=True,
             endpoints=[
                 http.ReadEndpoint(
                     path="/api/v1/data",

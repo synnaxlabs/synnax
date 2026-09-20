@@ -18,7 +18,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
@@ -56,19 +55,6 @@ func (p *Plugin) Domains() []string { return []string{"go"} }
 
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return []string{"go/types"} }
-
-// Check verifies generated files are up-to-date.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
-}
-
-// PostWrite runs gofmt on generated files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
 
 // Generate produces retrieve.gen.go files for structs with @retrieve annotation.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -125,16 +111,16 @@ type filterInfo struct {
 	IsScalar   bool   // the @filter field is a scalar or bool type
 	IsBool     bool   // underlying primitive is bool
 	IsSlice    bool   // field is a slice/array; emit a contains-style filter
-	// IndexFieldName is the camelCase field name on the per-Retrieve indexes
-	// struct if the same field also carries @index. When non-empty, the
-	// generated MatchX / MatchXs routes through r.indexes.<IndexFieldName>
-	// instead of a bespoke scan closure. Empty means no index on this field.
+	// IndexFieldName is the camelCase field name on the per-Retrieve indexes struct if
+	// the same field also carries @index. When non-empty, the generated MatchX /
+	// MatchXs routes through r.indexes.<IndexFieldName> instead of a bespoke scan
+	// closure. Empty means no index on this field.
 	IndexFieldName string
 }
 
-// indexInfo holds extracted data about an @index-annotated field. Emitted as
-// a constructor function (newXIndex) and a field on the per-Retrieve indexes
-// struct that the Service constructs once and threads onto every Retrieve.
+// indexInfo holds extracted data about an @index-annotated field. Emitted as a
+// constructor function (newXIndex) and a field on the per-Retrieve indexes struct that
+// the Service constructs once and threads onto every Retrieve.
 type indexInfo struct {
 	FieldName   string // oracle field name (e.g. "created_at")
 	GoName      string // PascalCase field name (e.g. "CreatedAt")
@@ -149,10 +135,8 @@ func (i indexInfo) IsSorted() bool { return i.Kind == "sorted" }
 
 // retrieveInfo holds extracted data about a @retrieve-annotated struct.
 type retrieveInfo struct {
-	TypeName                    string
 	GoName                      string
 	KeyType                     string
-	KeyPrimitive                string
 	HasSearch                   bool
 	IsCustom                    bool // user defines the struct (@retrieve custom)
 	OntologyType                string
@@ -165,9 +149,9 @@ type retrieveInfo struct {
 // the template to gate the Indexes registration slice.
 func (r retrieveInfo) HasIndexes() bool { return len(r.Indexes) > 0 }
 
-// HasSortedIndex reports whether the retrieve declared any @index sorted
-// fields. Used by the template to gate the Order closure type, the
-// Retrieve.OrderBy method, and the per-field OrderByX free functions.
+// HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
+// by the template to gate the Order closure type, the Retrieve.OrderBy method, and the
+// per-field OrderByX free functions.
 func (r retrieveInfo) HasSortedIndex() bool {
 	for _, idx := range r.Indexes {
 		if idx.IsSorted() {
@@ -247,9 +231,9 @@ func generateRetrieveFile(
 		)
 	}
 
-	// Check if any info needs lo for variadic Match filters. Index-routed
-	// filters use the index's .Filter(...) method instead of lo.Contains,
-	// so only non-indexed, non-slice variadic filters contribute.
+	// Check if any info needs lo for variadic Match filters. Index-routed filters use
+	// the index's .Filter(...) method instead of lo.Contains, so only non-indexed,
+	// non-slice variadic filters contribute.
 	hasVariadicFilter := lo.SomeBy(infos, func(i retrieveInfo) bool {
 		return lo.SomeBy(i.Filters, func(f filterInfo) bool {
 			return !f.IsScalar && !f.IsSlice && f.IndexFieldName == ""
@@ -270,7 +254,7 @@ func generateRetrieveFile(
 	data := &templateData{
 		Package:   pkg,
 		Retrieves: infos,
-		imports:   imps,
+		Manager:   imps,
 	}
 
 	var buf bytes.Buffer
@@ -290,10 +274,10 @@ func extractRetrieveInfo(
 		return nil
 	}
 
-	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override
-	// takes precedence; this is useful when the entry type has a computed
-	// GorpKey that is not stored as a field on the struct (e.g. channel.Channel).
-	// Otherwise, fall back to the first field carrying `@key`.
+	// Resolve the key type. A struct-level `@retrieve key "TypeName"` override takes
+	// precedence; this is useful when the entry type has a computed GorpKey that is not
+	// stored as a field on the struct (e.g. channel.Channel). Otherwise, fall back to
+	// the first field carrying `@key`.
 	var keyType, keyPrimitive string
 	if keyTypeName := plugindomain.GetStringFromType(
 		typ,
@@ -368,8 +352,8 @@ func extractRetrieveInfo(
 			if plugindomain.HasExprFromField(field, "index", "sorted") {
 				kind = "sorted"
 			}
-			// camelCase field name on the per-Retrieve indexes struct.
-			// Unexported because the indexes struct itself is unexported.
+			// camelCase field name on the per-Retrieve indexes struct. Unexported
+			// because the indexes struct itself is unexported.
 			structField = naming.LowerFirst(goFieldName)
 			indexes = append(indexes, indexInfo{
 				FieldName:   field.Name,
@@ -395,10 +379,8 @@ func extractRetrieveInfo(
 	}
 
 	return &retrieveInfo{
-		TypeName:                    typ.Name,
 		GoName:                      goName,
 		KeyType:                     keyType,
-		KeyPrimitive:                keyPrimitive,
 		HasSearch:                   hasSearch,
 		IsCustom:                    isCustom,
 		OntologyType:                ontologyType,
@@ -409,15 +391,9 @@ func extractRetrieveInfo(
 }
 
 type templateData struct {
-	imports   *imports.Manager
+	*imports.Manager
 	Package   string
 	Retrieves []retrieveInfo
-}
-
-func (d *templateData) HasImports() bool          { return d.imports.HasImports() }
-func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
-func (d *templateData) InternalImports() []imports.InternalImportData {
-	return d.imports.InternalImports()
 }
 
 // pluralizeDistinct returns the plural form of a name. If the plural is the
@@ -431,10 +407,10 @@ func pluralizeDistinct(name string) string {
 	return plural
 }
 
-// singularize returns a best-effort singular form of a name. Handles the common
-// English plural endings (-ies, -ches/-shes/-xes/-ses, -s); leaves the input
-// unchanged if no rule matches. Suitable for deriving filter names from
-// plural-noun field names (e.g. "Integrations" → "Integration").
+// singularize returns a best-effort singular form of a name. Handles the common English
+// plural endings (-ies, -ches/-shes/-xes/-ses, -s); leaves the input unchanged if no
+// rule matches. Suitable for deriving filter names from plural-noun field names (e.g.
+// "Integrations" → "Integration").
 func singularize(name string) string {
 	switch {
 	case strings.HasSuffix(name, "ies") && len(name) > 3:

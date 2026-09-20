@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package legacy converts the one PagerDuty config shape released Consoles wrote.
-// Alerts carried an enabled flag; the typed shape stores disabled.
+// Alerts carried an enabled flag; the typed shape stores disabled. The error severity
+// flag was named for the mapping rather than the resulting state.
 package legacy
 
 import (
@@ -27,5 +28,6 @@ var Alert = legacy.Rewrite{Post: alert}
 func alert(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "alerts", func(a msgpack.EncodedJSON) {
 		legacy.FlipBool(a, "enabled", "disabled")
+		legacy.RenameKey(a, "treat_error_as_critical", "errors_critical")
 	})
 }

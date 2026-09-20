@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "`status`"
 description: "Arc standard library reference for the status module"
-prev: "`ranges`"
-prevURL: "/reference/control/arc/reference/standard-library/ranges"
+prev: "`stable`"
+prevURL: "/reference/control/arc/reference/standard-library/stable"
 next: "`time`"
 nextURL: "/reference/control/arc/reference/standard-library/time"
 ---
@@ -60,9 +60,9 @@ addressing it by name or by key, and outputs the resolved status key.
 
 <Fragment slot="flow">
 
-```arc channels="trigger, status_key"
+```arc channels="status_key"
 stage main {
-  trigger -> status.set{
+  status.set{
     key_or_name = "ox_alarm",
     message = "Overpressure detected",
     variant = "error",

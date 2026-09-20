@@ -39,7 +39,7 @@ const openConfirm = async ({
 // The header splits a dotted title into one breadcrumb segment per part, so the whole
 // string never appears as a single node.
 const headerText = (): string =>
-  document.querySelector(".console-modal__header")?.textContent ?? "";
+  document.querySelector(".console-modal__header .pluto-breadcrumb")?.textContent ?? "";
 
 describe("useConfirmDelete", () => {
   it("should prompt with the resource name and resolve true when confirmed", async () => {

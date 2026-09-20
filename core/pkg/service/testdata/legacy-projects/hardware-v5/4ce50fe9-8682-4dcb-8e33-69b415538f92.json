@@ -1,0 +1,56 @@
+{
+  "autoStart": false,
+  "device": "labjack-t4",
+  "channels": [
+    {
+      "enabled": true,
+      "key": "DRYOxuLaQNY",
+      "cmdChannel": 1048597,
+      "stateChannel": 1048591,
+      "type": "DO",
+      "port": "DIO4"
+    },
+    {
+      "enabled": true,
+      "key": "RU1evvYAR4B",
+      "cmdChannel": 1048598,
+      "stateChannel": 1048592,
+      "type": "DO",
+      "port": "DIO5"
+    },
+    {
+      "enabled": true,
+      "key": "W3DcYXcXAat",
+      "cmdChannel": 1048599,
+      "stateChannel": 1048593,
+      "type": "DO",
+      "port": "DIO6"
+    },
+    {
+      "enabled": true,
+      "key": "lQI5MiSCdfQ",
+      "cmdChannel": 1048609,
+      "stateChannel": 1048603,
+      "type": "DO",
+      "port": "DIO7"
+    },
+    {
+      "enabled": true,
+      "key": "qQMRXRBZPri",
+      "cmdChannel": 1048610,
+      "stateChannel": 1048604,
+      "type": "DO",
+      "port": "DIO8"
+    },
+    {
+      "enabled": true,
+      "key": "qFrIZGbdIhd",
+      "cmdChannel": 1048611,
+      "stateChannel": 1048605,
+      "type": "DO",
+      "port": "DIO9"
+    }
+  ],
+  "dataSaving": true,
+  "stateRate": 10
+}

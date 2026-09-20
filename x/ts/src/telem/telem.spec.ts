@@ -262,18 +262,15 @@ describe("TimeStamp", () => {
     });
 
     it("should handle edge case comparisons", () => {
-      // Zero values
       const zeroTs = new TimeStamp(0);
       expect(zeroTs.equals(0)).toBe(true);
       expect(zeroTs.equals(TimeStamp.ZERO)).toBe(true);
       expect(zeroTs.equals(0n)).toBe(true);
 
-      // MAX values
       const maxTs = TimeStamp.MAX;
       expect(maxTs.equals(TimeStamp.MAX)).toBe(true);
       expect(maxTs.equals(new TimeStamp(Infinity))).toBe(true);
 
-      // MIN values
       const minTs = TimeStamp.MIN;
       expect(minTs.equals(TimeStamp.MIN)).toBe(true);
       expect(minTs.equals(new TimeStamp(-Infinity))).toBe(true);
@@ -328,7 +325,6 @@ describe("TimeStamp", () => {
     });
 
     it("should maintain symmetry", () => {
-      // If a.equals(b), then b.equals(a)
       const ts1 = new TimeStamp(1000);
       const ts2 = new TimeStamp(1000);
 
@@ -1192,14 +1188,12 @@ describe("TimeSpan", () => {
 
   describe("toString with semantic format", () => {
     const TESTS: [TimeSpan, string][] = [
-      // Sub-second durations
       [TimeSpan.ZERO, "0s"],
       [TimeSpan.nanoseconds(50), "< 1s"],
       [TimeSpan.microseconds(50), "< 1s"],
       [TimeSpan.milliseconds(50), "< 1s"],
       [TimeSpan.milliseconds(999), "< 1s"],
 
-      // Seconds
       [TimeSpan.seconds(1), "1s"],
       [TimeSpan.seconds(30), "30s"],
       [TimeSpan.seconds(59), "59s"],
@@ -1283,13 +1277,11 @@ describe("TimeSpan", () => {
       [TimeSpan.days(1095), "3y"],
       [TimeSpan.days(3650), "10y"],
 
-      // Complex durations
       [TimeSpan.seconds(3661), "1h 1m"],
       [TimeSpan.minutes(1441), "1d"], // 24h 1m, but minutes are dropped at day level
       [TimeSpan.minutes(1500), "1d 1h"], // 25h exactly
       [TimeSpan.hours(169), "1w 1h"],
 
-      // Negative durations
       [TimeSpan.seconds(-30), "-30s"],
       [TimeSpan.minutes(-90), "-1h 30m"],
       [TimeSpan.hours(-25), "-1d 1h"],

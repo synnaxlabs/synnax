@@ -51,13 +51,15 @@ const ZERO_CANVASES: Canvases = {
   bootstrapped: false,
 };
 
+const DEFAULT_RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
+
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
   resizeDebounce?: CrudeTimeSpan;
 }
 
 export const Canvas = ({
   children,
-  resizeDebounce: debounce = TimeSpan.milliseconds(100),
+  resizeDebounce: debounce = DEFAULT_RESIZE_DEBOUNCE,
   className,
   ...rest
 }: CanvasProps): ReactElement => {
@@ -138,7 +140,6 @@ export const Canvas = ({
     (el: HTMLCanvasElement | null) => {
       if (el == null) return;
 
-      // Store the canvas
       if (el.className.includes("gl")) canvases.current.gl = el;
       else if (el.className.includes("upper2d")) canvases.current.upper2d = el;
       else canvases.current.lower2d = el;
@@ -146,7 +147,6 @@ export const Canvas = ({
 
       if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
 
-      // Bootstrap the canvas
       canvases.current.bootstrapped = true;
       const glCanvas = gl.transferControlToOffscreen();
       const upper2dCanvas = upper2d.transferControlToOffscreen();
@@ -171,20 +171,20 @@ export const Canvas = ({
   return (
     <div
       ref={combinedElRef}
-      className={CSS(CSS.B("canvas-container"), className)}
+      className={CSS.cls(CSS.B("canvas-container"), className)}
       {...rest}
     >
       <canvas
         ref={refCallback}
-        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
+        className={CSS.cls(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
       />
       <canvas
         ref={refCallback}
-        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
+        className={CSS.cls(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
       />
       <canvas
         ref={refCallback}
-        className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
+        className={CSS.cls(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
       />
       <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
     </div>

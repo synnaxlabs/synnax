@@ -14,12 +14,15 @@
     margin-right: 3rem;
 }
 
-.console-controls--annotations-visible {
-    top: 0rem;
-}
-
 .console-line-plot__container {
     height: 100%;
     width: 100%;
     padding: 2rem;
+
+    /* The wrapper's padding already supplies the inset that the other
+       visualizations get from the controls' own offset. */
+    .console-controls {
+        top: 0;
+        right: 0;
+    }
 }

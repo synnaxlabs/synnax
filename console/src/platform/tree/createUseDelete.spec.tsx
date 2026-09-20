@@ -10,7 +10,7 @@
 import { channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Channel as PChannel } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -33,18 +33,6 @@ const useDelete = Tree.createUseDelete({
   convertKey: Number,
 });
 
-const DeleteHarness = ({
-  props,
-  label = "delete",
-}: {
-  props: Tree.ContextMenuProps;
-  label?: string;
-}): ReactElement => {
-  const del = useDelete(props);
-  return <button onClick={del}>{label}</button>;
-};
-DeleteHarness.displayName = "DeleteHarness";
-
 const createChannel = async () =>
   await client.channels.create({
     name: uniqueName("ch"),
@@ -52,14 +40,9 @@ const createChannel = async () =>
     isIndex: true,
   });
 
-interface HarnessEntry {
-  ch: channel.Channel;
-  label?: string;
-}
-
-const setup = async (...entries: HarnessEntry[]) => {
+const setup = async (target: channel.Channel) => {
   const store = await createTestStore();
-  const createProps = (ch: channel.Channel): Tree.ContextMenuProps => {
+  const propsFor = (ch: channel.Channel): Tree.ContextMenuProps => {
     const otgID = channel.ontologyID(ch.key);
     return {
       ...createBaseProps({ client, store }),
@@ -68,18 +51,28 @@ const setup = async (...entries: HarnessEntry[]) => {
     };
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Console>{children}</Console>
-  );
-  render(
-    <>
-      {entries.map(({ ch, label }) => (
-        <DeleteHarness key={ch.key} props={createProps(ch)} label={label} />
-      ))}
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      {children}
       <Modals.Stack />
-    </>,
-    { wrapper: Wrapper },
+    </Console>
   );
+  const { result, rerender } = renderHook(
+    (props: Tree.ContextMenuProps) => useDelete(props),
+    { wrapper, initialProps: propsFor(target) },
+  );
+  return {
+    /** Invokes the delete, opening its confirmation modal. */
+    del: async () => {
+      // The confirmation content suspends, and content that suspends inside a
+      // synchronous act scope is discarded, so the invocation needs an awaited one.
+      await act(async () => {
+        result.current();
+      });
+    },
+    /** Points the hook at another resource, as a changed tree selection would. */
+    select: (ch: channel.Channel) => rerender(propsFor(ch)),
+  };
 };
 
 const channelExists = async (key: channel.Key): Promise<boolean> => {
@@ -91,16 +84,15 @@ const channelExists = async (key: channel.Key): Promise<boolean> => {
   }
 };
 
+const confirmationFor = (ch: channel.Channel): string =>
+  `Are you sure you want to delete ${ch.name}?`;
+
 describe("createUseDelete", () => {
   it("should delete the selected resource after the user confirms", async () => {
     const ch = await createChannel();
-    await setup({ ch });
-    fireEvent.click(screen.getByText("delete"));
-    await waitFor(() =>
-      expect(
-        screen.getByText(`Are you sure you want to delete ${ch.name}?`),
-      ).toBeTruthy(),
-    );
+    const { del } = await setup(ch);
+    await del();
+    await waitFor(() => expect(screen.getByText(confirmationFor(ch))).toBeTruthy());
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => expect(await channelExists(ch.key)).toBe(false));
   });
@@ -108,29 +100,17 @@ describe("createUseDelete", () => {
   it("should leave the resource in place when the user cancels", async () => {
     const ch = await createChannel();
     const control = await createChannel();
-    await setup(
-      { ch, label: "delete target" },
-      { ch: control, label: "delete control" },
-    );
-    fireEvent.click(screen.getByText("delete target"));
-    await waitFor(() =>
-      expect(
-        screen.getByText(`Are you sure you want to delete ${ch.name}?`),
-      ).toBeTruthy(),
-    );
+    const { del, select } = await setup(ch);
+    await del();
+    await waitFor(() => expect(screen.getByText(confirmationFor(ch))).toBeTruthy());
     fireEvent.click(findButton("Cancel"));
-    await waitFor(() =>
-      expect(
-        screen.queryByText(`Are you sure you want to delete ${ch.name}?`),
-      ).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText(confirmationFor(ch))).toBeNull());
     // A confirmed deletion through the same mutation path settles any erroneous
     // in-flight delete of the canceled target before the absence assert.
-    fireEvent.click(screen.getByText("delete control"));
+    select(control);
+    await del();
     await waitFor(() =>
-      expect(
-        screen.getByText(`Are you sure you want to delete ${control.name}?`),
-      ).toBeTruthy(),
+      expect(screen.getByText(confirmationFor(control))).toBeTruthy(),
     );
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => expect(await channelExists(control.key)).toBe(false));

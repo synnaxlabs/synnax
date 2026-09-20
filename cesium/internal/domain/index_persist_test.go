@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )

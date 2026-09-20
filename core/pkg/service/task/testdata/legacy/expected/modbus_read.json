@@ -25,8 +25,8 @@
       "key": "ch-mb-holding-in",
       "name": "fixture_mb_holding_register_input",
       "string_length": 0,
-      "swap_bytes": false,
-      "swap_words": false,
+      "bytes_swapped": false,
+      "words_swapped": false,
       "type": "holding_register"
     },
     {
@@ -37,8 +37,8 @@
       "key": "ch-mb-register-in",
       "name": "fixture_mb_register_input",
       "string_length": 0,
-      "swap_bytes": false,
-      "swap_words": false,
+      "bytes_swapped": false,
+      "words_swapped": false,
       "type": "input_register"
     }
   ],

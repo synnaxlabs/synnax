@@ -61,9 +61,9 @@ var retrieveKey = []byte("bGljZW5zZUtleQ==")
 // Validate validates the configuration for use in the service.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("channel.verification")
-	validate.NotNil(v, "db", c.DB)
-	validate.NonZero(v, "warning_time", c.WarningTime)
-	validate.NonZero(v, "check_interval", c.CheckInterval)
+	v.NotNil("db", c.DB)
+	v.NonZero("warning_time", c.WarningTime)
+	v.NonZero("check_interval", c.CheckInterval)
 	return v.Error()
 }
 

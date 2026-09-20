@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
 )
 
 type GCConfig struct {
@@ -55,9 +55,9 @@ func (cfg GCConfig) Override(other GCConfig) GCConfig {
 // Validate implements config.Config.
 func (cfg GCConfig) Validate() error {
 	v := validate.New("cesium.gc_config")
-	validate.Positive(v, "gc_try_interval", cfg.TryInterval)
-	validate.Positive(v, "gc_threshold", cfg.Threshold)
-	validate.Positive(v, "max_goroutine", cfg.MaxGoroutine)
+	v.Positive("gc_try_interval", cfg.TryInterval)
+	v.Positive("gc_threshold", cfg.Threshold)
+	v.Positive("max_goroutine", cfg.MaxGoroutine)
 	return v.Error()
 }
 
@@ -78,7 +78,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// in case the channel is repeatedly created and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	if err := (func() error {
+	if err := func() error {
 		db.mu.Lock()
 		defer db.mu.Unlock()
 		if err := db.removeChannel(ch); err != nil {
@@ -89,7 +89,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 			return nil
 		}
 		return err
-	})(); err != nil {
+	}(); err != nil {
 		return err
 	}
 	return db.fs.Remove(newName)
@@ -265,23 +265,25 @@ func (db *DB) DeleteTimeRange(
 func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
-	db.mu.RLock()
-	var (
-		sem          = semaphore.NewWeighted(int64(maxGoRoutine))
-		sCtx, cancel = signal.WithCancel(ctx)
-	)
+	sCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
+	db.mu.RLock()
+	pending := make(chan unary.DB, len(db.mu.dbs.unary))
 	for _, uDB := range db.mu.dbs.unary {
-		if err := sem.Acquire(ctx, 1); err != nil {
-			db.mu.RUnlock()
-			return err
-		}
-		sCtx.Go(func(_ctx context.Context) error {
-			defer sem.Release(1)
-			return uDB.GarbageCollect(_ctx)
-		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%v", uDB.Channel()))
+		pending <- uDB
 	}
 	db.mu.RUnlock()
+	close(pending)
+	for i := range min(int(maxGoRoutine), len(pending)) {
+		sCtx.Go(func(ctx context.Context) error {
+			for uDB := range pending {
+				if err := uDB.GarbageCollect(ctx); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, signal.RecoverWithErrOnPanic(), signal.WithKeyf("garbage_collect_%d", i))
+	}
 	return sCtx.Wait()
 }
 

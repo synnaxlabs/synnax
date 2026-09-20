@@ -113,7 +113,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       handles: [],
       variant: "static",
       scale: 1,
-      scaleStroke: false,
+      strokeScaled: false,
       previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
     },
     parent: ontology.ROOT_ID,
@@ -158,8 +158,10 @@ export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "nam
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data }) => {
-    await client.schematics.symbols.rename(data.key, data.name);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.schematics.symbols.rename(data.key, data.name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -171,6 +173,19 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.schematics.symbols.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
+    return data;
+  },
+});
+
+export type DeleteGroupParams = group.Key;
+
+export const { useUpdate: useDeleteGroup } = Flux.createUpdate<DeleteGroupParams>({
+  name: GROUP_RESOURCE_NAME,
+  verbs: verbs.DELETE,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.schematics.symbols.deleteGroup(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
     return data;

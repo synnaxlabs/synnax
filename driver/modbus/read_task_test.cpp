@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iomanip>
+#include <iostream>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -20,6 +24,20 @@
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::modbus {
+/// @brief Allowed relative error of a task's achieved sample rate.
+constexpr double RATE_TOLERANCE = 0.10;
+/// @brief Wall time each rate runs for.
+const auto RATE_SPAN = 1 * x::telem::SECOND;
+
+/// @brief Logs the rate a task held and checks it against the tolerance.
+void expect_rate(const double measured, const int rate_hz) {
+    const double error = (measured - rate_hz) / rate_hz * 100;
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
+    EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
+        << "at " << rate_hz << " Hz";
+}
+
 /// @brief Test fixture for Modbus read task tests.
 class ModbusReadTest : public ::testing::Test {
 protected:
@@ -295,15 +313,11 @@ TEST(ReadTask, testBasicReadTask) {
 
     auto devs = std::make_shared<device::Manager>();
 
-    auto modbus_dev = ASSERT_NIL_P(
-        devs->acquire(device::ConnectionConfig{"127.0.0.1", 1502})
-    );
-
     auto task = common::ReadTask(
         tsk,
         ctx,
         x::breaker::default_config(tsk.name),
-        std::make_unique<ReadTaskSource>(modbus_dev, std::move(*cfg)),
+        std::make_unique<ReadTaskSource>(devs, std::move(*cfg)),
         factory
     );
 
@@ -333,6 +347,105 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_EQ(fr.contains(index_channel.key), true);
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
+}
+
+/// @brief it should reconnect to a restarted server on the next start.
+TEST(ReadTask, testReconnectAfterServerRestart) {
+    mock::SlaveConfig slave_cfg;
+    slave_cfg.coils[0] = 1;
+    slave_cfg.coils[1] = 0;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+
+    auto slave = std::make_unique<mock::Slave>(slave_cfg);
+    ASSERT_NIL(slave->start());
+
+    auto index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    auto data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("data_channel"),
+        .data_type = x::telem::UINT8_T,
+        .is_index = false,
+        .index = index_channel.key
+    };
+
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    ASSERT_NIL(client->channels.create(index_channel));
+    data_channel.index = index_channel.key;
+    ASSERT_NIL(client->channels.create(data_channel));
+
+    auto rack = ASSERT_NIL_P(client->racks.create("reconnect_rack"));
+
+    auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
+    x::json::json properties{{"connection", conn_cfg.to_json()}};
+    synnax::device::Device dev{
+        .key = "modbus_reconnect_dev",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "modbus",
+        .model = "Modbus Device",
+        .name = "modbus_reconnect_dev",
+        .properties = properties,
+    };
+    ASSERT_NIL(client->devices.create(dev));
+
+    auto tsk = synnax::task::Task{
+        .rack = rack.key,
+        .name = "reconnect_task",
+        .type = "modbus_read",
+    };
+
+    x::json::json j{
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", dev.key},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil"},
+               {"disabled", false},
+               {"channel", data_channel.key},
+               {"address", 0}}}
+         )}
+    };
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto devs = std::make_shared<device::Manager>();
+
+    auto task = common::ReadTask(
+        tsk,
+        ctx,
+        x::breaker::default_config(tsk.name),
+        std::make_unique<ReadTaskSource>(devs, std::move(*cfg)),
+        factory
+    );
+
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
+    task.stop("stop_cmd", true);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+
+    slave->stop();
+    slave = std::make_unique<mock::Slave>(slave_cfg);
+    ASSERT_NIL(slave->start());
+    x::defer::defer stop_slave([&slave] { slave->stop(); });
+
+    task.start("start_cmd_2");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[2].message, "Task started successfully");
+    ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 2);
+    task.stop("stop_cmd_2", true);
 }
 
 /// @brief it should read discrete input values from Modbus device.
@@ -365,10 +478,6 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<device::Manager>();
-    auto modbus_dev = ASSERT_NIL_P(
-        devs->acquire(device::ConnectionConfig{"127.0.0.1", 1502})
-    );
-
     auto task = common::ReadTask(
         synnax::task::Task{
             .rack = rack.key,
@@ -377,7 +486,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
         },
         ctx,
         x::breaker::default_config("discrete_test"),
-        std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
         mock_factory
     );
 
@@ -423,10 +532,6 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<device::Manager>();
-    auto modbus_dev = ASSERT_NIL_P(
-        devs->acquire(device::ConnectionConfig{"127.0.0.1", 1502})
-    );
-
     auto task = common::ReadTask(
         synnax::task::Task{
             .rack = rack.key,
@@ -435,7 +540,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
         },
         ctx,
         x::breaker::default_config("holding_test"),
-        std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
         mock_factory
     );
 
@@ -498,10 +603,6 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<device::Manager>();
-    auto modbus_dev = ASSERT_NIL_P(
-        devs->acquire(device::ConnectionConfig{"127.0.0.1", 1502})
-    );
-
     auto task = common::ReadTask(
         synnax::task::Task{
             .rack = rack.key,
@@ -510,7 +611,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
         },
         ctx,
         x::breaker::default_config("multi_test"),
-        std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
         mock_factory
     );
 
@@ -595,10 +696,6 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<device::Manager>();
-    auto modbus_dev = ASSERT_NIL_P(
-        devs->acquire(device::ConnectionConfig{"127.0.0.1", 1502})
-    );
-
     auto task = common::ReadTask(
         synnax::task::Task{
             .rack = rack.key,
@@ -607,7 +704,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
         },
         ctx,
         x::breaker::default_config("uint8_test"),
-        std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
         mock_factory
     );
 
@@ -667,10 +764,6 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     ASSERT_NIL(p.error());
 
     auto devs = std::make_shared<device::Manager>();
-    auto modbus_dev = ASSERT_NIL_P(
-        devs->acquire(device::ConnectionConfig{"127.0.0.1", 1502})
-    );
-
     auto task = common::ReadTask(
         synnax::task::Task{
             .rack = rack.key,
@@ -679,7 +772,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
         },
         ctx,
         x::breaker::default_config("uint8_holding_test"),
-        std::make_unique<ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
         mock_factory
     );
 
@@ -839,5 +932,59 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     // Stop the task to clean up
     synnax::task::Command stop_cmd{.task = task.key, .type = "stop"};
     configured_task->exec(stop_cmd);
+}
+
+/// @brief it should hold each configured sample rate over time.
+TEST_F(ModbusReadTest, testHoldsSampleRate) {
+    mock::SlaveConfig slave_cfg;
+    slave_cfg.input_registers[0] = 42;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+    auto slave = mock::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    const auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("rate_input"),
+        x::telem::UINT16_T,
+        index_channel.key,
+        false
+    ));
+
+    for (const int rate_hz: {25, 50, 100}) {
+        auto cfg = create_base_config();
+        cfg["sample_rate"] = rate_hz;
+        cfg["stream_rate"] = rate_hz;
+        cfg["channels"].push_back(
+            create_channel_config("input_register", data_channel, 0)
+        );
+        auto p = x::json::Parser(cfg);
+        auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+        ASSERT_NIL(p.error());
+
+        auto factory = std::make_shared<pipeline::mock::WriterFactory>();
+        auto devs = std::make_shared<device::Manager>();
+        auto task = common::ReadTask(
+            synnax::task::Task{
+                .rack = rack.key,
+                .name = "rate_test",
+                .type = "modbus_read",
+            },
+            ctx,
+            x::breaker::default_config("rate_test"),
+            std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
+            factory
+        );
+
+        task.start("start_cmd");
+        ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
+        std::this_thread::sleep_for(RATE_SPAN.chrono());
+        task.stop("stop_cmd", true);
+
+        expect_rate(
+            pipeline::mock::measured_rate(*factory->writes, index_channel.key),
+            rate_hz
+        );
+    }
 }
 }

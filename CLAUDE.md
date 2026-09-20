@@ -50,6 +50,12 @@ needing broader context:
   see Architectural Principles below.
 - **Naming**: functions that populate data (fixtures, initial records) are `create*`,
   never `seed*`.
+- **Booleans are adjectival predicates about their subject**, never imperatives:
+  `disabled`, `snapshot`, `data_saving_disabled`, `channel_names_hidden`, not
+  `disable_data_saving` or `hide_channel_names`. Drop an `is_`/`has_` prefix unless the
+  bare name is taken. Config obeys this as strictly as state; a verb phrase is for
+  call-site-only surfaces alone (keyword arguments, CLI flags). Schema booleans always
+  default to `false`, so the name states the non-default condition.
 - 🚨 **THE NAMESPACE CARRIES THE CONTEXT — NEVER REPEAT IT IN AN IDENTIFIER.** Claude
   sessions violate this constantly. Before naming any type, function, hook, or constant,
   strip the package/module name from the identifier:
@@ -110,9 +116,11 @@ reply is prose: it gets the same rules as a doc. Always write in sentence case i
 of title case for headings, titles, and menu options unless explicitly directed
 otherwise. Capitalize proper nouns and acronyms, including Synnax component names: Arc,
 Cesium, Aspen, Oracle, Pluto, Aether, Flux, Freighter, Alamos, Gorp, Drift, X, the
-Driver, the Core, and the Console. Third-party names are proper nouns too: Git, Go,
-gRPC, HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead of
-"server", "node", or "cluster", unless you are specifically writing about behavior of
+Driver, the Core, and the Console. Aether is always capitalized in prose, compounds
+included (the Aether binding, Aether-cached); only backticked identifiers and paths
+(`aether`, `flux.aether`) stay lowercase. Third-party names are proper nouns too: Git,
+Go, gRPC, HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead
+of "server", "node", or "cluster", unless you are specifically writing about behavior of
 multi-node clusters. If you are referring to code paths, then put those in backticks
 `x/go/gorp`.
 

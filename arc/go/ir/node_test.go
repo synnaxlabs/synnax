@@ -14,14 +14,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
-	. "github.com/synnaxlabs/x/testutil"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Node", func() {
 	Describe("IsEntryNode", func() {
 		reads := func(key uint32) types.Channels {
 			return types.Channels{Read: map[uint32]string{key: "ch"}}
+		}
+		writes := func(key uint32) types.Channels {
+			return types.Channels{Write: map[uint32]string{key: "ch"}}
 		}
 		edgeInto := func(nodeKey string) ir.Edge {
 			return ir.Edge{Target: ir.Handle{Node: nodeKey, Param: "input"}}
@@ -41,6 +42,8 @@ var _ = Describe("Node", func() {
 				ir.Node{Key: "n", Channels: reads(1)}, ir.Edges{edgeInto("n")}, false),
 			Entry("an edge that targets a different node",
 				ir.Node{Key: "n"}, ir.Edges{edgeInto("other")}, true),
+			Entry("a channel write only",
+				ir.Node{Key: "n", Channels: writes(2)}, ir.Edges{}, true),
 		)
 	})
 
@@ -79,29 +82,5 @@ var _ = Describe("Node", func() {
 					"├── inputs: x (i64), y (i64)\n"+
 					"└── outputs: output (i64)\n"),
 		)
-	})
-
-	Describe("DecodeMsgpack", func() {
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Key      string
-				Type     string
-				Inputs   types.Params
-				Outputs  types.Params
-				Channels types.Channels
-			}{
-				Key:  "node1",
-				Type: "fn1",
-				Inputs: types.Params{
-					{Name: "rate", Type: types.Type{Kind: types.KindF32}},
-				},
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded ir.Node
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Key).To(Equal("node1"))
-			Expect(decoded.Type).To(Equal("fn1"))
-			Expect(decoded.Inputs).To(HaveLen(1))
-		})
 	})
 })

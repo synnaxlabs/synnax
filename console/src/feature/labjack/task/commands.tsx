@@ -15,14 +15,14 @@ import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "labjack_create_read_task",
-  name: "Create a LabJack Read Task",
+  name: "Create LabJack read task",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "labjack_create_write_task",
-  name: "Create a LabJack Write Task",
+  name: "Create LabJack write task",
   icon: <Icon.Logo.LabJack />,
   useOnSelect: useCreateWrite,
 });

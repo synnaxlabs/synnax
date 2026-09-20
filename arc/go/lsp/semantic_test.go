@@ -39,6 +39,7 @@ const (
 	tokenTypeStringRaw         = uint32(20)
 	tokenTypeStringPlaceholder = uint32(21)
 	tokenTypeChannelVariable   = uint32(22)
+	tokenTypeBoolean           = uint32(23)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -240,6 +241,41 @@ var _ = Describe("Semantic Tokens", func() {
 				Expect(str[0].Line).To(Equal(uint32(0)))
 				Expect(str[1].Line).To(Equal(uint32(1)))
 			},
+		)
+
+		It(
+			"routes bool literals to the boolean token type, not keyword or number",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, uri, `x := true == false`)
+				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				Expect(filterByType(tokens, tokenTypeBoolean)).To(HaveLen(2))
+				Expect(filterByType(tokens, tokenTypeKeyword)).To(BeEmpty())
+				Expect(filterByType(tokens, tokenTypeNumber)).To(BeEmpty())
+			},
+		)
+
+		DescribeTable(
+			"leaves routing-table keys uncolored",
+			func(ctx SpecContext, source string, expected int) {
+				OpenArcDocument(server, ctx, uri, source)
+				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				Expect(filterByType(tokens, tokenTypeBoolean)).To(HaveLen(expected))
+			},
+			Entry(
+				"key dropped, value kept",
+				"in_ch -> select{} -> {\n\ttrue: true -> bool_ch\n}",
+				1,
+			),
+			Entry(
+				"space before the colon",
+				"in_ch -> select{} -> {\n\tfalse : 1 -> u8_ch\n}",
+				0,
+			),
+			Entry(
+				"both branches",
+				"in_ch -> select{} -> {\n\ttrue: 1 -> a,\n\tfalse: 2 -> b\n}",
+				0,
+			),
 		)
 	})
 
@@ -790,8 +826,8 @@ func cat() {
 			legend := provider.Legend
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(legend.TokenTypes[n-1]).To(Equal("channelVariable"))
-			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelVariable))
+			Expect(legend.TokenTypes[n-1]).To(Equal("boolean"))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeBoolean))
 		})
 	})
 })

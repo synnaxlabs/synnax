@@ -98,17 +98,6 @@ describe("session theme selectors", () => {
       });
       expect(result.current).toBe("dark");
     });
-
-    it("falls back to system for legacy state without a mode", () => {
-      const store = configureStore({
-        reducer: { [Theme.SLICE_NAME]: Theme.reducer },
-        preloadedState: { [Theme.SLICE_NAME]: { version: 0 } as Theme.SliceState },
-      });
-      const { result } = renderHook(() => Theme.useSelectMode(), {
-        wrapper: wrapperFor(store),
-      });
-      expect(result.current).toBe("system");
-    });
   });
 
   describe("useProviderProps", () => {

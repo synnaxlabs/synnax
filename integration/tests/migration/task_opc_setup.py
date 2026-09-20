@@ -21,7 +21,7 @@ CHANNEL_PREFIX = "mig_opc_float"
 NUM_CHANNELS = 2
 
 OPC_ENDPOINT = "opc.tcp://127.0.0.1:4841/freeopcua/server/"
-OPC_DEVICE_NAME = "OPC UA Server"
+OPC_DEVICE_NAME = "OPC UA server"
 
 
 def setup(client: sy.Synnax, log: Callable[[str], None]) -> None:

@@ -35,7 +35,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Notation).To(Equal(notation.NotationScientific))
 		Expect(l.Channels[0].Color).To(Equal(color.Color{R: 127, G: 29, B: 29, A: 1}))
 		Expect(l.TimestampPrecision).To(Equal(int32(1)))
-		Expect(l.HideReceiptTimestamp).To(BeTrue())
+		Expect(l.ReceiptTimestampHidden).To(BeTrue())
 	})
 
 	It("Should lift a Console v1 state through the legacy chain", func(
@@ -47,8 +47,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Alias).To(Equal("temp"))
 		Expect(l.Channels[0].Precision).To(Equal(int32(2)))
 		// showX on the wire inverts into hideX on the current shape.
-		Expect(l.HideChannelNames).To(BeFalse())
-		Expect(l.HideReceiptTimestamp).To(BeTrue())
+		Expect(l.ChannelNamesHidden).To(BeFalse())
+		Expect(l.ReceiptTimestampHidden).To(BeTrue())
 	})
 
 	It("Should lift a Console v0 state of bare channel keys", func(ctx SpecContext) {

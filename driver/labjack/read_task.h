@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <charconv>
 #include <map>
 #include <set>
 #include <string>
@@ -84,6 +85,18 @@ inline long resolve_tc_type(x::json::Parser &parser, const std::string &tc_type)
     return v->second;
 }
 
+/// @brief resolves the AIN index a port names, e.g. 3 for "AIN3".
+inline int resolve_ain_index(x::json::Parser &parser, const std::string &port) {
+    if (port.starts_with(AIN_PREFIX)) {
+        int index = 0;
+        const char *last = port.data() + port.size();
+        const auto res = std::from_chars(port.data() + AIN_PREFIX.size(), last, index);
+        if (res.ec == std::errc{} && res.ptr == last) return index;
+    }
+    parser.field_err("port", "Invalid port: " + port);
+    return 0;
+}
+
 /// @brief resolves the CJC modbus address for the configured CJC source.
 inline int resolve_cjc_addr(x::json::Parser &parser, const std::string &cjc_source) {
     if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
@@ -145,7 +158,7 @@ struct ThermocoupleChan final : InputChan {
     // Lookup table: TC_INDEX_LUT[ x - 60001] = AIN_EF_INDEX
     const long type;
 
-    ///@brief the AIN port the thermocouple's positive lead is wired to.
+    ///@brief the AIN index the thermocouple's positive lead is wired to.
     const int pos_chan;
 
     ///@brief the AIN port of the negative lead on T7 devices. 199 is single ended.
@@ -177,7 +190,7 @@ struct ThermocoupleChan final : InputChan {
     ):
         InputChan(cfg),
         type(resolve_tc_type(parser, cfg.thermocouple_type)),
-        pos_chan(cfg.pos_chan),
+        pos_chan(resolve_ain_index(parser, cfg.port)),
         neg_chan(cfg.neg_chan),
         cjc_addr(resolve_cjc_addr(parser, cfg.cjc_source)),
         cjc_slope(cfg.cjc_slope),
@@ -504,21 +517,36 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class UnarySource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief the API of the device we're reading from.
-    const std::shared_ptr<device::Device> dev;
+    /// @brief acquires the device on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the API of the device we're reading from. Populated on start and
+    /// released on stop.
+    std::shared_ptr<device::Device> dev;
     /// @brief a handle to the interval that is regulating the sample clock.
     const int interval_handle;
 
 public:
-    UnarySource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), dev(dev), interval_handle(0) {}
+    UnarySource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
+        cfg(std::move(cfg)), devs(devs), interval_handle(0) {}
 
+    /// @brief claims the device on every start so a device that disconnects and
+    /// returns between runs gets a fresh LJM handle on the next start.
     x::errors::Error start() override {
-        if (const auto err = this->cfg.apply(this->dev)) return err;
-        return this->dev->start_interval(
-            this->interval_handle,
-            static_cast<int>(this->cfg.sample_rate.period().microseconds())
-        );
+        auto [d, err] = this->devs->acquire(this->cfg.device_key);
+        if (err) return err;
+        this->dev = std::move(d);
+        if (const auto apply_err = this->cfg.apply(this->dev)) {
+            this->dev.reset();
+            return apply_err;
+        }
+        if (const auto interval_err = this->dev->start_interval(
+                this->interval_handle,
+                static_cast<int>(this->cfg.sample_rate.period().microseconds())
+            )) {
+            this->dev.reset();
+            return interval_err;
+        }
+        return x::errors::NIL;
     }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
@@ -526,7 +554,10 @@ public:
     }
 
     x::errors::Error stop() override {
-        return this->dev->clean_interval(this->interval_handle);
+        if (this->dev == nullptr) return x::errors::NIL;
+        const auto err = this->dev->clean_interval(this->interval_handle);
+        this->dev.reset();
+        return err;
     }
 
     common::ReadResult
@@ -586,8 +617,11 @@ public:
 class StreamSource final : public common::Source {
     /// @brief the configuration for the read task.
     ReadTaskConfig cfg;
-    /// @brief the API to the device we're reading from.
-    const std::shared_ptr<device::Device> dev;
+    /// @brief acquires the device on each start.
+    const std::shared_ptr<device::Manager> devs;
+    /// @brief the API to the device we're reading from. Populated on start and
+    /// released on stop.
+    std::shared_ptr<device::Device> dev;
     /// @brief sample clock used to get timestamp information for the task.
     common::HardwareTimedSampleClock sample_clock;
     /// @brief buffer containing interleaved data directly from device
@@ -609,9 +643,9 @@ class StreamSource final : public common::Source {
     }
 
 public:
-    StreamSource(const std::shared_ptr<device::Device> &dev, ReadTaskConfig cfg):
+    StreamSource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
         cfg(std::move(cfg)),
-        dev(dev),
+        devs(devs),
         sample_clock(
             common::HardwareTimedSampleClockConfig::create_simple(
                 this->cfg.sample_rate,
@@ -627,15 +661,25 @@ public:
         return this->cfg.writer();
     }
 
-    x::errors::Error start() override { return this->restart(false); }
+    x::errors::Error start() override {
+        if (const auto err = this->restart(false)) {
+            this->dev.reset();
+            return err;
+        }
+        return x::errors::NIL;
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
-    /// @brief restarts the source.
+    /// @brief restarts the source. The claim is released before the acquire so a
+    /// device that reconnects gets a fresh LJM handle instead of the cached one.
     x::errors::Error restart(const bool force) {
         this->stop();
+        auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
+        if (acquire_err) return acquire_err;
+        this->dev = std::move(d);
         if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
@@ -661,11 +705,22 @@ public:
         return x::errors::NIL;
     }
 
-    x::errors::Error stop() override { return this->dev->e_stream_stop(); }
+    x::errors::Error stop() override {
+        if (this->dev == nullptr) return x::errors::NIL;
+        const auto err = this->dev->e_stream_stop();
+        this->dev.reset();
+        return err;
+    }
 
     common::ReadResult
     read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         common::ReadResult res;
+        // A failed restart leaves no device. The pipeline retries temporary errors,
+        // giving recovery a chance on every attempt.
+        if (this->dev == nullptr) {
+            res.error = translate_error(this->restart(true));
+            if (res.error) return res;
+        }
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
         common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);

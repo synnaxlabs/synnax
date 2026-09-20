@@ -16,20 +16,37 @@
 #include <type_traits>
 #include <utility>
 
+#include "client/cpp/device/key.h"
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
 
+struct KeyedConfig;
 struct Command;
+struct StartConfig;
+struct ScanConfig;
+struct PersistConfig;
+struct ReadConfig;
+struct WriteConfig;
 
 using Key = x::uuid::UUID;
+
+/// @brief KeyedConfig is the base for every stored task configuration record.
+struct KeyedConfig {
+    /// @brief key is the unique identifier for the stored configuration record.
+    x::uuid::UUID key;
+
+    static KeyedConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief StatusDetails contains task-specific status details including execution
 /// state.
@@ -83,7 +100,39 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
+/// @brief StartConfig carries the configuration fields shared by every task.
+struct StartConfig : public KeyedConfig {
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    bool auto_start = false;
+
+    static StartConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig carries the fields shared by every scan task configuration.
+struct ScanConfig : public KeyedConfig {
+    /// @brief rate is the rate at which the scan runs, in Hertz.
+    ::x::telem::Rate rate = ::x::telem::Rate(0.200000);
+    /// @brief disabled is true when scanning is paused.
+    bool disabled = false;
+
+    static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief PersistConfig carries the configuration fields shared by tasks that write
+/// telemetry.
+struct PersistConfig : public StartConfig {
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    bool data_saving_disabled = false;
+
+    static PersistConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
 /// specific hardware operations such as reading sensor data, writing control signals,
@@ -110,7 +159,8 @@ struct Task {
     std::string config_hash = "";
     /// @brief internal is true if this is an internal system task.
     bool internal = false;
-    /// @brief snapshot indicates whether to persist this task's configuration.
+    /// @brief snapshot is true if this task is an immutable snapshot copy of another
+    /// task.
     bool snapshot = false;
     /// @brief status is the current execution status of the task.
     std::optional<Status> status;
@@ -123,6 +173,29 @@ struct Task {
     to_proto() const;
     static std::pair<Task, x::errors::Error>
     from_proto(const ::service::task::pb::Task &pb);
+};
+
+/// @brief ReadConfig carries the configuration fields shared by hardware acquisition
+/// tasks.
+struct ReadConfig : public PersistConfig {
+    /// @brief sample_rate is the per-channel hardware sample rate, in Hertz.
+    ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
+    /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
+    /// Hertz.
+    ::x::telem::Rate stream_rate = ::x::telem::Rate(5);
+
+    static ReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteConfig carries the configuration fields shared by hardware control
+/// tasks.
+struct WriteConfig : public PersistConfig {
+    /// @brief device is the key of the device the task writes to.
+    ::synnax::device::Key device = "";
+
+    static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("task", "");

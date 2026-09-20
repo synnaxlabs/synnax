@@ -48,9 +48,9 @@ step).
 - **Stage entry ignores pre-activation writes.** Channel values written before a stage
   is active are dropped. Emit a readiness marker on entry (`1 -> a_ready`) and
   `wait_for_eq("a_ready", 1)` before driving that stage.
-- **First truthy transition wins.** When several `=>` transitions can be truthy in one
-  cycle, the first in line order fires. Keep transitions mutually exclusive or split
-  across stages.
+- **First truthy transition wins.** When several `=>` transitions can be truthy (a
+  `bool` `true`, or a non-zero numeric) in one cycle, the first in line order fires.
+  Keep transitions mutually exclusive or split across stages.
 - **Variable kinds.** _literal_ (`:=` / `$=`, a stateful value cell), _channel read_
   (read-only stream over channels), and _channel read/write_ (aliases a channel it reads
   and writes). A `:=` literal re-seeds to its declared value on every scope entry; `$=`

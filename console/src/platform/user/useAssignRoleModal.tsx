@@ -12,11 +12,12 @@ import { Access, Button, Form, Icon, Nav, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
+import { Triggers } from "@/platform/triggers";
 
 export interface AssignRoleModalParams {
   /** Key of the user whose role is being assigned. */
   userKey: Access.Role.ChangeRoleFormQuery["key"];
-  title?: string;
+  title?: string | string[];
 }
 
 export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
@@ -29,13 +30,14 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
     return (
       <Form.Form<typeof Access.Role.changeRoleFormSchema> {...form}>
         <Modals.Frame>
-          <Modals.Header icon={<Icon.User />}>{title ?? "Assign Role"}</Modals.Header>
+          <Modals.Header icon={<Icon.User />}>{title ?? "Role.Assign"}</Modals.Header>
           <Modals.Body>
             <Form.Field<access.role.Key> path="role" label="Role">
               {(props) => <Access.Role.Select {...props} />}
             </Form.Field>
           </Modals.Body>
           <Modals.Footer>
+            <Triggers.SaveHelpText action="Assign" />
             <Nav.Bar.End>
               <Button.Button
                 onClick={() => save()}
@@ -44,6 +46,7 @@ export const useAssignRoleModal = Modals.create<AssignRoleModalParams>(
                 status={status.keepVariants(variant, "loading")}
                 tooltip={client == null ? "No Core connected" : undefined}
                 tooltipLocation="bottom"
+                trigger={Triggers.SAVE}
               >
                 Assign
               </Button.Button>

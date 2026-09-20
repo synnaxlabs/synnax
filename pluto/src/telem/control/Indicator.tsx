@@ -42,7 +42,7 @@ export const Indicator = ({
       status: {
         key: "no_chip",
         variant: "warning",
-        message: "No chip connected.",
+        message: "No chip connected",
         time: TimeStamp.now(),
         details: { color: undefined },
       },
@@ -60,7 +60,10 @@ export const Indicator = ({
   else if (colorVal != null && !color.isZero(colorVal)) parsedColor = colorVal;
   else parsedColor = "var(--pluto-gray-l10)";
   const cssColor = color.cssString(parsedColor);
-  const style = useMemo(() => ({ [CSS.var("indicator-color")]: cssColor }), [cssColor]);
+  const style = useMemo(
+    () => ({ [CSS.variable("indicator-color")]: cssColor }),
+    [cssColor],
+  );
 
   return (
     <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>

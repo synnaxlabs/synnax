@@ -28,10 +28,10 @@ var acronyms = set.New(
 	"rtd", "iepe", "rms", "dc", "ac",
 )
 
-// PascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase,
-// fully upper-casing any whole underscore-delimited segment that is a known
-// acronym. Whole-segment matching means a word that merely contains an acronym
-// (e.g. "email", "accel") is title-cased normally rather than mangled.
+// PascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully
+// upper-casing any whole underscore-delimited segment that is a known acronym.
+// Whole-segment matching means a word that merely contains an acronym (e.g. "email",
+// "accel") is title-cased normally rather than mangled.
 func PascalAcronym(s string) string {
 	segs := strings.Split(TypeSnake(s), "_")
 	for i, seg := range segs {
@@ -48,12 +48,12 @@ func PascalAcronym(s string) string {
 }
 
 // CamelAcronym converts an identifier to camelCase while keeping known acronyms
-// upper-cased after the first word, mirroring PascalAcronym. Only the leading
-// word or acronym is lower-cased: "AIVoltageRMSChannel" -> "aiVoltageRMSChannel",
-// "BaseAOChannel" -> "baseAOChannel", "RTDType" -> "rtdType", "Channel" ->
-// "channel". Use this for generated type and schema-const identifiers. It must
-// not be used for wire field keys, which have to match the naive snake/camel
-// conversion the JSON codec performs.
+// upper-cased after the first word, mirroring PascalAcronym. Only the leading word or
+// acronym is lower-cased: "AIVoltageRMSChannel" -> "aiVoltageRMSChannel",
+// "BaseAOChannel" -> "baseAOChannel", "RTDType" -> "rtdType", "Channel" -> "channel".
+// Use this for generated type and schema-const identifiers. It must not be used for
+// wire field keys, which have to match the naive snake/camel conversion the JSON codec
+// performs.
 func CamelAcronym(s string) string {
 	if s == "" {
 		return s
@@ -66,12 +66,12 @@ func CamelAcronym(s string) string {
 	if isLower(s[0]) || strings.ContainsAny(s, "_-") {
 		p = PascalAcronym(s)
 	}
-	// Lower-case only the leading word or acronym; the remainder is preserved
-	// verbatim so embedded acronyms survive (the AO in "BaseAOChannel", the RMS
-	// in "AIVoltageRMSChannel"). A known acronym is matched first so adjacent
-	// acronyms split naturally ("AIRTDChannel" -> "aiRTDChannel"); otherwise the
-	// whole leading uppercase run is lowered so unknown leading acronyms still
-	// read naturally ("CJCSource" -> "cjcSource", "URLValue" -> "urlValue").
+	// Lower-case only the leading word or acronym; the remainder is preserved verbatim
+	// so embedded acronyms survive (the AO in "BaseAOChannel", the RMS in
+	// "AIVoltageRMSChannel"). A known acronym is matched first so adjacent acronyms
+	// split naturally ("AIRTDChannel" -> "aiRTDChannel"); otherwise the whole leading
+	// uppercase run is lowered so unknown leading acronyms still read naturally
+	// ("CJCSource" -> "cjcSource", "URLValue" -> "urlValue").
 	if acr := leadingKnownAcronym(p); acr != "" {
 		return strings.ToLower(acr) + p[len(acr):]
 	}
@@ -82,8 +82,8 @@ func CamelAcronym(s string) string {
 }
 
 // leadingKnownAcronym returns the longest known acronym that prefixes s as a whole
-// upper-cased word, or "" if s does not begin with one. The character after the
-// acronym (if any) must not be lowercase, so "Aircraft" does not match "ai".
+// upper-cased word, or "" if s does not begin with one. The character after the acronym
+// (if any) must not be lowercase, so "Aircraft" does not match "ai".
 func leadingKnownAcronym(s string) string {
 	best := ""
 	for a := range acronyms {
@@ -99,13 +99,12 @@ func leadingKnownAcronym(s string) string {
 	return best
 }
 
-// VariantTypeName derives a discriminated-union variant's type name from the
-// union's type name and the variant's discriminator value. The PascalCased
-// variant prefixes the union name (e.g. "linear" under "Scale" ->
-// "LinearScale", "coil" under "ReadChannel" -> "CoilReadChannel"). When the
-// variant's first word is the union's leading acronym (e.g. value "ai_voltage"
-// under union "AIChannel"), the acronym is written once: "AIVoltageChannel"
-// rather than "AIVoltageAIChannel".
+// VariantTypeName derives a discriminated-union variant's type name from the union's
+// type name and the variant's discriminator value. The PascalCased variant prefixes the
+// union name (e.g. "linear" under "Scale" -> "LinearScale", "coil" under "ReadChannel"
+// -> "CoilReadChannel"). When the variant's first word is the union's leading acronym
+// (e.g. value "ai_voltage" under union "AIChannel"), the acronym is written once:
+// "AIVoltageChannel" rather than "AIVoltageAIChannel".
 func VariantTypeName(unionName, variantValue string) string {
 	variant := PascalAcronym(variantValue)
 	if acr := leadingAcronym(unionName); acr != "" &&
@@ -144,10 +143,10 @@ func QualifiedVariantTypeName(unionName, variantValue, sep string) string {
 }
 
 // leadingAcronym returns the run of leading uppercase letters of s that form an
-// acronym, excluding the final uppercase letter when it begins the next
-// PascalCase word ("AIChannel" -> "AI", "RTDConfig" -> "RTD", "Scale" -> "").
+// acronym, excluding the final uppercase letter when it begins the next PascalCase word
+// ("AIChannel" -> "AI", "RTDConfig" -> "RTD", "Scale" -> "").
 func leadingAcronym(s string) string {
-	n := 0
+	var n int
 	for n < len(s) && isUpper(s[n]) {
 		n++
 	}
@@ -160,13 +159,12 @@ func leadingAcronym(s string) string {
 	return s[:n]
 }
 
-// FieldSnake converts a schema field name to its canonical snake_case wire form.
-// When the input is already a valid snake_case identifier (starts with a lowercase
-// letter, contains only lowercase letters, digits, and underscores) it is returned
-// unchanged so domain names like x1 or y1 survive the conversion. Otherwise the
-// input is delegated to TypeSnake so camelCase (clientX), PascalCase
-// (PascalCaseField), and identifiers with embedded digit-letter boundaries
-// (Int8Value) are split normally.
+// FieldSnake converts a schema field name to its canonical snake_case wire form. When
+// the input is already a valid snake_case identifier (starts with a lowercase letter,
+// contains only lowercase letters, digits, and underscores) it is returned unchanged so
+// domain names like x1 or y1 survive the conversion. Otherwise the input is delegated
+// to TypeSnake so camelCase (clientX), PascalCase (PascalCaseField), and identifiers
+// with embedded digit-letter boundaries (Int8Value) are split normally.
 func FieldSnake(s string) string {
 	if isValidSnake(s) {
 		return s
@@ -174,18 +172,16 @@ func FieldSnake(s string) string {
 	return TypeSnake(s)
 }
 
-// TypeSnake converts a PascalCase or mixed-case identifier to snake_case,
-// honoring acronym-followed-by-word boundaries that lo.SnakeCase misses. Inputs
-// like "SetXChannel" or "URLValue" become "set_x_channel" / "url_value" rather
-// than lo's collapsed "set_xchannel" / "urlvalue". Already-snake input is
-// returned unchanged.
+// TypeSnake converts a PascalCase or mixed-case identifier to snake_case, honoring
+// acronym-followed-by-word boundaries that lo.SnakeCase misses. Inputs like
+// "SetXChannel" or "URLValue" become "set_x_channel" / "url_value" rather than lo's
+// collapsed "set_xchannel" / "urlvalue". Already-snake input is returned unchanged.
 //
-// Implementation note: lo.SnakeCase's underlying word splitter handles
-// lower-then-upper boundaries (tX) and the [A-Z][A-Z][a-z] acronym-end
-// boundary, but the second pattern only fires when the regex engine has
-// already advanced past the cap-cap pair via an earlier split. Inserting a
-// separator before any cap-cap-lower run nudges the splitter to see the
-// boundary on the next pass.
+// Implementation note: lo.SnakeCase's underlying word splitter handles lower-then-upper
+// boundaries (tX) and the [A-Z][A-Z][a-z] acronym-end boundary, but the second pattern
+// only fires when the regex engine has already advanced past the cap-cap pair via an
+// earlier split. Inserting a separator before any cap-cap-lower run nudges the splitter
+// to see the boundary on the next pass.
 func TypeSnake(s string) string {
 	if isValidSnake(s) {
 		return s
@@ -194,23 +190,22 @@ func TypeSnake(s string) string {
 }
 
 // TypePascal converts an identifier to PascalCase, honoring the same
-// acronym-followed-by-word boundaries TypeSnake recovers. SetXChannel stays
-// SetXChannel rather than collapsing into SetXchannel. Use this instead of
-// lo.PascalCase whenever the input might already be PascalCase with adjacent
-// capital letters.
+// acronym-followed-by-word boundaries TypeSnake recovers. SetXChannel stays SetXChannel
+// rather than collapsing into SetXchannel. Use this instead of lo.PascalCase whenever
+// the input might already be PascalCase with adjacent capital letters.
 func TypePascal(s string) string {
 	return lo.PascalCase(TypeSnake(s))
 }
 
-// TypeCamel converts an identifier to camelCase, honoring the same boundaries
-// as TypePascal. setXChannel rather than setXchannel.
+// TypeCamel converts an identifier to camelCase, honoring the same boundaries as
+// TypePascal. setXChannel rather than setXchannel.
 func TypeCamel(s string) string {
 	return lo.CamelCase(TypeSnake(s))
 }
 
-// insertAcronymBoundaries returns s with a space inserted before any uppercase
-// letter that is preceded by another uppercase letter and followed by a
-// lowercase letter, so lo.SnakeCase splits at the word the acronym is hugging.
+// insertAcronymBoundaries returns s with a space inserted before any uppercase letter
+// that is preceded by another uppercase letter and followed by a lowercase letter, so
+// lo.SnakeCase splits at the word the acronym is hugging.
 func insertAcronymBoundaries(s string) string {
 	if len(s) < 3 {
 		return s
@@ -227,8 +222,7 @@ func insertAcronymBoundaries(s string) string {
 }
 
 // isValidSnake reports whether s is a non-empty identifier composed of a leading
-// lowercase letter followed by any mix of lowercase letters, digits, and
-// underscores.
+// lowercase letter followed by any mix of lowercase letters, digits, and underscores.
 func isValidSnake(s string) bool {
 	if s == "" {
 		return false

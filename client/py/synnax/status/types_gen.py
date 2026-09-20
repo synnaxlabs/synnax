@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeAlias, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -36,6 +36,8 @@ Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
 Details = TypeVar("Details")
 
+Key: TypeAlias = str
+
 
 class Status(BaseModel, Generic[Details]):
     """Is a standardized message used to communicate state across the Synnax platform.
@@ -55,7 +57,7 @@ class Status(BaseModel, Generic[Details]):
         labels: Contains optional labels for categorization and filtering.
     """
 
-    key: str = Field(default_factory=lambda: str(uuid4()))
+    key: Key = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     variant: Variant
     message: str

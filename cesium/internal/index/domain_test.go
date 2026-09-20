@@ -15,8 +15,8 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -303,7 +303,7 @@ var _ = Describe("Domain", func() {
 						db2 = MustSucceed(domain.Open(domain.Config{
 							FS:              fs,
 							Instrumentation: PanicLogger(),
-							FileSize:        telem.TimeStampT.Density().Size(3),
+							FileSize:        telem.TimestampT.Density().Size(3),
 						}))
 
 						w := MustSucceed(
@@ -1128,6 +1128,18 @@ var _ = Describe("Domain", func() {
 								30*telem.SecondTS,
 								-6,
 								index.Exactly(5*telem.SecondTS),
+								nil,
+							),
+							Entry("Landing on the first sample of a previous TimeRange",
+								31*telem.SecondTS+500*telem.MillisecondTS,
+								-2,
+								index.Between(20*telem.SecondTS, 30*telem.SecondTS),
+								nil,
+							),
+							Entry("Lower bound before the first sample",
+								31*telem.SecondTS+500*telem.MillisecondTS,
+								-11,
+								index.Between(telem.TimeStampMin, 1*telem.SecondTS),
 								nil,
 							),
 						)

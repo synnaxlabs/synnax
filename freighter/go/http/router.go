@@ -144,8 +144,7 @@ func (r *Router) register(
 // router and returns a freighter.StreamServer the caller can attach a handler to via
 // BindHandler. The route is bound on the GET method to support the websocket upgrade
 // handshake.
-func NewStreamServer[RQ, RS freighter.Payload](
-	r *Router,
+func (r *Router) NewStreamServer[RQ, RS freighter.Payload](
 	path string,
 	opts ...StreamServerOption,
 ) freighter.StreamServer[RQ, RS] {
@@ -164,8 +163,7 @@ func NewStreamServer[RQ, RS freighter.Payload](
 // NewUnaryServer registers a unary HTTP server at the given path on the router and
 // returns a freighter.UnaryServer the caller can attach a handler to via BindHandler.
 // The route is bound on the POST method.
-func NewUnaryServer[RQ, RS freighter.Payload](
-	r *Router,
+func (r *Router) NewUnaryServer[RQ, RS freighter.Payload](
 	path string,
 	opts ...UnaryServerOption,
 ) freighter.UnaryServer[RQ, RS] {

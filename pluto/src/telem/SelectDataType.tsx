@@ -10,8 +10,7 @@
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { type Select } from "@/select";
-import { Static as SelectStatic } from "@/select/Static";
+import { Select } from "@/select";
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
@@ -21,15 +20,18 @@ const resolveIcon = (d: DataType) => {
   return Resolved != null ? <Resolved /> : undefined;
 };
 
+const resolveName = (d: DataType): string => {
+  if (ALL_CAPS.has(d)) return d.toString().toUpperCase();
+  if (d.isNumeric && d !== DataType.TIMESTAMP && d !== DataType.BOOLEAN)
+    return d.toString();
+  return caseconv.capitalize(d.toString());
+};
+
 const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
   (d) => d !== DataType.UNKNOWN,
 ).map((d) => ({
   key: d.toString(),
-  name: ALL_CAPS.has(d)
-    ? d.toString().toUpperCase()
-    : d.isNumeric && d !== DataType.TIMESTAMP
-      ? d.toString()
-      : caseconv.capitalize(d.toString()),
+  name: resolveName(d),
   icon: resolveIcon(d),
 }));
 
@@ -53,7 +55,7 @@ export const SelectDataType = ({
     () => data.filter((d) => !hideDataTypes.some((h) => h.equals(d.key))),
     [hideDataTypes, data],
   );
-  return <SelectStatic {...rest} data={filteredData} resourceName="data type" />;
+  return <Select.Static {...rest} data={filteredData} resourceName="data type" />;
 };
 
 const DEFAULT_HIDDEN_DATA_TYPES: DataType[] = [];

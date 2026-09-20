@@ -26,13 +26,17 @@ import (
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type state struct {
-	keyDataTypes         map[channel.Key]telem.DataType
-	keys                 channel.Keys
+	keyDataTypes map[channel.Key]telem.DataType
+	keys         channel.Keys
+	// keySet mirrors keys, giving the encoder constant-time membership when it filters
+	// each frame down to the channels in this state.
+	keySet               set.Set[channel.Key]
 	hasVariableDataTypes bool
 }
 
@@ -44,12 +48,12 @@ func bitPackedByteCount[T int | int64 | uint32](nSamples T) T {
 	return (nSamples + bitsPerByte - 1) / bitsPerByte
 }
 
-// wireSize returns the number of bytes a series occupies on the wire after
-// per-type encoding. BoolT samples are bit-packed at one bit each; variable-length
-// types carry their length-prefixed in-memory representation directly; other fixed
-// types use their in-memory byte count.
+// wireSize returns the number of bytes a series occupies on the wire after per-type
+// encoding. BooleanT samples are bit-packed at one bit each; variable-length types
+// carry their length-prefixed in-memory representation directly; other fixed types use
+// their in-memory byte count.
 func wireSize(s telem.Series) int {
-	if s.DataType == telem.BoolT {
+	if s.DataType == telem.BooleanT {
 		return int(bitPackedByteCount(s.Len()))
 	}
 	return int(s.Size())
@@ -291,6 +295,7 @@ func (c *Codec) Initialized() bool {
 func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.DataType) {
 	s := state{
 		keys:                 slices.Clone(keys),
+		keySet:               set.New(keys...),
 		keyDataTypes:         keyDataTypes,
 		hasVariableDataTypes: false,
 	}
@@ -573,7 +578,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
 	currState := c.mu.states[c.mu.seqNum]
-	src = src.KeepKeys(currState.keys)
+	src = src.KeepKeys(currState.keySet)
 
 	// First pass: validate and insert into sorter with pre-extracted data
 	for rawI, s := range src.RawSeries() {
@@ -590,8 +595,8 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				c.retrieveName(ctx, key),
 			)
 		}
-		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
-			(s.DataType == telem.Int64T || s.DataType == telem.TimeStampT)
+		isEquivalent := (dt == telem.Int64T || dt == telem.TimestampT) &&
+			(s.DataType == telem.Int64T || s.DataType == telem.TimestampT)
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation,
@@ -741,7 +746,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				c.buf.Uint32(uint32(s.Len()))
 			}
 		}
-		if s.DataType == telem.BoolT {
+		if s.DataType == telem.BooleanT {
 			c.buf.Write(packBoolBits(s.Data))
 		} else {
 			c.buf.Write(s.Data)
@@ -827,7 +832,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 			return errors.Newf("unknown channel key: %v", key)
 		}
 		s.DataType = dataType
-		if dataType == telem.BoolT {
+		if dataType == telem.BooleanT {
 			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
 			if _, err = c.reader.Read(packed); err != nil {
 				return err

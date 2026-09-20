@@ -12,6 +12,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Base } from "@/log/Base";
+import { Menu } from "@/menu";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { Triggers } from "@/triggers";
 
@@ -48,9 +49,10 @@ const DEFAULT_STATE = {
   region: { one: { x: 0, y: 0 }, two: { x: 400, y: 500 } },
   wheelPos: 0,
   scrolling: false,
+  resumedAt: 0,
   empty: true,
   visible: true,
-  hideChannelNames: false,
+  channelNamesHidden: false,
   timestampPrecision: 0,
   channelNames: {},
   channels: [],
@@ -85,6 +87,13 @@ const getLogDiv = (container: HTMLElement): HTMLElement => {
 const getAetherInitialState = (): Record<string, unknown> =>
   mockAetherUse.mock.calls[0][0].initialState;
 
+// Simulates a worker-pushed state change, which reaches the main thread through
+// onAetherChange alone — local setState never fires it.
+const pushAetherState = (overrides: Record<string, unknown>): void => {
+  const { calls } = mockAetherUse.mock;
+  calls[calls.length - 1][0].onAetherChange({ ...DEFAULT_STATE, ...overrides });
+};
+
 describe("log/Base", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -98,7 +107,7 @@ describe("log/Base", () => {
   describe("rendering", () => {
     it("should render the empty content when state is empty", () => {
       renderLog();
-      expect(screen.getByText("Empty Log")).toBeDefined();
+      expect(screen.getByText("No log entries")).toBeDefined();
     });
 
     it("should render children when not empty", () => {
@@ -116,6 +125,14 @@ describe("log/Base", () => {
     it("should render custom empty content when provided", () => {
       renderLog({ emptyContent: <div data-testid="custom-empty">No data</div> });
       expect(screen.getByTestId("custom-empty")).toBeDefined();
+    });
+
+    it("should append the consumer's extra context menu items", async () => {
+      const { container } = renderLog({
+        extraContextMenuItems: <Menu.Item itemKey="extra">Extra</Menu.Item>,
+      });
+      fireEvent.contextMenu(getLogDiv(container));
+      expect(await screen.findByText("Extra")).toBeDefined();
     });
 
     it("should apply className to the container div", () => {
@@ -206,6 +223,64 @@ describe("log/Base", () => {
       fireEvent.keyDown(document.body, { code: "KeyH" });
       fireEvent.keyUp(document.body, { code: "KeyH" });
       expect(onHold).toHaveBeenCalledWith(true);
+    });
+
+    it("should call onHold when the worker resumes on its own", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      expect(onHold).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it("should not call onHold when the worker echoes the current hold state", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: true });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should not call onHold when the worker echoes the previous hold state", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: false, onHold });
+      pushAetherState({ scrolling: true });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should not call onHold when a stale push still shows the log live", () => {
+      setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false });
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should call onHold once per resume", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      expect(onHold).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it("should ignore a resume stamp older than the last one seen", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ hold: true, onHold });
+      pushAetherState({ scrolling: false, resumedAt: 2 });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      expect(onHold).toHaveBeenCalledExactlyOnceWith(false);
+    });
+
+    it("should not call onHold on a worker push when hold is uncontrolled", () => {
+      setupAether({ empty: false, scrolling: true });
+      const onHold = vi.fn();
+      renderLog({ onHold });
+      pushAetherState({ scrolling: false, resumedAt: 1 });
+      expect(onHold).not.toHaveBeenCalled();
     });
 
     it("should not call onHold on the H trigger when enableTriggers returns false", () => {
@@ -342,9 +417,9 @@ describe("log/Base", () => {
   });
 
   describe("props forwarding", () => {
-    it("should pass hideChannelNames to aether state", () => {
-      renderLog({ hideChannelNames: true });
-      expect(getAetherInitialState().hideChannelNames).toBe(true);
+    it("should pass channelNamesHidden to aether state", () => {
+      renderLog({ channelNamesHidden: true });
+      expect(getAetherInitialState().channelNamesHidden).toBe(true);
     });
 
     it("should pass timestampPrecision to aether state", () => {
@@ -361,6 +436,39 @@ describe("log/Base", () => {
       const channels = [{ channel: 1, color: "#ff0000" }, { channel: 2 }];
       renderLog({ channels });
       expect(getAetherInitialState().channels).toEqual(channels);
+    });
+  });
+
+  describe("context menu", () => {
+    const openMenu = (container: HTMLElement): void => {
+      fireEvent.contextMenu(getLogDiv(container), { clientX: 10, clientY: 10 });
+    };
+
+    it("should run undo from the menu when the host supplies the handlers", async () => {
+      setupAether({ empty: false });
+      const undo = vi.fn();
+      const redo = vi.fn();
+      const { container } = renderLog({
+        undoRedo: { undo, redo, canUndo: true, canRedo: true },
+      });
+      openMenu(container);
+      // Both entries are asserted before the click, since selecting one closes the menu
+      // and takes the other out of the document with it.
+      expect(await screen.findByText("Undo")).toBeDefined();
+      expect(screen.getByText("Redo")).toBeDefined();
+      fireEvent.click(screen.getByText("Undo"));
+      expect(undo).toHaveBeenCalledTimes(1);
+      expect(redo).not.toHaveBeenCalled();
+    });
+
+    it("should omit undo and redo when the host supplies none", async () => {
+      setupAether({ empty: false });
+      const { container } = renderLog();
+      openMenu(container);
+      // Positive control: the menu opened, so the absence below is the missing prop
+      // rather than a menu that never rendered.
+      expect(await screen.findByText("Copy")).toBeDefined();
+      expect(screen.queryByText("Undo")).toBeNull();
     });
   });
 

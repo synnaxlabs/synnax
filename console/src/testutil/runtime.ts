@@ -18,16 +18,13 @@ export interface EngineRef {
 /**
  * mockRuntimeEngine builds the module shape for mocking the session runtime's ENGINE
  * constant. It spreads the real module and overrides ONLY ENGINE with a getter reading
- * the given ref, so Drift and every other export stay real.
- *
- * vi.mock factories are hoisted above imports, so the spec must reach this helper
- * through a dynamic import inside the factory and create the ref via vi.hoisted:
- *
- *   const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
- *   vi.mock("@/session/runtime/runtime", async (importOriginal) => {
- *     const { mockRuntimeEngine } = await import("@/testutil/runtime");
- *     return await mockRuntimeEngine(importOriginal, mocks);
- *   });
+ * the given ref, so Drift and every other export stay real. vi.mock factories are
+ * hoisted above imports, so the spec must reach this helper through a dynamic import
+ * inside the factory and create the ref via vi.hoisted: const mocks = vi.hoisted((): {
+ * engine: "web" | "tauri" } => ({ engine: "web" }));
+ * vi.mock("@/session/runtime/runtime", async (importOriginal) => { const {
+ * mockRuntimeEngine } = await import("@/testutil/runtime"); return await
+ * mockRuntimeEngine(importOriginal, mocks); });
  */
 export const mockRuntimeEngine = async (
   importOriginal: () => Promise<unknown>,

@@ -57,7 +57,7 @@ describe("Status.Filter.Chips", () => {
   it("should render nothing when no variants are selected", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Fixture variants={[]} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("All Statuses")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("All statuses")).toBeTruthy());
     expect(screen.queryByText("Variants")).toBeNull();
   });
 });

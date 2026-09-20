@@ -57,8 +57,6 @@ export interface Typed extends Error, Matchable {
 export interface TypedClass extends Matchable {
   /**
    * constructs a new TypedError. Identical to the Error constructor.
-   * @param message - the error message.
-   * @param options - the error options.
    * @returns a new TypedError.
    */
   new (message?: string, options?: ErrorOptions): Typed;
@@ -68,15 +66,12 @@ export interface TypedClass extends Matchable {
    * concrete type.
    */
   matchExact: ExactMatcher;
-  /**
-   * the type of the error.
-   */
+  /** the type of the error. */
   TYPE: string;
   /**
    * creates a new subclass of the error that extends its type. So if the type of this
    * class is `dog` and subType is `labrador`, the type of the new class will be
    * `dog.labrador`.
-   * @param subType - the type of the new error.
    * @returns a new TypedErrorClass.
    */
   sub: (subType: string) => TypedClass;
@@ -142,26 +137,13 @@ export const createTyped = (type: string): TypedClass =>
     }
   };
 
-/**
- * Function that decodes an encoded error payload back into an error object
- * @param encoded - The encoded error payload to decode
- * @returns The decoded error object or null if the decoder cannot handle this error
- * type
- */
+/** Decodes a payload, or returns null when it cannot handle the payload's type. */
 export type Decoder = (encoded: Payload) => Error | null;
 
-/**
- * Function that encodes a typed error into a network-portable payload
- * @param error - The typed error to encode
- * @returns The encoded error payload or null if the encoder cannot handle this error type
- */
+/** Encodes a typed error, or returns null when it cannot handle the error's type. */
 export type Encoder = (error: Typed) => Payload | null;
 
-/**
- * Checks if an unknown value is a TypedError
- * @param error - The value to check
- * @returns True if the value is a TypedError, false otherwise
- */
+/** @returns true if the value is a {@link Typed} error. */
 export const isTyped = (error: unknown): error is Typed => {
   if (error == null || typeof error !== "object") return false;
   const typedError = error as Typed;
@@ -201,24 +183,11 @@ export const UNKNOWN = "unknown";
 /** Constant representing no error (null) */
 export const NONE = "nil";
 
-/**
- * provides custom encoding/decoding mechanisms for specific error
- * categories.
- */
+/** provides custom encoding/decoding mechanisms for specific error categories. */
 interface Provider {
-  /**
-   * Encodes an error into a primitive payload that can be sent over the network or stored
-   * on disk.
-   * @param error - The error to encode.
-   * @returns The encoded error.
-   */
+  /** Encodes an error into a payload for the network or disk. */
   encode: Encoder;
-  /**
-   * Decodes an error from a primitive payload that can be sent over the network or stored
-   * on disk.
-   * @param payload - The encoded error.
-   * @returns The decoded error.
-   */
+  /** Decodes an error from a payload read off the network or disk. */
   decode: Decoder;
 }
 
@@ -272,41 +241,23 @@ class Registry {
 
 const getRegistry = singleton.define("synnax-error-registry", () => new Registry());
 
-/**
- * Registers a custom error type with the error registry, which allows it to be
- * encoded/decoded and sent over the network.
- *
- * @param type - A unique string identifier for the error type.
- * @param encode - A function that encodes the error into a string.
- * @param decode - A function that decodes the error from a string.
- */
+/** Registers an encode/decode pair so its error type survives the wire. */
 export const register = ({ encode, decode }: Provider): void =>
   getRegistry().register({ encode, decode });
 
-/**
- * Encodes an error into a primitive payload that can be sent over the network or stored
- * on disk.
- * @param error - The error to encode.
- * @returns The encoded error.
- */
+/** Encodes an error into a payload for the network or disk. */
 export const encode = (error: unknown): Payload => getRegistry().encode(error);
 
 /**
- * Decodes an error payload into an exception. If a custom decoder can be found
- * for the error type, it will be used. Otherwise, a generic Error containing
- * the error data is returned.
- *
- * @param payload - The encoded error payload.
- * @returns The decoded error.
+ * Decodes a payload into an error, through a registered decoder for its type when one
+ * exists and a generic Error carrying the payload's data otherwise.
  */
 export const decode = (payload?: Payload | null): Error | null => {
   if (payload == null) return null;
   return getRegistry().decode(payload);
 };
 
-/**
- * Generic error for representing unknown errors
- */
+/** Generic error for representing unknown errors */
 export class Unknown extends createTyped("unknown") {}
 
 /** Zod schema for validating error payloads. `name` and `stack` are TypeScript-only

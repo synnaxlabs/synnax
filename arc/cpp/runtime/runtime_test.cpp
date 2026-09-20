@@ -377,7 +377,7 @@ TEST(BuildAuthoritiesTest, NoDefaultUsesAbsolute) {
     EXPECT_EQ(result[1], x::control::AUTHORITY_ABSOLUTE);
 }
 
-/// @brief Mock node that sets a configurable deadline on each execution.
+/// @brief Mock node that, like a real timer, self-marks and sets a deadline each run.
 struct DeadlineNode final : public node::Node {
     std::atomic<int64_t> deadline_ns;
 
@@ -385,6 +385,7 @@ struct DeadlineNode final : public node::Node {
         deadline_ns(deadline.nanoseconds()) {}
 
     x::errors::Error next(node::Context &ctx) override {
+        ctx.mark_self_changed();
         const auto d = x::telem::TimeSpan(this->deadline_ns.load());
         if (d != x::telem::TimeSpan::max()) ctx.set_deadline(d);
         return x::errors::NIL;

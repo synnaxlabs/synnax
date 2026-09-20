@@ -138,9 +138,15 @@
         background: none;
         border-radius: 0;
         border: none;
-        & input {
+        & input,
+        & .pluto-input__preview-value {
             padding: 0 0.5rem;
         }
+    }
+
+    &.pluto-btn--preview .pluto-input__end-content {
+        padding-right: 0;
+        padding-left: 0.5rem;
     }
 
     input[type="number"]::-webkit-inner-spin-button {

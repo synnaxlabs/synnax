@@ -32,15 +32,19 @@ type options struct {
 	fileSize         telem.Size
 	relayBufferSize  int
 	streamBufferSize int
+	// slowConsumerTimeout bounds how long the relay waits for a streamer to receive a
+	// frame before dropping it.
+	slowConsumerTimeout time.Duration
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
 
 func newOptions(dirname string, opts ...Option) (*options, error) {
 	o := &options{
-		dirname:          dirname,
-		relayBufferSize:  defaultRelayBufferSize,
-		streamBufferSize: defaultStreamBufferSize,
+		dirname:             dirname,
+		relayBufferSize:     defaultRelayBufferSize,
+		streamBufferSize:    defaultStreamBufferSize,
+		slowConsumerTimeout: defaultSlowConsumerTimeout,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -65,8 +69,9 @@ func mergeAndValidateOptions(o *options) error {
 	o.gcCfg = gcCfg
 	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 	v := validate.New("cesium.options")
-	validate.Positive(v, "relay_buffer_size", o.relayBufferSize)
-	validate.Positive(v, "stream_buffer_size", o.streamBufferSize)
+	v.Positive("relay_buffer_size", o.relayBufferSize)
+	v.Positive("stream_buffer_size", o.streamBufferSize)
+	v.Positive("slow_consumer_timeout", o.slowConsumerTimeout)
 	return v.Error()
 }
 
@@ -103,4 +108,10 @@ func WithRelayBufferSize(size int) Option {
 // to the relay pipe. Defaults to 100 frames.
 func WithStreamBufferSize(size int) Option {
 	return func(o *options) { o.streamBufferSize = size }
+}
+
+// WithSlowConsumerTimeout sets the maximum amount of time the relay will wait for a
+// streamer to receive a frame before dropping it. Defaults to 20ms.
+func WithSlowConsumerTimeout(timeout time.Duration) Option {
+	return func(o *options) { o.slowConsumerTimeout = timeout }
 }

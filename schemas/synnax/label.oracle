@@ -9,15 +9,14 @@
 
 import "schemas/x/color"
 
-@ts output  "client/ts/src/label"
-@py output  "client/py/synnax/label"
-@go output  "core/pkg/service/label"
 @cpp output "client/cpp/label"
+@go output  "core/pkg/service/label"
 @pb
+@py output  "client/py/synnax/label"
+@ts output  "client/ts/src/label"
 
 Key = uuid {
-    @go version 0
-    @doc value  "is a unique identifier for a label, represented as a UUID."
+    @doc value "is a unique identifier for a label, represented as a UUID."
 }
 
 Label struct {
@@ -33,13 +32,11 @@ Label struct {
         @doc value "is the display color for visual identification of the label."
     }
 
-    @go version 0
-    @doc value  """
-        is a tagging and categorization entity with a name and associated color.
-        Labels can be attached to resources like ranges for organization and
-        filtering.
-    """
     @create
+    @doc value  """
+        is a tagging and categorization entity with a name and associated color. Labels
+        can be attached to resources like ranges for organization and filtering.
+    """
     @go marshal
     @go migrate
 }

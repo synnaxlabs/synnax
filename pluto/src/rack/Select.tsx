@@ -25,7 +25,11 @@ export interface SelectSingleProps
     Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
     Flux.UseListParams<ListQuery, rack.Key, rack.Payload>,
     Omit<Dialog.FrameProps, "onChange">,
-    Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}
+    Pick<Select.DialogProps<rack.Key>, "emptyContent">,
+    Pick<
+      Select.SingleProps<rack.Key, rack.Payload | undefined>,
+      "preview" | "triggerProps"
+    > {}
 
 const listItemRenderProp = Component.renderProp(
   (props: List.ItemRenderProps<rack.Key>) => {

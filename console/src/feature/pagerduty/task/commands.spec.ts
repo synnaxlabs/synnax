@@ -30,7 +30,7 @@ describe("PagerDuty Task Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create a PagerDuty");
-    await selectCommand("Create a PagerDuty Alert Task");
+    await selectCommand("Create PagerDuty alert task");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);

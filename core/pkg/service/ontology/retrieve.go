@@ -83,7 +83,8 @@ func (r Retrieve) WhereTypes(types ...ResourceType) Retrieve {
 		c.Retrieve = c.Where(gorp.Match(
 			func(_ gorp.Context, r *Resource) (bool, error) {
 				return lo.Contains(types, r.ID.Type), nil
-			}))
+			},
+		))
 	}
 	return r.setCurrentClause(c)
 }

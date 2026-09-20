@@ -14,7 +14,7 @@ import { Rate } from "@/platform/task/fields/Rate";
 
 export const StateUpdateRate = () => (
   <Rate
-    label="State Update Rate"
+    label="State update rate"
     path="config.stateRate"
     className={CSS.BM("task-rate-field", "fixed")}
   />

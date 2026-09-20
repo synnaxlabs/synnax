@@ -16,11 +16,12 @@
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
-#include "client/cpp/device/json.gen.h"
+#include "client/cpp/device/key.h"
 #include "client/cpp/http/types.gen.h"
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::http {
 
@@ -68,7 +69,7 @@ inline x::json::json EnumEntry::to_json() const {
 
 inline ReadField ReadField::parse(x::json::Parser parser) {
     return ReadField{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -80,9 +81,7 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
             "data_type",
             ::x::telem::DataType("float64")
         ),
-        .timestamp_format = parser.field<std::optional<std::string>>(
-            "timestamp_format"
-        ),
+        .time_format = parser.field<std::optional<std::string>>("time_format"),
         .enum_values = parser.field<std::vector<EnumEntry>>(
             "enum_values",
             std::vector<EnumEntry>{}
@@ -98,14 +97,14 @@ inline x::json::json ReadField::to_json() const {
     j["channel"] = this->channel;
     j["pointer"] = this->pointer;
     j["data_type"] = this->data_type;
-    j["timestamp_format"] = this->timestamp_format;
+    j["time_format"] = this->time_format;
     j["enum_values"] = x::json::to_array(this->enum_values);
     return j;
 }
 
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
         .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
@@ -137,9 +136,9 @@ inline x::json::json ReadEndpoint::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::config::BasePersist &>(
+    static_cast<::synnax::task::PersistConfig &>(
         result
-    ) = ::synnax::task::config::BasePersist::parse(parser);
+    ) = ::synnax::task::PersistConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(1));
     result.endpoints = parser.field<std::vector<ReadEndpoint>>(
@@ -151,7 +150,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BasePersist::to_json().items())
+    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["rate"] = this->rate;
@@ -194,7 +193,7 @@ inline x::json::json ChannelField::to_json() const {
 
 inline BaseWriteField BaseWriteField::parse(x::json::Parser parser) {
     return BaseWriteField{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .pointer = parser.field<std::string>("pointer", ""),
     };
 }
@@ -208,7 +207,7 @@ inline x::json::json BaseWriteField::to_json() const {
 
 inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
     return WriteEndpoint{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),
@@ -249,9 +248,9 @@ inline x::json::json WriteEndpoint::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::config::BaseStart &>(
+    static_cast<::synnax::task::StartConfig &>(
         result
-    ) = ::synnax::task::config::BaseStart::parse(parser);
+    ) = ::synnax::task::StartConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.endpoints = parser.field<std::vector<WriteEndpoint>>(
         "endpoints",
@@ -262,7 +261,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseStart::to_json().items())
+    for (auto &[k, v]: ::synnax::task::StartConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["endpoints"] = x::json::to_array(this->endpoints);
@@ -271,15 +270,15 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::task::config::BaseScan &>(
+    static_cast<::synnax::task::ScanConfig &>(
         result
-    ) = ::synnax::task::config::BaseScan::parse(parser);
+    ) = ::synnax::task::ScanConfig::parse(parser);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
+    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
         j[k] = v;
     return j;
 }

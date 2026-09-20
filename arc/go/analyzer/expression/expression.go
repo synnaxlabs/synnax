@@ -29,6 +29,15 @@ import (
 func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
 
+// resolveConstraint replaces an unresolved constant's type variable with its
+// constraint so operand checks can classify it. Concrete types pass through.
+func resolveConstraint(t basetypes.Type) basetypes.Type {
+	if t.Kind == basetypes.KindVariable && t.Constraint != nil {
+		return *t.Constraint
+	}
+	return t
+}
+
 func isNumericOrString(
 	t basetypes.Type,
 ) bool {
@@ -63,12 +72,6 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 		sign    = 1
 		current = node
 	)
-	if power, ok := current.(parser.IPowerExpressionContext); ok {
-		if power.CARET() != nil {
-			return 0, false
-		}
-		current = power.UnaryExpression()
-	}
 	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
 		if unary.MINUS() != nil {
 			sign = -1
@@ -77,6 +80,12 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 			// NOT doesn't make sense for integer exponent
 			return 0, false
 		}
+	}
+	if power, ok := current.(parser.IPowerExpressionContext); ok {
+		if power.CARET() != nil {
+			return 0, false
+		}
+		current = power.PostfixExpression()
 	}
 	lit := parser.GetLiteralNode(current)
 	if lit == nil {
@@ -110,13 +119,9 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 // Analyze validates type correctness of an expression and accumulates constraints.
 func Analyze(ctx context.Context[parser.IExpressionContext]) {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		analyzeLogicalOr(context.Child(ctx, logicalOr))
+		analyzeLogicalOr(ctx.Child(logicalOr))
 	}
 }
-
-func getLogicalOrOperator(antlr.ParserRuleContext) string { return "or" }
-
-func getLogicalAndOperator(antlr.ParserRuleContext) string { return "and" }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
 	if eqCtx, ok := ctx.(parser.IEqualityExpressionContext); ok {
@@ -178,22 +183,22 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 func validateType[T, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
-	getOperator func(ctx antlr.ParserRuleContext) string,
+	opName string,
 	infer func(ctx context.Context[T]) basetypes.Type,
 	check func(t basetypes.Type) bool,
 ) {
 	if len(items) <= 1 {
 		return
 	}
-	firstType := infer(context.Child(ctx, items[0])).Unwrap()
-	opName := getOperator(ctx.AST)
+	firstType := infer(ctx.Child(items[0])).Unwrap()
 
 	// If first operand is Invalid, skip validation - we can't check types we don't know
 	if firstType.Kind == basetypes.KindInvalid {
 		return
 	}
 
-	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
+	resolvedFirst := resolveConstraint(firstType)
+	if resolvedFirst.Kind != basetypes.KindVariable && !check(resolvedFirst) {
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,
@@ -206,7 +211,7 @@ func validateType[T, N antlr.ParserRuleContext](
 	}
 
 	for i := 1; i < len(items); i++ {
-		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
+		nextType := infer(ctx.Child(items[i]).WithTypeHint(firstType)).Unwrap()
 
 		// Skip if this operand is Invalid - we can't check types we don't know
 		if nextType.Kind == basetypes.KindInvalid {
@@ -264,12 +269,12 @@ func validateType[T, N antlr.ParserRuleContext](
 func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 	logicalAnds := ctx.AST.AllLogicalAndExpression()
 	for _, logicalAnd := range logicalAnds {
-		analyzeLogicalAnd(context.Child(ctx, logicalAnd))
+		analyzeLogicalAnd(ctx.Child(logicalAnd))
 	}
 	validateType(
 		ctx,
 		logicalAnds,
-		getLogicalOrOperator,
+		"or",
 		types.InferLogicalAnd,
 		func(t basetypes.Type) bool { return t.IsBool() },
 	)
@@ -278,20 +283,20 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) {
 	equalities := ctx.AST.AllEqualityExpression()
 	for _, equality := range equalities {
-		analyzeEquality(context.Child(ctx, equality))
+		analyzeEquality(ctx.Child(equality))
 	}
-	validateType(ctx, equalities, getLogicalAndOperator, types.InferEquality, isBool)
+	validateType(ctx, equalities, "and", types.InferEquality, isBool)
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 	relExpressions := ctx.AST.AllRelationalExpression()
 	for _, relational := range relExpressions {
-		analyzeRelational(context.Child(ctx, relational))
+		analyzeRelational(ctx.Child(relational))
 	}
 	validateType(
 		ctx,
 		relExpressions,
-		getEqualityOperator,
+		getEqualityOperator(ctx.AST),
 		types.InferRelational,
 		isAny,
 	)
@@ -300,12 +305,12 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {
 	additives := ctx.AST.AllAdditiveExpression()
 	for _, additive := range additives {
-		analyzeAdditive(context.Child(ctx, additive))
+		analyzeAdditive(ctx.Child(additive))
 	}
 	validateType(
 		ctx,
 		additives,
-		getRelationalOperator,
+		getRelationalOperator(ctx.AST),
 		types.InferAdditive,
 		isNumeric,
 	)
@@ -314,7 +319,7 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	mults := ctx.AST.AllMultiplicativeExpression()
 	for _, multiplicative := range mults {
-		analyzeMultiplicative(context.Child(ctx, multiplicative))
+		analyzeMultiplicative(ctx.Child(multiplicative))
 	}
 	// Determine the operator - strings are only allowed for + (concatenation)
 	op := getAdditiveOperator(ctx.AST)
@@ -324,47 +329,41 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	} else {
 		check = isNumeric
 	}
-	validateType[parser.IMultiplicativeExpressionContext](
-		ctx,
-		mults,
-		getAdditiveOperator,
-		types.InferMultiplicative,
-		check,
-	)
+	validateType(ctx, mults, op, types.InferMultiplicative, check)
 }
 
 func analyzeMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) {
-	powers := ctx.AST.AllPowerExpression()
-	for _, power := range powers {
-		analyzePower(context.Child(ctx, power))
+	unaries := ctx.AST.AllUnaryExpression()
+	for _, unary := range unaries {
+		analyzeUnary(ctx.Child(unary))
 	}
-	validateType[parser.IPowerExpressionContext](
+	validateType(
 		ctx,
-		powers,
-		getMultiplicativeOperator,
-		types.InferPower,
+		unaries,
+		getMultiplicativeOperator(ctx.AST),
+		types.InferFromUnaryExpression,
 		isNumeric,
 	)
 }
 
 func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
-	if unary := ctx.AST.UnaryExpression(); unary != nil {
-		analyzeUnary(context.Child(ctx, unary))
+	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
+		analyzePostfix(ctx.Child(postfix))
 	}
-	power := ctx.AST.PowerExpression()
-	if power != nil {
-		analyzePower(context.Child(ctx, power))
+	exponent := ctx.AST.UnaryExpression()
+	if exponent != nil {
+		analyzeUnary(ctx.Child(exponent))
 	}
 
-	if ctx.AST.CARET() != nil && power != nil {
-		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).
+	if ctx.AST.CARET() != nil && exponent != nil {
+		baseType := types.InferPostfix(ctx.Child(ctx.AST.PostfixExpression())).
 			Unwrap()
-		expType := types.InferPower(context.Child(ctx, power)).Unwrap()
+		expType := types.InferFromUnaryExpression(ctx.Child(exponent)).Unwrap()
 
 		if baseType.Unit != nil || expType.Unit != nil {
-			_, isLiteral := getSignedIntegerLiteral(power)
+			_, isLiteral := getSignedIntegerLiteral(exponent)
 			if err := units.ValidatePowerOp(baseType, expType, isLiteral); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 				return
@@ -375,7 +374,7 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 
 func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 	if innerUnary := ctx.AST.UnaryExpression(); innerUnary != nil {
-		childCtx := context.Child(ctx, innerUnary)
+		childCtx := ctx.Child(innerUnary)
 		analyzeUnary(childCtx)
 		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
@@ -403,18 +402,18 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		}
 		return
 	}
-	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		analyzePostfix(context.Child(ctx, postfix))
+	if power := ctx.AST.PowerExpression(); power != nil {
+		analyzePower(ctx.Child(power))
 	}
 }
 
 func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
-		analyzePrimary(context.Child(ctx, primary))
+		analyzePrimary(ctx.Child(primary))
 	}
 	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
 		for _, expr := range indexOrSlice.AllExpression() {
-			Analyze(context.Child(ctx, expr))
+			Analyze(ctx.Child(expr))
 		}
 	}
 
@@ -423,7 +422,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	for _, funcCall := range funcCalls {
 		if argList := funcCall.ArgumentList(); argList != nil {
 			for _, expr := range argList.AllExpression() {
-				Analyze(context.Child(ctx, expr))
+				Analyze(ctx.Child(expr))
 			}
 		}
 	}
@@ -554,15 +553,23 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		Analyze(context.Child(ctx, expr))
+		Analyze(ctx.Child(expr))
 		return
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if expr := typeCast.Expression(); expr != nil {
-			Analyze(context.Child(ctx, expr))
+			Analyze(ctx.Child(expr))
 			// Validate that the cast is allowed
-			sourceType := types.InferFromExpression(context.Child(ctx, expr)).Unwrap()
+			sourceType := types.InferFromExpression(ctx.Child(expr)).Unwrap()
 			if typeCtx := typeCast.Type_(); typeCtx != nil {
+				// bool casting is not allowed. User should explicitly define their
+				// numeric comparison. E.g. `x != 0` or `y == 1.0001`
+				if prim := typeCtx.PrimitiveType(); prim != nil && prim.BOOL() != nil {
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+						"boolean conversions are not supported; define the "+
+							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
+					return
+				}
 				targetType, _ := types.InferFromTypeContext(typeCtx)
 				if !isValidCast(sourceType, targetType) {
 					ctx.Diagnostics.Add(
@@ -573,6 +580,14 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 							targetType,
 						),
 					)
+					return
+				}
+				if sourceType.Kind == basetypes.KindBool &&
+					targetType.IsNumeric() &&
+					targetType.Kind != basetypes.KindU8 {
+					ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
+						"bool to %s is experimental; a future release may only "+
+							"allow bool to u8", targetType))
 				}
 			}
 		}
@@ -685,11 +700,13 @@ func isValidCast(source, target basetypes.Type) bool {
 	if source.Kind == target.Kind {
 		return true
 	}
-	if target.Kind == basetypes.KindString && source.IsNumeric() {
+	if target.Kind == basetypes.KindString &&
+		(source.IsNumeric() || source.Kind == basetypes.KindBool) {
 		return true
 	}
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
 		return false
 	}
-	return source.IsNumeric() && target.IsNumeric()
+	return (source.IsNumeric() || source.Kind == basetypes.KindBool) &&
+		target.IsNumeric()
 }

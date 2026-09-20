@@ -17,11 +17,14 @@ import { DragButton } from "@/input/DragButton";
 import { Text, type TextProps } from "@/input/Text";
 import { type Control } from "@/input/types";
 
+/** Joins a {@link Date} value and a {@link Time} value into one UTC timestamp. */
 export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =>
   new TimeStamp(date).add(time).sub(TimeStamp.utcOffset);
 
+/** Props for {@link Time}. The value is UTC nanoseconds past midnight. */
 export interface TimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {
+  /** Zone the value is shown and entered in. Defaults to local. */
   timeZone?: TimeZone;
   showDragHandle?: boolean;
   dragDirection?: direction.Direction;
@@ -40,14 +43,16 @@ export interface UseTimeReturn {
   handleChange: Control<string | number>["onChange"];
 }
 
+/**
+ * Backs a time field. It shows and accepts the given zone while the controlled value
+ * stays UTC nanoseconds, and wraps a value past a full day back into range.
+ */
 export const useTime = ({ value, onChange, timeZone }: UseTimeProps): UseTimeReturn => {
   const ts = new TimeStamp(value, "UTC");
 
   // We want to check for remainder overflow in LOCAL time.
   const local = ts.sub(TimeStamp.utcOffset);
-  // All good.
   if (local.after(TimeStamp.DAY)) {
-    // Chop off the extra time.
     const tsV = local.remainder(TimeStamp.DAY);
     // We have a correcly zeroed timestamp in local, now
     // add back the UTC offset to get the UTC timestamp.
@@ -71,24 +76,8 @@ export const useTime = ({ value, onChange, timeZone }: UseTimeProps): UseTimeRet
 };
 
 /**
- * A controlled Time input component.
- *
- * @param props - The props for the input component. Unlisted props are passed to the
- * underlying input element.
- * @param props.value - The value of the input.
- * @param props.onChange - A function to call when the input value changes.
- * @param props.size - The size of the input: "small" | "medium" | "large".
- * @default "medium"
- * @param props.selectOnFocus - Whether the input should select its contents when focused.
- * @defaul true
- * @param props.centerPlaceholder - Whether the placeholder should be centered.
- * @default false
- * @param props.showDragHandle - Whether or not to show a drag handle to set the time.
- * @default true
- * @param props.dragScale - The scale of the drag handle.
- * @default x: 1/2 Second, y: 1 Minute
- * @param props.dragDirection - The direction of the drag handle.
- * @default undefined
+ * A time-of-day field over UTC nanoseconds. It shows local time and a drag handle that
+ * scrubs by the half second horizontally and by the minute vertically.
  */
 export const Time = ({
   ref,
@@ -100,17 +89,20 @@ export const Time = ({
   showDragHandle = true,
   className,
   children,
+  preview,
   ...rest
 }: TimeProps) => {
   const { inputValue, ts, handleChange } = useTime({ value, onChange, timeZone });
+  if (preview === true) showDragHandle = false;
   return (
     <Text
       ref={ref}
       value={inputValue}
-      className={CSS(CSS.B("input-time"), className)}
+      className={CSS.cls(CSS.B("input-time"), className)}
       type="time"
       step="1"
       onChange={handleChange}
+      preview={preview}
       {...rest}
     >
       {showDragHandle && (

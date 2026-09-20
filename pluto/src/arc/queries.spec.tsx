@@ -61,10 +61,9 @@ describe("Arc queries", () => {
       ...overrides,
     });
 
-  // Populates the client cache with the arc at `key` via the suspending
-  // useEnsure. A single-hook bootstrap component keeps the suspending
-  // hook from being followed by additional hooks, which trips a React 19
-  // concurrent-replay warning.
+  // Populates the client cache with the arc at `key` via the suspending useEnsure. A
+  // single-hook bootstrap component keeps the suspending hook from being followed by
+  // additional hooks, which trips a React 19 concurrent-replay warning.
   const loadArc = async (
     key: string,
     Wrapper: FC<PropsWithChildren> = wrapper,

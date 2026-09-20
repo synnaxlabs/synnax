@@ -18,6 +18,7 @@ export const GROUP: Group = {
     "value",
     "stringDisplay",
     "gauge",
+    "scale",
     "setpoint",
     "textBox",
     "offPageReference",
@@ -30,5 +31,6 @@ export const GROUP: Group = {
     "polygon",
     "circle",
     "box",
+    "line",
   ],
 };

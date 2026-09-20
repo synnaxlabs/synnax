@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/address"
@@ -44,6 +45,7 @@ var _ = Describe("Transport", func() {
 	It("Should provision a transport that implements distribution.Transport", func() {
 		Expect(server.Channel()).ToNot(BeNil())
 		Expect(server.Framer()).ToNot(BeNil())
+		Expect(server.Control()).ToNot(BeNil())
 	})
 
 	It(
@@ -82,6 +84,28 @@ var _ = Describe("Transport", func() {
 				deleter.Request{Keys: channel.Keys{9}},
 			)).To(Equal(types.Nil{}))
 			Expect(received).To(Equal(channel.Keys{9}))
+		},
+	)
+
+	It(
+		"Should route a control retrieve through the bundled transport",
+		func(ctx SpecContext) {
+			var received channel.Keys
+			server.Control().RetrieveServer().BindHandler(func(
+				_ context.Context,
+				req control.RetrieveRequest,
+			) (control.RetrieveResponse, error) {
+				received = req.Keys
+				return control.RetrieveResponse{States: []control.State{{Resource: 9}}},
+					nil
+			})
+			res := MustSucceed(client.Control().RetrieveClient().Send(
+				ctx,
+				leaseholder,
+				control.RetrieveRequest{Keys: channel.Keys{9}},
+			))
+			Expect(received).To(Equal(channel.Keys{9}))
+			Expect(res.States).To(ConsistOf(control.State{Resource: 9}))
 		},
 	)
 })

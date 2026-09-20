@@ -10,6 +10,8 @@
 package analyzer
 
 import (
+	"fmt"
+
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -56,12 +58,19 @@ func ResolveNodeTypes(
 		if !ok {
 			continue
 		}
+		edgeDesc := fmt.Sprintf(
+			"edge from '%s' output '%s' to '%s' input '%s'",
+			sourceNode.Type,
+			edge.Source.Param,
+			targetNode.Type,
+			edge.Target.Param,
+		)
 		if err := atypes.Check(
 			cs,
-			sourceParam.Type,
 			targetParam.Type,
+			sourceParam.Type,
 			nil,
-			"",
+			edgeDesc,
 		); err != nil {
 			diag.Add(diagnostics.Error(err, nil))
 			return false
@@ -110,5 +119,29 @@ func ResolveNodeTypes(
 			missingRequiredInput = true
 		}
 	}
-	return !missingRequiredInput
+	return checkStableInputs(nodes, diag) && !missingRequiredInput
+}
+
+// checkStableInputs rejects stable.for nodes whose resolved input is not a
+// fixed-size type: the runtimes compare and copy raw fixed-density samples.
+func checkStableInputs(nodes ir.Nodes, diag *diagnostics.Diagnostics) bool {
+	ok := true
+	for _, n := range nodes {
+		if n.Type != "stable_for" && n.Type != "stable.for" {
+			continue
+		}
+		p, found := n.Inputs.Get(ir.DefaultInputParam)
+		if !found {
+			continue
+		}
+		if t := p.Type.Unwrap(); !t.IsNumeric() && !t.IsBool() {
+			diag.Add(diagnostics.Errorf(
+				nil,
+				"stable.for input must be a numeric or bool type, got %s",
+				t,
+			))
+			ok = false
+		}
+	}
+	return ok
 }

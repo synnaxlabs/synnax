@@ -113,7 +113,10 @@ class Series(BaseModel):
                 )
             data_type = data_type or data.data_type
         elif isinstance(data, pd.Series):
-            data_type = data_type or DataType(str(data.dtype))
+            if data_type is None:
+                if not isinstance(data.dtype, np.dtype):
+                    raise TypeError(f"Cannot convert {data.dtype} to DataType")
+                data_type = DataType(data.dtype)
             data_ = data.to_numpy(dtype=data_type.np).tobytes()
         elif isinstance(data, np.ndarray):
             data_type = data_type or DataType(data.dtype)

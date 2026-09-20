@@ -10,6 +10,12 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
+    name = "key",
+    hdrs = ["key.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "device",
     srcs = ["device.cpp"],
     hdrs = [
@@ -20,6 +26,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":key",
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//client/cpp/rack",

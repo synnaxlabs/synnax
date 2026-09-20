@@ -15,7 +15,7 @@ import { Empty } from "@/platform/empty";
 
 export const NoneSelected = (): ReactElement => (
   <Text.Text center color={9}>
-    No device selected.
+    No device selected
   </Text.Text>
 );
 
@@ -31,7 +31,7 @@ export const Unconfigured = ({
   onConfigure,
 }: UnconfiguredProps): ReactElement => (
   <Empty.Action
-    message={`${name} is not configured.`}
+    message={`${name} is not configured`}
     action={canConfigure ? `Configure ${name}` : ""}
     onClick={() => onConfigure(key)}
   />

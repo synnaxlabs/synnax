@@ -54,5 +54,5 @@ class Accelerometer(Analog):
 
         self._configure_symbol_dropdown("V/g", units)
 
-        self._configure_dropdown("Current Excitation Source", excitation_source)
-        self._configure_input("Current Excitation Value", current_excitation_value)
+        self._configure_dropdown("Current excitation source", excitation_source)
+        self._configure_input("Current excitation value", current_excitation_value)

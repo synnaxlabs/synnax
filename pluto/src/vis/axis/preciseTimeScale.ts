@@ -9,44 +9,40 @@
 
 import { type CrudeTimeStamp, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
-/**
- * Predefined time scale steps used for generating tick marks.
- * Ranges from 1 nanosecond to 1 second in standardized increments.
- */
+/** Tick step sizes, from 1 nanosecond to 1 second in 1-2-5 increments. */
 export const TIME_SCALE_STEPS: TimeSpan[] = [
-  TimeSpan.NANOSECOND, // 1ns
-  TimeSpan.nanoseconds(2), // 2ns
-  TimeSpan.nanoseconds(5), // 5ns
-  TimeSpan.nanoseconds(10), // 10ns
-  TimeSpan.nanoseconds(20), // 20ns
-  TimeSpan.nanoseconds(50), // 50ns
-  TimeSpan.nanoseconds(100), // 100ns
-  TimeSpan.nanoseconds(200), // 200ns
-  TimeSpan.nanoseconds(500), // 500ns
-  TimeSpan.MICROSECOND, // 1µs
-  TimeSpan.microseconds(2), // 2µs
-  TimeSpan.microseconds(5), // 5µs
-  TimeSpan.microseconds(10), // 10µs
-  TimeSpan.microseconds(20), // 20µs
-  TimeSpan.microseconds(50), // 50µs
-  TimeSpan.microseconds(100), // 100µs
-  TimeSpan.microseconds(200), // 200µs
-  TimeSpan.microseconds(500), // 500µs
-  TimeSpan.MILLISECOND, // 1ms
-  TimeSpan.milliseconds(2), // 2ms
-  TimeSpan.milliseconds(5), // 5ms
-  TimeSpan.milliseconds(10), // 10ms
-  TimeSpan.milliseconds(20), // 20ms
-  TimeSpan.milliseconds(50), // 50ms
-  TimeSpan.milliseconds(100), // 100ms
-  TimeSpan.milliseconds(200), // 200ms
-  TimeSpan.milliseconds(500), // 500ms
-  TimeSpan.SECOND, // 1s
+  TimeSpan.NANOSECOND,
+  TimeSpan.nanoseconds(2),
+  TimeSpan.nanoseconds(5),
+  TimeSpan.nanoseconds(10),
+  TimeSpan.nanoseconds(20),
+  TimeSpan.nanoseconds(50),
+  TimeSpan.nanoseconds(100),
+  TimeSpan.nanoseconds(200),
+  TimeSpan.nanoseconds(500),
+  TimeSpan.MICROSECOND,
+  TimeSpan.microseconds(2),
+  TimeSpan.microseconds(5),
+  TimeSpan.microseconds(10),
+  TimeSpan.microseconds(20),
+  TimeSpan.microseconds(50),
+  TimeSpan.microseconds(100),
+  TimeSpan.microseconds(200),
+  TimeSpan.microseconds(500),
+  TimeSpan.MILLISECOND,
+  TimeSpan.milliseconds(2),
+  TimeSpan.milliseconds(5),
+  TimeSpan.milliseconds(10),
+  TimeSpan.milliseconds(20),
+  TimeSpan.milliseconds(50),
+  TimeSpan.milliseconds(100),
+  TimeSpan.milliseconds(200),
+  TimeSpan.milliseconds(500),
+  TimeSpan.SECOND,
 ];
 
-/**
- * Configuration properties for creating a PreciseTimeScale.
- */
+const MICROSECOND_FORMAT_THRESHOLD = TimeSpan.microseconds(50);
+
 export interface PreciseTimeScaleProps {
   /** The domain of the time scale as [start, end] timestamps */
   domain: [CrudeTimeStamp, CrudeTimeStamp];
@@ -55,47 +51,23 @@ export interface PreciseTimeScaleProps {
 }
 
 /**
- * PreciseTimeScale provides a high-precision time scaling utility for visualizing time-based data.
- * It supports nanosecond precision and provides methods for scaling timestamps to pixel coordinates,
- * generating tick marks, and formatting time values.
+ * Maps a time domain onto a numeric range, holding nanosecond precision in BigInt
+ * throughout.
  *
- * The scale maps a time domain to a numeric range (typically pixels) while maintaining
- * nanosecond precision using BigInt internally.
- *
- * @example
- * ```typescript
- * const scale = preciseTimeScale()
- *   .domain([new Date('2023-01-01'), new Date('2023-01-02')])
- *   .range([0, 1000]);
- *
- * // Convert a timestamp to a pixel position
- * const pixelPos = scale.scale(new Date('2023-01-01T12:00:00'));
- *
- * // Generate tick marks
- * const ticks = scale.ticks(5);
- * ```
+ * @example preciseTimeScale().domain([start, end]).range([0, 1000]).scale(t)
  */
 export class PreciseTimeScale {
   private _domain: [TimeStamp, TimeStamp];
   private _range: [number, number];
   private _span: TimeSpan;
 
-  /**
-   * Creates a new PreciseTimeScale instance with default domain [0, 1] and range [0, 1].
-   */
   constructor() {
-    // Default initialization
     this._domain = [new TimeStamp(0n), new TimeStamp(1n)];
     this._range = [0, 1];
     this._span = this._domain[1].span(this._domain[0]);
   }
 
-  /**
-   * Gets or sets the time domain of the scale.
-   *
-   * @param domain - Optional domain to set as [start, end] timestamps
-   * @returns Current domain if no argument provided, or this instance for chaining
-   */
+  /** Reads the time domain, or sets it and returns this for chaining. */
   domain(): [TimeStamp, TimeStamp];
   domain(domain: [CrudeTimeStamp, CrudeTimeStamp]): this;
   domain(domain?: [CrudeTimeStamp, CrudeTimeStamp]): [TimeStamp, TimeStamp] | this {
@@ -105,12 +77,7 @@ export class PreciseTimeScale {
     return this;
   }
 
-  /**
-   * Gets or sets the numeric range of the scale.
-   *
-   * @param range - Optional range to set as [start, end] numbers
-   * @returns Current range if no argument provided, or this instance for chaining
-   */
+  /** Reads the numeric range, or sets it and returns this for chaining. */
   range(): [number, number];
   range(range: [number, number]): this;
   range(range?: [number, number]): [number, number] | this {
@@ -119,12 +86,7 @@ export class PreciseTimeScale {
     return this;
   }
 
-  /**
-   * Scales a timestamp to its corresponding position in the range.
-   *
-   * @param value - The timestamp to scale
-   * @returns The scaled numeric value within the range
-   */
+  /** @returns the position of the timestamp within the range. */
   scale(value: CrudeTimeStamp): number {
     const ts = new TimeStamp(value);
     const v = ts.valueOf();
@@ -135,11 +97,8 @@ export class PreciseTimeScale {
   }
 
   /**
-   * Generates an array of evenly spaced tick marks within the domain.
-   * The ticks are automatically adjusted to use human-friendly time intervals.
-   *
-   * @param count - Desired number of ticks (actual count may differ to maintain nice intervals)
-   * @returns Array of timestamps representing tick positions
+   * @returns evenly spaced tick positions across the domain. The count is a target: the
+   * step is rounded to a {@link TIME_SCALE_STEPS} interval, so the result may differ.
    */
   ticks(count: number): TimeStamp[] {
     const step = this.calculateOptimalStep(count).valueOf();
@@ -153,13 +112,7 @@ export class PreciseTimeScale {
     }).filter((ts) => ts.afterEq(this._domain[0]) && ts.beforeEq(this._domain[1]));
   }
 
-  /**
-   * Calculates the optimal step size for tick generation based on the desired tick count.
-   * Uses predefined steps from TIME_SCALE_STEPS to ensure human-readable intervals.
-   *
-   * @param targetCount - Desired number of ticks
-   * @returns The optimal TimeSpan step size
-   */
+  /** @returns the smallest {@link TIME_SCALE_STEPS} entry that fits targetCount ticks. */
   private calculateOptimalStep(targetCount: number): TimeSpan {
     const rawStepNanoseconds = this._span.valueOf() / BigInt(Math.ceil(targetCount));
     let bestStep = TIME_SCALE_STEPS[0];
@@ -170,17 +123,9 @@ export class PreciseTimeScale {
     return bestStep;
   }
 
-  /**
-   * Formats a timestamp for display on tick marks.
-   * Automatically adjusts the format based on the current time scale:
-   * - For spans < 50µs: displays microseconds
-   * - For spans >= 50µs: displays milliseconds
-   *
-   * @param value - The timestamp to format
-   * @returns Formatted string representation of the timestamp
-   */
+  /** Formats a tick label, in microseconds below a 50µs span and milliseconds above. */
   formatTick(value: TimeStamp): string {
-    if (this._span.lessThan(TimeSpan.microseconds(50))) {
+    if (this._span.lessThan(MICROSECOND_FORMAT_THRESHOLD)) {
       const remainder = value.remainder(TimeSpan.MILLISECOND);
       return `${remainder.microseconds.toString()}µs`;
     }
@@ -189,9 +134,4 @@ export class PreciseTimeScale {
   }
 }
 
-/**
- * Creates a new PreciseTimeScale instance.
- *
- * @returns A new PreciseTimeScale instance with default settings
- */
 export const preciseTimeScale = (): PreciseTimeScale => new PreciseTimeScale();

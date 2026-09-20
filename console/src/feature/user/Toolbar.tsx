@@ -56,8 +56,8 @@ const EmptyContent = (): ReactElement => {
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No users."
-      action={hasCreatePermission ? "Create a user" : undefined}
+      message="No users"
+      action={hasCreatePermission ? "Create user" : undefined}
       onClick={() => openRegister()}
     />
   );

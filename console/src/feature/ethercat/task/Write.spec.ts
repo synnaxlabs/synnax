@@ -22,6 +22,7 @@ import {
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
 import {
+  awaitEditableForm,
   clickDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -38,7 +39,7 @@ beforeAll(async () => {
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<EtherCAT.Task.WriteSchemas> = {
-  name: "EtherCAT Write Task",
+  name: "EtherCAT write task",
   type: EtherCAT.Task.WRITE_TYPE,
   config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -48,6 +49,8 @@ const createDraft = async (
   config: EtherCAT.Task.WritePayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.WRITE_SCHEMAS);
 
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
 const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
@@ -59,6 +62,7 @@ const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
       statuses.push(...next);
     },
   });
+  await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };
 
@@ -109,7 +113,7 @@ describe("EtherCAT Write", () => {
     expect(screen.getByDisplayValue("4")).toBeTruthy();
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create command and state channels, update the slave, and save the task", async () => {
       const identifier = createIdentifier();
       const slave = await createSlaveDevice(client, testRack.key, {
@@ -225,7 +229,7 @@ describe("EtherCAT Write", () => {
       });
       await clickDeploy(container);
       await awaitStatus(statuses, /Failed to/);
-      await awaitStatus(statuses, /No valid network found/);
+      await awaitStatus(statuses, /No network found/);
     });
   });
 });

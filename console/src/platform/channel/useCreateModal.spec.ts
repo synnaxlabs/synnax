@@ -76,7 +76,7 @@ describe("useCreateModal", () => {
       await openModal();
       const name = uniqueChannelName("data");
       setName(name);
-      fireEvent.click(screen.getByText("Select a channel"));
+      fireEvent.click(screen.getByText("Select channel"));
       fireEvent.change(await screen.findByPlaceholderText("Search channels...", {}), {
         target: { value: index.name },
       });
@@ -107,7 +107,7 @@ describe("useCreateModal", () => {
       const name = uniqueChannelName("more");
       setName(name);
       fireEvent.click(getSwitch("Is index"));
-      fireEvent.click(getSwitch("Create More"));
+      fireEvent.click(getSwitch("Create more"));
       await clickCreate();
       await waitFor(async () => {
         const created = await client.channels.retrieve(name);

@@ -17,44 +17,44 @@ import (
 
 var _ = Describe("ChanDirection", func() {
 	Describe("IsRead", func() {
-		It("Should return true for ChanDirectionRead", func() {
-			Expect(v0.ChanDirectionRead.IsRead()).To(BeTrue())
-		})
-		It("Should return false for ChanDirectionWrite", func() {
-			Expect(v0.ChanDirectionWrite.IsRead()).To(BeFalse())
-		})
-		It("Should return false for ChanDirectionNone", func() {
-			Expect(v0.ChanDirectionNone.IsRead()).To(BeFalse())
-		})
-		It("Should return true for combined read+write", func() {
-			combined := v0.ChanDirectionRead | v0.ChanDirectionWrite
-			Expect(combined.IsRead()).To(BeTrue())
-		})
+		DescribeTable("Should report whether the direction includes read",
+			func(d v0.ChanDirection, expected bool) {
+				Expect(d.IsRead()).To(Equal(expected))
+			},
+			Entry("read", v0.ChanDirectionRead, true),
+			Entry("write", v0.ChanDirectionWrite, false),
+			Entry("none", v0.ChanDirectionNone, false),
+			Entry("read_write", v0.ChanDirectionReadWrite, true),
+			Entry("read|write", v0.ChanDirectionRead|v0.ChanDirectionWrite, true),
+		)
 	})
 	Describe("IsWrite", func() {
-		It("Should return true for ChanDirectionWrite", func() {
-			Expect(v0.ChanDirectionWrite.IsWrite()).To(BeTrue())
-		})
-		It("Should return false for ChanDirectionRead", func() {
-			Expect(v0.ChanDirectionRead.IsWrite()).To(BeFalse())
-		})
-		It("Should return false for ChanDirectionNone", func() {
-			Expect(v0.ChanDirectionNone.IsWrite()).To(BeFalse())
-		})
-		It("Should return true for combined read+write", func() {
-			combined := v0.ChanDirectionRead | v0.ChanDirectionWrite
-			Expect(combined.IsWrite()).To(BeTrue())
-		})
+		DescribeTable("Should report whether the direction includes write",
+			func(d v0.ChanDirection, expected bool) {
+				Expect(d.IsWrite()).To(Equal(expected))
+			},
+			Entry("write", v0.ChanDirectionWrite, true),
+			Entry("read", v0.ChanDirectionRead, false),
+			Entry("none", v0.ChanDirectionNone, false),
+			Entry("read_write", v0.ChanDirectionReadWrite, true),
+			Entry("read|write", v0.ChanDirectionRead|v0.ChanDirectionWrite, true),
+		)
 	})
 	Describe("IsSet", func() {
-		It("Should return false for ChanDirectionNone", func() {
-			Expect(v0.ChanDirectionNone.IsSet()).To(BeFalse())
-		})
-		It("Should return true for ChanDirectionRead", func() {
-			Expect(v0.ChanDirectionRead.IsSet()).To(BeTrue())
-		})
-		It("Should return true for ChanDirectionWrite", func() {
-			Expect(v0.ChanDirectionWrite.IsSet()).To(BeTrue())
+		DescribeTable("Should report whether a direction has been specified",
+			func(d v0.ChanDirection, expected bool) {
+				Expect(d.IsSet()).To(Equal(expected))
+			},
+			Entry("none", v0.ChanDirectionNone, false),
+			Entry("read", v0.ChanDirectionRead, true),
+			Entry("write", v0.ChanDirectionWrite, true),
+			Entry("read_write", v0.ChanDirectionReadWrite, true),
+		)
+	})
+	Describe("ChanDirectionReadWrite", func() {
+		It("Should equal the bitwise union of read and write", func() {
+			Expect(v0.ChanDirectionReadWrite).
+				To(Equal(v0.ChanDirectionRead | v0.ChanDirectionWrite))
 		})
 	})
 	Describe("CheckCompatibility", func() {
@@ -86,6 +86,14 @@ var _ = Describe("ChanDirection", func() {
 		It("Should pass when actual direction is unset", func() {
 			Expect(
 				v0.ChanDirectionWrite.CheckCompatibility(v0.ChanDirectionNone),
+			).To(Succeed())
+		})
+		It("Should pass when read_write satisfies either requirement", func() {
+			Expect(
+				v0.ChanDirectionRead.CheckCompatibility(v0.ChanDirectionReadWrite),
+			).To(Succeed())
+			Expect(
+				v0.ChanDirectionWrite.CheckCompatibility(v0.ChanDirectionReadWrite),
 			).To(Succeed())
 		})
 	})

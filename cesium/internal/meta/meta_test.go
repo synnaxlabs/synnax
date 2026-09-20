@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -80,7 +81,8 @@ var _ = Describe("Meta", func() {
 									Virtual:  true,
 									DataType: telem.Int64T,
 								},
-								json.Codec),
+								json.Codec,
+							),
 						)
 						Expect(createdChannel.Key).To(Equal(key))
 

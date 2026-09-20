@@ -9,6 +9,10 @@
 
 type PathValueTuple = [any, any];
 
+/**
+ * @returns every path where the two objects disagree, mapped to their two values. Use
+ * it to report what a change actually touched.
+ */
 export const difference = (
   obj1: Record<string, any>,
   obj2: Record<string, any>,

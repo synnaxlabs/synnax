@@ -34,6 +34,17 @@ func OntologyIDsFromRoles(roles []Role) []ontology.ID {
 	return lo.Map(roles, func(r Role, _ int) ontology.ID { return r.OntologyID() })
 }
 
+// KeyFromOntologyID parses the role key from the given ontology.ID.
+func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) }
+
+// KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning an
+// error if any of the IDs are invalid.
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return KeyFromOntologyID(id)
+	})
+}
+
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":      zyn.UUID(),
 	"name":     zyn.String(),

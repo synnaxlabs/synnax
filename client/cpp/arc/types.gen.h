@@ -18,7 +18,7 @@
 
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/status/types.gen.h"
-#include "client/cpp/task/config/types.gen.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/uuid/uuid.h"
@@ -64,7 +64,7 @@ struct StatusDetails {
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief TaskConfig configures an Arc task, which runs a compiled Arc module.
-struct TaskConfig : public ::synnax::task::config::BasePersist {
+struct TaskConfig : public ::synnax::task::PersistConfig {
     /// @brief arc_key is the key of the Arc module the task executes.
     Key arc_key;
     /// @brief hash is the semantic hash of the Arc module at deploy time.
@@ -75,8 +75,9 @@ struct TaskConfig : public ::synnax::task::config::BasePersist {
     std::int32_t rt_priority = 47;
     /// @brief cpu_affinity pins the loop to a CPU core. -1 selects automatically.
     std::int32_t cpu_affinity = -1;
-    /// @brief lock_memory locks the runtime's memory to prevent paging.
-    bool lock_memory = false;
+    /// @brief memory_locked is true when the runtime's memory is locked to prevent
+    /// paging.
+    bool memory_locked = false;
 
     static TaskConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

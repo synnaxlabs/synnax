@@ -12,10 +12,13 @@ package driver_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing/fstest"
 	"time"
 
@@ -218,7 +221,7 @@ var _ = Describe("Open", func() {
 					ParentDirname:   GinkgoT().TempDir(),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring("timed out")))
+				})).Error().To(MatchError(fs.ErrNotExist))
 			},
 		)
 
@@ -236,7 +239,7 @@ var _ = Describe("Open", func() {
 					ParentDirname:   filepath.Join(blocker, "sub"),
 					StartTimeout:    200 * time.Millisecond,
 					StopTimeout:     200 * time.Millisecond,
-				})).Error().To(MatchError(ContainSubstring("timed out")))
+				})).Error().To(MatchError(syscall.ENOTDIR))
 			},
 		)
 	})
@@ -248,8 +251,48 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
 		})
+
+		It("Should point the Driver at the trust anchors it is given", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			anchors := []byte("-----BEGIN CERTIFICATE-----\nanchors\n")
+			d := openMockDriver(ctx, logger, driver.Config{
+				Insecure:        new(false),
+				ParentDirname:   dir,
+				TrustAnchorsPEM: anchors,
+			})
+			conn := readDriverConnection(dir)
+			Expect(conn).To(HaveKeyWithValue("ca_cert_file", Not(BeEmpty())))
+			Expect(os.ReadFile(conn["ca_cert_file"].(string))).To(Equal(anchors))
+			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should write no trust anchors in insecure mode", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			dir := GinkgoT().TempDir()
+			d := openMockDriver(ctx, logger, driver.Config{
+				ParentDirname:   dir,
+				TrustAnchorsPEM: []byte("-----BEGIN CERTIFICATE-----\nanchors\n"),
+			})
+			Expect(readDriverConnection(dir)).
+				To(HaveKeyWithValue("ca_cert_file", BeEmpty()))
+			Expect(d.Close()).To(Succeed())
+		})
 	})
 })
+
+// readDriverConnection returns the connection block of the config file the Driver was
+// started with. It must be called while the Driver is running, since the file is
+// removed once the process exits.
+func readDriverConnection(parentDirname string) map[string]any {
+	GinkgoHelper()
+	b := MustSucceed(os.ReadFile(filepath.Join(parentDirname, "driver", "config.json")))
+	var cfg map[string]any
+	Expect(json.Unmarshal(b, &cfg)).To(Succeed())
+	return cfg["connection"].(map[string]any)
+}
 
 var _ = Describe("restart", func() {
 	It(
@@ -279,17 +322,20 @@ var _ = Describe("restart", func() {
 		defer func() { Expect(os.Unsetenv("MOCK_CRASH_COUNT_FILE")).To(Succeed()) }()
 		logger, buffer := newTestLogger()
 		d, err := driver.Open(ctx, driver.Config{
-			Instrumentation:     alamos.New("test", alamos.WithLogger(logger)),
-			FS:                  mockFS,
-			Insecure:            new(true),
-			Address:             "localhost:9090",
-			ParentDirname:       GinkgoT().TempDir(),
-			StartTimeout:        2 * time.Second,
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+			FS:              mockFS,
+			Insecure:        new(true),
+			Address:         "localhost:9090",
+			ParentDirname:   GinkgoT().TempDir(),
+			// The Driver never starts, so Open returns as soon as the policy gives up.
+			// StartTimeout only has to outlast three subprocess launches on a loaded
+			// machine; it is never actually waited out.
+			StartTimeout:        time.Minute,
 			StopTimeout:         500 * time.Millisecond,
 			RestartBaseInterval: time.Millisecond,
 			RestartMaxRetries:   2,
 		})
-		Expect(err).To(MatchError(ContainSubstring("timed out")))
+		Expect(err).To(MatchError(ContainSubstring("exceeded restart limit")))
 		Expect(d).To(BeNil())
 		Expect(buffer.String()).To(ContainSubstring("exceeded restart limit"))
 	})

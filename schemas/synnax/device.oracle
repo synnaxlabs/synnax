@@ -11,15 +11,15 @@ import "schemas/synnax/ontology"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
 
-@ts output  "client/ts/src/device"
-@py output  "client/py/synnax/device"
-@go output  "core/pkg/service/device"
 @cpp output "client/cpp/device"
+@go output  "core/pkg/service/device"
 @pb
+@py output  "client/py/synnax/device"
+@ts output  "client/ts/src/device"
 
 Key = string {
-    @go version 1
-    @doc value  "is a unique identifier for the device"
+    @cpp include "client/cpp/device/key.h"
+    @doc value   "is a unique identifier for the device"
 }
 
 StatusDetails struct {
@@ -30,15 +30,16 @@ StatusDetails struct {
         @doc value "is the device identifier."
     }
 
-    @go version 1
-    @doc value  "contains device-specific status details identifying the device and its associated rack."
+    @doc value """
+        contains device-specific status details identifying the device and its
+        associated rack.
+    """
 }
 
 Status = status.Status<StatusDetails> {
-    @go version 1
-    @doc value  """
-        is device-specific status information including operational state and
-        device identification.
+    @doc value """
+        is device-specific status information including operational state and device
+        identification.
     """
 }
 
@@ -53,42 +54,41 @@ Device struct<
     }
     rack       rack.Key     {
         @doc value         "is the key of the rack that owns this device."
-        @validate required
         @filter
+        @validate required
     }
     location   string       {
         @doc value         "is the physical location or address of the device."
-        @validate required
         @filter
+        @validate required
     }
     make       Make         {
         @doc value         """
-            is the manufacturer of the device (e.g., 'LabJack', 'National
-            Instruments').
+            is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
         """
-        @validate required
         @filter
+        @validate required
     }
     model      Model        {
         @doc value         "is the device model identifier."
-        @validate required
         @filter
+        @validate required
     }
     name       string       {
         @doc value         "is a human-readable name for the device."
-        @validate required
         @filter
+        @validate required
     }
     configured bool = false {
         @doc value """
-            indicates whether the device has been successfully configured and is
-            ready for use.
+            indicates whether the device has been successfully configured and is ready
+            for use.
         """
     }
     properties Properties   {
         @doc value """
-            contains device-specific configuration properties stored as JSON.
-            Structure varies by device make and model.
+            contains device-specific configuration properties stored as JSON. Structure
+            varies by device make and model.
         """
     }
     status     Status?      {
@@ -97,22 +97,21 @@ Device struct<
     }
     parent     ontology.ID? {
         @doc value  """
-            is an optional parent resource ID for hierarchical device
-            organization (e.g., NI chassis containing modules).
+            is an optional parent resource ID for hierarchical device organization
+            (e.g., NI chassis containing modules).
         """
         @go marshal omit
     }
 
-    @go version        1
-    @doc value         """
-        is a physical piece of hardware connected to Synnax through the Driver
-        system. Devices represent external equipment like LabJack, National
-        Instruments, OPC UA servers, or Modbus devices.
-    """
-    @ontology type     "device"
     @create
+    @doc value         """
+        is a physical piece of hardware connected to Synnax through the Driver system.
+        Devices represent external equipment like LabJack, National Instruments, OPC UA
+        servers, or Modbus devices.
+    """
     @go marshal
     @go migrate
+    @ontology type     "device"
     @retrieve
     @search
     @ts concrete_types

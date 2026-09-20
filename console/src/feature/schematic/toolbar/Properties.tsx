@@ -42,6 +42,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
 import { CSS } from "@/platform/css";
@@ -53,7 +54,7 @@ export const Properties = memo((): ReactElement => {
   if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
-        Select a schematic element to configure its properties.
+        Select a schematic element to configure its properties
       </Text.Text>
     );
   if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
@@ -68,7 +69,6 @@ interface IndividualConfigProps {
 
 const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null => {
   const config = Schematic.useElementConfig({ elKey });
-  // A true invariant that should never occur.
   if (config == null) throw new Error(`Element with key ${elKey} not found`);
   const schematicKey = Schematic.useKey();
   const dispatch = Schematic.useSingleDispatch();
@@ -87,7 +87,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     "specKey",
     { ctx: formMethods, optional: true },
   );
-  const isCustom = schematic.symbol.keyZ.safeParse(specKey).success && specKey != null;
+  const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
   const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;
   if (isCustom)
@@ -152,6 +152,24 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selectedNodes = Schematic.useNodes({ keys: selected });
   const dispatch = Schematic.useSingleDispatch();
   const getViewport = Session.Schematic.useGetViewport();
+  const parentOf = Schematic.useParentOf();
+  // Grouped symbols never move alone: boxes align, the dispatch fans out to members.
+  const movable = useMemo(
+    () => selected.filter((k) => !parentOf.has(k)),
+    [selected, parentOf],
+  );
+  // The selection closure includes group configs, so shielding sees locked flags.
+  const editableByKey = useMemo(() => {
+    const shielded = Schematic.Group.shielded(
+      [...configByKey.keys()],
+      parentOf,
+      Object.fromEntries(configByKey),
+    );
+    if (shielded.size === 0) return configByKey;
+    const m = new Map(configByKey);
+    shielded.forEach((k) => m.delete(k));
+    return m;
+  }, [configByKey, parentOf]);
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();
@@ -176,8 +194,8 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
 
   const colorGroups = useMemo(() => {
     const groups: Record<color.Hex, string[]> = {};
-    configByKey.forEach((cfg, key) => {
-      if (cfg.color == null) return;
+    editableByKey.forEach((cfg, key) => {
+      if (!("color" in cfg) || cfg.color == null) return;
       const hex = color.hex(cfg.color);
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(key);
@@ -209,7 +227,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
 
   const getLayoutsForAlignment = () => {
     const zoom = getZoom();
-    return selected
+    return movable
       .map((nodeKey) => {
         const node = nodesByKey.get(nodeKey);
         if (node == null) return null;
@@ -241,7 +259,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   } => {
     const zoom = getViewport({ key: schematicKey }).zoom;
     const topOffsets = new Map<string, number>();
-    const layouts = selected
+    const layouts = movable
       .map((nodeKey) => {
         const node = nodesByKey.get(nodeKey);
         if (node == null) return null;
@@ -325,7 +343,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
 
   const rotateOrientationActions = (dir: direction.Angular): schematic.Action[] => {
     const updates: [string, Partial<Schematic.ElementConfig>][] = [];
-    configByKey.forEach((cfg, key) => {
+    editableByKey.forEach((cfg, key) => {
       if (!("orientation" in cfg) || cfg.orientation == null) return;
       updates.push([key, { orientation: location.rotate(cfg.orientation, dir) }]);
     });
@@ -352,7 +370,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     value: Schematic.Node.Label.Config[K],
   ): void => {
     const updates: [string, Partial<Schematic.ElementConfig>][] = [];
-    configByKey.forEach((cfg, elKey) => {
+    editableByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
       updates.push([elKey, { label: { ...cfg.label, [key]: value } }]);
     });

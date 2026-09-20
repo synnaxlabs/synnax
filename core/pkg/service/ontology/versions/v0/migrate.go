@@ -16,3 +16,13 @@ var ResourceMigration = gorp.CodecMigration[string, Resource]("msgpack_to_orc")
 
 // RelationshipMigration re-encodes stored relationships from MessagePack to Orc.
 var RelationshipMigration = gorp.CodecMigration[string, Relationship]("msgpack_to_orc")
+
+// ResourceNormalizeKeys re-keys Resource rows stored under the pre-v0.54 key format.
+var ResourceNormalizeKeys = gorp.NormalizeKeysMigration[string, Resource]("Resource")
+
+// RelationshipNormalizeKeys re-keys Relationship rows stored under the pre-v0.54 key
+// format.
+var RelationshipNormalizeKeys = gorp.NormalizeKeysMigration[
+	string,
+	Relationship,
+]("Relationship")

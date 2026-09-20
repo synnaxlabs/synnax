@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -85,12 +84,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
 	)
 })
-
-func authedCtx(ctx SpecContext, u user.User) freighter.Context {
-	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-	fctx.Set("Subject", u.OntologyID())
-	return fctx
-}
 
 // freshUser creates a user with no role assignments. Use this for "unauthorized"
 // specs so accumulated grants on the shared author don't leak in.

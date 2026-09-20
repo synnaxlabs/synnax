@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,7 +44,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Alex",
 							Key:      index,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    index,
 						},
@@ -447,6 +448,39 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					})
 					Describe("Auto Span", func() {
+						Specify(
+							"Single Domain - Last chunk view ends at the data",
+							func(ctx SpecContext) {
+								Expect(unary.Write(
+									ctx,
+									indexDB,
+									10*telem.SecondTS,
+									telem.NewSeriesSecondsTSV(10, 11, 12),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									db,
+									10*telem.SecondTS,
+									telem.NewSeriesV[int64](1, 2, 3),
+								)).To(Succeed())
+								iter := MustSucceed(
+									db.OpenIterator(unary.IteratorConfig{
+										Bounds: telem.TimeStamp(0).
+											Range(telem.TimeStampMax),
+										AutoChunkSize: 2,
+									}),
+								)
+								Expect(iter.SeekFirst(ctx)).To(BeTrue())
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(iter.View()).To(Equal(
+									(12 * telem.SecondTS).Range(
+										12*telem.SecondTS + 1,
+									),
+								))
+								Expect(iter.Close()).To(Succeed())
+							},
+						)
 						Specify(
 							"Single Domain - Leftover chunk",
 							func(ctx SpecContext) {
@@ -1701,6 +1735,253 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Expect(i.Close()).To(Succeed())
 							})
 						})
+
+						// The domain starts before its first sample, so neither end of
+						// the chunk resolves to an exact index position. A bounds start
+						// between two samples puts every chunk boundary between two
+						// samples as well, and a forward chunk must end on the first
+						// sample it leaves out, so the next chunk starts there.
+						Specify(
+							"Chunk ends on the first sample it leaves out",
+							func(ctx SpecContext) {
+								iw, _ := MustSucceed2(indexDB.OpenWriter(
+									ctx,
+									unary.WriterConfig{
+										Start:   telem.SecondTS,
+										Subject: control.Subject{Key: "index"},
+									},
+								))
+								align := MustSucceed(iw.Write(
+									telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
+								))
+								MustSucceed(iw.Commit(ctx))
+								MustSucceed(iw.Close())
+								dw, _ := MustSucceed2(db.OpenWriter(
+									ctx,
+									unary.WriterConfig{
+										Start:   telem.SecondTS,
+										Subject: control.Subject{Key: "data"},
+									},
+								))
+								MustSucceed(dw.WriteAt(
+									telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+									align,
+								))
+								Expect(dw.CommitWithEnd(
+									ctx,
+									12*telem.SecondTS+1,
+								)).To(Succeed())
+								MustSucceed(dw.Close())
+								iter := MustSucceed(
+									db.OpenIterator(unary.IteratorConfig{
+										Bounds: (4*telem.SecondTS + 1).
+											Range(telem.TimeStampMax),
+										AutoChunkSize: 2,
+									}),
+								)
+								Expect(iter.SeekFirst(ctx)).To(BeTrue())
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(
+									iter.Value().SeriesAt(0),
+								).To(telem.MatchSeriesDataV[int64](1, 2))
+								Expect(iter.View()).To(Equal(
+									(4*telem.SecondTS + 1).
+										Range(10 * telem.SecondTS),
+								))
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(
+									iter.Value().SeriesAt(0),
+								).To(telem.MatchSeriesDataV[int64](3, 4))
+								Expect(iter.View()).To(Equal(
+									(10 * telem.SecondTS).
+										Range(12*telem.SecondTS + 1),
+								))
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+								Expect(iter.Close()).To(Succeed())
+							},
+						)
+
+						// Backward, a chunk closes on the first sample it holds. Its
+						// view start is that sample, so it abuts the chunk before it
+						// without repeating a sample across the boundary.
+						Specify(
+							"Chunk starts on the first sample it holds",
+							func(ctx SpecContext) {
+								Expect(unary.Write(
+									ctx,
+									indexDB,
+									4*telem.SecondTS,
+									telem.NewSeriesSecondsTSV(4, 6, 8, 10, 12),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									db,
+									4*telem.SecondTS,
+									telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+								)).To(Succeed())
+								iter := MustSucceed(
+									db.OpenIterator(unary.IteratorConfig{
+										Bounds: telem.SecondTS.
+											Range(telem.TimeStampMax),
+										AutoChunkSize: 2,
+									}),
+								)
+								Expect(iter.SeekLast(ctx)).To(BeTrue())
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(
+									iter.Value().SeriesAt(0),
+								).To(telem.MatchSeriesDataV[int64](3, 4))
+								Expect(iter.View()).To(Equal(
+									(10 * telem.SecondTS).
+										Range(12*telem.SecondTS + 1),
+								))
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(
+									iter.Value().SeriesAt(0),
+								).To(telem.MatchSeriesDataV[int64](1, 2))
+								Expect(iter.View()).To(Equal(
+									(6 * telem.SecondTS).Range(10 * telem.SecondTS),
+								))
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(
+									iter.Value().SeriesAt(0),
+								).To(telem.MatchSeriesDataV[int64](0))
+								Expect(iter.View()).To(Equal(
+									(4 * telem.SecondTS).Range(6 * telem.SecondTS),
+								))
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
+								Expect(iter.Close()).To(Succeed())
+							},
+						)
+
+						// A chunk that consumes a domain exactly leaves the iterator on
+						// a domain starting at the next view's end. Reading backward
+						// must step over it instead of reading it twice.
+						Specify(
+							"Prev steps over a domain the chunk before it consumed",
+							func(ctx SpecContext) {
+								Expect(unary.Write(
+									ctx,
+									indexDB,
+									1*telem.SecondTS,
+									telem.NewSeriesSecondsTSV(1, 2, 3),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									db,
+									1*telem.SecondTS,
+									telem.NewSeriesV[int64](0, 1, 2),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									indexDB,
+									10*telem.SecondTS,
+									telem.NewSeriesSecondsTSV(10, 11, 12),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									db,
+									10*telem.SecondTS,
+									telem.NewSeriesV[int64](3, 4, 5),
+								)).To(Succeed())
+								iter := MustSucceed(
+									db.OpenIterator(unary.IteratorConfig{
+										Bounds: telem.SecondTS.
+											Range(20 * telem.SecondTS),
+										AutoChunkSize: 3,
+									}),
+								)
+								Expect(iter.SeekLast(ctx)).To(BeTrue())
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(
+									iter.Value().SeriesAt(0),
+								).To(telem.MatchSeriesDataV[int64](3, 4, 5))
+								Expect(iter.View()).To(Equal(
+									(10 * telem.SecondTS).
+										Range(12*telem.SecondTS + 1),
+								))
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
+								Expect(
+									iter.Value().SeriesAt(0),
+								).To(telem.MatchSeriesDataV[int64](0, 1, 2))
+								Expect(iter.View()).To(Equal(
+									telem.SecondTS.Range(10 * telem.SecondTS),
+								))
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
+								Expect(iter.Close()).To(Succeed())
+							},
+						)
+
+						// A file system fault mid-chunk must stop the read and surface
+						// through Error. Dropping it would leave a short chunk that
+						// looks exactly like the end of the data.
+						DescribeTable(
+							"should report a file system fault during an auto-span read",
+							func(ctx SpecContext, forward bool) {
+								faulty := WrapFaultyFS(openFS())
+								faultyIndexDB := MustOpen(unary.Open(ctx, unary.Config{
+									FS:        MustSucceed(faulty.Sub("index")),
+									MetaCodec: json.Codec,
+									Channel: channel.Channel{
+										Name:     "Shackleton",
+										Key:      index,
+										DataType: telem.TimestampT,
+										IsIndex:  true,
+										Index:    index,
+									},
+									Instrumentation: PanicLogger(),
+								}))
+								faultyDB := MustOpen(unary.Open(ctx, unary.Config{
+									FS:        MustSucceed(faulty.Sub("data")),
+									MetaCodec: json.Codec,
+									Channel: channel.Channel{
+										Name:     "Wild",
+										Key:      data,
+										DataType: telem.Int64T,
+										Index:    index,
+									},
+									Instrumentation: PanicLogger(),
+								}))
+								faultyDB.SetIndex(faultyIndexDB.Index())
+								Expect(unary.Write(
+									ctx,
+									faultyIndexDB,
+									10*telem.SecondTS,
+									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+								)).To(Succeed())
+								Expect(unary.Write(
+									ctx,
+									faultyDB,
+									10*telem.SecondTS,
+									telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+								)).To(Succeed())
+								iter := MustSucceed(
+									faultyDB.OpenIterator(unary.IteratorConfig{
+										Bounds:        telem.TimeRangeMax,
+										AutoChunkSize: 2,
+									}),
+								)
+								if forward {
+									Expect(iter.SeekFirst(ctx)).To(BeTrue())
+								} else {
+									Expect(iter.SeekLast(ctx)).To(BeTrue())
+								}
+								faulty.SetOptions(WithFailReadAt())
+								if forward {
+									Expect(
+										iter.Next(ctx, unary.AutoSpan),
+									).To(BeFalse())
+								} else {
+									Expect(
+										iter.Prev(ctx, unary.AutoSpan),
+									).To(BeFalse())
+								}
+								Expect(iter.Error()).To(MatchError(ErrFault))
+								Expect(iter.Close()).To(Succeed())
+							},
+							Entry("forward", true),
+							Entry("backward", false),
+						)
 					})
 				})
 
@@ -1884,7 +2165,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
 										Key:      iKey,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 										IsIndex:  true,
 										Index:    iKey,
 									},
@@ -1981,7 +2262,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Channel: channel.Channel{
 									Name:     "Ozturk",
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -2141,7 +2422,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Key:      key,
 							Name:     "ludwig",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						Instrumentation: PanicLogger(),
@@ -2224,7 +2505,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Fred",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
@@ -2322,7 +2603,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "GI",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						FileSize: fileSizeLimit,
@@ -2357,7 +2638,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 					// Rollover 1
@@ -2380,7 +2662,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 
 					MustSucceed(
@@ -2409,7 +2692,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 
 					MustSucceed(

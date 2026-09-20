@@ -1,0 +1,93 @@
+{
+  "version": "2.0.0",
+  "key": "4292973a-b862-4f69-9009-99183c32bf8f",
+  "remoteCreated": true,
+  "title": { "level": "h4", "visible": false },
+  "legend": {
+    "visible": true,
+    "position": {
+      "x": 50,
+      "y": 50,
+      "root": { "x": "left", "y": "top" },
+      "units": { "x": "px", "y": "px" }
+    }
+  },
+  "channels": { "x1": 0, "x2": 0, "y1": [], "y2": [], "y3": [], "y4": [] },
+  "ranges": { "x1": ["776737d4-6807-4d29-8344-4b305534db80"], "x2": [] },
+  "viewport": {
+    "renderTrigger": 0,
+    "zoom": { "width": 1, "height": 1 },
+    "pan": { "x": 0, "y": 0 }
+  },
+  "lines": [],
+  "axes": {
+    "renderTrigger": 4,
+    "hasHadChannelSet": false,
+    "axes": {
+      "y1": {
+        "key": "y1",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 1 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y2": {
+        "key": "y2",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y3": {
+        "key": "y3",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y4": {
+        "key": "y4",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "x1": {
+        "key": "x1",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 1744230848853000000, "upper": 1744234448853000000 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75,
+        "type": "time"
+      },
+      "x2": {
+        "key": "x2",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75,
+        "type": "time"
+      }
+    }
+  },
+  "rules": [],
+  "selection": {
+    "box": {
+      "one": { "x": 0, "y": 0 },
+      "two": { "x": 0, "y": 0 },
+      "root": { "x": "left", "y": "top" }
+    }
+  }
+}

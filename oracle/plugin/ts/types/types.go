@@ -41,14 +41,12 @@ import (
 type Plugin struct{ Options Options }
 
 type Options struct {
-	OutputPath      string
 	FileNamePattern string
 	GenerateTypes   bool
 }
 
 func DefaultOptions() Options {
 	return Options{
-		OutputPath:      "{{.Namespace}}",
 		FileNamePattern: "types.gen.ts",
 		GenerateTypes:   true,
 	}
@@ -56,13 +54,11 @@ func DefaultOptions() Options {
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string { return "ts/types" }
+func (*Plugin) Name() string { return "ts/types" }
 
-func (p *Plugin) Domains() []string { return nil }
+func (*Plugin) Domains() []string { return nil }
 
-func (p *Plugin) Requires() []string { return nil }
-
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -260,10 +256,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// hasNonPrimitiveDependency returns true if a type definition has dependencies
-// on non-primitive types (i.e., references other schema types that need to be
-// declared before this type). This is used to determine whether a distinct type
-// should be included in topological sorting.
+// hasNonPrimitiveDependency returns true if a type definition has dependencies on
+// non-primitive types (i.e., references other schema types that need to be declared
+// before this type). This is used to determine whether a distinct type should be
+// included in topological sorting.
 func hasNonPrimitiveDependency(typ resolution.Type) bool {
 	var checkRef func(ref resolution.TypeRef) bool
 	checkRef = func(ref resolution.TypeRef) bool {
@@ -304,7 +300,6 @@ func (p *Plugin) generateFile(
 		Namespace:     namespace,
 		OutputPath:    outputPath,
 		Request:       req,
-		Structs:       make([]structData, 0, len(structs)),
 		Enums:         make([]enumData, 0, len(enums)),
 		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls:   make([]sortedDeclData, 0),
@@ -347,10 +342,10 @@ func (p *Plugin) generateFile(
 		data.Enums = append(data.Enums, p.processEnum(e))
 	}
 
-	// Combine structs and dependent typedefs for topological sorting.
-	// IMPORTANT: Structs come first so that when there's a cycle, typedefs
-	// (like array types) are placed after their element types. Array typedefs
-	// can't use getters, so they must come after their element types are defined.
+	// Combine structs and dependent typedefs for topological sorting. IMPORTANT:
+	// Structs come first so that when there's a cycle, typedefs (like array types) are
+	// placed after their element types. Array typedefs can't use getters, so they must
+	// come after their element types are defined.
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, structs...)
 	combinedTypes = append(combinedTypes, dependentTypeDefs...)
@@ -359,9 +354,8 @@ func (p *Plugin) generateFile(
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := req.Resolutions.TopologicalSort(combinedTypes)
 
-	// Build declaration order map for forward reference detection.
-	// When a struct field references a type declared later, we need to use
-	// a getter for lazy evaluation.
+	// Build declaration order map for forward reference detection. When a struct field
+	// references a type declared later, we need to use a getter for lazy evaluation.
 	declOrder := make(map[string]int, len(sortedTypes))
 	for i, typ := range sortedTypes {
 		declOrder[typ.QualifiedName] = i
@@ -683,10 +677,10 @@ func (p *Plugin) typeDefBaseToTS(
 	return p.typeRefToTS(typeRef, data.Request.Resolutions, data, false)
 }
 
-// isExtendBase reports whether another type's generated zod schema calls
-// .extend on entry's schema: struct extends bases, union shared bases, and
-// union variant payloads. Such schemas must stay ZodObjects, since the
-// z.ZodType annotation used to break recursive inference has no .extend.
+// isExtendBase reports whether another type's generated zod schema calls .extend on
+// entry's schema: struct extends bases, union shared bases, and union variant payloads.
+// Such schemas must stay ZodObjects, since the z.ZodType annotation used to break
+// recursive inference has no .extend.
 func isExtendBase(entry resolution.Type, table *resolution.Table) bool {
 	matches := func(ref resolution.TypeRef) bool {
 		resolved, ok := ref.Resolve(table)
@@ -821,10 +815,10 @@ func (p *Plugin) processStruct(
 	if sd.Handwritten {
 		return sd
 	}
-	// A @create New whose base is a discriminated union projects to
-	// `type New… = z.input<typeof unionZ>`. The union's fields are not flattened
-	// (an interface cannot extend a union), so resolve the base schema const here
-	// and short-circuit the struct-parent field machinery below.
+	// A @create New whose base is a discriminated union projects to `type New… =
+	// z.input<typeof unionZ>`. The union's fields are not flattened (an interface
+	// cannot extend a union), so resolve the base schema const here and short-circuit
+	// the struct-parent field machinery below.
 	if len(form.Extends) == 1 {
 		if base, ok := form.Extends[0].Resolve(table); ok {
 			if _, isUnion := base.Form.(resolution.UnionForm); isUnion {
@@ -838,6 +832,7 @@ func (p *Plugin) processStruct(
 					if targetOutputPath == "" {
 						targetOutputPath = ns
 					}
+					ns = tsNamespaceIdent(ns)
 					data.AddImport(
 						paths.CalculateImport(data.OutputPath, targetOutputPath),
 						ns,
@@ -887,9 +882,9 @@ func (p *Plugin) processStruct(
 		}
 	}
 
-	// A domain removal (-@domain) cannot be expressed through Zod extend/omit
-	// chaining — the parent schema still carries the domain — so flatten via
-	// UnifiedFields. Typeless overrides are already resolved by the analyzer.
+	// A domain removal (-@domain) cannot be expressed through Zod extend/omit chaining
+	// — the parent schema still carries the domain — so flatten via UnifiedFields.
+	// Typeless overrides are already resolved by the analyzer.
 	if len(form.Extends) > 0 && !resolver.HasDomainOmissions(form) {
 		// Collect all parent schema names for merge chaining
 		allParentsValid := true
@@ -914,6 +909,7 @@ func (p *Plugin) processStruct(
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
+				ns = tsNamespaceIdent(ns)
 				data.AddImport(
 					paths.CalculateImport(data.OutputPath, targetOutputPath),
 					ns,
@@ -943,8 +939,6 @@ func (p *Plugin) processStruct(
 			sd.HasExtends = true
 			sd.ExtendsName = sd.ExtendsParents[0].Name
 			sd.ExtendsTypeName = sd.ExtendsParents[0].TypeName
-			sd.ExtendsParentIsGeneric = sd.ExtendsParents[0].IsGeneric
-			sd.ExtendsParentSchemaArgs = sd.ExtendsParents[0].SchemaArgs
 
 			for _, f := range form.OmittedFields {
 				sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
@@ -1283,21 +1277,23 @@ func computeCoalescedTypes(sd *structData) {
 	}
 }
 
-// camelCase converts a generated type or schema-const identifier to camelCase,
-// keeping known acronyms upper-cased after the first word ("BaseAOChannel" ->
-// "baseAOChannel", "AIVoltageRMSChannel" -> "aiVoltageRMSChannel"). It is the
-// template helper behind every "<name>Z" const, so const names stay consistent
-// with their acronym-aware type names. Wire field keys must NOT use this; they go
-// through fieldCamel to match the JSON codec's naive snake/camel conversion.
-func camelCase(s string) string {
-	return casing.CamelAcronym(s)
-}
+// camelCase converts a generated type or schema-const identifier to camelCase, keeping
+// known acronyms upper-cased after the first word ("BaseAOChannel" -> "baseAOChannel",
+// "AIVoltageRMSChannel" -> "aiVoltageRMSChannel"). It is the template helper behind
+// every "<name>Z" const, so const names stay consistent with their acronym-aware type
+// names. Wire field keys must NOT use this; they go through fieldCamel to match the
+// JSON codec's naive snake/camel conversion.
+// tsNamespaceIdent converts a schema namespace to the identifier its TS module
+// exports ("task_config" -> "taskConfig").
+func tsNamespaceIdent(ns string) string { return camelCase(ns) }
 
-// fieldCamel converts a field identifier to camelCase using the naive conversion
-// the JSON codec's snake/camel round-trip relies on, preserving only a trailing
-// acronym run of two or more uppercase letters in the source ("ClientXY" ->
-// "clientXY", "EntityID" -> "entityID"). Use this for wire field keys,
-// discriminators, and key-field names, never for type or schema-const identifiers.
+func camelCase(s string) string { return casing.CamelAcronym(s) }
+
+// fieldCamel converts a field identifier to camelCase using the naive conversion the
+// JSON codec's snake/camel round-trip relies on, preserving only a trailing acronym run
+// of two or more uppercase letters in the source ("ClientXY" -> "clientXY", "EntityID"
+// -> "entityID"). Use this for wire field keys, discriminators, and key-field names,
+// never for type or schema-const identifiers.
 func fieldCamel(s string) string {
 	if s == "" {
 		return s
@@ -1323,11 +1319,11 @@ func fieldCamel(s string) string {
 	return base[:len(base)-runLen] + s[runStart:]
 }
 
-// parentSchemaName resolves a base or payload type reference to its TS schema
-// const name (e.g. "baseAIChannelZ"), importing and namespace-qualifying it when
-// it lives in another output. It reports false when the reference does not
-// resolve to a struct that can be composed. The resolution mirrors the
-// struct-extends path so union variants and structs compose identically.
+// parentSchemaName resolves a base or payload type reference to its TS schema const
+// name (e.g. "baseAIChannelZ"), importing and namespace-qualifying it when it lives in
+// another output. It reports false when the reference does not resolve to a struct that
+// can be composed. The resolution mirrors the struct-extends path so union variants and
+// structs compose identically.
 func parentSchemaName(
 	ref resolution.TypeRef,
 	table *resolution.Table,
@@ -1347,25 +1343,25 @@ func parentSchemaName(
 		if targetOutputPath == "" {
 			targetOutputPath = ns
 		}
+		ns = tsNamespaceIdent(ns)
 		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 		name = ns + "." + name
 	}
 	return name, true
 }
 
-// createNewRefForField reports whether field's type resolves to a `@create`-d
-// struct carrying a synthesized `New`, and if so returns the rendered TS type
-// referencing that `New` with the struct's primary details type passed as a zod
-// schema (e.g. "status.New<typeof statusDetailsZ>"). It follows a single alias
-// level (e.g. a `Status<D>` alias to `status.Status<...>`), substituting the
-// alias's type params with the field's type args so the primary details type is
-// the concrete one the field binds. It reports false when the field type does not
-// resolve to a create struct with a synthesized New, or when it is a type param,
-// primitive, array, or map.
+// createNewRefForField reports whether field's type resolves to a `@create`-d struct
+// carrying a synthesized `New`, and if so returns the rendered TS type referencing that
+// `New` with the struct's primary details type passed as a zod schema (e.g.
+// "status.New<typeof statusDetailsZ>"). It follows a single alias level (e.g. a
+// `Status<D>` alias to `status.Status<...>`), substituting the alias's type params with
+// the field's type args so the primary details type is the concrete one the field
+// binds. It reports false when the field type does not resolve to a create struct with
+// a synthesized New, or when it is a type param, primitive, array, or map.
 //
-// The details schema ref renders as `typeof <schema>` for a non-generic details
-// struct and `ReturnType<typeof <schema>>` for a generic one (whose schema is a
-// factory function), matching how the plugin annotates schema types elsewhere.
+// The details schema ref renders as `typeof <schema>` for a non-generic details struct
+// and `ReturnType<typeof <schema>>` for a generic one (whose schema is a factory
+// function), matching how the plugin annotates schema types elsewhere.
 func (p *Plugin) createNewRefForField(
 	field resolution.Field,
 	table *resolution.Table,
@@ -1417,6 +1413,7 @@ func (p *Plugin) createNewRefForField(
 		if targetOutputPath == "" {
 			targetOutputPath = ns
 		}
+		ns = tsNamespaceIdent(ns)
 		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 		newName = ns + ".New"
 	}
@@ -1449,6 +1446,7 @@ func (p *Plugin) detailsSchemaRef(
 		if targetOutputPath == "" {
 			targetOutputPath = ns
 		}
+		ns = tsNamespaceIdent(ns)
 		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 		prefix = ns + "."
 	}
@@ -1747,8 +1745,8 @@ func (p *Plugin) processField(
 		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data)
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
-		// An array field's default applies to the wrapped array (see the isArray
-		// block below), not to the element schema processed here.
+		// An array field's default applies to the wrapped array (see the isArray block
+		// below), not to the element schema processed here.
 		elemDefault := field.Default
 		if isArray {
 			elemDefault = nil
@@ -1911,8 +1909,7 @@ func (p *Plugin) processField(
 	return fd
 }
 
-// isUnionField reports whether a field's type resolves to a discriminated
-// union.
+// isUnionField reports whether a field's type resolves to a discriminated union.
 func isUnionField(field resolution.Field, table *resolution.Table) bool {
 	resolved, ok := field.Type.Resolve(table)
 	if !ok {
@@ -2046,6 +2043,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
@@ -2059,6 +2057,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
@@ -2072,6 +2071,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
@@ -2086,6 +2086,7 @@ func (p *Plugin) typeRefToZodInternal(
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
+				ns = tsNamespaceIdent(ns)
 				data.AddImport(
 					paths.CalculateImport(data.OutputPath, targetOutputPath),
 					ns,
@@ -2114,6 +2115,7 @@ func (p *Plugin) typeRefToZodInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
@@ -2238,6 +2240,7 @@ func (p *Plugin) typeRefToTSInternal(
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
+			ns = tsNamespaceIdent(ns)
 			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, distinctName)
 		}
@@ -2454,7 +2457,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 		return "z.ZodType"
 	}
 
-	prefix := ""
+	var prefix string
 	if resolved.Namespace != data.Namespace {
 		prefix = resolved.Namespace + "."
 	}
@@ -2463,7 +2466,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			hasConcreteTypes := false
+			var hasConcreteTypes bool
 			if dom, ok := resolved.Domains["ts"]; ok {
 				for _, expr := range dom.Expressions {
 					if expr.Name == "concrete_types" {
@@ -2548,8 +2551,8 @@ type validationResult struct {
 	ZodType    string
 	HasDefault bool
 	// IsPrefault is true when the default was emitted as .prefault() rather than
-	// .default(). Struct defaults use .prefault() so the literal is re-parsed,
-	// filling each field's own default when a caller supplies a partial value.
+	// .default(). Struct defaults use .prefault() so the literal is re-parsed, filling
+	// each field's own default when a caller supplies a partial value.
 	IsPrefault bool
 }
 
@@ -2712,11 +2715,10 @@ func (p *Plugin) applyValidation(
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
 			}
-			// Handle "create" for auto-generating keys. uuid keys generate a UUID
-			// via uuid.create(); string keys generate a short id via id.create().
-			// uuid is a string primitive, so check it first.
-			// Use key.ResolvePrimitive to handle type aliases like `Key distinct
-			// string`.
+			// Handle "create" for auto-generating keys. uuid keys generate a UUID via
+			// uuid.create(); string keys generate a short id via id.create(). uuid is a
+			// string primitive, so check it first. Use key.ResolvePrimitive to handle
+			// type aliases like `Key distinct string`.
 			primitive := key.ResolvePrimitive(typeRef, table)
 			if defaultVal.IdentValue == "create" {
 				if primitive == "uuid" {
@@ -2836,9 +2838,9 @@ func tsStringLiteral(s string) string {
 	return b.String()
 }
 
-// tsDefaultLiteral renders a default value as a TypeScript literal. typeRef is
-// the declared type of the value, used to resolve enum variants, array element
-// types, and nested struct field types. Arrays and structs recurse.
+// tsDefaultLiteral renders a default value as a TypeScript literal. typeRef is the
+// declared type of the value, used to resolve enum variants, array element types, and
+// nested struct field types. Arrays and structs recurse.
 func (p *Plugin) tsDefaultLiteral(
 	typeRef resolution.TypeRef,
 	val resolution.ExpressionValue,
@@ -2872,9 +2874,8 @@ func (p *Plugin) tsDefaultLiteral(
 	return ""
 }
 
-// tsStructLiteral renders a struct default as a TypeScript object literal,
-// resolving each field's value against its declared type in the struct named by
-// typeRef.
+// tsStructLiteral renders a struct default as a TypeScript object literal, resolving
+// each field's value against its declared type in the struct named by typeRef.
 func (p *Plugin) tsStructLiteral(
 	typeRef resolution.TypeRef,
 	val resolution.ExpressionValue,
@@ -2924,10 +2925,9 @@ func structFieldsByName(
 }
 
 func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
-	// String-valued enums are emitted as `z.enum([...])` plus a type alias and
-	// have no runtime object to dot into. Emit the raw string literal instead;
-	// only numeric enums get the `Type.variant` form, since those emit as TS
-	// runtime enums.
+	// String-valued enums are emitted as `z.enum([...])` plus a type alias and have no
+	// runtime object to dot into. Emit the raw string literal instead; only numeric
+	// enums get the `Type.variant` form, since those emit as TS runtime enums.
 	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
 		return tsStringLiteral(ev.Variant.StringValue())
 	}
@@ -2946,7 +2946,6 @@ type templateData struct {
 	DeclOrder        map[string]int
 	Namespace        string
 	OutputPath       string
-	Structs          []structData
 	Enums            []enumData
 	TypeDefs         []typeDefData
 	SortedDecls      []sortedDeclData
@@ -2997,31 +2996,29 @@ func primitiveZeroValue(primitive string) string {
 }
 
 type structData struct {
-	ExtendsName             string
-	TSName                  string
-	AliasOf                 string
-	Doc                     string
-	ExtendsTypeName         string
-	Name                    string
-	TypeParams              []typeParamData
-	ExtendsParentSchemaArgs []string
-	BaseFields              []fieldData
-	ConditionalFields       []conditionalFieldData
-	ExtendFields            []fieldData
-	PartialFields           []fieldData
-	OmittedFields           []string
-	// ConditionalOmittedFields names the conditional (type-param-typed) base
-	// fields a synthesized @create New strips from its inner optional.Optional
-	// base before re-appending them as z.input conditionals. The New's template
-	// wraps the base in Omit<..., these> so the field's z.infer projection from
-	// the base type does not collide with the re-appended z.input conditional.
+	ExtendsName       string
+	TSName            string
+	AliasOf           string
+	Doc               string
+	ExtendsTypeName   string
+	Name              string
+	TypeParams        []typeParamData
+	BaseFields        []fieldData
+	ConditionalFields []conditionalFieldData
+	ExtendFields      []fieldData
+	PartialFields     []fieldData
+	OmittedFields     []string
+	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
+	// synthesized @create New strips from its inner optional.Optional base before
+	// re-appending them as z.input conditionals. The New's template wraps the base in
+	// Omit<..., these> so the field's z.infer projection from the base type does not
+	// collide with the re-appended z.input conditional.
 	ConditionalOmittedFields []string
 	Fields                   []fieldData
 	ExtendsParents           []extendsParentInfo
 	HasExtends               bool
 	UseInput                 bool
 	AllParamsOptional        bool
-	ExtendsParentIsGeneric   bool
 	Handwritten              bool
 	IsRecursive              bool
 	IsAlias                  bool
@@ -3029,16 +3026,16 @@ type structData struct {
 	IsGeneric                bool
 	ConcreteTypes            bool
 	CoalesceTypeParams       bool
-	// IsPrimitiveConstrainedGeneric is true when every type param is constrained
-	// to a primitive set (e.g. T extends numeric) and has a default. In this mode
-	// the runtime zod schema is emitted as a plain z.object (defaults substituted
-	// for type-param-typed fields), but the TS interface keeps the generic shape
-	// with primitive constraints (e.g. T extends number | bigint = number).
+	// IsPrimitiveConstrainedGeneric is true when every type param is constrained to a
+	// primitive set (e.g. T extends numeric) and has a default. In this mode the
+	// runtime zod schema is emitted as a plain z.object (defaults substituted for
+	// type-param-typed fields), but the TS interface keeps the generic shape with
+	// primitive constraints (e.g. T extends number | bigint = number).
 	IsPrimitiveConstrainedGeneric bool
-	// TypeOnly is set for @create-synthesized New types. The runtime zod schema
-	// const is suppressed (the base schema already accepts the same input via its
-	// own .default()s), and the New type references the base schema directly
-	// rather than the now-absent newZ.
+	// TypeOnly is set for @create-synthesized New types. The runtime zod schema const
+	// is suppressed (the base schema already accepts the same input via its own
+	// .default()s), and the New type references the base schema directly rather than
+	// the now-absent newZ.
 	TypeOnly bool
 	// BaseIsUnion is set for a @create-synthesized New whose base is a discriminated
 	// union. Its input projection cannot be an `interface … extends z.input<…>` (a

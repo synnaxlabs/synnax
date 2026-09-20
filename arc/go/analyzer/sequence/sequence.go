@@ -61,10 +61,10 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	case sym.IsChannelReadWrite():
 		analyzeChannelReadWriteRebind(ctx, assign, sym)
 	case sym.IsValueVariable():
-		statement.AnalyzeAssignment(context.Child(ctx, assign))
+		statement.AnalyzeAssignment(ctx.Child(assign))
 		if expr := assign.Expression(); expr != nil &&
 			statement.CastConstValue(expr, sym.Type) == nil {
-			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
+			flow.AnalyzeSingleExpression(ctx.Child(expr))
 		}
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
@@ -140,10 +140,10 @@ func channelRebindTarget[T antlr.ParserRuleContext](
 func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			collectSequenceDecl(context.Child(ctx, seqDecl), ctx.Scope)
+			collectSequenceDecl(ctx.Child(seqDecl), ctx.Scope)
 		}
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			collectTopLevelStage(context.Child(ctx, stageDecl), ctx.Scope)
+			collectTopLevelStage(ctx.Child(stageDecl), ctx.Scope)
 		}
 	}
 	desugarInlineDecls(ctx)
@@ -230,17 +230,17 @@ func registerInlineBody(
 		if body := d.StageBody(); body != nil {
 			for _, item := range body.AllStageItem() {
 				if nested := item.SequenceDeclaration(); nested != nil {
-					collectSequenceDecl(context.Child(ctx, nested), synth)
+					collectSequenceDecl(ctx.Child(nested), synth)
 				}
 			}
 		}
 	case parser.ISequenceDeclarationContext:
 		for _, item := range d.AllSequenceItem() {
 			if stage := item.StageDeclaration(); stage != nil {
-				collectStageDecl(context.Child(ctx, stage), synth)
+				collectStageDecl(ctx.Child(stage), synth)
 			}
 			if nested := item.SequenceDeclaration(); nested != nil {
-				collectSequenceDecl(context.Child(ctx, nested), synth)
+				collectSequenceDecl(ctx.Child(nested), synth)
 			}
 		}
 	}
@@ -256,9 +256,9 @@ func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
 			if strings.HasPrefix(child.Name, ir.InlinePrefix) {
 				switch decl := child.AST.(type) {
 				case parser.IStageDeclarationContext:
-					AnalyzeTopLevelStage(context.Child(ctx, decl).WithScope(parent))
+					AnalyzeTopLevelStage(ctx.Child(decl).WithScope(parent))
 				case parser.ISequenceDeclarationContext:
-					Analyze(context.Child(ctx, decl).WithScope(parent))
+					Analyze(ctx.Child(decl).WithScope(parent))
 				}
 			}
 			walk(child)
@@ -293,10 +293,10 @@ func collectSequenceDecl(
 	}
 	for _, item := range ctx.AST.AllSequenceItem() {
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			collectStageDecl(context.Child(ctx, stageDecl), seqScope)
+			collectStageDecl(ctx.Child(stageDecl), seqScope)
 		}
 		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			collectSequenceDecl(context.Child(ctx, nestedSeq), seqScope)
+			collectSequenceDecl(ctx.Child(nestedSeq), seqScope)
 		}
 	}
 }
@@ -330,7 +330,7 @@ func collectStageDecl(
 	}
 	for _, item := range stageBody.AllStageItem() {
 		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			collectSequenceDecl(context.Child(ctx, nestedSeq), stageScope)
+			collectSequenceDecl(ctx.Child(nestedSeq), stageScope)
 		}
 	}
 }
@@ -350,19 +350,19 @@ func analyzeScopeBodyItem[T antlr.ParserRuleContext](
 	item scopeBodyItem,
 ) {
 	if varDecl := item.VariableDeclaration(); varDecl != nil {
-		statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl))
+		statement.AnalyzeVariableDeclaration(ctx.Child(varDecl))
 	}
 	if assign := item.Assignment(); assign != nil {
 		analyzeReactiveAssignment(ctx, assign)
 	}
 	if flowStmt := item.FlowStatement(); flowStmt != nil {
-		flow.Analyze(context.Child(ctx, flowStmt))
+		flow.Analyze(ctx.Child(flowStmt))
 	}
 	if single := item.SingleInvocation(); single != nil {
-		analyzeSingleInvocation(context.Child(ctx, single))
+		analyzeSingleInvocation(ctx.Child(single))
 	}
 	if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-		Analyze(context.Child(ctx, nestedSeq))
+		Analyze(ctx.Child(nestedSeq))
 	}
 }
 
@@ -376,7 +376,7 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	ctx = ctx.WithScope(seqScope)
 	for _, item := range ctx.AST.AllSequenceItem() {
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
-			analyzeStage(context.Child(ctx, stageDecl))
+			analyzeStage(ctx.Child(stageDecl))
 			continue
 		}
 		analyzeScopeBodyItem(ctx, item)
@@ -414,7 +414,7 @@ func collectTopLevelStage(
 	}
 	for _, item := range stageBody.AllStageItem() {
 		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
-			collectSequenceDecl(context.Child(ctx, nestedSeq), stageScope)
+			collectSequenceDecl(ctx.Child(nestedSeq), stageScope)
 		}
 	}
 }
@@ -440,10 +440,10 @@ func analyzeStage(ctx context.Context[parser.IStageDeclarationContext]) {
 
 func analyzeSingleInvocation(ctx context.Context[parser.ISingleInvocationContext]) {
 	if fn := ctx.AST.Function(); fn != nil {
-		flow.AnalyzeSingleFunction(context.Child(ctx, fn))
+		flow.AnalyzeSingleFunction(ctx.Child(fn))
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		flow.AnalyzeSingleExpression(context.Child(ctx, expr))
+		flow.AnalyzeSingleExpression(ctx.Child(expr))
 	}
 }

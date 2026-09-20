@@ -29,54 +29,54 @@ const agitator = createToggle({
 });
 const crossBeamAgitator = createToggle({
   variant: "crossBeamAgitator",
-  name: "Cross Beam Agitator",
+  name: "Cross beam agitator",
   Primitive: CrossBeamAgitator,
 });
 const flatBladeAgitator = createToggle({
   variant: "flatBladeAgitator",
-  name: "Flat Blade Agitator",
+  name: "Flat blade agitator",
   Primitive: FlatBladeAgitator,
 });
 const heatExchangerGeneral = createStatic({
   variant: "heatExchangerGeneral",
-  name: "Heat Exchanger",
-  label: "General Heat Exchanger",
+  name: "Heat exchanger",
+  label: "General heat exchanger",
   Primitive: HeatExchangerGeneral,
 });
 const heatExchangerM = createStatic({
   variant: "heatExchangerM",
-  name: "M-Type Heat Exchanger",
-  label: "M Heat Exchanger",
+  name: "M-type heat exchanger",
+  label: "M heat exchanger",
   Primitive: HeatExchangerM,
 });
 const heatExchangerStraightTube = createStatic({
   variant: "heatExchangerStraightTube",
-  name: "Straight Tube Heat Exchanger",
+  name: "Straight tube heat exchanger",
   Primitive: HeatExchangerStraightTube,
 });
 const helicalAgitator = createToggle({
   variant: "helicalAgitator",
-  name: "Helical Agitator",
+  name: "Helical agitator",
   Primitive: HelicalAgitator,
 });
 const paddleAgitator = createToggle({
   variant: "paddleAgitator",
-  name: "Paddle Agitator",
+  name: "Paddle agitator",
   Primitive: PaddleAgitator,
 });
 const propellerAgitator = createToggle({
   variant: "propellerAgitator",
-  name: "Propeller Agitator",
+  name: "Propeller agitator",
   Primitive: PropellerAgitator,
 });
 const rotaryMixer = createToggle({
   variant: "rotaryMixer",
-  name: "Rotary Mixer",
+  name: "Rotary mixer",
   Primitive: RotaryMixer,
 });
 const staticMixer = createStatic({
   variant: "staticMixer",
-  name: "Static Mixer",
+  name: "Static mixer",
   Primitive: StaticMixer,
 });
 

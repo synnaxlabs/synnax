@@ -12,9 +12,11 @@ import "@/schematic/node/general/stringDisplay/stringDisplay.css";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
+import { HEIGHTS } from "@/component/size";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
+import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
@@ -40,10 +42,11 @@ export const StringDisplay = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
       width: inlineSize,
+      height: HEIGHTS[LEVEL_SIZES[level]],
     }),
-    [colorVal, inlineSize],
+    [colorVal, inlineSize, level],
   );
   const theme = Theming.use();
   const resolvedTextColor = stale
@@ -51,7 +54,7 @@ export const StringDisplay = ({
     : textColor;
   return (
     <Primitive.Div
-      className={CSS(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("string-display"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <div className={CSS.BE("string-display", "content")}>

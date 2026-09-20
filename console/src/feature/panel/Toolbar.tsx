@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, type Flux, Icon, Panel } from "@synnaxlabs/pluto";
+import { Errors, Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { isNotFound } from "@/feature/panel/Mosaic";
@@ -22,7 +22,7 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({
-  message = "No component selected.",
+  message = "No component selected",
 }: EmptyContentProps): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
@@ -39,13 +39,13 @@ const EmptyContent = ({
 // resource empties it too. Show a quiet placeholder; the tombstone with Close
 // and Restore lives in the mosaic.
 const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
-  <EmptyContent message={`${name ?? "This resource"} was deleted.`} />
+  <EmptyContent message={`${name ?? "This resource"} was deleted`} />
 );
 
 // Deletion is handled by the ResourceGuard, so only the not-found race lands here.
 const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
   if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
-  return <EmptyContent message="This resource could not be found." />;
+  return <EmptyContent message="Resource not found" />;
 };
 
 // Header for a focused component without its own toolbar: the tab's Name (icon +
@@ -59,7 +59,7 @@ const NoToolbarContent = (): ReactElement => {
           <Name allowRename={false} />
         </Toolbar.Title>
       </Toolbar.Header>
-      <Empty.Action x message="This component has no configurable properties." />
+      <Empty.Action x message="No properties to configure" />
     </Toolbar.Content>
   );
 };
@@ -93,18 +93,25 @@ const ToolbarIcon = (props: Icon.IconProps): ReactElement => {
   const tabKey = Session.Panel.useSelectFocusedTab(panelKey);
   if (panelKey == null || tabKey == null) return <Icon.Component {...props} />;
   return (
-    <Panel.Scope.Provider value={panelKey}>
-      <Panel.TabScope.Provider value={tabKey}>
-        <Errors.SuspenseBoundary
-          key={`${panelKey}:${tabKey}`}
-          loading={<Icon.Component {...props} />}
-          FallbackComponent={IconFallback}
-        >
+    <Errors.SuspenseBoundary
+      key={`${panelKey}:${tabKey}`}
+      loading={<Icon.Component {...props} />}
+      FallbackComponent={IconFallback}
+    >
+      <Panel.Suspended panelKey={panelKey}>
+        <Panel.TabScope.Provider value={tabKey}>
           <FocusedTabIcon {...props} />
-        </Errors.SuspenseBoundary>
-      </Panel.TabScope.Provider>
-    </Panel.Scope.Provider>
+        </Panel.TabScope.Provider>
+      </Panel.Suspended>
+    </Errors.SuspenseBoundary>
   );
+};
+
+// The mosaic shows the tombstone for a missing panel, so the toolbar goes quiet.
+const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!isNotFound(props.error) && !Flux.DeletedError.matches(props.error))
+    return <Errors.Fallback {...props} />;
+  return <EmptyContent />;
 };
 
 const Wrapper = () => {
@@ -112,12 +119,19 @@ const Wrapper = () => {
   const tabKey = Session.Panel.useSelectFocusedTab(panelKey);
   if (panelKey == null || tabKey == null) return <EmptyContent />;
   return (
-    <Panel.Scope.Provider value={panelKey}>
-      <Panel.TabScope.Provider value={tabKey}>
-        {/* Keyed so a latched error boundary never survives a tab switch. */}
-        <Content key={`${panelKey}:${tabKey}`} />
-      </Panel.TabScope.Provider>
-    </Panel.Scope.Provider>
+    // Keyed so a latched error boundary never survives a tab switch. Suspended
+    // retrieves the panel itself: the toolbar renders outside the mosaic, so it
+    // cannot rely on the mosaic having cached the panel first.
+    <Errors.SuspenseBoundary
+      key={`${panelKey}:${tabKey}`}
+      FallbackComponent={PanelFallback}
+    >
+      <Panel.Suspended panelKey={panelKey}>
+        <Panel.TabScope.Provider value={tabKey}>
+          <Content />
+        </Panel.TabScope.Provider>
+      </Panel.Suspended>
+    </Errors.SuspenseBoundary>
   );
 };
 

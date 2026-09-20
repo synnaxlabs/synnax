@@ -18,11 +18,11 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (l LinePlot) EncodeOrc(w *orc.Writer) error {
-	w.Write(l.Key[:])
-	w.String(l.Name)
+func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
+	w.Write(lp.Key[:])
+	w.String(lp.Name)
 	{
-		b, err := json.Marshal(l.Data)
+		b, err := json.Marshal(lp.Data)
 		if err != nil {
 			return err
 		}
@@ -32,12 +32,12 @@ func (l LinePlot) EncodeOrc(w *orc.Writer) error {
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (l *LinePlot) DecodeOrc(r *orc.Reader) error {
+func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(l.Key[:]); err != nil {
+	if _, err := r.Read(lp.Key[:]); err != nil {
 		return err
 	}
-	if l.Name, err = r.String(); err != nil {
+	if lp.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -45,7 +45,7 @@ func (l *LinePlot) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &l.Data); err != nil {
+		if err = json.Unmarshal(b, &lp.Data); err != nil {
 			return err
 		}
 	}

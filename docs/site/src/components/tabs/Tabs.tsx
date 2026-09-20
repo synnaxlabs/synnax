@@ -8,7 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
-import { type ReactElement, useEffect, useState } from "react";
+import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement, useEffect, useRef, useState } from "react";
+
+// Astro's React SSR camelCases dashed slot names; hydration passes them raw.
+const slotName = (key: string): string =>
+  key.replace(/[-_]([a-z])/g, (_, c: string) => c.toUpperCase());
+
+// Islands and media in the panels above keep landing for about this long.
+const SETTLE_MS = 1000;
+const READER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"];
 
 export interface TabEntry {
   tabKey: string;
@@ -23,8 +32,37 @@ export interface TabsProps extends Record<string, ReactElement | any> {
 
 export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => {
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const settling = useRef<AbortController>(null);
+
+  // Synced blocks above this one resize after a select, so scroll their drift away.
+  const compensateScroll = () => {
+    const el = frameRef.current;
+    if (el == null) return;
+    settling.current?.abort();
+    const controller = new AbortController();
+    settling.current = controller;
+    const { signal } = controller;
+    const top = el.getBoundingClientRect().top;
+    const observer = new ResizeObserver(() => {
+      const delta = el.getBoundingClientRect().top - top;
+      if (delta !== 0) window.scrollBy(0, delta);
+    });
+    observer.observe(document.body);
+    const stop = () => controller.abort();
+    for (const event of READER_SCROLL_EVENTS)
+      window.addEventListener(event, stop, { signal });
+    const timer = setTimeout(stop, SETTLE_MS);
+    signal.addEventListener("abort", () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    });
+  };
+
+  useEffect(() => () => settling.current?.abort(), []);
 
   const handleSelect = (tabKey: string) => {
+    compensateScroll();
     setSelected(tabKey);
     if (queryParamKey == null) return;
     const url = new URL(window.location.href);
@@ -35,9 +73,11 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
 
   useEffect(() => {
     if (queryParamKey == null) return;
+    // A block without a tab for the key keeps the tab it already shows.
     const updateFromURL = () => {
       const url = new URL(window.location.href);
-      setSelected(url.searchParams.get(queryParamKey) ?? tabs[0].tabKey);
+      const key = url.searchParams.get(queryParamKey) ?? tabs[0].tabKey;
+      if (tabs.some((tab) => tab.tabKey === key)) setSelected(key);
     };
     updateFromURL();
     window.addEventListener("popstate", updateFromURL);
@@ -49,18 +89,18 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
   }, [queryParamKey]);
 
   return (
-    <Base.Frame value={selected} onChange={handleSelect}>
+    <Base.Frame ref={frameRef} value={selected} onChange={handleSelect}>
       <Base.Selector>
         {tabs.map(({ tabKey, name, icon }) => (
           <Base.Tab key={tabKey} itemKey={tabKey}>
             {icon ?? rest[`${tabKey}-icon`]}
-            {name}
+            <Text.Text>{name}</Text.Text>
           </Base.Tab>
         ))}
       </Base.Selector>
       {tabs.map(({ tabKey }) => (
         <Base.Content key={tabKey} itemKey={tabKey}>
-          {rest[tabKey]}
+          {rest[tabKey] ?? rest[slotName(tabKey)]}
         </Base.Content>
       ))}
     </Base.Frame>

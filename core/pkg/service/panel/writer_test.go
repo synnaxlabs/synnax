@@ -74,13 +74,19 @@ var _ = Describe("Writer", func() {
 				resource := tabResource(uuid.New())
 				duplicated := func() panel.Tab {
 					return panel.Tab{Variant: panel.ResourceTab{
-						TabBase:  panel.TabBase{Key: uuid.New()},
+						Key:      uuid.New(),
 						Resource: resource,
 					}}
 				}
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(duplicated()), leafNode(duplicated()))
 			}, "duplicate resource in panel tree"),
+			Entry("resource tab type outside the registry", func() panel.Node {
+				return leafNode(panel.Tab{Variant: panel.ResourceTab{
+					Key:      uuid.New(),
+					Resource: ontology.ID{Type: "user", Key: uuid.New().String()},
+				}})
+			}, "resource tab cannot display a user"),
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
@@ -246,13 +252,13 @@ var _ = Describe("Writer", func() {
 	Describe("Dispatch", func() {
 		create := func(ctx context.Context, root panel.Node) panel.Key {
 			p := panel.Panel{Name: "test", Root: root, Parent: &parentID}
-			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 			return p.Key
 		}
 
 		It("Should apply a Rename action and persist it", func(ctx SpecContext) {
 			key := create(ctx, leafNode())
-			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
+			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 			})).To(Succeed())
 			Expect(retrieve(ctx, key).Name).To(Equal("renamed"))
@@ -263,7 +269,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				tabKey := uuid.New()
 				key := create(ctx, leafNode())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewInsertTabsAction(
 						panel.InsertTabsPayload{
 							Tabs:       []panel.Tab{tab(tabKey)},
@@ -280,7 +286,7 @@ var _ = Describe("Writer", func() {
 		It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
 			tabKey := uuid.New()
 			key := create(ctx, leafNode())
-			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
+			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "batched"}),
 				panel.NewInsertTabsAction(
 					panel.InsertTabsPayload{
@@ -298,7 +304,7 @@ var _ = Describe("Writer", func() {
 			"Should apply no action when one in the batch is rejected",
 			func(ctx SpecContext) {
 				key := create(ctx, leafNode())
-				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
 					panel.NewMoveTabAction(
 						panel.MoveTabPayload{
@@ -316,7 +322,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				tabKey := uuid.New()
 				key := create(ctx, leafNode(viewTab(tabKey, "selector")))
-				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewInsertTabsAction(
 						panel.InsertTabsPayload{
 							Tabs:       []panel.Tab{tab(tabKey)},
@@ -327,7 +333,7 @@ var _ = Describe("Writer", func() {
 				tabs := MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs
 				Expect(tabs).To(HaveLen(1))
 				Expect(tabs[0].Variant).To(Equal(panel.ResourceTab{
-					TabBase:  panel.TabBase{Key: tabKey},
+					Key:      tabKey,
 					Resource: tabResource(tabKey),
 				}))
 			},
@@ -340,7 +346,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(
-					svc.NewWriter(tx).Dispatch(ctx, key, "client-xyz", []panel.Action{
+					svc.Dispatch(ctx, key, "client-xyz", []panel.Action{
 						panel.NewRenameAction(panel.RenamePayload{Name: "broadcast"}),
 					}),
 				).To(Succeed())
@@ -360,7 +366,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				for _, name := range []string{"a", "b", "c"} {
-					Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d", []panel.Action{
+					Expect(svc.Dispatch(ctx, key, "d", []panel.Action{
 						panel.NewRenameAction(panel.RenamePayload{Name: name}),
 					})).To(Succeed())
 				}
@@ -377,7 +383,7 @@ var _ = Describe("Writer", func() {
 				key := create(ctx, leafNode())
 				rec := &Recorder[panel.Key, panel.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
-				Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
+				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
 					panel.NewMoveTabAction(
 						panel.MoveTabPayload{
 							Key:        uuid.New(),

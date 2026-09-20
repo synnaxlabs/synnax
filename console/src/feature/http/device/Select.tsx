@@ -24,8 +24,8 @@ const EmptyContent = () => {
   }, [connect, close]);
   return (
     <Empty.Action
-      message="No HTTP servers connected."
-      action="Connect a new server"
+      message="No HTTP servers connected"
+      action="Connect server"
       onClick={handleClick}
     />
   );

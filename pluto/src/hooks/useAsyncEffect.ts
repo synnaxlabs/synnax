@@ -10,19 +10,22 @@
 import { type destructor, scheduler } from "@synnaxlabs/x";
 import { type DependencyList, useEffect } from "react";
 
+/**
+ * The body of a {@link useAsyncEffect}. The signal aborts when the effect re-runs or
+ * the component unmounts; check it after every await before touching state. Return a
+ * destructor, sync or async, to tear down what the effect set up.
+ */
 export type AsyncEffectCallback = (
   signal: AbortSignal,
 ) => Promise<void | destructor.Destructor | destructor.Async>;
 
 /**
- * A React hook that runs an asynchronous effect with proper cleanup handling.
- *
- * This hook is similar to React's `useEffect` but designed for async operations.
- * It provides an AbortSignal for cancellation and handles both synchronous and
- * asynchronous cleanup functions.
- *
- * @param effect - The async effect function to run. Receives an AbortSignal for cancellation.
- * @param deps - Optional dependency array. The effect will re-run when dependencies change.
+ * A React hook that runs an asynchronous effect with proper cleanup handling. This hook
+ * is similar to React's `useEffect` but designed for async operations. It provides an
+ * AbortSignal for cancellation and handles both synchronous and asynchronous cleanup
+ * functions.
+ * @param deps - Optional dependency array. The effect will re-run when dependencies
+ * change.
  *
  * @example
  * ```ts
@@ -38,7 +41,6 @@ export type AsyncEffectCallback = (
  *   };
  * }, []);
  * ```
- *
  * @example
  * ```ts
  * useAsyncEffect(async (signal) => {

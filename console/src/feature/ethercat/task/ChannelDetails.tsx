@@ -42,11 +42,11 @@ const ManualChannelFields: FC<{ path: string }> = ({ path }) => (
     <Flex.Box x gap="small">
       <PForm.NumericField
         path={`${path}.bitLength`}
-        label="Bit Length"
+        label="Bit length"
         inputProps={INPUT_PROPS}
         grow
       />
-      <PForm.Field<string> path={`${path}.dataType`} label="Data Type" grow>
+      <PForm.Field<string> path={`${path}.dataType`} label="Data type" grow>
         {renderSelectDataType}
       </PForm.Field>
     </Flex.Box>

@@ -15,8 +15,8 @@ import { type ReadChannelType } from "@/feature/labjack/task/types";
 export interface ReadChannelTypeEntry extends record.KeyedNamed<ReadChannelType> {}
 
 const READ_CHANNEL_TYPES: ReadChannelTypeEntry[] = [
-  { key: "analog", name: "Analog Input" },
-  { key: "digital", name: "Digital Input" },
+  { key: "analog", name: "Analog input" },
+  { key: "digital", name: "Digital input" },
   { key: "thermocouple", name: "Thermocouple" },
 ];
 
@@ -30,7 +30,7 @@ export const SelectReadChannelTypeField = Form.buildSelectField<
   ReadChannelTypeEntry
 >({
   fieldKey: "type",
-  fieldProps: { label: "Channel Type" },
+  fieldProps: { label: "Channel type" },
   inputProps: {
     allowNone: false,
     resourceName: "channel type",

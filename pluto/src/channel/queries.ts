@@ -234,10 +234,12 @@ export interface UpdateAliasParams extends optional.Optional<
 export const { useUpdate: useUpdateAlias } = Flux.createUpdate<UpdateAliasParams>({
   name: ALIAS_RESOURCE_NAME,
   verbs: verbs.UPDATE,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { range, channel, alias } = data;
     if (range == null || channel == null) return false;
-    await client.ranges.setAlias(range, channel, alias);
+    await client.ranges.setAlias(range, channel, alias, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -263,10 +265,12 @@ export interface DeleteAliasParams {
 export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams>({
   name: ALIAS_RESOURCE_NAME,
   verbs: verbs.DELETE,
-  update: async ({ client, data }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { range, channels } = data;
     if (range == null || channels == null) return false;
-    await client.ranges.deleteAlias(range, array.toArray(channels));
+    await client.ranges.deleteAlias(range, array.toArray(channels), {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -274,6 +278,6 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 type RetrieveGroupQuery = Record<string, never>;
 
 export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
-  name: "Channel Group",
+  name: "channel group",
   retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

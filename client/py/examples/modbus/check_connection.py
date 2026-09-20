@@ -39,7 +39,7 @@ print()
 print("Checking for tasks...")
 try:
     # Retrieve task by name
-    task = client.tasks.retrieve(name="Modbus Python Example - Read Task")
+    task = client.tasks.retrieve(name="Modbus Py - Read Task", include_status=True)
     print(f"  ✓ Found task: {task.name}")
     print(f"    - Key: {task.key}")
     print(f"    - Type: {task.type}")
@@ -56,11 +56,13 @@ print()
 print("Checking for channels...")
 expected_channels = [
     "modbus_time",
-    "holding_register_0",
-    "holding_register_1",
     "input_register_0",
-    "coil_0",
-    "discrete_input_0",
+    "input_register_1",
+    "modbus_cmd_time",
+    "coil_cmd_0",
+    "coil_cmd_1",
+    "holding_reg_cmd_0",
+    "holding_reg_cmd_1",
 ]
 
 for ch_name in expected_channels:

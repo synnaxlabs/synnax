@@ -12,7 +12,6 @@ import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
@@ -72,7 +71,7 @@ const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
 }) => {
   const cfg = digitalReadConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "NI Digital Read Task", type: DIGITAL_READ_TYPE, config: cfg };
+  return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
@@ -84,7 +83,6 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
     schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
-  dev.properties = enrich(dev.model, dev.properties);
   let modified = false;
   let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
   if (!shouldCreateIndex)
@@ -109,7 +107,6 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
     const toCreate: DIChannel[] = [];
     for (const channel of config.channels) {
       const key = getDigitalChannelDeviceKey(channel);
-      // check if the channel is in properties
       const exKey = dev.properties.digitalInput.channels[key];
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else
@@ -162,7 +159,7 @@ export const useCreateDigitalRead = Task.createUseCreate({
 
 export const DigitalReadSelectable = Selector.createSelectable({
   type: DIGITAL_READ_TYPE,
-  title: "NI Digital Read Task",
+  title: "NI digital read task",
   icon: <Icon.Logo.NI />,
   useOnSelect: useCreateDigitalRead,
 });

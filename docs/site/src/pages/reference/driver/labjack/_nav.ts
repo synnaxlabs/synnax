@@ -14,11 +14,6 @@ export const LABJACK_NAV: PageNavNode = {
   name: "LabJack",
   children: [
     {
-      key: "/reference/driver/labjack/get-started",
-      href: "/reference/driver/labjack/get-started",
-      name: "Get Started",
-    },
-    {
       key: "/reference/driver/labjack/configure-device",
       href: "/reference/driver/labjack/configure-device",
       name: "Configure a Device",

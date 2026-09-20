@@ -9,13 +9,31 @@
  * included in the file licenses/APL.txt.
  */
 
-/* One fixed height, so cluster and project surfaces match. The doubled class beats
-   the bordered and background variants. */
+/* One fixed height, so Core and project surfaces match. The doubled class beats the
+   bordered and background variants. */
 .console-shell__list.console-shell__list {
     width: 100%;
     height: 100%;
     border: none;
     background: transparent;
+}
+
+/* Shrink guard: a long list would otherwise compress the header. */
+.console-shell__list .pluto-header {
+    padding: 2.5rem 3rem;
+    flex-shrink: 0;
+}
+
+.console-shell__list .console-shell__items {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 1.5rem;
+}
+
+.console-shell__list .pluto-list__item {
+    min-height: 9rem;
+    padding: 2rem 3rem;
+    border-radius: var(--pluto-border-radius-medium);
 }
 
 /* The one frosted-glass recipe; shape stays with each surface that wears it. */
@@ -42,6 +60,11 @@
     min-height: 6rem;
     padding: 0 2rem;
     border-radius: var(--pluto-border-radius-medium);
+
+    &.pluto--square {
+        width: 6rem;
+        padding: 0;
+    }
 }
 
 .console-shell__island:empty {
@@ -50,7 +73,6 @@
 
 .console-shell__connection {
     padding: 0 3.5rem;
-
     flex-wrap: wrap;
     justify-content: center;
 
@@ -92,5 +114,6 @@
    and it resolves this var. */
 .console-shell__mark {
     height: 5.5rem;
+
     --pluto-logo-color: var(--pluto-gray-l11);
 }

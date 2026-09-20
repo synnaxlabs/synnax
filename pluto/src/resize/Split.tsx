@@ -49,6 +49,11 @@ export interface SplitProps extends Omit<
    * callback to persist the new ratio to the source of truth.
    */
   onResizeEnd?: (size: number) => void;
+  /**
+   * Removes the drag handle, so the ratio can only change through `size`. Use where the
+   * viewer may not persist a new ratio; the divider between the panes stays.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -63,9 +68,8 @@ const HALF_SPLIT = 0.5;
 
 /**
  * A pair of panes that can be resized relative to one another by dragging the handle
- * between them. Both panes are sized as percentages of the container, so the split ratio
- * is preserved as the container resizes.
- *
+ * between them. Both panes are sized as percentages of the container, so the split
+ * ratio is preserved as the container resizes.
  * @param props - The component props. Unlisted props are forwarded to the underlying
  * {@link Flex.Box}. Exactly two children should be provided; the first is placed on the
  * left/top and the second on the right/bottom.
@@ -82,6 +86,7 @@ export const Split = ({
   x,
   y,
   pack,
+  disabled = false,
   ...rest
 }: SplitProps): ReactElement => {
   const dir = Flex.parseDirection(propsDirection, x, y, pack) ?? "x";
@@ -133,6 +138,7 @@ export const Split = ({
     onStart: handleStart,
     onMove: handleMove,
     onEnd: handleEnd,
+    preventDefault: true,
   });
 
   const offset = math.closeTo(rendered, HALF_SPLIT, DELTA) ? DELTA : 0;
@@ -142,7 +148,7 @@ export const Split = ({
       ref={ref}
       direction={dir}
       align={align}
-      className={CSS(CSS.B("resize-split"), className)}
+      className={CSS.cls(CSS.B("resize-split"), className)}
       empty
       grow
     >
@@ -150,6 +156,7 @@ export const Split = ({
         location={loc}
         size={rendered + offset}
         decimal
+        disabled={disabled}
         onPointerDown={handleDragStart}
       >
         {first}

@@ -21,9 +21,8 @@ import { type WindowState } from "@/window";
 
 /**
  * Selects the window with the given key.
- *
- * @param key - The key of the window to select.
- * If not provided, the current window is selected.
+ * @param key - The key of the window to select. If not provided, the current window is
+ * selected.
  * @returns The window.
  */
 export const useSelectWindow = (key?: string): WindowState | null =>

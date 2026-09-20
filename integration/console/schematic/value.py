@@ -82,11 +82,11 @@ class Value(Symbol):
             self.set_label(channel_name)
 
         # Navigate to Properties > Telemetry tab
-        self.page.get_by_text("Properties").click()
+        self.open_properties_tab()
         self.page.get_by_text("Telemetry").click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Input channel", channel_name=channel_name)
+            self.set_channel(input_field="Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if notation is not None:
@@ -139,7 +139,7 @@ class Value(Symbol):
 
         # Channel Name
         channel_display = (
-            self.page.locator("text=Input channel").locator("..").locator("button")
+            self.page.locator('text="Channel"').locator("..").locator("button")
         )
         if channel_display.count() > 0:
             props["channel"] = channel_display.inner_text().strip()

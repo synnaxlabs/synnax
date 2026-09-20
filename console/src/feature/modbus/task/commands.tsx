@@ -15,14 +15,14 @@ import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "modbus_create_read_task",
-  name: "Create a Modbus Read Task",
+  name: "Create Modbus read task",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "modbus_create_write_task",
-  name: "Create a Modbus Write Task",
+  name: "Create Modbus write task",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateWrite,
 });

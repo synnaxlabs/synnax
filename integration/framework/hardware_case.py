@@ -65,4 +65,11 @@ class HardwareCase(TestCase):
                     self.client.devices.delete(self._test_device_keys)
             with self._try_to("delete test racks"):
                 if self._test_rack_keys:
+                    # The Core refuses to delete a rack while user tasks are
+                    # attached, and the Console persists a created task onto its
+                    # rack immediately, so delete those tasks first.
+                    for rack_key in self._test_rack_keys:
+                        tasks = self.client.tasks.list(rack=rack_key)
+                        if tasks:
+                            self.client.tasks.delete([t.key for t in tasks])
                     self.client.racks.delete(self._test_rack_keys)

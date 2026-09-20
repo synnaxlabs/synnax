@@ -75,10 +75,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
 	framerSvc = MustOpen(svcframer.OpenService(ctx, svcframer.ServiceConfig{
-		Framer:       node.Framer,
-		Channel:      channelSvc,
-		Status:       statusSvc,
-		HostProvider: node.Cluster,
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
 	}))
 	apiChannelSvc = MustSucceed(channel.NewService(config.LayerConfig{
 		Distribution: &distribution.Layer{DB: node.DB},

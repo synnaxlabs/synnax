@@ -36,7 +36,7 @@ func createIndexed(
 	GinkgoHelper()
 	index := svcchannel.Channel{
 		Name:     UniqueChannelName(),
-		DataType: telem.TimeStampT,
+		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
 	Expect(channelWriter.Create(ctx, &index)).To(Succeed())
@@ -67,7 +67,7 @@ func write(
 	)
 	series = append([]telem.Series{timestamps}, series...)
 	w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
-		Start: telem.ValueAt[telem.TimeStamp](timestamps, 0),
+		Start: timestamps.ValueAt[telem.TimeStamp](0),
 		Keys:  keys,
 	}))
 	Expect(w.Write(frame.NewMulti(keys, series))).To(BeTrue())

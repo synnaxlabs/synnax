@@ -75,7 +75,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
         }
     }
 
-    .pluto-header {
+    .pluto-datetime-modal-header {
         padding-left: 1rem;
     }
 
@@ -144,15 +144,6 @@ input[type="date"]::-moz-calendar-picker-indicator {
 
         ::-webkit-scrollbar {
             width: 0.5rem;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--pluto-gray-l6);
-            border-radius: var(--pluto-border-radius);
         }
 
         .pluto-input {

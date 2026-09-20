@@ -98,6 +98,8 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   );
 });
 
+const BROWSE_TIMEOUT = TimeSpan.seconds(10);
+
 const browseNodes = async (
   client: Client,
   rack: rack.Key,
@@ -107,7 +109,7 @@ const browseNodes = async (
   const scanTask = await retrieveScanTask(client, rack);
   const { details, variant, message } = await scanTask.executeCommandSync({
     type: BROWSE_COMMAND_TYPE,
-    timeout: TimeSpan.seconds(10),
+    timeout: BROWSE_TIMEOUT,
     args: { connection, node_id: id },
   });
   if (variant !== "success") throw new Error(message);

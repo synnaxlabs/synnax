@@ -30,7 +30,9 @@ export interface MultipleProps<
       "disabled" | "icon" | "haulType" | "createHaulItem"
     >,
     Pick<List.ItemsProps<K>, "children"> {
+  /** Singular name of the thing being selected. It is pluralized for the placeholder. */
   resourceName: string;
+  /** Renders one tag in the trigger. Defaults to the entry name. */
   renderTag?: MultipleTriggerProps<K, E>["children"];
   triggerProps?: MultipleTriggerProps<K, E>;
   dialogProps?: BaseDialog.FrameProps;
@@ -38,6 +40,10 @@ export interface MultipleProps<
   preview?: boolean;
 }
 
+/**
+ * A dropdown that selects any number of entries, showing each as a removable tag in the
+ * trigger. Shift extends a range and control toggles one entry.
+ */
 export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undefined>({
   resourceName,
   value,

@@ -25,8 +25,8 @@ export interface CreateTestDeviceOptions extends Partial<
 > {}
 
 /**
- * Creates a rack and a device on the live cluster and returns the created device.
- * Names are generated cluster-safe unless overridden.
+ * Creates a rack and a device on the live Core and returns the created device. Names
+ * are generated Core-safe unless overridden.
  */
 export const createTestDevice = async (
   client: Synnax,
@@ -63,7 +63,7 @@ export const createDeviceResource = (
   });
 
 export interface RenderMenuItemOptions {
-  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  /** Client backing the console wrapper; null (default) for Core-free specs. */
   client?: Synnax | null;
 }
 
@@ -163,15 +163,13 @@ export const renderWithDeviceForm = async (
 };
 
 /**
- * Shared test suite that verifies a device propertiesZ schema is tolerant of
- * missing / incomplete data — the core requirement for backward-compatible
- * device retrieval.
- *
+ * Shared test suite that verifies a device propertiesZ schema is tolerant of missing /
+ * incomplete data — the core requirement for backward-compatible device retrieval.
  * @param name - human-readable integration name shown in test output.
  * @param schema - the Zod schema under test (e.g. `propertiesZ`).
  * @param zeroProperties - the ZERO_PROPERTIES constant for the integration.
- * @param partialCases - optional extra cases: each entry is `[label, input]`
- *   where `input` is a partial properties object that the schema must accept.
+ * @param partialCases - optional extra cases: each entry is `[label, input]` where
+ * `input` is a partial properties object that the schema must accept.
  */
 interface TestPropertiesSchemaOptions {
   /** Set to false to skip the empty `{}` parse test (e.g., for versioned schemas). */

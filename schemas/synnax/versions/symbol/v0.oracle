@@ -1,0 +1,30 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Key = uuid {
+    @doc value "is a unique identifier for a schematic symbol."
+}
+
+Symbol struct {
+    data record {
+        @doc value "holds the symbol specification as raw decoded JSON."
+    }
+    name string {
+        @doc value "is the human-readable symbol name."
+    }
+    key  Key    {
+        @doc value "is the symbol's unique identifier."
+        @key
+    }
+
+    @doc value """
+        is the untyped storage shape of a schematic symbol, in which the specification
+        is persisted as raw JSON.
+    """
+}

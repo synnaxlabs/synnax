@@ -22,6 +22,7 @@ import {
   ZERO_STATE,
 } from "@/session/log/slice";
 import { Select } from "@/session/select";
+import { Window } from "@/session/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -50,7 +51,7 @@ const createGetter =
   };
 
 const selectState = ({ state, key }: KeyedSelectorParams): State =>
-  selectSliceState(state).logs[key] ?? ZERO_STATE;
+  Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
 export const useSelectState = createSelector(selectState);
 export const useGetState = createGetter(selectState);

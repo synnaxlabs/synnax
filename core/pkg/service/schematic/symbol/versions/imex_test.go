@@ -31,7 +31,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sym.Data.SVG).To(Equal("<svg><rect/></svg>"))
 		Expect(sym.Data.Variant).To(Equal("valve"))
 		Expect(sym.Data.Scale).To(Equal(1.0))
-		Expect(sym.Data.ScaleStroke).To(BeTrue())
+		Expect(sym.Data.StrokeScaled).To(BeTrue())
 		Expect(sym.Data.States).To(HaveLen(1))
 		Expect(sym.Data.States[0].Regions[0].StrokeColor).
 			To(HaveValue(Equal(color.MustFromHex("#ff0000"))))
@@ -52,7 +52,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sym.Data.SVG).To(Equal("<svg><circle/></svg>"))
 		Expect(sym.Data.Variant).To(Equal("sensor"))
 		Expect(sym.Data.Scale).To(Equal(2.0))
-		Expect(sym.Data.ScaleStroke).To(BeTrue())
+		Expect(sym.Data.StrokeScaled).To(BeTrue())
 		Expect(sym.Data.States).To(Equal([]versions.State{{
 			Key:  "base",
 			Name: "Base",

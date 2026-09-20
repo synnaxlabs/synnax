@@ -78,6 +78,9 @@ class Scheduler {
         std::string key;
         /// @brief position in changed_flags / self_changed_flags.
         size_t idx = 0;
+        /// @brief marks a node with no incoming edges and no channel reads.
+        /// Entry nodes fire once per activation.
+        bool entry = false;
         /// @brief propagation table indexed by output ordinal.
         std::vector<OutputResolved> outputs;
     };
@@ -159,6 +162,10 @@ class Scheduler {
     /// to request replay on the next cycle. Cleared when the replay runs
     /// or when the owning member is deactivated.
     std::vector<uint8_t> self_changed_flags;
+    /// @brief fired_flags[i] is set when node i runs and cleared on
+    /// (re)activation. An entry node with the flag set skips the unconditional
+    /// stratum-0 dispatch.
+    std::vector<uint8_t> fired_flags;
     /// @brief marked_flags[i] is set when the (node, output) pair behind
     /// transition handle i fired truthy this cycle. Cleared at end of
     /// cycle so transitions fire on fresh marks, not stale truthiness.
@@ -207,6 +214,7 @@ public:
     void reset() {
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->self_changed_flags, 0);
+        std::ranges::fill(this->fired_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
         this->curr_node = NO_INDEX;
         for (auto &sc: this->scopes) {
@@ -287,9 +295,9 @@ private:
         }
     }
 
-    /// @brief walks a nested-scope member or runs a leaf-node member.
-    /// A leaf runs when stratum_idx==0, when changed_flags is set, or when
-    /// the node was self-changed on a prior cycle. Running consumes the flag.
+    /// @brief walks a nested-scope member or runs a leaf-node member. A leaf
+    /// runs when stratum_idx==0 (entry nodes: once per activation), on
+    /// changed_flags, or on a prior-cycle self-change. Running consumes the flag.
     void execute_member(const size_t stratum_idx, MemberState &m) {
         if (m.scope != NO_INDEX) {
             this->walk(this->scopes[m.scope]);
@@ -300,18 +308,22 @@ private:
         this->visited_flags[idx] = 1;
         const bool was_self_changed = this->self_changed_flags[idx] != 0;
         if (was_self_changed) this->self_changed_flags[idx] = 0;
-        if (stratum_idx == 0 || this->changed_flags[idx] || was_self_changed) {
+        const bool forced = stratum_idx == 0 &&
+                            (!this->nodes[idx].entry || this->fired_flags[idx] == 0);
+        if (forced || this->changed_flags[idx] || was_self_changed) {
             this->changed_flags[idx] = 0;
+            this->fired_flags[idx] = 1;
             this->curr_node = m.node;
             this->nodes[this->curr_node].node->next(this->ctx);
         }
     }
 
-    /// @brief clears self-changed and calls reset on m's node. No-op if m is
-    /// a scope member or an unresolved node-key.
+    /// @brief clears self-changed and fired and calls reset on m's node. No-op
+    /// if m is a scope member or an unresolved node-key.
     void reset_leaf_node(MemberState &m) {
         if (m.is_node() && m.node != NO_INDEX) {
             this->self_changed_flags[m.node] = 0;
+            this->fired_flags[m.node] = 0;
             this->nodes[m.node].node->reset();
         }
     }
@@ -506,6 +518,7 @@ private:
         this->s->nodes.resize(n);
         this->s->changed_flags.assign(n, 0);
         this->s->self_changed_flags.assign(n, 0);
+        this->s->fired_flags.assign(n, 0);
         this->s->visited_flags.assign(n, 0);
         this->nodes_by_key.reserve(n);
         this->output_by_param.resize(n);
@@ -515,6 +528,7 @@ private:
             auto &wrapper = this->s->nodes[idx];
             wrapper.key = ir_node.key;
             wrapper.idx = idx;
+            wrapper.entry = ir::is_entry_node(this->s->prog, ir_node);
             const auto impl_it = node_impls.find(ir_node.key);
             if (impl_it != node_impls.end()) wrapper.node = std::move(impl_it->second);
             // Pre-seed outputs in the IR's declared order. Node impls

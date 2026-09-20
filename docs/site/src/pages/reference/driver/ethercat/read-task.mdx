@@ -9,7 +9,7 @@ nextURL: "/reference/driver/ethercat/write-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/media/Media";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
 import Details from "@/components/details/Details.astro";
 import ChannelType from "@/components/details/ChannelType.astro";
@@ -18,18 +18,11 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For task lifecycle management, see the
-[Task Basics](/reference/driver/task-basics#how-to) page.
+For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
 
-<Divider.Divider x />
-
-## Prerequisites
-
-Before creating a read task, ensure you have:
-
-1. [Configured EtherCAT devices](/reference/driver/ethercat/configure-device) discovered
-   on your network.
-2. Identified the TxPDOs (input PDOs) you want to read from each device.
+Before creating a read task,
+[configure your EtherCAT devices](/reference/driver/ethercat/configure-device) and
+identify the TxPDOs (input PDOs) to read from each one.
 
 <Note.Note variant="warning" className="compact">
   All channels in a task must use devices connected to the **same network interface**.
@@ -40,21 +33,15 @@ Before creating a read task, ensure you have:
 
 ## Task Configuration Reference
 
-| Parameter     | Type    | Required | Default       | Description                                                   |
-| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
-| `name`        | string  | Yes      | -             | Human-readable task name                                      |
-| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
-| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
-| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
-| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
-| `channels`    | array   | Yes      | -             | List of input channel configurations                          |
+| Parameter     | Type   | Required | Default | Description                                                   |
+| ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
+| `sample_rate` | number | No       | `10`    | Samples per second (Hz)                                       |
+| `stream_rate` | number | No       | `5`     | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `channels`    | array  | Yes      | -       | List of input channel configurations                          |
 
 <Divider.Divider x />
 
 ## Channel Configuration Modes
-
-EtherCAT read tasks support two channel configuration modes: **Automatic** and
-**Manual**. Automatic mode is recommended for most users.
 
 ### Automatic Mode (Recommended)
 
@@ -97,15 +84,15 @@ mode when the ESI file is incomplete or when working with non-standard PDO mappi
 
 Reads data from a TxPDO using explicit CoE addressing.
 
-| Parameter   | Type   | Required | Default | Description                                          |
-| ----------- | ------ | -------- | ------- | ---------------------------------------------------- |
-| `type`      | string | Yes      | -       | Must be `"manual"`                                   |
-| `device`    | string | Yes      | -       | Device key                                           |
-| `index`     | number | Yes      | -       | CoE object index (e.g., `0x6041`)                    |
-| `subIndex`  | number | Yes      | -       | CoE object subindex (typically `0`)                  |
-| `bitLength` | number | Yes      | -       | Data width in bits (8, 16, 32, 64)                   |
-| `dataType`  | string | Yes      | -       | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
-| `channel`   | number | Yes      | -       | Synnax channel key                                   |
+| Parameter    | Type   | Required | Default  | Description                                          |
+| ------------ | ------ | -------- | -------- | ---------------------------------------------------- |
+| `type`       | string | Yes      | -        | Must be `"manual"`                                   |
+| `device`     | string | Yes      | -        | Device key                                           |
+| `index`      | number | Yes      | -        | CoE object index (e.g., `0x6041`)                    |
+| `sub_index`  | number | Yes      | -        | CoE object subindex (typically `0`)                  |
+| `bit_length` | number | No       | `16`     | Data width in bits (8, 16, 32, 64)                   |
+| `data_type`  | string | No       | `uint16` | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
+| `channel`    | number | Yes      | -        | Synnax channel key                                   |
 
 </ChannelType>
 
@@ -128,17 +115,11 @@ Reads data from a TxPDO using explicit CoE addressing.
 
 ## Important Rules
 
-- **Network constraint** -> All channels must use devices from the same network
-  interface.
-- **Sample rates** -> All channels in a task sample at the same rate. Create separate
-  tasks for different rates.
-- **One running task per channel** -> A channel can only receive live data from one task
-  at a time.
-- **Hardware timing** -> EtherCAT provides deterministic timing. The sample rate
-  determines the EtherCAT cycle time.
-- **Stream rate optimization** -> For high sample rates (> 1 kHz), set stream rate lower
-  than sample rate to reduce network overhead. For low sample rates (< 50 Hz), set
-  stream rate equal to sample rate.
+- **Network constraint** -> All channels must use devices on the same network interface.
+- **Hardware timing** -> EtherCAT timing is deterministic. The sample rate sets the
+  EtherCAT cycle time.
+- **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
+  sample rate. Above that, keep the stream rate under 50 Hz.
 
 <Divider.Divider x />
 
@@ -158,6 +139,7 @@ Reads data from a TxPDO using explicit CoE addressing.
 
 ```python
 import synnax as sy
+from synnax import ethercat
 
 client = sy.Synnax()
 
@@ -187,45 +169,34 @@ position = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Get the embedded rack
-rack = client.racks.retrieve_embedded_rack()
+# Create and configure the task in automatic mode
+task = ethercat.ReadTask(
+    name="EtherCAT Read Task",
+    sample_rate=sy.Rate.HZ * 1000,
+    stream_rate=sy.Rate.HZ * 50,
+    channels=[
+        ethercat.AutomaticReadChannel(
+            device=dev.key,
+            pdo="status_word",
+            channel=status.key,
+        ),
+        ethercat.AutomaticReadChannel(
+            device=dev.key,
+            pdo="position_actual",
+            channel=position.key,
+        ),
+    ],
+)
 
-# Create and configure task using automatic mode
-task = client.tasks.create({
-    "name": "EtherCAT Read Task",
-    "type": "ethercat_read",
-    "config": {
-        "device": dev.key,
-        "sample_rate": 1000,  # 1 kHz
-        "stream_rate": 50,    # Stream at 50 Hz
-        "data_saving": True,
-        "channels": [
-            {
-                "type": "automatic",
-                "device": dev.key,
-                "pdo": "status_word",
-                "channel": status.key,
-            },
-            {
-                "type": "automatic",
-                "device": dev.key,
-                "pdo": "position_actual",
-                "channel": position.key,
-            },
-        ],
-    },
-})
+client.tasks.configure(task)
 
 # Start task and read data
-task.start()
-
-with client.open_streamer(["status_word", "position_actual"]) as streamer:
-    for _ in range(10):
-        frame = streamer.read()
-        print(f"Status: {frame['status_word'][-1]}, "
-              f"Position: {frame['position_actual'][-1]}")
-
-task.stop()
+with task.run():
+    with client.open_streamer(["status_word", "position_actual"]) as streamer:
+        for _ in range(10):
+            frame = streamer.read()
+            print(f"Status: {frame['status_word'][-1]}, "
+                  f"Position: {frame['position_actual'][-1]}")
 ```
 
 </Details>
@@ -235,6 +206,7 @@ task.stop()
 
 ```python
 import synnax as sy
+from synnax import ethercat
 
 client = sy.Synnax()
 
@@ -263,47 +235,39 @@ position = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Create task using manual mode with CoE addressing
-task = client.tasks.create({
-    "name": "EtherCAT Manual Read",
-    "type": "ethercat_read",
-    "config": {
-        "device": dev.key,
-        "sample_rate": 1000,
-        "stream_rate": 50,
-        "data_saving": True,
-        "channels": [
-            {
-                "type": "manual",
-                "device": dev.key,
-                "index": 0x6041,      # Status word
-                "subIndex": 0,
-                "bitLength": 16,
-                "dataType": "uint16",
-                "channel": status.key,
-            },
-            {
-                "type": "manual",
-                "device": dev.key,
-                "index": 0x6064,      # Position actual value
-                "subIndex": 0,
-                "bitLength": 32,
-                "dataType": "int32",
-                "channel": position.key,
-            },
-        ],
-    },
-})
+# Create the task in manual mode with CoE addressing
+task = ethercat.ReadTask(
+    name="EtherCAT Manual Read",
+    sample_rate=sy.Rate.HZ * 1000,
+    stream_rate=sy.Rate.HZ * 50,
+    channels=[
+        ethercat.ManualReadChannel(
+            device=dev.key,
+            index=0x6041,  # Status word
+            sub_index=0,
+            bit_length=16,
+            data_type="uint16",
+            channel=status.key,
+        ),
+        ethercat.ManualReadChannel(
+            device=dev.key,
+            index=0x6064,  # Position actual value
+            sub_index=0,
+            bit_length=32,
+            data_type="int32",
+            channel=position.key,
+        ),
+    ],
+)
+
+client.tasks.configure(task)
 
 # Start and read
-task.start()
-
-with client.open_streamer(["status_word", "position_actual"]) as streamer:
-    for _ in range(10):
-        frame = streamer.read()
-        print(frame)
-
-task.stop()
+with task.run():
+    with client.open_streamer(["status_word", "position_actual"]) as streamer:
+        for _ in range(10):
+            frame = streamer.read()
+            print(frame)
 ```
 
 </Details>
@@ -313,19 +277,16 @@ task.stop()
 
 ```python
 import synnax as sy
+from synnax import ethercat
 
 client = sy.Synnax()
 
-# Retrieve existing task
-task = client.tasks.retrieve(name="EtherCAT Read Task")
-
-# Parse current configuration
-import json
-config = json.loads(task.config)
+# Retrieve the existing task
+task = ethercat.ReadTask(internal=client.tasks.retrieve(name="EtherCAT Read Task"))
 
 # Update task-level settings
-config["sample_rate"] = 2000  # Increase to 2 kHz
-config["stream_rate"] = 100   # Increase stream rate
+task.config.sample_rate = sy.Rate.HZ * 2000
+task.config.stream_rate = sy.Rate.HZ * 100
 
 # Add a new channel
 new_channel = client.channels.create(
@@ -335,20 +296,16 @@ new_channel = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-config["channels"].append({
-    "type": "automatic",
-    "device": config["device"],
-    "pdo": "velocity_actual",
-    "channel": new_channel.key,
-})
+task.config.channels.append(
+    ethercat.AutomaticReadChannel(
+        device=task.config.channels[0].device,
+        pdo="velocity_actual",
+        channel=new_channel.key,
+    )
+)
 
 # Apply changes
-client.tasks.create({
-    "key": task.key,
-    "name": task.name,
-    "type": task.type,
-    "config": json.dumps(config),
-})
+client.tasks.configure(task)
 ```
 
 </Details>
@@ -365,40 +322,45 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const dev = await client.devices.retrieve({ name: "EL3102" });
+const [dev] = await client.devices.retrieve({ names: ["EL3102"] });
 
 // Create index channel for timestamps
-const ecTime = await client.channels.create({
-  name: "ec_read_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const ecTime = await client.channels.create(
+  {
+    name: "ec_read_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create data channels matching PDO data types
-const status = await client.channels.create({
-  name: "status_word",
-  index: ecTime.key,
-  dataType: "uint16",
-  retrieveIfNameExists: true,
-});
+const status = await client.channels.create(
+  {
+    name: "status_word",
+    index: ecTime.key,
+    dataType: "uint16",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const position = await client.channels.create({
-  name: "position_actual",
-  index: ecTime.key,
-  dataType: "int32",
-  retrieveIfNameExists: true,
-});
+const position = await client.channels.create(
+  {
+    name: "position_actual",
+    index: ecTime.key,
+    dataType: "int32",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create and configure task using automatic mode
 const task = await client.tasks.create({
   name: "EtherCAT Read Task",
+  rack: dev.rack,
   type: "ethercat_read",
-  config: JSON.stringify({
-    device: dev.key,
-    sample_rate: 1000, // 1 kHz
-    stream_rate: 50, // Stream at 50 Hz
-    data_saving: true,
+  config: {
+    sampleRate: 1000, // 1 kHz
+    streamRate: 50, // Stream at 50 Hz
     channels: [
       {
         type: "automatic",
@@ -413,11 +375,11 @@ const task = await client.tasks.create({
         channel: position.key,
       },
     ],
-  }),
+  },
 });
 
 // Start task
-await task.executeCommandSync("start");
+await task.start();
 
 // Read data
 const streamer = await client.openStreamer(["status_word", "position_actual"]);
@@ -429,7 +391,7 @@ for (let i = 0; i < 10; i++) {
 }
 
 // Stop task
-await task.executeCommandSync("stop");
+await task.stop();
 await streamer.close();
 ```
 
@@ -444,40 +406,45 @@ import { Synnax } from "@synnaxlabs/client";
 const client = new Synnax();
 
 // Retrieve EtherCAT device
-const dev = await client.devices.retrieve({ name: "Servo Drive" });
+const [dev] = await client.devices.retrieve({ names: ["Servo Drive"] });
 
 // Create index channel
-const ecTime = await client.channels.create({
-  name: "ec_read_time",
-  isIndex: true,
-  dataType: "timestamp",
-  retrieveIfNameExists: true,
-});
+const ecTime = await client.channels.create(
+  {
+    name: "ec_read_time",
+    isIndex: true,
+    dataType: "timestamp",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create data channels
-const status = await client.channels.create({
-  name: "status_word",
-  index: ecTime.key,
-  dataType: "uint16",
-  retrieveIfNameExists: true,
-});
+const status = await client.channels.create(
+  {
+    name: "status_word",
+    index: ecTime.key,
+    dataType: "uint16",
+  },
+  { retrieveIfNameExists: true },
+);
 
-const position = await client.channels.create({
-  name: "position_actual",
-  index: ecTime.key,
-  dataType: "int32",
-  retrieveIfNameExists: true,
-});
+const position = await client.channels.create(
+  {
+    name: "position_actual",
+    index: ecTime.key,
+    dataType: "int32",
+  },
+  { retrieveIfNameExists: true },
+);
 
 // Create task using manual mode with CoE addressing
 const task = await client.tasks.create({
   name: "EtherCAT Manual Read",
+  rack: dev.rack,
   type: "ethercat_read",
-  config: JSON.stringify({
-    device: dev.key,
-    sample_rate: 1000,
-    stream_rate: 50,
-    data_saving: true,
+  config: {
+    sampleRate: 1000,
+    streamRate: 50,
     channels: [
       {
         type: "manual",
@@ -498,11 +465,11 @@ const task = await client.tasks.create({
         channel: position.key,
       },
     ],
-  }),
+  },
 });
 
 // Start and read
-await task.executeCommandSync("start");
+await task.start();
 
 const streamer = await client.openStreamer(["status_word", "position_actual"]);
 for (let i = 0; i < 10; i++) {
@@ -510,7 +477,7 @@ for (let i = 0; i < 10; i++) {
   console.log(frame);
 }
 
-await task.executeCommandSync("stop");
+await task.stop();
 await streamer.close();
 ```
 
@@ -520,7 +487,7 @@ await streamer.close();
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
-import { Synnax } from "@synnaxlabs/client";
+import { ethercat, Synnax } from "@synnaxlabs/client";
 
 const client = new Synnax();
 
@@ -528,34 +495,38 @@ const client = new Synnax();
 const task = await client.tasks.retrieve({ name: "EtherCAT Read Task" });
 
 // Parse current configuration
-const config = JSON.parse(task.config);
+const config = ethercat.readConfigZ.parse(task.config);
 
 // Update task-level settings
-config.sample_rate = 2000; // Increase to 2 kHz
-config.stream_rate = 100; // Increase stream rate
+config.sampleRate = 2000; // Increase to 2 kHz
+config.streamRate = 100; // Increase stream rate
 
 // Add a new channel
-const ecTime = await client.channels.retrieve({ name: "ec_read_time" });
-const newChannel = await client.channels.create({
-  name: "velocity_actual",
-  index: ecTime.key,
-  dataType: "int32",
-  retrieveIfNameExists: true,
-});
+const [ecTime] = await client.channels.retrieve({ names: ["ec_read_time"] });
+const newChannel = await client.channels.create(
+  {
+    name: "velocity_actual",
+    index: ecTime.key,
+    dataType: "int32",
+  },
+  { retrieveIfNameExists: true },
+);
 
-config.channels.push({
-  type: "automatic",
-  device: config.device,
-  pdo: "velocity_actual",
-  channel: newChannel.key,
-});
+config.channels.push(
+  ethercat.automaticReadChannelZ.parse({
+    device: config.channels[0].device,
+    pdo: "velocity_actual",
+    channel: newChannel.key,
+  }),
+);
 
 // Apply changes
 await client.tasks.create({
   key: task.key,
+  rack: task.rack,
   name: task.name,
   type: task.type,
-  config: JSON.stringify(config),
+  config,
 });
 ```
 

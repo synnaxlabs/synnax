@@ -54,7 +54,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   };
   return (
     <List.Item
-      className={CSS(CSS.BE("snapshots", "list-item"), className)}
+      className={CSS.cls(CSS.BE("snapshots", "list-item"), className)}
       {...rest}
       justify="between"
       onSelect={handleSelect}
@@ -64,6 +64,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
         {name}
       </Text.Text>
       <Button.Button
+        aria-label={`Delete ${name}`}
         onClick={handleDelete}
         className={CSS.BE("snapshots", "delete")}
         variant="text"

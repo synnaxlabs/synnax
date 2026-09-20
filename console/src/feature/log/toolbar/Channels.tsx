@@ -112,6 +112,7 @@ const ChannelRow = ({
       justify="between"
       gap="large"
       className={CSS.BE("log", "channel-row")}
+      preventClick
     >
       <Flex.Box x align="center" grow>
         <Channel.SelectSingle
@@ -205,7 +206,7 @@ const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
 };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {
-  placeholder: "Add a channel...",
+  placeholder: "Add channel",
 };
 
 interface AddChannelRowProps {

@@ -12,6 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -23,7 +24,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"simple AND of comparisons",
 			"(i32(5) > i32(3)) and (i32(10) < i32(20))",
-			types.U8(),
+			types.Bool(),
 			// First comparison: 5 > 3
 			OpI32Const, int32(5),
 			OpI32Const, int32(3),
@@ -48,7 +49,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"AND with false left operand (short-circuits)",
 			"(i32(2) < i32(1)) and (i32(10) / i32(0))",
-			types.U8(),
+			types.Bool(),
 			// First comparison: 2 < 1 (false)
 			OpI32Const, int32(2),
 			OpI32Const, int32(1),
@@ -73,14 +74,14 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"chained AND operations",
 			"(i32(1) == i32(1)) and (i32(2) == i32(2)) and (i32(3) == i32(3))",
-			types.U8(),
+			types.Bool(),
 			// First: 1 == 1
 			OpI32Const, int32(1),
 			OpI32Const, int32(1),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
-			// First && check
+			// First and check
 			OpI32Eqz,
 			OpIf, byte(I32),
 			OpI32Const, int32(0),
@@ -92,7 +93,7 @@ var _ = Describe("Logical Operations", func() {
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
 			OpEnd,
-			// Second && check
+			// Second and check
 			OpI32Eqz,
 			OpIf, byte(I32),
 			OpI32Const, int32(0),
@@ -110,7 +111,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"simple OR of comparisons",
 			"(i32(5) < i32(3)) or (i32(10) < i32(20))",
-			types.U8(),
+			types.Bool(),
 			// First comparison: 5 < 3 (false)
 			OpI32Const, int32(5),
 			OpI32Const, int32(3),
@@ -134,7 +135,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"OR with true left operand (short-circuits)",
 			"(i32(5) > i32(3)) or (i32(10) / i32(0))",
-			types.U8(),
+			types.Bool(),
 			// First comparison: 5 > 3 (true)
 			OpI32Const, int32(5),
 			OpI32Const, int32(3),
@@ -158,14 +159,14 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"chained OR operations",
 			"(i32(1) == i32(0)) or (i32(2) == i32(0)) or (i32(3) == i32(3))",
-			types.U8(),
+			types.Bool(),
 			// First: 1 == 0 (false)
 			OpI32Const, int32(1),
 			OpI32Const, int32(0),
 			OpI32Eq,
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
-			// First || check
+			// First or check
 			OpIf, byte(I32),
 			OpI32Const, int32(1),
 			OpElse,
@@ -176,7 +177,7 @@ var _ = Describe("Logical Operations", func() {
 			// Normalize
 			OpI32Const, int32(0), OpI32Ne,
 			OpEnd,
-			// Second || check
+			// Second or check
 			OpIf, byte(I32),
 			OpI32Const, int32(1),
 			OpElse,
@@ -193,7 +194,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"mixed AND and OR",
 			"(i32(1) == i32(1)) and ((i32(2) < i32(1)) or (i32(3) > i32(2)))",
-			types.U8(),
+			types.Bool(),
 			// First: 1 == 1
 			OpI32Const, int32(1),
 			OpI32Const, int32(1),
@@ -205,7 +206,7 @@ var _ = Describe("Logical Operations", func() {
 			OpIf, byte(I32),
 			OpI32Const, int32(0),
 			OpElse,
-			// OR expression: (2 < 1) || (3 > 2)
+			// OR expression: (2 < 1) or (3 > 2)
 			// First: 2 < 1
 			OpI32Const, int32(2),
 			OpI32Const, int32(1),
@@ -232,7 +233,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"AND normalizes non-boolean values",
 			"i32(42) and i32(100)",
-			types.U8(),
+			types.Bool(),
 			// First: 42 (truthy)
 			OpI32Const, int32(42),
 			// Normalize to 1
@@ -252,7 +253,7 @@ var _ = Describe("Logical Operations", func() {
 		Entry(
 			"OR normalizes non-boolean values",
 			"i32(0) or i32(42)",
-			types.U8(),
+			types.Bool(),
 			// First: 0 (falsy)
 			OpI32Const, int32(0),
 			// Normalize to 0
@@ -266,6 +267,74 @@ var _ = Describe("Logical Operations", func() {
 			// Normalize to 1
 			OpI32Const, int32(0), OpI32Ne,
 			OpEnd,
+		),
+	)
+
+	DescribeTable("should compile series logical expressions",
+		expectSeriesExpression,
+		Entry("series and series", "a and b",
+			[]symbol.Symbol{
+				seriesSymbol("a", types.Bool(), 0),
+				seriesSymbol("b", types.Bool(), 1),
+			},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0),
+		),
+
+		Entry("series or series", "a or b",
+			[]symbol.Symbol{
+				seriesSymbol("a", types.Bool(), 0),
+				seriesSymbol("b", types.Bool(), 1),
+			},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0),
+		),
+
+		Entry("series and scalar", "a and true",
+			[]symbol.Symbol{seriesSymbol("a", types.Bool(), 0)},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpI32Const, int32(1), OpCall, uint32(0),
+		),
+
+		Entry("series or scalar", "a or false",
+			[]symbol.Symbol{seriesSymbol("a", types.Bool(), 0)},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpI32Const, int32(0), OpCall, uint32(0),
+		),
+	)
+
+	DescribeTable(
+		"should propagate operand compile errors through logical expressions",
+		expectCompileError,
+		Entry(
+			"first or operand fails",
+			"(not f) or true",
+			"logical NOT on series requires a bool element type",
+		),
+		Entry(
+			"first and operand fails",
+			"(not f) and true",
+			"logical NOT on series requires a bool element type",
+		),
+		Entry(
+			"series or right operand fails",
+			"b or (not f)",
+			"logical NOT on series requires a bool element type",
+		),
+		Entry(
+			"series and right operand fails",
+			"b and (not f)",
+			"logical NOT on series requires a bool element type",
+		),
+		Entry(
+			"short-circuit and right operand fails",
+			"true and (not f)",
+			"logical NOT on series requires a bool element type",
+		),
+		Entry(
+			"short-circuit or right operand fails",
+			"false or (not f)",
+			"logical NOT on series requires a bool element type",
 		),
 	)
 })

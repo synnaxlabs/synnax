@@ -31,7 +31,7 @@ var _ = Describe("Framer", func() {
 		BeforeEach(func(ctx SpecContext) {
 			index = channel.Channel{
 				Name:     UniqueChannelName(),
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			Expect(channelWriter.Create(ctx, &index)).To(Succeed())

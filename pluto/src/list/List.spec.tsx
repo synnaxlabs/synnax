@@ -15,7 +15,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { Button } from "@/button";
 import { renderProp } from "@/component/renderProp";
 import { List } from "@/list";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockGeometry } from "@/testutil/dom";
 
 describe("List", () => {
   interface Context {
@@ -27,17 +27,7 @@ describe("List", () => {
     { name: "virtual", virtual: true },
   ];
   CONTEXTS.forEach((context) => {
-    beforeAll(() => {
-      Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-        configurable: true,
-        get: () => 100,
-      });
-      Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
-        configurable: true,
-        get: () => 100,
-      });
-    });
+    beforeAll(() => mockGeometry(100, 100));
     describe(context.name, () => {
       describe("basic item rendering", () => {
         it("should render a list of items", () => {
@@ -188,14 +178,89 @@ describe("List", () => {
             );
           };
           const result = render(<Component />);
-          const expectedCalls = context.virtual ? 2 : 1;
-          expect(fetchMore).toHaveBeenCalledTimes(expectedCalls);
+          expect(fetchMore).toHaveBeenCalledTimes(1);
           result.getByText("Toggle").click();
-          expect(fetchMore).toHaveBeenCalledTimes(expectedCalls);
+          expect(fetchMore).toHaveBeenCalledTimes(1);
           result.getByText("Toggle").click();
-          expect(fetchMore).toHaveBeenCalledTimes(expectedCalls);
+          expect(fetchMore).toHaveBeenCalledTimes(1);
         });
       });
+    });
+  });
+
+  describe("windowing", () => {
+    const ITEM_HEIGHT = 27;
+    const DATA = Array.from({ length: 500 }, (_, i) => `${i}`);
+
+    beforeAll(() => mockGeometry(100, 100));
+
+    const renderWindowed = (overscan?: number) =>
+      render(
+        <List.Frame data={DATA} virtual itemHeight={ITEM_HEIGHT} overscan={overscan}>
+          <List.Items>
+            {({ key, ...rest }: List.ItemProps<string>) => (
+              <List.Item key={key} {...rest}>
+                {key}
+              </List.Item>
+            )}
+          </List.Items>
+        </List.Frame>,
+      );
+
+    const rows = (result: ReturnType<typeof render>): HTMLElement[] =>
+      Array.from(result.container.querySelectorAll(".pluto-list__item"));
+
+    it("should render only the rows near the window", () => {
+      const rendered = rows(renderWindowed());
+      expect(rendered.length).toBeGreaterThan(0);
+      expect(rendered.length).toBeLessThan(DATA.length);
+      expect(rendered[0].textContent).toBe("0");
+    });
+
+    it("should offset each row by its index", () => {
+      const rendered = rows(renderWindowed());
+      rendered.forEach((row, index) =>
+        expect(row.style.top).toBe(`${index * ITEM_HEIGHT}px`),
+      );
+    });
+
+    it("should render more rows when overscan grows", () => {
+      const tight = rows(renderWindowed(0)).length;
+      const loose = rows(renderWindowed(40)).length;
+      expect(loose).toBeGreaterThan(tight);
+    });
+
+    it("should keep the container tall enough to scroll the whole data set", () => {
+      const result = renderWindowed();
+      const virtualizer = result.container.querySelector<HTMLElement>(
+        ".pluto-list__virtualizer",
+      );
+      expect(virtualizer?.style.minHeight).toBe(`${DATA.length * ITEM_HEIGHT}px`);
+    });
+  });
+
+  describe("height animation", () => {
+    const hasAnimateClass = (animateHeight?: boolean) =>
+      render(
+        <List.Frame data={["1"]}>
+          <List.Items animateHeight={animateHeight}>
+            {({ key, ...rest }: List.ItemProps<string>) => (
+              <List.Item key={key} {...rest}>
+                {key}
+              </List.Item>
+            )}
+          </List.Items>
+        </List.Frame>,
+      )
+        .container.querySelector(".pluto-list__items")
+        ?.classList.contains("pluto-list__items--animate-height");
+
+    it("should not animate height unless the caller opts in", () => {
+      expect(hasAnimateClass()).toBe(false);
+    });
+
+    it("should animate height when the caller opts in", () => {
+      expect(hasAnimateClass(true)).toBe(true);
     });
   });
 
@@ -213,17 +278,7 @@ describe("List", () => {
       }
     }
 
-    beforeAll(() => {
-      Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
-      Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
-        configurable: true,
-        get: () => 100,
-      });
-      Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
-        configurable: true,
-        get: () => 100,
-      });
-    });
+    beforeAll(() => mockGeometry(100, 100));
 
     beforeEach(() => {
       vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);

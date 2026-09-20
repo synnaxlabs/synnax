@@ -61,6 +61,10 @@ const (
 	nonFree    = "Signals can only work with free channels. Received leaseholder %s that is not equal to Free"
 )
 
+// requestBufferSize keeps an observable's handler from blocking on send. Handlers run
+// inline under the caller's locks, where a stalled send spreads back into the caller.
+const requestBufferSize = 300
+
 // Validate implements config.Config.
 func (c ObservablePublisherConfig) Validate() error {
 	v := validate.New("signals.observable_publisher_config")
@@ -94,7 +98,7 @@ func (c ObservablePublisherConfig) Validate() error {
 			c.DeleteChannel.Name,
 		)
 	}
-	validate.NotNil(v, "observable", c.Observable)
+	v.NotNil("observable", c.Observable)
 	return v.Error()
 }
 
@@ -209,17 +213,17 @@ func (p *Provider) PublishFromObservable(
 		},
 	}
 	pl := plumber.New()
-	plumber.SetSource(pl, "source", t)
-	plumber.SetSegment(pl, "writer", w)
+	pl.SetSource("source", t)
+	pl.SetSegment("writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(_ context.Context, value framer.WriterResponse) error {
 			p.cfg.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
 	}
-	plumber.SetSink(pl, "responses", responses)
-	plumber.MustConnect[framer.WriterRequest](pl, "source", "writer", 10)
-	plumber.MustConnect[framer.WriterResponse](pl, "writer", "responses", 10)
+	pl.SetSink("responses", responses)
+	pl.MustConnect[framer.WriterRequest]("source", "writer", requestBufferSize)
+	pl.MustConnect[framer.WriterResponse]("writer", "responses", 10)
 	name := cfg.Name
 	if name == "" {
 		if setEnabled {

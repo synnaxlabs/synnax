@@ -45,7 +45,7 @@ export const Selector = Base.create({
   selectables: SELECTABLES,
   icon: <Icon.Task />,
   tabTitle: "Create task",
-  text: "Create a task",
+  text: "Create task",
 });
 
 export const SELECTOR_TAB_TYPE = "taskSelector";

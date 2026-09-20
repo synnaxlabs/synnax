@@ -50,6 +50,62 @@ var _ = Describe("Rewrite", func() {
 				"channels": []any{map[string]any{"disabled": true}},
 			},
 		),
+		Entry("keys every channel a released client left unkeyed",
+			legacy.Rewrite{},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"key": "", "port": "AIN0"},
+					map[string]any{"key": "", "port": "AIN1"},
+					map[string]any{"key": "", "port": "AIN2"},
+				},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"key": "0", "port": "AIN0"},
+					map[string]any{"key": "1", "port": "AIN1"},
+					map[string]any{"key": "2", "port": "AIN2"},
+				},
+			},
+		),
+		Entry("keys a nested list independently of its parent",
+			legacy.Rewrite{},
+			msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"key":    "",
+					"fields": []any{map[string]any{"key": ""}},
+				}},
+			},
+			msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"key":    "0",
+					"fields": []any{map[string]any{"key": "0"}},
+				}},
+			},
+		),
+		Entry("keeps the keys a released Console wrote",
+			legacy.Rewrite{},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"key": "8hYJO9zt6eS"},
+					map[string]any{"key": "DYFpBBDlpRt"},
+				},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{
+					map[string]any{"key": "8hYJO9zt6eS"},
+					map[string]any{"key": "DYFpBBDlpRt"},
+				},
+			},
+		),
+		Entry("leaves an element that carries no key alone",
+			legacy.Rewrite{},
+			msgpack.EncodedJSON{
+				"headers": []any{map[string]any{"name": "Accept", "value": "json"}},
+			},
+			msgpack.EncodedJSON{
+				"headers": []any{map[string]any{"name": "Accept", "value": "json"}},
+			},
+		),
 		Entry("keeps a canonical config unchanged",
 			legacy.Rewrite{},
 			msgpack.EncodedJSON{

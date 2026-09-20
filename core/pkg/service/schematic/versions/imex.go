@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
+	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -34,7 +35,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		// The v0.56 Console export: the typed schematic it retrieved from the Core,
 		// written back out in camelCase under the Console's own version stamp.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err != nil {
 			break
 		}
 		if err = imex.RequireFields(
@@ -43,14 +44,14 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 			break
 		}
 		var doc legacy.Export
-		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
-			sch = v7.SchematicFromConsole(doc)
+		if doc, err = env.Decode[legacy.Export](ctx); err == nil {
+			sch, err = v8.MigrateSchematic(ctx, v7.SchematicFromConsole(doc))
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which
 		// dispatches on the version stamped inside the body.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+		if body, err = env.Decode[msgpack.EncodedJSON](ctx); err != nil {
 			break
 		}
 		if err = imex.RequireFields(
@@ -59,9 +60,13 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 			break
 		}
 		snapshot, _ := body["snapshot"].(bool)
-		sch, err = v7.MigrateSchematic(ctx, v0.Schematic{
+		var s7 v7.Schematic
+		if s7, err = v7.MigrateSchematic(ctx, v0.Schematic{
 			Name: env.Name, Snapshot: snapshot, Data: body,
-		})
+		}); err != nil {
+			break
+		}
+		sch, err = v8.MigrateSchematic(ctx, s7)
 	}
 	if err != nil {
 		return Schematic{}, err

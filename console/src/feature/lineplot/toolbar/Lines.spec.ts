@@ -93,7 +93,7 @@ describe("lineplot download CSV with plotted lines", () => {
     });
     await screen.findByText("Data");
     fireEvent.click(getIconButton(result.container, "csv"));
-    expect(await screen.findByText(`Download data for ${name} to a CSV`)).toBeDefined();
+    expect(await screen.findByText(`Download data for ${name} as CSV`)).toBeDefined();
     await waitFor(() => expect(isPlutoDisabled(findButton("Download"))).toBe(false));
   });
 });

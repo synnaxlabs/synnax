@@ -32,11 +32,6 @@ export const DRIVER_NAV: PageNavNode = {
       name: "Installation",
     },
     {
-      key: "/reference/driver/timing",
-      href: "/reference/driver/timing",
-      name: "Timing",
-    },
-    {
       key: "/reference/driver/task-basics",
       href: "/reference/driver/task-basics",
       name: "Task Basics",

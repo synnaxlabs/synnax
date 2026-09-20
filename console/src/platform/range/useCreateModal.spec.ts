@@ -44,9 +44,9 @@ const clickWhenEnabled = async (text: string): Promise<void> => {
 };
 
 describe("Range.useCreateModal", () => {
-  it("should disable Save to Synnax when there is no connected client", async () => {
+  it("should disable Save to Core when there is no connected client", async () => {
     await openModal();
-    expect(findButton("Save to Synnax").className).toContain("pluto--disabled");
+    expect(findButton("Save to Core").className).toContain("pluto--disabled");
   });
 
   it("should prefill the form from the initial params", async () => {
@@ -62,10 +62,10 @@ describe("Range.useCreateModal", () => {
     await clickWhenEnabled("Save locally");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     const ranges = Session.Range.selectMultiple(store.getState());
-    const created = ranges.find((r) => r.name === "Local Range");
+    const created = ranges.find(
+      (r) => r.variant === "static" && r.name === "Local Range",
+    );
     expect(created).toBeDefined();
-    expect(created?.persisted).toBe(false);
-    expect(created?.variant).toBe("static");
   });
 
   it("should keep the modal open and add nothing when the name is empty", async () => {
@@ -76,19 +76,20 @@ describe("Range.useCreateModal", () => {
     expect(Session.Range.selectMultiple(store.getState()).length).toBe(before);
   });
 
-  it("should persist the range to the cluster and favorite it on Save to Synnax", async () => {
+  it("should persist the range to the Core and favorite it on Save to Core", async () => {
     const name = uniqueRangeName("persisted");
     const { store } = await openModal(
       { name, timeRange: { start: 1, end: 2 } },
       { client },
     );
-    await clickWhenEnabled("Save to Synnax");
+    await clickWhenEnabled("Save to Core");
     await waitFor(() => {
+      // A Core range is stored by key alone, so the session cannot be searched by name:
+      // the Core answers for it.
       const created = Session.Range.selectMultiple(store.getState()).find(
-        (r) => r.name === name,
+        (r) => r.variant === "persisted",
       );
       expect(created).toBeDefined();
-      expect(created?.persisted).toBe(true);
     });
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     await waitFor(async () => {
@@ -105,7 +106,7 @@ describe("Range.useCreateModal", () => {
     fireEvent.change(screen.getByDisplayValue(existing.name), {
       target: { value: renamed },
     });
-    await clickWhenEnabled("Save to Synnax");
+    await clickWhenEnabled("Save to Core");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
     await waitFor(async () => {
       const updated = await client.ranges.retrieve(existing.key);
@@ -129,7 +130,7 @@ describe("Range.useCreateModal", () => {
       },
       { client },
     );
-    await clickWhenEnabled("Save to Synnax");
+    await clickWhenEnabled("Save to Core");
     let childKey = "";
     await waitFor(async () => {
       childKey = (await client.ranges.retrieve(childName)).key;

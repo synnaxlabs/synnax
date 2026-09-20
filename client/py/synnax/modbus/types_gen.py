@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal, Union
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -26,13 +27,13 @@ class RegisterValue(BaseModel):
 
     Attributes:
         data_type: Is the data type the register contents are interpreted as.
-        swap_bytes: Is true when the byte order within each 16-bit word is swapped.
-        swap_words: Is true when the word order of multi-register values is swapped.
+        bytes_swapped: Is true when the byte order within each 16-bit word is swapped.
+        words_swapped: Is true when the word order of multi-register values is swapped.
     """
 
     data_type: telem.DataType = telem.DataType("uint8")
-    swap_bytes: bool = False
-    swap_words: bool = False
+    bytes_swapped: bool = False
+    words_swapped: bool = False
 
 
 class BaseReadChannel(BaseModel):
@@ -46,7 +47,7 @@ class BaseReadChannel(BaseModel):
         address: Is the Modbus address the channel reads from.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -67,7 +68,7 @@ class BaseWriteChannel(BaseModel):
         address: Is the Modbus address the channel writes to.
     """
 
-    key: str = ""
+    key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
@@ -77,7 +78,7 @@ class BaseWriteChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.BaseScanConfig):
+class ScanConfig(task.ScanConfig):
     """Configures a Modbus scan task."""
 
     def __hash__(self) -> int:
@@ -110,8 +111,8 @@ class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
     string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
-# Is a single Modbus read channel. The type field selects the register
-# space the channel reads from and the fields that accompany it.
+# Is a single Modbus read channel. The type field selects the register space the
+# channel reads from and the fields that accompany it.
 ReadChannel = Annotated[
     Union[
         CoilReadChannel,
@@ -135,15 +136,15 @@ class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
     type: Literal["holding_register"] = "holding_register"
 
 
-# Is a single Modbus write channel. The type field selects the register
-# space the channel writes to and the fields that accompany it.
+# Is a single Modbus write channel. The type field selects the register space the
+# channel writes to and the fields that accompany it.
 WriteChannel = Annotated[
     Union[CoilWriteChannel, HoldingRegisterWriteChannel],
     Field(discriminator="type"),
 ]
 
 
-class ReadConfig(task.BaseReadConfig):
+class ReadConfig(task.ReadConfig):
     """Configures a Modbus read task.
 
     Attributes:
@@ -158,7 +159,7 @@ class ReadConfig(task.BaseReadConfig):
         return hash(self.key)
 
 
-class WriteConfig(task.BaseWriteConfig):
+class WriteConfig(task.WriteConfig):
     """Configures a Modbus write task.
 
     Attributes:

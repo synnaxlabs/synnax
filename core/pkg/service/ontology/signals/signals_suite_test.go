@@ -77,10 +77,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:       node.Framer,
-		Channel:      channelSvc,
-		Status:       statusSvc,
-		HostProvider: node.Cluster,
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
 	}))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		Channel: channelSvc,

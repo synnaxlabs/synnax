@@ -16,11 +16,12 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 )
 
 // Latest is the portable schema version stamped on exported Schematic envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v7.Version
+const Latest = v8.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Schematic
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -28,7 +29,17 @@ const Latest = v7.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
 	switch env.Version {
 	case v7.Version:
-		return imex.Decode[Schematic](ctx, env)
+		t7, err := env.Decode[v7.Schematic](ctx)
+		if err != nil {
+			return Schematic{}, err
+		}
+		t8, err := v8.MigrateSchematic(ctx, t7)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return t8, nil
+	case v8.Version:
+		return env.Decode[Schematic](ctx)
 	}
 	return Schematic{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

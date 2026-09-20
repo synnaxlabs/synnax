@@ -209,123 +209,160 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	return ok
 }
 
+// autoNext reads up to AutoChunkSize samples forward from the current view end. Each
+// domain resolves the chunk to a pair of sample positions, and both the samples read
+// and the time range reported come from that pair, so the two cannot disagree.
 func (i *Iterator) autoNext(ctx context.Context) bool {
-	i.view.Start = i.view.End
-	endApprox, err := i.idx.Stamp(
-		ctx,
-		i.view.Start,
-		i.AutoChunkSize,
-		index.AllowDiscontinuous,
+	// The chunk provisionally covers everything left in bounds. The sample that closes
+	// it replaces the end once the read reaches it.
+	i.reset(i.view.End.Range(i.bounds.End))
+	var (
+		nRemaining = i.AutoChunkSize
+		end        = i.view.Start
+		closed     bool
 	)
-	if err != nil {
-		i.err = err
-		return false
-	}
-	if endApprox.Lower.After(i.bounds.End) {
-		return i.Next(ctx, i.view.Start.Span(i.bounds.End))
-	}
-	i.view.End = endApprox.Lower
-	i.reset(i.view.BoundBy(i.bounds))
-
-	nRemaining := i.AutoChunkSize
 	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
+		domainTR := i.internal.TimeRange()
+		if !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Next() {
-				return false
+				break
 			}
 			continue
 		}
-		startApprox, dmn, err := i.approximateStart(ctx)
+		startApprox, alignment, err := i.approximateStart(ctx)
 		if err != nil {
 			i.err = err
 			return false
-		}
-		startSample := startApprox.Upper
-		if !startApprox.Exact() && !startApprox.StartExact {
-			startSample = startApprox.Lower
-		}
-		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
-		if err != nil {
-			i.err = err
-			return false
-		}
-		endOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample+nRemaining)
-		if err != nil {
-			i.err = err
-			return false
-		}
-		series, err := i.read(ctx, dmn, startOffset, endOffset-startOffset)
-		if err != nil && !errors.Is(err, io.EOF) {
-			i.err = err
-			return false
-		}
-		nRemaining -= series.Len()
-		i.insert(series)
-		if nRemaining <= 0 || !i.internal.Next() {
-			break
-		}
-	}
-
-	return i.partiallySatisfied()
-}
-
-func (i *Iterator) autoPrev(ctx context.Context) bool {
-	i.view.End = i.view.Start
-	startApprox, err := i.idx.Stamp(
-		ctx,
-		i.view.Start,
-		-i.AutoChunkSize,
-		index.AllowDiscontinuous,
-	)
-	if err != nil {
-		i.err = err
-		return false
-	}
-	if startApprox.Lower.Before(i.bounds.Start) {
-		return i.Prev(ctx, i.bounds.Start.Span(i.view.End))
-	}
-	i.view.Start = startApprox.Lower + 1
-	i.reset(i.view.BoundBy(i.bounds))
-	nRemaining := i.AutoChunkSize
-	for {
-		if !i.internal.TimeRange().OverlapsWith(i.view) {
-			if !i.internal.Prev() {
-				return false
-			}
-			continue
 		}
 		endApprox, err := i.approximateEnd(ctx)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		endSample := endApprox.Upper
-		if !startApprox.Exact() && !endApprox.StartExact {
-			endSample = endApprox.Lower
+		var (
+			startSample = pickSampleOffset(startApprox)
+			// limit is the sample after the last one this domain can give the chunk.
+			limit     = pickSampleOffset(endApprox)
+			endSample = min(startSample+nRemaining, limit)
+		)
+		end = domainTR.End
+		if closed = endSample < limit; closed {
+			// The chunk fills inside this domain, so it ends at the first sample it
+			// leaves behind.
+			end, err = i.stampSample(ctx, domainTR.Start, endSample)
+			if err != nil {
+				i.err = err
+				return false
+			}
+			i.view.End = end
+		}
+		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
+		if err != nil {
+			i.err = err
+			return false
 		}
 		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
 		if err != nil {
 			i.err = err
 			return false
 		}
-		startSample := max(endSample-nRemaining, 0)
-		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
-		if err != nil {
-			i.err = err
-			return false
-		}
-		series, err := i.read(ctx, 0, startOffset, endOffset-startOffset)
+		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
 		nRemaining -= series.Len()
 		i.insert(series)
-		if nRemaining <= 0 || !i.internal.Prev() {
+		if closed || nRemaining <= 0 || !i.internal.Next() {
 			break
 		}
 	}
+	i.view.End = min(end, i.bounds.End)
 	return i.partiallySatisfied()
+}
+
+// autoPrev reads up to AutoChunkSize samples backward from the current view start. It
+// mirrors autoNext: the chunk resolves to sample positions first, and its time range
+// follows from them.
+func (i *Iterator) autoPrev(ctx context.Context) bool {
+	i.reset(i.bounds.Start.Range(i.view.Start))
+	var (
+		nRemaining = i.AutoChunkSize
+		start      = i.view.End
+		closed     bool
+	)
+	for {
+		domainTR := i.internal.TimeRange()
+		if !domainTR.OverlapsWith(i.view) {
+			if !i.internal.Prev() {
+				break
+			}
+			continue
+		}
+		startApprox, alignment, err := i.approximateStart(ctx)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		endApprox, err := i.approximateEnd(ctx)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		var (
+			// first is the earliest sample of this domain the chunk can reach.
+			first       = pickSampleOffset(startApprox)
+			endSample   = pickSampleOffset(endApprox)
+			startSample = max(endSample-nRemaining, first)
+		)
+		start = domainTR.Start
+		if closed = startSample > first; closed {
+			// The chunk fills inside this domain, so it starts at the earliest sample
+			// it holds.
+			start, err = i.stampSample(ctx, domainTR.Start, startSample)
+			if err != nil {
+				i.err = err
+				return false
+			}
+			i.view.Start = start
+		}
+		// approximateStart stamps the alignment at the view start. This chunk may begin
+		// earlier in the domain, so move the alignment back with it.
+		alignment -= telem.Alignment(first - startSample)
+		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		series, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
+		if err != nil && !errors.Is(err, io.EOF) {
+			i.err = err
+			return false
+		}
+		nRemaining -= series.Len()
+		i.insert(series)
+		if closed || nRemaining <= 0 || !i.internal.Prev() {
+			break
+		}
+	}
+	i.view.Start = max(start, i.bounds.Start)
+	return i.partiallySatisfied()
+}
+
+// stampSample returns the timestamp of the sample at position offset within the domain
+// starting at start.
+func (i *Iterator) stampSample(
+	ctx context.Context,
+	start telem.TimeStamp,
+	offset int64,
+) (telem.TimeStamp, error) {
+	approx, err := i.idx.Stamp(ctx, start, offset, index.AllowDiscontinuous)
+	return approx.Upper, err
 }
 
 // Prev moves the iterator backward by span. More specifically, if the current view is
@@ -496,7 +533,9 @@ func pickSampleOffset(approx index.DistanceApproximation) int64 {
 	if approx.EndExact {
 		return approx.Lower
 	}
-	return (approx.Lower + approx.Upper) / 2
+	// Distance widens its bounds by one sample for each end it could not place, so with
+	// neither end exact the count sits one below the upper bound.
+	return approx.Upper - 1
 }
 
 // approximateStart approximates the number of samples between the start of the current

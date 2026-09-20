@@ -9,9 +9,10 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -110,6 +111,26 @@ describe("User queries", () => {
 
       const retrieved = await client.users.retrieve(testUser.key);
       expect(retrieved.username).toBe(newUsername);
+    });
+
+    it("should apply the rename optimistically", async () => {
+      const testUser = await client.users.create({
+        username: `original-${id.create()}`,
+        firstName: "Test",
+        lastName: "User",
+        password: "password123",
+      });
+      const afterOptimistic = vi.fn();
+      const { result } = renderHook(() => User.useRename({ afterOptimistic }), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({
+          key: testUser.key,
+          username: `renamed-${id.create()}`,
+        });
+      });
+      expect(afterOptimistic).toHaveBeenCalledOnce();
     });
   });
 

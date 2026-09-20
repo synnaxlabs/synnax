@@ -93,7 +93,7 @@ describe("Box", () => {
   describe("properties", () => {
     const b = box.construct(20, 30, 40, 50);
     describe("loc", () => {
-      const v: location.Location[] = ["left", "right", "top", "bottom"];
+      const v: location.Outer[] = ["left", "right", "top", "bottom"];
       const expected: number[] = [20, 60, 30, 80];
       v.forEach((v, i) => {
         test(`loc-${v}`, () => expect(box.loc(b, v)).toEqual(expected[i]));
@@ -402,7 +402,7 @@ describe("Box", () => {
   describe("edgePoints", () => {
     interface Spec {
       box: box.Box;
-      loc: location.Location;
+      loc: location.Outer;
       expected: [xy.XY, xy.XY];
     }
 

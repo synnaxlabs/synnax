@@ -37,12 +37,12 @@ type Channel struct {
 	// Leaseholder is the node that holds the lease for this channel. Mostly for
 	// internal use.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
-	// DataType is the data type of samples stored in this channel (e.g., Float64,
-	// Int32, TimeStamp).
+	// DataType is the data type of samples stored in this channel (e.g., float64,
+	// int32, timestamp).
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this is an index channel. Index channels must have int64
 	// values (TIMESTAMP data type) written in ascending order, and are most commonly
-	// unix nanosecond timestamps.
+	// Unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Index is the channel used to index this channel's values, associating each value
 	// with a timestamp.
@@ -57,8 +57,8 @@ type Channel struct {
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`
-	// Operations contains optional aggregation operations (min, max, avg) applied to
-	// channel data over time or triggered by a reset channel.
+	// Operations contains optional aggregation operations (min, max, avg, derivative)
+	// applied to channel data over time or triggered by a reset channel.
 	Operations []servicechannel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.

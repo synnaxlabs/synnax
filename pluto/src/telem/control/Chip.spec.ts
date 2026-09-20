@@ -31,7 +31,7 @@ describe("tooltipMessage", () => {
   it("should return controlled style when the user has control", () => {
     const result = tooltipMessage(makeStatus("success"));
     expect(result).toEqual({
-      message: "You're in control. Release schematic to release control.",
+      message: "You're in control. Release the schematic to give up control.",
       chipColor: "var(--pluto-primary-z)",
       chipIcon: Icon.Circle,
     });
@@ -70,7 +70,7 @@ describe("tooltipMessage", () => {
   it("should return disabled style when no channel is connected", () => {
     const result = tooltipMessage(makeStatus("disabled", { valid: false }));
     expect(result).toEqual({
-      message: "No channel connected. This element cannot be controlled.",
+      message: "No channel connected",
       chipColor: "var(--pluto-text-disabled)",
       chipIcon: Icon.Circle,
       disabled: true,
@@ -80,7 +80,7 @@ describe("tooltipMessage", () => {
   it("should return error style for an unexpected variant", () => {
     const result = tooltipMessage(makeStatus("info"));
     expect(result).toEqual({
-      message: "Unexpected status.",
+      message: "Unexpected status",
       chipColor: "var(--pluto-error-z)",
       chipIcon: Icon.Square,
     });

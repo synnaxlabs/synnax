@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -63,10 +64,11 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 	}
 	keys, dataTypes := keysAndDataTypes(res.Channels)
 	c := codec.NewStatic(keys, dataTypes)
+	keySet := set.New(keys...)
 	var buf bytes.Buffer
 	readErr := drain(res, func(fr Frame) error {
 		buf.Reset()
-		if err := c.EncodeStream(ctx, &buf, fr.KeepKeys(keys)); err != nil {
+		if err := c.EncodeStream(ctx, &buf, fr.KeepKeys(keySet)); err != nil {
 			return err
 		}
 		return writeRecord(w, recordData, buf.Bytes())

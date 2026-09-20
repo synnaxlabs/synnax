@@ -37,13 +37,13 @@ export const Input = ({
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
   const style = useMemo(
-    () => ({ [CSS.var("symbol-color")]: symbolColorVar(color) }),
+    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
     [color],
   );
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(CSS.B("input-symbol"), CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("input-symbol"), CSS.B("symbol-colored"), className)}
       style={style}
     >
       <Handle.Rectangle

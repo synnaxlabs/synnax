@@ -11,6 +11,9 @@ import { z } from "zod";
 
 import { type Key } from "@/ranger/types.gen";
 
+/** Zod schema for {@link Name}. A range name cannot be empty. */
 export const nameZ = z.string().min(1);
+/** A range's display name. */
 export type Name = z.infer<typeof nameZ>;
+/** One or many ranges, named by key or by name. */
 export type Params = Key | Name | Key[] | Name[];

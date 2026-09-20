@@ -251,7 +251,7 @@ infrastructure. There is no boolean-specific code path beyond the entry in the t
 The type is added to each language's telem module using the existing data type
 scaffolding. No new generic machinery is introduced beyond the codec branch in §3.2.
 
-**Go** (`x/go/telem/data_type.go`). A new `BoolT DataType = "bool"` constant with
+**Go** (`x/go/telem/data_type.go`). A new `BooleanT DataType = "boolean"` constant with
 density 1. The density lookup table gains one entry. The Go-level client API for a
 boolean channel reads and writes `bool`; the conversion between `bool` and the canonical
 byte happens at the edge of the client library. The Freighter frame codec branch lives
@@ -262,12 +262,12 @@ with density 1. The `TypedArray` backing is `Uint8Array`; the public client surf
 returns and accepts `boolean[]`. Conversion happens in the series accessor. The
 Freighter frame codec branch lives in `client/ts/src/framer/codec.ts`.
 
-**Python** (`x/py/x/telem/telem.py`). A new `DataType.BOOL` entry mapped to `np.bool_`.
-NumPy's `bool_` is already one byte, so the in-memory mapping is zero-overhead and
-`np.ndarray[bool]` round-trips through Synnax without reshaping. The Freighter frame
-codec branch lives in `client/py/synnax/framer/codec.py`.
+**Python** (`x/py/x/telem/telem.py`). A new `DataType.BOOLEAN` entry mapped to
+`np.bool_`. NumPy's `bool_` is already one byte, so the in-memory mapping is
+zero-overhead and `np.ndarray[bool]` round-trips through Synnax without reshaping. The
+Freighter frame codec branch lives in `client/py/synnax/framer/codec.py`.
 
-**C++** (`x/cpp/telem/telem.h`). A new `BOOL_T` instance with density 1. At the byte
+**C++** (`x/cpp/telem/telem.h`). A new `BOOLEAN_T` instance with density 1. At the byte
 level the storage is `uint8_t`; at the value level the client surface exposes `bool`.
 The Freighter frame codec branch lives in `client/cpp/framer/codec.cpp`.
 

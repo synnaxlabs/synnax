@@ -497,6 +497,20 @@ auto assert_occurred_as_p(
 #define ASSERT_EVENTUALLY_NIL(expr)                                                    \
     x::test::eventually_nil([&]() { return (expr); }, __FILE__, __LINE__)
 
+/// @brief macro asserting that the provided error will eventually be NIL, with a
+/// custom timeout and interval.
+/// @param expr The expression to evaluate
+/// @param timeout Maximum time to wait for the error to become nil
+/// @param interval Time to wait between checks
+#define ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(expr, timeout, interval)                    \
+    x::test::eventually_nil(                                                           \
+        [&]() { return (expr); },                                                      \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
+        (timeout),                                                                     \
+        (interval)                                                                     \
+    )
+
 /// @brief Asserts that a pair's error component will eventually become nil and
 /// returns the value component
 /// @tparam T The type of the value component in the pair

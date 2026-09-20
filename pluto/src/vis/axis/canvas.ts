@@ -67,9 +67,12 @@ export class Base {
     ticks: Tick[],
     f: (textDimensions: dimensions.Dimensions, tick: Tick) => void,
   ): dimensions.Dimensions {
+    const { lower2d: canvas } = this.renderCtx;
+    canvas.textAlign = "left";
+    canvas.textBaseline = "alphabetic";
     let maxDimensions = dimensions.ZERO;
     ticks.forEach((tick) => {
-      const d = this.renderCtx.lower2d.textDimensions(tick.label, FILL_TEXT_OPTIONS);
+      const d = canvas.textDimensions(tick.label, FILL_TEXT_OPTIONS);
       maxDimensions = dimensions.max([maxDimensions, d]);
       f(d, tick);
     });

@@ -7,22 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
-import { color, control, type destructor } from "@synnaxlabs/x";
+import { channel, type control } from "@synnaxlabs/client";
+import { color, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { StateProvider, sugaredStateZ } from "@/telem/control/aether/state";
+import { flux } from "@/flux/aether";
+import { status } from "@/status/aether";
+import { synnax } from "@/synnax/aether";
+import {
+  type ColoredState,
+  coloredStateZ,
+  Colors,
+} from "@/telem/control/aether/colors";
+import { listDefinition, type ListQuery } from "@/telem/control/aether/queries";
 
 export const legendStateZ = z.object({
   needsControlOf: channel.keyZ.array(),
-  states: sugaredStateZ.array(),
+  states: coloredStateZ.array(),
   colors: z.record(z.string(), color.colorZ).default({}),
 });
 
 interface InternalState {
-  stateProv: StateProvider;
-  disconnectStateProv?: destructor.Destructor;
+  colors: Colors;
+  retrieve: flux.Retrieve<ListQuery, control.KeyedState[]>;
+  disconnectColors?: destructor.Destructor;
 }
 
 export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
@@ -31,24 +40,35 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.stateProv = StateProvider.use(ctx);
-    i.stateProv.setColorOverrides(this.state.colors);
-
-    const keys = this.state.needsControlOf;
-    i.disconnectStateProv?.();
-    const filter = control.filterTransfersByChannelKey(...keys);
-    const states = i.stateProv.get(keys);
-    this.setState((p) => ({ ...p, states }));
-    i.disconnectStateProv = i.stateProv.onChange((t) => {
-      if (t.length > 0 && filter(t).length === 0) return;
-      const states = i.stateProv.get(keys);
-      this.setState((p) => ({ ...p, states }));
+    i.colors = Colors.use(ctx);
+    i.colors.setOverrides(this.state.colors);
+    const runAsync = status.useErrorHandler(ctx);
+    i.retrieve ??= new flux.Retrieve({
+      definition: listDefinition,
+      onChange: () => this.publish(),
+      onError: (error) =>
+        runAsync(async () => {
+          throw error;
+        }, "failed to retrieve control state"),
     });
+    i.disconnectColors ??= i.colors.onChange(() => this.publish());
+    i.retrieve.update(synnax.use(ctx), { keys: this.state.needsControlOf });
+    this.publish();
   }
 
   afterDelete(): void {
     const { internal: i } = this;
-    i.disconnectStateProv?.();
+    i.disconnectColors?.();
+    i.retrieve.close();
+  }
+
+  private publish(): void {
+    const { colors, retrieve } = this.internal;
+    const states: ColoredState[] = (retrieve.value ?? []).map((s) => ({
+      ...s,
+      subjectColor: colors.get(s.subject.key),
+    }));
+    this.setState((p) => ({ ...p, states }));
   }
 
   render(): void {}

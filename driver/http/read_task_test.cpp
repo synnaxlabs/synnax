@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -40,15 +42,7 @@ std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_sour
     auto conn_parser = x::json::Parser(conn_json);
     auto conn = device::ConnectionConfig(conn_parser);
 
-    std::vector<Request> requests;
-    requests.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints) {
-        auto req_cfg = request_config(ep);
-        if (!ep.body.empty()) req_cfg.request_content_type = "application/json";
-        auto req = device::build_request(conn, req_cfg);
-        req.body = ep.body;
-        requests.push_back(std::move(req));
-    }
+    auto requests = build_requests(conn, cfg.endpoints);
 
     auto processor = std::make_shared<Processor>();
     return {
@@ -1014,7 +1008,7 @@ TEST(HTTPReadTask, SoftwareTimingIndex) {
 }
 
 /// @brief it should extract timestamps from the JSON response when the index
-/// channel is listed as an explicit field with a timestamp_format.
+/// channel is listed as an explicit field with a time_format.
 TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     mock::Server server(
         mock::ServerConfig{
@@ -1042,7 +1036,7 @@ TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
     ReadField index_field;
     index_field.pointer = "/timestamp";
     index_field.channel = 100;
-    index_field.timestamp_format = "unix_sec";
+    index_field.time_format = "unix_sec";
 
     ReadEndpoint ep;
     ep.method = "GET";
@@ -1223,7 +1217,7 @@ protected:
     }
 };
 
-/// @brief it should error when a TIMESTAMP_T channel has no timestamp_format.
+/// @brief it should error when a TIMESTAMP_T channel has no time_format.
 TEST_F(HTTPReadTaskParseTest, TimestampChannelMissingFormat) {
     auto idx = ASSERT_NIL_P(
         client->channels
@@ -1331,7 +1325,7 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexAsField) {
                   {
                       {"pointer", "/timestamp"},
                       {"channel", idx.key},
-                      {"timestamp_format", "unix_sec"},
+                      {"time_format", "unix_sec"},
                   },
               }},
          }}},
@@ -1381,7 +1375,7 @@ TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexSoftwareTiming) {
     EXPECT_TRUE(cfg.software_timed_indexes.count(idx.key));
 }
 
-/// @brief it should silently ignore timestamp_format on a non-timestamp channel.
+/// @brief it should silently ignore time_format on a non-timestamp channel.
 TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
     auto idx = ASSERT_NIL_P(
         client->channels
@@ -1406,7 +1400,7 @@ TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
               {{
                   {"pointer", "/value"},
                   {"channel", ch.key},
-                  {"timestamp_format", "unix_sec"},
+                  {"time_format", "unix_sec"},
               }}},
          }}},
     };
@@ -1528,6 +1522,148 @@ TEST(HTTPReadTask, RepeatedReads) {
         EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
     }
     breaker.stop();
+}
+
+namespace {
+/// @brief builds a config with one numeric field per path, all on channel keys 1..N.
+ReadTaskConfig make_multi_endpoint_cfg(
+    const std::vector<std::string> &paths,
+    const x::telem::Rate rate
+) {
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving_disabled = true;
+    cfg.auto_start = false;
+    cfg.rate = rate;
+    for (std::size_t i = 0; i < paths.size(); i++) {
+        const auto key = static_cast<synnax::channel::Key>(i + 1);
+        ReadField field;
+        field.pointer = "/value";
+        field.channel = key;
+        ReadEndpoint ep;
+        ep.method = "GET";
+        ep.path = paths[i];
+        ep.body = "";
+        ep.fields = {field};
+        cfg.endpoints.push_back(ep);
+        cfg.channels[key] = {
+            .key = key,
+            .name = "value" + std::to_string(key),
+            .data_type = x::telem::FLOAT64_T,
+        };
+    }
+    return cfg;
+}
+
+mock::Route value_route(const std::string &path, const x::telem::TimeSpan &delay) {
+    return {
+        .method = Method::GET,
+        .path = path,
+        .status_code = 200,
+        .response_body = R"({"value": 1.0})",
+        .delay = delay,
+    };
+}
+}
+
+/// @brief endpoints not sent because the device was unreachable should collapse into
+/// one warning.
+TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneWarning) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                value_route("/slow", 2 * x::telem::SECOND),
+                value_route("/a", x::telem::TimeSpan::ZERO()),
+                value_route("/b", x::telem::TimeSpan::ZERO()),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/slow", "/a", "/b"}, x::telem::Rate(10000));
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"timeout_ms", 100}, {"max_concurrent_requests", 1}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 0);
+    EXPECT_NE(res.warning.find("/slow"), std::string::npos);
+    EXPECT_NE(res.warning.find("2 requests not sent"), std::string::npos);
+    EXPECT_EQ(res.warning.find("/a"), std::string::npos);
+    EXPECT_EQ(res.warning.find("polled"), std::string::npos);
+}
+
+/// @brief more endpoints than slots overrunning the period should warn about the
+/// cap.
+TEST(HTTPReadTask, CapWarningWhenPollOverrunsPeriod) {
+    const auto delay = 30 * x::telem::MILLISECOND;
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                value_route("/a", delay),
+                value_route("/b", delay),
+                value_route("/c", delay),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b", "/c"}, x::telem::Rate(100));
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"max_concurrent_requests", 1}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 3);
+    EXPECT_NE(res.warning.find("3 endpoints (polled 1 at a time)"), std::string::npos);
+}
+
+/// @brief more endpoints than slots finishing within the period should not warn.
+TEST(HTTPReadTask, NoCapWarningWithinPeriod) {
+    const auto delay = 30 * x::telem::MILLISECOND;
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                value_route("/a", delay),
+                value_route("/b", delay),
+                value_route("/c", delay),
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    auto cfg = make_multi_endpoint_cfg({"/a", "/b", "/c"}, x::telem::Rate(2));
+    auto [source, processor] = make_source(
+        cfg,
+        server.base_url(),
+        {{"max_concurrent_requests", 1}}
+    );
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(fr.size(), 3);
+    EXPECT_TRUE(res.warning.empty());
 }
 
 /// @brief it should skip disabled fields and only return enabled ones.
@@ -3320,6 +3456,56 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
     auto ct = reqs[0].headers.find("Content-Type");
     ASSERT_NE(ct, reqs[0].headers.end());
     EXPECT_EQ(ct->second, "application/json");
+}
+
+/// @brief it should drop a body stored on a GET endpoint rather than send it or
+/// set a content type for it.
+TEST(HTTPReadTask, GETDropsStoredBody) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/api/data",
+                .status_code = 200,
+                .response_body = R"({"value": 42.0})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving_disabled = true;
+    cfg.auto_start = false;
+    cfg.rate = x::telem::Rate(10000);
+
+    ReadField field;
+    field.pointer = "/value";
+    field.channel = 1;
+
+    ReadEndpoint ep;
+    ep.method = "GET";
+    ep.path = "/api/data";
+    ep.body = R"({"query": "latest"})";
+    ep.fields = {field};
+
+    cfg.endpoints = {ep};
+    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
+
+    auto [source, processor] = make_source(cfg, server.base_url());
+
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    ASSERT_NIL(res.error);
+
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, "");
+    EXPECT_EQ(reqs[0].headers.count("Content-Type"), 0u);
 }
 
 /// @brief it should include per-endpoint headers in the HTTP request.

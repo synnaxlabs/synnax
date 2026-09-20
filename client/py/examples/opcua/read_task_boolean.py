@@ -89,12 +89,12 @@ tsk = sy.opcua.ReadTask(
         sy.opcua.ReadChannel(
             channel=my_bool_0.key,
             node_id="NS=2;I=13",
-            data_type="bool",  # my_bool_0
+            data_type="boolean",  # my_bool_0
         ),
         sy.opcua.ReadChannel(
             channel=my_bool_1.key,
             node_id="NS=2;I=14",
-            data_type="bool",  # my_bool_1
+            data_type="boolean",  # my_bool_1
         ),
     ],
 )

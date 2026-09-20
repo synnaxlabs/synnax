@@ -14,12 +14,16 @@ import { type location } from "@synnaxlabs/x";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 
+/** Props for {@link Animated}. */
 export interface AnimatedProps extends Icon.IconProps {
+  /** Where the caret points while enabled. */
   enabledLoc: location.Location;
+  /** Where it points otherwise. */
   disabledLoc: location.Location;
   enabled: boolean;
 }
 
+/** A caret that turns between two directions. Use it on anything that opens. */
 export const Animated = ({
   className,
   enabledLoc,
@@ -28,7 +32,7 @@ export const Animated = ({
   ...rest
 }: AnimatedProps) => (
   <Icon.Caret.Up
-    className={CSS(
+    className={CSS.cls(
       CSS.B("caret-animated"),
       CSS.loc(enabled ? enabledLoc : disabledLoc),
       className,

@@ -47,7 +47,6 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
             name=task_name,
             device=device.key,
             rate=float(sample_rate),
-            data_saving=True,
             endpoints=endpoints,
         )
 

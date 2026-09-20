@@ -34,9 +34,9 @@ const (
 	Float32T DataType = v0.Float32T
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
 	Float64T DataType = v0.Float64T
-	// TimeStampT is a data type for a signed 64-bit nanosecond count since the Unix
+	// TimestampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimeStampT DataType = v0.TimeStampT
+	TimestampT DataType = v0.TimestampT
 	// UUIDT is a data type for a 128-bit UUID value.
 	UUIDT DataType = v0.UUIDT
 	// StringT is a variable density data type for a UTF-8 encoded string.
@@ -45,7 +45,7 @@ const (
 	BytesT DataType = v0.BytesT
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
 	JSONT DataType = v0.JSONT
-	// BoolT is a data type for a boolean value. Samples are a single byte with
+	// BooleanT is a data type for a boolean value. Samples are a single byte with
 	// canonical values 0x00 (false) and 0x01 (true).
-	BoolT DataType = v0.BoolT
+	BooleanT DataType = v0.BooleanT
 )

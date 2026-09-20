@@ -181,6 +181,24 @@ describe("KeyValueEditor", () => {
     expect(inputs[1].getAttribute("placeholder")).toBe("Key");
   });
 
+  it("should bind each valueFirst input to its own field", async () => {
+    const onChange = vi.fn();
+    await renderWithConsole(
+      <Harness
+        onChange={onChange}
+        initialHeaders={[{ name: "the-key", value: "the-value" }]}
+        valueFirst
+      />,
+    );
+    const valueInput = await screen.findByPlaceholderText("Value");
+    expect((valueInput as HTMLInputElement).value).toBe("the-value");
+    expect(screen.getByPlaceholderText("Key").getAttribute("value")).toBe("the-key");
+    fireEvent.change(valueInput, { target: { value: "changed" } });
+    await waitFor(() =>
+      expect(lastHeaders(onChange)).toEqual([{ name: "the-key", value: "changed" }]),
+    );
+  });
+
   it("should reset a non-array (legacy) value to an empty array on mount", async () => {
     const onChange = vi.fn();
     await renderWithConsole(

@@ -15,8 +15,8 @@ import { type z } from "zod";
 import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
 
-export const RESOURCE_NAME = "view";
-export const PLURAL_RESOURCE_NAME = "views";
+const RESOURCE_NAME = "view";
+const PLURAL_RESOURCE_NAME = "views";
 
 export type ListQuery = view.RetrieveMultipleParams;
 

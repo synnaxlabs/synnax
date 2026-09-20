@@ -33,7 +33,7 @@ describe("Breadcrumb", () => {
       expect(c.getByText("Home")).toBeTruthy();
       expect(c.getByText("Settings")).toBeTruthy();
       expect(c.getByText("Profile")).toBeTruthy();
-      expect(c.queryAllByLabelText("pluto-icon--caret-right")).toHaveLength(2);
+      expect(c.container.querySelectorAll(".pluto-icon--caret-right")).toHaveLength(2);
     });
   });
   describe("mapURLSegments", () => {

@@ -893,7 +893,7 @@ class TestCalculationOperations:
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
         calc = client.channels.create(
             name=random_name(),
@@ -914,7 +914,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([10.0, 20.0, 30.0], dtype=np.float32),
-                        reset.key: np.array([0, 0, 0], dtype=np.uint8),
+                        reset.key: np.array([False, False, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -931,7 +931,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([40.0, 50.0], dtype=np.float32),
-                        reset.key: np.array([1, 0], dtype=np.uint8),
+                        reset.key: np.array([True, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -947,7 +947,7 @@ class TestCalculationOperations:
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
         calc = client.channels.create(
             name=random_name(),
@@ -968,7 +968,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([30.0, 10.0, 20.0], dtype=np.float32),
-                        reset.key: np.array([0, 0, 0], dtype=np.uint8),
+                        reset.key: np.array([False, False, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -985,7 +985,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([50.0, 40.0], dtype=np.float32),
-                        reset.key: np.array([1, 0], dtype=np.uint8),
+                        reset.key: np.array([True, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -1001,7 +1001,7 @@ class TestCalculationOperations:
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
         calc = client.channels.create(
             name=random_name(),
@@ -1022,7 +1022,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([10.0, 30.0, 20.0], dtype=np.float32),
-                        reset.key: np.array([0, 0, 0], dtype=np.uint8),
+                        reset.key: np.array([False, False, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -1039,7 +1039,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([15.0, 25.0], dtype=np.float32),
-                        reset.key: np.array([1, 0], dtype=np.uint8),
+                        reset.key: np.array([True, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -1147,7 +1147,7 @@ class TestCalculationOperations:
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
         calc = client.channels.create(
             name=random_name(),
@@ -1173,7 +1173,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([10.0, 20.0], dtype=np.float32),
-                        reset.key: np.array([0, 0], dtype=np.uint8),
+                        reset.key: np.array([False, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -1185,7 +1185,7 @@ class TestCalculationOperations:
                             [start + 3 * sy.TimeSpan.SECOND], dtype=np.int64
                         ),
                         data.key: np.array([30.0], dtype=np.float32),
-                        reset.key: np.array([1], dtype=np.uint8),
+                        reset.key: np.array([True], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -1197,7 +1197,7 @@ class TestCalculationOperations:
                             [start + 4 * sy.TimeSpan.SECOND], dtype=np.int64
                         ),
                         data.key: np.array([40.0], dtype=np.float32),
-                        reset.key: np.array([0], dtype=np.uint8),
+                        reset.key: np.array([False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -1259,7 +1259,7 @@ class TestCalculationOperations:
             name=random_name(), data_type=sy.DataType.FLOAT32, index=idx.key
         )
         reset = client.channels.create(
-            name=random_name(), data_type=sy.DataType.UINT8, virtual=True
+            name=random_name(), data_type=sy.DataType.BOOLEAN, virtual=True
         )
         calc = client.channels.create(
             name=random_name(),
@@ -1279,7 +1279,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([10.0, 20.0], dtype=np.float32),
-                        reset.key: np.array([0, 0], dtype=np.uint8),
+                        reset.key: np.array([False, False], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)
@@ -1296,7 +1296,7 @@ class TestCalculationOperations:
                             dtype=np.int64,
                         ),
                         data.key: np.array([30.0, 40.0, 50.0], dtype=np.float32),
-                        reset.key: np.array([1, 0, 1], dtype=np.uint8),
+                        reset.key: np.array([True, False, True], dtype=np.bool_),
                     }
                 )
                 frame = streamer.read(timeout=1)

@@ -11,6 +11,7 @@ package aspen_test
 
 import (
 	"context"
+	"net"
 	"sync"
 	"time"
 
@@ -20,9 +21,19 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// specTimeout bounds every spec in this file. Aspen retries pledges until its context
+// is cancelled, so a node that never joins would otherwise hang until the suite ends.
+const specTimeout = 30 * time.Second
+
+// fastPledgeConfig keeps the pledge retry interval flat. The default scale grows it by
+// 25% per failed pledge, so a node that loses early rounds under load waits minutes.
+var fastPledgeConfig = aspen.PropagationConfig{
+	PledgeRetryInterval: 10 * time.Millisecond,
+	PledgeRetryScale:    1,
+}
 
 var _ = Describe("Membership", Serial, Ordered, func() {
 	Describe("Bootstrap Cluster", func() {
@@ -30,7 +41,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
-				"localhost:22546",
+				"localhost:0",
 				[]aspen.Address{},
 				aspen.Bootstrap(),
 				aspen.InMemory(),
@@ -46,17 +57,17 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(db.Cluster.Host().State).To(Equal(aspen.NodeStateHealthy))
 
 			Expect(db.Close()).To(Succeed())
-		})
+		}, SpecTimeout(specTimeout))
 
 		It(
 			"Should correctly bootstrap a cluster with peers provided",
 			func(ctx SpecContext) {
-				addr1 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
+				// Bootstrapping discards the peers, so port 1 never has to answer.
 				db := MustSucceed(aspen.Open(
 					ctx,
 					"",
-					addr1,
-					[]aspen.Address{"localhost:22547"},
+					"localhost:0",
+					[]aspen.Address{"localhost:1"},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
 				))
@@ -65,6 +76,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				By("Assigning a valid Name of 1")
 				Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 			},
+			SpecTimeout(specTimeout),
 		)
 
 		It(
@@ -72,8 +84,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			func(ctx SpecContext) {
 				wg := sync.WaitGroup{}
 				wg.Add(1)
-				addr1 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
-				addr2 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
+				// The pledging node must know where the bootstrapper will be before the
+				// bootstrapper opens, so bind the listener up front and hand it to the
+				// bootstrapper.
+				lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+				bootstrapAddr := address.Address(lis.Addr().String())
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
@@ -82,8 +97,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					db := MustSucceed(aspen.Open(
 						ctx,
 						"",
-						addr1,
-						[]aspen.Address{addr2},
+						"localhost:0",
+						[]aspen.Address{bootstrapAddr},
 						aspen.InMemory(),
 					))
 					defer func() { Expect(db.Close()).To(Succeed()) }()
@@ -94,10 +109,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				db := MustSucceed(aspen.Open(
 					ctx,
 					"",
-					addr2,
+					bootstrapAddr,
 					[]aspen.Address{},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
+					aspen.WithListener(lis),
 				))
 
 				By("Assigning a unique Name of 1")
@@ -107,6 +123,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				By("Safely closing the database")
 				Expect(db.Close()).To(Succeed())
 			},
+			SpecTimeout(specTimeout),
 		)
 	})
 
@@ -114,28 +131,33 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		It(
 			"Should correctly join many nodes to the cluster concurrently",
 			func(ctx SpecContext) {
-				numNodes := 10
+				numPledges := 9
+				bootstrapper := MustSucceed(aspen.Open(
+					ctx,
+					"",
+					"localhost:0",
+					[]aspen.Address{},
+					aspen.InMemory(),
+					aspen.Bootstrap(),
+				))
+				peers := []aspen.Address{bootstrapper.Cluster.Host().Address}
 				wg := sync.WaitGroup{}
-				wg.Add(numNodes)
+				wg.Add(numPledges)
 				var (
-					addresses = address.NewLocalFactory(22546).NextN(numNodes)
-					ids       = make([]aspen.NodeKey, numNodes)
-					dbs       = make([]*aspen.DB, numNodes)
+					ids = make([]aspen.NodeKey, numPledges)
+					dbs = make([]*aspen.DB, numPledges)
 				)
-				for i := range numNodes {
+				for i := range numPledges {
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
-						opts := []aspen.Option{aspen.InMemory()}
-						if i == 0 {
-							opts = append(opts, aspen.Bootstrap())
-						}
 						db := MustSucceed(aspen.Open(
 							ctx,
 							"",
-							addresses[i],
-							addresses,
-							opts...,
+							"localhost:0",
+							peers,
+							aspen.InMemory(),
+							aspen.WithPropagationConfig(fastPledgeConfig),
 						))
 						ids[i] = db.Cluster.HostKey()
 						dbs[i] = db
@@ -144,13 +166,16 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				wg.Wait()
 
 				By("Assigning a unique Name to each node")
+				ids = append(ids, bootstrapper.Cluster.HostKey())
 				Expect(lo.Uniq(ids)).To(HaveLen(len(ids)))
 
 				By("Safely closing the database")
+				Expect(bootstrapper.Close()).To(Succeed())
 				for _, db := range dbs {
 					Expect(db.Close()).To(Succeed())
 				}
 			},
+			SpecTimeout(specTimeout),
 		)
 	})
 
@@ -166,8 +191,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 							ClusterGossipInterval: 50 * time.Millisecond,
 						}
 						builder := &mock.Builder{
-							PortRangeStart: 22546,
-							DataDir:        "./testdata",
+							DataDir: "./testdata",
 							DefaultOptions: []aspen.Option{
 								aspen.WithPropagationConfig(propConfig),
 							},
@@ -222,6 +246,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						Expect(builder.Nodes[3].DB.Close()).To(Succeed())
 						Expect(db.Close()).To(Succeed())
 					},
+					SpecTimeout(specTimeout),
 				)
 			})
 		})

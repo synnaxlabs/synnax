@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
-import { type record, uuid } from "@synnaxlabs/x";
+import { access, type ontology, panel, project, user } from "@synnaxlabs/client";
+import {
+  createPanelParent,
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
+import { type record, TimeSpan, uuid } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -23,7 +27,10 @@ import { assert, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { Errors } from "@/errors";
 import { Haul } from "@/haul";
 import { Panel } from "@/panel";
+import { Tabs } from "@/tabs";
+import { mockBoundingClientRect } from "@/testutil/dom";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { Tooltip } from "@/tooltip";
 
 const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client
@@ -139,10 +146,9 @@ const TabKeyNameProbe = (): ReactElement => {
 
 const children: Panel.MosaicProps["children"] = () => <TabContentProbe />;
 
-// Bootstrap pre-warms the cache with the suspending hook alone, so the
-// mosaic mounts against a cached document. Suspending inside Mosaic itself
-// trips a React 19 dev-mode replay bug for hooks declared after the
-// suspension point.
+// Bootstrap pre-warms the cache with the suspending hook alone, so the mosaic mounts
+// against a cached document. Suspending inside Mosaic itself trips a React 19 dev-mode
+// replay bug for hooks declared after the suspension point.
 const Bootstrap = ({ panelKey }: { panelKey: panel.Key }): ReactElement => {
   Panel.useEnsure({ key: panelKey });
   return <p>loaded</p>;
@@ -179,7 +185,9 @@ describe("Panel.Mosaic", () => {
       utils = render(
         <Errors.SuspenseBoundary loading={<div>loading</div>}>
           <Panel.Suspended panelKey={panelKey}>
-            <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
+            <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+              <Panel.Mosaic {...props}>{children}</Panel.Mosaic>
+            </Tooltip.Config>
           </Panel.Suspended>
         </Errors.SuspenseBoundary>,
         { wrapper },
@@ -289,8 +297,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a2.key, b2.key],
       });
-      // Both leaves show their own selected tab, so both are attached to the
-      // document.
+      // Both leaves show their own selected tab, so both are attached to the document.
       await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
       expect(utils.getByText(contentText(a2))).toBeTruthy();
       expect(utils.queryByText(contentText(a1))).toBeNull();
@@ -365,6 +372,73 @@ describe("Panel.Mosaic", () => {
       const utils = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
       expect(isTabFocused(utils, a.key)).toBe(false);
+    });
+  });
+
+  describe("shortcut hints", () => {
+    // The mosaic binds neither shortcut; the embedding app does. A hint that drifts
+    // from the exported constant therefore advertises a key that does nothing.
+    const hoverTooltip = async (el: HTMLElement): Promise<HTMLElement> => {
+      // jsdom lays every element out at zero size, and the tooltip closes itself
+      // against a zero-area anchor, so the anchor is given a real box first.
+      el.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(el);
+      let tip!: HTMLElement;
+      await waitFor(() => {
+        const found = document.querySelector<HTMLElement>(".pluto-tooltip");
+        if (found == null) throw new Error("tooltip did not open");
+        tip = found;
+      });
+      return tip;
+    };
+
+    const createButtons = (utils: RenderResult): HTMLElement[] =>
+      Array.from(
+        utils.container.querySelectorAll<HTMLElement>(".pluto-panel-mosaic__create"),
+      );
+
+    it("should advertise create only on the leaf holding the focused tab", async () => {
+      const a1 = resourceTab();
+      const a2 = resourceTab();
+      const b1 = resourceTab();
+      const b2 = resourceTab();
+      const p = await splitPanel(a1, a2, b1, b2);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a2.key, b2.key],
+      });
+      await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
+      const [left, right] = createButtons(utils);
+
+      // The right leaf's selected tab is not the selection head, so create would put
+      // the new tab in the left leaf. Hinting the key here would point at the wrong
+      // leaf, so the unfocused button opens no tooltip at all.
+      right.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 40);
+      fireEvent.pointerEnter(right);
+      await expect(
+        waitFor(
+          () => {
+            if (document.querySelector(".pluto-tooltip") == null)
+              throw new Error("no tooltip yet");
+          },
+          { timeout: 500 },
+        ),
+      ).rejects.toThrow();
+      fireEvent.pointerLeave(right);
+
+      const tip = await hoverTooltip(left);
+      expect(tip.textContent?.toLowerCase()).toContain("t");
+    });
+
+    it("should advertise escape as the way out of focus mode", async () => {
+      const tab = resourceTab();
+      const p = await createPanel(tab);
+      const utils = await renderMosaic({ panelKey: p.key, overlaid: tab.key });
+      const exit = utils.getByText("Exit focus").closest("button");
+      if (exit == null) throw new Error("exit focus button did not render");
+      const tip = await hoverTooltip(exit);
+      // Control+L only enters focus mode now, so hinting it here would be a lie.
+      expect(tip.textContent?.toLowerCase()).toContain("esc");
     });
   });
 
@@ -543,7 +617,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await act(async () => {
-        fireEvent.click(utils.getByLabelText("pluto-icon--add"));
+        fireEvent.click(utils.container.querySelector(".pluto-icon--add")!);
       });
 
       await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
@@ -959,6 +1033,99 @@ describe("Panel.Mosaic", () => {
         drop(leaves[1]);
       });
       expect(onSelect).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("without update permission", () => {
+    let readOnly: FC<PropsWithChildren>;
+
+    beforeEach(async () => {
+      const viewer = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          panel.TYPE_ONTOLOGY_ID,
+          project.TYPE_ONTOLOGY_ID,
+          user.TYPE_ONTOLOGY_ID,
+          access.role.TYPE_ONTOLOGY_ID,
+          access.policy.TYPE_ONTOLOGY_ID,
+        ],
+        actions: ["retrieve"],
+      });
+      readOnly = await createAsyncSynnaxWrapper({ client: viewer });
+    });
+
+    const renderReadOnly = async (
+      props: Omit<Panel.MosaicProps, "children"> & { panelKey: panel.Key },
+    ): Promise<RenderResult> => {
+      wrapper = readOnly;
+      return await renderMosaic(props);
+    };
+
+    it("should offer no close button on any tab", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      const utils = await renderReadOnly({ panelKey: p.key });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+      expect(utils.queryAllByLabelText("Close")).toHaveLength(0);
+    });
+
+    it("should offer no add button on any leaf", async () => {
+      const p = await createPanel(resourceTab());
+      const utils = await renderReadOnly({ panelKey: p.key });
+      await waitFor(() => expect(utils.container.textContent).toContain("lineplot:"));
+      expect(utils.queryByLabelText("pluto-icon--add")).toBeNull();
+    });
+
+    it("should leave every tab undraggable", async () => {
+      const a = resourceTab();
+      const p = await createPanel(a);
+      const utils = await renderReadOnly({
+        panelKey: p.key,
+        tabName: () => <TabKeyNameProbe />,
+      });
+      await waitFor(() => expect(utils.getByText(`name:${a.key}`)).toBeTruthy());
+      const tab = utils.getByText(`name:${a.key}`).closest(Tabs.KEY_SELECTOR);
+      assert(tab != null);
+      expect(tab.getAttribute("draggable")).not.toBe("true");
+    });
+
+    it("should offer no resize handle between split panes", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      await client.panels.dispatch(p.key, [
+        panel.splitTab({ key: b.key, direction: "x" }),
+      ]);
+      const utils = await renderReadOnly({ panelKey: p.key });
+      await waitFor(() =>
+        expect(utils.container.querySelectorAll(".pluto-mosaic__leaf")).toHaveLength(2),
+      );
+      expect(utils.container.querySelectorAll(".pluto-resize__handle")).toHaveLength(0);
+    });
+
+    it("should offer neither close nor split in the tab context menu", async () => {
+      const a = resourceTab();
+      const p = await createPanel(a, resourceTab());
+      const utils = await renderReadOnly({
+        panelKey: p.key,
+        tabName: () => <TabKeyNameProbe />,
+        contextMenu: () => (
+          <>
+            <Panel.CloseTabMenuItem />
+            <Panel.SplitTabMenuItems />
+          </>
+        ),
+      });
+      await waitFor(() => expect(utils.getByText(`name:${a.key}`)).toBeTruthy());
+      await act(async () => {
+        fireEvent.contextMenu(utils.getByText(`name:${a.key}`));
+      });
+      await waitFor(() =>
+        expect(document.querySelector(".pluto-menu-context")).toBeTruthy(),
+      );
+      expect(document.body.textContent).not.toContain("Close");
+      expect(document.body.textContent).not.toContain("Split horizontally");
     });
   });
 });

@@ -26,6 +26,7 @@ import { UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
 
+/** A frame's shape without its samples, for logging and debugging. */
 export interface Digest extends Record<channel.Key | channel.Name, SeriesDigest[]> {}
 
 const columnType = (columns: channel.PrimitiveParams): ColumnType => {
@@ -53,6 +54,7 @@ const validateMatchedColsAndSeries = (
   );
 };
 
+/** Anything {@link Frame}'s constructor accepts. */
 export type CrudeFrame =
   | Frame
   | CrudePayload
@@ -108,7 +110,6 @@ export class Frame {
       return;
     }
 
-    // Construction from a map.
     if (columnsOrData instanceof Map) {
       columnsOrData.forEach((v, k) => this.push(k, ...array.toArray(v)));
       return;
@@ -116,7 +117,6 @@ export class Frame {
 
     const isObject = typeof columnsOrData === "object" && !Array.isArray(columnsOrData);
 
-    // Construction from a payload.
     if (isObject) {
       if ("keys" in columnsOrData && "series" in columnsOrData) {
         const data_ = columnsOrData as Payload;
@@ -135,7 +135,6 @@ export class Frame {
       return;
     }
 
-    // Construction from a set of series and columns.
     if (
       Array.isArray(columnsOrData) ||
       ["string", "number"].includes(typeof columnsOrData)
@@ -198,9 +197,7 @@ export class Frame {
     return unique.unique(this.names);
   }
 
-  /**
-   * @returns the unique columns in the frame.
-   */
+  /** @returns the unique columns in the frame. */
   get uniqueColumns(): channel.Key[] | channel.Name[] {
     return this.colType === "key" ? this.uniqueKeys : this.uniqueNames;
   }
@@ -289,19 +286,10 @@ export class Frame {
     return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
   }
 
-  /**
-   * Pushes a set of series for the given channel onto the frame.
-   *
-   * @param key the channel key or name;
-   * @param v the series to push.
-   */
+  /** Pushes a set of series for the given channel onto the frame. */
   push(key: channel.Key | channel.Name, ...v: Series[]): void;
 
-  /**
-   * Pushes the frame onto the current frame.
-   *
-   * @param frame  - the frame to push.
-   */
+  /** Pushes the frame onto the current frame. */
   push(frame: Frame): void;
 
   push(keyOrFrame: channel.Key | channel.Name | Frame, ...v: Series[]): void {
@@ -349,8 +337,7 @@ export class Frame {
 
   /**
    * @returns a new frame containing the mapped output of the provided function.
-   * @param fn a function that takes a channel key and series and returns a
-   * boolean.
+   * @param fn a function that takes a channel key and series and returns a boolean.
    */
   map(
     fn: (
@@ -381,7 +368,6 @@ export class Frame {
 
   /**
    * Iterates over all series in the current frame.
-   *
    * @param fn a function that takes a channel key and series.
    */
   forEach(fn: (k: channel.Key | channel.Name, arr: Series, i: number) => void): void {
@@ -471,6 +457,7 @@ export class Frame {
   }
 }
 
+/** Zod schema for a frame on the wire. */
 export const frameZ = z.object({
   keys: z.union([
     z.null().transform<number[]>(() => []),
@@ -486,11 +473,13 @@ export interface Payload extends z.infer<typeof frameZ> {}
 
 export interface CrudePayload extends z.input<typeof frameZ> {}
 
+/** Rebuilds a {@link Series} from its wire form. */
 export const seriesFromPayload = (series: SeriesPayload): Series => {
   const { dataType, data, timeRange, alignment } = series;
   return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
 };
 
+/** Reduces a {@link Series} to its wire form. */
 export const seriesToPayload = (series: Series): SeriesPayload => ({
   timeRange: series.timeRange,
   dataType: series.dataType,

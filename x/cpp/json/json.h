@@ -385,12 +385,13 @@ public:
         return results;
     }
 
-    /// @brief binds a new error to the field at the given path, using the message from
-    /// a errors::Error.
+    /// @brief binds a new error to the field at the given path, using the data from
+    /// a errors::Error. The type prefix is omitted: error() re-wraps the accumulated
+    /// messages in a validation error, which would otherwise double the prefix.
     /// @param path The JSON path to the field.
-    /// @param err The error whose message will be used.
+    /// @param err The error whose data will be used.
     void field_err(const std::string &path, const errors::Error &err) const {
-        this->field_err(path, err.message());
+        this->field_err(path, err.data);
     }
 
     /// @brief binds a new error to the field at the given path.

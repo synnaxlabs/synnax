@@ -31,14 +31,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
-    auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ReadTaskSource>(dev, std::move(cfg))
+        std::make_unique<ReadTaskSource>(devs, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -71,14 +69,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
-    auto [dev, d_err] = devs->acquire(cfg.conn);
-    if (d_err) return {std::move(result), d_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(dev, std::move(cfg))
+        std::make_unique<WriteTaskSink>(devs, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
 }

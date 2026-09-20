@@ -93,11 +93,11 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("domain")
-	validate.Positive(v, "file_size", c.FileSize)
-	validate.Positive(v, "max_descriptors", c.MaxDescriptors)
-	validate.NotNil(v, "fs", c.FS)
-	validate.GreaterThanEq(v, "gc_threshold", c.GCThreshold, 0)
-	validate.LessThanEq(v, "gc_threshold", c.GCThreshold, 1)
+	v.Positive("file_size", c.FileSize)
+	v.Positive("max_descriptors", c.MaxDescriptors)
+	v.NotNil("fs", c.FS)
+	v.GreaterThanEq("gc_threshold", c.GCThreshold, 0)
+	v.LessThanEq("gc_threshold", c.GCThreshold, 1)
 	return v.Error()
 }
 

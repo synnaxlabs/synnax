@@ -52,10 +52,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements [config.Config].
 func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "search", c.Search)
+	v.NotNil("db", c.DB)
+	v.NotNil("group", c.Group)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -102,9 +102,8 @@ func OpenService(
 	}
 	if cfg.Signals != nil {
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
+		if sig, err = cfg.Signals.PublishFromGorp(
 			ctx,
-			cfg.Signals,
 			signals.GorpPublisherConfigUUID(s.table.Observe()),
 		); !ok(err, sig) {
 			return nil, err
@@ -126,5 +125,5 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve()}
+	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve(), search: s.cfg.Search}
 }

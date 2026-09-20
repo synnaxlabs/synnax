@@ -15,7 +15,7 @@ import { Command } from "@/platform/command";
 
 const ConnectServerCommand = Command.create({
   key: "modbus_connect_server",
-  name: "Connect a Modbus server",
+  name: "Connect Modbus server",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useConnectModal,
   useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),

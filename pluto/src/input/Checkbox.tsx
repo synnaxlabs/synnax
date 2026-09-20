@@ -13,18 +13,10 @@ import { type ReactElement } from "react";
 
 import { Boolean, type BooleanProps } from "@/input/Boolean";
 
+/** Props for {@link Checkbox}. */
 export interface CheckboxProps extends Omit<BooleanProps, "inputType"> {}
 
-/**
- * A controlled boolean Checkbox input component.
- *
- * @param props - The props for the input component. Unlisted props are passed to the
- * underlying input element.
- * @param props.value - The value of the input.
- * @param props.onChange - A function to call when the input value changes.
- * @param props.size - The size of the input: "small" | "medium" | "large".
- * @default "medium"
- */
+/** A boolean input drawn as a checkbox. Use it for a choice the user then submits. */
 export const Checkbox = (props: CheckboxProps): ReactElement => (
   <Boolean {...props} inputType="checkbox" />
 );

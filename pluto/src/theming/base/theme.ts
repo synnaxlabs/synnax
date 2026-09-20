@@ -11,13 +11,9 @@ import { color, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const grayScaleZ = z.object({
-  // App canvas
   l0: color.colorZ,
-  // Raised surface
   l1: color.colorZ,
-  // Elevated chrome
   l2: color.colorZ,
-  // Component rest fill
   l3: color.colorZ,
   // Hover fill
   l4: color.colorZ,
@@ -146,18 +142,12 @@ const fontFamily = '"Inter Variable", sans-serif';
 const codeFontFamily = '"Geist Mono", monospace';
 const baseSize: number = 6;
 
-// Error
-
 const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
-
-// Warning
 
 // Pure yellow only reads on dark surfaces; on light ones it washes out, and
 // darkening it alone goes olive. The light ramp rotates toward amber instead.
 const DARK_WARNING_HSLA: color.HSLA = [48, 90, 55, 1];
 const LIGHT_WARNING_HSLA: color.HSLA = [38, 92, 46, 1];
-
-// Grayscale
 
 // Both ramps are generated in OKLCH (hue 258, whisper chroma) with even
 // perceptual steps inside each band. Bands never overlap: a component fill is

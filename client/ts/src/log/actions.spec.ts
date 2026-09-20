@@ -305,30 +305,32 @@ describe("log reducer", () => {
     });
   });
 
-  describe("setHideChannelNames", () => {
+  describe("setChannelNamesHidden", () => {
     it("should set the flag and round-trip it", () => {
-      const state = createEmpty({ hideChannelNames: true });
+      const state = createEmpty({ channelNamesHidden: true });
       expect(
-        apply(state, log.setHideChannelNames({ hideChannelNames: false }))
-          .hideChannelNames,
+        apply(state, log.setChannelNamesHidden({ channelNamesHidden: false }))
+          .channelNamesHidden,
       ).toEqual(false);
       expect(
-        roundTrip(state, log.setHideChannelNames({ hideChannelNames: false }))
-          .hideChannelNames,
+        roundTrip(state, log.setChannelNamesHidden({ channelNamesHidden: false }))
+          .channelNamesHidden,
       ).toEqual(true);
     });
   });
 
-  describe("setHideReceiptTimestamp", () => {
+  describe("setReceiptTimestampHidden", () => {
     it("should set the flag and round-trip it", () => {
-      const state = createEmpty({ hideReceiptTimestamp: true });
+      const state = createEmpty({ receiptTimestampHidden: true });
       expect(
-        apply(state, log.setHideReceiptTimestamp({ hideReceiptTimestamp: false }))
-          .hideReceiptTimestamp,
+        apply(state, log.setReceiptTimestampHidden({ receiptTimestampHidden: false }))
+          .receiptTimestampHidden,
       ).toEqual(false);
       expect(
-        roundTrip(state, log.setHideReceiptTimestamp({ hideReceiptTimestamp: false }))
-          .hideReceiptTimestamp,
+        roundTrip(
+          state,
+          log.setReceiptTimestampHidden({ receiptTimestampHidden: false }),
+        ).receiptTimestampHidden,
       ).toEqual(true);
     });
   });
@@ -359,7 +361,7 @@ describe("log reducer", () => {
           state,
           log.rename({ name: "next" }),
           log.addChannel({ channel: 1 }),
-          log.setHideChannelNames({ hideChannelNames: false }),
+          log.setChannelNamesHidden({ channelNamesHidden: false }),
         ),
       ).toEqual(state);
     });

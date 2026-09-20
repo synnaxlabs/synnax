@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-// Get extracts documentation from a domain map.
-// It looks for a "doc" domain and returns the first expression's value or name.
-// Returns an empty string if no documentation is defined.
+// Get extracts documentation from a domain map. It looks for a "doc" domain and returns
+// the first expression's value or name. Returns an empty string if no documentation is
+// defined.
 func Get(domains map[string]resolution.Domain) string {
 	if domain, ok := domains["doc"]; ok {
 		if len(domain.Expressions) > 0 {
@@ -35,9 +35,9 @@ func Get(domains map[string]resolution.Domain) string {
 
 const maxLineWidth = 88
 
-// wrapText takes documentation text and wraps it to fit within the given width.
-// It normalizes internal newlines (single \n) into spaces, but preserves paragraph
-// breaks (double \n\n). Returns a slice of wrapped lines.
+// wrapText takes documentation text and wraps it to fit within the given width. It
+// normalizes internal newlines (single \n) into spaces, but preserves paragraph breaks
+// (double \n\n). Returns a slice of wrapped lines.
 func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
 	if text == "" {
 		return nil
@@ -94,42 +94,44 @@ func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
 }
 
 // FormatGo formats documentation for Go comments.
+//
 // Single-line: "// Name doc text"
+//
 // Multi-line: "// Name line1\n// line2\n// line3"
+//
 // Text is wrapped to 88 columns including the comment prefix and the display width
 // of the indentation the comment is emitted at (gofmt indents every comment line).
-func FormatGo(name, doc string, indent ...int) string {
-	if doc == "" {
-		return ""
-	}
-
-	width := maxLineWidth
-	if len(indent) > 0 {
-		width -= indent[0]
-	}
-
-	// Calculate available width: "// Name " for first line, "// " for subsequent
-	firstPrefix := "// " + name + " "
-	subsequentPrefix := "// "
-	firstLineWidth := width - len(firstPrefix)
-	subsequentLineWidth := width - len(subsequentPrefix)
-
-	lines := wrapText(doc, firstLineWidth, subsequentLineWidth)
+// renderComment wraps doc to width and prints one comment line per wrapped
+// line: the first behind firstPrefix, blank lines behind blank, and the rest
+// behind subsequentPrefix.
+func renderComment(doc, firstPrefix, subsequentPrefix, blank string, width int) string {
+	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
 	if len(lines) == 0 {
 		return ""
 	}
-
 	var result []string
 	for i, line := range lines {
-		if i == 0 {
+		switch {
+		case i == 0:
 			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "//")
-		} else {
+		case line == "":
+			result = append(result, blank)
+		default:
 			result = append(result, subsequentPrefix+line)
 		}
 	}
 	return strings.Join(result, "\n")
+}
+
+func FormatGo(name, doc string, indent ...int) string {
+	if doc == "" {
+		return ""
+	}
+	width := maxLineWidth
+	if len(indent) > 0 {
+		width -= indent[0]
+	}
+	return renderComment(doc, "// "+name+" ", "// ", "//", width)
 }
 
 // FormatTS formats documentation for TypeScript JSDoc comments.
@@ -144,97 +146,22 @@ func FormatTS(name, doc string, indent ...int) string {
 	if doc == "" {
 		return ""
 	}
-
 	width := maxLineWidth
 	if len(indent) > 0 {
 		width -= indent[0]
 	}
 	firstPrefix := " * " + name + " "
-	subsequentPrefix := " * "
-	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
-	if len(lines) == 0 {
-		return ""
-	}
-
+	lines := wrapText(doc, width-len(firstPrefix), width-len(" * "))
 	if len(lines) == 1 {
 		if single := "/** " + name + " " + lines[0] + " */"; len(single) <= width {
 			return single
 		}
 	}
-
-	result := []string{"/**"}
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, " *")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
-	}
-	result = append(result, " */")
-	return strings.Join(result, "\n")
-}
-
-// FormatPyDocstring formats documentation for Python class/function docstrings.
-//
-// Single-line: `"""Name doc text"""`
-//
-// Multi-line: `"""Name line1\nline2\nline3"""`
-//
-// Text is wrapped to 88 characters including the docstring markers.
-func FormatPyDocstring(name, doc string) string {
-	if doc == "" {
+	body := renderComment(doc, firstPrefix, " * ", " *", width)
+	if body == "" {
 		return ""
 	}
-	// Reserve room for the closing quotes, which land on the last wrapped line.
-	firstPrefix := `"""` + name + " "
-	closing := len(`"""`)
-	lines := wrapText(doc, maxLineWidth-len(firstPrefix)-closing, maxLineWidth-closing)
-	if len(lines) == 0 {
-		return ""
-	}
-	result := make([]string, len(lines))
-	for i, line := range lines {
-		if i == 0 {
-			result[i] = firstPrefix + line
-		} else {
-			result[i] = line
-		}
-	}
-	result[len(result)-1] = result[len(result)-1] + `"""`
-	return strings.Join(result, "\n")
-}
-
-// FormatPyComment formats documentation for Python line comments.
-//
-// Single-line: "# Name doc text"
-//
-// Multi-line: "# Name line1\n# line2\n# line3"
-//
-// Text is wrapped to 88 characters including the comment prefix.
-func FormatPyComment(name, doc string) string {
-	if doc == "" {
-		return ""
-	}
-	firstPrefix := "# " + name + " "
-	subsequentPrefix := "# "
-	lines := wrapText(
-		doc,
-		maxLineWidth-len(firstPrefix),
-		maxLineWidth-len(subsequentPrefix),
-	)
-	var result []string
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "#")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
-	}
-	return strings.Join(result, "\n")
+	return "/**\n" + body + "\n */"
 }
 
 // FormatCpp formats documentation for C++ Doxygen-style comments.
@@ -248,30 +175,7 @@ func FormatCpp(name, doc string) string {
 	if doc == "" {
 		return ""
 	}
-
-	// Calculate available width: "/// @brief Name " for first line, "/// " for
-	// subsequent
-	firstPrefix := "/// @brief " + name + " "
-	subsequentPrefix := "/// "
-	firstLineWidth := maxLineWidth - len(firstPrefix)
-	subsequentLineWidth := maxLineWidth - len(subsequentPrefix)
-
-	lines := wrapText(doc, firstLineWidth, subsequentLineWidth)
-	if len(lines) == 0 {
-		return ""
-	}
-
-	var result []string
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "///")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
-	}
-	return strings.Join(result, "\n")
+	return renderComment(doc, "/// @brief "+name+" ", "/// ", "///", maxLineWidth)
 }
 
 // FormatProto formats documentation for Protobuf comments (same as Go style).
@@ -283,32 +187,7 @@ func FormatCpp(name, doc string) string {
 // Text is wrapped to 88 characters including the comment prefix and the indentation the
 // comment is emitted at (buf format re-indents continuation lines to match).
 func FormatProto(name, doc string, indent ...int) string {
-	if doc == "" {
-		return ""
-	}
-
-	width := maxLineWidth
-	if len(indent) > 0 {
-		width -= indent[0]
-	}
-	firstPrefix := "// " + name + " "
-	subsequentPrefix := "// "
-	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
-	if len(lines) == 0 {
-		return ""
-	}
-
-	var result []string
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "//")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
-	}
-	return strings.Join(result, "\n")
+	return FormatGo(name, doc, indent...)
 }
 
 func capitalize(s string) string {

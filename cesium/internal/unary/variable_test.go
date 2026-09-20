@@ -18,6 +18,7 @@ import (
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -40,7 +41,7 @@ var _ = Describe("Variable-length channel", func() {
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "index",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					},
 				}))
@@ -77,7 +78,7 @@ var _ = Describe("Variable-length channel", func() {
 					)
 					Expect(frame.Count()).To(Equal(1))
 					Expect(
-						telem.UnmarshalSeries[string](frame.SeriesAt(0)),
+						frame.SeriesAt(0).Unmarshal[string](),
 					).To(Equal([]string{"hello", "world", "foo"}))
 				})
 				It("Should write and read JSON data", func(ctx SpecContext) {
@@ -143,7 +144,7 @@ var _ = Describe("Variable-length channel", func() {
 						),
 					)
 					Expect(frame.Count()).To(Equal(1))
-					samples := telem.UnmarshalSeries[[]byte](frame.SeriesAt(0))
+					samples := frame.SeriesAt(0).Unmarshal[[]byte]()
 					Expect(samples).To(Equal([][]byte{{1, 2, 3}, {4, 5}, {6}}))
 				})
 				It("Should write and read empty strings", func(ctx SpecContext) {
@@ -161,7 +162,7 @@ var _ = Describe("Variable-length channel", func() {
 					)
 					Expect(frame.Count()).To(Equal(1))
 					Expect(
-						telem.UnmarshalSeries[string](frame.SeriesAt(0)),
+						frame.SeriesAt(0).Unmarshal[string](),
 					).To(Equal([]string{"", "nonempty", ""}))
 				})
 				It(
@@ -181,7 +182,7 @@ var _ = Describe("Variable-length channel", func() {
 						)
 						Expect(frame.Count()).To(Equal(1))
 						Expect(
-							telem.UnmarshalSeries[string](frame.SeriesAt(0)),
+							frame.SeriesAt(0).Unmarshal[string](),
 						).To(Equal([]string{"line1\nline2", "no newline"}))
 					},
 				)
@@ -198,7 +199,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "flush-on-commit-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -237,7 +238,7 @@ var _ = Describe("Variable-length channel", func() {
 							data.Read(ctx, indexSeries[0].Range(readEnd)),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](frame.SeriesAt(0)),
+							frame.SeriesAt(0).Unmarshal[string](),
 						).To(HaveLen(sampleCount))
 
 						// A cache miss does one 4-byte ReadAt per sample to walk length
@@ -262,7 +263,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "cold-rebuild-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -301,7 +302,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      seedIdx.Channel().Key,
 								Name:     "cold-rebuild-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -326,7 +327,7 @@ var _ = Describe("Variable-length channel", func() {
 							reopenData.Read(ctx, indexSeries[0].Range(readEnd)),
 						)
 						Expect(
-							telem.UnmarshalSeries[string](frame.SeriesAt(0)),
+							frame.SeriesAt(0).Unmarshal[string](),
 						).To(HaveLen(sampleCount))
 
 						// The rebuild walks length prefixes via a buffered scan, so
@@ -348,7 +349,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "rollover-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							FileSize: 40 * telem.Byte,
@@ -399,7 +400,8 @@ var _ = Describe("Variable-length channel", func() {
 						for i := 0; i < frame.Count(); i++ {
 							got = append(
 								got,
-								telem.UnmarshalSeries[string](frame.SeriesAt(i))...)
+								frame.SeriesAt(i).Unmarshal[string]()...,
+							)
 						}
 						Expect(got).To(Equal([]string{
 							"sampleA",
@@ -429,7 +431,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "multi-commit-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -469,7 +471,7 @@ var _ = Describe("Variable-length channel", func() {
 						frame := MustSucceed(data.Read(ctx,
 							(1000 * telem.SecondTS).Range(1005*telem.SecondTS),
 						))
-						Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d", "e"}))
 
 						// The post-commit-2 cache entry should serve the read
@@ -491,7 +493,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "idx2",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -530,7 +532,7 @@ var _ = Describe("Variable-length channel", func() {
 								(600 * telem.SecondTS).Range(603*telem.SecondTS),
 							),
 						)
-						Expect(telem.UnmarshalSeries[string](first.SeriesAt(0))).
+						Expect(first.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c"}))
 
 						// Append two more samples against the same domain and commit.
@@ -551,7 +553,7 @@ var _ = Describe("Variable-length channel", func() {
 								(600 * telem.SecondTS).Range(604*telem.SecondTS),
 							),
 						)
-						Expect(telem.UnmarshalSeries[string](sub.SeriesAt(0))).
+						Expect(sub.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d"}))
 					},
 				)
@@ -600,7 +602,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "handoff-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -655,7 +657,7 @@ var _ = Describe("Variable-length channel", func() {
 						frame := MustSucceed(data.Read(ctx,
 							(700 * telem.SecondTS).Range(705*telem.SecondTS),
 						))
-						Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d", "e"}))
 
 						// w2's commit must publish a complete table for this
@@ -681,7 +683,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "handoff-uncommitted-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -727,7 +729,7 @@ var _ = Describe("Variable-length channel", func() {
 						frame := MustSucceed(data.Read(ctx,
 							(800 * telem.SecondTS).Range(804*telem.SecondTS),
 						))
-						Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d"}))
 					},
 				)
@@ -742,7 +744,7 @@ var _ = Describe("Variable-length channel", func() {
 							Channel: channel.Channel{
 								Key:      GenerateChannelKey(),
 								Name:     "handoff-roundtrip-idx",
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 						}))
@@ -792,7 +794,7 @@ var _ = Describe("Variable-length channel", func() {
 						frame := MustSucceed(data.Read(ctx,
 							(900 * telem.SecondTS).Range(906*telem.SecondTS),
 						))
-						Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d", "e", "f"}))
 					},
 				)
@@ -814,7 +816,7 @@ var _ = Describe("Variable-length channel", func() {
 					f := iter.Value()
 					Expect(f.Count()).To(Equal(1))
 					Expect(
-						telem.UnmarshalSeries[string](f.SeriesAt(0)),
+						f.SeriesAt(0).Unmarshal[string](),
 					).To(Equal([]string{"a", "b", "c", "d", "e"}))
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -827,7 +829,7 @@ var _ = Describe("Variable-length channel", func() {
 					f := iter.Value()
 					Expect(f.Count()).To(Equal(1))
 					Expect(
-						telem.UnmarshalSeries[string](f.SeriesAt(0)),
+						f.SeriesAt(0).Unmarshal[string](),
 					).To(Equal([]string{"a", "b", "c", "d", "e"}))
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -840,7 +842,7 @@ var _ = Describe("Variable-length channel", func() {
 					f := iter.Value()
 					Expect(f.Count()).To(Equal(1))
 					Expect(
-						telem.UnmarshalSeries[string](f.SeriesAt(0)),
+						f.SeriesAt(0).Unmarshal[string](),
 					).To(Equal([]string{"b", "c", "d"}))
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -869,7 +871,8 @@ var _ = Describe("Variable-length channel", func() {
 						for i := 0; i < f.Count(); i++ {
 							all = append(
 								all,
-								telem.UnmarshalSeries[string](f.SeriesAt(i))...)
+								f.SeriesAt(i).Unmarshal[string]()...,
+							)
 						}
 					}
 					Expect(all).To(Equal([]string{"x", "y", "z", "w", "v"}))
@@ -901,10 +904,10 @@ var _ = Describe("Variable-length channel", func() {
 					)
 					Expect(frame.Count()).To(Equal(2))
 					Expect(
-						telem.UnmarshalSeries[string](frame.SeriesAt(0)),
+						frame.SeriesAt(0).Unmarshal[string](),
 					).To(Equal([]string{"del0", "del1"}))
 					Expect(
-						telem.UnmarshalSeries[string](frame.SeriesAt(1)),
+						frame.SeriesAt(1).Unmarshal[string](),
 					).To(Equal([]string{"del4"}))
 				})
 			})

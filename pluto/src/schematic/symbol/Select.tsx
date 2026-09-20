@@ -23,22 +23,14 @@ const ListItem = ({
   ...rest
 }: List.ItemRenderProps<schematic.symbol.Key>): ReactElement | null => {
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(itemKey);
-  const { selected, onSelect, hovered } =
-    Select.useItemState<schematic.symbol.Key>(itemKey);
   if (item == null) return null;
   return (
-    <List.Item
-      itemKey={itemKey}
-      onSelect={onSelect}
-      selected={selected}
-      hovered={hovered}
-      {...rest}
-    >
+    <Select.ListItem itemKey={itemKey} {...rest}>
       <Text.Text align="center">
         <Icon.Schematic />
         {item.name}
       </Text.Text>
-    </List.Item>
+    </Select.ListItem>
   );
 };
 

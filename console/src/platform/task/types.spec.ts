@@ -329,7 +329,6 @@ describe("Hardware Task Types", () => {
   });
 
   describe("Stream Rate Validation", () => {
-    // Create a schema with a custom refine function that uses validateStreamRate
     const streamRateConfigZ = z
       .object({
         sampleRate: z.number(),

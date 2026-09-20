@@ -11,6 +11,7 @@ import "@/feature/arc/list/List.css";
 
 import { type arc } from "@synnaxlabs/client";
 import {
+  Arc as PArc,
   Flex,
   type Flux,
   Icon,
@@ -35,6 +36,13 @@ export interface ListProps
   enableSearch?: boolean;
 }
 
+const SEARCH_PLACEHOLDER = (
+  <>
+    <Icon.Search />
+    Search Arcs...
+  </>
+);
+
 export const List = ({
   data,
   getItem,
@@ -47,7 +55,7 @@ export const List = ({
   const [value, setValue] = useState<arc.Key[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const menuProps = Menu.useContextMenu();
-  const { update: handleRename } = Arc.useRename(getItem);
+  const { update: handleRename } = PArc.useRename();
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => (
@@ -67,36 +75,38 @@ export const List = ({
         value={value}
         onFetchMore={fetchMore}
       >
-        {enableSearch && (
-          <Flex.Box x bordered className={CSS.BE("arc-list", "search")} background={1}>
-            <Input.Text
-              size="large"
-              level="h4"
-              variant="text"
-              value={searchTerm}
-              placeholder={
-                <>
-                  <Icon.Search />
-                  Search Arcs...
-                </>
-              }
-              onChange={(value) => {
-                setSearchTerm(value);
-                search(value);
-              }}
-            />
-          </Flex.Box>
-        )}
-        <PList.Items<arc.Key> onContextMenu={menuProps.open}>
-          {({ key, ...rest }) => (
-            <Item
-              key={key}
-              {...rest}
-              textIdPrefix={textIdPrefix}
-              onRename={(name) => handleRename({ key, name })}
-            />
+        <Flex.Box y full="y" empty>
+          {enableSearch && (
+            <Flex.Box
+              x
+              bordered
+              className={CSS.BE("arc-list", "search")}
+              background={1}
+            >
+              <Input.Text
+                size="large"
+                level="h4"
+                variant="text"
+                value={searchTerm}
+                placeholder={SEARCH_PLACEHOLDER}
+                onChange={(value) => {
+                  setSearchTerm(value);
+                  search(value);
+                }}
+              />
+            </Flex.Box>
           )}
-        </PList.Items>
+          <PList.Items<arc.Key> grow onContextMenu={menuProps.open}>
+            {({ key, ...rest }) => (
+              <Item
+                key={key}
+                {...rest}
+                textIdPrefix={textIdPrefix}
+                onRename={(name) => handleRename({ key, name })}
+              />
+            )}
+          </PList.Items>
+        </Flex.Box>
       </Select.Frame>
     </Menu.ContextMenu>
   );

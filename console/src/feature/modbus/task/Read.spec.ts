@@ -15,17 +15,27 @@ import { describe, expect, it } from "vitest";
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
+  type RenderTaskFormTabOptions,
   reportTaskStopped,
 } from "@/platform/task/testutil";
 import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions) => {
+  const rendered = await renderTaskFormTab(Modbus.Task.Read, options);
+  await awaitEditableForm();
+  return rendered;
+};
+
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<Modbus.Task.ReadSchemas> = {
-  name: "Modbus Read Task",
+  name: "Modbus read task",
   type: Modbus.Task.READ_TYPE,
   config: Modbus.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -36,13 +46,13 @@ const createDraft = async (
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
 
 describe("Modbus.Read", () => {
-  it("should build channels in the form and create them on the cluster on deploy", async () => {
+  it("should build channels in the form and create them on the Core on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
       ...Modbus.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
     });
-    const { container } = await renderTaskFormTab(Modbus.Task.Read, {
+    const { container } = await renderRead({
       client,
       taskKey: draft.key,
     });
@@ -99,7 +109,7 @@ describe("Modbus.Read", () => {
       ...Modbus.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
     });
-    const first = await renderTaskFormTab(Modbus.Task.Read, {
+    const first = await renderRead({
       client,
       taskKey: draft.key,
     });
@@ -119,7 +129,7 @@ describe("Modbus.Read", () => {
     await reportTaskStopped(client, deployed.payload);
     first.unmount();
 
-    const second = await renderTaskFormTab(Modbus.Task.Read, {
+    const second = await renderRead({
       client,
       taskKey: draft.key,
     });

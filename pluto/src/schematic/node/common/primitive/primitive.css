@@ -113,23 +113,24 @@
 
     &.pluto-symbol-primitive-toggle--delayed {
         position: relative;
-        backdrop-filter: brightness(1);
 
         &::after {
             content: "";
             position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 0%;
+            inset: 0;
             z-index: 1;
-            background: oklch(from var(--pluto-symbol-display) l c h / 20%);
+            /* An image, not a color: the keyframe owns background-color for the dim. */
+            background-image: linear-gradient(
+                oklch(from var(--pluto-symbol-display) l c h / 20%),
+                oklch(from var(--pluto-symbol-display) l c h / 20%)
+            );
+            clip-path: inset(0 100% 0 0);
             pointer-events: none;
         }
 
         &:active::after {
             animation: delay var(--pluto-toggle-delay) linear;
-            width: 100%;
+            clip-path: inset(0 0 0 0);
         }
     }
 }

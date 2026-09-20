@@ -53,6 +53,21 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.CornerLocation{X: v0.XLocation(""), Y: v0.YLocation("")}),
 		)
 	})
+	Describe("Dimensions", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Dimensions) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Dimensions
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Dimensions{Width: 1.5, Height: 2.5}),
+			Entry("zero values", v0.Dimensions{Width: 0, Height: 0}),
+		)
+	})
 	Describe("StickyUnits", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.StickyUnits) {
@@ -152,6 +167,23 @@ func BenchmarkEncodeDecodeCornerLocation(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.CornerLocation
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDimensions(b *testing.B) {
+	seed := v0.Dimensions{Width: 1.5, Height: 2.5}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Dimensions
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -300,6 +332,45 @@ func FuzzDecodeCornerLocation(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.CornerLocation
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDimensions(f *testing.F) {
+	{
+		seed := v0.Dimensions{Width: 1.5, Height: 2.5}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Dimensions{Width: 0, Height: 0}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Dimensions
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Dimensions
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

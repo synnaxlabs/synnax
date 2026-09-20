@@ -18,8 +18,7 @@
       "name": "fixture_ai_voltage",
       "port": 3,
       "terminal_config": "NRSE",
-      "type": "ai_voltage",
-      "units": "Volts"
+      "type": "ai_voltage"
     },
     {
       "channel": 1020,
@@ -85,8 +84,7 @@
       "port": 6,
       "shunt_resistor_loc": "External",
       "terminal_config": "Diff",
-      "type": "ai_current",
-      "units": "Amps"
+      "type": "ai_current"
     },
     {
       "bridge_config": "QuarterBridge",
@@ -176,7 +174,6 @@
       "port": 10,
       "strain_config": "QuarterBridgeII",
       "type": "ai_strain_gauge",
-      "units": "Strain",
       "voltage_excit_source": "External",
       "voltage_excit_val": 2.5
     },
@@ -232,8 +229,7 @@
       "name": "fixture_ai_microphone",
       "port": 13,
       "terminal_config": "Cfg_Default",
-      "type": "ai_microphone",
-      "units": "Pascals"
+      "type": "ai_microphone"
     },
     {
       "bridge_config": "HalfBridge",
@@ -298,8 +294,7 @@
       "name": "fixture_ai_resistance",
       "port": 16,
       "resistance_config": "3Wire",
-      "type": "ai_resistance",
-      "units": "Ohms"
+      "type": "ai_resistance"
     },
     {
       "channel": 1150,
@@ -307,7 +302,6 @@
       "disabled": false,
       "key": "ch-ai-temp-builtin",
       "name": "fixture_ai_temp_builtin",
-      "port": 17,
       "type": "ai_temp_builtin",
       "units": "DegR"
     },

@@ -73,12 +73,12 @@ var _ = Describe("Convergence", func() {
 				)
 				for range values.clusterSize {
 					gossipT := gossipNet.UnaryServer("")
-					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
+					pledgeT := pledgeNet.UnaryServer(gossipT.Address())
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
 					cluster := MustOpen(cluster.Open(
 						ctx,
 						cluster.Config{
-							HostAddress: gossipT.Address,
+							HostAddress: gossipT.Address(),
 							Pledge: pledge.Config{
 								Peers:           peerAddresses,
 								TransportServer: pledgeT,
@@ -94,7 +94,7 @@ var _ = Describe("Convergence", func() {
 							Storage: DeferClose(memkv.New()),
 						},
 					))
-					addresses = append(addresses, gossipT.Address)
+					addresses = append(addresses, gossipT.Address())
 					clusters = append(clusters, cluster)
 				}
 				Expect(clusters).To(HaveLen(values.clusterSize))

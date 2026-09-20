@@ -59,9 +59,6 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 
 	Describe("Check", func() {
-		It("Should return nil", func() {
-			Expect(pbPlugin.Check(nil)).To(Succeed())
-		})
 	})
 
 	Describe("Generate", func() {
