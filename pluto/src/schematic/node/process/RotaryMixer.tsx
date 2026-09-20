@@ -26,7 +26,7 @@ export const RotaryMixer = ({
 }: Props): ReactElement => (
   <Toggle.Button
     {...rest}
-    className={CSS(CSS.B("rotary-mixer"), className)}
+    className={CSS.cls(CSS.B("rotary-mixer"), className)}
     orientation={orientation}
   >
     <Handle.Linear orientation={orientation} left={2} right={97.5} top={48.4849} />
@@ -43,7 +43,7 @@ export const RotaryMixer = ({
         x2="40"
         y2="16"
         strokeLinecap="round"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Line
         x1="32"
@@ -51,7 +51,7 @@ export const RotaryMixer = ({
         x2="28"
         y2="22.9282"
         strokeLinecap="round"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
       <Primitive.Line
         x1="32"
@@ -59,7 +59,7 @@ export const RotaryMixer = ({
         x2="28"
         y2="9.0717"
         strokeLinecap="round"
-        className={CSS(CSS.M("detail"), className)}
+        className={CSS.cls(CSS.M("detail"), className)}
       />
     </Primitive.SVG>
   </Toggle.Button>

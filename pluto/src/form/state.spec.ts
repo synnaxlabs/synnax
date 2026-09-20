@@ -228,7 +228,6 @@ describe("State", () => {
       it("should clear orphaned touched paths even with markTouched option", () => {
         const state = new State(initialValues, basicSchema);
 
-        // Add a new item and mark its child as touched
         state.setValue("tags", [...state.values.tags, "new-tag"], {
           markTouched: true,
         });

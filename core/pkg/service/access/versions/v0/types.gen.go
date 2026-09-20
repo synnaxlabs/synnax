@@ -11,8 +11,8 @@
 
 package v0
 
-// Action is the fundamental operations that are controlled by the permission system.
-// Actions define what operations a subject can perform on resources.
+// Action is a fundamental operation controlled by the permission system. Actions define
+// what operations a subject can perform on resources.
 type Action string
 
 const (

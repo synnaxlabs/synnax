@@ -23,9 +23,7 @@ export type PagerParams = {
   limit?: number;
 };
 
-/**
- * Return type for the usePager hook, providing pagination utilities.
- */
+/** Return type for the usePager hook, providing pagination utilities. */
 export interface UsePagerReturn {
   /** Function to fetch the next page of results */
   fetchMore: () => void;
@@ -37,9 +35,7 @@ interface RetrieveOptions {
   mode?: "append" | "replace";
 }
 
-/**
- * Arguments for the usePager hook.
- */
+/** Arguments for the usePager hook. */
 export interface UsePagerParams {
   /** Function to retrieve data */
   retrieve: (
@@ -52,6 +48,7 @@ export interface UsePagerParams {
 
 const DEFAULT_PAGE_SIZE = 10;
 
+/** @returns the params for the page after the given one. */
 export const page = (
   { offset, searchTerm = "", ...prev }: PagerParams,
   pageSize: number = DEFAULT_PAGE_SIZE,
@@ -62,6 +59,7 @@ export const page = (
   searchTerm,
 });
 
+/** @returns the given params rewound to the first page of a new search term. */
 export const search = (
   prev: PagerParams,
   searchTerm: string,
@@ -74,44 +72,21 @@ export const search = (
 });
 
 /**
- * Hook that provides pagination utilities for list queries.
+ * Turns a flux list query's `retrieve` into paging and search callbacks, tracking the
+ * offset itself. Wire `fetchMore` to the frame's `onFetchMore`.
  *
- * This hook works with flux list queries to provide easy pagination and search
- * functionality. It automatically manages offset calculations and search term
- * handling.
- *
- * @param config Configuration object containing retrieve function and optional page size
- * @returns Object with pagination and search utilities
- *
- * @example
- * ```typescript
- * const listQuery = useList({ name: "users", retrieve: fetchUsers });
- * const { onFetchMore, onSearch } = usePager({
- *   retrieve: listQuery.retrieve,
- *   pageSize: 20
- * });
- *
- * // Fetch next page
- * onFetchMore();
- *
- * // Search for users
- * onSearch("john");
- * ```
+ * @example const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
  */
 export const usePager = ({
   retrieve,
   pageSize = DEFAULT_PAGE_SIZE,
 }: UsePagerParams): UsePagerReturn => {
-  /**
-   * Fetches the next page of results by incrementing the offset.
-   */
+  /** Fetches the next page of results by incrementing the offset. */
   const fetchMore = useCallback(() => {
     retrieve((prev) => page(prev, pageSize), { mode: "append" });
   }, [retrieve, pageSize]);
 
-  /**
-   * Performs a search with the given term, resetting to the first page.
-   */
+  /** Performs a search with the given term, resetting to the first page. */
   const handleSearch = useCallback(
     (searchTerm: string) => retrieve((prev) => search(prev, searchTerm, pageSize)),
     [retrieve, pageSize],

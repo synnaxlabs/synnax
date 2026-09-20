@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "type": "log",
+  "name": "Chamber Log",
+  "channels": [
+    {
+      "channel": 65539,
+      "color": {
+        "r": 55,
+        "g": 116,
+        "b": 208,
+        "a": 1
+      },
+      "notation": "standard",
+      "precision": -1,
+      "alias": "",
+      "timestamp": {
+        "format": "preciseDate",
+        "tz": "local"
+      }
+    }
+  ],
+  "timestamp_precision": 2,
+  "hide_channel_names": false,
+  "hide_receipt_timestamp": true
+}

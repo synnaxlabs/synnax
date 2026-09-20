@@ -50,7 +50,7 @@ const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   return useCallback(
     ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
       const resource = getResource(ids[0]);
-      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${resource.name}` });
+      openAssignRole({ userKey: ids[0].key, title: ["Role", "Assign", resource.name] });
     },
     [openAssignRole],
   );

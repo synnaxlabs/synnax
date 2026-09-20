@@ -1,0 +1,53 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`stable`"
+description: "Arc standard library reference for the debounce module"
+prev: "`select`"
+prevURL: "/reference/control/arc/reference/standard-library/select"
+next: "`status`"
+nextURL: "/reference/control/arc/reference/standard-library/status"
+---
+
+import { Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import Params from "@/components/params/Params.astro";
+
+export const components = mdxOverrides;
+
+The `stable` module suppresses transient signal changes.
+
+## `for`
+
+`stable.for` is a debounce: it emits its input value only after the value has held
+unchanged for `duration`. Any change restarts the window, so fluctuations shorter than
+`duration` never propagate, and a newly stable value is emitted once.
+
+<Params
+  fn="stable.for"
+  input="numeric | bool"
+  params={[
+    {
+      name: "duration",
+      type: "i64 ns",
+      required: true,
+      description:
+        "How long the value must hold before it is emitted, as a duration literal (e.g. `500ms`).",
+    },
+  ]}
+  output={{
+    type: "numeric | bool",
+    description: "The debounced value, matching the input type.",
+  }}
+/>
+
+<Note.Note variant="warning">
+  Channels with variable-size data types, such as `str`, are not allowed.
+</Note.Note>
+
+```arc channels="input, output, press_pt, vent_cmd"
+// Debounce a value: write afterit holds for 5s
+input -> stable.for{ duration=5s } -> output
+
+// Debounce a condition: act only after it holds for 500ms
+press_pt > 100 -> stable.for{ duration=500ms } -> vent_cmd
+```

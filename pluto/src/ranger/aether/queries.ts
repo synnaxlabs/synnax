@@ -11,7 +11,7 @@ import { type ranger } from "@synnaxlabs/client";
 
 import { type flux } from "@/flux/aether";
 
-export const PLURAL_RESOURCE_NAME = "ranges";
+const PLURAL_RESOURCE_NAME = "ranges";
 
 export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
 

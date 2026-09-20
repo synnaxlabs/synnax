@@ -89,7 +89,7 @@ describe("arc/Toolbar", () => {
     const { store } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
-    const input = await screen.findByPlaceholderText("Automation Name");
+    const input = await screen.findByPlaceholderText("Name");
     const name = uniqueName("arc");
     fireEvent.change(input, { target: { value: name } });
     const create = screen.getByRole("button", { name: "Create" });

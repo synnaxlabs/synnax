@@ -11,7 +11,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { project } from "@synnaxlabs/client";
 import z from "zod";
 
-const sliceStateZ = z.object({
+export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   selected: project.keyZ.optional(),
 });

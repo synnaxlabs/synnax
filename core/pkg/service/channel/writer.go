@@ -288,7 +288,7 @@ func (w Writer) create(
 			// free keyspace, producing an index key that resolves to the wrong channel.
 			b := channels[bi]
 			if !b.IsIndex || !b.Virtual || b.Leaseholder != node.KeyFree ||
-				b.DataType != telem.TimeStampT {
+				b.DataType != telem.TimestampT {
 				return errors.Wrapf(
 					validate.ErrValidation,
 					"channel %q in the same request cannot serve as the index for calculated channel %q",
@@ -301,7 +301,7 @@ func (w Writer) create(
 		}
 		indexChannels = append(indexChannels, Channel{
 			Name:        indexName,
-			DataType:    telem.TimeStampT,
+			DataType:    telem.TimestampT,
 			IsIndex:     true,
 			Virtual:     true,
 			Leaseholder: node.KeyFree,
@@ -329,7 +329,7 @@ func (w Writer) create(
 				continue
 			}
 			if ex.IsIndex && ex.Virtual && ex.Leaseholder == node.KeyFree &&
-				ex.DataType == telem.TimeStampT {
+				ex.DataType == telem.TimestampT {
 				indexChannels[idx] = ex
 				continue
 			}

@@ -10,7 +10,6 @@
 /**
  * Removes duplicate values from an array, preserving the order of the first occurrence
  * of each unique value.
- *
  * @param values - An array or readonly array of values to deduplicate.
  * @returns A new array containing only unique values.
  *
@@ -22,13 +21,11 @@
 export const unique = <V>(values: V[] | readonly V[]): V[] => [...new Set(values)];
 
 /**
- * Removes duplicate values from an array based on a key function, preserving either
- * the first or last occurrence of each unique key. If
- *
+ * Removes duplicate values from an array based on a key function, preserving either the
+ * first or last occurrence of each unique key. If
  * @param values - An array or readonly array of values to deduplicate.
- * @param key - A function that creates a unique key for each value.
  * @param keepFirst - An optional boolean indicating whether to keep the first instance
- *                    (`true`, default) or the last instance (`false`) of each unique key.
+ * (`true`, default) or the last instance (`false`) of each unique key.
  * @returns A new array containing only unique values based on the created keys.
  *
  * @example
@@ -38,7 +35,6 @@ export const unique = <V>(values: V[] | readonly V[]): V[] => [...new Set(values
  *   (value) => value.id
  * );
  * // Result: [{ id: 1, name: "A" }, { id: 2, name: "B" }]
- *
  * @example
  * // Keep last instance:
  * by(

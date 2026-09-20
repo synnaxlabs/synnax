@@ -207,18 +207,12 @@ protected:
     std::shared_ptr<connection::Pool> pool;
     connection::Pool::Connection connection;
     types::ReadRequestBuilder request_builder;
-    x::loop::Timer timer;
 
-    BaseReadTaskSource(
-        std::shared_ptr<connection::Pool> pool,
-        ReadTaskConfig cfg,
-        const ::x::telem::Rate rate
-    ):
+    BaseReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
         cfg(std::move(cfg)),
         pool(std::move(pool)),
         connection(nullptr, nullptr, ""),
-        request_builder(create_read_request(this->cfg)),
-        timer(rate) {}
+        request_builder(create_read_request(this->cfg)) {}
 
     synnax::framer::WriterConfig writer_config() const override {
         return this->cfg.writer_config();
@@ -238,13 +232,22 @@ protected:
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
+    /// @brief regulates the read rate and times each block of samples.
+    common::SoftwareTimedSampleClock sample_clock;
+
 public:
     ArrayReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
-        BaseReadTaskSource(
-            std::move(pool),
-            std::move(cfg),
-            cfg.sample_rate / cfg.array_size
-        ) {}
+        BaseReadTaskSource(std::move(pool), std::move(cfg)),
+        sample_clock(this->cfg.sample_rate / this->cfg.array_size) {}
+
+    /// @brief re-arms the block timer. Without it, the first block after a restart
+    /// spans only the time the read took instead of a full acquisition window.
+    x::errors::Error start() override {
+        this->sample_clock = common::SoftwareTimedSampleClock(
+            this->cfg.sample_rate / this->cfg.array_size
+        );
+        return BaseReadTaskSource::start();
+    }
 
     std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
@@ -253,7 +256,7 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         common::ReadResult res;
-        this->timer.wait(breaker);
+        const auto start = this->sample_clock.wait(breaker);
         types::ReadResponse ua_res(UA_Client_Service_read(
             this->connection.get(),
             this->request_builder.build()
@@ -295,32 +298,33 @@ public:
                 error_messages.push_back(msg);
             }
         }
-        auto start = ::x::telem::TimeStamp::now();
-
         if (!error_messages.empty()) {
             fr.clear();
             res.warning = x::strings::join(error_messages, "; ");
             return res;
         }
-
-        auto end = start + this->cfg.array_size * this->cfg.sample_rate.period();
+        // Stamping ahead of the clock would make the next run of this task open its
+        // writer inside data this run already wrote.
         common::generate_index_data(
             fr,
             this->cfg.index_keys,
             start,
-            end,
+            this->sample_clock.end(),
             this->cfg.array_size,
-            this->cfg.channels.size(),
-            true
+            this->cfg.channels.size()
         );
         return res;
     }
 };
 
 class UnaryReadTaskSource final : public BaseReadTaskSource {
+    /// @brief regulates the rate individual samples are read at.
+    x::loop::Timer timer;
+
 public:
     UnaryReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
-        BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
+        BaseReadTaskSource(std::move(pool), std::move(cfg)),
+        timer(this->cfg.sample_rate) {}
 
     common::ReadResult
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {

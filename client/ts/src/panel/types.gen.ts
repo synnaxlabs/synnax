@@ -142,7 +142,7 @@ export const NODE_SCHEMAS: {
   split: splitNodeZ,
 };
 
-/** Panel is a project-owned tab holding a tree of visualization tabs. */
+/** Panel is a project-owned tree of visualization tabs. */
 export const panelZ = z.object({
   /** key is the unique identifier for this panel. */
   key: keyZ.default(uuid.create),

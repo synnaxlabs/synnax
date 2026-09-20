@@ -14,10 +14,8 @@ import { type ReactElement, useMemo } from "react";
 import { type Command } from "@/platform/command";
 import { Palette } from "@/platform/palette";
 
-const sort: compare.Comparator<Command.Command> = (a, b) => {
-  if (a.sortOrder != null && b.sortOrder != null) return a.sortOrder - b.sortOrder;
-  return a.commandName.localeCompare(b.commandName);
-};
+const sort: compare.Comparator<Command.Command> = (a, b) =>
+  a.commandName.localeCompare(b.commandName);
 
 const ListItem = (props: Base.ItemProps<string>): ReactElement | null => {
   const Cmd = Base.useItem<string, Command.Command>(props.itemKey);

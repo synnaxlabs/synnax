@@ -9,6 +9,7 @@
 
 import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
 import { box, deep, type dimensions, id, TimeSpan, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { group, groupEnd, log } from "@/debug";
 import {
@@ -18,26 +19,34 @@ import {
   PRERENDER_WINDOW,
   resetTransientState,
   type WindowProps,
+  windowPropsZ,
   type WindowStage,
   type WindowState,
+  windowStateZ,
 } from "@/window";
 
-/** The Slice State */
-export interface SliceState {
-  label: string;
-  config: Config;
-  windows: Record<string, WindowState>;
-  labelKeys: Record<string, string>;
-  keyLabels: Record<string, string>;
-  /** The ordinal the next reserved window receives. Only ever increments. */
-  nextOrdinal: number;
-}
+export const configZ = z.object({
+  enablePrerender: z.boolean(),
+  // Defaults apply to every window, so they must not carry a key of their own.
+  defaultWindowProps: windowPropsZ.omit({ key: true }).partial(),
+  debug: z.boolean(),
+});
 
-export interface Config {
-  enablePrerender: boolean;
-  defaultWindowProps: Omit<WindowProps, "key">;
-  debug: boolean;
-}
+export interface Config extends z.infer<typeof configZ> {}
+
+export const sliceStateZ = z.object({
+  version: z.literal(0).default(0),
+  label: z.string(),
+  config: configZ,
+  windows: z.record(z.string(), windowStateZ),
+  labelKeys: z.record(z.string(), z.string()),
+  keyLabels: z.record(z.string(), z.string()),
+  /** The ordinal the next reserved window receives. Only ever increments. */
+  nextOrdinal: z.number(),
+});
+
+/** The Slice State */
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 /** State of a store with a drift slice */
 export interface StoreState {
@@ -134,6 +143,7 @@ const delayedReload = () =>
   setTimeout(() => window.location.reload(), RELOAD_DELAY.milliseconds);
 
 export const ZERO_SLICE_STATE: SliceState = {
+  version: 0,
   label: MAIN_WINDOW,
   config: {
     enablePrerender: true,
@@ -191,8 +201,13 @@ const assertLabel =
     f(s, a as PayloadAction<T & LabelPayload>);
   };
 
+/** The keys of {@link WindowProps} whose value is a boolean. */
+type BooleanProp = {
+  [K in keyof WindowProps]-?: NonNullable<WindowProps[K]> extends boolean ? K : never;
+}[keyof WindowProps];
+
 const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
-  prop: keyof WindowProps,
+  prop: BooleanProp,
   def_: boolean = false,
 ): ((s: SliceState, a: PayloadAction<T>) => void) =>
   assertLabel<T>((s, a) => {
@@ -201,7 +216,7 @@ const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
     if (win == null) return;
     if (a.payload.value != null) v = a.payload.value;
     else {
-      const existing = win[prop] as boolean | undefined;
+      const existing = win[prop];
       if (existing != null) v = !existing;
     }
     s.windows[a.payload.label] = { ...win, [prop]: v };
@@ -263,7 +278,6 @@ const reduceCreateWindow = (
     payload.size ?? s.config.defaultWindowProps.size,
   );
 
-  // If the window already exists, un-minimize and focus it
   if (key in s.keyLabels) {
     log(s.config.debug, "window already exists, un-minimize and focus it");
     const existingLabel = s.keyLabels[payload.key];
@@ -282,7 +296,6 @@ const reduceCreateWindow = (
   const ordinal = s.nextOrdinal;
   s.nextOrdinal += 1;
 
-  // If we have an available pre-rendered window, use it.
   if (availableLabel != null) {
     log(s.config.debug, "using available pre-rendered window");
     s.windows[availableLabel] = {
@@ -297,7 +310,6 @@ const reduceCreateWindow = (
     s.labelKeys[availableLabel] = payload.key;
     s.keyLabels[payload.key] = availableLabel;
   } else {
-    // If we don't, just create the window directly.
     log(s.config.debug, "creating new window");
     s.windows[label] = {
       ...s.config.defaultWindowProps,

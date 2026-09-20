@@ -78,7 +78,7 @@ describe("Notification Component", () => {
     const icon = c.container.querySelector<SVGElement>(
       ".pluto-notification__indicator",
     );
-    expect(icon?.getAttribute("aria-label")).toContain("device");
+    expect(icon?.classList.contains("pluto-icon--device")).toBe(true);
     expect(icon?.style.color).toBe("var(--pluto-error-z)");
   });
 
@@ -92,13 +92,13 @@ describe("Notification Component", () => {
     );
 
     const icon = c.container.querySelector(".pluto-notification__indicator");
-    expect(icon?.getAttribute("aria-label")).toContain("loading");
+    expect(icon?.classList.contains("pluto-icon--loading")).toBe(true);
   });
 
   it("calls silence function when close button is clicked", () => {
     const c = render(<Notification {...notificationProps} />);
 
-    const closeButton = c.getByRole("button", { name: /close/i });
+    const closeButton = c.getByRole("button", { name: "Silence" });
     fireEvent.click(closeButton);
 
     expect(mockSilence).toHaveBeenCalledWith("test-key");
@@ -115,7 +115,7 @@ describe("Notification Component", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     const c = render(<Notification {...notificationProps} />);
-    const copyButton = c.getByRole("button", { name: /pluto-icon--copy/i });
+    const copyButton = c.getByRole("button", { name: "Copy diagnostics" });
     fireEvent.click(copyButton);
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(status.toString(notificationProps.status));

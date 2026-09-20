@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type Group, groupZ, type Key, keyZ, ontologyID } from "@/group/types.gen";
@@ -178,7 +178,7 @@ export class Client extends query.Retriever<
     const res = await this.requireOntology().retrieve({
       ids: keys.map((key) => ontologyID(key)),
     });
-    return res.map((r) => groupZ.parse(r.data));
+    return res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
   }
 
   private async fetchChildren(req: ChildrenRequest): Promise<Group[]> {
@@ -188,7 +188,7 @@ export class Client extends query.Retriever<
       ...options,
       types: ["group"],
     });
-    const groups = res.map((r) => groupZ.parse(r.data));
+    const groups = res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
     const rels = this.cfg.ontology.cache.relationships;
     groups.forEach((g) => {
       const rel: ontology.Relationship = {

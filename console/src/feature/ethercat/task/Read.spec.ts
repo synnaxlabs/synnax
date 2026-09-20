@@ -22,6 +22,7 @@ import {
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
 import {
+  awaitEditableForm,
   clickDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -38,7 +39,7 @@ beforeAll(async () => {
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<EtherCAT.Task.ReadSchemas> = {
-  name: "EtherCAT Read Task",
+  name: "EtherCAT read task",
   type: EtherCAT.Task.READ_TYPE,
   config: EtherCAT.Task.READ_SCHEMAS.config.parse({}),
 };
@@ -48,6 +49,8 @@ const createDraft = async (
   config: EtherCAT.Task.ReadPayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.READ_SCHEMAS);
 
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
 const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
@@ -59,6 +62,7 @@ const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
       statuses.push(...next);
     },
   });
+  await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };
 
@@ -105,7 +109,7 @@ describe("EtherCAT Read", () => {
       channels: [createAutoReadChannel(slave.key, "Status")],
     });
     fireEvent.click((await screen.findAllByText("Status"))[0]);
-    await waitFor(() => expect(screen.getByText("Slave Device")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Slave device")).toBeTruthy());
     expect(screen.getByText("Mode")).toBeTruthy();
     expect(screen.getByText("PDO")).toBeTruthy();
     expect(screen.queryByText("Index (hex)")).toBeNull();
@@ -124,8 +128,8 @@ describe("EtherCAT Read", () => {
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
     expect(screen.getByText("Subindex")).toBeTruthy();
     expect(screen.getByDisplayValue("7")).toBeTruthy();
-    expect(screen.getByText("Bit Length")).toBeTruthy();
-    expect(screen.getByText("Data Type")).toBeTruthy();
+    expect(screen.getByText("Bit length")).toBeTruthy();
+    expect(screen.getByText("Data type")).toBeTruthy();
     expect(screen.queryByText("PDO")).toBeNull();
   });
 
@@ -147,7 +151,7 @@ describe("EtherCAT Read", () => {
     await waitFor(() => expect(screen.getByText(slave.name)).toBeTruthy());
   });
 
-  describe("deploying against a live cluster", () => {
+  describe("deploying against a live Core", () => {
     it("should create the index and data channels, update the slave, and save the task", async () => {
       const identifier = createIdentifier();
       const namedChannel = uniqueName("ecat_named");

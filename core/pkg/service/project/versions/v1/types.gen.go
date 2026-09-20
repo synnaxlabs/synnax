@@ -37,6 +37,6 @@ type Project struct {
 // schema constraints.
 func (p Project) Validate() error {
 	v := validate.New("Project")
-	validate.NotEmptyString(v, "name", p.Name)
+	v.NotEmptyString("name", p.Name)
 	return v.Error()
 }

@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <thread>
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
@@ -19,6 +24,20 @@
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::opcua {
+/// @brief Allowed relative error of a task's achieved sample rate.
+constexpr double RATE_TOLERANCE = 0.10;
+/// @brief Wall time each rate runs for.
+const auto RATE_SPAN = 1 * x::telem::SECOND;
+
+/// @brief Logs the rate a task held and checks it against the tolerance.
+void expect_rate(const double measured, const int rate_hz) {
+    const double error = (measured - rate_hz) / rate_hz * 100;
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
+    EXPECT_NEAR(measured, rate_hz, rate_hz * RATE_TOLERANCE)
+        << "at " << rate_hz << " Hz";
+}
+
 class TestReadTask : public ::testing::Test {
 protected:
     synnax::task::Task task;
@@ -140,7 +159,7 @@ protected:
                    {"node_id", "NS=1;S=TestBoolean"},
                    {"channel", this->bool_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint8"}},
                   {{"key", "NS=2;I=2"},
                    {"name", "uint16_test"},
@@ -148,7 +167,7 @@ protected:
                    {"node_id", "NS=1;S=TestUInt16"},
                    {"channel", this->uint16_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint16"}},
                   {{"key", "NS=2;I=3"},
                    {"name", "uint32_test"},
@@ -156,7 +175,7 @@ protected:
                    {"node_id", "NS=1;S=TestUInt32"},
                    {"channel", this->uint32_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint32"}},
                   {{"key", "NS=2;I=4"},
                    {"name", "uint64_test"},
@@ -164,7 +183,7 @@ protected:
                    {"node_id", "NS=1;S=TestUInt64"},
                    {"channel", this->uint64_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "uint64"}},
                   {{"key", "NS=2;I=5"},
                    {"name", "int8_test"},
@@ -172,7 +191,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt8"},
                    {"channel", this->int8_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int8"}},
                   {{"key", "NS=2;I=6"},
                    {"name", "int16_test"},
@@ -180,7 +199,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt16"},
                    {"channel", this->int16_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int16"}},
                   {{"key", "NS=2;I=7"},
                    {"name", "int32_test"},
@@ -188,7 +207,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt32"},
                    {"channel", this->int32_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int32"}},
                   {{"key", "NS=2;I=8"},
                    {"name", "int64_test"},
@@ -196,7 +215,7 @@ protected:
                    {"node_id", "NS=1;S=TestInt64"},
                    {"channel", this->int64_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "int64"}},
                   {{"key", "NS=2;I=9"},
                    {"name", "float_test"},
@@ -204,7 +223,7 @@ protected:
                    {"node_id", "NS=1;S=TestFloat"},
                    {"channel", this->float_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "float32"}},
                   {{"key", "NS=2;I=10"},
                    {"name", "double_test"},
@@ -212,7 +231,7 @@ protected:
                    {"node_id", "NS=1;S=TestDouble"},
                    {"channel", this->double_channel.key},
                    {"disabled", false},
-                   {"use_as_index", false},
+                   {"is_index", false},
                    {"data_type", "float64"}}}
              )},
             {"sample_rate", 50},
@@ -327,7 +346,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
                {"node_id", "NS=1;S=NonExistentNode"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -413,7 +432,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", true},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -440,7 +459,7 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}},
               {{"key", "blank"}, {"disabled", true}}}
          )},
@@ -571,7 +590,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -760,7 +779,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}},
               {{"key", "NS=2;I=2"},
                {"name", "double_test"},
@@ -768,7 +787,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_id", "NS=1;S=TestDouble"},
                {"channel", this->double_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
@@ -847,7 +866,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
                {"node_id", "NS=1;S=TestBoolean"},
                {"channel", this->bool_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "uint8"}}}
          )},
         {"sample_rate", 50},
@@ -938,7 +957,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
                {"node_id", "NS=1;S=InvalidBoolean"},
                {"channel", this->bool_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "uint8"}}}
          )},
         {"sample_rate", 50},
@@ -1019,7 +1038,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
                {"node_id", "NS=1;S=InvalidFloat"},
                {"channel", this->float_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
@@ -1100,7 +1119,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
                {"node_id", "NS=1;S=InvalidDouble"},
                {"channel", this->double_channel.key},
                {"disabled", false},
-               {"use_as_index", false},
+               {"is_index", false},
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
@@ -1197,5 +1216,94 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// @brief it should stamp array blocks with the interval they took to acquire, so
+/// the next run of the task does not open its writer inside data this run wrote.
+TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
+    constexpr int SAMPLE_RATE = 25;
+    x::json::json array_cfg{
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array(
+             {{{"key", "NS=2;I=1"},
+               {"name", "double_array_test"},
+               {"node_name", "TestDoubleArray"},
+               {"node_id", "NS=1;S=TestDoubleArray"},
+               {"channel", this->double_channel.key},
+               {"disabled", false},
+               {"is_index", false},
+               {"data_type", "float64"}}}
+         )},
+        {"sample_rate", SAMPLE_RATE},
+        {"array_mode", true},
+        {"array_size", mock::DOUBLE_ARRAY_SIZE},
+        {"stream_rate", SAMPLE_RATE}
+    };
+
+    auto p = x::json::Parser(array_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
+    ASSERT_NIL(p.error());
+
+    const auto rt = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        x::breaker::default_config(task.name),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        mock_factory
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        this->mock_factory->writes->size(),
+        static_cast<size_t>(3),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(25)
+    );
+    rt->stop("stop_cmd", true);
+    const auto stopped_at = x::telem::TimeStamp::now();
+
+    std::vector<x::telem::TimeStamp> stamps;
+    for (const auto &fr: *this->mock_factory->writes) {
+        if (!fr.contains(this->index_channel.key)) continue;
+        for (size_t i = 0; i < fr.length(); i++)
+            stamps.push_back(
+                fr.at<x::telem::TimeStamp>(this->index_channel.key, static_cast<int>(i))
+            );
+    }
+    ASSERT_GE(stamps.size(), 3 * mock::DOUBLE_ARRAY_SIZE);
+    EXPECT_LE(stamps.back(), stopped_at);
+    // A block that tiles the acquisition window holds its samples one period apart,
+    // including across the boundary into the next block. The stop cuts the block
+    // timer short, so the last block spans only the read that followed it.
+    const auto complete = stamps.size() - mock::DOUBLE_ARRAY_SIZE;
+    const auto min_spacing = x::telem::Rate(SAMPLE_RATE).period() / 4;
+    for (size_t i = 1; i < complete; i++)
+        EXPECT_GE(stamps[i] - stamps[i - 1], min_spacing)
+            << "samples " << i - 1 << " and " << i;
+}
+
+/// @brief it should hold each configured sample rate over time.
+TEST_F(TestReadTask, testHoldsSampleRate) {
+    for (const int rate_hz: {25, 50, 100}) {
+        this->task_cfg_json["sample_rate"] = rate_hz;
+        this->task_cfg_json["stream_rate"] = rate_hz;
+        this->mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+
+        const auto rt = create_task();
+        rt->start("start_cmd");
+        ASSERT_EVENTUALLY_GE(this->mock_factory->writes->size(), 1);
+        std::this_thread::sleep_for(RATE_SPAN.chrono());
+        rt->stop("stop_cmd", true);
+
+        expect_rate(
+            pipeline::mock::measured_rate(
+                *this->mock_factory->writes,
+                this->index_channel.key
+            ),
+            rate_hz
+        );
+    }
 }
 }

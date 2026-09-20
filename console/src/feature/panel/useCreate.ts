@@ -26,6 +26,6 @@ export const useCreate = (): (() => void) => {
     ),
   });
   return useCallback(() => {
-    create({ name: "New Panel", parent: project.ontologyID(getProjectKey()) });
+    create({ name: "New panel", parent: project.ontologyID(getProjectKey()) });
   }, [create, getProjectKey]);
 };

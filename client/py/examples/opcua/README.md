@@ -262,7 +262,7 @@ find current IDs.
 - **InputChannel**: Generic read channel for any OPC UA variable
   - `channel`: Synnax channel key
   - `node_id`: OPC UA node identifier (e.g., `"NS=2;I=8"`)
-  - `data_type`: Synnax data type (e.g., `"float32"`, `"uint16"`, `"bool"`)
+  - `data_type`: Synnax data type (e.g., `"float32"`, `"uint16"`, `"boolean"`)
   - Use for any readable OPC UA variable
 
 ### Write Channels

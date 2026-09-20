@@ -19,7 +19,7 @@ import { Shell } from "@/platform/shell";
 export interface FrameProps {
   className?: string;
   /** Target Core shown in the connection island; omit to hide it. */
-  connection?: Shell.ConnectionCluster | null;
+  connection?: Shell.ConnectionCore | null;
   children: ReactNode;
 }
 
@@ -32,7 +32,7 @@ export const Frame = ({
   connection,
   children,
 }: FrameProps): ReactElement => (
-  <Flex.Box y full empty className={CSS(CSS.B("shell"), className)}>
+  <Flex.Box y full empty className={CSS.cls(CSS.B("shell"), className)}>
     <Nav connection={connection} />
     <Flex.Box
       y
@@ -49,7 +49,7 @@ export const Frame = ({
         <Flex.Box
           y
           empty
-          className={CSS(CSS.BE("shell", "card"), CSS.BE("shell", "frost"))}
+          className={CSS.cls(CSS.BE("shell", "card"), CSS.BE("shell", "frost"))}
           grow={false}
         >
           {children}

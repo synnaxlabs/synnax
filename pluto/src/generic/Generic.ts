@@ -14,24 +14,25 @@ import {
   type ReactElement,
 } from "react";
 
+/** The name of any built-in HTML element. */
 export type ElementType = keyof JSX.IntrinsicElements;
 
+/** Props common to every element, for a component that has not chosen one yet. */
 export type ElementPropsWithoutEl = ComponentPropsWithRef<ElementType>;
 
+/** The props of element E, plus the `el` prop naming it. */
 export type ElementProps<E extends keyof JSX.IntrinsicElements> = {
   el: E;
 } & ComponentPropsWithRef<E>;
 
+/** {@link ElementProps} where the component supplies a default element. */
 export type OptionalElementProps<E extends keyof JSX.IntrinsicElements> = {
   el?: E;
 } & ComponentPropsWithRef<E>;
 
 /**
- * Generic renders a component with the given element type .
- *
- * @param props - Props for the generic component. All props not defined below are passed to
- * the underlying element.
- * @param props.el - The element type to render.
+ * Renders the HTML element named by `el`, typed to that element's own props. It backs
+ * every component that lets the caller pick its tag.
  */
 export const Element = <E extends keyof JSX.IntrinsicElements>({
   el,

@@ -17,7 +17,7 @@ import "github.com/synnaxlabs/x/encoding/orc"
 func (a Alert) EncodeOrc(w *orc.Writer) error {
 	w.String(a.Key)
 	w.String(a.Status)
-	w.Bool(a.TreatErrorAsCritical)
+	w.Bool(a.ErrorsCritical)
 	w.String(a.Component)
 	w.String(a.Group)
 	w.String(a.Class)
@@ -34,7 +34,7 @@ func (a *Alert) DecodeOrc(r *orc.Reader) error {
 	if a.Status, err = r.String(); err != nil {
 		return err
 	}
-	if a.TreatErrorAsCritical, err = r.Bool(); err != nil {
+	if a.ErrorsCritical, err = r.Bool(); err != nil {
 		return err
 	}
 	if a.Component, err = r.String(); err != nil {

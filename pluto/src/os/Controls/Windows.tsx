@@ -60,7 +60,7 @@ const Button = ({
 }: BaseButton.ButtonProps): ReactElement | null =>
   !disabled ? (
     <BaseButton.Button
-      className={CSS(CSS.B("windows-control"), className)}
+      className={CSS.cls(CSS.B("windows-control"), className)}
       tabIndex={-1}
       variant="text"
       {...rest}

@@ -67,11 +67,11 @@ tsk = sy.modbus.ReadTask(
     channels=[
         # Input register (16-bit R-only) at address 0
         sy.modbus.InputRegisterReadChannel(
-            type="input_register", channel=input_reg_0.key, address=0, data_type="uint8"
+            channel=input_reg_0.key, address=0, data_type="uint8"
         ),
         # Input register (16-bit R-only) at address 1
         sy.modbus.InputRegisterReadChannel(
-            type="input_register", channel=input_reg_1.key, address=1, data_type="uint8"
+            channel=input_reg_1.key, address=1, data_type="uint8"
         ),
     ],
 )

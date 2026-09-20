@@ -37,7 +37,7 @@ var _ = Describe("Math Flow Chains", func() {
 			result := h.Output("avg_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(
-				telem.UnmarshalSeries[float64](result)[0],
+				result.Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 20.0, 0.01))
 
 			resultTime := h.OutputTime("avg_0", 0)
@@ -47,7 +47,7 @@ var _ = Describe("Math Flow Chains", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(
-				telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0],
+				out.Get(200).Series[0].Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 20.0, 0.01))
 		})
 
@@ -69,13 +69,13 @@ var _ = Describe("Math Flow Chains", func() {
 			result := h.Output("avg_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(
-				telem.UnmarshalSeries[int32](result)[0],
+				result.Unmarshal[int32]()[0],
 			).To(BeNumerically("~", 20, 1))
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[int32](out.Get(200).Series[0])[0],
+				out.Get(200).Series[0].Unmarshal[int32]()[0],
 			).To(BeNumerically("~", 20, 1))
 		})
 
@@ -100,7 +100,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 				result := h.Output("math.avg_0", 0)
 				Expect(result.Len()).To(Equal(int64(1)))
 				Expect(
-					telem.UnmarshalSeries[float64](result)[0],
+					result.Unmarshal[float64]()[0],
 				).To(BeNumerically("~", 20.0, 0.01))
 			},
 		)
@@ -125,7 +125,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 					out, _ := h.Flush()
 					series := out.Get(200).Series
 					Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
-					return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+					return series[len(series)-1].Unmarshal[float64]()[0]
 				}
 
 				step := func(v float64) float64 {
@@ -167,7 +167,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 					out, _ := h.Flush()
 					series := out.Get(200).Series
 					Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
-					return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+					return series[len(series)-1].Unmarshal[float64]()[0]
 				}
 
 				step := func(v float64) float64 {
@@ -206,14 +206,14 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 			result := h.Output("min_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(
-				telem.UnmarshalSeries[float64](result)[0],
+				result.Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 10.0, 0.01))
 			Expect(h.OutputTime("min_0", 0).Len()).To(Equal(int64(1)))
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0],
+				out.Get(200).Series[0].Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 10.0, 0.01))
 		})
 
@@ -238,7 +238,7 @@ my_sensor -> math.min{} -> output_sensor`, resolver,
 				result := h.Output("math.min_0", 0)
 				Expect(result.Len()).To(Equal(int64(1)))
 				Expect(
-					telem.UnmarshalSeries[float64](result)[0],
+					result.Unmarshal[float64]()[0],
 				).To(BeNumerically("~", 10.0, 0.01))
 			},
 		)
@@ -263,14 +263,14 @@ my_sensor -> math.min{} -> output_sensor`, resolver,
 			result := h.Output("max_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(
-				telem.UnmarshalSeries[float64](result)[0],
+				result.Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 50.0, 0.01))
 			Expect(h.OutputTime("max_0", 0).Len()).To(Equal(int64(1)))
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
 			Expect(
-				telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0],
+				out.Get(200).Series[0].Unmarshal[float64]()[0],
 			).To(BeNumerically("~", 50.0, 0.01))
 		})
 
@@ -295,7 +295,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 				result := h.Output("math.max_0", 0)
 				Expect(result.Len()).To(Equal(int64(1)))
 				Expect(
-					telem.UnmarshalSeries[float64](result)[0],
+					result.Unmarshal[float64]()[0],
 				).To(BeNumerically("~", 50.0, 0.01))
 			},
 		)
@@ -313,7 +313,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 					ctx,
 					`my_sensor -> derivative{} -> rate_out`,
 					resolver,
-					channels.Digest{Key: 99, DataType: telem.TimeStampT},
+					channels.Digest{Key: 99, DataType: telem.TimestampT},
 					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)
@@ -334,7 +334,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
-				vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
+				vals := out.Get(200).Series[0].Unmarshal[float64]()
 				Expect(vals).To(HaveLen(3))
 				Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 				Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
@@ -351,7 +351,7 @@ my_sensor -> math.max{} -> output_sensor`, resolver,
 				})
 				h := newRuntimeHarness(ctx, `import math
 my_sensor -> math.derivative{} -> rate_out`, resolver,
-					channels.Digest{Key: 99, DataType: telem.TimeStampT},
+					channels.Digest{Key: 99, DataType: telem.TimestampT},
 					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
 				)
@@ -371,7 +371,7 @@ my_sensor -> math.derivative{} -> rate_out`, resolver,
 
 				out, changed := h.Flush()
 				Expect(changed).To(BeTrue())
-				vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
+				vals := out.Get(200).Series[0].Unmarshal[float64]()
 				Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 				Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
 				Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))

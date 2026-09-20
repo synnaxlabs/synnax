@@ -42,7 +42,7 @@ var _ = Describe("Multi Node", Ordered, func() {
 		func(ctx SpecContext) {
 			ch := channel.Channel{
 				Name:        "mn_gossiped",
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				IsIndex:     true,
 				Leaseholder: node1.Cluster.HostKey(),
 			}
@@ -56,7 +56,7 @@ var _ = Describe("Multi Node", Ordered, func() {
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(res.Key()).To(Equal(ch.Key()))
 				g.Expect(res.Name).To(Equal("mn_gossiped"))
-				g.Expect(res.DataType).To(Equal(telem.TimeStampT))
+				g.Expect(res.DataType).To(Equal(telem.TimestampT))
 				g.Expect(res.Leaseholder).To(Equal(node1.Cluster.HostKey()))
 				g.Expect(res.IsIndex).To(BeTrue())
 			}).Should(Succeed())
@@ -68,7 +68,7 @@ var _ = Describe("Multi Node", Ordered, func() {
 		func(ctx SpecContext) {
 			ch := channel.Channel{
 				Name:        "mn_remote",
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				IsIndex:     true,
 				Leaseholder: node2.Cluster.HostKey(),
 			}
@@ -106,7 +106,7 @@ var _ = Describe("Multi Node", Ordered, func() {
 		func(ctx SpecContext) {
 			ch := channel.Channel{
 				Name:        "mn_rename_old",
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				IsIndex:     true,
 				Leaseholder: node2.Cluster.HostKey(),
 			}
@@ -138,7 +138,7 @@ var _ = Describe("Multi Node", Ordered, func() {
 		func(ctx SpecContext) {
 			ch := channel.Channel{
 				Name:        "mn_deleted",
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				IsIndex:     true,
 				Leaseholder: node2.Cluster.HostKey(),
 			}

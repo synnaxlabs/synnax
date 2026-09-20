@@ -56,6 +56,16 @@ echo "Cleaning up synnax directories..."
 [ -d "$HOME/synnax-binaries" ] && rm -rf "$HOME/synnax-binaries" && echo "Removed synnax-binaries directory from $HOME" || echo "No synnax-binaries directory found in $HOME"
 [ -d "$HOME/synnax-data" ] && rm -rf "$HOME/synnax-data" && echo "Removed synnax-data directory from $HOME" || echo "No synnax-data directory found in $HOME"
 
+# A force-killed Core never removes its cache workdir (UserCacheDir/synnax), so one
+# orphaned dir per run leaks here. Clear it to stop unbounded disk growth.
+SYNNAX_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/synnax"
+if [ -d "$SYNNAX_CACHE_DIR" ]; then
+    rm -rf "$SYNNAX_CACHE_DIR"
+    echo "Removed synnax cache directory: $SYNNAX_CACHE_DIR"
+else
+    echo "No synnax cache directory found at $SYNNAX_CACHE_DIR"
+fi
+
 # Check if directories still exist after cleanup
 echo "Verifying directory cleanup..."
 if [ -d "$HOME/synnax-binaries" ] || [ -d "$HOME/synnax-data" ]; then

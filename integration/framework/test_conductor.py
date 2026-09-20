@@ -449,14 +449,34 @@ All matching is case-insensitive substring.
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
     parser.add_argument(
+        "--slow-mo",
+        type=int,
+        default=0,
+        metavar="MS",
+        help=(
+            "Delay each Playwright action by MS milliseconds "
+            "(sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)"
+        ),
+    )
+    parser.add_argument(
         "--driver",
         "-d",
         help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
+    )
+    parser.add_argument(
+        "--logs",
+        action="store_true",
+        help=(
+            "Stream test case logs as they happen instead of only after a failure "
+            "(sets TC_LOGS environment variable)"
+        ),
     )
 
     args = parser.parse_args()
 
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
+    os.environ["PLAYWRIGHT_CONSOLE_SLOW_MO"] = str(args.slow_mo)
+    os.environ["TC_LOGS"] = "1" if args.logs else "0"
     if args.driver:
         os.environ["SYNNAX_DRIVER_RACK"] = args.driver
 

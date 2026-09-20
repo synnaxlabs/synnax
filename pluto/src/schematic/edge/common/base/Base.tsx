@@ -10,6 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { symbolColorVar } from "@/schematic/symbolColor";
@@ -29,18 +30,18 @@ export const Base = ({
   const style = useMemo<CSSProperties>(() => {
     // A non-color string (e.g. the connection-line preview's CSS variable) is stroked
     // directly and skips the theme transform.
-    if (typeof stroke === "string" && !color.colorZ.safeParse(stroke).success)
+    if (typeof stroke === "string" && !z.validate(color.colorZ, stroke))
       return { ...baseStyle, stroke };
     return {
       ...baseStyle,
-      [CSS.var("symbol-color")]: symbolColorVar(stroke),
+      [CSS.variable("symbol-color")]: symbolColorVar(stroke),
       stroke: "var(--pluto-symbol-display)",
     };
   }, [stroke, baseStyle]);
   return (
     <BaseEdge
       {...props}
-      className={CSS(CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.B("symbol-colored"), className)}
       interactionWidth={INTERACTION_WIDTH}
       style={style}
     />

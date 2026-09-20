@@ -15,13 +15,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -212,6 +212,9 @@ type (
 	ExportGroupRequest struct {
 		// Key identifies the group to export.
 		Key group.Key `json:"key" msgpack:"key"`
+		// Encoding names the serialization member files are written in. "JSON" is the
+		// only supported value.
+		Encoding string `json:"encoding" msgpack:"encoding"`
 	}
 	// ExportGroupResponse holds the bundle's contents keyed by file name. The HTTP
 	// transport encodes it as a zip archive.
@@ -225,6 +228,10 @@ func (s *Service) ExportGroup(
 	ctx context.Context,
 	req ExportGroupRequest,
 ) (ExportGroupResponse, error) {
+	encoder, err := imex.ResolveEncoding(req.Encoding)
+	if err != nil {
+		return nil, err
+	}
 	var (
 		enforcer = s.access.NewEnforcer(nil)
 		subject  = auth.GetSubject(ctx)
@@ -236,7 +243,7 @@ func (s *Service) ExportGroup(
 	}); err != nil {
 		return nil, err
 	}
-	files, members, err := s.internal.ExportGroup(ctx, req.Key, json.Codec)
+	files, members, err := s.internal.ExportGroup(ctx, req.Key, encoder)
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +255,53 @@ func (s *Service) ExportGroup(
 		return nil, err
 	}
 	return files, nil
+}
+
+type (
+	// ImportGroupRequest holds a bundle's contents keyed by file name. The HTTP
+	// transport decodes it from a zip archive.
+	ImportGroupRequest = zip.Files
+	// ImportGroupResponse carries the group the import created.
+	ImportGroupResponse struct {
+		// Group is the created group holding the imported symbols.
+		Group group.Group `json:"group" msgpack:"group"`
+	}
+)
+
+// ImportGroup imports a symbol group bundle in a single transaction. It requires
+// create access on the group and symbol types, and update access on the permanent
+// symbol group, all enforced before any file decodes.
+func (s *Service) ImportGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ImportGroupRequest,
+) (ImportGroupResponse, error) {
+	var (
+		enforcer = s.access.NewEnforcer(tx)
+		subject  = auth.GetSubject(ctx)
+	)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{
+			{Type: ontology.ResourceTypeGroup},
+			{Type: ontology.ResourceTypeSchematicSymbol},
+		},
+	}); err != nil {
+		return ImportGroupResponse{}, err
+	}
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{s.internal.Group().OntologyID()},
+	}); err != nil {
+		return ImportGroupResponse{}, err
+	}
+	g, err := s.internal.ImportGroup(ctx, tx, req)
+	if err != nil {
+		return ImportGroupResponse{}, err
+	}
+	return ImportGroupResponse{Group: g}, nil
 }
 
 // DeleteGroupRequest names the group to delete.

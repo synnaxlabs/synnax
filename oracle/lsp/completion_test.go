@@ -31,29 +31,25 @@ var _ = Describe("Completion", func() {
 			TextDocument: protocol.TextDocumentItem{
 				URI:     "file:///test.oracle",
 				Version: 1,
-				Text:    "User struct {\n  name string\n  domain validate {\n    required\n  }\n}\n",
+				Text:    "User struct {\n  name string\n  @validate required\n}\n",
 			},
 		})).To(Succeed())
 	})
 
 	completionAt := func(ctx context.Context, line, col uint32) *protocol.CompletionList {
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: "file:///test.oracle",
-				},
-				Position: protocol.Position{Line: line, Character: col},
+			TextDocument: protocol.TextDocumentIdentifier{
+				URI: "file:///test.oracle",
 			},
+			Position: protocol.Position{Line: line, Character: col},
 		}))
 		return result.(*protocol.CompletionList)
 	}
 
 	completionFor := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.CompletionList {
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-				Position:     protocol.Position{Line: line, Character: col},
-			},
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: line, Character: col},
 		}))
 		return result.(*protocol.CompletionList)
 	}
@@ -81,16 +77,17 @@ var _ = Describe("Completion", func() {
 				openDoc(ctx, "file:///empty.oracle", "\n")
 				list := completionFor(ctx, "file:///empty.oracle", 0, 0)
 				Expect(labels(list.Items)).To(ContainElements(
-					"struct", "field", "domain", "enum", "import",
+					"struct", "enum", "union", "import", "extends", "map",
+					"action",
 				))
 			},
 		)
 	})
 
 	Describe("Type Completions", func() {
-		It("should return primitive types after field keyword", func(ctx SpecContext) {
-			openDoc(ctx, "file:///field.oracle", "  field name \n")
-			list := completionFor(ctx, "file:///field.oracle", 0, 13)
+		It("should return primitive types after a field name", func(ctx SpecContext) {
+			openDoc(ctx, "file:///field.oracle", "  name \n")
+			list := completionFor(ctx, "file:///field.oracle", 0, 7)
 			Expect(labels(list.Items)).To(ContainElements(
 				"string", "int32", "float64", "bool", "uuid",
 			))
@@ -98,11 +95,12 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Domain Name Completions", func() {
-		It("should return domain names after domain keyword", func(ctx SpecContext) {
-			openDoc(ctx, "file:///domain.oracle", "  domain \n")
-			list := completionFor(ctx, "file:///domain.oracle", 0, 9)
+		It("should return domain names after the @ sigil", func(ctx SpecContext) {
+			openDoc(ctx, "file:///domain.oracle", "  @\n")
+			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
-				"id", "validate", "ontology", "doc", "go", "ts", "py",
+				"key", "validate", "ontology", "doc", "go", "ts", "py", "cpp",
+				"pb", "filter",
 			))
 		})
 	})
@@ -111,7 +109,7 @@ var _ = Describe("Completion", func() {
 		It(
 			"should return validate expressions inside validate domain",
 			func(ctx SpecContext) {
-				list := completionAt(ctx, 2, 20)
+				list := completionAt(ctx, 2, 12)
 				Expect(labels(list.Items)).To(ContainElements(
 					"required", "min_length", "max_length",
 				))
@@ -121,16 +119,16 @@ var _ = Describe("Completion", func() {
 
 	Describe("Go Output Completions", func() {
 		It("should return output expressions inside go domain", func(ctx SpecContext) {
-			openDoc(ctx, "file:///go-domain.oracle", "  domain go { \n")
-			list := completionFor(ctx, "file:///go-domain.oracle", 0, 14)
+			openDoc(ctx, "file:///go-domain.oracle", "  @go \n")
+			list := completionFor(ctx, "file:///go-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements("output", "omit"))
 		})
 	})
 
 	Describe("TS Expression Completions", func() {
 		It("should return ts expressions inside ts domain", func(ctx SpecContext) {
-			openDoc(ctx, "file:///ts-domain.oracle", "  domain ts { \n")
-			list := completionFor(ctx, "file:///ts-domain.oracle", 0, 14)
+			openDoc(ctx, "file:///ts-domain.oracle", "  @ts \n")
+			list := completionFor(ctx, "file:///ts-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements(
 				"output", "use_input", "name",
 			))
@@ -141,8 +139,8 @@ var _ = Describe("Completion", func() {
 		It(
 			"should return ontology expressions inside ontology domain",
 			func(ctx SpecContext) {
-				openDoc(ctx, "file:///ontology-domain.oracle", "  domain ontology { \n")
-				list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 20)
+				openDoc(ctx, "file:///ontology-domain.oracle", "  @ontology \n")
+				list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 12)
 				Expect(labels(list.Items)).To(ContainElement("type"))
 			},
 		)
@@ -225,9 +223,7 @@ var _ = Describe("DidChange", func() {
 
 		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 			TextDocument: protocol.VersionedTextDocumentIdentifier{
-				TextDocumentIdentifier: protocol.TextDocumentIdentifier{
-					URI: "file:///change.oracle",
-				},
+				URI:     "file:///change.oracle",
 				Version: 2,
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{
@@ -238,12 +234,10 @@ var _ = Describe("DidChange", func() {
 		})).To(Succeed())
 
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: "file:///change.oracle",
-				},
-				Position: protocol.Position{Line: 0, Character: 0},
+			TextDocument: protocol.TextDocumentIdentifier{
+				URI: "file:///change.oracle",
 			},
+			Position: protocol.Position{Line: 0, Character: 0},
 		}))
 		Expect(result.(*protocol.CompletionList).Items).ToNot(BeEmpty())
 	})
@@ -258,9 +252,7 @@ var _ = Describe("DidChange", func() {
 
 		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 			TextDocument: protocol.VersionedTextDocumentIdentifier{
-				TextDocumentIdentifier: protocol.TextDocumentIdentifier{
-					URI: "file:///empty-change.oracle",
-				},
+				URI:     "file:///empty-change.oracle",
 				Version: 2,
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{},
@@ -286,12 +278,10 @@ var _ = Describe("DidClose", func() {
 		})).To(Succeed())
 
 		result := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: "file:///close.oracle",
-				},
-				Position: protocol.Position{Line: 0, Character: 0},
+			TextDocument: protocol.TextDocumentIdentifier{
+				URI: "file:///close.oracle",
 			},
+			Position: protocol.Position{Line: 0, Character: 0},
 		}))
 		Expect(result.(*protocol.CompletionList).Items).To(BeEmpty())
 	})
@@ -313,10 +303,8 @@ var _ = Describe("Hover", func() {
 
 	hoverAt := func(ctx context.Context, docURI uri.URI, line, col uint32) *protocol.Hover {
 		return MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-				Position:     protocol.Position{Line: line, Character: col},
-			},
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			Position:     protocol.Position{Line: line, Character: col},
 		}))
 	}
 

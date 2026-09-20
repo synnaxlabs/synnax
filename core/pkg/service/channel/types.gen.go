@@ -40,8 +40,8 @@ const (
 )
 
 // Operation defines an aggregation operation applied to channel data. Operations
-// calculate min, max, or average values over a time duration or triggered by a reset
-// channel.
+// calculate min, max, average, or derivative values over a time duration or triggered
+// by a reset channel.
 type Operation = versions.Operation
 
 // Channel is an internal representation of a channel containing all storage and

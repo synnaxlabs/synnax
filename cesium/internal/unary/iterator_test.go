@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,7 +44,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Alex",
 							Key:      index,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    index,
 						},
@@ -1917,7 +1918,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
 										Key:      iKey,
-										DataType: telem.TimeStampT,
+										DataType: telem.TimestampT,
 										IsIndex:  true,
 										Index:    iKey,
 									},
@@ -2014,7 +2015,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								Channel: channel.Channel{
 									Name:     "Ozturk",
 									Key:      iKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 									Index:    iKey,
 								},
@@ -2174,7 +2175,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Key:      key,
 							Name:     "ludwig",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						Instrumentation: PanicLogger(),
@@ -2257,7 +2258,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "Fred",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 							Index:    indexKey,
 						},
@@ -2355,7 +2356,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Channel: channel.Channel{
 							Name:     "GI",
 							Key:      indexKey,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						},
 						FileSize: fileSizeLimit,
@@ -2390,7 +2391,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 					MustSucceed(indexW.Write(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 					// Rollover 1
@@ -2413,7 +2415,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 
 					MustSucceed(
@@ -2442,7 +2445,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						unary.WriterConfig{
 							Start:   1 * telem.SecondTS,
 							Subject: control.Subject{Key: "test"},
-						}),
+						},
+					),
 					)
 
 					MustSucceed(

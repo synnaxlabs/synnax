@@ -18,9 +18,9 @@ import (
 	"go/token"
 )
 
-// Go is a Formatter that runs `gofmt -s` over its input via stdin/stdout,
-// first collapsing a parenthesized single-import declaration to the unwrapped
-// form gofmt itself never rewrites.
+// Go is a Formatter that runs `gofmt -s` over its input via stdin/stdout, first
+// collapsing a parenthesized single-import declaration to the unwrapped form gofmt
+// itself never rewrites.
 type Go struct{}
 
 // NewGo returns a Go formatter.
@@ -32,16 +32,16 @@ func (g *Go) Format(ctx context.Context, content []byte, _ string) ([]byte, erro
 	return stdinRun{Name: "gofmt", Args: []string{"-s"}, Stdin: content}.run(ctx)
 }
 
-// unwrapSingleImport rewrites `import ( x "path" )` to `import x "path"` when
-// the declaration holds exactly one spec. Content that fails to parse is
-// returned unchanged so gofmt reports the real error.
+// unwrapSingleImport rewrites `import ( x "path" )` to `import x "path"` when the
+// declaration holds exactly one spec. Content that fails to parse is returned unchanged
+// so gofmt reports the real error.
 func unwrapSingleImport(content []byte) []byte {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", content, parser.ParseComments)
 	if err != nil {
 		return content
 	}
-	changed := false
+	var changed bool
 	for _, decl := range f.Decls {
 		gd, ok := decl.(*ast.GenDecl)
 		if !ok || gd.Tok != token.IMPORT {

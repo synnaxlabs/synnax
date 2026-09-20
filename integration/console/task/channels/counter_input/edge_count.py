@@ -20,7 +20,7 @@ class EdgeCount(Counter):
     Kwargs:
         port (int): Physical port number
         active_edge (Literal["Rising", "Falling"]): Active edge
-        count_direction (Literal["Count Up", "Count Down", "Externally Controlled"]): Count direction
+        count_direction (Literal["Count up", "Count down", "Externally controlled"]): Count direction
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
         initial_count (int): Initial count value
     """
@@ -32,7 +32,7 @@ class EdgeCount(Counter):
         device: str,
         active_edge: Optional[Literal["Rising", "Falling"]] = None,
         count_direction: Optional[
-            Literal["Count Up", "Count Down", "Externally Controlled"]
+            Literal["Count up", "Count down", "Externally controlled"]
         ] = None,
         terminal: Optional[str] = None,
         initial_count: Optional[int] = None,
@@ -43,11 +43,11 @@ class EdgeCount(Counter):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Edge Count",
+            chan_type="Edge count",
             **kwargs,
         )
 
-        self._configure_dropdown("Active Edge", active_edge)
-        self._configure_dropdown("Count Direction", count_direction)
-        self._configure_dropdown("Input Terminal", terminal)
-        self._configure_input("Initial Count", initial_count)
+        self._configure_dropdown("Active edge", active_edge)
+        self._configure_dropdown("Count direction", count_direction)
+        self._configure_dropdown("Input terminal", terminal)
+        self._configure_input("Initial count", initial_count)

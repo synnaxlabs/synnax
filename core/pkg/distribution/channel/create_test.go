@@ -37,7 +37,7 @@ var _ = Describe("Create", Ordered, func() {
 			out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 				{
 					Name:        "gateway",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: n.Cluster.HostKey(),
 				},
@@ -54,16 +54,16 @@ var _ = Describe("Create", Ordered, func() {
 		"Should default an unspecified leaseholder to the host node",
 		func(ctx SpecContext) {
 			out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-				{Name: "defaulted", DataType: telem.TimeStampT, IsIndex: true},
+				{Name: "defaulted", DataType: telem.TimestampT, IsIndex: true},
 			}))
 			Expect(out[0].Leaseholder).To(Equal(host))
 		},
 	)
 	It("Should assign sequential local keys across a batch", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-			{Name: "batch-a", DataType: telem.TimeStampT, IsIndex: true},
-			{Name: "batch-b", DataType: telem.TimeStampT, IsIndex: true},
-			{Name: "batch-c", DataType: telem.TimeStampT, IsIndex: true},
+			{Name: "batch-a", DataType: telem.TimestampT, IsIndex: true},
+			{Name: "batch-b", DataType: telem.TimestampT, IsIndex: true},
+			{Name: "batch-c", DataType: telem.TimestampT, IsIndex: true},
 		}))
 		Expect(out[1].LocalKey).To(Equal(out[0].LocalKey + 1))
 		Expect(out[2].LocalKey).To(Equal(out[1].LocalKey + 1))
@@ -72,7 +72,7 @@ var _ = Describe("Create", Ordered, func() {
 		"Should set the local index of an index channel to its own local key",
 		func(ctx SpecContext) {
 			out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-				{Name: "index", DataType: telem.TimeStampT, IsIndex: true},
+				{Name: "index", DataType: telem.TimestampT, IsIndex: true},
 			}))
 			Expect(out[0].LocalIndex).To(Equal(out[0].LocalKey))
 		},
@@ -104,7 +104,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(n.Channel.Create(ctx, []channel.Channel{
 				{
 					Name:        "unresolvable",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: node.Key(99),
 				},
@@ -135,7 +135,7 @@ var _ = Describe("Create", Ordered, func() {
 				out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 					{
 						Name:        "remote",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: peer.Cluster.HostKey(),
 					},
@@ -160,7 +160,7 @@ var _ = Describe("Create", Ordered, func() {
 				out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 					{
 						Name:        "remote-index",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: peer.Cluster.HostKey(),
 					},
@@ -223,13 +223,13 @@ var _ = Describe("Create", Ordered, func() {
 				out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 					{
 						Name:        "mixed-gateway",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: gateway.Cluster.HostKey(),
 					},
 					{
 						Name:        "mixed-peer",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: peer.Cluster.HostKey(),
 					},
@@ -264,13 +264,13 @@ var _ = Describe("Create", Ordered, func() {
 				out := MustSucceed(peer.Channel.Create(ctx, []channel.Channel{
 					{
 						Name:        "mb-local",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: peer.Cluster.HostKey(),
 					},
 					{
 						Name:        "mb-remote",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: gateway.Cluster.HostKey(),
 					},
@@ -320,7 +320,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(gateway.Channel.Create(ctx, []channel.Channel{
 					{
 						Name:        "remote-unresolvable",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: node.Key(99),
 					},

@@ -9,22 +9,26 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { Color } from "@synnaxlabs/pluto";
+import z from "zod";
 
 export const SLICE_NAME = "color";
 
-export interface SliceState {
+export const sliceStateZ = z.object({
+  version: z.literal(0).default(0),
   /**
    * The color picker's shared context: recent colors and frequency data reused
    * across pickers and windows.
    */
-  context: Color.ContextState;
-}
+  context: Color.contextStateZ.prefault(Color.ZERO_CONTEXT_STATE),
+});
+
+export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const ZERO_SLICE_STATE: SliceState = { context: Color.ZERO_CONTEXT_STATE };
+export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({});
 
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,

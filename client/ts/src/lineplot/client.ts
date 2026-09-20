@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array, type destructor, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -132,7 +132,9 @@ export class Client extends query.Retriever<
     opts: query.WriteOptions<LinePlot[]> = {},
   ): Promise<LinePlot | LinePlot[]> {
     const isMany = Array.isArray(linePlots);
-    const optimistic = array.toArray(linePlots).map((p) => linePlotZ.parse(p));
+    const optimistic = array
+      .toArray(linePlots)
+      .map((p) => zod.parse(linePlotZ, p, { label: "line plot" }));
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -162,10 +164,9 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the cached line plot and sends them to the server,
-   * recording an undoable entry. Returns false without side effects when the
-   * line plot isn't cached. Rolls back the local apply and rethrows on send
-   * failure.
+   * Applies actions to the cached line plot and sends them to the server, recording an
+   * undoable entry. Returns false without side effects when the line plot isn't cached.
+   * Rolls back the local apply and rethrows on send failure.
    */
   async dispatch(
     key: Key,

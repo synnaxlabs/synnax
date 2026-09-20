@@ -44,14 +44,9 @@ var _ = Describe("LSP Rename", func() {
 }`)
 
 			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position: protocol.Position{
-						Line:      1,
-						Character: 14,
-					}, // lsp_rename_ch
-				},
-				NewName: "lsp_renamed_ch",
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 1, Character: 14},
+				NewName:      "lsp_renamed_ch",
 			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes[uri]).To(HaveLen(2))
@@ -84,10 +79,8 @@ var _ = Describe("LSP Rename", func() {
 }`)
 
 		prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-				Position:     protocol.Position{Line: 1, Character: 14},
-			},
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: 1, Character: 14},
 		}))
 		Expect(prepared).To(BeNil())
 

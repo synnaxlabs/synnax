@@ -37,9 +37,9 @@ const (
 	Float32T DataType = versions.Float32T
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
 	Float64T DataType = versions.Float64T
-	// TimeStampT is a data type for a signed 64-bit nanosecond count since the Unix
+	// TimestampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimeStampT DataType = versions.TimeStampT
+	TimestampT DataType = versions.TimestampT
 	// UUIDT is a data type for a 128-bit UUID value.
 	UUIDT DataType = versions.UUIDT
 	// StringT is a variable density data type for a UTF-8 encoded string.
@@ -48,9 +48,9 @@ const (
 	BytesT DataType = versions.BytesT
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
 	JSONT DataType = versions.JSONT
-	// BoolT is a data type for a boolean value. Samples are a single byte with
+	// BooleanT is a data type for a boolean value. Samples are a single byte with
 	// canonical values 0x00 (false) and 0x01 (true).
-	BoolT DataType = versions.BoolT
+	BooleanT DataType = versions.BooleanT
 )
 
 // InferDataType infers the data type of the given Sample.
@@ -78,11 +78,11 @@ func InferDataType[T Sample]() DataType {
 	case float64:
 		return Float64T
 	case TimeStamp:
-		return TimeStampT
+		return TimestampT
 	case uuid.UUID:
 		return UUIDT
 	case bool:
-		return BoolT
+		return BooleanT
 	case string:
 		return StringT
 	case []byte:

@@ -170,7 +170,7 @@ var _ = Describe("Name", func() {
 		It("Should handle interface types", func() {
 			var i testInterface = impl{}
 			Expect(types.ValueName(reflect.ValueOf(i))).To(Equal("types_test.impl"))
-			Expect(types.ValueName(reflect.ValueOf((any)(nil)))).To(Equal("nil"))
+			Expect(types.ValueName(reflect.ValueOf(any(nil)))).To(Equal("nil"))
 		})
 
 		It("Should handle named types", func() {

@@ -64,7 +64,6 @@ class TestLabJackReadTask:
                             "cjc_offset": 0.0,
                             "units": "C",
                             "neg_chan": 199,
-                            "pos_chan": 0,
                             "scale": {"type": "none"},
                         },
                     ],

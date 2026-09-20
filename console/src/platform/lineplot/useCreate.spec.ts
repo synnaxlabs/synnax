@@ -140,7 +140,7 @@ describe("lineplot useCreate", () => {
         result.current({ key });
       });
       await waitFor(async () =>
-        expect((await client.lineplots.retrieve(key)).name).toEqual("Line Plot"),
+        expect((await client.lineplots.retrieve(key)).name).toEqual("Line plot"),
       );
     });
 

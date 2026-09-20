@@ -22,7 +22,7 @@ const createDetails = (
   streamLive: true,
   streamDenied: false,
   epoch: 1,
-  clusterKey: "cluster",
+  clusterKey: "Core",
   clientVersion: "0.0.0",
   clientServerCompatible: true,
   clockSkew: TimeSpan.ZERO,

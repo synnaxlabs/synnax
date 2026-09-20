@@ -76,7 +76,7 @@ describe("Label.Filter.Chips", () => {
   it("should render nothing when no labels are selected", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Fixture hasLabels={[]} />, { wrapper });
-    await waitFor(() => expect(screen.getByText("All Labels")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("All labels")).toBeTruthy());
     expect(screen.queryByText("Labels")).toBeNull();
   });
 });

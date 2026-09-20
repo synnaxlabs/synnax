@@ -200,3 +200,6 @@ var codecMigration = gorp.CodecMigration[Key, Range]("msgpack_to_orc")
 func NewMigrations(cfg MigrationConfig) []migrate.Migration {
 	return []migrate.Migration{newMigration(cfg), codecMigration}
 }
+
+// NormalizeKeys re-keys Range rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Range]("Range")

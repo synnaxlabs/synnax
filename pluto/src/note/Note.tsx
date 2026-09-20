@@ -21,7 +21,7 @@ export interface NoteProps extends Flex.BoxProps<"div"> {
 
 export const Note = ({ variant, className, ...rest }: NoteProps): ReactElement => (
   <Flex.Box
-    className={CSS(className, CSS.B("note"), CSS.M(variant))}
+    className={CSS.cls(className, CSS.B("note"), CSS.M(variant))}
     align="stretch"
     empty
     {...rest}

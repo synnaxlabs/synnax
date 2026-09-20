@@ -24,7 +24,6 @@
       "name": "",
       "neg_chan": 5,
       "port": "AIN4",
-      "pos_chan": 4,
       "scale": {
         "type": "none"
       },

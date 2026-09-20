@@ -33,7 +33,7 @@ const SentinelCommand = Command.create({
   useOnSelect: () => () => {},
 });
 
-const NAME = "Open a new window";
+const NAME = "Open new window";
 
 describe("Panel Commands", () => {
   beforeEach(() => {

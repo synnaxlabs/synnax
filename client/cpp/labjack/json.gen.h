@@ -17,17 +17,18 @@
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
-#include "client/cpp/device/json.gen.h"
+#include "client/cpp/device/key.h"
 #include "client/cpp/labjack/types.gen.h"
-#include "client/cpp/task/config/json.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::labjack {
 
 inline BaseReadChannel BaseReadChannel::parse(x::json::Parser parser) {
     return BaseReadChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>(
@@ -50,7 +51,7 @@ inline x::json::json BaseReadChannel::to_json() const {
 
 inline BaseWriteChannel BaseWriteChannel::parse(x::json::Parser parser) {
     return BaseWriteChannel{
-        .key = parser.field<std::string>("key", ""),
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
         .disabled = parser.field<bool>("disabled", false),
         .cmd_channel = parser.field<::synnax::channel::Key>(
             "cmd_channel",
@@ -80,9 +81,9 @@ inline x::json::json BaseWriteChannel::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::task::config::BaseRead &>(
+    static_cast<::synnax::task::ReadConfig &>(
         result
-    ) = ::synnax::task::config::BaseRead::parse(parser);
+    ) = ::synnax::task::ReadConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.channels = [&] {
         std::vector<ReadChannel> result;
@@ -105,7 +106,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseRead::to_json().items())
+    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     {
@@ -121,9 +122,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::task::config::BaseWrite &>(
+    static_cast<::synnax::task::WriteConfig &>(
         result
-    ) = ::synnax::task::config::BaseWrite::parse(parser);
+    ) = ::synnax::task::WriteConfig::parse(parser);
     result.state_rate = parser.field<::x::telem::Rate>(
         "state_rate",
         ::x::telem::Rate(10)
@@ -141,7 +142,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseWrite::to_json().items())
+    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     {
@@ -155,16 +156,16 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::task::config::BaseScan &>(
+    static_cast<::synnax::task::ScanConfig &>(
         result
-    ) = ::synnax::task::config::BaseScan::parse(parser);
+    ) = ::synnax::task::ScanConfig::parse(parser);
     result.tcp_scan_multiplier = parser.field<std::int32_t>("tcp_scan_multiplier", 10);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::config::BaseScan::to_json().items())
+    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
         j[k] = v;
     j["tcp_scan_multiplier"] = this->tcp_scan_multiplier;
     return j;
@@ -264,7 +265,6 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
     static_cast<BaseReadChannel &>(result) = BaseReadChannel::parse(parser);
     result.port = parser.field<std::string>("port", "AIN0");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "K");
-    result.pos_chan = parser.field<std::int32_t>("pos_chan", 0);
     result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
     result.cjc_source = parser.field<std::string>("cjc_source", "TEMPERATURE_DEVICE_K");
     result.cjc_slope = parser.field<double>("cjc_slope", 1);
@@ -282,7 +282,6 @@ inline x::json::json ThermocoupleReadChannel::to_json() const {
         j[k] = v;
     j["port"] = this->port;
     j["thermocouple_type"] = this->thermocouple_type;
-    j["pos_chan"] = this->pos_chan;
     j["neg_chan"] = this->neg_chan;
     j["cjc_source"] = this->cjc_source;
     j["cjc_slope"] = this->cjc_slope;

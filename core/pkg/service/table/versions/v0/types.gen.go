@@ -29,5 +29,5 @@ type Table struct {
 	Name string `json:"name" msgpack:"name"`
 	// Data is the table configuration including column definitions, channel references,
 	// and formatting options.
-	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
 }

@@ -20,7 +20,7 @@ const TAB: Panel.Tab = {
   Content: Explorer,
   Icon: Arc.ExplorerIcon,
   Name: Panel.createStaticTabName({
-    name: "Arc Explorer",
+    name: "Arc explorer",
     icon: <Arc.ExplorerIcon />,
   }),
 };

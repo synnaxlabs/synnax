@@ -9,7 +9,7 @@
 
 import { Button, Form, Status } from "@synnaxlabs/pluto";
 
-import { useIsSnapshot } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/Form";
 
 export interface EnableDisableButtonProps extends Omit<
   Button.ToggleProps,
@@ -19,17 +19,17 @@ export interface EnableDisableButtonProps extends Omit<
 }
 
 export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps) => {
-  const isSnapshot = useIsSnapshot();
+  const isPreview = useIsPreview();
   const { set } = Form.useContext();
   const raw = Form.useFieldValue<boolean>(path, { optional: true });
   if (raw == null) return null;
   const value = !raw;
   return (
     <Button.Toggle
-      disabled={isSnapshot}
+      disabled={isPreview}
       onChange={(v) => set(path, !v)}
       size="small"
-      tooltip={isSnapshot ? undefined : `${value ? "Disable" : "Enable"}`}
+      tooltip={isPreview ? undefined : `${value ? "Disable" : "Enable"}`}
       value={value}
       {...rest}
     >

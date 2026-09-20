@@ -143,8 +143,6 @@ var _ = Describe("Collector", func() {
 	Describe("NewCollector", func() {
 		It("Should create an empty collector", func() {
 			c := framework.NewCollector("go", req)
-			Expect(c.Empty()).To(BeTrue())
-			Expect(c.Count()).To(Equal(0))
 			Expect(c.Paths()).To(BeEmpty())
 		})
 	})
@@ -170,8 +168,6 @@ var _ = Describe("Collector", func() {
 				},
 			}
 			Expect(c.Add(typ)).To(Succeed())
-			Expect(c.Empty()).To(BeFalse())
-			Expect(c.Count()).To(Equal(1))
 			Expect(c.Has("pkg/types.go")).To(BeTrue())
 			Expect(c.Get("pkg/types.go")).To(HaveLen(1))
 			Expect(c.Get("pkg/types.go")[0].Name).To(Equal("MyType"))
@@ -186,7 +182,6 @@ var _ = Describe("Collector", func() {
 				Domains:       map[string]resolution.Domain{},
 			}
 			Expect(c.Add(typ)).To(Succeed())
-			Expect(c.Empty()).To(BeTrue())
 		})
 
 		It("Should maintain path order", func() {
@@ -383,7 +378,6 @@ var _ = Describe("Collector", func() {
 			Expect(c.Add(resolution.Type{Name: "KeepMe"})).To(Succeed())
 			Expect(c.Add(resolution.Type{Name: "SkipMe"})).To(Succeed())
 
-			Expect(c.Count()).To(Equal(1))
 			Expect(c.Has("output/KeepMe")).To(BeTrue())
 			Expect(c.Has("output/SkipMe")).To(BeFalse())
 		})
@@ -400,7 +394,6 @@ var _ = Describe("Collector", func() {
 				{Name: "TypeC"},
 			}
 			Expect(c.AddAll(types)).To(Succeed())
-			Expect(c.Count()).To(Equal(3))
 		})
 
 		It("Should stop on first error", func() {
@@ -544,21 +537,9 @@ var _ = Describe("Collect Helpers", func() {
 		It("Should collect only struct types", func() {
 			c, err := framework.CollectStructs("go", req)
 			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("User"))
-		})
-	})
-
-	Describe("CollectEnums", func() {
-		It("Should collect only enum types", func() {
-			c, err := framework.CollectEnums("go", req)
-			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
-			types := c.Get("core/auth")
-			Expect(types).To(HaveLen(1))
-			Expect(types[0].Name).To(Equal("Status"))
 		})
 	})
 
@@ -566,7 +547,6 @@ var _ = Describe("Collect Helpers", func() {
 		It("Should collect only distinct types", func() {
 			c, err := framework.CollectDistinct("go", req)
 			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("UserID"))
@@ -577,7 +557,6 @@ var _ = Describe("Collect Helpers", func() {
 		It("Should collect only alias types", func() {
 			c, err := framework.CollectAliases("go", req)
 			Expect(err).To(Succeed())
-			Expect(c.Count()).To(Equal(1))
 			types := c.Get("core/auth")
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("StringAlias"))

@@ -265,7 +265,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Single Sample",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{telem.NewSeriesV(true)},
@@ -273,7 +273,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Exact Byte Boundary",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{
@@ -292,7 +292,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool One Past Byte Boundary",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{
@@ -312,7 +312,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Seven Samples (Partial Last Byte)",
 			channel.Keys{1},
-			[]telem.DataType{telem.BoolT},
+			[]telem.DataType{telem.BooleanT},
 			frame.NewMulti(
 				channel.Keys{1},
 				[]telem.Series{
@@ -322,7 +322,7 @@ var _ = Describe("Codec", func() {
 		),
 		Entry("Bool Mixed With Other Types",
 			channel.Keys{1, 2, 3},
-			[]telem.DataType{telem.BoolT, telem.Float32T, telem.Uint8T},
+			[]telem.DataType{telem.BooleanT, telem.Float32T, telem.Uint8T},
 			frame.NewMulti(
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
@@ -453,7 +453,7 @@ var _ = Describe("Codec", func() {
 			func(ctx SpecContext) {
 				c := codec.NewStatic(
 					[]channel.Key{1},
-					[]telem.DataType{telem.TimeStampT},
+					[]telem.DataType{telem.TimestampT},
 				)
 				fr := frame.NewUnary(1, telem.NewSeriesV[int64](1778020940471336961))
 				encoded := MustSucceed(c.Encode(ctx, fr))
@@ -481,7 +481,7 @@ var _ = Describe("Codec", func() {
 			idxCh  channel.Key = 1
 			dataCh channel.Key = 2
 		)
-		resolver := mapResolver{idxCh: telem.TimeStampT, dataCh: telem.Float32T}
+		resolver := mapResolver{idxCh: telem.TimestampT, dataCh: telem.Float32T}
 
 		It(
 			"Should allow the caller to update the list of channels",
@@ -951,7 +951,7 @@ var _ = Describe("Codec", func() {
 				// Verify the data is correct (concatenated)
 				series := decoded.Get(1)
 				Expect(series.Series).To(HaveLen(1))
-				mergedData := telem.UnmarshalSeries[int32](series.Series[0])
+				mergedData := series.Series[0].Unmarshal[int32]()
 				Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
 
 				// Verify alignment is from the first series
@@ -984,7 +984,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.Count()).To(Equal(1))
 				series := decoded.Get(1)
 				Expect(series.Series).To(HaveLen(1))
-				mergedData := telem.UnmarshalSeries[uint8](series.Series[0])
+				mergedData := series.Series[0].Unmarshal[uint8]()
 				Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
 			},
 		)
@@ -1050,11 +1050,11 @@ var _ = Describe("Codec", func() {
 				Expect(series.Series).To(HaveLen(2))
 
 				// First merged series should be [1, 2, 3, 4]
-				firstData := telem.UnmarshalSeries[int32](series.Series[0])
+				firstData := series.Series[0].Unmarshal[int32]()
 				Expect(firstData).To(Equal([]int32{1, 2, 3, 4}))
 
 				// Second merged series should be [5, 6]
-				secondData := telem.UnmarshalSeries[int32](series.Series[1])
+				secondData := series.Series[1].Unmarshal[int32]()
 				Expect(secondData).To(Equal([]int32{5, 6}))
 			},
 		)
@@ -1092,13 +1092,13 @@ var _ = Describe("Codec", func() {
 				// Channel 1 should have merged series
 				ch1Series := decoded.Get(1)
 				Expect(ch1Series.Series).To(HaveLen(1))
-				ch1Data := telem.UnmarshalSeries[int32](ch1Series.Series[0])
+				ch1Data := ch1Series.Series[0].Unmarshal[int32]()
 				Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
 
 				// Channel 2 should have merged series
 				ch2Series := decoded.Get(2)
 				Expect(ch2Series.Series).To(HaveLen(1))
-				ch2Data := telem.UnmarshalSeries[float32](ch2Series.Series[0])
+				ch2Data := ch2Series.Series[0].Unmarshal[float32]()
 				Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
 			},
 		)
@@ -1191,7 +1191,7 @@ var _ = Describe("Codec", func() {
 				Expect(series.Series).To(HaveLen(1))
 
 				// Data should be concatenated correctly
-				mergedStrings := telem.UnmarshalSeries[string](series.Series[0])
+				mergedStrings := series.Series[0].Unmarshal[string]()
 				Expect(mergedStrings).To(Equal([]string{"hello", "world", "foo"}))
 			},
 		)
@@ -1240,7 +1240,7 @@ var _ = Describe("Codec", func() {
 				// allChannelsPresent must be false even before this fix, but the
 				// decoder still has to walk per-series keys correctly.
 				keys := channel.Keys{1, 2}
-				dataTypes := []telem.DataType{telem.TimeStampT, telem.Float64T}
+				dataTypes := []telem.DataType{telem.TimestampT, telem.Float64T}
 				cd := codec.NewStatic(keys, dataTypes)
 
 				idxA := telem.NewSeriesSecondsTSV(3)
@@ -1290,7 +1290,7 @@ var _ = Describe("Codec", func() {
 				// Key 1 resolves but key 2 does not, so the resolver returns one data
 				// type for two keys.
 				c := codec.NewDynamic(configResolver{
-					dataTypes: map[channel.Key]telem.DataType{1: telem.TimeStampT},
+					dataTypes: map[channel.Key]telem.DataType{1: telem.TimestampT},
 				})
 				Expect(c.Update(ctx, []channel.Key{1, 2})).To(MatchError(
 					ContainSubstring(

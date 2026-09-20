@@ -228,30 +228,30 @@ describe("Notifications", () => {
       expect(screen.getByText("Message n3")).toBeTruthy();
       expect(screen.queryByText("Message n2")).toBeNull();
       expect(screen.queryByText("Message n1")).toBeNull();
-      expect(screen.getByText("+2 More")).toBeTruthy();
+      expect(screen.getByText("+2 more")).toBeTruthy();
     });
 
     it("shows no overflow controls at or below the cap", async () => {
       await addStatuses(createCrudes(4));
       expect(screen.getByText("Message n1")).toBeTruthy();
-      expect(screen.queryByText(/More/)).toBeNull();
-      expect(screen.queryByText("Clear All")).toBeNull();
+      expect(screen.queryByText(/more/)).toBeNull();
+      expect(screen.queryByText("Clear all")).toBeNull();
     });
 
     it("expands to show every toast and collapses back", async () => {
       await addStatuses(createCrudes(6));
-      fireEvent.click(screen.getByText("+2 More"));
+      fireEvent.click(screen.getByText("+2 more"));
       expect(screen.getByText("Message n1")).toBeTruthy();
-      fireEvent.click(screen.getByText("Show Less"));
+      fireEvent.click(screen.getByText("Show less"));
       expect(screen.queryByText("Message n1")).toBeNull();
-      expect(screen.getByText("+2 More")).toBeTruthy();
+      expect(screen.getByText("+2 more")).toBeTruthy();
     });
 
     it("clears every toast, including hidden overflow, from the chip", async () => {
       await addStatuses(createCrudes(6));
-      fireEvent.click(screen.getByText("Clear All"));
+      fireEvent.click(screen.getByText("Clear all"));
       expect(screen.queryByText(/Message n/)).toBeNull();
-      expect(screen.queryByText("Clear All")).toBeNull();
+      expect(screen.queryByText("Clear all")).toBeNull();
     });
 
     it("does not count suppressed statuses toward the cap or overflow", async () => {
@@ -264,7 +264,7 @@ describe("Notifications", () => {
       );
       expect(screen.getByText("Message n1")).toBeTruthy();
       expect(screen.getByText("Message n4")).toBeTruthy();
-      expect(screen.queryByText(/More/)).toBeNull();
+      expect(screen.queryByText(/more/)).toBeNull();
     });
   });
 });

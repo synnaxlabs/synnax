@@ -33,8 +33,8 @@ class Analog:
                 "Default",
                 "Differential",
                 "Pseudo-Differential",
-                "Referenced Single Ended",
-                "Non-Referenced Single Ended",
+                "Referenced single ended",
+                "Non-referenced single ended",
             ]
             | None
         ) = None,
@@ -52,7 +52,7 @@ class Analog:
             chan_type: Channel type (e.g., "Voltage", "Accelerometer")
             port: Physical port number
             terminal_config: "Default", "Differential", "Pseudo-Differential",
-                           "Referenced Single Ended", "Non-Referenced Single Ended"
+                           "Referenced single ended", "Non-referenced single ended"
             min_val: Minimum value
             max_val: Maximum value
             custom_scale: "None", "Linear", "Map", "Table"
@@ -64,11 +64,11 @@ class Analog:
         values: dict[str, str | bool] = {}
 
         # Configure channel type
-        layout.click_btn("Channel Type")
+        layout.click_btn("Channel type")
         layout.select_from_dropdown(
-            chan_type, exact=True, reopen=lambda: layout.click_btn("Channel Type")
+            chan_type, exact=True, reopen=lambda: layout.click_btn("Channel type")
         )
-        values["Channel Type"] = chan_type
+        values["Channel type"] = chan_type
 
         # Get device (set by task.add_channel)
         values["Device"] = layout.get_dropdown_value("Device")
@@ -81,42 +81,42 @@ class Analog:
             values["Port"] = layout.get_input_field("Port")
 
         if terminal_config is not None:
-            layout.click_btn("Terminal Configuration")
+            layout.click_btn("Terminal configuration")
             layout.select_from_dropdown(
                 terminal_config,
                 exact=True,
-                reopen=lambda: layout.click_btn("Terminal Configuration"),
+                reopen=lambda: layout.click_btn("Terminal configuration"),
             )
-            values["Terminal Configuration"] = terminal_config
+            values["Terminal configuration"] = terminal_config
         elif self.has_terminal_config():
-            values["Terminal Configuration"] = layout.get_dropdown_value(
-                "Terminal Configuration"
+            values["Terminal configuration"] = layout.get_dropdown_value(
+                "Terminal configuration"
             )
 
-        no_min_max_types = ("Microphone", "Temperature Built-In Sensor", "Thermocouple")
+        no_min_max_types = ("Microphone", "Temperature built-in sensor", "Thermocouple")
         if min_val is not None:
-            layout.fill_input_field("Minimum Value", str(min_val))
-            values["Minimum Value"] = str(min_val)
+            layout.fill_input_field("Minimum value", str(min_val))
+            values["Minimum value"] = str(min_val)
         elif chan_type not in no_min_max_types:
-            values["Minimum Value"] = layout.get_input_field("Minimum Value")
+            values["Minimum value"] = layout.get_input_field("Minimum value")
 
         if max_val is not None:
-            layout.fill_input_field("Maximum Value", str(max_val))
-            values["Maximum Value"] = str(max_val)
+            layout.fill_input_field("Maximum value", str(max_val))
+            values["Maximum value"] = str(max_val)
         elif chan_type not in no_min_max_types:
-            values["Maximum Value"] = layout.get_input_field("Maximum Value")
+            values["Maximum value"] = layout.get_input_field("Maximum value")
 
-        no_custom_scale_types = ("RTD", "Temperature Built-In Sensor", "Thermocouple")
+        no_custom_scale_types = ("RTD", "Temperature built-in sensor", "Thermocouple")
         if custom_scale is not None:
-            layout.click_btn("Custom Scaling")
+            layout.click_btn("Custom scaling")
             layout.select_from_dropdown(
                 custom_scale,
                 exact=True,
-                reopen=lambda: layout.click_btn("Custom Scaling"),
+                reopen=lambda: layout.click_btn("Custom scaling"),
             )
-            values["Custom Scaling"] = custom_scale
+            values["Custom scaling"] = custom_scale
         elif chan_type not in no_custom_scale_types:
-            values["Custom Scaling"] = layout.get_dropdown_value("Custom Scaling")
+            values["Custom scaling"] = layout.get_dropdown_value("Custom scaling")
 
         self.form_values = values
 

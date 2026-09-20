@@ -33,18 +33,21 @@ export type OperationType = z.infer<typeof operationTypeZ>;
 
 /**
  * Operation defines an aggregation operation applied to channel data. Operations
- * calculate min, max, or average values over a time duration or triggered by a reset
- * channel.
+ * calculate min, max, average, or derivative values over a time duration or triggered
+ * by a reset channel.
  */
 export const operationZ = z.object({
-  /** type is the aggregation operation type: min, max, avg, or none. */
+  /** type is the aggregation operation type: min, max, avg, derivative, or none. */
   type: operationTypeZ,
   /**
-   * resetChannel is the channel key that triggers reset of the aggregation. If 0,
-   * duration-based reset is used.
+   * resetChannel is the key of a channel that resets the aggregation when it receives a
+   * sample. If 0, no reset channel is used.
    */
   resetChannel: keyZ.default(0),
-  /** duration is the time window for aggregation when reset_channel is 0. */
+  /**
+   * duration is the interval at which the aggregation resets. If 0, the aggregation is
+   * not reset on a timer.
+   */
   duration: telem.timeSpanZ.default(TimeSpan.ZERO),
 });
 export interface Operation extends z.infer<typeof operationZ> {}
@@ -73,13 +76,13 @@ export const payloadZ = z.object({
    */
   leaseholder: node.keyZ.default(0),
   /**
-   * dataType is the data type of samples stored in this channel (e.g., Float64, Int32,
-   * TimeStamp).
+   * dataType is the data type of samples stored in this channel (e.g., float64, int32,
+   * timestamp).
    */
   dataType: telem.dataTypeZ,
   /**
    * isIndex is true if this is an index channel. Index channels must have int64 values
-   * (TIMESTAMP data type) written in ascending order, and are most commonly unix
+   * (TIMESTAMP data type) written in ascending order, and are most commonly Unix
    * nanosecond timestamps.
    */
   isIndex: z.boolean().default(false),
@@ -103,8 +106,8 @@ export const payloadZ = z.object({
    */
   expression: z.string().default(""),
   /**
-   * operations contains optional aggregation operations (min, max, avg) applied to
-   * channel data over time or triggered by a reset channel.
+   * operations contains optional aggregation operations (min, max, avg, derivative)
+   * applied to channel data over time or triggered by a reset channel.
    */
   operations: operationZ.array().default(() => []),
   /**

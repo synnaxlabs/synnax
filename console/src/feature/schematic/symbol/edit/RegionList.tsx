@@ -107,13 +107,13 @@ export const RegionList = ({
         <Header.Actions>
           <Text.Text level="p" color={9} gap={3}>
             <Tooltip.Dialog>
-              <Text.Text level="small">Stroke Color</Text.Text>
+              <Text.Text level="small">Stroke color</Text.Text>
               <Flex.Box>
                 <Icon.StrokeColor />
               </Flex.Box>
             </Tooltip.Dialog>
             <Tooltip.Dialog>
-              <Text.Text level="small">Fill Color</Text.Text>
+              <Text.Text level="small">Fill color</Text.Text>
               <Flex.Box>
                 <Icon.FillColor />
               </Flex.Box>

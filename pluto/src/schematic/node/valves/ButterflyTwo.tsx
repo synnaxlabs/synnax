@@ -28,7 +28,7 @@ export const ButterflyTwo = ({
   <Toggle.Button
     {...rest}
     orientation={orientation}
-    className={CSS(CSS.B("butterfly-valve-two"), className)}
+    className={CSS.cls(CSS.B("butterfly-valve-two"), className)}
     enabled={enabled}
   >
     <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />

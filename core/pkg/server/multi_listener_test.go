@@ -11,7 +11,10 @@ package server_test
 
 import (
 	"crypto/tls"
-	stdnet "net"
+	"crypto/x509"
+	"io"
+	"net"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,11 +22,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,56 +35,160 @@ var _ = Describe("MultiListener", func() {
 		fs := xfs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
-			Insecure:     new(false),
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
 		}))
-		portA := MustSucceed(net.FindOpenPort())
-		portB := MustSucceed(net.FindOpenPort())
-		addrA := address.Newf("localhost:%d", portA)
-		addrB := address.Newf("localhost:%d", portB)
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-			LoaderConfig: cert.LoaderConfig{FS: fs},
-			KeySize:      mock.SmallKeySize,
+			FS:      fs,
+			KeySize: mock.SmallKeySize,
 		}))
 		srcA := MustSucceed(auto.NewSource(ca, "hostA:1"))
 		srcB := MustSucceed(auto.NewSource(ca, "hostB:1"))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{
-				{Address: addrA, TLS: prov.TLSConfigFor(srcA)},
-				{Address: addrB, TLS: prov.TLSConfigFor(srcB)},
+				{Address: "localhost:0", TLS: prov.TLSConfigFor(srcA)},
+				{Address: "localhost:0", TLS: prov.TLSConfigFor(srcB)},
 			},
 			Security: server.SecurityConfig{Insecure: new(false)},
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{MaxIdleWorkerDuration: 100 * time.Millisecond},
 			},
 		}))
-		Expect(presentedSANs(addrA)).To(ContainElement("hostA"))
-		Expect(presentedSANs(addrB)).To(ContainElement("hostB"))
+		Expect(presentedSANs(s.Addresses()[0])).To(ContainElement("hostA"))
+		Expect(presentedSANs(s.Addresses()[1])).To(ContainElement("hostB"))
+		Expect(s.Close()).To(Succeed())
+	})
+
+	It("Should serve certificates a client verifies with the trust anchor", func() {
+		fs := xfs.NewMem()
+		mock.GenerateCerts(fs)
+		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
+		}))
+		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+			FS:      fs,
+			KeySize: mock.SmallKeySize,
+		}))
+		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
+		autoSrc := MustSucceed(auto.NewSource(ca, "localhost:0"))
+		fileSrc := MustSucceed(file.NewSource(
+			fs,
+			l.AbsoluteNodeCertPath(),
+			l.AbsoluteNodeKeyPath(),
+		))
+		s := MustSucceed(server.Serve(server.Config{
+			Listeners: []server.Listener{
+				{Address: "localhost:0", TLS: prov.TLSConfigFor(autoSrc)},
+				{Address: "localhost:0", TLS: prov.TLSConfigFor(fileSrc)},
+			},
+			Security: server.SecurityConfig{Insecure: new(false)},
+			Branches: []server.Branch{
+				&server.SecureHTTPBranch{MaxIdleWorkerDuration: 100 * time.Millisecond},
+			},
+		}))
+		anchors := certPool(MustSucceed(l.TrustAnchorsPEM()))
+		Expect(handshake(s.Addresses()[0], anchors)).To(Succeed())
+		Expect(handshake(s.Addresses()[1], anchors)).To(Succeed())
+		// The node certificate anchors only itself, so on its own it cannot verify the
+		// separate certificate the auto source signs for its listener.
+		nodeOnly := certPool(MustSucceed(readFile(fs, l.AbsoluteNodeCertPath())))
+		Expect(handshake(s.Addresses()[0], nodeOnly)).
+			To(MatchError(ContainSubstring("certificate signed by unknown authority")))
+		Expect(s.Close()).To(Succeed())
+	})
+
+	It("Should serve a node certificate an unrelated CA did not sign", func() {
+		fs := xfs.NewMem()
+		mock.GenerateCerts(fs)
+		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
+		// Stand in for a Core whose node certificate came from outside, leaving a CA on
+		// disk that signed nothing the listeners serve.
+		foreign := xfs.NewMem()
+		mock.GenerateCerts(foreign)
+		foreignL := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: foreign}))
+		writeFile(fs, l.AbsoluteCACertPath(), MustSucceed(readFile(
+			foreign,
+			foreignL.AbsoluteCACertPath(),
+		)))
+		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+			FS:       fs,
+			KeySize:  mock.SmallKeySize,
+			Insecure: new(false),
+		}))
+		src := MustSucceed(file.NewSource(
+			fs,
+			l.AbsoluteNodeCertPath(),
+			l.AbsoluteNodeKeyPath(),
+		))
+		s := MustSucceed(server.Serve(server.Config{
+			Listeners: []server.Listener{
+				{Address: "localhost:0", TLS: prov.TLSConfigFor(src)},
+			},
+			Security: server.SecurityConfig{Insecure: new(false)},
+			Branches: []server.Branch{
+				&server.SecureHTTPBranch{MaxIdleWorkerDuration: 100 * time.Millisecond},
+			},
+		}))
+		anchors := certPool(MustSucceed(l.TrustAnchorsPEM()))
+		Expect(handshake(s.Addresses()[0], anchors)).To(Succeed())
 		Expect(s.Close()).To(Succeed())
 	})
 
 	It("Should close earlier listeners when a later listener fails to bind", func() {
-		portA := MustSucceed(net.FindOpenPort())
-		portB := MustSucceed(net.FindOpenPort())
-		addrA := address.Newf("localhost:%d", portA)
-		addrB := address.Newf("localhost:%d", portB)
-		occupied := MustSucceed(stdnet.Listen("tcp", addrB.PortString()))
+		// The server binds every interface, so the port must be occupied the same way
+		// for the second listener to collide with it.
+		occupied := MustSucceed(net.Listen("tcp", ":0"))
 		defer func() { Expect(occupied.Close()).To(Succeed()) }()
+		occupiedAddr := address.Newf(
+			"localhost:%d", occupied.Addr().(*net.TCPAddr).Port,
+		)
 		Expect(server.Serve(server.Config{
-			Debug:     new(false),
-			Security:  server.SecurityConfig{Insecure: new(true)},
-			Listeners: []server.Listener{{Address: addrA}, {Address: addrB}},
-		})).Error().To(HaveOccurred())
-		Eventually(func() error {
-			conn, err := stdnet.DialTimeout("tcp", addrA.String(), 100*time.Millisecond)
-			if err == nil {
-				Expect(conn.Close()).To(Succeed())
-			}
-			return err
-		}).Should(HaveOccurred())
+			Debug:    new(false),
+			Security: server.SecurityConfig{Insecure: new(true)},
+			Listeners: []server.Listener{
+				{Address: "localhost:0"},
+				{Address: occupiedAddr},
+			},
+		})).Error().To(MatchError(ContainSubstring("bind")))
 	})
 })
+
+func readFile(fs xfs.FS, path string) ([]byte, error) {
+	f, err := fs.Open(path, os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { Expect(f.Close()).To(Succeed()) }()
+	return io.ReadAll(f)
+}
+
+func writeFile(fs xfs.FS, path string, b []byte) {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC))
+	defer func() { Expect(f.Close()).To(Succeed()) }()
+	Expect(f.Write(b)).To(Equal(len(b)))
+}
+
+func certPool(pemBytes []byte) *x509.CertPool {
+	GinkgoHelper()
+	pool := x509.NewCertPool()
+	Expect(pool.AppendCertsFromPEM(pemBytes)).To(BeTrue())
+	return pool
+}
+
+func handshake(addr address.Address, pool *x509.CertPool) error {
+	conn, err := tls.Dial("tcp", addr.String(), &tls.Config{
+		RootCAs:    pool,
+		ServerName: addr.Host(),
+	})
+	if err != nil {
+		return err
+	}
+	return conn.Close()
+}
 
 func presentedSANs(addr address.Address) []string {
 	conn := MustSucceed(tls.Dial(

@@ -52,7 +52,7 @@ export const Actuator = ({
       <Note.Note variant="warning" className={className}>
         <Text.Text level="p" status="warning">
           <Icon.Warning />
-          Missing Custom Symbol
+          Missing custom symbol
         </Text.Text>
       </Note.Note>
     );
@@ -60,7 +60,7 @@ export const Actuator = ({
   return (
     <Toggle.Button
       ref={setContainer}
-      className={CSS(
+      className={CSS.cls(
         CSS.BM("symbol", "custom"),
         CSS.B("custom-actuator"),
         orientation != null && CSS.loc(orientation),

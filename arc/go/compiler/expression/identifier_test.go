@@ -68,7 +68,7 @@ var _ = Describe("Identifier Compilation", func() {
 				Expect(scopeB).ToNot(BeNil())
 				// Compile expression using both variables
 				expr := MustSucceed(parser.ParseExpression("a + b"))
-				exprType := MustSucceed(expression.Compile(ccontext.Child(ctx, expr)))
+				exprType := MustSucceed(expression.Compile(ctx.Child(expr)))
 				bytecode := ctx.Writer.Bytes()
 				Expect(bytecode).To(MatchOpcodes(
 					OpLocalGet, 0, // Resolve 'a'
@@ -159,7 +159,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpLocalGet, 0, // Resolve 'limit'
 				OpI32GtS, // value > limit
 			))
-			Expect(exprType).To(Equal(types.U8())) // Comparisons return boolean
+			Expect(exprType).To(Equal(types.Bool())) // Comparisons return boolean
 		})
 
 		It(
@@ -207,7 +207,7 @@ var _ = Describe("Identifier Compilation", func() {
 					OpI32Ne,
 					OpEnd,
 				))
-				Expect(exprType).To(Equal(types.U8()))
+				Expect(exprType).To(Equal(types.Bool()))
 			},
 		)
 	})
@@ -275,7 +275,7 @@ var _ = Describe("Identifier Compilation", func() {
 					),
 				)
 				byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
-				Expect(exprType).To(Equal(types.U8()))
+				Expect(exprType).To(Equal(types.Bool()))
 				Expect(byteCode).To(MatchOpcodes(
 					OpI32Const, int32(0),
 					OpCall, uint32(0),
@@ -322,7 +322,7 @@ var _ = Describe("Identifier Compilation", func() {
 					Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
 				}))
 				expr := MustSucceed(parser.ParseExpression("shared"))
-				Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				Expect(expression.Compile(ctx.Child(expr))).Error().
 					To(MatchError(ContainSubstring("not a compile-time constant")))
 			},
 		)
@@ -398,6 +398,8 @@ var _ = Describe("Identifier Compilation", func() {
 				int64(3),
 				[]any{OpF32Const, float32(3)},
 			),
+			Entry("bool true", types.Bool(), true, []any{OpI32Const, int32(1)}),
+			Entry("bool false", types.Bool(), false, []any{OpI32Const, int32(0)}),
 		)
 
 		DescribeTable(
@@ -409,7 +411,7 @@ var _ = Describe("Identifier Compilation", func() {
 					DefaultValue: value,
 				}))
 				expr := MustSucceed(parser.ParseExpression("shared"))
-				Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				Expect(expression.Compile(ctx.Child(expr))).Error().
 					To(MatchError(ContainSubstring(msg)))
 			},
 			Entry("string type, non-string value", types.String(), 5, "cannot fold"),
@@ -636,7 +638,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI64Const, int64(10),
 				OpI64GtS,
 			))
-			Expect(exprType).To(Equal(types.U8()))
+			Expect(exprType).To(Equal(types.Bool()))
 		})
 	})
 
@@ -799,9 +801,7 @@ var _ = Describe("Identifier Compilation", func() {
 					analyzerCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				exprType := MustSucceed(
-					expression.Compile(ccontext.Child(compilerCtx, expr)),
-				)
+				exprType := MustSucceed(expression.Compile(compilerCtx.Child(expr)))
 				Expect(exprType).To(Equal(types.TimeStamp()))
 				Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(OpCall, uint32(0)))
 			},

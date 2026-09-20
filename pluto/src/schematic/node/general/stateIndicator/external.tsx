@@ -26,8 +26,9 @@ export const defaultConfig = (): Config => ({
   orientation: "left",
   color: color.ZERO,
   inlineSize: 100,
+  size: "medium",
   options: [],
-  label: Label.defaultConfig("State Indicator"),
+  label: Label.defaultConfig("State indicator"),
   ...Staleness.ZERO_CONFIG,
   source: telem.sourcePipeline("number", {
     connections: [],
@@ -36,17 +37,18 @@ export const defaultConfig = (): Config => ({
   }),
 });
 
-const Preview = ({ color }: Config): ReactElement => (
+const Preview = ({ color, size }: Config): ReactElement => (
   <StateIndicator
     matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
     color={color}
+    size={size}
   />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "State Indicator",
+  name: "State indicator",
   Form: StateIndicatorForm,
   Node: Symbol,
   Preview,

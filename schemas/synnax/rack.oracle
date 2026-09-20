@@ -8,23 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/status"
-import "schemas/synnax/task"
 
-@ts output  "client/ts/src/rack"
-@py output  "client/py/synnax/rack"
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
 @pb
+@py output  "client/py/synnax/rack"
+@ts output  "client/ts/src/rack"
 
 Key uint32 {
-    @go version  2
+    @cpp include "client/cpp/rack/key.h"
     @doc value   """
         is a composite identifier for a rack. The high 16 bits contain the Core key, and
         the low 16 bits contain the local sequential key. A rack is leased to the Core
         named in its high bits, so writes route to the Core running its Driver.
     """
     @go marshal  flex
-    @cpp include "client/cpp/rack/key.h"
 }
 
 StatusDetails struct {
@@ -32,13 +30,11 @@ StatusDetails struct {
         @doc value "is the key of the rack this status pertains to."
     }
 
-    @go version 2
-    @doc value  "contains rack-specific status details."
+    @doc value "contains rack-specific status details."
 }
 
 Status = status.Status<StatusDetails> {
-    @go version 2
-    @doc value  "is rack-specific status information including operational state."
+    @doc value "is rack-specific status information including operational state."
 }
 
 Rack struct {
@@ -49,13 +45,11 @@ Rack struct {
     }
     name         string   {
         @doc value         "is a human-readable name for the rack."
-        @validate required
         @filter
+        @validate required
     }
     embedded     bool = false {
-        @doc value """
-            is true if this rack is embedded within the Synnax server process.
-        """
+        @doc value "is true if this rack is embedded within the Synnax server process."
         @filter
     }
     status       Status?  {
@@ -70,44 +64,30 @@ Rack struct {
         @filter
     }
 
-    @go version      2
+    @cpp includes    "client/cpp/task/task.h"
+    @cpp methods     "task::Client tasks"
     @doc value       """
         is a collection container for hardware devices and tasks running on a specific
         Core. Racks are the integration point between the Core and physical hardware
         through the Driver.
     """
-    @ts name         "Payload"
-    @ontology type   "rack"
     @go marshal
     @go migrate
+    @ontology type   "rack"
+    @py name         "Base"
     @retrieve custom
     @search
-    @py name         "Base"
-    @cpp methods     "task::Client tasks"
-    @cpp includes    "client/cpp/task/task.h"
+    @ts name         "Payload"
 }
 
 New struct extends Rack {
     -embedded
     key = 0
 
+    @cpp omit
     @doc value    "contains parameters for creating a new rack."
-    @ts use_input
     @go omit
     @pb omit
-    @cpp omit
     @py name      "Rack"
-}
-
-StatusTaskConfig struct extends task.KeyedConfig {
-    @doc value  "configures the rack status reporting task, which carries no settings."
-    @go version 1
-    @go output  "core/pkg/service/rack/task"
-    @go name    "StatusConfig"
-    @go marshal
-    @go migrate
-    @pb omit
-    @ts omit
-    @py omit
-    @cpp omit
+    @ts use_input
 }

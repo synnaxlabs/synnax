@@ -21,8 +21,28 @@ func compileLogicalOrImpl(
 	ctx context.Context[parser.ILogicalOrExpressionContext],
 ) (types.Type, error) {
 	ands := ctx.AST.AllLogicalAndExpression()
-	if _, err := compileLogicalAnd(context.Child(ctx, ands[0])); err != nil {
+	leftType, err := compileLogicalAnd(ctx.Child(ands[0]))
+	if err != nil {
 		return types.Type{}, err
+	}
+
+	if leftType.Kind == types.KindSeries {
+		elemType := *leftType.Elem
+		for i := 1; i < len(ands); i++ {
+			rhsType, err := compileLogicalAnd(
+				ctx.Child(ands[i]).WithHint(elemType),
+			)
+			if err != nil {
+				return types.Type{}, err
+			}
+			if err := ctx.Resolver.EmitSeriesLogical(
+				ctx.Writer, ctx.WriterID, "or",
+				rhsType.Kind != types.KindSeries,
+			); err != nil {
+				return types.Type{}, err
+			}
+		}
+		return types.Series(types.Bool()), nil
 	}
 
 	normalizeBoolean(ctx)
@@ -37,13 +57,13 @@ func compileLogicalOrImpl(
 		ctx.Writer.WriteI32Const(1)
 		ctx.Writer.WriteOpcode(wasm.OpElse)
 		// False case: evaluate right operand
-		if _, err := compileLogicalAnd(context.Child(ctx, ands[i])); err != nil {
+		if _, err := compileLogicalAnd(ctx.Child(ands[i])); err != nil {
 			return types.Type{}, err
 		}
 		normalizeBoolean(ctx)
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
 func compileLogicalAndImpl(
@@ -51,9 +71,28 @@ func compileLogicalAndImpl(
 ) (types.Type, error) {
 	eqs := ctx.AST.AllEqualityExpression()
 
-	// Compile first operand
-	if _, err := compileEquality(context.Child(ctx, eqs[0])); err != nil {
+	leftType, err := compileEquality(ctx.Child(eqs[0]))
+	if err != nil {
 		return types.Type{}, err
+	}
+
+	if leftType.Kind == types.KindSeries {
+		elemType := *leftType.Elem
+		for i := 1; i < len(eqs); i++ {
+			rhsType, err := compileEquality(
+				ctx.Child(eqs[i]).WithHint(elemType),
+			)
+			if err != nil {
+				return types.Type{}, err
+			}
+			if err := ctx.Resolver.EmitSeriesLogical(
+				ctx.Writer, ctx.WriterID, "and",
+				rhsType.Kind != types.KindSeries,
+			); err != nil {
+				return types.Type{}, err
+			}
+		}
+		return types.Series(types.Bool()), nil
 	}
 
 	// Normalize the first operand
@@ -70,7 +109,7 @@ func compileLogicalAndImpl(
 		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteOpcode(wasm.OpElse)
 		// False case (was non-zero): evaluate right operand
-		if _, err := compileEquality(context.Child(ctx, eqs[i])); err != nil {
+		if _, err := compileEquality(ctx.Child(eqs[i])); err != nil {
 			return types.Type{}, err
 		}
 		// Normalize the result
@@ -78,7 +117,7 @@ func compileLogicalAndImpl(
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
 
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
 // normalizeBoolean converts any non-zero i32 value to 1

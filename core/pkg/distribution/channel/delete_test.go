@@ -30,7 +30,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 	It("Should delete the storage channel for a gateway key", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-			{Name: "to-delete", DataType: telem.TimeStampT, IsIndex: true},
+			{Name: "to-delete", DataType: telem.TimestampT, IsIndex: true},
 		}))
 		key := out[0].Key()
 		Expect(n.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
@@ -77,7 +77,7 @@ var _ = Describe("Delete", Ordered, func() {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 				{
 					Name:        "remote-delete",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: peer.Cluster.HostKey(),
 				},
@@ -93,13 +93,13 @@ var _ = Describe("Delete", Ordered, func() {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 				{
 					Name:        "gateway-delete",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: gateway.Cluster.HostKey(),
 				},
 				{
 					Name:        "peer-delete",
-					DataType:    telem.TimeStampT,
+					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: peer.Cluster.HostKey(),
 				},
@@ -127,13 +127,13 @@ var _ = Describe("Delete", Ordered, func() {
 				out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
 					{
 						Name:        "mixed-gateway-delete",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: gateway.Cluster.HostKey(),
 					},
 					{
 						Name:        "mixed-peer-delete",
-						DataType:    telem.TimeStampT,
+						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: peer.Cluster.HostKey(),
 					},

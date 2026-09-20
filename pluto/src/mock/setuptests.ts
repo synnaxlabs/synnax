@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "zod/compile";
+
 import { ResizeObserver } from "@juggle/resize-observer";
+import { configure } from "@testing-library/react";
 import { afterAll, beforeAll, vi } from "vitest";
 
 import { installTestWebSocket } from "@/testutil/websocket";
+
+// Live-Core round-trips share the single test Core with the rest of the suite, so allow
+// more than the 1s waitFor default.
+configure({ asyncUtilTimeout: 5000 });
 
 class MockIntersectionObserver {
   observe = vi.fn();

@@ -14,7 +14,7 @@ import { Rate } from "@/platform/task/fields/Rate";
 
 export const SampleRate = () => (
   <Rate
-    label="Sample Rate"
+    label="Sample rate"
     path="config.sampleRate"
     className={CSS.B("task-rate-field")}
   />

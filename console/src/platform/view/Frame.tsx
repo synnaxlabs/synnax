@@ -20,6 +20,7 @@ import {
   List,
   Menu,
   Select,
+  Tabs,
   Text,
   View as PView,
 } from "@synnaxlabs/pluto";
@@ -56,7 +57,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     () => [
       {
         key: staticViewKey,
-        name: `All ${caseconv.capitalize(plural(resourceType))}`,
+        name: `All ${plural(resourceType)}`,
         type: resourceType,
         query: {},
         static: true,
@@ -201,7 +202,7 @@ const Selector = ({
         {hasCreatePermission && editable && (
           <Button.Button
             onClick={handleCreate}
-            tooltip="Create a view"
+            tooltip="Create view"
             size="small"
             tooltipLocation={location.BOTTOM_LEFT}
           >
@@ -221,15 +222,9 @@ const Selector = ({
         )}
       </Vis.Controls>
       <Menu.ContextMenu {...contextMenuProps} menu={contextMenu}>
-        <List.Items
-          className={CSS.BE("view", "views")}
-          x
-          align="center"
-          gap="medium"
-          onContextMenu={contextMenuProps.open}
-        >
-          {item}
-        </List.Items>
+        <Tabs.Frame className={CSS.BE("view", "views")}>
+          <Strip onContextMenu={contextMenuProps.open} />
+        </Tabs.Frame>
       </Menu.ContextMenu>
     </Select.Frame>
   );
@@ -244,7 +239,6 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const confirm = Modals.useConfirmDelete({
     icon: "View",
     type: caseconv.capitalize(resourceType),
-    description: "Deletion permanently removes the views.",
   });
   const { update: del } = PView.useDelete({
     beforeUpdate: useCallback(
@@ -258,8 +252,12 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       [getItem, confirm],
     ),
   });
-  const canRename = filteredViews.length === 1;
-  const canDelete = filteredViews.length > 0;
+  const canRename =
+    Access.useUpdateGranted(view.ontologyID(filteredViews.map(({ key }) => key))) &&
+    filteredViews.length === 1;
+  const canDelete =
+    Access.useDeleteGranted(view.ontologyID(filteredViews.map(({ key }) => key))) &&
+    filteredViews.length > 0;
   return (
     <PlatformContextMenu.Menu>
       {canRename && (
@@ -280,9 +278,42 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
 
 const contextMenu = Component.renderProp(ContextMenu);
 
-const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
+interface StripProps {
+  onContextMenu: Menu.ContextMenuOpen;
+}
+
+/**
+ * Strip lays the frame's views out as a tab strip. It stands in for List.Items, whose
+ * scroll container the strip owns instead.
+ */
+const Strip = ({ onContextMenu }: StripProps): ReactElement => {
+  const { data, ref, sentinelRef } = List.useData<view.Key, View>();
+  return (
+    <Tabs.Selector
+      ref={ref}
+      aria-label="Views"
+      size="small"
+      sizing="content"
+      onContextMenu={onContextMenu}
+    >
+      {data.map((key) => (
+        <Item key={key} itemKey={key} />
+      ))}
+      {sentinelRef != null && (
+        <div ref={sentinelRef} className={CSS.BE("view", "sentinel")} aria-hidden />
+      )}
+    </Tabs.Selector>
+  );
+};
+
+interface ItemProps {
+  itemKey: view.Key;
+}
+
+const Item = ({ itemKey }: ItemProps): ReactElement | null => {
   const item = List.useItem<view.Key, View>(itemKey);
   const { update: rename } = PView.useRename();
+  const canRename = Access.useUpdateGranted(view.ontologyID(itemKey));
   const handleRename = useCallback(
     (name: string) => rename({ key: itemKey, name }),
     [itemKey, rename],
@@ -290,19 +321,13 @@ const Item = ({ itemKey }: List.ItemProps<view.Key>): ReactElement | null => {
   if (item == null) return null;
   const { name } = item;
   return (
-    <Flex.Box pack>
-      <Select.Button itemKey={itemKey} size="small" justify="between">
-        <Text.MaybeEditable
-          id={List.itemNameID(itemKey)}
-          value={name}
-          allowDoubleClick={false}
-          color={9}
-          onChange={handleRename}
-          className={CSS.BE("view", "view-item")}
-        />
-      </Select.Button>
-    </Flex.Box>
+    <Tabs.Tab itemKey={itemKey}>
+      <Text.MaybeEditable
+        id={List.itemNameID(itemKey)}
+        value={name}
+        allowDoubleClick={false}
+        onChange={canRename && item.static !== true ? handleRename : undefined}
+      />
+    </Tabs.Tab>
   );
 };
-
-const item = Component.renderProp(Item);

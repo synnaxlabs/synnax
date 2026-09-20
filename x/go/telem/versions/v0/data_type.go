@@ -13,13 +13,13 @@ package v0
 // density, UnknownDensity is returned.
 func (dt DataType) Density() Density {
 	switch dt {
-	case TimeStampT, Float64T, Uint64T, Int64T:
+	case TimestampT, Float64T, Uint64T, Int64T:
 		return Bit64
 	case Float32T, Int32T, Uint32T:
 		return Bit32
 	case Int16T, Uint16T:
 		return Bit16
-	case Int8T, Uint8T, BoolT:
+	case Int8T, Uint8T, BooleanT:
 		return Bit8
 	case UUIDT:
 		return Bit128
@@ -56,9 +56,9 @@ const (
 	Float32T DataType = "float32"
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
 	Float64T DataType = "float64"
-	// TimeStampT is a data type for a signed 64-bit nanosecond count since the Unix
+	// TimestampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimeStampT DataType = "timestamp"
+	TimestampT DataType = "timestamp"
 	// UUIDT is a data type for a 128-bit UUID value.
 	UUIDT DataType = "uuid"
 	// StringT is a variable density data type for a UTF-8 encoded string.
@@ -67,7 +67,7 @@ const (
 	BytesT DataType = "bytes"
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
 	JSONT DataType = "json"
-	// BoolT is a data type for a boolean value. Samples are a single byte with
+	// BooleanT is a data type for a boolean value. Samples are a single byte with
 	// canonical values 0x00 (false) and 0x01 (true).
-	BoolT DataType = "bool"
+	BooleanT DataType = "boolean"
 )

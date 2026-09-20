@@ -97,10 +97,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:       node.Framer,
-		Channel:      channelSvc,
-		Status:       statusSvc,
-		HostProvider: node.Cluster,
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
 	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
@@ -154,7 +153,7 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 	}
 	details := task.NewStatusDetails(t, false)
 	details.Cmd = cmdKey
-	Expect(status.NewWriter[task.StatusDetails](statusSvc, nil).
+	Expect(statusSvc.NewWriter(nil).
 		Set(ctx, &task.Status{
 			Key:     t.OntologyID().String(),
 			Name:    t.Name,

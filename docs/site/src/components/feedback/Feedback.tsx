@@ -18,12 +18,12 @@ import {
   Nav,
   Text,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type SubmitEvent, useState } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().optional(),
+  name: z.string().min(1, "Enter your name"),
+  email: z.email("Enter a valid email"),
   description: z.string().min(1, "Please enter a message"),
 });
 
@@ -39,16 +39,38 @@ export const FeedbackButton = (): ReactElement => (
       Stuck? Let us know!
     </Dialog.Trigger>
     <Dialog.Dialog>
-      <FeedbackForm close={close} />
+      <FeedbackForm />
     </Dialog.Dialog>
   </Dialog.Frame>
 );
 
-interface FeedbackFormProps {
-  close: () => void;
+const REQUIRED_PATHS = ["name", "email", "description"] as const;
+
+interface SendButtonProps {
+  loading: boolean;
+  success: boolean;
+  onClick: () => void;
 }
 
-const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
+const SendButton = ({ loading, success, onClick }: SendButtonProps): ReactElement => {
+  const values = REQUIRED_PATHS.map((path) => Form.useFieldValue<string>(path));
+  const incomplete = values.some((v) => v == null || v.trim().length === 0);
+  return (
+    <Button.Button
+      type="button"
+      gap="medium"
+      variant="outlined"
+      status={loading ? "loading" : undefined}
+      disabled={success || incomplete}
+      onClick={onClick}
+    >
+      {success ? <Icon.Check /> : "Send"}
+    </Button.Button>
+  );
+};
+
+const FeedbackForm = (): ReactElement => {
+  const { close } = Dialog.useContext();
   const [loading, setLoading] = useState(false);
   const [softSuccess, setSuccess] = useState(false);
 
@@ -61,13 +83,18 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
     },
   });
 
-  const handleSuccessfulSubmit = () => {
+  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    submit();
+  };
+
+  const submit = () => {
     void (async () => {
       if (!methods.validate()) return;
       const data = new FormData();
       const value = methods.value();
-      data.append("name", value.name ?? "");
-      data.append("email", value.email ?? "");
+      data.append("name", value.name);
+      data.append("email", value.email);
       data.append("description", value.description);
       setLoading(true);
       const res = await fetch("https://formspree.io/f/mpwwklbr", {
@@ -94,6 +121,7 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
         el="form"
         id="my-form"
         className="feedback-form"
+        onSubmit={handleSubmit}
         direction="y"
         style={{
           width: "800px",
@@ -110,7 +138,13 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             </Breadcrumb.Breadcrumb>
           </Nav.Bar.Start>
           <Nav.Bar.End style={{ paddingRight: "1rem" }}>
-            <Button.Button variant="text" size="small" textColor={8}>
+            <Button.Button
+              type="button"
+              variant="text"
+              size="small"
+              textColor={8}
+              onClick={close}
+            >
               <Icon.Close />
             </Button.Button>
           </Nav.Bar.End>
@@ -150,36 +184,26 @@ const FeedbackForm = ({ close }: FeedbackFormProps): ReactElement => {
             )}
           </Form.Field>
           <Flex.Box direction="y" empty>
-            <Form.Field<string>
-              path="name"
-              label="Name"
-              align="stretch"
-              showHelpText={false}
-            >
+            <Form.Field<string> path="name" label="Name" align="stretch">
               {(p) => <Input.Text {...p} size="medium" placeholder="Gaal Dornik" />}
             </Form.Field>
-            <Form.Field<string> path="email" label="Email" showHelpText={false}>
+            <Form.Field<string> path="email" label="Email">
               {(p) => (
                 <Input.Text {...p} size="medium" placeholder="gaal@streeling.edu" />
               )}
             </Form.Field>
-            <Text.Text level="small" color={10}>
-              If you'd like a response, please include your name and email.
+            <Text.Text level="small" color={10} style={{ display: "block" }}>
+              We use your name and email to follow up on your feedback.{" "}
+              <a href="https://formspree.io" target="_blank" rel="noreferrer">
+                Formspree
+              </a>{" "}
+              handles these messages for us.
             </Text.Text>
           </Flex.Box>
         </Flex.Box>
         <Nav.Bar location="bottom" size="7rem">
           <Nav.Bar.End style={{ paddingRight: "1.5rem" }}>
-            <Button.Button
-              gap="medium"
-              variant="outlined"
-              form="my-form"
-              onClick={() => handleSuccessfulSubmit()}
-              status={loading ? "loading" : undefined}
-              disabled={softSuccess}
-            >
-              {softSuccess ? <Icon.Check /> : "Send"}
-            </Button.Button>
+            <SendButton loading={loading} success={softSuccess} onClick={submit} />
           </Nav.Bar.End>
         </Nav.Bar>
       </Flex.Box>

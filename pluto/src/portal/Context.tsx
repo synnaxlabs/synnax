@@ -14,9 +14,8 @@ import { useInitializerRef } from "@/hooks";
 import { Store } from "@/store";
 
 /**
- * ContextValue is the registry a {@link Context} shares between portal parts:
- * In parts register their content element under a key, Out parts resolve and
- * subscribe to it.
+ * ContextValue is the registry a {@link Context} shares between portal parts: In parts
+ * register their content element under a key, Out parts resolve and subscribe to it.
  */
 export interface ContextValue extends Pick<
   Store.UseKeyedListenersReturn<string>,

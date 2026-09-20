@@ -32,25 +32,25 @@ describe("SelectTimestampFormat", () => {
 
   it("should render a selection trigger", () => {
     const c = render(<TestSelect />);
-    expect(c.getByText("Select a timestamp format")).toBeTruthy();
+    expect(c.getByText("Select timestamp format")).toBeTruthy();
   });
 
   it("should open and show all format options", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select a timestamp format"));
+    fireEvent.click(c.getByText("Select timestamp format"));
     expect(c.getByText("ISO 8601")).toBeTruthy();
-    expect(c.getByText("ISO Date")).toBeTruthy();
+    expect(c.getByText("ISO date")).toBeTruthy();
     expect(c.getByText("Time")).toBeTruthy();
-    expect(c.getByText("Precise Time")).toBeTruthy();
+    expect(c.getByText("Precise time")).toBeTruthy();
     expect(c.getByText("Date")).toBeTruthy();
     expect(c.getByText("Date + Time")).toBeTruthy();
-    expect(c.getByText("Precise Date")).toBeTruthy();
+    expect(c.getByText("Precise date")).toBeTruthy();
   });
 
   it("should call onChange when a format is selected", () => {
     const c = render(<TestSelect />);
-    fireEvent.click(c.getByText("Select a timestamp format"));
-    fireEvent.click(c.getByText("Precise Date"));
+    fireEvent.click(c.getByText("Select timestamp format"));
+    fireEvent.click(c.getByText("Precise date"));
     expect(onChange).toHaveBeenCalledWith("preciseDate");
   });
 });

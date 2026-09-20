@@ -18,30 +18,30 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (w Workspace) EncodeOrc(wr *orc.Writer) error {
-	wr.Write(w.Key[:])
-	wr.String(w.Name)
-	wr.Write(w.Author[:])
+func (wv Workspace) EncodeOrc(w *orc.Writer) error {
+	w.Write(wv.Key[:])
+	w.String(wv.Name)
+	w.Write(wv.Author[:])
 	{
-		b, err := json.Marshal(w.Layout)
+		b, err := json.Marshal(wv.Layout)
 		if err != nil {
 			return err
 		}
-		wr.WriteWithLen(b)
+		w.WriteWithLen(b)
 	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (w *Workspace) DecodeOrc(r *orc.Reader) error {
+func (wv *Workspace) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(w.Key[:]); err != nil {
+	if _, err := r.Read(wv.Key[:]); err != nil {
 		return err
 	}
-	if w.Name, err = r.String(); err != nil {
+	if wv.Name, err = r.String(); err != nil {
 		return err
 	}
-	if _, err := r.Read(w.Author[:]); err != nil {
+	if _, err := r.Read(wv.Author[:]); err != nil {
 		return err
 	}
 	{
@@ -49,7 +49,7 @@ func (w *Workspace) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &w.Layout); err != nil {
+		if err = json.Unmarshal(b, &wv.Layout); err != nil {
 			return err
 		}
 	}

@@ -19,8 +19,8 @@ const EmptyContent = () => {
   const { close } = Dialog.useContext();
   return (
     <Empty.Action
-      message="No OPC UA servers connected."
-      action="Connect a new server"
+      message="No OPC UA servers connected"
+      action="Connect server"
       full="y"
       onClick={() => {
         connect();
@@ -36,7 +36,7 @@ export const Select = () => {
     <PlatformDevice.Select
       onConfigure={(deviceKey) => connect({ deviceKey })}
       emptyContent={<EmptyContent />}
-      label="OPC UA Server"
+      label="OPC UA server"
       make={MAKE}
       icon={<Icon.Logo.OPCUA />}
     />

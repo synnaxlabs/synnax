@@ -57,6 +57,13 @@ Neither script touches `.oracle` schema files — no header comments there.
   per-runner keychain for macOS code signing. Requires runner-scoped env vars
   (`APPLE_CERTIFICATE*`, `KEYCHAIN_*`, `GITHUB_ENV`).
 
+## Bazel
+
+- `run_bazel.sh <bazel arguments...>` — runs Bazel, and recovers once from an external
+  repo that a repo contents cache deletion left unloadable. Only the Windows CI steps
+  use it, because those runners hold one output base for weeks. A compile error or a
+  failed test still fails on the first run.
+
 ## Toolchain Bootstrap
 
 - `install_antlr4.sh` — installs a pinned, checksum-verified antlr4 4.13.2 onto PATH,

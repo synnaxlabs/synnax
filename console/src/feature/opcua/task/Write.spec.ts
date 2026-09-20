@@ -15,6 +15,8 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  awaitEditableForm,
+  createChannelReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -24,8 +26,13 @@ import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil"
 
 const client = createTestClient();
 
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(OPCUA.Task.Write, options);
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(OPCUA.Task.Write, options);
+  await awaitEditableForm();
+  return rendered;
+};
 
 const createWriteChannel = (): OPCUA.Task.WriteChannel => {
   // Underscore-free so the device-properties record keys survive the server's
@@ -53,7 +60,7 @@ const createWriteConfig = (
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<OPCUA.Task.WriteSchemas> = {
-  name: "OPC UA Write Task",
+  name: "OPC UA write task",
   type: OPCUA.Task.WRITE_TYPE,
   config: OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -151,5 +158,21 @@ describe("OPCUA.Write", () => {
     fireEvent.contextMenu(screen.getByText("my_cmd_channel"));
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() => expect(screen.queryByText(new RegExp(ch.nodeName))).toBeNull());
+  });
+
+  it("should withhold rename from a subject who cannot update channels", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createWriteChannel();
+    const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+    await renderWrite({
+      client,
+      taskKey: draft.key,
+      as: await createChannelReadOnlyClient(client),
+    });
+    fireEvent.contextMenu(await screen.findByText(new RegExp(ch.nodeName)));
+    // Remove is ungated, so its presence proves the menu resolved before the absence
+    // below is read.
+    expect(await screen.findByText("Remove")).toBeTruthy();
+    expect(screen.queryByText("Rename")).toBeNull();
   });
 });

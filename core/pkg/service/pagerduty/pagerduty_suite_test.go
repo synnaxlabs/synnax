@@ -11,6 +11,7 @@ package pagerduty_test
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -57,6 +59,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })
+
+// encodeConfig converts a config into the msgpack.EncodedJSON shape the driver
+// receives as task.Task.Config.
+func encodeConfig(cfg pd.TaskConfig) msgpack.EncodedJSON {
+	GinkgoHelper()
+	b := MustSucceed(json.Marshal(cfg))
+	var m msgpack.EncodedJSON
+	Expect(json.Unmarshal(b, &m)).To(Succeed())
+	return m
+}
 
 // mockEventSender records events sent through it for test assertions.
 type mockEventSender struct {

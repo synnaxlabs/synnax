@@ -29,7 +29,7 @@ cc_library(
         "//arc/cpp/runtime",
         "//arc/cpp/runtime/loop",
         "//client/cpp/arc",
-        "//client/cpp/task/config",
+        "//client/cpp/task",
         "//driver/arc/ranges",
         "//driver/arc/status",
         "//driver/bypass",
@@ -46,6 +46,7 @@ cc_library(
 cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/arc",

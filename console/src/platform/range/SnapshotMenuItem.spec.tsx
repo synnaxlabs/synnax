@@ -12,23 +12,28 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/platform/range";
-import { type Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
 
-const range = (persisted: boolean): Session.Range.State => ({
+const PERSISTED: Range.Resolved = {
+  variant: "persisted",
   key: "r1",
   name: "Alpha",
-  persisted,
-  variant: "static",
   timeRange: { start: 0, end: 1 },
-});
+};
+
+const LOCAL: Range.Resolved = {
+  variant: "static",
+  key: "r1",
+  name: "Alpha",
+  timeRange: { start: 0, end: 1 },
+};
 
 describe("Range.SnapshotMenuItem", () => {
   it("should render a snapshot item for a persisted range and fire onClick", async () => {
     const onClick = vi.fn();
     await renderWithConsole(
       <PMenu.Menu>
-        <Range.SnapshotMenuItem range={range(true)} onClick={onClick} />
+        <Range.SnapshotMenuItem range={PERSISTED} onClick={onClick} />
       </PMenu.Menu>,
     );
     const item = await screen.findByText("Snapshot to Alpha");
@@ -39,7 +44,7 @@ describe("Range.SnapshotMenuItem", () => {
   it("should render nothing for a non-persisted range", async () => {
     await renderWithConsole(
       <PMenu.Menu>
-        <Range.SnapshotMenuItem range={range(false)} onClick={vi.fn()} />
+        <Range.SnapshotMenuItem range={LOCAL} onClick={vi.fn()} />
       </PMenu.Menu>,
     );
     await waitFor(() => expect(screen.queryByText(/Snapshot to/)).toBeNull());

@@ -16,7 +16,7 @@ import { Range } from "@/platform/range";
 
 export const CreateCommand = Command.create({
   key: "define_range",
-  name: "Create a range",
+  name: "Create range",
   icon: <Ranger.CreateIcon />,
   useOnSelect: Range.useCreateModal,
   useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
@@ -24,7 +24,7 @@ export const CreateCommand = Command.create({
 
 export const OpenExplorerCommand = Command.create({
   key: "open_explorer",
-  name: "Open the Range Explorer",
+  name: "Open range explorer",
   icon: <Ranger.ExplorerIcon />,
   useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),

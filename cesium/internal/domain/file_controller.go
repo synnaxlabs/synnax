@@ -394,14 +394,6 @@ func (fc *fileController) gcWriters() (bool, error) {
 	return collected, nil
 }
 
-func (fc *fileController) hasWriter(fileKey uint16) bool {
-	fc.writers.RLock()
-	defer fc.writers.RUnlock()
-
-	_, ok := fc.writers.open[fileKey]
-	return ok
-}
-
 // prepareForGC atomically checks whether a file can be garbage collected and, if so,
 // removes it from the writer pool to prevent a writer from opening on it during GC.
 // Returns whether GC can proceed and whether the file was in the unopened set (so

@@ -9,29 +9,37 @@
 
 import { type log } from "@synnaxlabs/client";
 import { primitive, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
 import { use, useRedo, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
+import { type Menu } from "@/menu";
 import { Triggers } from "@/triggers";
 
 const DEFAULT_RETENTION = TimeSpan.days(7);
 const PRELOAD = TimeSpan.seconds(30);
 
-const useUndoRedoTriggers = (key: log.Key, enabled?: Triggers.Condition): void => {
-  const { undo } = useUndo({ key });
-  const { redo } = useRedo({ key });
+const useUndoRedo = (
+  key: log.Key,
+  enabled?: Triggers.Condition,
+): Menu.UndoRedoItemsProps => {
+  const { undo, canUndo } = useUndo({ key });
+  const { redo, canRedo } = useRedo({ key });
   Triggers.useUndoRedo({ undo, redo, enabled });
+  return useMemo(
+    () => ({ undo, redo, canUndo, canRedo }),
+    [undo, redo, canUndo, canRedo],
+  );
 };
 
 export interface LogProps extends Omit<
   BaseProps,
   | "channels"
   | "telem"
-  | "hideChannelNames"
-  | "hideReceiptTimestamp"
+  | "channelNamesHidden"
+  | "receiptTimestampHidden"
   | "timestampPrecision"
 > {}
 
@@ -42,10 +50,11 @@ export interface LogProps extends Omit<
 // cache, so callers must render it within a Log.Suspended boundary.
 export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
   const key = useKey();
-  const { channels, hideChannelNames, hideReceiptTimestamp, timestampPrecision } = use({
-    key,
-  });
-  useUndoRedoTriggers(key, enableTriggers);
+  const { channels, channelNamesHidden, receiptTimestampHidden, timestampPrecision } =
+    use({
+      key,
+    });
+  const undoRedo = useUndoRedo(key, enableTriggers);
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.
   const activeChannels = channels.filter((e) => !primitive.isZero(e.channel));
@@ -58,10 +67,11 @@ export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null 
     <Base
       telem={telem}
       channels={activeChannels}
-      hideChannelNames={hideChannelNames}
-      hideReceiptTimestamp={hideReceiptTimestamp}
+      channelNamesHidden={channelNamesHidden}
+      receiptTimestampHidden={receiptTimestampHidden}
       timestampPrecision={timestampPrecision}
       enableTriggers={enableTriggers}
+      undoRedo={undoRedo}
       {...rest}
     />
   );

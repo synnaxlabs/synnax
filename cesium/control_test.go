@@ -12,7 +12,6 @@ package cesium_test
 import (
 	"context"
 	"io"
-	"math"
 	"runtime"
 	"time"
 
@@ -26,79 +25,30 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// observeControl subscribes to db's control updates and returns a channel receiving
+// them. Sends are non-blocking, since handlers run under the DB's lock.
+func observeControl(
+	db *cesium.DB,
+) (<-chan cesium.ControlUpdate, observe.Disconnect) {
+	updates := make(chan cesium.ControlUpdate, 100)
+	return updates, db.OnControlUpdate(
+		func(_ context.Context, u cesium.ControlUpdate) {
+			select {
+			case updates <- u:
+			default:
+			}
+		},
+	)
+}
+
 var _ = Describe("Control", func() {
-	Describe("EncodeControlUpdate / DecodeControlUpdate", func() {
-		It("Should round-trip a control update with transfers", func() {
-			original := cesium.ControlUpdate{
-				Transfers: []control.Transfer{
-					{
-						From: &control.State{
-							Subject: xcontrol.Subject{
-								Key:  "writer-1",
-								Name: "Writer One",
-							},
-							Resource:  1,
-							Authority: xcontrol.Authority(100),
-						},
-						To: &control.State{
-							Subject: xcontrol.Subject{
-								Key:  "writer-2",
-								Name: "Writer Two",
-							},
-							Resource:  1,
-							Authority: xcontrol.Authority(200),
-						},
-					},
-				},
-			}
-			encoded := MustSucceed(
-				cesium.EncodeControlUpdate(context.Background(), original),
-			)
-			Expect(encoded.DataType).To(Equal(telem.StringT))
-			Expect(encoded.Len()).To(Equal(int64(1)))
-			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
-			Expect(decoded.Transfers).To(HaveLen(1))
-			Expect(decoded.Transfers[0].From.Subject.Name).To(Equal("Writer One"))
-			Expect(decoded.Transfers[0].To.Subject.Name).To(Equal("Writer Two"))
-			Expect(decoded.Transfers[0].To.Authority).To(Equal(xcontrol.Authority(200)))
-		})
-
-		It("Should round-trip a control update with an acquire (nil From)", func() {
-			original := cesium.ControlUpdate{
-				Transfers: []control.Transfer{
-					{
-						To: &control.State{
-							Subject:   xcontrol.Subject{Key: "w1", Name: "Writer"},
-							Resource:  5,
-							Authority: xcontrol.Authority(50),
-						},
-					},
-				},
-			}
-			encoded := MustSucceed(
-				cesium.EncodeControlUpdate(context.Background(), original),
-			)
-			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
-			Expect(decoded.Transfers).To(HaveLen(1))
-			Expect(decoded.Transfers[0].From).To(BeNil())
-			Expect(decoded.Transfers[0].To.Subject.Name).To(Equal("Writer"))
-		})
-
-		It("Should round-trip an empty control update", func() {
-			original := cesium.ControlUpdate{Transfers: []control.Transfer{}}
-			encoded := MustSucceed(
-				cesium.EncodeControlUpdate(context.Background(), original),
-			)
-			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
-			Expect(decoded.Transfers).To(BeEmpty())
-		})
-	})
-
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
 			var fs fs.FS
@@ -112,13 +62,6 @@ var _ = Describe("Control", func() {
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
 					db = mustOpenDBOnFS(ctx, fs)
-					Expect(
-						db.ConfigureControlUpdateChannel(
-							ctx,
-							math.MaxUint32,
-							"control",
-						),
-					).To(Succeed())
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {
@@ -134,7 +77,7 @@ var _ = Describe("Control", func() {
 								cesium.Channel{
 									Name:     "John",
 									Key:      indexChKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 								cesium.Channel{
@@ -173,17 +116,8 @@ var _ = Describe("Control", func() {
 								ErrOnUnauthorized: new(false),
 								Sync:              new(true),
 							}))
-							streamer := MustSucceed(
-								db.NewStreamer(ctx, cesium.StreamerConfig{
-									Channels:    []cesium.ChannelKey{math.MaxUint32},
-									SendOpenAck: true,
-								}),
-							)
-							sCtx, cancel := signal.Isolated()
-							defer cancel()
-							stIn, stOut := confluence.Attach(streamer, 2)
-							streamer.Flow(sCtx)
-							Eventually(stOut.Outlet()).Should(Receive())
+							updates, disconnect := observeControl(db)
+							defer disconnect()
 
 							By("Writing to the first writer")
 							Expect(MustSucceed(w1.Write(telem.MultiFrame(
@@ -213,7 +147,7 @@ var _ = Describe("Control", func() {
 							})).To(Succeed())
 
 							By("Propagating the control transfer")
-							Eventually(stOut.Outlet()).Should(Receive())
+							Eventually(updates).Should(Receive())
 
 							By("Writing to the second writer")
 							authorized = MustSucceed(w2.Write(w2Frame))
@@ -225,8 +159,6 @@ var _ = Describe("Control", func() {
 							By("Shutting down the writers")
 							Expect(w1.Close()).To(Succeed())
 							Expect(w2.Close()).To(Succeed())
-							stIn.Close()
-							Expect(sCtx.Wait()).To(Succeed())
 
 							By("Reading the data")
 							f := MustSucceed(db.Read(
@@ -253,7 +185,7 @@ var _ = Describe("Control", func() {
 								cesium.Channel{
 									Name:     "Cat",
 									Key:      indexChKey,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 								cesium.Channel{
@@ -265,18 +197,10 @@ var _ = Describe("Control", func() {
 							)).To(Succeed())
 							start := telem.SecondTS * 10
 
-							streamer := MustSucceed(
-								db.NewStreamer(ctx, cesium.StreamerConfig{
-									Channels:    []cesium.ChannelKey{math.MaxUint32},
-									SendOpenAck: true,
-								}),
-							)
-
-							stIn, stOut := confluence.Attach(streamer, 2)
+							updates, disconnect := observeControl(db)
+							defer disconnect()
 							ctx2, cancel2 := signal.Isolated()
 							defer cancel2()
-							streamer.Flow(ctx2, confluence.CloseOutputInletsOnExit())
-							Eventually(stOut.Outlet()).Should(Receive())
 
 							By("Opening the first writer")
 							w1 := MustSucceed(
@@ -335,15 +259,12 @@ var _ = Describe("Control", func() {
 									[]telem.Series{
 										telem.NewSeriesSecondsTSV(10, 11, 12),
 										telem.NewSeriesV[int16](1, 2, 3),
-									}),
+									},
+								),
 							}
 
-							var res cesium.StreamerResponse
-							Eventually(stOut.Outlet()).Should(Receive(&res))
 							var d cesium.ControlUpdate
-							d = MustSucceed(
-								cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)),
-							)
+							Eventually(updates).Should(Receive(&d))
 							Expect(d.Transfers).To(HaveLen(2))
 							Expect(d.Transfers[0].To).ToNot(BeNil())
 							Expect(
@@ -357,10 +278,7 @@ var _ = Describe("Control", func() {
 							Expect(ctx1.Wait()).To(MatchError(context.Canceled))
 
 							By("Propagating the control transfer")
-							Eventually(stOut.Outlet()).Should(Receive(&res))
-							d = MustSucceed(
-								cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)),
-							)
+							Eventually(updates).Should(Receive(&d))
 							Expect(d.Transfers).To(HaveLen(2))
 							Expect(d.Transfers[0].To).ToNot(BeNil())
 							Expect(
@@ -388,7 +306,6 @@ var _ = Describe("Control", func() {
 
 							By("Shutting down the second writer")
 							w2In.Close()
-							stIn.Close()
 							Expect(ctx2.Wait()).To(Succeed())
 
 							By("Reading the data")
@@ -405,13 +322,361 @@ var _ = Describe("Control", func() {
 					)
 				})
 
+				// A writer that writes both a data channel and its index must
+				// gain control of the index when SetAuthority names only the
+				// data channel, since a data sample cannot be written without
+				// its timestamp.
+				Describe("SetAuthority index propagation", func() {
+					It(
+						"Should raise an explicitly written index when its data channel is raised",
+						func(ctx SpecContext) {
+							var (
+								idx = GenerateChannelKey()
+								cmd = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "vlv_1_cmd_time",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      cmd,
+									Name:     "vlv_1_cmd",
+									Index:    idx,
+									DataType: telem.Uint8T,
+								},
+							)).To(Succeed())
+
+							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, cmd},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(0),
+								},
+								Start:             10 * telem.SecondTS,
+								Sync:              new(true),
+								ErrOnUnauthorized: new(false),
+								ControlSubject:    xcontrol.Subject{Key: "seq_1"},
+							}))
+							operator := MustOpen(db.OpenWriter(
+								ctx,
+								cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{idx, cmd},
+									Authorities: []xcontrol.Authority{
+										xcontrol.Authority(1),
+									},
+									Start:             10 * telem.SecondTS,
+									Sync:              new(true),
+									ErrOnUnauthorized: new(false),
+									ControlSubject: xcontrol.Subject{
+										Key: "operator_1",
+									},
+								},
+							))
+
+							seqFrame := telem.MultiFrame(
+								[]cesium.ChannelKey{idx, cmd},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10),
+									telem.NewSeriesV[uint8](1),
+								},
+							)
+							Expect(MustSucceed(seq.Write(seqFrame))).To(BeFalse())
+
+							Expect(seq.SetAuthority(cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{cmd},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(210),
+								},
+							})).To(Succeed())
+
+							Expect(MustSucceed(seq.Write(seqFrame))).To(BeTrue())
+							Expect(MustSucceed(operator.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, cmd},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(11),
+									telem.NewSeriesV[uint8](0),
+								},
+							)))).To(BeFalse())
+						},
+					)
+
+					It(
+						"Should track the max across data channels sharing an explicit index",
+						func(ctx SpecContext) {
+							var (
+								idx  = GenerateChannelKey()
+								cmdA = GenerateChannelKey()
+								cmdB = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "vlv_2_cmd_time",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      cmdA,
+									Name:     "vlv_2a_cmd",
+									Index:    idx,
+									DataType: telem.Uint8T,
+								},
+								cesium.Channel{
+									Key:      cmdB,
+									Name:     "vlv_2b_cmd",
+									Index:    idx,
+									DataType: telem.Uint8T,
+								},
+							)).To(Succeed())
+
+							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, cmdA, cmdB},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(0),
+								},
+								Start:             10 * telem.SecondTS,
+								Sync:              new(true),
+								ErrOnUnauthorized: new(false),
+								ControlSubject:    xcontrol.Subject{Key: "seq_2"},
+							}))
+							operator := MustOpen(db.OpenWriter(
+								ctx,
+								cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{idx},
+									Authorities: []xcontrol.Authority{
+										xcontrol.Authority(1),
+									},
+									Start:             10 * telem.SecondTS,
+									Sync:              new(true),
+									ErrOnUnauthorized: new(false),
+									ControlSubject: xcontrol.Subject{
+										Key: "operator_2",
+									},
+								},
+							))
+
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								idx, telem.NewSeriesSecondsTSV(10),
+							)))).To(BeTrue())
+
+							Expect(seq.SetAuthority(cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{cmdA},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(210),
+								},
+							})).To(Succeed())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								idx, telem.NewSeriesSecondsTSV(11),
+							)))).To(BeFalse())
+
+							Expect(seq.SetAuthority(cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{cmdA},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(0),
+								},
+							})).To(Succeed())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								idx, telem.NewSeriesSecondsTSV(12),
+							)))).To(BeTrue())
+						},
+					)
+
+					It(
+						"Should propagate one call across channels with shared and own indexes",
+						func(ctx SpecContext) {
+							var (
+								sharedIdx = GenerateChannelKey()
+								cmdA      = GenerateChannelKey()
+								cmdB      = GenerateChannelKey()
+								ownIdx    = GenerateChannelKey()
+								cmdC      = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      sharedIdx,
+									Name:     "vlv_4_shared_time",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      cmdA,
+									Name:     "vlv_4a_cmd",
+									Index:    sharedIdx,
+									DataType: telem.Uint8T,
+								},
+								cesium.Channel{
+									Key:      cmdB,
+									Name:     "vlv_4b_cmd",
+									Index:    sharedIdx,
+									DataType: telem.Uint8T,
+								},
+								cesium.Channel{
+									Key:      ownIdx,
+									Name:     "vlv_4c_cmd_time",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      cmdC,
+									Name:     "vlv_4c_cmd",
+									Index:    ownIdx,
+									DataType: telem.Uint8T,
+								},
+							)).To(Succeed())
+
+							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{
+									sharedIdx, cmdA, cmdB, ownIdx, cmdC,
+								},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(0),
+								},
+								Start:             10 * telem.SecondTS,
+								Sync:              new(true),
+								ErrOnUnauthorized: new(false),
+								ControlSubject:    xcontrol.Subject{Key: "seq_4"},
+							}))
+							operator := MustOpen(db.OpenWriter(
+								ctx,
+								cesium.WriterConfig{
+									Channels: []cesium.ChannelKey{sharedIdx, ownIdx},
+									Authorities: []xcontrol.Authority{
+										xcontrol.Authority(1),
+									},
+									Start:             10 * telem.SecondTS,
+									Sync:              new(true),
+									ErrOnUnauthorized: new(false),
+									ControlSubject: xcontrol.Subject{
+										Key: "operator_4",
+									},
+								},
+							))
+
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								sharedIdx, telem.NewSeriesSecondsTSV(10),
+							)))).To(BeTrue())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								ownIdx, telem.NewSeriesSecondsTSV(10),
+							)))).To(BeTrue())
+
+							Expect(seq.SetAuthority(cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{cmdA, cmdC},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(210),
+									xcontrol.Authority(150),
+								},
+							})).To(Succeed())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								sharedIdx, telem.NewSeriesSecondsTSV(11),
+							)))).To(BeFalse())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								ownIdx, telem.NewSeriesSecondsTSV(11),
+							)))).To(BeFalse())
+
+							Expect(seq.SetAuthority(cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{cmdA},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(0),
+								},
+							})).To(Succeed())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								sharedIdx, telem.NewSeriesSecondsTSV(12),
+							)))).To(BeTrue())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								ownIdx, telem.NewSeriesSecondsTSV(12),
+							)))).To(BeFalse())
+
+							Expect(seq.SetAuthority(cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{cmdC},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(0),
+								},
+							})).To(Succeed())
+							Expect(MustSucceed(operator.Write(telem.UnaryFrame(
+								ownIdx, telem.NewSeriesSecondsTSV(13),
+							)))).To(BeTrue())
+						},
+					)
+
+					It(
+						"Should leave the index alone when explicitly named in the same call",
+						func(ctx SpecContext) {
+							var (
+								idx = GenerateChannelKey()
+								cmd = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Key:      idx,
+									Name:     "vlv_3_cmd_time",
+									IsIndex:  true,
+									DataType: telem.TimestampT,
+								},
+								cesium.Channel{
+									Key:      cmd,
+									Name:     "vlv_3_cmd",
+									Index:    idx,
+									DataType: telem.Uint8T,
+								},
+							)).To(Succeed())
+
+							seq := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, cmd},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(0),
+								},
+								Start:             10 * telem.SecondTS,
+								Sync:              new(true),
+								ErrOnUnauthorized: new(false),
+								ControlSubject:    xcontrol.Subject{Key: "seq_3"},
+							}))
+							MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, cmd},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(50),
+								},
+								Start:             10 * telem.SecondTS,
+								Sync:              new(true),
+								ErrOnUnauthorized: new(false),
+								ControlSubject: xcontrol.Subject{
+									Key: "operator_3",
+								},
+							}))
+
+							Expect(seq.SetAuthority(cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{cmd, idx},
+								Authorities: []xcontrol.Authority{
+									xcontrol.Authority(210),
+									xcontrol.Authority(5),
+								},
+							})).To(Succeed())
+
+							Expect(MustSucceed(seq.Write(telem.MultiFrame(
+								[]cesium.ChannelKey{idx, cmd},
+								[]telem.Series{
+									telem.NewSeriesSecondsTSV(10),
+									telem.NewSeriesV[uint8](1),
+								},
+							)))).To(BeFalse())
+						},
+					)
+				})
+
 				Describe("Mismatched Authorization", func() {
 					var (
 						indexChKey, dataChKey, virtualChKey cesium.ChannelKey
 						w1                                  *cesium.Writer
 						w2                                  *cesium.Writer
-						dataStreamerIn, controlStreamerIn   confluence.Inlet[cesium.StreamerRequest]
-						dataStreamerOut, controlStreamerOut confluence.Outlet[cesium.StreamerResponse]
+						dataStreamerIn                      confluence.Inlet[cesium.StreamerRequest]
+						dataStreamerOut                     confluence.Outlet[cesium.StreamerResponse]
+						controlUpdates                      <-chan cesium.ControlUpdate
+						disconnectControl                   observe.Disconnect
 						shutdown                            io.Closer
 					)
 					BeforeEach(func(ctx SpecContext) {
@@ -423,7 +688,7 @@ var _ = Describe("Control", func() {
 							cesium.Channel{
 								Name:     "persisted",
 								Key:      indexChKey,
-								DataType: telem.TimeStampT,
+								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
 							cesium.Channel{
@@ -484,29 +749,14 @@ var _ = Describe("Control", func() {
 						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
-						controlStateStreamer := MustSucceed(
-							db.NewStreamer(sCtx, cesium.StreamerConfig{
-								Channels:    []cesium.ChannelKey{math.MaxUint32},
-								SendOpenAck: true,
-							}),
-						)
-						controlStreamerIn, controlStreamerOut = confluence.Attach(
-							controlStateStreamer,
-							2,
-						)
-						controlStateStreamer.Flow(
-							sCtx,
-							confluence.CloseOutputInletsOnExit(),
-						)
-						Eventually(controlStreamerOut.Outlet()).Should(Receive())
+						controlUpdates, disconnectControl = observeControl(db)
 					})
 					AfterEach(func() {
+						disconnectControl()
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 						dataStreamerIn.Close()
-						controlStreamerIn.Close()
 						Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
-						Eventually(controlStreamerOut.Outlet()).Should(BeClosed())
 						Expect(shutdown.Close()).To(Succeed())
 					})
 
@@ -547,7 +797,7 @@ var _ = Describe("Control", func() {
 							})).To(Succeed())
 
 							By("By propagating the control transfer")
-							Eventually(controlStreamerOut.Outlet()).Should(Receive())
+							Eventually(controlUpdates).Should(Receive())
 
 							By("Writing to the first writer")
 							Expect(MustSucceed(w1.Write(telem.MultiFrame(
@@ -582,11 +832,9 @@ var _ = Describe("Control", func() {
 					})
 				})
 
-				// Specs testing the control digest system correctly propagates control
-				// changes between contending writers.
-				Describe("Control digests", func() {
+				Describe("ControlStates", func() {
 					It(
-						"Should propagate the control states of channels",
+						"Should report the leading control state of every channel",
 						func(ctx SpecContext) {
 							k1, k2, k3 := GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 							Expect(db.CreateChannel(
@@ -600,7 +848,7 @@ var _ = Describe("Control", func() {
 								cesium.Channel{
 									Name:     "Austin",
 									Key:      k2,
-									DataType: telem.TimeStampT,
+									DataType: telem.TimestampT,
 									IsIndex:  true,
 								},
 								cesium.Channel{
@@ -634,50 +882,68 @@ var _ = Describe("Control", func() {
 							}))
 
 							t := db.ControlStates().Transfers
-							Expect(t).To(HaveLen(4))
+							Expect(t).To(HaveLen(3))
 							names := lo.Map(t, func(t control.Transfer, _ int) string {
 								return t.To.Subject.Name
 							})
-							Expect(
-								names,
-							).To(ConsistOf("writer1", "writer2", "writer2", "cesium_internal_control_digest"))
+							Expect(names).To(ConsistOf("writer1", "writer2", "writer2"))
 
 							Expect(w1.Close()).To(Succeed())
 							Expect(w2.Close()).To(Succeed())
 						},
 					)
 				})
-			})
 
-			Describe("Error paths", func() {
-				It(
-					"Should not allow control channel with key 0",
-					func(ctx SpecContext) {
-						db := openDBOnFS(ctx, fs)
-						Expect(
-							db.ConfigureControlUpdateChannel(ctx, 0, "cat"),
-						).To(MatchError(ContainSubstring("key: must be positive")))
-						Expect(db.Close()).To(Succeed())
-					},
-				)
-
-				It(
-					"Should not allow configuring a control channel with datatype not string",
-					func(ctx SpecContext) {
-						db := openDBOnFS(ctx, fs)
-						key := GenerateChannelKey()
+				Describe("OnControlUpdate", func() {
+					It("Should notify handlers of acquires and releases", func(
+						ctx SpecContext,
+					) {
+						k := GenerateChannelKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{
-							Name:     "Deshon",
-							Key:      key,
-							DataType: telem.TimeStampT,
-							IsIndex:  true,
+							Name:     "Boulder",
+							Key:      k,
+							Virtual:  true,
+							DataType: telem.StringT,
 						})).To(Succeed())
+						updates, disconnect := observeControl(db)
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Start:    0,
+							Channels: []channel.Key{k},
+							ControlSubject: xcontrol.Subject{
+								Key:  "3333",
+								Name: "boulder",
+							},
+						}))
+						var acquire cesium.ControlUpdate
+						Eventually(updates).Should(Receive(&acquire))
+						Expect(acquire.Transfers).To(HaveLen(1))
+						Expect(acquire.Transfers[0].From).To(BeNil())
 						Expect(
-							db.ConfigureControlUpdateChannel(ctx, key, "dog"),
-						).To(MatchError(ContainSubstring("must be a string virtual")))
-						Expect(db.Close()).To(Succeed())
-					},
-				)
+							acquire.Transfers[0].To.Subject.Name,
+						).To(Equal("boulder"))
+
+						Expect(w.Close()).To(Succeed())
+						var release cesium.ControlUpdate
+						Eventually(updates).Should(Receive(&release))
+						Expect(release.Transfers).To(HaveLen(1))
+						Expect(release.Transfers[0].To).To(BeNil())
+						Expect(
+							release.Transfers[0].From.Subject.Name,
+						).To(Equal("boulder"))
+
+						disconnect()
+						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Start:    0,
+							Channels: []channel.Key{k},
+							ControlSubject: xcontrol.Subject{
+								Key:  "4444",
+								Name: "denver",
+							},
+						}))
+						Expect(w2.Close()).To(Succeed())
+						Consistently(updates).ShouldNot(Receive())
+					})
+				})
 			})
 		})
 	}

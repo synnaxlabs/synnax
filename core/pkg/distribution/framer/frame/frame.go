@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -80,12 +81,12 @@ func (f Frame) Extend(frame Frame) Frame { return Frame{f.Frame.Extend(frame.Fra
 // ToStorage converts the frame to the storage layer frame format. This is used when
 // persisting the frame to storage.
 func (f Frame) ToStorage() ts.Frame {
-	return telem.UnsafeReinterpretFrameKeysAs[channel.Key, ts.ChannelKey](f.Frame)
+	return f.UnsafeReinterpretKeysAs[ts.ChannelKey]()
 }
 
-// KeepKeys returns a new frame containing only the series for the specified keys. The
-// original frame is not modified.
-func (f Frame) KeepKeys(keys channel.Keys) Frame {
+// KeepKeys returns a new frame containing only the series for the keys in the given
+// set. The original frame is not modified.
+func (f Frame) KeepKeys(keys set.Set[channel.Key]) Frame {
 	return Frame{Frame: f.Frame.KeepKeys(keys)}
 }
 
@@ -113,5 +114,5 @@ func Merge(frames []Frame) Frame {
 
 // NewFromStorage creates a new distribution layer frame from a storage layer frame.
 func NewFromStorage(frame ts.Frame) Frame {
-	return Frame{telem.UnsafeReinterpretFrameKeysAs[ts.ChannelKey, channel.Key](frame)}
+	return Frame{frame.UnsafeReinterpretKeysAs[channel.Key]()}
 }

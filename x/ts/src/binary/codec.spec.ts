@@ -56,6 +56,14 @@ describe("Codec", () => {
       expect(decoded.channelKey).toEqual("test");
     });
 
+    it("should carry the caller's label into parse errors when decoding", () => {
+      const schema = z.object({ name: z.string() });
+      const encoded = JSON.stringify({ name: 42 });
+      expect(() =>
+        binary.JSON_CODEC.decodeString(encoded, schema, { label: "/range/create" }),
+      ).toThrow("Failed to parse /range/create");
+    });
+
     it("should validate with schema when encoding", () => {
       const schema = z.object({
         name: z.string(),

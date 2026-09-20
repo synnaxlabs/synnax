@@ -166,6 +166,21 @@ describe("compareSemVer", () => {
       ).toBeLessThan(0);
     });
   });
+  describe("patch unchecked", () => {
+    it("should ignore pre-release tags when patch checking is disabled", () => {
+      expect(
+        migrate.compareSemVer("0.56.2", "0.56.16-79dd4e2", { checkPatch: false }),
+      ).toBe(0);
+      expect(
+        migrate.versionsEqual("0.56.2", "0.56.16-79dd4e2", { checkPatch: false }),
+      ).toBe(true);
+    });
+    it("should still compare minor versions when only patch is unchecked", () => {
+      expect(
+        migrate.compareSemVer("0.57.0", "0.56.16-79dd4e2", { checkPatch: false }),
+      ).toBeGreaterThan(0);
+    });
+  });
   describe("only check patch", () => {
     it("should return equal when the patch versions are equal but the major and minor are different", () => {
       expect(

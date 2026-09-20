@@ -15,7 +15,7 @@ import { Command } from "@/platform/command";
 
 const ConnectServerCommand = Command.create({
   key: "opc_ua_connect_server",
-  name: "Connect an OPC UA server",
+  name: "Connect OPC UA server",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useConnectModal,
   useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),

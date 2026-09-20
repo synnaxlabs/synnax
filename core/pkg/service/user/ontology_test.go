@@ -145,7 +145,8 @@ var _ = Describe("Ontology", func() {
 						"last_name":  "",
 						"root_user":  false,
 					},
-				}))
+				}),
+			)
 		})
 		It(
 			"Should return an error when the key is not a valid UUID",

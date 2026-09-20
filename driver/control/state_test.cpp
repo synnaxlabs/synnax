@@ -295,7 +295,7 @@ TEST(StatesTest, ApplyFromSeriesAcquire) {
     States states;
     const std::string json =
         R"({"transfers":[{"to":{"resource":1,"subject":{"key":"arc-1","name":"arc"},"authority":200}}]})";
-    auto series = x::telem::Series(std::vector<std::string>{json}, x::telem::STRING_T);
+    auto series = x::telem::Series(std::vector<std::string>{json}, x::telem::JSON_T);
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
@@ -307,7 +307,7 @@ TEST(StatesTest, ApplyFromSeriesRelease) {
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
     const std::string json =
         R"({"transfers":[{"from":{"resource":1,"subject":{"key":"arc-1","name":"arc"},"authority":200},"to":null}]})";
-    auto series = x::telem::Series(std::vector<std::string>{json}, x::telem::STRING_T);
+    auto series = x::telem::Series(std::vector<std::string>{json}, x::telem::JSON_T);
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
@@ -316,18 +316,41 @@ TEST(StatesTest, ApplyFromSeriesIgnoresInvalidJson) {
     States states;
     auto series = x::telem::Series(
         std::vector<std::string>{"not valid json"},
-        x::telem::STRING_T
+        x::telem::JSON_T
     );
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));
 }
 
-TEST(StatesTest, ApplyFromSeriesIgnoresNonStringType) {
+TEST(StatesTest, ApplyFromSeriesIgnoresNonJSONType) {
     States states;
     states.apply_increase(ARC, 1, 200);
     auto series = x::telem::Series(std::vector<float>{1.0f});
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));
+}
+
+TEST(StatesTest, SetReplacesTheMirror) {
+    States states;
+    states.apply_increase(ARC, 1, 200);
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+    states.set({
+        x::control::State<synnax::channel::Key>{
+            .subject = OPERATOR,
+            .resource = 2,
+            .authority = 200,
+        },
+    });
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(2, ARC));
+    ASSERT_TRUE(states.is_authorized(2, OPERATOR));
+}
+
+TEST(StatesTest, SetWithNoStatesClearsTheMirror) {
+    States states;
+    states.apply_increase(ARC, 1, 200);
+    states.set({});
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
 }
 
 TEST(StatesTest, ApplyFromSeriesMultipleUpdates) {
@@ -338,7 +361,7 @@ TEST(StatesTest, ApplyFromSeriesMultipleUpdates) {
         R"({"transfers":[{"to":{"resource":2,"subject":{"key":"op-1","name":"operator"},"authority":250}}]})";
     auto series = x::telem::Series(
         std::vector<std::string>{json1, json2},
-        x::telem::STRING_T
+        x::telem::JSON_T
     );
     states.apply(series);
     ASSERT_TRUE(states.is_authorized(1, ARC));

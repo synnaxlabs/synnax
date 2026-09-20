@@ -142,7 +142,7 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
 
     /// @brief applies the configuration to the given DAQmx task.
     x::errors::Error
-    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) {
+    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         for (const auto &[_, ch]: channels)
             if (const auto err = ch->apply(dmx, task_handle)) return err;
         return x::errors::NIL;
@@ -156,11 +156,16 @@ class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
 
 public:
+    /// @brief the hardware interface this sink writes to.
+    using Hardware = hardware::Writer<T>;
+    /// @brief builds the hardware for a run. Called on every start so each run
+    /// claims a fresh DAQmx task instead of reusing a handle from a prior run.
+    using MakeHardware = std::function<
+        std::pair<std::unique_ptr<Hardware>, x::errors::Error>(const WriteTaskConfig
+                                                                   &)>;
+
     /// @brief constructs a CommandSink bound to the provided parent WriteTask.
-    explicit WriteTaskSink(
-        WriteTaskConfig cfg,
-        std::unique_ptr<hardware::Writer<T>> hw_writer
-    ):
+    explicit WriteTaskSink(WriteTaskConfig cfg, MakeHardware make_hw):
         Sink(
             cfg.state_rate,
             cfg.state_indexes(),
@@ -169,22 +174,40 @@ public:
             cfg.data_saving_disabled
         ),
         cfg(std::move(cfg)),
-        hw_writer(std::move(hw_writer)),
+        make_hw(std::move(make_hw)),
         buf(this->cfg.channels.size()) {}
 
 private:
-    /// @brief the underlying DAQmx hardware we write data to.
-    const std::unique_ptr<hardware::Writer<T>> hw_writer;
-    /// @brief the parent write task.
+    /// @brief builds the hardware for each run.
+    MakeHardware make_hw;
+    /// @brief the underlying DAQmx hardware we write data to. Populated on start
+    /// and released on stop.
+    std::unique_ptr<Hardware> hw_writer;
     /// @brief a pre-allocated write buffer that is flushed to the device every
     /// time a command is provided.
     std::vector<T> buf;
 
-    /// @brief implements common::Task to start the hardware writer.
-    x::errors::Error start() override { return this->hw_writer->start(); }
+    /// @brief implements common::Sink to claim the hardware and start it.
+    x::errors::Error start() override {
+        // DAQmx rejects a second task with a live task's name.
+        this->hw_writer.reset();
+        auto [hw, err] = this->make_hw(this->cfg);
+        if (err) return err;
+        this->hw_writer = std::move(hw);
+        if (const auto start_err = this->hw_writer->start()) {
+            this->hw_writer.reset();
+            return start_err;
+        }
+        return x::errors::NIL;
+    }
 
-    /// @brief implements common::Task to stop the hardware writer.
-    x::errors::Error stop() override { return this->hw_writer->stop(); }
+    /// @brief implements common::Sink to stop the hardware and release it.
+    x::errors::Error stop() override {
+        if (this->hw_writer == nullptr) return x::errors::NIL;
+        const auto err = this->hw_writer->stop();
+        this->hw_writer.reset();
+        return err;
+    }
 
     /// @brief implements driver::pipeline::Sink to write the incoming frame to the
     /// underlying hardware. If the values are successfully written, updates

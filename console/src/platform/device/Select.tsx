@@ -24,7 +24,7 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
 
 export const Select = ({
   onConfigure,
-  emptyContent = "No devices connected.",
+  emptyContent = "No devices connected",
   filter: filterProp,
   label = "Device",
   make,

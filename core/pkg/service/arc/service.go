@@ -31,11 +31,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -86,6 +88,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 128.
 	TextSweepThreshold int
+	// TaskSyncDebounce is the trailing delay between an edit and the rewrite of the
+	// Arc's task config, so a burst of edits produces one rewrite.
+	//
+	// [OPTIONAL] - Defaults to 500 milliseconds.
+	TaskSyncDebounce telem.TimeSpan
 	// Now returns the current cluster time. It gates the text sweeper's quiescence
 	// check and is injectable for testing.
 	//
@@ -118,6 +125,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 		c.TextSweepThreshold,
 		other.TextSweepThreshold,
 	)
+	c.TaskSyncDebounce = override.Numeric(c.TaskSyncDebounce, other.TaskSyncDebounce)
 	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
@@ -125,23 +133,26 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "task", c.Task)
-	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "search", c.Search)
-	validate.NotNil(v, "imex", c.ImEx)
+	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("task", c.Task)
+	v.NotNil("status", c.Status)
+	v.NotNil("search", c.Search)
+	v.NotNil("imex", c.ImEx)
+	v.Positive("task_sync_debounce", c.TaskSyncDebounce)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table   *gorp.Table[Key, Arc]
-	closer  xio.MultiCloser
-	cfg     ServiceConfig
-	state   *actions.State[Key, Action]
-	sweeper textSweeper
+	table    *gorp.Table[Key, Arc]
+	closer   xio.MultiCloser
+	cfg      ServiceConfig
+	state    *actions.State[Key, Action]
+	locks    xsync.KeyedMutex[Key]
+	sweeper  textSweeper
+	taskSync *debounce.Keyed[Key]
 }
 
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
@@ -223,6 +234,7 @@ func OpenService(
 	cfg, err := config.New(ServiceConfig{
 		TextSweepQuiescence: 5 * telem.Second,
 		TextSweepThreshold:  128,
+		TaskSyncDebounce:    500 * telem.Millisecond,
 		Now:                 telem.Now,
 	}, configs...)
 	if err != nil {
@@ -230,7 +242,7 @@ func OpenService(
 	}
 	s = &Service{
 		cfg:   cfg,
-		state: actions.NewState[Key, Action](),
+		state: actions.NewState[Key, Action](cfg.DB),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -244,6 +256,13 @@ func OpenService(
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if s.taskSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
+		Delay:    cfg.TaskSyncDebounce.Duration(),
+		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
+		Callback: s.resyncTask,
+	}); !ok(err, s.taskSync) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
@@ -262,23 +281,16 @@ func OpenService(
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			cfg.Signals,
-			deleteCfg,
-		); !ok(
-			err,
-			sig,
-		) {
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}
 	return s, nil
 }
 
-// OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
-// underlying transaction commits. The returned Disconnect removes the handler.
+// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
+// handler runs synchronously inside Dispatch after the underlying transaction commits.
+// The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
@@ -298,6 +310,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 		sweeper:    s.sweeper,
+		taskSync:   s.taskSync,
 	}
 }
 

@@ -22,7 +22,11 @@ export const Symbol = ({
   onConfigChange,
   config: { label, orientation = "left", sink, control, mode, ...rest },
 }: NodeProps<Config>): ReactElement => {
-  const { onMouseDown, onMouseUp } = BaseButton.use({ aetherKey: nodeKey, sink, mode });
+  const { onClick, onMouseDown, onMouseUp } = BaseButton.use({
+    aetherKey: nodeKey,
+    sink,
+    mode,
+  });
   return (
     <Grid.Grid
       orientation={orientation}
@@ -34,6 +38,8 @@ export const Symbol = ({
       <Control.State config={control} onChange={onConfigChange} />
       <Button
         label={label}
+        mode={mode}
+        onClick={onClick}
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}
         orientation={orientation}

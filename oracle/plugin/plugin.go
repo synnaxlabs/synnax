@@ -11,8 +11,10 @@
 package plugin
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/versions"
 )
 
 // Plugin is the interface that code generators must implement.
@@ -20,36 +22,18 @@ type Plugin interface {
 	Name() string
 	Domains() []string
 	Requires() []string
-	Check(req *Request) error
-	Generate(req *Request) (*Response, error)
+	Generate(*Request) (*Response, error)
 }
 
 // Request contains all data needed for code generation.
 type Request struct {
 	// Resolutions holds the resolved type table from Oracle schema files.
 	Resolutions *resolution.Table
-	// OldResolutions holds the type table from the previous schema snapshot, used
-	// by migration plugins to diff against the current schema. Nil when no previous
-	// snapshot exists.
-	OldResolutions *resolution.Table
-	// SnapshotVersion is the version number of the latest schema snapshot.
-	SnapshotVersion int
 	// RepoRoot is the absolute path to the repository root directory.
 	RepoRoot string
-	// LoadSnapshot loads and analyzes a previous schema snapshot by version number.
-	// Used by the migration plugin to access earlier snapshots when retargeting
-	// chained migrations. Returns nil if the snapshot does not exist.
-	LoadSnapshot func(version int) (*resolution.Table, error)
-}
-
-// ResolvePath resolves a repo-relative path to an absolute path.
-func (r *Request) ResolvePath(repoRelative string) string {
-	return paths.Resolve(repoRelative, r.RepoRoot)
-}
-
-// RelativeImport computes the relative import path from one path to another.
-func (r *Request) RelativeImport(from, to string) (string, error) {
-	return paths.RelativeImport(from, to)
+	// Versions resolves the explicitly managed version chains under
+	// schemas/<domain>/versions/. Nil when the repository declares none.
+	Versions *versions.Resolver
 }
 
 // ValidateOutputPath validates that the output path is within the repository.
@@ -66,11 +50,6 @@ type Response struct {
 	Deletions []string
 }
 
-// PostWriter is an optional interface for post-processing.
-type PostWriter interface {
-	PostWrite(files []string) error
-}
-
 // File represents a single generated file.
 type File struct {
 	// Path is the output file path relative to the repository root.
@@ -80,17 +59,15 @@ type File struct {
 }
 
 // Registry holds registered plugins.
-type Registry struct {
-	plugins map[string]Plugin
-}
+type Registry struct{ plugins map[string]Plugin }
 
 // NewRegistry creates a new empty plugin registry.
 func NewRegistry() *Registry {
 	return &Registry{plugins: make(map[string]Plugin)}
 }
 
-// Register adds a plugin to the registry. Returns an error if a plugin
-// with the same name is already registered.
+// Register adds a plugin to the registry. Returns an error if a plugin with the same
+// name is already registered.
 func (r *Registry) Register(p Plugin) error {
 	name := p.Name()
 	if _, exists := r.plugins[name]; exists {
@@ -101,26 +78,18 @@ func (r *Registry) Register(p Plugin) error {
 }
 
 // Get retrieves a plugin by name, or nil if not found.
-func (r *Registry) Get(name string) Plugin {
-	return r.plugins[name]
-}
+func (r *Registry) Get(name string) Plugin { return r.plugins[name] }
 
 // All returns all registered plugins.
 func (r *Registry) All() []Plugin {
-	result := make([]Plugin, 0, len(r.plugins))
-	for _, p := range r.plugins {
-		result = append(result, p)
-	}
-	return result
+	return lo.MapToSlice(r.plugins, func(_ string, p Plugin) Plugin { return p })
 }
 
-// DuplicatePluginError is returned when attempting to register a plugin
-// with a name that is already registered.
+// DuplicatePluginError is returned when attempting to register a plugin with a name
+// that is already registered.
 type DuplicatePluginError struct {
 	// Name is the duplicate plugin name.
 	Name string
 }
 
-func (e *DuplicatePluginError) Error() string {
-	return "duplicate plugin: " + e.Name
-}
+func (e *DuplicatePluginError) Error() string { return "duplicate plugin: " + e.Name }

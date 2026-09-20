@@ -168,6 +168,26 @@ describe("Provider", () => {
   });
 });
 
+describe("useGetIsAnyOpen", () => {
+  it("should reflect the live stack through a stable getter", () => {
+    const { result, rerender } = renderHook(
+      () => ({
+        getIsAnyOpen: Modals.useGetIsAnyOpen(),
+        store: Modals.useStore("test"),
+      }),
+      { wrapper },
+    );
+    const first = result.current.getIsAnyOpen;
+    expect(first()).toBe(false);
+    act(() => result.current.store.push(Noop, undefined, () => {}));
+    expect(first()).toBe(true);
+    act(() => result.current.store.closeTop());
+    expect(first()).toBe(false);
+    rerender();
+    expect(result.current.getIsAnyOpen).toBe(first);
+  });
+});
+
 describe("useStack", () => {
   it("should reactively reflect pushes and dismissals", () => {
     const { result } = renderHook(

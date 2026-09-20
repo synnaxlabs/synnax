@@ -32,12 +32,29 @@ type (
 	responseSegment = confluence.Segment[Response, Response]
 )
 
+// MinKeepAlive is the fastest keep-alive cadence a streamer accepts. Faster cadences
+// buy no useful detection latency and let a client multiply its per-stream send rate.
+const MinKeepAlive = 2 * telem.Second
+
 type Config struct {
-	Keys             channel.Keys `json:"keys"              msgpack:"keys"`
-	SendOpenAck      bool         `json:"send_open_ack"     msgpack:"send_open_ack"`
-	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
-	ThrottleRate     telem.Rate   `json:"throttle_rate"     msgpack:"throttle_rate"`
-	ExcludeGroups    []uint32     `json:"exclude_groups"    msgpack:"exclude_groups"`
+	// Keys are the channels to stream live samples from.
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// SendOpenAck sets whether an empty readiness response is sent once the relay has
+	// applied the streamer's demands.
+	SendOpenAck bool `json:"send_open_ack" msgpack:"send_open_ack"`
+	// DownsampleFactor keeps every n-th sample of each frame. Values below 2 keep
+	// every sample.
+	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
+	// ThrottleRate caps the rate at which frames are delivered. Zero disables
+	// throttling.
+	ThrottleRate telem.Rate `json:"throttle_rate" msgpack:"throttle_rate"`
+	// ExcludeGroups are writer group IDs whose frames are filtered out before delivery
+	// (see relay ExcludeGroups).
+	ExcludeGroups []uint32 `json:"exclude_groups" msgpack:"exclude_groups"`
+	// KeepAlive is the interval at which the wire sender emits empty keep-alive
+	// responses so the client can detect a silently dead connection. Zero disables
+	// them. Applied at open; ignored on later requests.
+	KeepAlive telem.TimeSpan `json:"keep_alive" msgpack:"keep_alive"`
 }
 
 var _ config.Config[Config] = Config{}
@@ -45,8 +62,11 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("streamer.config")
-	validate.GreaterThanEq(v, "downsample_factor", c.DownsampleFactor, 0)
-	validate.GreaterThanEq(v, "throttle_rate", c.ThrottleRate, 0)
+	v.GreaterThanEq("downsample_factor", c.DownsampleFactor, 0)
+	v.GreaterThanEq("throttle_rate", c.ThrottleRate, 0)
+	if c.KeepAlive != 0 {
+		v.GreaterThanEq("keep_alive", c.KeepAlive, MinKeepAlive)
+	}
 	return v.Error()
 }
 
@@ -57,6 +77,7 @@ func (c Config) Override(other Config) Config {
 	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
 	c.ThrottleRate = override.Numeric(c.ThrottleRate, other.ThrottleRate)
 	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
+	c.KeepAlive = override.Numeric(c.KeepAlive, other.KeepAlive)
 	return c
 }
 
@@ -101,9 +122,9 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("streamer")
-	validate.NotNil(v, "calculation", cfg.Calculation)
-	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "framer", cfg.Framer)
+	v.NotNil("calculation", cfg.Calculation)
+	v.NotNil("channel", cfg.Channel)
+	v.NotNil("framer", cfg.Framer)
 	return v.Error()
 }
 
@@ -141,32 +162,22 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, distAddr, dist)
+	p.SetSegment(distAddr, dist)
 	ut, err := s.newCalculationUpdaterTransform(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	plumber.SetSegment(p, utAddr, ut)
-	plumber.MustConnect[framer.StreamerRequest](p, utAddr, distAddr, requestBufferSize)
+	p.SetSegment(utAddr, ut)
+	p.MustConnect[framer.StreamerRequest](utAddr, distAddr, requestBufferSize)
 	routeOutletFrom := distAddr
 	if cfg.DownsampleFactor > 1 {
-		plumber.SetSegment(p, downsampleAddr, newDownsampler(cfg))
-		plumber.MustConnect[Response](
-			p,
-			routeOutletFrom,
-			downsampleAddr,
-			responseBufferSize,
-		)
+		p.SetSegment(downsampleAddr, newDownsampler(cfg))
+		p.MustConnect[Response](routeOutletFrom, downsampleAddr, responseBufferSize)
 		routeOutletFrom = downsampleAddr
 	}
 	if cfg.ThrottleRate > 0 {
-		plumber.SetSegment(p, throttleAddr, newThrottle(cfg))
-		plumber.MustConnect[Response](
-			p,
-			routeOutletFrom,
-			throttleAddr,
-			responseBufferSize,
-		)
+		p.SetSegment(throttleAddr, newThrottle(cfg))
+		p.MustConnect[Response](routeOutletFrom, throttleAddr, responseBufferSize)
 		routeOutletFrom = throttleAddr
 	}
 	return &plumber.Segment[Request, Response]{

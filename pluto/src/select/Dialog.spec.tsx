@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { render } from "@testing-library/react";
+import { render, type RenderResult } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -71,6 +71,42 @@ describe("Select.Dialog", () => {
       </Dialog.Frame>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
+  });
+
+  describe("list height", () => {
+    const renderDialog = (data: string[], itemHeight: number) =>
+      render(
+        <Dialog.Frame visible>
+          <Select.Frame data={data} onChange={vi.fn()} itemHeight={itemHeight}>
+            <Select.Dialog resourceName="result">
+              {({ key }) => <div key={key}>{key}</div>}
+            </Select.Dialog>
+          </Select.Frame>
+        </Dialog.Frame>,
+      );
+    const heightOf = (c: RenderResult) =>
+      c.baseElement.querySelector<HTMLElement>(".pluto-list__items")?.style.height;
+
+    it("should size the list from the rows that fit the dialog", () => {
+      // 220px of room at 40px a row leaves 5 whole rows.
+      const c = renderDialog(
+        Array.from({ length: 20 }, (_, i) => `${i}`),
+        40,
+      );
+      expect(heightOf(c)).toBe("213px");
+    });
+
+    it("should shrink to the data when fewer rows than fit", () => {
+      const c = renderDialog(["a", "b"], 40);
+      expect(heightOf(c)).toBe("93px");
+    });
+
+    it("should animate the height so the dialog grows smoothly", () => {
+      const c = renderDialog(["a", "b"], 40);
+      expect(c.baseElement.querySelector(".pluto-list__items")?.className).toContain(
+        "pluto-list__items--animate-height",
+      );
+    });
   });
 
   describe("footer", () => {

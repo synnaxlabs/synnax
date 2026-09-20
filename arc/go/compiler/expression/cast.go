@@ -27,7 +27,7 @@ func compileTypeCast(
 		return types.Type{}, errors.New("unknown cast target type")
 	}
 	sourceType, err := Compile(
-		context.Child(ctx, ctx.AST.Expression()).WithHint(targetType),
+		ctx.Child(ctx.AST.Expression()).WithHint(targetType),
 	)
 	if err != nil {
 		return types.Type{}, err
@@ -81,6 +81,16 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	if to.Kind == types.KindString {
 		if from.Kind == types.KindString {
 			return nil
+		}
+		if from.Kind == types.KindBool {
+			return ctx.Resolver.EmitFixedImportCall(
+				ctx,
+				ctx.Writer,
+				ctx.WriterID,
+				ctx.Scope,
+				"strings",
+				"from_bool",
+			)
 		}
 		return ctx.Resolver.EmitNumericToString(
 			ctx,

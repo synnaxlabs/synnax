@@ -142,7 +142,6 @@ describe("Handle.Handle", () => {
   describe("identity attributes", () => {
     it("should embed the id in the BEM handle class", () => {
       const { container } = renderHandle({ id: "intake" });
-      // CSS.BE("handle", "intake") -> "pluto-handle__intake"
       expect(queryHandle(container)?.className).toContain("pluto-handle__intake");
     });
 

@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import {
+  channel,
+  device,
   type framer,
   type ontology,
   panel,
+  project,
   query,
+  rack,
   type Synnax as Client,
   task,
 } from "@synnaxlabs/client";
@@ -30,15 +34,15 @@ import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
-import { CSS } from "@/platform/css";
 import { type FormTabProps } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
   assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
+  createTestClientWithGrants,
   createTestStore,
-  getIconButton,
+  findDialogTriggerByText,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
@@ -48,6 +52,23 @@ import {
 } from "@/testutil";
 
 const defaultClient = createTestClient();
+
+/**
+ * Creates a client that may read and update tasks but only read channels, so specs can
+ * check the channel-rename gates on task context menus.
+ */
+export const createChannelReadOnlyClient = async (client: Client): Promise<Client> =>
+  await createTestClientWithGrants(client, {
+    retrieve: [
+      task.TYPE_ONTOLOGY_ID,
+      device.TYPE_ONTOLOGY_ID,
+      rack.TYPE_ONTOLOGY_ID,
+      channel.TYPE_ONTOLOGY_ID,
+      panel.TYPE_ONTOLOGY_ID,
+      project.TYPE_ONTOLOGY_ID,
+    ],
+    update: [task.TYPE_ONTOLOGY_ID],
+  });
 
 export type TaskFormValues = Record<string, unknown>;
 
@@ -148,9 +169,9 @@ export interface CreatedPanel {
 }
 
 /**
- * Creates a single-leaf panel doc holding the given tabs on the cluster and selects it
- * in the session store, so Panel.useOpenTab and the tab-scoped panel hooks resolve
- * against it through the client's cache.
+ * Creates a single-leaf panel doc holding the given tabs on the Core and selects it in
+ * the session store, so Panel.useOpenTab and the tab-scoped panel hooks resolve against
+ * it through the client's cache.
  */
 export const createSelectedPanel = async (
   store: TestStore,
@@ -324,6 +345,8 @@ export const renderInTaskFormWithClient = async (
 export interface RenderTaskFormTabOptions {
   /** Client backing the console wrapper; falls back to a shared test client. */
   client?: Client | null;
+  /** Client the console renders as; the panel and task are created with `client`. */
+  as?: Client;
   /** Key of the task row the form edits. */
   taskKey?: task.Key;
   /** Row to create and open when `taskKey` is omitted. */
@@ -351,17 +374,24 @@ export const renderTaskFormTab = async (
 ): Promise<RenderTaskFormTabResult> => {
   const { onStatuses } = options;
   const client = options.client ?? defaultClient;
+  const as = options.as ?? client;
   const taskKey =
     options.taskKey ??
     (options.task == null ? "" : (await client.tasks.create(options.task)).key);
   const store = await createTestStore();
-  const { wrapper } = await createConsoleWrapper({ client, store });
+  const { wrapper } = await createConsoleWrapper({ client: as, store });
   const tab: panel.Tab = {
     variant: "resource",
     key: uuid.create(),
     resource: task.ontologyID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
+  if (as !== client) {
+    // The panel scopes resolve against the rendering client's cache, so prime it
+    // the same way createSelectedPanel primes the creating client's.
+    onTestFinished(as.panels.onChange(created.panelKey, () => {}));
+    await as.panels.retrieve(created.panelKey);
+  }
   const result = await renderSuspended(
     <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
       <Form taskKey={taskKey} />
@@ -373,14 +403,24 @@ export const renderTaskFormTab = async (
 };
 
 /**
+ * Waits for a wrapForm task form to leave preview mode. The form renders read-only
+ * until the update grant lands, and a preview field renders static text in place of
+ * its input, so a spec that queries a field on the first render races the grant. Call
+ * it from the render helper of any spec that queries form fields.
+ */
+export const awaitEditableForm = async (): Promise<void> => {
+  await screen.findByRole("textbox", { name: /^Name/u });
+};
+
+/**
  * Waits for the task form's start button to leave its loading/disabled state, then
  * clicks it to run the deploy pipeline. Pluto buttons swallow clicks while disabled,
  * so clicking without the wait races the form's initial query.
  */
-export const clickDeploy = async (container: ParentNode): Promise<void> => {
+export const clickDeploy = async (container: HTMLElement): Promise<void> => {
   const button = await waitFor(() => {
-    const b = getIconButton(container, "play");
-    if (b.classList.contains("pluto--disabled"))
+    const b = within(container).getByRole("button", { name: "Start" });
+    if (b.getAttribute("aria-disabled") === "true")
       throw new Error("start button is disabled");
     return b;
   });
@@ -394,23 +434,9 @@ export const clickDeploy = async (container: ParentNode): Promise<void> => {
 export const findChannelListItem = async (port: string): Promise<HTMLElement> =>
   await waitFor(() => {
     const match = screen
-      .getAllByText(port)
-      .find((el) => el.closest(`.${CSS.B("channel-item")}`) != null);
+      .getAllByRole("option")
+      .find((row) => within(row).queryByText(port) != null);
     assertDefined(match, `channel list item for port "${port}" not found`);
-    return match;
-  });
-
-/**
- * Finds the dialog trigger of the mounted select whose current value renders as text.
- * Select triggers expose no accessible name, so this matches on the shown value.
- */
-export const findDialogTriggerByText = async (text: string): Promise<HTMLElement> =>
-  await waitFor(() => {
-    const triggers = Array.from(
-      document.querySelectorAll<HTMLElement>(".pluto-dialog__trigger"),
-    );
-    const match = triggers.find((t) => t.textContent?.includes(text));
-    assertDefined(match, `dialog trigger showing "${text}" not found`);
     return match;
   });
 
@@ -429,18 +455,6 @@ export const selectFromDropdown = async (
     return within(dialogs[dialogs.length - 1]).getByText(optionText);
   });
   fireEvent.click(option);
-};
-
-/**
- * Finds the input rendered inside the Input.Item labeled by label. Item labels carry no
- * htmlFor, so this walks the item container instead of using getByLabelText.
- * @throws if no item or input renders for the label.
- */
-export const getLabeledInput = (label: string): HTMLInputElement => {
-  const item = screen.getByText(label).closest(".pluto-input__item");
-  const input = item?.querySelector("input");
-  if (input == null) throw new Error(`no input found for label "${label}"`);
-  return input;
 };
 
 /**
@@ -482,7 +496,7 @@ export const awaitCommand = async (
  */
 export const deployAndAwaitTask = async <S extends task.Schemas = task.Schemas>(
   client: Client,
-  container: ParentNode,
+  container: HTMLElement,
   key: task.Key,
   schemas?: S,
 ): Promise<task.Task<S>> => {
@@ -514,14 +528,9 @@ export const reportTaskStopped = async (
   });
 };
 
-/** Finds the single non-checkbox input rendered by a task form field. */
-export const findFieldInput = (): HTMLInputElement => {
-  const input = document.body.querySelector<HTMLInputElement>(
-    "input:not([type='checkbox'])",
-  );
-  assertDefined(input, "form field input not found");
-  return input;
-};
+/** Finds the single text input rendered by a task form field. */
+export const findFieldInput = (): HTMLInputElement =>
+  screen.getByRole<HTMLInputElement>("textbox");
 
 /** Commits `value` into a text or numeric field input by changing and blurring it. */
 export const commitFieldInput = (input: HTMLInputElement, value: string): void => {
@@ -529,9 +538,12 @@ export const commitFieldInput = (input: HTMLInputElement, value: string): void =
   fireEvent.blur(input);
 };
 
-/** Whether the redeploy button is collapsed rather than revealed. */
+/**
+ * Whether the redeploy button is collapsed rather than revealed. A collapsed button
+ * stays mounted under aria-hidden, which drops it out of role queries.
+ */
 export const isRedeployHidden = (): boolean =>
-  screen.getByText("Redeploy").closest("[aria-hidden='true']") != null;
+  screen.queryByRole("button", { name: "Redeploy" }) == null;
 
 /**
  * Waits for the redeploy button to be revealed and enabled, then clicks it. The button
@@ -540,10 +552,8 @@ export const isRedeployHidden = (): boolean =>
  */
 export const clickRedeploy = async (): Promise<void> => {
   const button = await waitFor(() => {
-    if (isRedeployHidden()) throw new Error("redeploy button is hidden");
-    const b = screen.getByText("Redeploy").closest("button");
-    assertDefined(b, "redeploy button not found");
-    if (b.classList.contains("pluto--disabled"))
+    const b = screen.getByRole("button", { name: "Redeploy" });
+    if (b.getAttribute("aria-disabled") === "true")
       throw new Error("redeploy button is disabled");
     return b;
   });

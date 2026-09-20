@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <thread>
+#include <chrono>
+#include <future>
 
 #include "gtest/gtest.h"
 
@@ -62,13 +63,11 @@ TEST(StreamerTests, testStreamSetChannels) {
     auto data = create_virtual_channel(client);
     auto now = x::telem::TimeStamp::now();
 
-    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
-        synnax::framer::StreamerConfig{
-            {},
-        }
-    ));
+    auto streamer = ASSERT_NIL_P(
+        client.telem.open_streamer(synnax::framer::StreamerConfig{})
+    );
 
-    auto set_err = streamer.set_channels({data.key});
+    ASSERT_NIL(streamer.set_channels({data.key}));
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
@@ -78,9 +77,6 @@ TEST(StreamerTests, testStreamSetChannels) {
             x::control::Subject{"test_writer"}
         }
     ));
-    // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    ASSERT_NIL(set_err);
 
     auto frame = x::telem::Frame(1);
     frame.emplace(
@@ -89,8 +85,22 @@ TEST(StreamerTests, testStreamSetChannels) {
             std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}
         )
     );
-    ASSERT_NIL(writer.write(frame));
-    auto res_frame = ASSERT_NIL_P(streamer.read());
+
+    // The Core does not acknowledge an updated key set, so a write can reach the relay
+    // before the update does and be dropped. Write until the streamer receives a frame,
+    // closing the send side to unblock the read once the deadline expires.
+    auto read = std::async(std::launch::async, [&] { return streamer.read(); });
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    x::errors::Error write_err;
+    while (read.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+        write_err = writer.write(frame);
+        if (write_err || std::chrono::steady_clock::now() > deadline) {
+            streamer.close_send();
+            break;
+        }
+    }
+    ASSERT_NIL(write_err);
+    auto res_frame = ASSERT_NIL_P(read.get());
 
     ASSERT_EQ(res_frame.size(), 1);
     ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
@@ -203,9 +213,6 @@ void test_downsample(
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::framer::StreamerConfig{channels, downsample_factor}
     ));
-
-    // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = x::telem::Frame(1);
     frame.emplace(data.key, x::telem::Series(raw_data));
@@ -337,8 +344,6 @@ void test_downsample_string(
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::framer::StreamerConfig{channels, downsample_factor}
     ));
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = x::telem::Frame(
         virtual_channel.key,

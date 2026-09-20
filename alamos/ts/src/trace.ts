@@ -57,13 +57,11 @@ export class Tracer {
   debug<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
-   * Starts a new span in the debug environment. If a span already exists in the
-   * current context, it will be used as the parent span.
-   *
-   * @param key - The name of the span.
+   * Starts a new span in the debug environment. If a span already exists in the current
+   * context, it will be used as the parent span.
    * @param f - The function to run under the span.
-   * @returns A span that tracks program execution. If the Tracer's environment
-   * rejects the 'debug' environment or the Tracer is noop, a NoopSpan is returned.
+   * @returns A span that tracks program execution. If the Tracer's environment rejects
+   * the 'debug' environment or the Tracer is noop, a NoopSpan is returned.
    */
   debug<F extends SpanF>(key: string, f?: F): ReturnType<F> | destructor.Destructor {
     return this.trace(key, "debug", f);
@@ -73,13 +71,11 @@ export class Tracer {
   bench<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
-   * Starts a new span in the bench environment. If a span already exists in the
-   * current context, it will be used as the parent span.
-   *
-   * @param key - The name of the span.
+   * Starts a new span in the bench environment. If a span already exists in the current
+   * context, it will be used as the parent span.
    * @param f - The function to run under the span.
-   * @returns A span that tracks program execution. If the Tracer's environment
-   * rejects the 'bench' environment or the Tracer is noop, a NoopSpan is returned.
+   * @returns A span that tracks program execution. If the Tracer's environment rejects
+   * the 'bench' environment or the Tracer is noop, a NoopSpan is returned.
    */
   bench<F extends SpanF>(key: string, f?: F): ReturnType<F> | destructor.Destructor {
     return this.trace(key, "bench", f);
@@ -89,13 +85,11 @@ export class Tracer {
   prod<F extends SpanF>(key: string, f: F): ReturnType<F>;
 
   /**
-   * Starts a new span in the prod environment. If a span already exists in the
-   * current context, it will be used as the parent span.
-   *
-   * @param key - The name of the span.
+   * Starts a new span in the prod environment. If a span already exists in the current
+   * context, it will be used as the parent span.
    * @param f - The function to run under the span.
-   * @returns A span that tracks program execution. If the Tracer's environment
-   * rejects the 'prod' environment or the Tracer is noop, a NoopSpan is returned.
+   * @returns A span that tracks program execution. If the Tracer's environment rejects
+   * the 'prod' environment or the Tracer is noop, a NoopSpan is returned.
    */
   prod<F extends SpanF>(key: string, f?: F): ReturnType<F> | destructor.Destructor {
     return this.trace(key, "prod", f);
@@ -110,14 +104,12 @@ export class Tracer {
   ): ReturnType<F> | destructor.Destructor;
 
   /**
-   * Stars a new span with the given key and environment. If a span already
-   * exists in the current context, it will be used as the parent span.
-   *
-   * @param key - The name of the span.
+   * Stars a new span with the given key and environment. If a span already exists in
+   * the current context, it will be used as the parent span.
    * @param env - The environment to run the span under.
    * @param f - The function to run under the span.
-   * @returns A span that tracks program execution. If the Tracer's environment
-   * rejects the provided span or the Tracer is noop, a NoopSpan is returned.
+   * @returns A span that tracks program execution. If the Tracer's environment rejects
+   * the provided span or the Tracer is noop, a NoopSpan is returned.
    */
   trace<F extends SpanF>(
     key: string,
@@ -144,8 +136,6 @@ export class Tracer {
    * Injects metadata about the current trace into the provided carrier. This metadata
    * can be parsed on the other side of a network or IPC request to allow the trace to
    * propagate across services.
-   *
-   * @param carrier - The carrier to inject the metadata into.
    */
   propagate(carrier: Carrier): void {
     if (this.meta.noop) return;
@@ -164,11 +154,10 @@ export class Tracer {
 /** A span in a trace that can be used to track function execution */
 export interface Span {
   /**
-   * The key identifying the span. This is the name of the key
-   * passed into the tracing method combined with the path of the
-   * instrumentation that started the span. For example, take the
-   * instrumentation titled 'synnax' and call to trace with 'test.
-   * The span key would be 'synnax.test'.
+   * The key identifying the span. This is the name of the key passed into the tracing
+   * method combined with the path of the instrumentation that started the span. For
+   * example, take the instrumentation titled 'synnax' and call to trace with 'test. The
+   * span key would be 'synnax.test'.
    */
   key: string;
   /**
@@ -176,9 +165,7 @@ export interface Span {
    * its status to error.
    */
   recordError: (error?: Error | null) => void;
-  /**
-   * Sets the given key-value pair as an attribute on the span.
-   */
+  /** Sets the given key-value pair as an attribute on the span. */
   set: (key: string, value: AttributeValue) => void;
 }
 

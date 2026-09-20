@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type color, type notation, primitive } from "@synnaxlabs/x";
+import { type color, type notation, primitive, zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -40,15 +40,23 @@ export interface TelemFormProps {
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
+  const sourceP = zod.parse(telem.sourcePipelinePropsZ, value.telem?.props, {
+    label: "source pipeline",
+  });
+  const source = zod.parse(
+    telem.streamChannelValuePropsZ,
     sourceP.segments.valueStream.props,
+    { label: "value stream source" },
   );
-  const stringifier = telem.stringifyNumberProps.parse(
+  const stringifier = zod.parse(
+    telem.stringifyNumberProps,
     sourceP.segments.stringifier.props,
+    { label: "stringifier" },
   );
-  const rollingAverage = telem.rollingAverageProps.parse(
+  const rollingAverage = zod.parse(
+    telem.rollingAverageProps,
     sourceP.segments.rollingAverage.props,
+    { label: "rolling average" },
   );
 
   const handleChange = (segments: telem.SourcePipelineProps["segments"]): void => {

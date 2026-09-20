@@ -150,3 +150,7 @@ export const useStack = (): readonly Entry[] => {
   const store = useStore("useStack");
   return useSyncExternalStore(store.subscribe, store.getState);
 };
+
+/** @returns a stable getter for whether any modal is open in this window. */
+export const useGetIsAnyOpen = (): (() => boolean) =>
+  useStore("useGetIsAnyOpen").isAnyOpen;

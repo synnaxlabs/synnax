@@ -15,7 +15,7 @@ import { Log as PlatformLog } from "@/platform/log";
 
 const CreateCommand = Command.create({
   key: "create_log",
-  name: "Create a log",
+  name: "Create log",
   icon: <Log.CreateIcon />,
   useOnSelect: PlatformLog.useCreate,
   useVisible: () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID),

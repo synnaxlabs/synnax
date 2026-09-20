@@ -40,16 +40,10 @@ var primitiveMapper = pyprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
-type Options struct {
-	OutputPath      string
-	FileNamePattern string
-}
+type Options struct{ FileNamePattern string }
 
 func DefaultOptions() Options {
-	return Options{
-		OutputPath:      "{{.Namespace}}",
-		FileNamePattern: "types_gen.py",
-	}
+	return Options{FileNamePattern: "types_gen.py"}
 }
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
@@ -59,8 +53,6 @@ func (p *Plugin) Name() string { return "py/types" }
 func (p *Plugin) Domains() []string { return nil }
 
 func (p *Plugin) Requires() []string { return nil }
-
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
@@ -804,7 +796,7 @@ func buildExtendsExpr(
 	baseName := getPyName(parent)
 
 	// A base class defined in another schema module must be imported and
-	// referenced through its module alias (e.g. task_.BaseReadConfig).
+	// referenced through its module alias (e.g. task_.ReadConfig).
 	if parent.Namespace != data.Namespace {
 		outputPath := output.GetPath(parent, "py")
 		if outputPath == "" {
@@ -1096,7 +1088,7 @@ func collectValidation(
 			}
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if defaultVal.IdentValue == "now" && isTimeStampType(typeRef, table) {
+			if defaultVal.IdentValue == "now" && isTimestampType(typeRef, table) {
 				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
@@ -1392,8 +1384,8 @@ func resolveDistinctWrapper(
 	return typeToPython(typeRef, table, data)
 }
 
-// isTimeStampType checks if a type reference is or resolves to a TimeStamp type.
-func isTimeStampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+// isTimestampType checks if a type reference is or resolves to a TimeStamp type.
+func isTimestampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	name := typeRef.Name
 	// Check for direct TimeStamp reference (with or without namespace)
 	if name == "TimeStamp" || strings.HasSuffix(name, ".TimeStamp") {

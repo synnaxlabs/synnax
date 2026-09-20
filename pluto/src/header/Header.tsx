@@ -16,8 +16,11 @@ import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 
+/** Props for {@link Header}. */
 export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
+  /** Type scale step for the title and its actions. Defaults to "h1". */
   level?: text.Level;
+  /** Whether to draw a rule between the title and the actions. */
   divided?: boolean;
   bordered?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
@@ -35,14 +38,18 @@ const [Context, useContext] = context.create<ContextValue>({
 export { useContext };
 
 /**
- * The container for a module header.
+ * The bar at the top of a module. It gives its {@link Title} and {@link Actions} a
+ * shared type scale, so their sizes stay in step.
  *
- * @param props - The component props. All unused props will be passed down to the
- * {@link Space} containing the header.
+ * @example
+ * <Header.Header level="h4">
+ *   <Header.Title>Ranges</Header.Title>
+ *   <Header.Actions><Button.Button onClick={add}><Icon.Add /></Button.Button></Header.Actions>
+ * </Header.Header>
  * @param props.level - The font level for the header. See the {@link Typography.Text}
  * component for all possible levels. Default is "h1."
- * @param props.divided - If true, creates a divider between the start icon, header text,
- * and each action. Default is false.
+ * @param props.divided - If true, creates a divider between the start icon, header
+ * text, and each action. Default is false.
  */
 export const Header = ({
   className,
@@ -59,7 +66,7 @@ export const Header = ({
         x
         align="center"
         justify="between"
-        className={CSS(
+        className={CSS.cls(
           CSS.B("header"),
           bordered && CSS.bordered("bottom"),
           divided && CSS.BM("header", "divided"),

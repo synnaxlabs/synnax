@@ -10,14 +10,13 @@
 import "@/schematic/Schematic.css";
 
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { useClipboard } from "@/schematic/clipboard";
 import {
@@ -25,18 +24,23 @@ import {
   edgeChangesToActions,
   nodeChangesToActions,
 } from "@/schematic/Diagram";
+import { Group } from "@/schematic/group";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
   useAddNode,
+  useAllConfigs,
   useAllEdges,
   useAllNodes,
+  useGroup,
+  useParentOf,
   useRedo,
   useSingleDispatch,
   useUndo,
+  useUngroup,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
-import { Triggers } from "@/triggers";
+import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
@@ -60,6 +64,7 @@ export const Schematic = ({
   className,
   viewport,
   onDoubleClick,
+  onNodeDoubleClick,
   onSelectionChange,
   selected,
   enableTriggers,
@@ -74,6 +79,15 @@ export const Schematic = ({
   const nodesRef = useSyncedRef(nodes);
   const edges = useAllEdges();
   const edgesRef = useSyncedRef(edges);
+  const configs = useAllConfigs();
+  const configsRef = useSyncedRef(configs);
+  const selectedRef = useSyncedRef(selected);
+  const parentOf = useParentOf();
+  const parentOfRef = useSyncedRef(parentOf);
+  const lockedNodes = useMemo(
+    () => Group.lockMembers(nodes, parentOf, configs),
+    [nodes, parentOf, configs],
+  );
   const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
@@ -128,17 +142,63 @@ export const Schematic = ({
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
-  const { onCopy, onPaste } = useClipboard({
+  const { onCopy, onCut, onPaste, copy, cut, paste } = useClipboard({
     selected,
+    onCut: onSelectionChange,
     onPaste: onSelectionChange,
+    container: ref,
   });
+
+  const group = useGroup();
+  const ungroup = useUngroup();
+  const handleGroup = useCallback(() => {
+    const selection = group(selectedRef.current ?? []);
+    if (selection != null) onSelectionChange?.(selection);
+  }, [group, onSelectionChange]);
+  const handleUngroup = useCallback(() => {
+    const freed = ungroup(selectedRef.current ?? []);
+    if (freed != null) onSelectionChange?.(freed);
+  }, [ungroup, onSelectionChange]);
+
+  const canGroup = useMemo(
+    () => Group.canGroup(selected ?? [], nodes, parentOf),
+    [selected, nodes, parentOf],
+  );
+  const canUngroup = useMemo(
+    () => Group.canUngroup(selected ?? [], configs),
+    [selected, configs],
+  );
+
+  // Clicking a member selects its whole group; delete, copy, and cut then cover it.
+  const handleSelectionChange = useCallback(
+    (keys: string[]) =>
+      onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current)),
+    [onSelectionChange],
+  );
+
+  // Double-clicking a grouped member drills in, selecting only that member.
+  const handleNodeDoubleClick = useCallback<
+    NonNullable<BaseDiagram.DiagramProps["onNodeDoubleClick"]>
+  >(
+    (e, node) => {
+      if (editable) {
+        const drilled = Group.drillIn(node.id, parentOfRef.current, configsRef.current);
+        if (drilled != null) onSelectionChange?.(drilled);
+      }
+      onNodeDoubleClick?.(e, node);
+    },
+    [editable, onSelectionChange, onNodeDoubleClick],
+  );
 
   BaseDiagram.useTriggers({
     onSelectAll: handleSelectAll,
     onClearSelection: handleClearSelection,
     onUndo: undo,
     onRedo: redo,
+    onGroup: handleGroup,
+    onUngroup: handleUngroup,
     enabled: enableTriggers,
+    editable,
   });
 
   const contextMenu = Menu.useContextMenu();
@@ -147,50 +207,73 @@ export const Schematic = ({
       <Menu.Menu level="small" gap="small">
         {editable && (
           <>
-            <Menu.Item
-              itemKey="undo"
-              onClick={undo}
-              disabled={!canUndo}
-              triggerIndicator={Triggers.UNDO}
-            >
-              <Icon.Undo />
-              Undo
-            </Menu.Item>
-            <Menu.Item
-              itemKey="redo"
-              onClick={redo}
-              disabled={!canRedo}
-              triggerIndicator={Triggers.REDO}
-            >
-              <Icon.Redo />
-              Redo
-            </Menu.Item>
+            <BaseDiagram.Menu.ClipboardItems
+              cut={cut}
+              copy={copy}
+              paste={paste}
+              hasSelection={(selected?.length ?? 0) > 0}
+            />
+            {(canGroup || canUngroup) && (
+              <>
+                <Menu.Divider />
+                <BaseDiagram.Menu.GroupItems
+                  group={handleGroup}
+                  ungroup={handleUngroup}
+                  canGroup={canGroup}
+                  canUngroup={canUngroup}
+                />
+              </>
+            )}
+            <Menu.Divider />
+            <Menu.UndoRedoItems
+              undo={undo}
+              redo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+            />
             {extraMenuItems != null && <Menu.Divider />}
           </>
         )}
         {extraMenuItems?.(menuProps)}
       </Menu.Menu>
     ),
-    [undo, redo, canUndo, canRedo, editable, extraMenuItems],
+    [
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+      editable,
+      extraMenuItems,
+      selected,
+      cut,
+      copy,
+      paste,
+      canGroup,
+      canUngroup,
+      handleGroup,
+      handleUngroup,
+    ],
   );
 
   return (
     <Diagram
       ref={ref}
-      className={CSS(CSS.B("schematic"), className)}
+      className={CSS.cls(CSS.B("schematic"), className)}
       dragHandleSelector={DRAG_HANDLE_SELECTOR}
       autoRenderInterval={AUTO_RENDER_INTERVAL}
       onNodesChange={handleNodesChange}
       onEdgesChange={handleEdgesChange}
       viewport={viewport}
-      onSelectionChange={onSelectionChange}
+      onSelectionChange={handleSelectionChange}
       edgesReconnectable={false}
       editable={editable}
       onDoubleClick={onDoubleClick}
+      onNodeDoubleClick={handleNodeDoubleClick}
       onContextMenu={contextMenu.open}
       onCopy={onCopy}
+      onCut={onCut}
       onPaste={onPaste}
-      nodes={nodes}
+      nodes={lockedNodes}
       edges={edges}
       selected={selected}
       {...dropProps}

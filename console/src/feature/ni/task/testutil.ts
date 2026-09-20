@@ -10,26 +10,27 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { screen, waitFor, within } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { expect } from "vitest";
 
 import * as Device from "@/feature/ni/device/types";
 import { type Task } from "@/platform/task";
 import {
+  awaitEditableForm,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
-import { assertDefined, getIconButton, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 export interface CreateNIDeviceOptions extends Partial<Omit<Device.New, "properties">> {
   properties?: Partial<Device.Properties>;
 }
 
 /**
- * Creates a rack and a configured NI device on the live cluster. The device gets a
- * unique identifier so channels created from it never collide across runs.
+ * Creates a rack and a configured NI device on the live Core. The device gets a unique
+ * identifier so channels created from it never collide across runs.
  */
 export const createNIDevice = async (
   client: Synnax,
@@ -50,8 +51,8 @@ export const createNIDevice = async (
     },
     Device.SCHEMAS,
   );
-  // Cluster metadata is eventually consistent; wait until the device is retrievable
-  // so task configuration flows see it.
+  // Core metadata is eventually consistent; wait until the device is retrievable so
+  // task configuration flows see it.
   await waitFor(async () => {
     await client.devices.retrieve({ key: dev.key, schemas: Device.SCHEMAS });
   });
@@ -66,7 +67,8 @@ export interface RenderNITaskFormResult extends RenderTaskFormTabResult {
 /**
  * Renders a wrapped NI task form the way the task panel does (via renderTaskFormTab)
  * with a status capture mounted alongside it, so specs can assert on notifications
- * raised by the deploy flow.
+ * raised by the deploy flow. Resolves once the form is editable, so field queries
+ * cannot land in the preview window.
  */
 export const renderNITaskForm = async (
   Form: FC<Task.FormTabProps>,
@@ -80,39 +82,14 @@ export const renderNITaskForm = async (
       statuses.push(...next);
     },
   });
+  await awaitEditableForm();
   return { ...result, statuses };
 };
-
-export interface CoefficientsField {
-  /** The button that appends a coefficient. */
-  add: HTMLButtonElement;
-  /** The coefficient rows, lowest order first. */
-  rows: HTMLElement[];
-}
-
-/**
- * Returns the add button and rows of the coefficients field under the given heading.
- * Rows carry no accessible handle of their own, so the structural class selector lives
- * here.
- * @throws if no coefficients field renders under the heading.
- */
-export const getCoefficientsField = (label: string): CoefficientsField => {
-  const field = screen.getByText(label).closest(".console-coefficients");
-  assertDefined(field, `no coefficients field for "${label}"`);
-  return {
-    add: getIconButton(field, "add"),
-    rows: Array.from(field.querySelectorAll<HTMLElement>(".console-coefficient-row")),
-  };
-};
-
-/** Returns the numeric input of a coefficient row returned by getCoefficientsField. */
-export const getCoefficientInput = (row: HTMLElement): HTMLInputElement =>
-  within(row).getByRole("textbox");
 
 /**
  * Polls the captured statuses until one's message or description matches. Uses
  * expect.poll with an extended timeout because the failing operation round-trips
- * against the live cluster before raising the status.
+ * against the live Core before raising the status.
  */
 export const awaitStatusDescription = async (
   statuses: Status.NotificationSpec[],

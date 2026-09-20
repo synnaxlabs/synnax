@@ -127,7 +127,7 @@ export const LinePlotAxisControls = ({
   return (
     <Flex.Box y className={CSS.BE("line-plot", "toolbar", "axes")} gap="small">
       <Flex.Box x>
-        <Input.Item label="Lower Bound" y grow>
+        <Input.Item label="Lower bound" y grow>
           <Input.Numeric
             value={axis.bounds.lower}
             onChange={handleLowerBoundChange}
@@ -140,7 +140,7 @@ export const LinePlotAxisControls = ({
             />
           </Input.Numeric>
         </Input.Item>
-        <Input.Item label="Upper Bound" grow>
+        <Input.Item label="Upper bound" grow>
           <Input.Numeric
             value={axis.bounds.upper}
             onChange={handleUpperBoundChange}
@@ -153,7 +153,7 @@ export const LinePlotAxisControls = ({
             />
           </Input.Numeric>
         </Input.Item>
-        <Input.Item label="Tick Spacing" grow>
+        <Input.Item label="Tick spacing" grow>
           <Input.Numeric
             resetValue={75}
             dragScale={AXES_BOUNDS_DRAG_SCALE}
@@ -174,7 +174,7 @@ export const LinePlotAxisControls = ({
         </Input.Item>
         {axis.key.startsWith("y") && (
           <Input.Item
-            label="Label Direction"
+            label="Label direction"
             className={CSS.BE("line-plot", "toolbar", "axes-label-direction")}
           >
             <Direction.Select
@@ -183,7 +183,7 @@ export const LinePlotAxisControls = ({
             />
           </Input.Item>
         )}
-        <Input.Item label="Label Size">
+        <Input.Item label="Label size">
           <Select.Text.Level
             value={axis.labelLevel}
             onChange={handleLabelLevelChange}

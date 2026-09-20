@@ -20,8 +20,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-const internalChannelCount = 1
-
 var _ = Describe("Retrieve", Ordered, func() {
 	var (
 		svc    *channel.Service
@@ -55,7 +53,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Where(channel.MatchLeaseholders(1)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(resChannels).To(HaveLen(len(created) + internalChannelCount))
+			Expect(resChannels).To(HaveLen(len(created)))
 		})
 		It("Should correctly retrieve a channel by its key", func(ctx SpecContext) {
 			created := []channel.Channel{

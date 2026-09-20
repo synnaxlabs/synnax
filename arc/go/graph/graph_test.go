@@ -155,13 +155,13 @@ var _ = Describe("Graph", func() {
 				Nodes:  nodes,
 				Inputs: inputs,
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: arc.Handle{Node: "first", Param: ir.DefaultOutputParam},
 						Target: arc.Handle{
 							Node:  "printer",
 							Param: ir.DefaultInputParam,
 						},
-					}},
+					},
 				},
 			}
 			root := symbol.NewRoot(nil, stl.NewSymbols())
@@ -221,20 +221,20 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "source1",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "adder", Param: "a"},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "source2",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "adder", Param: "b"},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -304,20 +304,20 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "int_source1",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "multiplier", Param: "x"},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "int_source2",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "multiplier", Param: "y"},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -393,21 +393,21 @@ var _ = Describe("Graph", func() {
 					Nodes:  nodes,
 					Inputs: inputs,
 					Edges: graph.Edges{
-						{Edge: ir.Edge{
+						{
 							Source: ir.Handle{
 								Node:  "src1",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "add1", Param: "a"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "src2",
 								Param: ir.DefaultOutputParam,
 							},
 							Target: ir.Handle{Node: "add1", Param: "b"},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "add1",
 								Param: ir.DefaultOutputParam,
@@ -416,8 +416,8 @@ var _ = Describe("Graph", func() {
 								Node:  "scale1",
 								Param: ir.DefaultInputParam,
 							},
-						}},
-						{Edge: ir.Edge{
+						},
+						{
 							Source: ir.Handle{
 								Node:  "add1",
 								Param: ir.DefaultOutputParam,
@@ -426,7 +426,7 @@ var _ = Describe("Graph", func() {
 								Node:  "scale2",
 								Param: ir.DefaultInputParam,
 							},
-						}},
+						},
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
@@ -489,20 +489,20 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "float_src",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "adder", Param: "a"},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "int_src",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "adder", Param: "b"},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -551,7 +551,7 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "str_src",
 									Param: ir.DefaultOutputParam,
@@ -560,7 +560,7 @@ var _ = Describe("Graph", func() {
 									Node:  "numeric_stage",
 									Param: "value",
 								},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -571,6 +571,58 @@ var _ = Describe("Graph", func() {
 						diagnostics.String(),
 					).To(ContainSubstring("is not compatible with"))
 				},
+			)
+
+			DescribeTable(
+				"Should describe a mismatched edge into select",
+				func(ctx SpecContext, t types.Type) {
+					nodes, inputs := buildNodes(
+						nodeSpec{
+							key: "on",
+							typ: "on",
+							cfg: map[string]any{"channel": 100},
+						},
+						nodeSpec{key: "sel", typ: "select"},
+					)
+					g := arc.Graph{
+						Nodes:  nodes,
+						Inputs: inputs,
+						Edges: graph.Edges{
+							{
+								Source: ir.Handle{
+									Node:  "on",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "sel",
+									Param: ir.DefaultOutputParam,
+								},
+							},
+						},
+					}
+					resolver := []symbol.Symbol{{
+						Name: "my_ch",
+						Type: types.Chan(t),
+						Kind: symbol.KindChannel,
+						ID:   100,
+					}}
+					g = MustSucceed(graph.Parse(g))
+					_, diagnostics := graph.Analyze(
+						ctx, g, NewGraphRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeFalse())
+					Expect(diagnostics.String()).To(HavePrefix("error: type mismatch"))
+					Expect(diagnostics.String()).To(ContainSubstring(
+						"type mismatch in edge from 'on' output 'output' " +
+							"to 'select' input 'output': " + t.String() +
+							" is not compatible with bool",
+					))
+				},
+				Entry("f32", types.F32()),
+				Entry("f64", types.F64()),
+				Entry("u8", types.U8()),
+				Entry("i32", types.I32()),
+				Entry("str", types.String()),
 			)
 
 			It("Should handle missing edge connections", func(ctx SpecContext) {
@@ -595,18 +647,16 @@ var _ = Describe("Graph", func() {
 					},
 					Nodes:  nodes,
 					Inputs: inputs,
-					Edges: graph.Edges{
-						{Edge: ir.Edge{
-							Source: ir.Handle{
-								Node:  "src",
-								Param: ir.DefaultOutputParam,
-							},
-							Target: ir.Handle{
-								Node:  "nonexistent",
-								Param: ir.DefaultOutputParam,
-							}, // Invalid target node
-						}},
-					},
+					Edges: graph.Edges{{
+						Source: ir.Handle{
+							Node:  "src",
+							Param: ir.DefaultOutputParam,
+						},
+						Target: ir.Handle{
+							Node:  "nonexistent",
+							Param: ir.DefaultOutputParam,
+						},
+					}},
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -641,15 +691,12 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
-								Source: ir.Handle{
-									Node:  "src",
-									Param: ir.DefaultOutputParam,
-								},
-								Target: ir.Handle{
-									Node:  "snk",
-									Param: "invalid_param",
-								}, // Invalid parameter
+							{Source: ir.Handle{
+								Node:  "src",
+								Param: ir.DefaultOutputParam,
+							}, Target: ir.Handle{
+								Node:  "snk",
+								Param: "invalid_param",
 							}},
 						},
 					}
@@ -687,13 +734,13 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "str_src",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "num_snk", Param: "value"},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -751,21 +798,21 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: arc.Handle{
 									Node:  "on",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: arc.Handle{Node: "ge", Param: "a"},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: arc.Handle{
 									Node:  "constant",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: arc.Handle{Node: "ge", Param: "b"},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: arc.Handle{
 									Node:  "ge",
 									Param: ir.DefaultOutputParam,
@@ -774,8 +821,8 @@ var _ = Describe("Graph", func() {
 									Node:  "stable_for",
 									Param: ir.DefaultInputParam,
 								},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: arc.Handle{
 									Node:  "stable_for",
 									Param: ir.DefaultOutputParam,
@@ -784,7 +831,7 @@ var _ = Describe("Graph", func() {
 									Node:  "select",
 									Param: ir.DefaultInputParam,
 								},
-							}},
+							},
 							// status_success/error fulfilled by input; no edges needed.
 						},
 					}
@@ -1090,7 +1137,7 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "src",
 									Param: ir.DefaultOutputParam,
@@ -1099,7 +1146,7 @@ var _ = Describe("Graph", func() {
 									Node:  "snk_mismatch",
 									Param: ir.DefaultInputParam,
 								},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -1144,20 +1191,20 @@ var _ = Describe("Graph", func() {
 							Nodes:  nodes,
 							Inputs: inputs,
 							Edges: graph.Edges{
-								{Edge: ir.Edge{
+								{
 									Source: ir.Handle{
 										Node:  "src1",
 										Param: ir.DefaultOutputParam,
 									},
 									Target: ir.Handle{Node: "dual", Param: "a"},
-								}},
-								{Edge: ir.Edge{
+								},
+								{
 									Source: ir.Handle{
 										Node:  "src2",
 										Param: ir.DefaultOutputParam,
 									},
 									Target: ir.Handle{Node: "dual", Param: "b"},
-								}},
+								},
 							},
 						}
 						g = MustSucceed(graph.Parse(g))
@@ -1228,7 +1275,7 @@ var _ = Describe("Graph", func() {
 							Nodes:  nodes,
 							Inputs: inputs,
 							Edges: graph.Edges{
-								{Edge: ir.Edge{
+								{
 									Source: ir.Handle{
 										Node:  "src1",
 										Param: ir.DefaultOutputParam,
@@ -1237,7 +1284,7 @@ var _ = Describe("Graph", func() {
 										Node:  "add1",
 										Param: ir.LHSInputParam,
 									},
-								}},
+								},
 							},
 						}
 						g = MustSucceed(graph.Parse(g))
@@ -1282,7 +1329,7 @@ var _ = Describe("Graph", func() {
 							Nodes:  nodes,
 							Inputs: inputs,
 							Edges: graph.Edges{
-								{Edge: ir.Edge{
+								{
 									Source: ir.Handle{
 										Node:  "src1",
 										Param: ir.DefaultOutputParam,
@@ -1291,7 +1338,7 @@ var _ = Describe("Graph", func() {
 										Node:  "add1",
 										Param: ir.LHSInputParam,
 									},
-								}},
+								},
 							},
 						}
 						g = MustSucceed(graph.Parse(g))
@@ -1332,20 +1379,20 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "src1",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "proc", Param: "input"},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "src2",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "proc", Param: "input"},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -1381,20 +1428,20 @@ var _ = Describe("Graph", func() {
 						Nodes:  nodes,
 						Inputs: inputs,
 						Edges: graph.Edges{
-							{Edge: ir.Edge{
+							{
 								Source: ir.Handle{
 									Node:  "src",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "snk1", Param: "input"},
-							}},
-							{Edge: ir.Edge{
+							},
+							{
 								Source: ir.Handle{
 									Node:  "src",
 									Param: ir.DefaultOutputParam,
 								},
 								Target: ir.Handle{Node: "snk2", Param: "input"},
-							}},
+							},
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
@@ -1445,17 +1492,17 @@ var _ = Describe("Graph", func() {
 							{Name: "channel", Type: types.Chan(types.U8())},
 						},
 						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.Bool()},
 						},
 					},
 				},
 				Nodes:  nodes,
 				Inputs: inputs,
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sel", Param: ir.DefaultOutputParam},
-					}},
+					},
 				},
 			}
 			resolver := []symbol.Symbol{{
@@ -1492,10 +1539,10 @@ var _ = Describe("Graph", func() {
 				Nodes:  nodes,
 				Inputs: inputs,
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sf", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 			}
 			resolver := []symbol.Symbol{{
@@ -1533,10 +1580,10 @@ var _ = Describe("Graph", func() {
 				Nodes:  nodes,
 				Inputs: inputs,
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "ss", Param: ir.DefaultOutputParam},
-					}},
+					},
 				},
 			}
 			statusFnType := types.Function(types.FunctionProperties{

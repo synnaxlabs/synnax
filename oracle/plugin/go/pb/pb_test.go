@@ -1524,15 +1524,6 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Check", func() {
-		It("Should return nil (no-op)", func(ctx SpecContext) {
-			req := MustGenerateRequest(ctx, `
-				@go output "core/test"
-				@pb
-
-				Test struct { key uuid }
-			`, "test", loader)
-			Expect(pbPlugin.Check(req)).To(Succeed())
-		})
 	})
 
 	Describe("primitive type conversions", func() {

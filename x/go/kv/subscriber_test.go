@@ -30,7 +30,7 @@ var _ = Describe("Flush", func() {
 		o := observe.New[dataStruct]()
 		db := DeferClose(memkv.New())
 		codec := gob.Codec
-		flush := &kv.Subscriber[dataStruct]{
+		flush := &kv.Subscriber{
 			Key:         []byte("key"),
 			Store:       db,
 			MinInterval: 5 * time.Millisecond,
@@ -49,5 +49,23 @@ var _ = Describe("Flush", func() {
 			g.Expect(ds.Value).To(Equal([]byte("hello")))
 			g.Expect(closer.Close()).To(Succeed())
 		}).Should(Succeed())
+	})
+
+	It("Should write the state before returning to the caller", func(ctx SpecContext) {
+		db := DeferClose(memkv.New())
+		codec := gob.Codec
+		flush := &kv.Subscriber{
+			Key:     []byte("key"),
+			Store:   db,
+			Encoder: codec,
+		}
+
+		flush.Flush(ctx, dataStruct{Value: []byte("hello")})
+
+		b, closer := MustSucceed2(db.Get(ctx, []byte("key")))
+		var ds dataStruct
+		Expect(codec.Decode(ctx, b, &ds)).To(Succeed())
+		Expect(ds.Value).To(Equal([]byte("hello")))
+		Expect(closer.Close()).To(Succeed())
 	})
 })

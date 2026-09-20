@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -53,14 +54,21 @@ var (
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+			panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
 				Search:   searchIdx,
 			}))
 		)
 		imexSvc = imex.NewService()
+		projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+			ImEx:     imexSvc,
+			Panel:    panelSvc,
+		}))
 		svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

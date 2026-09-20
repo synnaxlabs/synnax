@@ -41,12 +41,14 @@ describe("useCreate", () => {
 
     await waitFor(async () => {
       const doc = await client.panels.retrieve(selected);
-      expect(doc.name).toEqual("New Panel");
+      expect(doc.name).toEqual("New panel");
     });
-    const children = await client.panels.retrieve({
-      parent: project.ontologyID(proj.key),
+    await waitFor(async () => {
+      const children = await client.panels.retrieve({
+        parent: project.ontologyID(proj.key),
+      });
+      expect(children.map(({ key }) => key)).toContain(selected);
     });
-    expect(children.map(({ key }) => key)).toContain(selected);
     expect(Session.Panel.selectSelected(store.getState())).toEqual(selected);
   });
 
@@ -69,7 +71,7 @@ describe("useCreate", () => {
     if (second == null) throw new Error("no panel selected after second create");
     await waitFor(async () => {
       const doc = await client.panels.retrieve(second);
-      expect(doc.name).toEqual("New Panel");
+      expect(doc.name).toEqual("New panel");
     });
   });
 });

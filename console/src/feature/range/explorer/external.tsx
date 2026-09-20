@@ -17,7 +17,7 @@ export { Explorer };
 export const TAB: Panel.Tab = {
   Icon: Ranger.ExplorerIcon,
   Name: Panel.createStaticTabName({
-    name: "Range Explorer",
+    name: "Range explorer",
     icon: <Ranger.ExplorerIcon />,
   }),
   Content: Explorer,

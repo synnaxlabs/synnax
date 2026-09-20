@@ -27,7 +27,6 @@ interface InternalState {
   sink: telem.StringSink;
 }
 
-// Input is a component that allows the user to send a string value down a string sink.
 export class Input
   extends aether.Leaf<typeof stateZ, InternalState, typeof methodsZ>
   implements diagram.Element, aether.HandlersFromSchema<typeof methodsZ>

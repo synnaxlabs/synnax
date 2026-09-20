@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package legacy converts the Modbus config shapes released Consoles wrote: channel
-// type tags carried a direction suffix the union name now owns.
+// type tags carried a direction suffix the union name now owns, and the register byte
+// and word order flags were named for the swap rather than the resulting state.
 package legacy
 
 import (
@@ -38,6 +39,7 @@ var writeTypes = map[string]string{
 var Read = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		legacy.RemapValue(ch, "type", readTypes)
+		renameSwaps(ch)
 	})
 }}
 
@@ -45,8 +47,14 @@ var Read = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 var Write = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		legacy.RemapValue(ch, "type", writeTypes)
+		renameSwaps(ch)
 	})
 }}
+
+func renameSwaps(ch msgpack.EncodedJSON) {
+	legacy.RenameKey(ch, "swap_bytes", "bytes_swapped")
+	legacy.RenameKey(ch, "swap_words", "words_swapped")
+}
 
 // Scan converts the stored driver scan form.
 var Scan = legacy.Scan

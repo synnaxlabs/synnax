@@ -15,14 +15,14 @@ import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "http_create_read_task",
-  name: "Create an HTTP Read Task",
+  name: "Create HTTP read task",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "http_create_write_task",
-  name: "Create an HTTP Write Task",
+  name: "Create HTTP write task",
   icon: <Icon.Logo.HTTP />,
   useOnSelect: useCreateWrite,
 });

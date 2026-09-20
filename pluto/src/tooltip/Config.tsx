@@ -41,9 +41,12 @@ export interface ConfigProps extends PropsWithChildren {
   skipDelay?: CrudeTimeSpan;
 }
 
+const DEFAULT_DELAY = TimeSpan.milliseconds(700);
+const DEFAULT_SKIP_DELAY = TimeSpan.milliseconds(300);
+
 const [Context, useConfig] = context.create<ContextValue>({
   defaultValue: {
-    delay: TimeSpan.milliseconds(700),
+    delay: DEFAULT_DELAY,
     isWarm: () => false,
     markClosed: () => {},
     acquire: () => () => {},
@@ -54,17 +57,14 @@ export { useConfig };
 
 /**
  * Sets the configuration for all tooltips in its children.
- *
- * @param props - The props for the tooltip config.
  * @param props.delay - The delay before a tooltip opens on hover.
  * @default 700ms.
- * @param props.skipDelay - How long after a tooltip closes a new hover opens
- * instantly.
+ * @param props.skipDelay - How long after a tooltip closes a new hover opens instantly.
  * @default 300ms.
  */
 export const Config = ({
-  delay = TimeSpan.milliseconds(700),
-  skipDelay = TimeSpan.milliseconds(300),
+  delay = DEFAULT_DELAY,
+  skipDelay = DEFAULT_SKIP_DELAY,
   children,
 }: ConfigProps): ReactElement => {
   const lastClosed = useRef<TimeStamp | null>(null);

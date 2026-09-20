@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
-	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // aliasFileGenerator emits a re-export surface for a version-laid-out
@@ -35,6 +35,8 @@ type aliasFileGenerator struct {
 	// pathMap maps each version-laid-out root path to its current versions/vN
 	// sub-path.
 	pathMap map[string]string
+	// members holds the qualified names of every chain's current-surface members.
+	members set.Set[string]
 	// pkg overrides the emitted package name; empty derives it from the
 	// output path (the package-root case).
 	pkg string
@@ -90,7 +92,7 @@ func (g *aliasFileGenerator) GenerateFile(
 		Package:    pkg,
 		OutputPath: ctx.OutputPath,
 		Namespace:  namespace,
-		imports:    imp,
+		Manager:    imp,
 		table:      ctx.Table,
 		repoRoot:   ctx.RepoRoot,
 		resolver:   r,
@@ -109,17 +111,16 @@ func (g *aliasFileGenerator) GenerateFile(
 		Import:  resolveGoImportPath(importPath, ctx.RepoRoot),
 	}
 
-	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
+	for _, d := range orderDecls(
+		ctx.Table, nil, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions,
+	) {
 		if omit.IsType(d.typ, "go") {
 			continue
 		}
 		// Transient types generate real declarations at the package root,
 		// not in the version layout: no alias to emit. Hand types follow the
 		// version layout, so their aliases are emitted even when unversioned.
-		if _, versioned := versioning.Version(
-			d.typ,
-		); !versioned &&
-			!omit.IsHand(d.typ, "go") {
+		if !g.members.Contains(d.typ.QualifiedName) && !omit.IsHand(d.typ, "go") {
 			continue
 		}
 		if d.kind == declEnum && d.typ.Namespace != namespace {

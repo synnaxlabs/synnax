@@ -43,9 +43,9 @@ class TemperatureBuiltInSensor(Analog):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Temperature Built-In Sensor",
+            chan_type="Temperature built-in sensor",
             port=port,
             **kwargs,
         )
 
-        self._configure_dropdown("Temperature Units", temperature_units)
+        self._configure_dropdown("Temperature units", temperature_units)

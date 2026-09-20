@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Status } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 
 import { Command } from "@/feature/command";
 import { Modals } from "@/platform/modals";
 import {
+  CaptureStatuses,
   type ConsolePreloadedState,
   createConsoleWrapper,
   type TestStore,
@@ -26,6 +28,8 @@ export interface RenderPaletteParams {
   commands?: Command.Command[];
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
+  /** Receives every notification the rendered tree raises. */
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
 
 export interface PaletteHandle {
@@ -69,12 +73,14 @@ export const renderPalette = async ({
   commands = [],
   client = null,
   preloadedState,
+  onStatuses,
 }: RenderPaletteParams = {}): Promise<PaletteHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
   render(
     <>
       <CommandPalette commands={commands} />
       <Modals.Stack />
+      {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
     </>,
     { wrapper },
   );

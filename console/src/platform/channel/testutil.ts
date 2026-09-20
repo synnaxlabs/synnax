@@ -10,11 +10,11 @@
 import { type channel, DataType, type Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 
-/** Generates a cluster-safe unique channel name: letters, digits, and underscores. */
+/** Generates a Core-safe unique channel name: letters, digits, and underscores. */
 export const uniqueChannelName = (prefix = "ch"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
 
-/** Creates a real timestamp index channel on the connected cluster. */
+/** Creates a real timestamp index channel on the connected Core. */
 export const createTestIndexChannel = async (
   client: Synnax,
 ): Promise<channel.Channel> =>

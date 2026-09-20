@@ -26,9 +26,10 @@ describe("Schematic.Toolbar", () => {
       const name = uniqueName("toolbar");
       const { key, store } = await renderSchematic(Schematic.Toolbar, {
         schematic: { name },
+        sessionState: { editable: false },
       });
-      await screen.findByText(`${name} is not editable. To make changes,`);
-      fireEvent.click(await screen.findByText("enable editing."));
+      await screen.findByText(`${name} is not editable`);
+      fireEvent.click(await screen.findByText("Enable editing"));
       await waitFor(() =>
         expect(
           Session.Schematic.selectState({ state: store.getState(), key }).editable,
@@ -42,10 +43,11 @@ describe("Schematic.Toolbar", () => {
       const { key, store } = await renderSchematic(Schematic.Toolbar, {
         schematic: { name },
         sessionState: {
+          editable: false,
           control: { authority: 1, status: "acquired" },
         },
       });
-      fireEvent.click(await screen.findByText("release control and enable editing."));
+      fireEvent.click(await screen.findByText("Release control and enable editing"));
       await waitFor(() =>
         expect(
           Session.Schematic.selectState({ state: store.getState(), key }).editable,
@@ -67,7 +69,7 @@ describe("Schematic.Toolbar", () => {
       );
       expect(
         await screen.findByText(
-          "Select a schematic element to configure its properties.",
+          "Select a schematic element to configure its properties",
         ),
       ).toBeDefined();
     });
@@ -108,7 +110,7 @@ describe("Schematic.Toolbar", () => {
       );
       // The Core serializes the schematic into the flat imex envelope: numeric version,
       // and the resource key is dropped.
-      expect(contents).toMatchObject({ name, type: "schematic", version: 7 });
+      expect(contents).toMatchObject({ name, type: "schematic", version: 8 });
     });
   });
 });

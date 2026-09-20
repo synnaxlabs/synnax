@@ -80,8 +80,8 @@ func (c *ChannelEntry) ApplyDefaults() {
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
-	validate.GreaterThanEq(v, "precision", c.Precision, -1)
-	validate.LessThanEq(v, "precision", c.Precision, 17)
+	v.GreaterThanEq("precision", c.Precision, -1)
+	v.LessThanEq("precision", c.Precision, 17)
 	v.Exec(func() error { return validate.PathedError(c.Timestamp.Validate(), "timestamp") })
 	return v.Error()
 }
@@ -98,12 +98,10 @@ type Log struct {
 	Channels []ChannelEntry `json:"channels,omitzero" msgpack:"channels,omitzero"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
-	// HideChannelNames controls whether channel names are hidden. When false (the
-	// default), names are displayed.
-	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
-	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden.
-	// When false (the default), it is displayed.
-	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
+	// ChannelNamesHidden is true when channel names are hidden.
+	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
+	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
+	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -117,9 +115,9 @@ func (l *Log) ApplyDefaults() {
 // schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
-	validate.NotEmptyString(v, "name", l.Name)
-	validate.GreaterThanEq(v, "timestamp_precision", l.TimestampPrecision, 0)
-	validate.LessThanEq(v, "timestamp_precision", l.TimestampPrecision, 3)
+	v.NotEmptyString("name", l.Name)
+	v.GreaterThanEq("timestamp_precision", l.TimestampPrecision, 0)
+	v.LessThanEq("timestamp_precision", l.TimestampPrecision, 3)
 	for i := range l.Channels {
 		v.Exec(func() error { return validate.PathedError(l.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}

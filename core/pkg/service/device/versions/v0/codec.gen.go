@@ -14,7 +14,7 @@ package v0
 import (
 	"encoding/json"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -61,11 +61,11 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		d.Rack = rack.Key(v)
+		d.Rack = rack.Key(rawV)
 	}
 	if d.Location, err = r.String(); err != nil {
 		return err
@@ -97,11 +97,11 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Status
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			d.Status = &v
+			d.Status = &hv
 		}
 	}
 	{
@@ -110,11 +110,11 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v ontology.ID
-			if err = v.DecodeOrc(r); err != nil {
+			var hv ontology.ID
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			d.Parent = &v
+			d.Parent = &hv
 		}
 	}
 	return nil

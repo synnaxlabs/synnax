@@ -25,6 +25,7 @@ import {
   ZERO_STATE,
 } from "@/session/schematic/slice";
 import { Select } from "@/session/select";
+import { Window } from "@/session/window";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -53,7 +54,7 @@ const createGetter =
   };
 
 export const selectState = ({ state, key }: KeyedSelectorParams): State =>
-  selectSliceState(state).schematics[key] ?? ZERO_STATE;
+  Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
 export const useGet = createGetter(selectState);

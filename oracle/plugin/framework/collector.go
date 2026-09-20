@@ -125,14 +125,6 @@ func (c *Collector) Has(path string) bool {
 	return found && len(entry.Types) > 0
 }
 
-func (c *Collector) Count() int {
-	return lo.SumBy(c.entries, func(e PathEntry) int { return len(e.Types) })
-}
-
-func (c *Collector) Empty() bool {
-	return len(c.entries) == 0
-}
-
 func (c *Collector) ForEach(fn func(path string, types []resolution.Type) error) error {
 	for _, entry := range c.entries {
 		if len(entry.Types) == 0 {
@@ -148,14 +140,6 @@ func (c *Collector) ForEach(fn func(path string, types []resolution.Type) error)
 func CollectStructs(domain string, req *plugin.Request) (*Collector, error) {
 	c := NewCollector(domain, req)
 	if err := c.AddAll(req.Resolutions.StructTypes()); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-func CollectEnums(domain string, req *plugin.Request) (*Collector, error) {
-	c := NewCollector(domain, req)
-	if err := c.AddAll(req.Resolutions.EnumTypes()); err != nil {
 		return nil, err
 	}
 	return c, nil

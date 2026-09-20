@@ -17,7 +17,7 @@ import {
 
 import { Flux } from "@/flux";
 
-const PERMISSION_PLURAL_RESOURCE_NAME = "Permissions";
+const PERMISSION_PLURAL_RESOURCE_NAME = "permissions";
 
 export type PermissionsQuery = {
   subject?: ontology.ID;
@@ -73,6 +73,9 @@ export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query">
 
 const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
+  // A read that never lands reads as a denial, so a moment of dead connection would
+  // lock the subject out of surfaces it can in fact reach.
+  retryUnreachable: true,
   retrieve: async ({ client, query: { subject, objects, action } }) => {
     subject = await resolveSubjectAsync(client, subject);
     if (subject == null) return false;
@@ -125,11 +128,20 @@ export type LoadPermissionsQuery = {
   subject?: ontology.ID;
 };
 
-export const { useResult: useLoadPermissions } = Flux.createRetrieve<
-  LoadPermissionsQuery,
-  access.policy.Policy[]
->({
+/**
+ * useEnsurePermissions suspends until the subject's policies are cached, so a surface
+ * mounted below it never reads an empty policy set as a denial. A failed read throws
+ * to the surrounding boundary; call useInvalidatePermissions before resetting it, or
+ * the settled failure throws again on the next render.
+ */
+export const {
+  useEnsure: useEnsurePermissions,
+  useInvalidate: useInvalidatePermissions,
+} = Flux.createRetrieve<LoadPermissionsQuery, access.policy.Policy[]>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
+  // No workspace renders until this read lands, so a moment of dead connection must not
+  // settle into a wall the subject has to clear by hand.
+  retryUnreachable: true,
   retrieve: async ({ client, query }) => {
     const subject = await resolveSubjectAsync(client, query.subject);
     if (subject == null) return [];

@@ -47,11 +47,23 @@ var errIndexOutOfRange = errors.New("index out of range")
 // errInvalidSize is returned when a split size ratio falls outside [0, 1].
 var errInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
 
-// validateTree checks the structural invariants every persisted panel tree must
-// uphold: every node has a variant, split sizes are within [0, 1], tab keys are
-// unique across the tree, and every resource backs at most one tab. Called
-// before any tree is persisted, both for caller-provided trees on create and
-// for reduced trees on dispatch.
+// resourceTabTypes is the set of resource types a tab may display: the resource subset
+// of the Console renderer registry, promoted to a schema invariant.
+var resourceTabTypes = set.New(
+	ontology.ResourceTypeSchematic,
+	ontology.ResourceTypeLineplot,
+	ontology.ResourceTypeLog,
+	ontology.ResourceTypeTable,
+	ontology.ResourceTypeArc,
+	ontology.ResourceTypeTask,
+	ontology.ResourceTypeRange,
+)
+
+// validateTree checks the structural invariants every persisted panel tree must uphold:
+// every node has a variant, split sizes are within [0, 1], tab keys are unique across
+// the tree, every resource backs at most one tab, and every resource tab displays a
+// type in resourceTabTypes. Called before any tree is persisted, both for
+// caller-provided trees on create and for reduced trees on dispatch.
 func validateTree(root Node) error {
 	return validateNode(root, set.New[uuid.UUID](), set.New[ontology.ID]())
 }
@@ -73,6 +85,13 @@ func validateNode(
 			}
 			seen.Add(key)
 			if r, ok := t.Variant.(ResourceTab); ok {
+				if !resourceTabTypes.Contains(r.Resource.Type) {
+					return errors.Wrapf(
+						validate.ErrValidation,
+						"resource tab cannot display a %s",
+						r.Resource.Type,
+					)
+				}
 				if seenResources.Contains(r.Resource) {
 					return errors.Wrap(
 						validate.ErrValidation,
@@ -312,8 +331,9 @@ func removeTab(root *Node, tabKey uuid.UUID) (Tab, bool) {
 	return removed, true
 }
 
-// collapseEmptyLeaves rewrites the tree bottom-up, replacing every split that has
-// exactly one empty-leaf side with its surviving sibling subtree.
+// collapseEmptyLeaves rewrites the tree bottom-up, replacing every split that has an
+// empty-leaf side with its other side. A split of two empty leaves becomes one empty
+// leaf, so emptiness propagates up through nested splits.
 func collapseEmptyLeaves(root *Node) {
 	*root = collapseNode(*root)
 }
@@ -325,10 +345,10 @@ func collapseNode(n Node) Node {
 	}
 	split.First = collapseNode(split.First)
 	split.Last = collapseNode(split.Last)
-	if isEmptyLeaf(split.First) && !isEmptyLeaf(split.Last) {
+	if isEmptyLeaf(split.First) {
 		return split.Last
 	}
-	if isEmptyLeaf(split.Last) && !isEmptyLeaf(split.First) {
+	if isEmptyLeaf(split.Last) {
 		return split.First
 	}
 	return Node{Variant: split}

@@ -17,9 +17,9 @@ import (
 	v0 "github.com/synnaxlabs/arc/types/versions/v0"
 )
 
-// migrateFunctionProperties lifts v0 function properties into the v1 shape,
+// MigrateFunctionProperties lifts v0 function properties into the v1 shape,
 // dropping the removed config params.
-func migrateFunctionProperties(
+func MigrateFunctionProperties(
 	ctx context.Context,
 	old v0.FunctionProperties,
 ) (FunctionProperties, error) {
@@ -32,7 +32,7 @@ func MigrateParam(ctx context.Context, old v0.Param) (Param, error) {
 	return autoMigrateParam(ctx, old)
 }
 
-// migrateType lifts a v0 type into the v1 shape.
-func migrateType(ctx context.Context, old v0.Type) (Type, error) {
+// MigrateType lifts a v0 type into the v1 shape.
+func MigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	return autoMigrateType(ctx, old)
 }

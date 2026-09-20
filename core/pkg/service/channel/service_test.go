@@ -118,11 +118,12 @@ var _ = Describe("Service", func() {
 			disconnect := svc.Observe().OnChange(
 				func(context.Context, gorp.TxReader[channel.Key, channel.Channel]) {
 					called.Store(true)
-				})
+				},
+			)
 			defer disconnect()
 			ch := channel.Channel{
 				Name:        UniqueChannelName(),
-				DataType:    telem.TimeStampT,
+				DataType:    telem.TimestampT,
 				IsIndex:     true,
 				Leaseholder: 1,
 			}

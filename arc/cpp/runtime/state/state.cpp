@@ -22,8 +22,13 @@ Series parse_default_value(
     const types::Type &type
 ) {
     auto data_type = type.telem();
-    if (value.has_value())
+    if (value.has_value()) {
+        if (type.kind == types::Kind::Bool)
+            return x::mem::make_local_shared<x::telem::Series>(
+                x::telem::cast<uint8_t>(data_type.cast(*value)) != 0
+            );
         return x::mem::make_local_shared<x::telem::Series>(data_type.cast(*value));
+    }
     switch (type.kind) {
         case types::Kind::I8:
             return x::mem::make_local_shared<x::telem::Series>(static_cast<int8_t>(0));
@@ -51,6 +56,8 @@ Series parse_default_value(
             return x::mem::make_local_shared<x::telem::Series>(0.0f);
         case types::Kind::F64:
             return x::mem::make_local_shared<x::telem::Series>(0.0);
+        case types::Kind::Bool:
+            return x::mem::make_local_shared<x::telem::Series>(false);
         default:
             return x::mem::make_local_shared<x::telem::Series>(data_type, 0);
     }

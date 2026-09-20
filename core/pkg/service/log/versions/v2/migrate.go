@@ -56,8 +56,8 @@ func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 		}
 	})
 	out.TimestampPrecision = d.TimestampPrecision
-	out.HideChannelNames = !d.ShowChannelNames
-	out.HideReceiptTimestamp = !d.ShowReceiptTimestamp
+	out.ChannelNamesHidden = !d.ShowChannelNames
+	out.ReceiptTimestampHidden = !d.ShowReceiptTimestamp
 	return out, nil
 }
 

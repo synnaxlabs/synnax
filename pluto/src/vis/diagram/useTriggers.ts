@@ -12,20 +12,35 @@ import { useCallback } from "react";
 
 import { Triggers } from "@/triggers";
 
-type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
+type Mode =
+  | "copy"
+  | "paste"
+  | "clear"
+  | "all"
+  | "undo"
+  | "redo"
+  | "group"
+  | "ungroup"
+  | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {
-  all: [["Control", "A"]],
-  copy: [["Control", "C"]],
-  paste: [["Control", "V"]],
-  clear: [Triggers.ESCAPE],
-  undo: [Triggers.UNDO],
-  redo: [Triggers.REDO],
-  default: [],
   defaultMode: "default",
+  modes: {
+    all: [["Control", "A"]],
+    copy: [["Control", "C"]],
+    paste: [["Control", "V"]],
+    clear: [Triggers.ESCAPE],
+    undo: [Triggers.UNDO],
+    redo: [Triggers.REDO],
+    group: [Triggers.GROUP],
+    ungroup: [Triggers.UNGROUP],
+    default: [],
+  },
 };
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
+
+const MUTATING_MODES = new Set<Mode>(["undo", "redo", "paste", "group", "ungroup"]);
 
 export interface UseTriggersProps {
   onUndo?: () => void;
@@ -34,7 +49,13 @@ export interface UseTriggersProps {
   onPaste?: (cursor: xy.XY) => void;
   onClearSelection?: () => void;
   onSelectAll?: () => void;
+  onGroup?: () => void;
+  onUngroup?: () => void;
   enabled?: Triggers.Condition;
+  /** Withholds the shortcuts that change the diagram. Copying and the selection
+   * shortcuts stay live, so a read-only diagram is still navigable. Defaults to true.
+   * */
+  editable?: boolean;
 }
 
 export const useTriggers = ({
@@ -44,7 +65,10 @@ export const useTriggers = ({
   onSelectAll,
   onUndo,
   onRedo,
+  onGroup,
+  onUngroup,
   enabled,
+  editable = true,
 }: UseTriggersProps) => {
   Triggers.use({
     triggers: FLATTENED_CONFIG,
@@ -54,14 +78,27 @@ export const useTriggers = ({
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
         const mode = Triggers.determineMode(CONFIG, triggers);
+        if (!editable && MUTATING_MODES.has(mode)) return;
         if (mode == "undo") return onUndo?.();
         if (mode == "redo") return onRedo?.();
         if (mode == "copy") return onCopy?.(cursor);
         if (mode == "paste") return onPaste?.(cursor);
         if (mode == "clear") return onClear?.();
         if (mode == "all") return onSelectAll?.();
+        if (mode == "group") return onGroup?.();
+        if (mode == "ungroup") return onUngroup?.();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll],
+      [
+        onUndo,
+        onRedo,
+        onCopy,
+        onPaste,
+        onClear,
+        onSelectAll,
+        onGroup,
+        onUngroup,
+        editable,
+      ],
     ),
   });
 };

@@ -16,6 +16,7 @@
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
+#include "client/cpp/control/control.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/rack/rack.h"
@@ -106,14 +107,14 @@ struct Config {
            << "  " << x::log::SHALE() << "password" << x::log::RESET() << ": "
            << x::log::sensitive_string(cfg.password) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
-           << x::log::bool_to_str(cfg.secure) << "\n";
+           << x::log::bool_to_str(cfg.secure);
         if (!cfg.secure) return os;
-        os << "  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
+        os << "\n  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
            << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
            << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
            << x::path::resolve_relative(cfg.client_cert_file) << "\n"
            << "  " << x::log::SHALE() << "client_key_file" << x::log::RESET() << ": "
-           << x::path::resolve_relative(cfg.client_key_file) << "\n";
+           << x::path::resolve_relative(cfg.client_key_file);
         return os;
     }
 
@@ -165,6 +166,8 @@ public:
     arc::Client arcs;
     /// @brief Client for managing views.
     view::Client views;
+    /// @brief Client for reading the control state of channels.
+    control::Client control;
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg):
@@ -231,7 +234,8 @@ public:
             std::move(this->t.view_create),
             std::move(this->t.view_retrieve),
             std::move(this->t.view_delete)
-        ) {
+        ),
+        control(this->t.control_retrieve) {
         details::check_little_endian();
     }
 

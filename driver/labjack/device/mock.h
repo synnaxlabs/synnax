@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -59,6 +61,18 @@ public:
     [[nodiscard]] x::errors::Error
     start_interval(int interval_handle, int microseconds) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
+    }
+
+    [[nodiscard]] x::errors::Error clean_interval(int interval_handle) const override {
+        if (should_fail_) return x::errors::Error("mock failure");
+        return x::errors::NIL;
+    }
+
+    [[nodiscard]] x::errors::Error
+    e_read_name(const char *name, double *value) const override {
+        if (should_fail_) return x::errors::Error("mock failure");
+        *value = 0;
         return x::errors::NIL;
     }
 
@@ -123,5 +137,41 @@ public:
 private:
     bool should_fail_{false};
     double requested_scan_rate_{1000.0};
+};
+
+/// @brief a Manager that serves scripted devices for tests instead of opening LJM
+/// handles.
+class MockManager final : public Manager {
+    /// @brief the device handed to callers while a holder is still alive.
+    std::weak_ptr<Device> cached;
+
+public:
+    /// @brief errors to return from acquire() calls in sequence. Calls past the end
+    /// of the sequence succeed.
+    std::vector<x::errors::Error> acquire_errors;
+    /// @brief number of times acquire() was called.
+    size_t acquire_call_count = 0;
+    /// @brief opens a device when no holder remains. Defaults to serving dev.
+    std::function<std::shared_ptr<Device>()> open;
+    /// @brief the device the default open() serves.
+    std::shared_ptr<Device> dev;
+
+    explicit MockManager(std::shared_ptr<Device> dev = std::make_shared<Mock>()):
+        open([this] { return this->dev; }), dev(std::move(dev)) {}
+
+    x::errors::Error list_all(int, int, int *, int *, int *, int *, int *) override {
+        return x::errors::NIL;
+    }
+
+    std::pair<std::shared_ptr<Device>, x::errors::Error>
+    acquire(const std::string &) override {
+        const auto i = this->acquire_call_count++;
+        if (i < this->acquire_errors.size() && this->acquire_errors[i])
+            return {nullptr, this->acquire_errors[i]};
+        if (auto existing = this->cached.lock()) return {existing, x::errors::NIL};
+        auto opened = this->open();
+        this->cached = opened;
+        return {opened, x::errors::NIL};
+    }
 };
 }

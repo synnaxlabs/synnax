@@ -41,7 +41,6 @@ type StructForm struct {
 	Extends       []TypeRef
 	OmittedFields []string
 	IsRecursive   bool
-	HasKeyDomain  bool
 }
 
 func (StructForm) typeForm() {}
@@ -223,10 +222,6 @@ func (r TypeRef) IsTypeParam() bool {
 
 func (r TypeRef) Resolve(table *Table) (Type, bool) {
 	return table.Get(r.Name)
-}
-
-func (r TypeRef) MustResolve(table *Table) Type {
-	return table.MustGet(r.Name)
 }
 
 // IsDistinct reports whether ref resolves to a distinct type. Primitives and
@@ -520,9 +515,19 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	}
 	seen := make(set.Set[string])
 	var result []Field
+	// A variant drops a field the union's bases contribute with `-name`.
+	var omitted set.Set[string]
+	variantType, variantOK := variant.Type.Resolve(table)
+	variantForm, isStruct := StructForm{}, false
+	if variantOK {
+		variantForm, isStruct = variantType.Form.(StructForm)
+	}
+	if isStruct {
+		omitted = set.New(variantForm.OmittedFields...)
+	}
 	appendUnique := func(fields []Field) {
 		for _, f := range fields {
-			if seen.Contains(f.Name) {
+			if seen.Contains(f.Name) || omitted.Contains(f.Name) {
 				continue
 			}
 			seen.Add(f.Name)
@@ -539,11 +544,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 		}
 		appendUnique(UnifiedFields(base, table))
 	}
-	variantType, ok := variant.Type.Resolve(table)
-	if !ok {
-		return result
-	}
-	if _, isStruct := variantType.Form.(StructForm); !isStruct {
+	if !variantOK || !isStruct {
 		return result
 	}
 	appendUnique(UnifiedFields(variantType, table))

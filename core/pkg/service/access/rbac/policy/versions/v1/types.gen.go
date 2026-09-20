@@ -14,14 +14,14 @@ package v1
 import (
 	"strconv"
 
-	"github.com/google/uuid"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a policy, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // Policy is an access control policy that defines which actions are permitted on which
 // resources. Policies are attached to roles, and roles are assigned to users via

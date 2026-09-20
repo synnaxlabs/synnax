@@ -39,7 +39,7 @@ def _bit_packed_byte_count(n_samples: int) -> int:
 
 
 def _series_wire_byte_length(ser: Series) -> int:
-    if ser.data_type == DataType.BOOL:
+    if ser.data_type == DataType.BOOLEAN:
         return _bit_packed_byte_count(len(ser))
     return len(ser.data)
 
@@ -231,7 +231,7 @@ class Codec:
                 struct.pack_into("<I", buffer, offset, len_or_size)
                 offset += DATA_LENGTH_SIZE
 
-            if ser.data_type == DataType.BOOL:
+            if ser.data_type == DataType.BOOLEAN:
                 packed = _pack_bool_bits(ser.data)
                 buffer[offset : offset + len(packed)] = packed
                 offset += len(packed)
@@ -315,7 +315,7 @@ class Codec:
             if not data_type.is_variable:
                 data_byte_len = curr_len * data_type.density
 
-            if data_type == DataType.BOOL:
+            if data_type == DataType.BOOLEAN:
                 wire_bytes = _bit_packed_byte_count(curr_len)
                 if idx + wire_bytes > len(buffer):
                     return False

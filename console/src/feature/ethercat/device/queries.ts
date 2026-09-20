@@ -67,10 +67,13 @@ export interface ToggleEnabledParams {
   enabled?: boolean;
 }
 
-export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
-  name: "Toggle Enabled",
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
+  ToggleEnabledParams,
+  SlaveDevice[]
+>({
+  name: "toggle enabled",
   verbs: verbs.UPDATE,
-  update: async ({ data, client }) => {
+  update: async ({ data, client, onOptimisticComplete }) => {
     const keys = array.toArray(data.keys);
 
     const devices = await client.devices.retrieve({
@@ -86,8 +89,8 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledPa
       properties: { ...dev.properties, enabled: enabledValue },
     }));
 
-    await client.devices.create(updated);
-
-    return data;
+    return await client.devices.create(updated, SLAVE_SCHEMAS, {
+      onOptimistic: async () => await onOptimisticComplete(updated),
+    });
   },
 });

@@ -72,9 +72,8 @@ const deleteResZ = z.object({});
 const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
 
 /**
- * Client-side matching for a request: key sets and the internal flag.
- * Server-computed shapes (subjects, pagination) never reach this filter; they
- * refetch instead.
+ * Client-side matching for a request: key sets and the internal flag. Server-computed
+ * shapes (subjects, pagination) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -133,8 +132,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     return isMany ? res.policies : res.policies[0];
   }
 
-  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
-  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);

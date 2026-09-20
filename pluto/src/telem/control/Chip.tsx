@@ -51,7 +51,7 @@ export const tooltipMessage = (
           chipIcon: Icon.Circle,
         };
       return {
-        message: "No channel connected. This element cannot be controlled.",
+        message: "No channel connected",
         chipColor: "var(--pluto-text-disabled)",
         chipIcon: Icon.Circle,
         disabled: true,
@@ -74,13 +74,13 @@ export const tooltipMessage = (
           },
         };
       return {
-        message: "You're in control. Release schematic to release control.",
+        message: "You're in control. Release the schematic to give up control.",
         chipColor: "var(--pluto-primary-z)",
         chipIcon: Icon.Circle,
       };
     default:
       return {
-        message: "Unexpected status.",
+        message: "Unexpected status",
         chipColor: "var(--pluto-error-z)",
         chipIcon: Icon.Square,
       };
@@ -98,7 +98,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       status: {
         key: "no_chip",
         variant: "disabled",
-        message: "No chip connected.",
+        message: "No chip connected",
         time: TimeStamp.now(),
         details: {},
       },
@@ -125,7 +125,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
   return (
     <Button.Button
       variant="text"
-      className={CSS(CSS.B("control-chip"), className)}
+      className={CSS.cls(CSS.B("control-chip"), className)}
       disabled={disabled}
       onClick={handleToggle}
       tooltip={<Text.Text level="small">{message}</Text.Text>}

@@ -13,3 +13,6 @@ import "github.com/synnaxlabs/x/gorp"
 
 // Migration re-encodes stored roles from MessagePack to Orc.
 var Migration = gorp.CodecMigration[Key, Role]("msgpack_to_orc")
+
+// NormalizeKeys re-keys Role rows stored under the pre-v0.54 key format.
+var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Role]("Role")

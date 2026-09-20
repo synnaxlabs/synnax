@@ -30,6 +30,7 @@ type Base<V extends Variant> = {
   time: TimeStamp;
 };
 
+/** A status before it is stamped with a key, a time, and a name. */
 export type Crude<
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
@@ -39,11 +40,9 @@ export type Crude<
 /**
  * Interface that errors may optionally implement to provide richer rendering when
  * passed to {@link fromException}. Implementers return a partial {@link Crude} spec
- * whose fields override the defaults derived from the underlying `Error`.
- *
- * This is a duck-typed contract: `fromException` checks for the presence of a
- * `toStatus` method via the `in` operator, so there is no need to import this
- * interface to use it.
+ * whose fields override the defaults derived from the underlying `Error`. This is a
+ * duck-typed contract: `fromException` checks for the presence of a `toStatus` method
+ * via the `in` operator, so there is no need to import this interface to use it.
  */
 export interface Custom {
   toStatus(): Partial<Crude<z.ZodRecord, "error">>;
@@ -73,12 +72,103 @@ const safeToStatus = (exc: unknown): z.infer<typeof customReturnZ> | undefined =
   return parsed.success ? parsed.data : undefined;
 };
 
+/** Details a status built by {@link fromException} carries. */
 export const exceptionDetailsSchema = z
   .object({
     stack: z.string(),
     error: z.instanceof(Error),
   })
   .and(record.unknownZ());
+
+// Bounds the clone check so it stays cheap even when errors are created in a tight
+// loop. An exhausted budget reports un-cloneable, which safely over-rebuilds.
+const CLONE_CHECK_BUDGET = 64;
+
+const isCloneableValue = (
+  v: unknown,
+  seen: Set<object>,
+  budget: { left: number },
+): boolean => {
+  if (--budget.left < 0) return false;
+  if (v == null) return true;
+  const t = typeof v;
+  if (t === "function" || t === "symbol") return false;
+  if (t !== "object") return true;
+  const o = v;
+  if (seen.has(o)) return true;
+  seen.add(o);
+  const values = (vals: unknown[]): boolean =>
+    vals.every((e) => isCloneableValue(e, seen, budget));
+  if (o instanceof Error)
+    return isCloneableValue(o.cause, seen, budget) && values(Object.values(o));
+  if (Array.isArray(o)) return values(o);
+  const proto = Object.getPrototypeOf(o);
+  if (proto === Object.prototype || proto === null) return values(Object.values(o));
+  if (o instanceof Date || o instanceof ArrayBuffer || ArrayBuffer.isView(o))
+    return true;
+  // Host objects (an Event, a DOM node) and exotic containers land here.
+  return false;
+};
+
+// Object.values can trip an enumerable getter that throws. Treat a throwing value
+// as not cloneable rather than throwing while already handling an error.
+const isCloneable = (v: unknown): boolean => {
+  try {
+    return isCloneableValue(v, new Set(), { left: CLONE_CHECK_BUDGET });
+  } catch {
+    return false;
+  }
+};
+
+// Returns a cloneable stand-in for an un-cloneable value.
+const cloneSafeValue = (v: unknown, depth: number): unknown => {
+  if (isCloneable(v)) return v;
+  if (v instanceof Error) return cloneSafeError(v, depth);
+  if (depth <= 0) return errors.fromUnknown(v).message;
+  try {
+    if (Array.isArray(v)) return v.map((e) => cloneSafeValue(e, depth - 1));
+    if (typeof v === "object" && v != null) {
+      const out: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(v))
+        if (typeof value !== "function" && typeof value !== "symbol")
+          out[key] = cloneSafeValue(value, depth - 1);
+      return out;
+    }
+  } catch {
+    // Tolerate throwing enumerable getters.
+  }
+  return errors.fromUnknown(v).message;
+};
+
+/**
+ * Returns err unchanged when it survives structured cloning. Otherwise rebuilds it
+ * with the same name, message, stack, and `type`, sanitizing un-cloneable fields and
+ * causes. Statuses cross the worker boundary, where an un-cloneable error kills the
+ * worker.
+ */
+const cloneSafeError = (err: Error, depth: number = 8): Error => {
+  if (isCloneable(err)) return err;
+  const safe = new Error(err.message);
+  safe.name = err.name;
+  safe.stack = err.stack;
+  const { type } = err as { type?: unknown };
+  if (typeof type === "string") (safe as { type?: string }).type = type;
+  try {
+    for (const [key, value] of Object.entries(err))
+      if (key !== "cause" && typeof value !== "function" && typeof value !== "symbol")
+        (safe as unknown as Record<string, unknown>)[key] = cloneSafeValue(
+          value,
+          depth - 1,
+        );
+  } catch {
+    // Tolerate throwing enumerable getters.
+  }
+  const { cause } = err;
+  if (cause !== undefined && depth > 0)
+    if (cause instanceof Error) safe.cause = cloneSafeError(cause, depth - 1);
+    else safe.cause = cloneSafeValue(cause, depth - 1);
+  return safe;
+};
 
 /** Flattens an error's cause chain into one readable line. */
 const causeChain = (err: Error): string | undefined => {
@@ -92,6 +182,10 @@ const causeChain = (err: Error): string | undefined => {
   return parts.join(": ");
 };
 
+/**
+ * Turns any thrown value into an error status, flattening its cause chain into the
+ * description and keeping the error and its stack in the details.
+ */
 export const fromException = (
   exc: unknown,
   message?: string,
@@ -105,7 +199,7 @@ export const fromException = (
       message != null
         ? [err.message, detail].filter((part) => part != null).join(": ")
         : detail,
-    details: { stack: err.stack ?? "", error: err },
+    details: { stack: err.stack ?? "", error: cloneSafeError(err) },
   };
   // Probe the original (pre-coercion) value so a non-Error throwable with a custom
   // `toStatus()` method still contributes its status fields.
@@ -122,14 +216,12 @@ export const fromException = (
 };
 
 /**
- * Converts an exception-shaped status (one built via {@link fromException}) back
- * into a thrown-shaped {@link Error}. The returned error carries the status's
- * wrapped message, copies `name` and `stack` from the inner error preserved on
- * `details.error`, and stashes the full status on `cause` for callers that need
- * the rich shape.
- *
- * Use this when bridging the status pipeline back into a context that expects
- * a real Error — typically before `throw`-ing across an error boundary.
+ * Converts an exception-shaped status (one built via {@link fromException}) back into a
+ * thrown-shaped {@link Error}. The returned error carries the status's wrapped message,
+ * copies `name` and `stack` from the inner error preserved on `details.error`, and
+ * stashes the full status on `cause` for callers that need the rich shape. Use this
+ * when bridging the status pipeline back into a context that expects a real Error —
+ * typically before `throw`-ing across an error boundary.
  */
 export const toError = (
   s: Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">>,
@@ -141,6 +233,7 @@ export const toError = (
   return err;
 };
 
+/** Stamps a {@link Crude} status with a fresh key and the current time. */
 export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
@@ -163,6 +256,7 @@ export const create = <
 export const detailsOf = (status: Status): record.Unknown | undefined =>
   (status as { details?: record.Unknown }).details;
 
+/** @returns the variant when it is one of the kept ones, else undefined. */
 export const keepVariants = (
   variant?: Variant,
   keep: Variant | Variant[] = [],
@@ -175,6 +269,7 @@ export const keepVariants = (
   return keep === variant ? variant : undefined;
 };
 
+/** @returns the variant unless it is one of the removed ones. */
 export const removeVariants = (
   variant?: Variant,
   remove: Variant | Variant[] = [],
@@ -187,6 +282,21 @@ export const removeVariants = (
   return remove === variant ? undefined : variant;
 };
 
+/** Rank of each variant by severity, most severe lowest. */
+const SEVERITY: Record<Variant, number> = {
+  error: 0,
+  warning: 1,
+  loading: 2,
+  success: 3,
+  info: 4,
+  disabled: 5,
+};
+
+/** @returns true when a is more severe than b. */
+export const moreSevere = (a: Variant, b: Variant): boolean =>
+  SEVERITY[a] < SEVERITY[b];
+
+/** Options for {@link toString}. */
 export interface ToStringOptions {
   includeTimestamp?: boolean;
   includeName?: boolean;
@@ -207,6 +317,7 @@ const renderDescription = (description: string): string => {
   }
 };
 
+/** Renders a status as readable text, pretty-printing a JSON description. */
 export const toString = <Details extends z.ZodType = z.ZodNever>(
   stat: Status<Details>,
   options: ToStringOptions = {},

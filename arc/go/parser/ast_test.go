@@ -160,6 +160,7 @@ var _ = Describe("AST Utilities", func() {
 			Entry("multiplication", "3 * 4"),
 			Entry("comparison", "a > b"),
 			Entry("logical or", "a or b"),
+			Entry("logical and", "a and b"),
 			Entry("unary minus", "-1"),
 			Entry("power", "2 ^ 3"),
 		)
@@ -187,7 +188,7 @@ var _ = Describe("AST Utilities", func() {
 			postfix := expr.LogicalOrExpression().LogicalAndExpression(0).
 				EqualityExpression(0).RelationalExpression(0).
 				AdditiveExpression(0).MultiplicativeExpression(0).
-				PowerExpression(0).UnaryExpression().PostfixExpression()
+				UnaryExpression(0).PowerExpression().PostfixExpression()
 			lit := parser.GetLiteralNode(postfix)
 			Expect(lit).NotTo(BeNil())
 			Expect(lit.GetText()).To(Equal("42"))

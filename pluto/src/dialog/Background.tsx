@@ -18,13 +18,14 @@ export interface BackgroundProps extends Flex.BoxProps {
 
 export const BACKGROUND_CLASS = CSS.BE("dialog", "bg");
 
+/** The backdrop behind a modal {@link Dialog}. It closes the dialog when clicked. */
 export const Background = ({
   children,
   visible,
   ...rest
 }: BackgroundProps): ReactElement => (
   <Flex.Box
-    className={CSS(BACKGROUND_CLASS, CSS.visible(visible))}
+    className={CSS.cls(BACKGROUND_CLASS, CSS.visible(visible))}
     empty
     align="center"
     {...rest}

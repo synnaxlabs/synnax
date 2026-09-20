@@ -13,8 +13,8 @@ import type z from "zod";
 
 import { Flux } from "@/flux";
 
-export const RESOURCE_NAME = "label";
-export const PLURAL_RESOURCE_NAME = "labels";
+const RESOURCE_NAME = "label";
+const PLURAL_RESOURCE_NAME = "labels";
 
 export type RetrieveQuery = label.RetrieveSingleParams;
 
@@ -85,9 +85,10 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     const updated = await client.labels.create(value());
     reset(updated);
   },
-  mountListeners: ({ client, query: { key }, reset }) =>
+  mountListeners: ({ client, query: { key }, reset, abandon }) =>
     client.labels.onChange(key, (result) => {
       if (query.isLive(result)) reset(result);
+      else if (query.Deleted.matches(result)) abandon();
     }),
 });
 
@@ -96,8 +97,10 @@ export type DeleteParams = label.Key | label.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
   verbs: verbs.DELETE,
-  update: async ({ client, data }) => {
-    await client.labels.delete(data);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.labels.delete(data, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });

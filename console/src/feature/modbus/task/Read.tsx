@@ -158,7 +158,7 @@ const channelName = (deviceName: string, channel: ReadChannel) => {
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
   const config = READ_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
-  return { name: "Modbus Read Task", type: READ_TYPE, config };
+  return { name: "Modbus read task", type: READ_TYPE, config };
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
@@ -243,7 +243,7 @@ export const useCreateRead = Task.createUseCreate({
 
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  title: "Modbus Read Task",
+  title: "Modbus read task",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateRead,
 });

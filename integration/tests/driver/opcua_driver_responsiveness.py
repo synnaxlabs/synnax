@@ -88,7 +88,6 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                 device=device.key,
                 sample_rate=self.SAMPLE_RATE,
                 stream_rate=self.STREAM_RATE,
-                data_saving=True,
                 channels=channels,
             )
             self.client.tasks.configure(task)
@@ -104,7 +103,6 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
             device=modbus_device.key,
             sample_rate=self.SAMPLE_RATE,
             stream_rate=self.STREAM_RATE,
-            data_saving=True,
             channels=channels,
         )
         self.client.tasks.configure(self.modbus_task)

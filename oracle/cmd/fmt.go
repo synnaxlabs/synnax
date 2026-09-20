@@ -12,11 +12,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -61,6 +63,16 @@ func runFmt(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+		chains, err := versions.Discover(repoRoot)
+		if err != nil {
+			return err
+		}
+		for _, chain := range chains {
+			for _, n := range chain.Numbers {
+				rel = append(rel, paths.EnsureOracleExtension(chain.FilePath(n)))
+			}
+		}
+		sort.Strings(rel)
 		files = make([]string, len(rel))
 		for i, r := range rel {
 			files[i] = paths.Resolve(r, repoRoot)

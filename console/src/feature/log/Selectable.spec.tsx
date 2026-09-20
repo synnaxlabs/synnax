@@ -8,16 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
+import { documentIn } from "@/session/window/testutil";
+import {
+  assertDefined,
+  createConsoleWrapper,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
+const roles = new RoleClients(client);
 
 describe("log/Selectable", () => {
   it("creates a log in the active project and opens its tab when clicked", async () => {
@@ -40,7 +47,37 @@ describe("log/Selectable", () => {
     const created = await client.logs.retrieve(key);
     expect(created.name).toBe("Log");
     await waitFor(() =>
-      expect(Session.Log.selectSliceState(store.getState()).logs[key]).toBeDefined(),
+      expect(
+        documentIn(Session.Log.selectSliceState(store.getState()), key),
+      ).toBeDefined(),
     );
+  });
+});
+
+describe("log/Selectable permissions", () => {
+  const findSelectable = () => {
+    const Selectable = Log.SELECTABLES.find(
+      (s) => s.type === log.TYPE_ONTOLOGY_ID.type,
+    );
+    assertDefined(Selectable, "no selectable registered for log");
+    return Selectable;
+  };
+
+  it("should offer the tile to an engineer", async () => {
+    const Selectable = findSelectable();
+    const { wrapper } = await createConsoleWrapper({
+      client: await roles.get("Engineer"),
+    });
+    render(<Selectable />, { wrapper });
+    expect(await screen.findByText("Log")).toBeTruthy();
+  });
+
+  it("should withhold the tile from a viewer", async () => {
+    const Selectable = findSelectable();
+    const { wrapper } = await createConsoleWrapper({
+      client: await roles.get("Viewer"),
+    });
+    const { container } = render(<Selectable />, { wrapper });
+    await waitFor(() => expect(container.textContent).toBe(""));
   });
 });

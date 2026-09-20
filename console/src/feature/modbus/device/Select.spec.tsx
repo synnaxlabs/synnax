@@ -26,7 +26,7 @@ describe("Modbus.Device.Select", () => {
       deviceKey: dev.key,
       client,
     });
-    expect(screen.getByText("Modbus Server")).toBeTruthy();
+    expect(screen.getByText("Modbus server")).toBeTruthy();
     const trigger = await findDialogTrigger();
     await waitFor(() => expect(trigger.textContent).toContain(dev.name));
   });

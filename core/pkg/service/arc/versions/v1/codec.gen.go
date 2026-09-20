@@ -37,11 +37,11 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		a.Mode = Mode(v)
+		a.Mode = Mode(rawV)
 	}
 	if err = a.Graph.DecodeOrc(r); err != nil {
 		return err

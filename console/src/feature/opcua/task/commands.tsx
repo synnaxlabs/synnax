@@ -15,14 +15,14 @@ import { Task } from "@/platform/task";
 
 const CreateReadCommand = Task.createCommand({
   key: "opc_ua_create_read_task",
-  name: "Create an OPC UA Read Task",
+  name: "Create OPC UA read task",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useCreateRead,
 });
 
 const CreateWriteCommand = Task.createCommand({
   key: "opc_ua_create_write_task",
-  name: "Create an OPC UA Write Task",
+  name: "Create OPC UA write task",
   icon: <Icon.Logo.OPCUA />,
   useOnSelect: useCreateWrite,
 });

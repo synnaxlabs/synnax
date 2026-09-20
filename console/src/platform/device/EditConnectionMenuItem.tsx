@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { device } from "@synnaxlabs/client";
+import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 
 import { type Tree } from "@/platform/tree";
 
@@ -23,8 +23,12 @@ export const EditConnectionMenuItem = ({
   onConfigure,
   selection: { ids },
 }: EditConnectionMenuItemProps) => {
-  if (ids.length !== 1) return null;
-  const handleClick = () => onConfigure(ids[0].key);
+  const first = ids.at(0);
+  const hasUpdatePermission = Access.useUpdateGranted(
+    first != null ? device.ontologyID(first.key) : device.TYPE_ONTOLOGY_ID,
+  );
+  if (first == null || ids.length !== 1 || !hasUpdatePermission) return null;
+  const handleClick = () => onConfigure(first.key);
   return (
     <Menu.Item itemKey="editConnection" onClick={handleClick}>
       <Icon.Edit />

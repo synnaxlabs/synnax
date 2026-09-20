@@ -64,7 +64,7 @@ export const schematicZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the schematic. */
   name: z.string().min(1, "name is required"),
-  /** snapshot indicates whether this schematic represents a saved snapshot state. */
+  /** snapshot is true if this schematic is an immutable snapshot copy. */
   snapshot: z.boolean().default(false),
   /** nodes contains all diagram nodes in the schematic. */
   nodes: nodeZ.array().default(() => []),

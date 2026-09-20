@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, panel, project, query } from "@synnaxlabs/client";
-import { type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
+import {
+  NotFoundError,
+  type ontology,
+  panel,
+  project,
+  query,
+} from "@synnaxlabs/client";
+import { Access, type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -68,8 +74,8 @@ export const useOpenTabs = (): OpenTabs => {
   const getSelectedProject = Session.Project.useGetSelected();
   const parentTabKey = Panel.useOptionalTabKey();
   const client = Synnax.use();
-  // insertIntoExisting adds the tabs to a panel that is already on the cluster (the
-  // scoped parent or the selected panel), so a remote dispatch is correct.
+  // insertIntoExisting adds the tabs to a panel that is already on the Core (the scoped
+  // parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = useCallback(
     (panelKey: panel.Key, params: panel.NewTab[], options?: OpenTabOptions) => {
       if (!query.isLive(client?.panels.getCached(panelKey)))
@@ -129,7 +135,7 @@ export const useOpenTabs = (): OpenTabs => {
       // that would race the create and fail with "panel not found", while the local
       // store update keeps focus optimistic.
       createPanel({
-        name: "New Panel",
+        name: "New panel",
         root: { variant: "leaf", tabs: params.map((p) => panel.tabZ.parse({ ...p })) },
         parent: project.ontologyID(getSelectedProject()),
       });
@@ -146,3 +152,31 @@ export const useOpenTab = (): OpenTab => {
     [openTabs],
   );
 };
+
+// The panel a gesture in this window acts on: the scoped one, else the selected one.
+const useActiveID = (): ontology.ID | null => {
+  const scoped = Panel.useOptionalKey();
+  const selected = Session.Panel.useSelectSelected();
+  const key = scoped ?? selected;
+  return key != null ? panel.ontologyID(key) : null;
+};
+
+/**
+ * Reports whether this window can open a tab. A tab landing in a panel that exists is
+ * an update on it; with no panel to land in, {@link useOpenTabs} mints one instead.
+ */
+export const useCanOpenTab = (): boolean => {
+  const id = useActiveID();
+  return Access.useGranted(
+    id != null
+      ? { objects: id, action: "update" }
+      : { objects: panel.TYPE_ONTOLOGY_ID, action: "create" },
+  );
+};
+
+/** Reports whether this window can restructure the panel it is acting on. */
+export const useCanEditActive = (): boolean =>
+  Access.useGranted({
+    objects: useActiveID() ?? panel.TYPE_ONTOLOGY_ID,
+    action: "update",
+  });

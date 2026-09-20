@@ -31,7 +31,7 @@ import (
 // per-field handling here.
 func synthesizeCreateTypes(c *analysisCtx) {
 	var created []resolution.Type
-	structNewSynthesized := false
+	var structNewSynthesized bool
 	for _, typ := range c.table.Types {
 		if typ.Namespace != c.namespace {
 			continue

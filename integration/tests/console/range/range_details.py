@@ -10,6 +10,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
+from console.schematic import Schematic
 from x import random_name
 
 NI_ANALOG_READ_CONFIG = {
@@ -44,12 +45,12 @@ class RangeDetails(ConsoleCase):
         self.schematic_name = f"SnapshotSchematic_{self.suffix}"
         self.task_name = f"SnapshotTask_{self.suffix}"
 
-        self.console.ranges.show_toolbar()
+        self.console.ranges.toolbar.show()
 
         self.console.ranges.create(self.parent_range_name, persisted=True)
 
         # Create a schematic for the first snapshot.
-        schematic = self.console.project.create_schematic(self.schematic_name)
+        schematic = self.console.pages.create(Schematic, self.schematic_name)
         schematic.close()
 
         # Create a sim task directly in Synnax
@@ -68,7 +69,7 @@ class RangeDetails(ConsoleCase):
         self.console.ranges.snapshot_to_active_range(
             self.task_name, self.parent_range_name
         )
-        self.console.project.delete_page(self.schematic_name)
+        self.console.pages.delete(self.schematic_name)
         self.schematic_snapshot_name = f"{self.schematic_name} (Snapshot)"
         self.task_snapshot_name = f"{self.task_name} (Snapshot)"
         self.console.notifications.close_all()
@@ -76,9 +77,9 @@ class RangeDetails(ConsoleCase):
         # Open parent overview BEFORE creating children. Child ranges show the
         # parent name in their explorer breadcrumb, so has_text filtering would
         # match children too if they already exist.
-        self.console.ranges.open_explorer()
-        self.console.ranges.open_overview_from_explorer(self.parent_range_name)
-        self.console.ranges.wait_for_overview(self.parent_range_name)
+        self.console.ranges.explorer.open()
+        self.console.ranges.overview.open(self.parent_range_name)
+        self.console.ranges.overview.wait_for(self.parent_range_name)
 
         parent = self.client.ranges.retrieve(name=self.parent_range_name)
         now = sy.TimeStamp.now()
@@ -88,7 +89,7 @@ class RangeDetails(ConsoleCase):
                 time_range=sy.TimeRange(now - sy.TimeSpan.HOUR, now + sy.TimeSpan.HOUR),
             )
 
-        self.console.ranges.wait_for_child_ranges(
+        self.console.ranges.overview.wait_for_child_ranges(
             [self.child_1_name, self.child_2_name, self.child_3_name],
             self.parent_range_name,
         )
@@ -96,9 +97,9 @@ class RangeDetails(ConsoleCase):
     def teardown(self) -> None:
         if self.console.layout.is_modal_open():
             self.page.keyboard.press("Escape")
-        self.console.ranges.open_explorer()
-        if self.console.ranges.exists_in_explorer(self.parent_range_name):
-            self.console.ranges.delete_from_explorer(self.parent_range_name)
+        self.console.ranges.explorer.open()
+        if self.console.ranges.explorer.exists(self.parent_range_name):
+            self.console.ranges.explorer.delete(self.parent_range_name)
         super().teardown()
 
     def run(self) -> None:
@@ -128,9 +129,9 @@ class RangeDetails(ConsoleCase):
         """Test renaming a child range via context menu."""
         self.log("Testing: Rename child range")
         new_name = f"RenamedChild1_{self.suffix}"
-        self.console.ranges.rename_child_range(self.child_1_name, new_name)
+        self.console.ranges.overview.rename_child_range(self.child_1_name, new_name)
 
-        assert self.console.ranges.child_range_exists(new_name), (
+        assert self.console.ranges.overview.child_range_exists(new_name), (
             f"Renamed child range '{new_name}' should exist"
         )
 
@@ -141,14 +142,14 @@ class RangeDetails(ConsoleCase):
     def test_favorite_multiple_child_ranges(self) -> None:
         """Test favoriting multiple child ranges via multi-select context menu."""
         self.log("Testing: Favorite multiple child ranges")
-        self.console.ranges.favorite_child_ranges(
+        self.console.ranges.overview.favorite_child_ranges(
             [self.child_1_name, self.child_2_name]
         )
 
-        assert self.console.ranges.exists_in_toolbar(self.child_1_name), (
+        assert self.console.ranges.toolbar.exists(self.child_1_name), (
             f"'{self.child_1_name}' should appear in toolbar after favoriting"
         )
-        assert self.console.ranges.exists_in_toolbar(self.child_2_name), (
+        assert self.console.ranges.toolbar.exists(self.child_2_name), (
             f"'{self.child_2_name}' should appear in toolbar after favoriting"
         )
 
@@ -156,7 +157,7 @@ class RangeDetails(ConsoleCase):
         """Test unfavoriting multiple child ranges via multi-select context menu."""
         self.log("Testing: Unfavorite multiple child ranges")
         self._open_parent_overview()
-        self.console.ranges.unfavorite_child_ranges(
+        self.console.ranges.overview.unfavorite_child_ranges(
             [self.child_1_name, self.child_2_name]
         )
 
@@ -164,7 +165,7 @@ class RangeDetails(ConsoleCase):
         """Test copying a link to a child range via context menu."""
         self.log("Testing: Copy link from child range")
         self._open_parent_overview()
-        self.console.ranges.copy_link_from_child_range(self.child_1_name)
+        self.console.ranges.overview.copy_child_range_link(self.child_1_name)
 
         clipboard = self.console.layout.read_clipboard()
         assert len(clipboard) > 0, "Clipboard should not be empty after copying link"
@@ -173,9 +174,9 @@ class RangeDetails(ConsoleCase):
         """Test deleting a single child range via context menu."""
         self.log("Testing: Delete child range")
         self._open_parent_overview()
-        self.console.ranges.delete_child_range(self.child_3_name)
+        self.console.ranges.overview.delete_child_range(self.child_3_name)
 
-        self.console.ranges.wait_for_child_range_removed(self.child_3_name)
+        self.console.ranges.overview.wait_for_child_range_removed(self.child_3_name)
 
         try:
             self.client.ranges.retrieve(name=self.child_3_name)
@@ -189,10 +190,12 @@ class RangeDetails(ConsoleCase):
         """Test deleting multiple child ranges via multi-select context menu."""
         self.log("Testing: Delete multiple child ranges")
         self._open_parent_overview()
-        self.console.ranges.delete_child_ranges([self.child_1_name, self.child_2_name])
+        self.console.ranges.overview.delete_child_ranges(
+            [self.child_1_name, self.child_2_name]
+        )
 
-        self.console.ranges.wait_for_child_range_removed(self.child_1_name)
-        self.console.ranges.wait_for_child_range_removed(self.child_2_name)
+        self.console.ranges.overview.wait_for_child_range_removed(self.child_1_name)
+        self.console.ranges.overview.wait_for_child_range_removed(self.child_2_name)
 
         for name in [self.child_1_name, self.child_2_name]:
             try:
@@ -205,12 +208,12 @@ class RangeDetails(ConsoleCase):
         """Test setting a new metadata key-value pair."""
         self.log("Testing: Set metadata")
         self._open_parent_overview()
-        self.console.ranges.set_metadata("test_key", "test_value")
+        self.console.ranges.overview.set_metadata("test_key", "test_value")
 
-        assert self.console.ranges.metadata_exists("test_key"), (
+        assert self.console.ranges.overview.metadata_exists("test_key"), (
             "Metadata 'test_key' should exist"
         )
-        value = self.console.ranges.get_metadata_value("test_key")
+        value = self.console.ranges.overview.get_metadata_value("test_key")
         assert value == "test_value", (
             f"Metadata value should be 'test_value', got '{value}'"
         )
@@ -218,9 +221,9 @@ class RangeDetails(ConsoleCase):
     def test_update_metadata_value(self) -> None:
         """Test updating the value of existing metadata."""
         self.log("Testing: Update metadata value")
-        self.console.ranges.update_metadata_value("test_key", "updated_value")
+        self.console.ranges.overview.update_metadata_value("test_key", "updated_value")
 
-        value = self.console.ranges.get_metadata_value("test_key")
+        value = self.console.ranges.overview.get_metadata_value("test_key")
         assert value == "updated_value", (
             f"Metadata value should be 'updated_value', got '{value}'"
         )
@@ -228,7 +231,7 @@ class RangeDetails(ConsoleCase):
     def test_copy_metadata_value(self) -> None:
         """Test copying a metadata value to the clipboard."""
         self.log("Testing: Copy metadata value")
-        self.console.ranges.copy_metadata_value("test_key")
+        self.console.ranges.overview.copy_metadata_value("test_key")
 
         clipboard = self.console.layout.read_clipboard()
         assert clipboard == "updated_value", (
@@ -239,10 +242,12 @@ class RangeDetails(ConsoleCase):
         """Test opening a URL metadata value in a new tab."""
         self.log("Testing: Open metadata link")
         self.console.notifications.close_all()
-        self.console.ranges.update_metadata_value("test_key", "https://synnaxlabs.com")
+        self.console.ranges.overview.update_metadata_value(
+            "test_key", "https://synnaxlabs.com"
+        )
 
         with self.page.expect_popup() as popup_info:
-            self.console.ranges.open_metadata_link("test_key")
+            self.console.ranges.overview.open_metadata_link("test_key")
 
         popup = popup_info.value
         assert "synnaxlabs.com" in popup.url, (
@@ -253,15 +258,15 @@ class RangeDetails(ConsoleCase):
     def test_delete_metadata(self) -> None:
         """Test deleting a metadata entry."""
         self.log("Testing: Delete metadata")
-        self.console.ranges.delete_metadata("test_key")
+        self.console.ranges.overview.delete_metadata("test_key")
 
-        self.console.ranges.wait_for_metadata_removed("test_key")
+        self.console.ranges.overview.wait_for_metadata_removed("test_key")
 
     def test_navigate_to_snapshot(self) -> None:
         """Test navigating to a snapshot by clicking on it."""
         self.log("Testing: Navigate to snapshot")
         self._open_parent_overview()
-        self.console.ranges.open_snapshot_from_overview(self.schematic_snapshot_name)
+        self.console.ranges.overview.open_snapshot(self.schematic_snapshot_name)
         self.console.layout.wait_for_tab(self.schematic_snapshot_name)
         self.console.layout.close_tab(self.schematic_snapshot_name)
 
@@ -269,7 +274,7 @@ class RangeDetails(ConsoleCase):
         """Test navigating to a task snapshot by clicking on it."""
         self.log("Testing: Navigate to task snapshot")
         self._open_parent_overview()
-        self.console.ranges.open_snapshot_from_overview(self.task_snapshot_name)
+        self.console.ranges.overview.open_snapshot(self.task_snapshot_name)
         self.console.layout.wait_for_tab(self.task_snapshot_name)
         self.console.layout.close_tab(self.task_snapshot_name)
 
@@ -277,17 +282,19 @@ class RangeDetails(ConsoleCase):
         """Test removing a schematic snapshot from the range details page."""
         self.log("Testing: Remove snapshot")
         self._open_parent_overview()
-        self.console.ranges.delete_snapshot_from_overview(self.schematic_snapshot_name)
-        self.console.ranges.wait_for_snapshot_removed(self.schematic_snapshot_name)
+        self.console.ranges.overview.delete_snapshot(self.schematic_snapshot_name)
+        self.console.ranges.overview.wait_for_snapshot_removed(
+            self.schematic_snapshot_name
+        )
 
     def test_remove_task_snapshot(self) -> None:
         """Test removing a task snapshot from the range details page."""
         self.log("Testing: Remove task snapshot")
         self._open_parent_overview()
-        self.console.ranges.delete_snapshot_from_overview(self.task_snapshot_name)
-        self.console.ranges.wait_for_snapshot_removed(self.task_snapshot_name)
+        self.console.ranges.overview.delete_snapshot(self.task_snapshot_name)
+        self.console.ranges.overview.wait_for_snapshot_removed(self.task_snapshot_name)
 
     def _open_parent_overview(self) -> None:
         """Navigate to the parent range overview if not already showing."""
-        if not self.console.ranges.is_overview_showing(self.parent_range_name):
+        if not self.console.ranges.overview.is_showing(self.parent_range_name):
             self.console.ranges.open_from_search(self.parent_range_name)

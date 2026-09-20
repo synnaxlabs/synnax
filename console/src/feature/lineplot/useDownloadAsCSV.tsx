@@ -12,8 +12,8 @@ import { Icon, LinePlot, Status } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { CSV } from "@/platform/csv";
-import { Session } from "@/session";
+import { Framer } from "@/platform/framer";
+import { Range } from "@/platform/range";
 
 // DownloadLine carries only the channels the CSV export pulls. CSV columns are
 // headed by the channel name, never the line's display label, so none is read.
@@ -28,7 +28,7 @@ export interface DownloadAsCSVParams {
 }
 
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
-  const openDownloadCSVModal = CSV.useDownloadModal();
+  const openDownloadCSVModal = Framer.useDownloadCSVModal();
   const handleError = Status.useErrorHandler();
   return useCallback(
     ({ timeRanges, lines, name }) => {
@@ -59,15 +59,16 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const ranges = LinePlot.useRanges({ key });
   const name = LinePlot.useName({ key });
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
-  const resolved = Session.Range.useSelectMultiple(rangeKeys);
+  const resolved = Range.useResolveMultiple(rangeKeys);
   return useCallback(() => {
     const now = TimeStamp.now();
     const lines: DownloadLine[] = derived.map((d) => ({
       channels: { x: d.xChannel, y: d.yChannel },
     }));
     const timeRanges = resolved.map((r) => {
-      if (r.variant === "static") return new TimeRange(r.timeRange);
-      return new TimeRange({ start: now.sub(r.span), end: now });
+      if (r.variant === "dynamic")
+        return new TimeRange({ start: now.sub(r.span), end: now });
+      return new TimeRange(r.timeRange);
     });
     downloadAsCSV({ timeRanges, lines, name });
   }, [downloadAsCSV, derived, resolved, name]);

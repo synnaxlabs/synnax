@@ -20,7 +20,7 @@ func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
 	muls := ctx.AST.AllMultiplicativeExpression()
-	resultType, err := compileMultiplicative(context.Child(ctx, muls[0]))
+	resultType, err := compileMultiplicative(ctx.Child(muls[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -54,7 +54,7 @@ func compileBinaryAdditive(
 			operandHint = elemType
 		}
 		operandType, err := compileMultiplicative(
-			context.Child(ctx, muls[i]).WithHint(operandHint),
+			ctx.Child(muls[i]).WithHint(operandHint),
 		)
 		if err != nil {
 			return types.Type{}, err
@@ -108,9 +108,9 @@ func compileBinaryAdditive(
 func compileBinaryMultiplicative(
 	ctx context.Context[parser.IMultiplicativeExpressionContext],
 ) (types.Type, error) {
-	pows := ctx.AST.AllPowerExpression()
+	unaries := ctx.AST.AllUnaryExpression()
 
-	resultType, err := compilePower(context.Child(ctx, pows[0]))
+	resultType, err := compileUnary(ctx.Child(unaries[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -140,14 +140,12 @@ func compileBinaryMultiplicative(
 		}
 	}
 
-	for i := 1; i < len(pows); i++ {
+	for i := 1; i < len(unaries); i++ {
 		operandHint := hintType
 		if firstIsSeries {
 			operandHint = elemType
 		}
-		operandType, err := compilePower(
-			context.Child(ctx, pows[i]).WithHint(operandHint),
-		)
+		operandType, err := compileUnary(ctx.Child(unaries[i]).WithHint(operandHint))
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -199,7 +197,7 @@ func compileBinaryRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
 	adds := ctx.AST.AllAdditiveExpression()
-	leftType, err := compileAdditive(context.Child(ctx, adds[0]))
+	leftType, err := compileAdditive(ctx.Child(adds[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -220,7 +218,7 @@ func compileBinaryRelational(
 		operandHint = elemType
 	}
 
-	_, err = compileAdditive(context.Child(ctx, adds[1]).WithHint(operandHint))
+	_, err = compileAdditive(ctx.Child(adds[1]).WithHint(operandHint))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -244,20 +242,20 @@ func compileBinaryRelational(
 		); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
 func compileBinaryEquality(
 	ctx context.Context[parser.IEqualityExpressionContext],
 ) (types.Type, error) {
 	rels := ctx.AST.AllRelationalExpression()
-	leftType, err := compileRelational(context.Child(ctx, rels[0]))
+	leftType, err := compileRelational(ctx.Child(rels[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -278,7 +276,7 @@ func compileBinaryEquality(
 		operandHint = elemType
 	}
 
-	_, err = compileRelational(context.Child(ctx, rels[1]).WithHint(operandHint))
+	_, err = compileRelational(ctx.Child(rels[1]).WithHint(operandHint))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -298,7 +296,7 @@ func compileBinaryEquality(
 		); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if hintType.Kind == types.KindString {
@@ -306,11 +304,11 @@ func compileBinaryEquality(
 		if op == "!=" {
 			ctx.Writer.WriteI32Eqz()
 		}
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }

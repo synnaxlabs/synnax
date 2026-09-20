@@ -24,7 +24,7 @@ const useClear = () => {
         const res = await confirm({
           message: "Are you sure you want to clear the Console's local storage?",
           description:
-            "This will remove all saved Console data that is not persisted within a Synnax Core.",
+            "This removes all saved Console data that is not stored in a Core.",
         });
         if (!res) return;
         store.dispatch(Session.Persist.clearState());

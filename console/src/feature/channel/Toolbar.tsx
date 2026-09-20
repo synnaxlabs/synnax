@@ -68,8 +68,8 @@ const EmptyContent = (): ReactElement => {
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
-      message="No channels."
-      action={hasCreatePermission ? "Create a channel" : undefined}
+      message="No channels"
+      action={hasCreatePermission ? "Create channel" : undefined}
       onClick={() => openCreate()}
     />
   );

@@ -21,6 +21,7 @@ import { HeaderShowcase } from "./HeaderShowcase";
 import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
 import { NoteShowcase } from "./NoteShowcase";
+import { PreviewShowcase } from "./PreviewShowcase";
 import { SchematicStyleShowcase } from "./SchematicStyleShowcase";
 import { SelectShowcase } from "./SelectShowcase";
 import { TabsShowcase } from "./TabsShowcase";
@@ -76,6 +77,13 @@ export const Showcase = () => {
       description:
         "Form input components including text fields, numbers, dates, and switches with validation support.",
       component: <InputShowcase />,
+    },
+    {
+      key: "preview",
+      title: "Preview",
+      description:
+        "Every previewable form component rendered side by side in normal and preview modes.",
+      component: <PreviewShowcase />,
     },
     {
       key: "select",

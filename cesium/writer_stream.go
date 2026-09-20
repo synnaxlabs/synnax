@@ -112,7 +112,7 @@ type streamWriter struct {
 	accumulatedErr  error
 	errSent         bool
 	virtual         *virtualWriter
-	updateDBControl func(ctx context.Context, u ControlUpdate) error
+	updateDBControl func(ctx context.Context, u ControlUpdate)
 	internal        []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
@@ -180,9 +180,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
-	if *w.AutoIndex {
-		cfg = w.propagateAuthority(cfg)
-	}
+	cfg = w.propagateAuthority(cfg)
 	var (
 		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
@@ -220,7 +218,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	}
 
 	if len(u.Transfers) > 0 {
-		return w.updateDBControl(ctx, u)
+		w.updateDBControl(ctx, u)
 	}
 	return nil
 }
@@ -349,7 +347,7 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 
 // propagateAuthority synchronizes each idxWriter's per-data-channel authority tracking
 // with the incoming SetAuthority config and augments cfg with an updated authority for
-// each implicit index whose referencing data channels' max may have changed. Broadcast
+// each written index whose referencing data channels' max may have changed. Broadcast
 // calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
 // broadcast across every channel in the writer, including indexes — but the tracked
 // state is refreshed so the next per-channel call computes correctly. Indexes the
@@ -392,7 +390,7 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		idx.setDataAuth(k, cfg.Authorities[i])
 	}
 	for _, idx := range w.internal {
-		if !idx.writingToIdx || idx.setAuthExplicit {
+		if !idx.writingToIdx || idx.setAuthExplicit || len(idx.dataAuth) == 0 {
 			continue
 		}
 		cfg.Channels = append(cfg.Channels, idx.idx.ch.Key)
@@ -438,16 +436,8 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(parentUpdate.Transfers) > 0 {
-		_ = w.updateDBControl(ctx, parentUpdate)
+		w.updateDBControl(ctx, parentUpdate)
 	}
-
-	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
-		// When digest writer closes, we do not (and cannot) send an update.
-		if _, digestErr := digestWriter.Close(); digestErr != nil {
-			return digestErr
-		}
-	}
-
 	return err
 }
 
@@ -502,10 +492,10 @@ type idxWriter struct {
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
 	// dataAuth tracks the most recent control authority for each data channel in this
-	// group (i.e. the keys of internal excluding the index itself). Populated only when
-	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
-	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
-	// authority as the max across its referencing data channels.
+	// group (i.e. the keys of internal excluding the index itself). Populated when
+	// writingToIdx is true; updated by SetAuthority calls so that maxDataAuth can
+	// recompute the written index's authority as the max across its referencing data
+	// channels.
 	dataAuth map[ChannelKey]xcontrol.Authority
 	// scanIdxPresent is a transient scratch field set during the single frame scan in
 	// streamWriter.autoStamp. True when the caller's frame already contains this
@@ -536,7 +526,7 @@ func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
 	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
 	// through NewSeriesV(stamps...) would perform two allocations instead of one.
-	series := telem.MakeSeries(telem.TimeStampT, int(w.scanDataLen))
+	series := telem.MakeSeries(telem.TimestampT, int(w.scanDataLen))
 	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
 	for j := range stamps {
 		stamps[j] = t0 + telem.TimeStamp(j)
@@ -568,8 +558,7 @@ func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
 }
 
 // maxDataAuth returns the maximum recorded authority across this group's data channels.
-// Returns 0 when the group has no data channels (which cannot occur for a writingToIdx
-// idxWriter under AutoIndex).
+// Returns 0 when the group has no data channels; propagateAuthority skips such groups.
 func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 	var max xcontrol.Authority
 	for _, a := range w.dataAuth {
@@ -648,7 +637,7 @@ func (w *idxWriter) write(
 			// series can be stamped with a real time range without consulting the
 			// index on disk.
 			idxTimeRange = telem.TimeRange{
-				Start: telem.ValueAt[telem.TimeStamp](series, 0),
+				Start: series.ValueAt[telem.TimeStamp](0),
 				End:   w.idx.highWaterMark + 1,
 			}
 			idxTimeRangeSet = true
@@ -889,10 +878,10 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 }
 
 func (w *idxWriter) updateHighWater(s telem.Series) error {
-	if s.DataType != telem.TimeStampT && s.DataType != telem.Int64T {
+	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
 		return invalidDataTypeError(w.idx.ch, s.DataType)
 	}
-	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, -1)
+	w.idx.highWaterMark = s.ValueAt[telem.TimeStamp](-1)
 	return nil
 }
 
@@ -919,8 +908,7 @@ func (w *idxWriter) resolveCommitEnd(
 }
 
 type virtualWriter struct {
-	internal  map[ChannelKey]*virtual.Writer
-	digestKey channel.Key
+	internal map[ChannelKey]*virtual.Writer
 }
 
 func (w virtualWriter) write(
@@ -956,15 +944,11 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 	var err error
 	update := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, chW := range w.internal {
-		// We do not want to clean up the digest channel since we want to use it to send
-		// updates for closures.
-		if chW.Channel.Key != w.digestKey {
-			transfer, closeErr := chW.Close()
-			if closeErr != nil {
-				err = errors.Join(err, closeErr)
-			} else if transfer.Occurred() {
-				update.Transfers = append(update.Transfers, transfer)
-			}
+		transfer, closeErr := chW.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
+		} else if transfer.Occurred() {
+			update.Transfers = append(update.Transfers, transfer)
 		}
 	}
 	return update, err

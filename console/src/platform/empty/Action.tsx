@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Text } from "@synnaxlabs/pluto";
+import { Flex, Text, Triggers } from "@synnaxlabs/pluto";
 
 export interface ActionProps
   extends
@@ -15,11 +15,14 @@ export interface ActionProps
     Pick<Text.TextProps, "onClick" | "level"> {
   message: string;
   action?: string;
+  /** Shortcut that runs the same action; rendered as a hint beside the link. */
+  trigger?: Triggers.Trigger;
 }
 
 export const Action = ({
   message,
   action,
+  trigger,
   onClick,
   direction,
   level,
@@ -43,6 +46,7 @@ export const Action = ({
           {action}
         </Text.Text>
       )}
+      {action && trigger && <Triggers.Text trigger={trigger} level="small" />}
     </Text.Text>
   </Flex.Box>
 );

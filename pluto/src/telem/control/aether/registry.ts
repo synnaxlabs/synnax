@@ -9,14 +9,14 @@
 
 import { type aether } from "@/aether/aether";
 import { Chip } from "@/telem/control/aether/chip";
+import { Colors } from "@/telem/control/aether/colors";
 import { Controller } from "@/telem/control/aether/controller";
 import { Indicator } from "@/telem/control/aether/indicator";
 import { Legend } from "@/telem/control/aether/legend";
-import { StateProvider } from "@/telem/control/aether/state";
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Controller.TYPE]: Controller,
-  [StateProvider.TYPE]: StateProvider,
+  [Colors.TYPE]: Colors,
   [Indicator.TYPE]: Indicator,
   [Chip.TYPE]: Chip,
   [Legend.TYPE]: Legend,

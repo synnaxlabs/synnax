@@ -37,6 +37,10 @@ export const KEY_ATTRIBUTE = "data-tab-key";
 /** KEY_SELECTOR matches the tab handles rendered by Tab via {@link KEY_ATTRIBUTE}. */
 export const KEY_SELECTOR = `[${KEY_ATTRIBUTE}]`;
 
+/**
+ * Props for {@link Frame}. Give `value`, `initialValue`, or `onChange` to make the
+ * frame own its selection; give none to bind it to an enclosing one.
+ */
 export interface FrameProps
   extends
     Omit<Flex.BoxProps, "onChange" | "onSelect">,
@@ -53,7 +57,7 @@ const Box = ({
   empty = true,
   ...rest
 }: FrameBoxProps): ReactElement => (
-  <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
+  <Flex.Box empty={empty} className={CSS.cls(CSS.B("tabs"), className)} {...rest}>
     {children}
   </Flex.Box>
 );
@@ -80,11 +84,9 @@ const Owned = ({
  * Frame is the root of a composed tabbed interface. When given a value, initialValue,
  * or onChange it owns the selected tab key (controlled or uncontrolled) and publishes
  * it to descendants through the Selection context, so only the tabs whose selected
- * state changes re-render.
- *
- * When given no selection at all, the Frame owns nothing: its tabs bind to the nearest
- * enclosing selection context, letting a composite like Panel.Mosaic distribute a
- * single selection across many frames.
+ * state changes re-render. When given no selection at all, the Frame owns nothing: its
+ * tabs bind to the nearest enclosing selection context, letting a composite like
+ * Panel.Mosaic distribute a single selection across many frames.
  */
 export const Frame = ({
   value,

@@ -128,7 +128,7 @@ func (e *benchIterEnv) createChannels(
 ) (*channel.Channel, []*channel.Channel) {
 	indexCh := &channel.Channel{
 		Name:     prefix + "_time",
-		DataType: telem.TimeStampT,
+		DataType: telem.TimestampT,
 		IsIndex:  true,
 	}
 	if err := e.channelWriter.Create(e.ctx, indexCh); err != nil {
@@ -392,7 +392,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			prefix := fmt.Sprintf("domain%d", numDomains)
 			indexCh := &channel.Channel{
 				Name:     prefix + "_time",
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			if err := env.channelWriter.Create(env.ctx, indexCh); err != nil {

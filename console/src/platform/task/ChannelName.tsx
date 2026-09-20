@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, type status } from "@synnaxlabs/client";
 import {
+  type channel,
+  channel as clientChannel,
+  NotFoundError,
+  type status,
+} from "@synnaxlabs/client";
+import {
+  Access,
   Channel,
   Errors,
   Flex,
@@ -22,6 +28,7 @@ import { location, type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
+import { useIsPreview } from "@/platform/task/Form";
 import { Session } from "@/session";
 
 export interface ChannelNameProps extends optional.Optional<
@@ -42,6 +49,8 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   // populated. Eventually we should strongly type the Form so we don't need to worry
   // about this.
   const onChange = Form.useField<string>(namePath, { optional: true })?.onChange;
+  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
+  const isPreview = useIsPreview();
   const { update } = Channel.useRename();
   const handleRename = useCallback(
     (name: string) => {
@@ -52,10 +61,11 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   );
   return (
     <Text.MaybeEditable
-      className={CSS(className, CSS.BE("task", "channel-name"))}
+      className={CSS.cls(className, CSS.BE("task", "channel-name"))}
       level="small"
       value={name}
       onChange={handleRename}
+      disabled={isPreview || (channel !== 0 && !canRename)}
       allowDoubleClick={false}
       overflow="ellipsis"
       {...rest}
@@ -106,12 +116,12 @@ const Message = ({ variant, message, description, children }: MessageProps) => (
 );
 
 const MISSING_DESCRIPTION =
-  "If it was deleted, a new channel will be created when the task is configured.";
+  "It may have been deleted. Configuring the task creates a new channel.";
 
 const describe = (error: Error): Pick<MessageProps, "message" | "description"> => {
   if (Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause))
     return {
-      message: "Channel not found. Was it deleted?",
+      message: "Channel not found",
       description: MISSING_DESCRIPTION,
     };
   return { message: "Failed to retrieve channel", description: error.message };

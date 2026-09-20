@@ -15,7 +15,7 @@ import { LinePlot as PlatformLinePlot } from "@/platform/lineplot";
 
 const CreateCommand = Command.create({
   key: "create_line_plot",
-  name: "Create a line plot",
+  name: "Create line plot",
   icon: <LinePlot.CreateIcon />,
   useOnSelect: PlatformLinePlot.useCreate,
   useVisible: () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID),

@@ -23,11 +23,13 @@ import (
 // migration leaves behind.
 var Migration = gorp.NewEntryMigration(
 	"range_color_nullable",
-	func(_ context.Context, old v0.Range) (Range, error) {
-		rng := Range{Key: old.Key, Name: old.Name, TimeRange: old.TimeRange}
+	func(ctx context.Context, old v0.Range) (Range, error) {
+		rng, err := autoMigrateRange(ctx, old)
+		if err != nil {
+			return Range{}, err
+		}
 		if !old.Color.IsZero() {
-			c := old.Color
-			rng.Color = &c
+			rng.Color = &old.Color
 		}
 		return rng, nil
 	},

@@ -29,7 +29,6 @@ export const List = ({
   const [indicator, setIndicator] = useState<IndicatorPosition>({ top: 0, height: 0 });
   const [initialized, setInitialized] = useState(false);
 
-  // Update indicator position when currentID changes
   useEffect(() => {
     if (!menuRef.current || !currentID) return;
     const activeItem = menuRef.current.querySelector<HTMLElement>(
@@ -66,12 +65,10 @@ export const List = ({
 
     const headingsObserver = new IntersectionObserver(setCurrent, observerOptions);
 
-    // Observe all the headings in the main page content.
     document
       .querySelectorAll("article :is(h6)")
       .forEach((h) => headingsObserver.observe(h));
 
-    // Stop observing when the component is unmounted.
     return () => headingsObserver.disconnect();
   }, [menuRef.current]);
 

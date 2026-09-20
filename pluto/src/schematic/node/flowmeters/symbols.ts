@@ -26,73 +26,73 @@ import { Venturi } from "@/schematic/node/flowmeters/Venturi";
 const general = createStatic({
   variant: "flowmeterGeneral",
   name: "General",
-  label: "General Flowmeter",
+  label: "General flowmeter",
   Primitive: General,
 });
 const electromagnetic = createStatic({
   variant: "flowmeterElectromagnetic",
   name: "Electromagnetic",
-  label: "Electromagnetic Flowmeter",
+  label: "Electromagnetic flowmeter",
   Primitive: Electromagnetic,
 });
 const variableArea = createStatic({
   variant: "flowmeterVariableArea",
-  name: "Variable Area",
-  label: "Variable Area Flowmeter",
+  name: "Variable area",
+  label: "Variable area flowmeter",
   Primitive: VariableArea,
 });
 const coriolis = createStatic({
   variant: "flowmeterCoriolis",
   name: "Coriolis",
-  label: "Coriolis Flowmeter",
+  label: "Coriolis flowmeter",
   Primitive: Coriolis,
 });
 const nozzle = createStatic({
   variant: "flowmeterNozzle",
   name: "Nozzle",
-  label: "Nozzle Flowmeter",
+  label: "Nozzle flowmeter",
   Primitive: Nozzle,
 });
 const venturi = createStatic({
   variant: "flowmeterVenturi",
   name: "Venturi",
-  label: "Venturi Flowmeter",
+  label: "Venturi flowmeter",
   Primitive: Venturi,
 });
 const ringPiston = createStatic({
   variant: "flowmeterRingPiston",
-  name: "Ring Piston",
-  label: "Ring Piston Flowmeter",
+  name: "Ring piston",
+  label: "Ring piston flowmeter",
   Primitive: RingPiston,
 });
 const positiveDisplacement = createStatic({
   variant: "flowmeterPositiveDisplacement",
-  name: "Positive Displacement",
-  label: "Positive Displacement Flowmeter",
+  name: "Positive displacement",
+  label: "Positive displacement flowmeter",
   Primitive: PositiveDisplacement,
 });
 const turbine = createStatic({
   variant: "flowmeterTurbine",
   name: "Turbine",
-  label: "Turbine Flowmeter",
+  label: "Turbine flowmeter",
   Primitive: Turbine,
 });
 const pulse = createStatic({
   variant: "flowmeterPulse",
   name: "Pulse",
-  label: "Pulse Flowmeter",
+  label: "Pulse flowmeter",
   Primitive: Pulse,
 });
 const floatSensor = createStatic({
   variant: "flowmeterFloatSensor",
-  name: "Float Sensor",
-  label: "Float Sensor Flowmeter",
+  name: "Float sensor",
+  label: "Float sensor flowmeter",
   Primitive: FloatSensor,
 });
 const orifice = createStatic({
   variant: "flowmeterOrifice",
   name: "Orifice",
-  label: "Orifice Flowmeter",
+  label: "Orifice flowmeter",
   Primitive: Orifice,
 });
 

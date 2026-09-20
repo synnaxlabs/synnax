@@ -25,7 +25,7 @@ export const StatusIndicator = ({
   tooltipLocation = "right",
 }: StatusIndicatorProps) => {
   const variant = status?.variant ?? "disabled";
-  const message = status?.message ?? "Device Status Unknown";
+  const message = status?.message ?? "Device status unknown";
   return (
     <Tooltip.Dialog location={tooltipLocation}>
       <Status.Summary variant={variant} hideIcon level="small" weight={450}>

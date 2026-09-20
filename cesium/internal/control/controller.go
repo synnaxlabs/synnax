@@ -132,11 +132,11 @@ func DefaultGateConfig[R Resource]() GateConfig[R] {
 // Validate implements config.Config.
 func (c GateConfig[R]) Validate() error {
 	v := validate.New("gate_config")
-	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
-	validate.NonZeroable(v, "time_range", c.TimeRange)
-	validate.NotNil(v, "open_resource", c.OpenResource)
-	validate.NotNil(v, "err_if_controlled", c.ErrIfControlled)
-	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
+	v.NotEmptyString("subject.key", c.Subject.Key)
+	v.NonZeroable("time_range", c.TimeRange)
+	v.NotNil("open_resource", c.OpenResource)
+	v.NotNil("err_if_controlled", c.ErrIfControlled)
+	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	return v.Error()
 }
 
@@ -161,8 +161,16 @@ func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
 func (c *Controller[R]) LeadingState() (state *State) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if len(c.regions) != 0 && len(c.regions[0].gates) != 0 {
-		state = c.regions[0].curr.state()
+	if len(c.regions) == 0 {
+		return nil
+	}
+	// gates and curr are guarded by the region's lock, not the controller's:
+	// release and update mutate them under it without holding c.mu.
+	first := c.regions[0]
+	first.RLock()
+	defer first.RUnlock()
+	if len(first.gates) != 0 {
+		state = first.curr.state()
 	}
 	return state
 }

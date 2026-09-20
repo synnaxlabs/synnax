@@ -10,7 +10,7 @@
 package v0
 
 // GorpKey implements gorp.Entry.
-func (s Status[Details]) GorpKey() string { return s.Key }
+func (s Status[Details]) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (Status[Details]) SetOptions() []any { return nil }

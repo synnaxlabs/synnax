@@ -39,17 +39,12 @@ export const Setpoint = ({
   const [currValue, setCurrValue] = useState(0);
   const symbolColor = symbolColorVar(color);
   const mergedStyle = useMemo(
-    () => ({ ...style, [CSS.var("symbol-color")]: symbolColor }),
+    () => ({ ...style, [CSS.variable("symbol-color")]: symbolColor }),
     [style, symbolColor],
   );
   return (
     <Primitive.Div
-      className={CSS(
-        CSS.B("setpoint"),
-        CSS.B("symbol-colored"),
-        symbolColor != null && CSS.M("colored"),
-        className,
-      )}
+      className={CSS.cls(CSS.B("setpoint"), CSS.B("symbol-colored"), className)}
       orientation={orientation}
       style={mergedStyle}
     >

@@ -15,8 +15,12 @@ import { Import } from "@/platform/import";
 import { Selector } from "@/platform/selector";
 
 export const Mosaic = (): ReactElement => {
-  const handleFileDrop = Import.useFileDrop({ ingestDirectory: Project.ingest });
+  const handleFileDrop = Import.useFileDrop({ importBundle: Project.importBundle });
+  const canImport = Import.useCanImport();
   return (
-    <Panel.Mosaic onCreateTab={Selector.createEmptyTab} onFileDrop={handleFileDrop} />
+    <Panel.Mosaic
+      onCreateTab={Selector.createEmptyTab}
+      onFileDrop={canImport ? handleFileDrop : undefined}
+    />
   );
 };

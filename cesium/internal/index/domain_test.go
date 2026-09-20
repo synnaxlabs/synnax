@@ -15,8 +15,8 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -303,7 +303,7 @@ var _ = Describe("Domain", func() {
 						db2 = MustSucceed(domain.Open(domain.Config{
 							FS:              fs,
 							Instrumentation: PanicLogger(),
-							FileSize:        telem.TimeStampT.Density().Size(3),
+							FileSize:        telem.TimestampT.Density().Size(3),
 						}))
 
 						w := MustSucceed(

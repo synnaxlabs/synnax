@@ -47,11 +47,12 @@ var _ = Describe("Channel", func() {
 							),
 						),
 						MatchError(validate.ErrValidation),
-					))
+					),
+				)
 			},
 		)
 		It("Should allow int64 series to pass as timestamps", func() {
-			c := channel.Channel{Key: 1, DataType: telem.TimeStampT, Name: "cat"}
+			c := channel.Channel{Key: 1, DataType: telem.TimestampT, Name: "cat"}
 			s := telem.NewSeriesV[int64](1, 2, 3)
 			Expect(c.ValidateSeries(s)).To(Succeed())
 		})
@@ -86,7 +87,7 @@ var _ = Describe("Channel", func() {
 				Key:      9995,
 				IsIndex:  true,
 				Index:    500,
-				DataType: telem.TimeStampT,
+				DataType: telem.TimestampT,
 			},
 		),
 		Entry("ChannelKey has no index",

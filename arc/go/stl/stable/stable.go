@@ -10,7 +10,7 @@
 package stable
 
 import (
-	"context"
+	"bytes"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -31,7 +31,7 @@ const (
 var (
 	memberDoc = doc.New(
 		doc.Paragraph(
-			"Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations.",
+			"Debounces a signal: emits a value only after it stays stable for the given duration, suppressing transient fluctuations.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "sensor -> stable.for{duration=5s} -> output"),
@@ -98,7 +98,7 @@ func WithNow(fn func() telem.TimeStamp) func(*Host) {
 	return func(h *Host) { h.now = fn }
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
@@ -128,8 +128,8 @@ var inputsSchema = zyn.Object(map[string]zyn.Schema{
 
 type forNode struct {
 	*node.State
-	value       *uint8
-	lastSent    *uint8
+	value       []byte
+	lastSent    []byte
 	now         func() telem.TimeStamp
 	inputIdx    int
 	duration    telem.TimeSpan
@@ -144,7 +144,7 @@ func (s *forNode) refreshDuration() {
 		return
 	}
 	if v := s.RefInput(i); v.Len() > 0 {
-		s.duration = telem.TimeSpan(telem.ValueAt[int64](v, -1))
+		s.duration = telem.TimeSpan(v.ValueAt[int64](-1))
 	}
 }
 
@@ -163,10 +163,10 @@ func (s *forNode) Next(ctx node.Context) {
 		inputTime := s.InputTime(s.inputIdx)
 		if inputData.Len() > 0 {
 			for i := int64(0); i < inputData.Len(); i++ {
-				currentValue := telem.ValueAt[uint8](inputData, int(i))
-				currentTime := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
-				if s.value == nil || *s.value != currentValue {
-					s.value = &currentValue
+				currentValue := inputData.At(int(i))
+				currentTime := inputTime.ValueAt[telem.TimeStamp](int(i))
+				if s.value == nil || !bytes.Equal(s.value, currentValue) {
+					s.value = bytes.Clone(currentValue)
 					s.lastChanged = currentTime
 					s.refreshDuration()
 				}
@@ -177,12 +177,13 @@ func (s *forNode) Next(ctx node.Context) {
 	if s.value == nil {
 		return
 	}
-	currentValue := *s.value
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
-		if s.lastSent == nil || *s.lastSent != currentValue {
-			*s.Output(0) = telem.NewSeriesV[uint8](currentValue)
-			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
-			s.lastSent = &currentValue
+		if s.lastSent == nil || !bytes.Equal(s.lastSent, s.value) {
+			out := s.Output(0)
+			out.Resize(1)
+			copy(out.Data, s.value)
+			*s.OutputTime(0) = telem.NewSeriesV(s.now())
+			s.lastSent = bytes.Clone(s.value)
 			ctx.MarkChanged(0)
 		}
 	}

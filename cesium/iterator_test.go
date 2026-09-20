@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -47,7 +48,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Key:      index1Key,
 						Name:     "Magellan",
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					}
 					data1 = cesium.Channel{
 						Key:      data1Key,
@@ -59,7 +60,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Key:      index2Key,
 						Name:     "DaGama",
 						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 					}
 					data2 = cesium.Channel{
 						Key:      data2Key,
@@ -381,7 +382,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Amundsen",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -464,7 +465,7 @@ var _ = Describe("Iterator Behavior", func() {
 							for _, s := range i.Value().RawSeries() {
 								got = append(
 									got,
-									telem.UnmarshalSeries[int64](s)...,
+									s.Unmarshal[int64]()...,
 								)
 							}
 						}
@@ -519,7 +520,7 @@ var _ = Describe("Iterator Behavior", func() {
 						for i.Prev(cesium.AutoSpan) {
 							var batch []int64
 							for _, s := range i.Value().RawSeries() {
-								vals := telem.UnmarshalSeries[int64](s)
+								vals := s.Unmarshal[int64]()
 								Expect(s.Alignment).To(Equal(
 									telem.NewAlignment(0, uint32(vals[0])),
 								))
@@ -617,7 +618,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Shackleton",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -673,7 +674,7 @@ var _ = Describe("Iterator Behavior", func() {
 						var got []int64
 						for i.Next(cesium.AutoSpan) {
 							for _, s := range i.Value().RawSeries() {
-								got = append(got, telem.UnmarshalSeries[int64](s)...)
+								got = append(got, s.Unmarshal[int64]()...)
 							}
 						}
 						Expect(i.Close()).To(Succeed())
@@ -760,7 +761,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      idxKey,
 							Name:     "Nansen",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      dataKey,
@@ -809,7 +810,7 @@ var _ = Describe("Iterator Behavior", func() {
 							for _, s := range i.Value().RawSeries() {
 								got = append(
 									got,
-									telem.UnmarshalSeries[int64](s)...,
+									s.Unmarshal[int64]()...,
 								)
 							}
 						}
@@ -837,7 +838,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      varIdxKey,
 							Name:     "var-iter-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      varDataKey,
@@ -908,9 +909,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					Expect(
-						telem.UnmarshalSeries[string](
-							i.Value().Get(varDataKey).Series[0],
-						),
+						i.Value().Get(varDataKey).Series[0].Unmarshal[string](),
 					).To(
 						Equal([]string{"s2", "s3", "s4", "s5"}),
 					)
@@ -924,9 +923,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekGE(105 * telem.SecondTS)).To(BeTrue())
 					Expect(i.Next(3 * telem.Second)).To(BeTrue())
 					Expect(
-						telem.UnmarshalSeries[string](
-							i.Value().Get(varDataKey).Series[0],
-						),
+						i.Value().Get(varDataKey).Series[0].Unmarshal[string](),
 					).To(
 						Equal([]string{"s5", "s6", "s7"}),
 					)
@@ -944,7 +941,7 @@ var _ = Describe("Iterator Behavior", func() {
 							Key:      mixIdx,
 							Name:     "mix-iter-idx",
 							IsIndex:  true,
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 						},
 						cesium.Channel{
 							Key:      fixedKey,
@@ -996,10 +993,10 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekFirst()).To(BeTrue())
 					Expect(i.Next(telem.TimeSpanMax)).To(BeTrue())
 					f := i.Value()
-					Expect(telem.UnmarshalSeries[string](f.Get(varKey).Series[0])).To(
+					Expect(f.Get(varKey).Series[0].Unmarshal[string]()).To(
 						Equal([]string{"s3", "s4", "s5", "s6"}),
 					)
-					Expect(telem.UnmarshalSeries[int64](f.Get(fixedKey).Series[0])).To(
+					Expect(f.Get(fixedKey).Series[0].Unmarshal[int64]()).To(
 						Equal([]int64{3, 4, 5, 6}),
 					)
 					Expect(i.Close()).To(Succeed())
@@ -1036,7 +1033,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(db.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Cook",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						i := MustSucceed(
@@ -1065,7 +1062,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Drake",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
@@ -1090,7 +1087,7 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(subDB.CreateChannel(ctx, cesium.Channel{
 							Key:      key,
 							Name:     "Polo",
-							DataType: telem.TimeStampT,
+							DataType: telem.TimestampT,
 							IsIndex:  true,
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
@@ -1113,7 +1110,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{
 						Key:      key,
 						Name:     "Zheng",
-						DataType: telem.TimeStampT,
+						DataType: telem.TimestampT,
 						IsIndex:  true,
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())

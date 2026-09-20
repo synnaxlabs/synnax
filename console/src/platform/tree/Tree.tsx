@@ -14,6 +14,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   context,
   Haul,
@@ -92,29 +93,44 @@ const itemRenderProp = Component.renderProp(
       [onDragStart, itemKey],
     );
     const loading = useLoading(itemKey);
+    // A drop re-parents the dragged items, so the grant is read on them and not on the
+    // destination. The item itself carries the same grant to leave its parent.
+    const client = Synnax.use();
+    const canMove = Access.useUpdateGranted(id);
 
     const [draggingOver, setDraggingOver] = useState(false);
 
     const onDropDrops = Haul.useDrop({
       type: Base.HAUL_TYPE,
       key: itemKey,
-      canDrop: useCallback(({ items: entities, source }) => {
-        const keys = entities.map((item) => item.key);
-        setDraggingOver(false);
-        return source.type === Base.HAUL_TYPE && !keys.includes(itemKey);
-      }, []),
+      canDrop: useCallback(
+        ({ items: entities, source }) => {
+          const keys = entities.map((item) => item.key);
+          setDraggingOver(false);
+          if (source.type !== Base.HAUL_TYPE || keys.includes(itemKey)) return false;
+          return Access.updateGranted({
+            client,
+            id: Base.filterHaulItems(entities).map(({ key }) =>
+              ontology.idZ.parse(key),
+            ),
+          });
+        },
+        [itemKey, client],
+      ),
       onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
       onDragOver: useCallback(() => setDraggingOver(true), []),
     });
 
-    if (resource == null) return null;
+    // The virtualizer has already reserved this row's slot. Rendering nothing would
+    // leave a gap, so the row stays empty until the resource loads.
+    if (resource == null) return <Base.Item {...rest} />;
 
     return (
       <Item
         {...rest}
         draggingOver={draggingOver}
         onDragStart={handleDragStart}
-        draggable
+        draggable={canMove}
         {...onDropDrops}
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}
@@ -190,7 +206,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
-  // inline rename) before the cluster delivers the real resource.
+  // inline rename) before the Core delivers the real resource.
   const placeholders = List.useMapData<string, ontology.Resource>();
 
   const getResourceByKey = useCallback(
@@ -203,15 +219,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (parent: ontology.ID, resources: ontology.Resource[]) => {
       const next = toNodes(resources, resolveItem);
       const nextKeys = new Set(next.map(({ key }) => key));
-      // A placeholder stands in only until the cluster delivers the real resource,
-      // which the answer carries.
+      // A placeholder stands in only until the Core delivers the real resource, which
+      // the answer carries.
       const settled = ontology
         .idToString(resources.map(({ id }) => id))
         .filter(placeholders.hasItem);
       if (settled.length > 0) placeholders.deleteItem(settled);
       // The answer is the authority on its parent's membership. A node it omits
-      // survives only while a placeholder backs it, since an optimistic row the
-      // cluster has not heard about yet cannot be in any answer.
+      // survives only while a placeholder backs it, since an optimistic row the Core
+      // has not heard about yet cannot be in any answer.
       const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
         ...prevChildren.filter(
           ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
@@ -492,9 +508,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
       const ids = keys.map((key) => ontology.parseID(key));
 
-      // TODO: we might be selecting two nodes that are not ascendants or
-      // descendants of the other ones. We need to change this function to
-      // implement recursion.
+      // TODO: we might be selecting two nodes that are not ascendants or descendants of
+      // the other ones. We need to change this function to implement recursion.
       const parent = Base.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we

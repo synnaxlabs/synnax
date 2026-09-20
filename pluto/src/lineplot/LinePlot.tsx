@@ -355,7 +355,7 @@ const YAxis = ({
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
-      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
       onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
@@ -415,7 +415,7 @@ const XAxis = ({
       {...dropProps}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
-      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
       showGrid={axisKey === "x1"}
       onLabelChange={handleLabelChange}
     >
@@ -501,8 +501,16 @@ export const LinePlot = ({
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
+  const loadingMessage = useMemo(() => {
+    if (resolvedRanges == null || resolvedRanges.size === 0) return undefined;
+    const spans = [...resolvedRanges.values()].map((r) =>
+      r.variant === "dynamic" ? r.span : r.timeRange.span,
+    );
+    const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
+    return `Fetching ${longest.toString()} of data`;
+  }, [resolvedRanges]);
   return (
-    <Frame ref={ref} {...rest}>
+    <Frame ref={ref} loadingMessage={loadingMessage} {...rest}>
       {xAxisKeys.map((xAxisKey) => (
         <XAxis
           key={xAxisKey}

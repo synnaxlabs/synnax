@@ -21,10 +21,39 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// EncodingJSON names the JSON serialization in an export request's encoding field.
+const EncodingJSON = "JSON"
+
+// JSONCodec is the encoder for the JSON serialization. It pretty-prints its output and
+// writes <, >, and & literally, since an exported file is read by a person and never
+// placed into an HTML document unparsed.
+var JSONCodec http.FileCodec = xjson.NewCodec(
+	xjson.WithIndent("  "),
+	xjson.WithoutHTMLEscaping(),
+)
+
+// ResolveEncoding returns the file encoder for the named export serialization. It
+// returns a validation error scoped to the "encoding" field when name is not a
+// supported serialization.
+func ResolveEncoding(name string) (encoding.FileEncoder, error) {
+	switch name {
+	case EncodingJSON:
+		return JSONCodec, nil
+	default:
+		return nil, validate.PathedError(
+			errors.Wrapf(validate.ErrValidation, "unsupported encoding %q", name),
+			"encoding",
+		)
+	}
+}
 
 // Service implements the ImEx API.
 type Service struct {

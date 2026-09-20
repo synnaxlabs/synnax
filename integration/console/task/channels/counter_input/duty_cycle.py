@@ -39,9 +39,9 @@ class DutyCycle(Counter):
             layout=layout,
             name=name,
             device=device,
-            chan_type="Duty Cycle",
+            chan_type="Duty cycle",
             **kwargs,
         )
 
-        self._configure_dropdown("Active Edge", edge)
-        self._configure_dropdown("Input Terminal", terminal)
+        self._configure_dropdown("Active edge", edge)
+        self._configure_dropdown("Input terminal", terminal)

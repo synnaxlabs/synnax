@@ -114,7 +114,7 @@ private:
         if (with_reset) {
             types::Param reset_output;
             reset_output.name = ir::default_output_param;
-            reset_output.type = types::Type{.kind = types::Kind::U8};
+            reset_output.type = types::Type{.kind = types::Kind::Bool};
 
             ir::Node reset_node;
             reset_node.key = "reset_signal";
@@ -123,7 +123,7 @@ private:
 
             types::Param reset_input;
             reset_input.name = "reset";
-            reset_input.type = types::Type{.kind = types::Kind::U8};
+            reset_input.type = types::Type{.kind = types::Kind::Bool};
             target_node.inputs.push_back(reset_input);
             ir.nodes[1] = target_node;
 
@@ -163,7 +163,9 @@ void write_reset(
     const std::vector<uint8_t> &data,
     const std::vector<int64_t> &timestamps
 ) {
-    reset.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
+    reset.output(
+        0
+    ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     reset.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 }
@@ -684,7 +686,7 @@ TEST(MathMaxTest, SumsAlignmentFromResetSignal) {
     );
 
     auto reset = setup.make_reset_node();
-    auto reset_series = x::telem::Series(static_cast<uint8_t>(0));
+    auto reset_series = x::telem::Series(false);
     reset_series.alignment = x::telem::Alignment(75);
     reset_series.time_range = x::telem::TimeRange(
         x::telem::TimeStamp(25 * sec),
@@ -1380,6 +1382,46 @@ TEST(MathArithmeticTest, HandlesMismatchedSeriesLengths) {
     ASSERT_NIL(node->next(ctx));
     auto checker = setup.make_target_node();
     EXPECT_EQ(checker.output(0)->size(), 5);
+    EXPECT_EQ(checker.output_time(0)->size(), 5);
+}
+
+TEST(MathArithmeticTest, TakesTimeFromTheLongerInput) {
+    BinaryTestSetup setup(types::Kind::F64, "add");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_f64(lhs, {1.0}, {99 * sec});
+    write_rhs_f64(rhs, {10.0, 20.0, 30.0}, {7 * sec, 8 * sec, 9 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->size(), 3);
+    ASSERT_EQ(checker.output_time(0)->size(), 3);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 7 * sec);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(2), 9 * sec);
+}
+
+TEST(MathArithmeticTest, KeepsLhsTimeWhenLengthsMatch) {
+    BinaryTestSetup setup(types::Kind::F64, "add");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_f64(lhs, {1.0, 2.0}, {sec, 2 * sec});
+    write_rhs_f64(rhs, {10.0, 20.0}, {7 * sec, 8 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    ASSERT_EQ(checker.output_time(0)->size(), 2);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), sec);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(1), 2 * sec);
 }
 
 TEST(MathArithmeticTest, NoChangeWhenInputsNotRefreshed) {
@@ -1428,6 +1470,28 @@ TEST(MathArithmeticTest, PropagatesAlignmentFromBothInputs) {
     EXPECT_EQ(checker.output(0)->time_range.start, x::telem::TimeStamp(5000));
     EXPECT_EQ(checker.output(0)->time_range.end, x::telem::TimeStamp(30000));
     EXPECT_EQ(checker.output_time(0)->alignment, x::telem::Alignment(150));
+}
+
+TEST(MathArithmeticTest, DoesNotMutateTheInputTimeSeries) {
+    BinaryTestSetup setup(types::Kind::F64, "add");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_f64(lhs, {1.0, 2.0}, {sec, 2 * sec});
+    write_rhs_f64(rhs, {10.0, 20.0}, {sec, 2 * sec});
+    lhs.output(0)->alignment = x::telem::Alignment(100);
+    rhs.output(0)->alignment = x::telem::Alignment(50);
+    lhs.output_time(0)->alignment = x::telem::Alignment(100);
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output_time(0)->alignment, x::telem::Alignment(150));
+    auto lhs_checker = setup.make_lhs_node();
+    EXPECT_EQ(lhs_checker.output_time(0)->alignment, x::telem::Alignment(100));
 }
 
 TEST(MathArithmeticTest, NegPropagatesAlignmentFromInput) {

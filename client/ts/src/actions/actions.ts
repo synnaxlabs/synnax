@@ -40,12 +40,11 @@ export interface ReduceAllResult<S, A> {
 }
 
 /**
- * Returns a plain-object snapshot of an Immer draft so the result is safe to
- * embed in an action stored on the undo stack. Returns non-draft inputs
- * unchanged. The non-draft passthrough exists because when a reducer applies
- * multiple actions in one produce(), an earlier action's wholesale
- * assignment leaves the slot as a plain object, so the next action would
- * crash if it called `current` unconditionally.
+ * Returns a plain-object snapshot of an Immer draft so the result is safe to embed in
+ * an action stored on the undo stack. Returns non-draft inputs unchanged. The non-draft
+ * passthrough exists because when a reducer applies multiple actions in one produce(),
+ * an earlier action's wholesale assignment leaves the slot as a plain object, so the
+ * next action would crash if it called `current` unconditionally.
  */
 export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
