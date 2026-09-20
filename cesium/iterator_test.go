@@ -718,7 +718,7 @@ var _ = Describe("Iterator Behavior", func() {
 							for _, s := range i.Value().RawSeries() {
 								batch = append(
 									batch,
-									telem.UnmarshalSeries[int64](s)...,
+									s.Unmarshal[int64]()...,
 								)
 							}
 							got = append(batch, got...)
