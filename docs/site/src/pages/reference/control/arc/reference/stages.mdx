@@ -36,9 +36,9 @@ stage pressurize {
     pressure > 500 => next
     abort_btn => abort
 
-    // Continuous flows (run every cycle)
-    true -> press_vlv_cmd
-    sensor -> controller{}
+    // Continuous flows
+    true -> press_vlv_cmd    // once on entry
+    sensor -> controller{}   // every sample
 }
 ```
 

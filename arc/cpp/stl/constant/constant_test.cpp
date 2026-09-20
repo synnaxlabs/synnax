@@ -106,7 +106,7 @@ TEST(ConstantModuleTest, ErrorsWhenValueMissing) {
 /// @brief Test that next() outputs the constant value on first call.
 TEST(ConstantTest, NextOutputsValueOnFirstCall) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
@@ -117,10 +117,10 @@ TEST(ConstantTest, NextOutputsValueOnFirstCall) {
     EXPECT_FLOAT_EQ(output->at<float>(0), 42.5f);
 }
 
-/// @brief Test that next() is a no-op on subsequent calls.
-TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
+/// @brief Test that next() re-emits the configured value on every call.
+TEST(ConstantTest, ReEmitsTheValueOnEveryNextCall) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -130,13 +130,13 @@ TEST(ConstantTest, NextNoOpsOnSubsequentCalls) {
     output->set(0, 999.0f);
 
     ASSERT_NIL(node.next(ctx));
-    EXPECT_FLOAT_EQ(output->at<float>(0), 999.0f);
+    EXPECT_FLOAT_EQ(output->at<float>(0), 42.5f);
 }
 
-/// @brief Test that reset() allows the value to be output again.
-TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
+/// @brief Test that reset() succeeds and the value is still emitted.
+TEST(ConstantTest, StillEmitsAfterReset) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -154,7 +154,7 @@ TEST(ConstantTest, ResetAllowsValueToBeOutputAgain) {
 /// @brief Test that float32 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Float32) {
     TestSetup setup(types::Kind::F32, 3.14f);
-    Constant node(setup.make_node(), 3.14f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 3.14f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -168,8 +168,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Float32) {
 /// @brief Test that int64 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Int64) {
     TestSetup setup(types::Kind::I64, static_cast<int64_t>(12345));
-    Constant
-        node(setup.make_node(), static_cast<int64_t>(12345), x::telem::INT64_T, true);
+    Constant node(setup.make_node(), static_cast<int64_t>(12345), x::telem::INT64_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -183,8 +182,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_Int64) {
 /// @brief Test that uint8 values are correctly cast and output.
 TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
     TestSetup setup(types::Kind::U8, static_cast<uint8_t>(255));
-    Constant
-        node(setup.make_node(), static_cast<uint8_t>(255), x::telem::UINT8_T, true);
+    Constant node(setup.make_node(), static_cast<uint8_t>(255), x::telem::UINT8_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -197,8 +195,7 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
 
 TEST(ConstantTest, ValueIsCastToCorrectDataType_Bool) {
     TestSetup setup(types::Kind::Bool, true);
-    Constant
-        node(setup.make_node(), static_cast<uint8_t>(1), x::telem::BOOLEAN_T, true);
+    Constant node(setup.make_node(), static_cast<uint8_t>(1), x::telem::BOOLEAN_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -231,7 +228,7 @@ TEST(ConstantModuleTest, CreatesBoolConstantFromJsonTrue) {
 /// @brief Test that is_output_truthy delegates to state.
 TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -242,7 +239,7 @@ TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
 /// @brief Test that mark_changed is called on first next().
 TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     std::vector<size_t> marked;
     auto ctx = make_context();
@@ -254,10 +251,10 @@ TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
     EXPECT_EQ(marked[0], 0);
 }
 
-/// @brief Test that mark_changed is not called on subsequent next() calls.
-TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
+/// @brief Test that mark_changed is called on every next() call.
+TEST(ConstantTest, MarksChangedOnEveryNextCall) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -268,13 +265,13 @@ TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
     node.next(ctx);
     node.next(ctx);
 
-    EXPECT_EQ(call_count, 0);
+    EXPECT_EQ(call_count, 2);
 }
 
 /// @brief Test that timestamp is populated on first next().
 TEST(ConstantTest, TimestampOutputOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -289,7 +286,7 @@ TEST(ConstantTest, TimestampOutputOnFirstNext) {
 TEST(ConstantTest, StringValueIsOutput) {
     const std::string val = "hello";
     TestSetup setup(types::Kind::String, val);
-    Constant node(setup.make_node(), val, x::telem::STRING_T, true);
+    Constant node(setup.make_node(), val, x::telem::STRING_T);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
@@ -300,11 +297,11 @@ TEST(ConstantTest, StringValueIsOutput) {
     EXPECT_EQ(output->at<std::string>(0), val);
 }
 
-/// @brief Test that reset() allows the string value to be output again.
-TEST(ConstantTest, StringResetAllowsValueToBeOutputAgain) {
+/// @brief Test that reset() succeeds and the string value is still emitted.
+TEST(ConstantTest, StringStillEmitsAfterReset) {
     const std::string val = "hello";
     TestSetup setup(types::Kind::String, val);
-    Constant node(setup.make_node(), val, x::telem::STRING_T, true);
+    Constant node(setup.make_node(), val, x::telem::STRING_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -317,10 +314,10 @@ TEST(ConstantTest, StringResetAllowsValueToBeOutputAgain) {
     EXPECT_EQ(output->at<std::string>(0), val);
 }
 
-/// @brief Test that reset produces a new timestamp on subsequent next().
-TEST(ConstantTest, ResetProducesNewTimestamp) {
+/// @brief Test that every next() produces a fresh timestamp.
+TEST(ConstantTest, ProducesAFreshTimestampOnEveryNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T, true);
+    Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
     node.next(ctx);
@@ -329,7 +326,6 @@ TEST(ConstantTest, ResetProducesNewTimestamp) {
     const auto &output_time = checker.output_time(0);
     const auto ts1 = output_time->at<int64_t>(0);
 
-    node.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
     node.next(ctx);
 

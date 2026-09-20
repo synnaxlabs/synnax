@@ -28,6 +28,7 @@ export const Symbol = ({
     options,
     color,
     inlineSize,
+    size,
     stalenessTimeout,
     stalenessColor,
   },
@@ -53,6 +54,7 @@ export const Symbol = ({
         options={options}
         color={color}
         inlineSize={inlineSize}
+        size={size}
         staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
       />
     </Grid.Grid>

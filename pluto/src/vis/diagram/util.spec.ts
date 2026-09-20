@@ -15,6 +15,7 @@ import {
   internalNodeBox,
   partitionNodeChanges,
   resolveEndpoint,
+  selectNodesScreenBounds,
 } from "@/vis/diagram/util";
 
 const node = (
@@ -136,5 +137,74 @@ describe("partitionNodeChanges", () => {
     expect(passthrough).toEqual([change]);
     expect(sizes).toHaveLength(0);
     expect(removed).toHaveLength(0);
+  });
+});
+
+const rect = (
+  el: Element,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void => {
+  el.getBoundingClientRect = () =>
+    ({
+      x,
+      y,
+      width,
+      height,
+      left: x,
+      top: y,
+      right: x + width,
+      bottom: y + height,
+    }) as DOMRect;
+};
+
+const appendNode = (root: HTMLElement): HTMLDivElement => {
+  const node = document.createElement("div");
+  node.className = "react-flow__node";
+  root.appendChild(node);
+  return node;
+};
+
+describe("selectNodesScreenBounds", () => {
+  it("spans every node and the content rendered outside a node's own box", () => {
+    const root = document.createElement("div");
+    const a = appendNode(root);
+    rect(a, 100, 100, 50, 50);
+    const label = a.appendChild(document.createElement("span"));
+    rect(label, 20, 110, 70, 20);
+    const b = appendNode(root);
+    rect(b, 300, 40, 50, 50);
+    expect(selectNodesScreenBounds(root)).toEqual(
+      box.construct({ x: 20, y: 40 }, { x: 350, y: 150 }),
+    );
+  });
+
+  it("ignores content without area", () => {
+    // jsdom lays nothing out, so an unstubbed child reports a zero rect at the origin,
+    // like hidden content would.
+    const root = document.createElement("div");
+    const a = appendNode(root);
+    rect(a, 100, 100, 50, 50);
+    a.appendChild(document.createElement("span"));
+    expect(selectNodesScreenBounds(root)).toEqual(
+      box.construct({ x: 100, y: 100 }, { x: 150, y: 150 }),
+    );
+  });
+
+  it("ignores content outside of nodes", () => {
+    const root = document.createElement("div");
+    const pane = root.appendChild(document.createElement("div"));
+    rect(pane, 0, 0, 1000, 1000);
+    const a = appendNode(root);
+    rect(a, 100, 100, 50, 50);
+    expect(selectNodesScreenBounds(root)).toEqual(
+      box.construct({ x: 100, y: 100 }, { x: 150, y: 150 }),
+    );
+  });
+
+  it("returns null when no node is rendered", () => {
+    expect(selectNodesScreenBounds(document.createElement("div"))).toBeNull();
   });
 });

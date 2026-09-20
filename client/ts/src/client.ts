@@ -202,16 +202,11 @@ export default class Synnax extends framer.Client {
     const unary = this.transport.unary;
     this.ontology = new ontology.Client({ unary, cache });
     this.labels = new label.Client({ unary, cache, ontology: this.ontology });
-    const statusesByTask = new query.LookupIndex<status.Key, status.Status>((s) => {
-      const task = status.detailsOf(s)?.task;
-      return typeof task === "string" ? task : null;
-    });
     this.statuses = new status.Client({
       unary,
       cache,
       ontology: this.ontology,
       labels: this.labels,
-      indexes: [statusesByTask],
     });
     this.ranges = new ranger.Client({
       framer: this,
@@ -246,7 +241,6 @@ export default class Synnax extends framer.Client {
       ranges: this.ranges,
       cache,
       statusStore: this.statuses.store,
-      statusesByTask,
     });
     this.racks = new rack.Client({
       unary,

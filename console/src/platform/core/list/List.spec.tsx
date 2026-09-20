@@ -11,10 +11,10 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Core } from "@/platform/core";
-import { renderCoreUI } from "@/platform/core/testutil";
+import { getCoreRow, renderCoreUI } from "@/platform/core/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { getBySelector, stubClipboardWriteText } from "@/testutil";
+import { getBySelector, getIconButton, stubClipboardWriteText } from "@/testutil";
 
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
@@ -57,6 +57,15 @@ describe("Core List", () => {
     });
   });
 
+  it("should offer Reload Console from a Core's context menu", async () => {
+    await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   // The link names the cluster, not the record, so it opens on a machine whose own
   // record for that cluster carries a different key.
   it("should copy a link to the Core's cluster from the context menu", async () => {
@@ -81,6 +90,19 @@ describe("Core List", () => {
     fireEvent.click(await screen.findByText("Copy link"));
     await waitFor(() => expect(screen.queryByText("Copy link")).toBeNull());
     expect(writeText).not.toHaveBeenCalled();
+  });
+
+  // The row is itself a select target, so the copy button must not switch Cores.
+  it("should copy a Core's address without selecting its row", async () => {
+    const writeText = stubClipboardWriteText();
+    const onChange = vi.fn();
+    const { container } = await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={onChange} />,
+      createCoreState([ALPHA, BRAVO], ALPHA.key),
+    );
+    fireEvent.click(getIconButton(getCoreRow(container, "Bravo"), "copy"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("localhost:9099"));
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("should remove a Core and reselect a sibling from the context menu", async () => {

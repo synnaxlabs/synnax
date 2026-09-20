@@ -77,12 +77,10 @@ var _ = Describe("MigrateData", func() {
 			{Key: "n1", Position: spatial.XY{X: 3, Y: 4}},
 		}))
 		Expect(doc.Graph.Edges).To(Equal(graph.Edges{{
-			Key: "e1",
-			Edge: ir.Edge{
-				Source: ir.Handle{Node: "n1", Param: "out"},
-				Target: ir.Handle{Node: "n2", Param: "in"},
-				Kind:   ir.EdgeKindContinuous,
-			},
+			Key:    "e1",
+			Source: ir.Handle{Node: "n1", Param: "out"},
+			Target: ir.Handle{Node: "n2", Param: "in"},
+			Kind:   ir.EdgeKindContinuous,
 		}}))
 		Expect(doc.Text).To(Equal(text.Text{Raw: "chan a = 1"}))
 		Expect(doc.Mode).To(Equal("graph"))
@@ -135,12 +133,10 @@ var _ = Describe("MigrateData", func() {
 		}))
 
 		Expect(doc.Graph.Edges).To(Equal(graph.Edges{{
-			Key: "e1",
-			Edge: ir.Edge{
-				Source: ir.Handle{Node: "n1", Param: "out"},
-				Target: ir.Handle{Node: "n2", Param: "in"},
-				Kind:   ir.EdgeKindContinuous,
-			},
+			Key:    "e1",
+			Source: ir.Handle{Node: "n1", Param: "out"},
+			Target: ir.Handle{Node: "n2", Param: "in"},
+			Kind:   ir.EdgeKindContinuous,
 		}}))
 	})
 

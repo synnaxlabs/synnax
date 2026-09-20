@@ -106,7 +106,8 @@ func (s *Service) allocateGateway(ctx context.Context, channels []Channel) error
 		ctx,
 		lo.Map(channels, func(c Channel, _ int) ts.Channel {
 			return c.Storage()
-		})...)
+		})...,
+	)
 }
 
 // allocateFree assigns keys to free channels from the bootstrapper's counter. Free

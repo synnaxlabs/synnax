@@ -123,7 +123,7 @@ export class Value
   private requestRender(): void {
     const { requestRender } = this.internal;
     if (requestRender != null) requestRender("layout");
-    else void this.render({});
+    else this.render({});
   }
 
   get box(): box.Box {
@@ -175,6 +175,8 @@ export class Value
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
     let value = telem.value();
     canvas.font = fontString;
+    canvas.textAlign = "left";
+    canvas.textBaseline = "alphabetic";
     const fontHeight = this.fontHeight;
     const isNegative = value[0] == "-";
     if (isNegative) value = value.slice(1);

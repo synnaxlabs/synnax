@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Reducer } from "@reduxjs/toolkit";
+import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { resetInitialState } from "@/configureStore";
-import { type StoreState, ZERO_SLICE_STATE } from "@/state";
+import { configureStore, resetInitialState } from "@/configureStore";
+import { MockRuntime } from "@/mock";
+import { reducer, type SliceState, type StoreState, ZERO_SLICE_STATE } from "@/state";
 import { INITIAL_WINDOW_STATE, MAIN_WINDOW, type WindowState } from "@/window";
 
 const stored = (props: Partial<WindowState> = {}): StoreState => ({
   drift: {
-    ...ZERO_SLICE_STATE,
+    ...deep.copy(ZERO_SLICE_STATE),
     windows: {
       [MAIN_WINDOW]: {
         ...INITIAL_WINDOW_STATE,
@@ -34,6 +37,34 @@ const restored = (props: Partial<WindowState> = {}): WindowState => {
   if (win == null) throw new Error("the main window did not survive the reset");
   return win;
 };
+
+const configure = async (state: StoreState) =>
+  await configureStore<StoreState>({
+    runtime: new MockRuntime(true, { key: MAIN_WINDOW }),
+    reducer: { drift: reducer as Reducer<SliceState> },
+    preloadedState: state,
+    enablePrerender: false,
+  });
+
+describe("configureStore", () => {
+  // Immer freezes the state on its own once a reducer runs, so this pins the contract
+  // rather than the construction-time freeze that closes the proxy-compare window.
+  it("should hand back state frozen through to the leaves", async () => {
+    const store = await configure(stored());
+    const state = store.getState();
+    expect(Object.isFrozen(state.drift)).toBe(true);
+    expect(Object.isFrozen(state.drift.windows[MAIN_WINDOW])).toBe(true);
+  });
+
+  // resetInitialState mutates the Drift slice in place, so the freeze has to follow it.
+  // Freezing first makes construction throw on the read-only assignment.
+  it("should reset transient state before freezing", async () => {
+    const store = await configure(stored({ minimized: true }));
+    const win = store.getState().drift.windows[MAIN_WINDOW];
+    expect(win.minimized).toBeUndefined();
+    expect(Object.isFrozen(win)).toBe(true);
+  });
+});
 
 describe("resetInitialState", () => {
   // A window comes back the way the user would open it fresh, not the way they left

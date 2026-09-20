@@ -44,6 +44,33 @@ describe("indexes", () => {
     expect(byGroup.get("c")).toEqual([]);
   });
 
+  it("should serve multiple values in a single get", () => {
+    const { table, byGroup } = newIndexed();
+    table.set([
+      { key: "k1", group: "a" },
+      { key: "k2", group: "b" },
+      { key: "k3", group: "c" },
+    ]);
+    expect(byGroup.get(["c", "a"])).toEqual([
+      { key: "k3", group: "c" },
+      { key: "k1", group: "a" },
+    ]);
+    expect(byGroup.get(["z"])).toEqual([]);
+    expect(byGroup.get([])).toEqual([]);
+  });
+
+  it("should return an entry once when a value repeats", () => {
+    const { table, byGroup } = newIndexed();
+    table.set([
+      { key: "k1", group: "a" },
+      { key: "k2", group: "a" },
+    ]);
+    expect(byGroup.get(["a", "a"])).toEqual([
+      { key: "k1", group: "a" },
+      { key: "k2", group: "a" },
+    ]);
+  });
+
   it("should relocate an entry whose indexed value changes", () => {
     const { table, byGroup } = newIndexed();
     table.set("k1", { key: "k1", group: "a" });

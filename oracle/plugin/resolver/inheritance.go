@@ -17,30 +17,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// HasFieldConflicts returns true if multiple parents have overlapping field names.
-// This is used to determine if language inheritance/embedding can be used safely.
-// When field names conflict across parents, inheritance cannot be used and fields
-// must be flattened into the child struct.
-func HasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
-	if len(extends) < 2 {
-		return false
-	}
-	seen := make(set.Set[string])
-	for _, ext := range extends {
-		parent, ok := ext.Resolve(table)
-		if !ok {
-			continue
-		}
-		for _, f := range resolution.UnifiedFields(parent, table) {
-			if seen.Contains(f.Name) {
-				return true
-			}
-			seen.Add(f.Name)
-		}
-	}
-	return false
-}
-
 // HasDomainOmissions reports whether the struct removes a domain inherited from a
 // parent field with `-@domain`. A removal cannot be expressed through language
 // inheritance/embedding — the embedded parent still carries the domain — so the
@@ -166,7 +142,6 @@ func sameTypeRef(a, b resolution.TypeRef) bool {
 // Returns false if:
 // - There are no parent types (Extends is empty)
 // - There are omitted fields (can't omit fields with inheritance)
-// - There are field name conflicts between parents
 // - A field removes an inherited domain (must flatten to drop it)
 // - A field restates an inherited field's type or optionality
 func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
@@ -182,7 +157,7 @@ func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 	if HasStructuralOverride(form, table) {
 		return false
 	}
-	return !HasFieldConflicts(form.Extends, table)
+	return true
 }
 
 // VariantBases splits the types a union variant would inherit, its union's bases

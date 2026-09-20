@@ -24,6 +24,8 @@ const x::errors::Error TEMPORARY_ERROR = driver::errors::TEMPORARY_HARDWARE_ERRO
 );
 /// @brief HTTP server unreachable (connection refused, DNS failure, or timeout).
 const x::errors::Error UNREACHABLE_ERROR = TEMPORARY_ERROR.sub("unreachable");
+/// @brief request dropped after an earlier request to the same device was unreachable.
+const x::errors::Error SKIPPED_ERROR = UNREACHABLE_ERROR.sub("skipped");
 
 /// @brief classifies an HTTP status code into an error.
 /// @param status_code the HTTP response status code.

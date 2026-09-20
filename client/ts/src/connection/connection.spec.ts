@@ -129,7 +129,7 @@ describe("connection", () => {
   describe("sendCheck", () => {
     it("should check the cluster", async () => {
       const info = await sendCheck(liveUnary());
-      expect(z.uuid().safeParse(info.clusterKey).success).toBe(true);
+      expect(z.validate(z.uuid(), info.clusterKey)).toBe(true);
       expect(info.nodeVersion).not.toEqual("");
     });
 
@@ -139,7 +139,7 @@ describe("connection", () => {
       const status = apply(config, { type: "check.success", info });
       expect(status.variant).toEqual("success");
       expect(status.details.authenticated).toBe(true);
-      expect(z.uuid().safeParse(status.details.clusterKey).success).toBe(true);
+      expect(z.validate(z.uuid(), status.details.clusterKey)).toBe(true);
     });
 
     it("should pull the server and client versions", async () => {
@@ -179,7 +179,7 @@ describe("connection", () => {
       });
       expect(status.variant).toEqual("success");
       expect(status.details.authenticated).toBe(true);
-      expect(z.uuid().safeParse(status.details.clusterKey).success).toBe(true);
+      expect(z.validate(z.uuid(), status.details.clusterKey)).toBe(true);
     });
 
     it("should include the client version in the check", async () => {

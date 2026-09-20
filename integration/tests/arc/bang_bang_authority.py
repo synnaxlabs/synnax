@@ -103,8 +103,10 @@ class BangBangAuthority(ArcCase):
 
     Verifies:
     1. Stale bb_start_cmd does NOT cause re-entry on yield activation.
-    2. A fresh bb_start_cmd DOES trigger re-entry from yield.
-    3. Both channels are symmetrically reclaimed at authority 220 after re-entry.
+    2. During yield, an external writer at authority 50 can command both valves,
+       since the per-channel release must cover the command channels' indexes.
+    3. A fresh bb_start_cmd DOES trigger re-entry from yield.
+    4. Both channels are symmetrically reclaimed at authority 220 after re-entry.
 
     Replicates the customer-reported pattern where one valve channel would
     release authority but the other would reclaim it."""
@@ -155,16 +157,57 @@ class BangBangAuthority(ArcCase):
         self.wait_for_eq("press_vlv_state", 0, timeout=0)
         self.log("Sequence correctly remains in yield")
 
-        # Phase 4: Send a fresh start command and verify re-entry on both channels.
-        self.log("Phase 4: Sending fresh start command and verifying re-entry...")
+        # Phase 4: During yield, an external writer at authority 50 must be able
+        # to command both valves. The per-channel release in the yield stage must
+        # cover the command channels' indexes, not just the command channels.
+        self.log("Phase 4: Verifying external writer takes control during yield...")
+        yield_writer = self.client.open_writer(
+            sy.TimeStamp.now(),
+            [
+                "press_vlv_cmd_time",
+                "press_vlv_cmd",
+                "vent_vlv_cmd_time",
+                "vent_vlv_cmd",
+            ],
+            50,
+            err_on_unauthorized=False,
+        )
+        try:
+            yield_writer.write(
+                {
+                    "press_vlv_cmd_time": sy.TimeStamp.now(),
+                    "press_vlv_cmd": 1,
+                    "vent_vlv_cmd_time": sy.TimeStamp.now(),
+                    "vent_vlv_cmd": 1,
+                }
+            )
+            self.wait_for_eq("press_vlv_state", 1, timeout=5)
+            self.wait_for_eq("vent_vlv_state", 1, timeout=5)
+            self.log("External writer commanded both valves during yield")
+            yield_writer.write(
+                {
+                    "press_vlv_cmd_time": sy.TimeStamp.now(),
+                    "press_vlv_cmd": 0,
+                    "vent_vlv_cmd_time": sy.TimeStamp.now(),
+                    "vent_vlv_cmd": 0,
+                }
+            )
+            self.wait_for_eq("press_vlv_state", 0, timeout=5)
+            self.wait_for_eq("vent_vlv_state", 0, timeout=5)
+        finally:
+            with self._try_to("close yield control writer"):
+                yield_writer.close()
+
+        # Phase 5: Send a fresh start command and verify re-entry on both channels.
+        self.log("Phase 5: Sending fresh start command and verifying re-entry...")
         self.writer.write("bb_start_cmd", 1)
         self.wait_for_eq("press_vlv_state", 1)
         self.log("Bang-bang re-entered start stage")
 
-        # Phase 5: Verify BOTH channels reclaimed authority after re-entry.
+        # Phase 6: Verify BOTH channels reclaimed authority after re-entry.
         # Open external writers at authority 50 — they should NOT be able to
         # take control since ARC reclaimed at 220 on both channels.
-        self.log("Phase 5: Verifying press_vlv_cmd reclaimed by ARC...")
+        self.log("Phase 6: Verifying press_vlv_cmd reclaimed by ARC...")
         self._press_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],

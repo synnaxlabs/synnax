@@ -29,8 +29,14 @@ export class LookupIndex<
     this.extract = extract;
   }
 
-  /** Returns the entries whose extracted index value equals the given value. */
-  get(value: IndexValue): Value[] {
+  /**
+   * Returns the entries whose extracted index value equals the given value. Given an
+   * array, returns the entries matching any of the values, in the order of the values
+   * and each entry once.
+   */
+  get(value: IndexValue | IndexValue[]): Value[] {
+    if (Array.isArray(value))
+      return Array.from(new Set(value)).flatMap((v) => this.get(v));
     const bucket = this.buckets.get(value);
     if (bucket == null) return [];
     return Array.from(bucket.values());

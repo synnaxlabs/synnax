@@ -42,7 +42,8 @@ Keys: %s
 ContextKey: %s
 State: %s
 FailureReason: %s,
-`, r.Key, r.ContextKey, r.State, r.FailureReason)
+`, r.Key, r.ContextKey, r.State, r.FailureReason,
+	)
 }
 
 type (

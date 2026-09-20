@@ -23,6 +23,18 @@ import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 
+// aria-selected is only valid on these roles. A generic row, or a plain listitem,
+// carries its selection in a nested control instead.
+const SELECTABLE_ROLES = new Set([
+  "columnheader",
+  "gridcell",
+  "option",
+  "row",
+  "rowheader",
+  "tab",
+  "treeitem",
+]);
+
 export interface ItemRenderProps<K extends record.Key = record.Key> {
   index: number;
   key: K;
@@ -103,9 +115,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       style={itemStyle}
       square={false}
       role={role}
-      // aria-selected is only valid on selectable roles (treeitem, option, ...),
-      // so a role-less generic row omits it.
-      aria-selected={role != null ? selected : undefined}
+      aria-selected={role != null && SELECTABLE_ROLES.has(role) ? selected : undefined}
       {...rest}
     />
   );

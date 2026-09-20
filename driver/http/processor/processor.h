@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
 #include <deque>
 #include <future>
 #include <mutex>
@@ -30,12 +31,19 @@
 #include "driver/http/types/types.h"
 
 namespace driver::http {
+/// @brief longest the event loop waits between checks while transfers are in flight.
+inline const auto DEFAULT_ACTIVE_POLL_TIMEOUT = 100 * x::telem::MILLISECOND;
+
 /// @brief background event loop that drives all HTTP I/O through a single persistent
 /// curl multi handle. Task threads submit Request objects and block on futures; the
 /// event loop thread owns all curl handles internally.
 class Processor {
 public:
-    Processor();
+    /// @param active_poll_timeout longest wait between checks while transfers are in
+    /// flight. Socket activity, new submissions, and libcurl timers end it early.
+    explicit Processor(
+        x::telem::TimeSpan active_poll_timeout = DEFAULT_ACTIVE_POLL_TIMEOUT
+    );
     ~Processor();
 
     Processor(const Processor &) = delete;
@@ -43,7 +51,8 @@ public:
 
     /// @brief executes requests in parallel and blocks until all complete.
     /// @param requests the requests to execute concurrently.
-    /// @returns per-request response/error pairs.
+    /// @returns per-request response/error pairs. A request queued behind an
+    /// unreachable device fails with SKIPPED_ERROR without being sent.
     [[nodiscard]] std::vector<std::pair<Response, x::errors::Error>>
     execute(const std::vector<Request> &requests);
 
@@ -60,6 +69,7 @@ private:
         std::string response_body;
         struct curl_slist *headers = nullptr;
         Method method;
+        std::string base_url;
         x::telem::TimeStamp start;
     };
 
@@ -68,6 +78,20 @@ private:
         const Request *request;
         std::promise<std::pair<Response, x::errors::Error>> promise;
     };
+
+    /// @brief in-flight count and requests waiting for a slot on one base URL.
+    struct Gate {
+        /// @brief cap taken from the first request that opened the gate.
+        std::size_t cap = 0;
+        std::size_t in_flight = 0;
+        std::deque<PendingRequest> waiting;
+        x::telem::TimeStamp last_reached{0};
+        /// @brief latest dispatch time among this batch's unreachable results.
+        x::telem::TimeStamp unreachable_start{0};
+        bool touched = false;
+    };
+
+    using GateIter = std::unordered_map<std::string, Gate>::iterator;
 
     /// @brief event loop that processes pending requests and drives curl transfers.
     void run();
@@ -79,11 +103,25 @@ private:
     /// @brief creates a curl easy handle from a Request and ActiveTransfer.
     static CURL *create_handle(const Request &req, ActiveTransfer &t);
 
+    /// @brief starts the transfer for p on gate, false if no curl handle could be made.
+    bool dispatch(PendingRequest &&p, Gate &gate);
+
+    /// @brief detaches and destroys a transfer's curl handle.
+    void finish(CURL *handle, const ActiveTransfer &t);
+
+    /// @brief fails every active and waiting request with err.
+    void fail_all(const x::errors::Error &err);
+
     CURLM *multi = nullptr;
+    int active_poll_timeout_ms;
     std::thread io_thread;
     std::atomic<bool> running{true};
     std::mutex queue_mutex;
     std::deque<PendingRequest> pending;
     std::unordered_map<CURL *, ActiveTransfer> active;
+    /// @brief per base URL gates, touched only by the event loop thread.
+    std::unordered_map<std::string, Gate> gates;
+    /// @brief gates with completions in the current batch.
+    std::vector<GateIter> touched;
 };
 }

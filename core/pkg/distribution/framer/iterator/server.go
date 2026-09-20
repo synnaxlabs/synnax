@@ -57,11 +57,11 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
-	plumber.SetSource[ts.IteratorRequest](pipe, "receiver", receiver)
-	plumber.SetSink[ts.IteratorResponse](pipe, "sender", sender)
-	plumber.MustConnect[ts.IteratorRequest](pipe, "receiver", "storage", 1)
-	plumber.MustConnect[ts.IteratorResponse](pipe, "storage", "sender", 1)
+	pipe.SetSegment[ts.IteratorRequest, ts.IteratorResponse]("storage", iter)
+	pipe.SetSource[ts.IteratorRequest]("receiver", receiver)
+	pipe.SetSink[ts.IteratorResponse]("sender", sender)
+	pipe.MustConnect[ts.IteratorRequest]("receiver", "storage", 1)
+	pipe.MustConnect[ts.IteratorResponse]("storage", "sender", 1)
 	pipe.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

@@ -75,8 +75,6 @@ export interface ClientConfig {
   cache: query.Cache;
   ontology: ontology.Client;
   labels: label.Client;
-  /** Secondary indexes to register on the status table. */
-  indexes?: Array<query.LookupIndex<Key, Status>>;
 }
 
 export class Client extends query.Retriever<
@@ -96,7 +94,6 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Status>({
       name: "statuses",
       fetch: async (keys) => await this.fetchThrough({ keys }),
-      indexes: cfg.indexes,
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, statusZ(), {
           value: (changed, prev) => {
@@ -288,11 +285,11 @@ export class Client extends query.Retriever<
     return { ...cached, labels };
   }
 
-  /** Writes a fetched status and its included label relationships. */
   private writeThrough(status: Status): void {
-    this.store.set(status);
+    if (this.store.status(status.key) === "tombstoned") return;
+    this.store.ingest(status);
     if (status.labels == null) return;
-    this.cfg.labels.store.set(status.labels);
+    this.cfg.labels.store.ingest(status.labels);
     const id = ontologyID(status.key);
     status.labels.forEach((l) => {
       const rel: ontology.Relationship = {
@@ -322,9 +319,7 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(key: Key): Promise<Status> {
-    const cached = this.store.get(key);
-    if (cached != null) return cached;
-    const statuses = await this.fetchThrough({ keys: [key] });
+    const statuses = await this.store.retrieve([key]);
     checkForMultipleOrNoResults("Status", key, statuses, true);
     return statuses[0];
   }

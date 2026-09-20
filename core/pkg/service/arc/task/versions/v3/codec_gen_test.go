@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v3"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -37,31 +36,26 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v3.Config{
-				PersistConfig: task.PersistConfig{
-					StartConfig: task.StartConfig{
-						KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:   false,
-					},
-					DataSavingDisabled: true,
-				},
-				ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-				Hash:          "test_5",
-				ExecutionMode: v3.ExecutionMode("AUTO"),
-				RtPriority:    8,
-				CPUAffinity:   9,
-				MemoryLocked:  true,
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				ArcKey:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Hash:               "test_5",
+				ExecutionMode:      v3.ExecutionMode("AUTO"),
+				RtPriority:         8,
+				CPUAffinity:        9,
+				MemoryLocked:       true,
 			}),
 			Entry("zero values", v3.Config{
-				PersistConfig: task.PersistConfig{
-					StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-					DataSavingDisabled: false,
-				},
-				ArcKey:        uuid.Nil,
-				Hash:          "",
-				ExecutionMode: v3.ExecutionMode(""),
-				RtPriority:    0,
-				CPUAffinity:   0,
-				MemoryLocked:  false,
+				Key:                uuid.Nil,
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				ArcKey:             uuid.Nil,
+				Hash:               "",
+				ExecutionMode:      v3.ExecutionMode(""),
+				RtPriority:         0,
+				CPUAffinity:        0,
+				MemoryLocked:       false,
 			}),
 		)
 	})
@@ -69,19 +63,15 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeConfig(b *testing.B) {
 	seed := v3.Config{
-		PersistConfig: task.PersistConfig{
-			StartConfig: task.StartConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:   false,
-			},
-			DataSavingDisabled: true,
-		},
-		ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-		Hash:          "test_5",
-		ExecutionMode: v3.ExecutionMode("AUTO"),
-		RtPriority:    8,
-		CPUAffinity:   9,
-		MemoryLocked:  true,
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		ArcKey:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+		Hash:               "test_5",
+		ExecutionMode:      v3.ExecutionMode("AUTO"),
+		RtPriority:         8,
+		CPUAffinity:        9,
+		MemoryLocked:       true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -101,19 +91,15 @@ func BenchmarkEncodeDecodeConfig(b *testing.B) {
 func FuzzDecodeConfig(f *testing.F) {
 	{
 		seed := v3.Config{
-			PersistConfig: task.PersistConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:   false,
-				},
-				DataSavingDisabled: true,
-			},
-			ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
-			Hash:          "test_5",
-			ExecutionMode: v3.ExecutionMode("AUTO"),
-			RtPriority:    8,
-			CPUAffinity:   9,
-			MemoryLocked:  true,
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			ArcKey:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Hash:               "test_5",
+			ExecutionMode:      v3.ExecutionMode("AUTO"),
+			RtPriority:         8,
+			CPUAffinity:        9,
+			MemoryLocked:       true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -123,16 +109,15 @@ func FuzzDecodeConfig(f *testing.F) {
 	}
 	{
 		seed := v3.Config{
-			PersistConfig: task.PersistConfig{
-				StartConfig:        task.StartConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}, AutoStart: false},
-				DataSavingDisabled: false,
-			},
-			ArcKey:        uuid.Nil,
-			Hash:          "",
-			ExecutionMode: v3.ExecutionMode(""),
-			RtPriority:    0,
-			CPUAffinity:   0,
-			MemoryLocked:  false,
+			Key:                uuid.Nil,
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			ArcKey:             uuid.Nil,
+			Hash:               "",
+			ExecutionMode:      v3.ExecutionMode(""),
+			RtPriority:         0,
+			CPUAffinity:        0,
+			MemoryLocked:       false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

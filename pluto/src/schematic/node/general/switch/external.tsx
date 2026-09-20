@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
+
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -19,6 +21,7 @@ export * from "@/schematic/node/general/switch/config";
 
 export const defaultConfig = (): Config => ({
   variant: VARIANT,
+  color: color.ZERO,
   label: Label.defaultConfig("Switch"),
   ...Primitive.ZERO_PROPS,
   ...Toggle.ZERO_TOGGLE_DEFAULTS,

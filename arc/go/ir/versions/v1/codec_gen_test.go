@@ -42,29 +42,25 @@ var _ = Describe("Codec", func() {
 					{
 						Name: "test_5",
 						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_8",
-										Type:  types.Type{},
-										Value: any(map[string]any{"key_10": "value_10"}),
-									},
+							Inputs: []types.Param{
+								{
+									Name:  "test_8",
+									Type:  types.Type{},
+									Value: any(map[string]any{"key_10": "value_10"}),
 								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_12",
-										Type:  types.Type{},
-										Value: any(map[string]any{"key_14": "value_14"}),
-									},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_12",
+									Type:  types.Type{},
+									Value: any(map[string]any{"key_14": "value_14"}),
 								},
 							},
 							Kind: types.Kind(0),
 							Name: "test_16",
 							Elem: new(types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_21",
 								Elem:          new(types.Type{}),
@@ -78,10 +74,8 @@ var _ = Describe("Codec", func() {
 								Name:       "test_29",
 							}),
 							Constraint: new(types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_34",
 								Elem:          new(types.Type{}),
@@ -98,29 +92,25 @@ var _ = Describe("Codec", func() {
 					{
 						Name: "test_42",
 						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_45",
-										Type:  types.Type{},
-										Value: any(map[string]any{"key_47": "value_47"}),
-									},
+							Inputs: []types.Param{
+								{
+									Name:  "test_45",
+									Type:  types.Type{},
+									Value: any(map[string]any{"key_47": "value_47"}),
 								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_49",
-										Type:  types.Type{},
-										Value: any(map[string]any{"key_51": "value_51"}),
-									},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_49",
+									Type:  types.Type{},
+									Value: any(map[string]any{"key_51": "value_51"}),
 								},
 							},
 							Kind: types.Kind(0),
 							Name: "test_53",
 							Elem: new(types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_58",
 								Elem:          new(types.Type{}),
@@ -134,10 +124,8 @@ var _ = Describe("Codec", func() {
 								Name:       "test_66",
 							}),
 							Constraint: new(types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
+								Inputs:        []types.Param{{}},
+								Outputs:       []types.Param{{}},
 								Kind:          types.Kind(0),
 								Name:          "test_71",
 								Elem:          new(types.Type{}),
@@ -181,29 +169,25 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 			{
 				Name: "test_5",
 				Type: types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name:  "test_8",
-								Type:  types.Type{},
-								Value: any(map[string]any{"key_10": "value_10"}),
-							},
+					Inputs: []types.Param{
+						{
+							Name:  "test_8",
+							Type:  types.Type{},
+							Value: any(map[string]any{"key_10": "value_10"}),
 						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_12",
-								Type:  types.Type{},
-								Value: any(map[string]any{"key_14": "value_14"}),
-							},
+					},
+					Outputs: []types.Param{
+						{
+							Name:  "test_12",
+							Type:  types.Type{},
+							Value: any(map[string]any{"key_14": "value_14"}),
 						},
 					},
 					Kind: types.Kind(0),
 					Name: "test_16",
 					Elem: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
+						Inputs:        []types.Param{{}},
+						Outputs:       []types.Param{{}},
 						Kind:          types.Kind(0),
 						Name:          "test_21",
 						Elem:          new(types.Type{}),
@@ -217,10 +201,8 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 						Name:       "test_29",
 					}),
 					Constraint: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
+						Inputs:        []types.Param{{}},
+						Outputs:       []types.Param{{}},
 						Kind:          types.Kind(0),
 						Name:          "test_34",
 						Elem:          new(types.Type{}),
@@ -237,29 +219,25 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 			{
 				Name: "test_42",
 				Type: types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name:  "test_45",
-								Type:  types.Type{},
-								Value: any(map[string]any{"key_47": "value_47"}),
-							},
+					Inputs: []types.Param{
+						{
+							Name:  "test_45",
+							Type:  types.Type{},
+							Value: any(map[string]any{"key_47": "value_47"}),
 						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_49",
-								Type:  types.Type{},
-								Value: any(map[string]any{"key_51": "value_51"}),
-							},
+					},
+					Outputs: []types.Param{
+						{
+							Name:  "test_49",
+							Type:  types.Type{},
+							Value: any(map[string]any{"key_51": "value_51"}),
 						},
 					},
 					Kind: types.Kind(0),
 					Name: "test_53",
 					Elem: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
+						Inputs:        []types.Param{{}},
+						Outputs:       []types.Param{{}},
 						Kind:          types.Kind(0),
 						Name:          "test_58",
 						Elem:          new(types.Type{}),
@@ -273,10 +251,8 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 						Name:       "test_66",
 					}),
 					Constraint: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
+						Inputs:        []types.Param{{}},
+						Outputs:       []types.Param{{}},
 						Kind:          types.Kind(0),
 						Name:          "test_71",
 						Elem:          new(types.Type{}),
@@ -318,29 +294,25 @@ func FuzzDecodeFunction(f *testing.F) {
 				{
 					Name: "test_5",
 					Type: types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_8",
-									Type:  types.Type{},
-									Value: any(map[string]any{"key_10": "value_10"}),
-								},
+						Inputs: []types.Param{
+							{
+								Name:  "test_8",
+								Type:  types.Type{},
+								Value: any(map[string]any{"key_10": "value_10"}),
 							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_12",
-									Type:  types.Type{},
-									Value: any(map[string]any{"key_14": "value_14"}),
-								},
+						},
+						Outputs: []types.Param{
+							{
+								Name:  "test_12",
+								Type:  types.Type{},
+								Value: any(map[string]any{"key_14": "value_14"}),
 							},
 						},
 						Kind: types.Kind(0),
 						Name: "test_16",
 						Elem: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_21",
 							Elem:          new(types.Type{}),
@@ -354,10 +326,8 @@ func FuzzDecodeFunction(f *testing.F) {
 							Name:       "test_29",
 						}),
 						Constraint: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_34",
 							Elem:          new(types.Type{}),
@@ -374,29 +344,25 @@ func FuzzDecodeFunction(f *testing.F) {
 				{
 					Name: "test_42",
 					Type: types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_45",
-									Type:  types.Type{},
-									Value: any(map[string]any{"key_47": "value_47"}),
-								},
+						Inputs: []types.Param{
+							{
+								Name:  "test_45",
+								Type:  types.Type{},
+								Value: any(map[string]any{"key_47": "value_47"}),
 							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_49",
-									Type:  types.Type{},
-									Value: any(map[string]any{"key_51": "value_51"}),
-								},
+						},
+						Outputs: []types.Param{
+							{
+								Name:  "test_49",
+								Type:  types.Type{},
+								Value: any(map[string]any{"key_51": "value_51"}),
 							},
 						},
 						Kind: types.Kind(0),
 						Name: "test_53",
 						Elem: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_58",
 							Elem:          new(types.Type{}),
@@ -410,10 +376,8 @@ func FuzzDecodeFunction(f *testing.F) {
 							Name:       "test_66",
 						}),
 						Constraint: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
+							Inputs:        []types.Param{{}},
+							Outputs:       []types.Param{{}},
 							Kind:          types.Kind(0),
 							Name:          "test_71",
 							Elem:          new(types.Type{}),

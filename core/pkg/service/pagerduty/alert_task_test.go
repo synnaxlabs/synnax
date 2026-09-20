@@ -63,7 +63,7 @@ var _ = Describe("AlertTask", func() {
 	) {
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		w := status.NewWriter[any](statusSvc, tx)
+		w := statusSvc.NewWriter(tx)
 		Expect(w.Set(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "Test Source",
@@ -121,7 +121,7 @@ var _ = Describe("AlertTask", func() {
 					Key:  "cmd-again",
 				})).To(Succeed())
 				var stat task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
@@ -320,7 +320,7 @@ var _ = Describe("AlertTask", func() {
 
 				tx := db.OpenTx()
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
-				w := status.NewWriter[any](statusSvc, tx)
+				w := statusSvc.NewWriter(tx)
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key:         "payload-test",
 					Name:        "Temperature Sensor",

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { algoliasearch } from "algoliasearch";
-import * as dotenv from "dotenv";
 import fs from "fs";
 import matter from "gray-matter";
 import path from "path";
@@ -16,8 +15,6 @@ import process from "process";
 import { remark } from "remark";
 import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
-
-dotenv.config();
 
 const client = algoliasearch(
   process.env.DOCS_ALGOLIA_APP_ID ?? "",

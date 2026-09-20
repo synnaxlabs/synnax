@@ -111,9 +111,9 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 // Validate implements xconfig.Config.
 func (c ServiceConfig[E]) Validate() error {
 	v := validate.New("task.config")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotEmptyString(v, "type", c.Type)
-	validate.NotNil(v, "set_entry_key", c.SetEntryKey)
+	v.NotNil("db", c.DB)
+	v.NotEmptyString("type", c.Type)
+	v.NotNil("set_entry_key", c.SetEntryKey)
 	return v.Error()
 }
 

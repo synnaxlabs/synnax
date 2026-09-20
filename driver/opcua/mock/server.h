@@ -14,6 +14,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <string>
 #include <thread>
 
@@ -26,6 +27,9 @@
 #include "driver/opcua/types/types.h"
 
 namespace mock {
+/// @brief the length of the TestDoubleArray node, which array mode tasks must match.
+constexpr std::size_t DOUBLE_ARRAY_SIZE = 5;
+
 struct TestNode {
     std::int32_t ns;
     std::string node_id;
@@ -183,6 +187,17 @@ struct ServerConfig {
         UA_Variant_init(&double_val);
         UA_Variant_setScalarCopy(&double_val, &double_data, &UA_TYPES[UA_TYPES_DOUBLE]);
 
+        // double array node
+        UA_Double double_array_data[DOUBLE_ARRAY_SIZE] = {1.0, 2.0, 3.0, 4.0, 5.0};
+        UA_Variant double_array_val;
+        UA_Variant_init(&double_array_val);
+        UA_Variant_setArrayCopy(
+            &double_array_val,
+            double_array_data,
+            DOUBLE_ARRAY_SIZE,
+            &UA_TYPES[UA_TYPES_DOUBLE]
+        );
+
         // guid node
         UA_Variant guid_val;
         UA_Variant_init(&guid_val);
@@ -219,6 +234,11 @@ struct ServerConfig {
              &UA_TYPES[UA_TYPES_DOUBLE],
              double_val,
              "Test Double Node"},
+            {1,
+             "TestDoubleArray",
+             &UA_TYPES[UA_TYPES_DOUBLE],
+             double_array_val,
+             "Test Double Array Node"},
             {1, "TestGuid", &UA_TYPES[UA_TYPES_GUID], guid_val, "Test GUID Node"},
         };
 
@@ -233,6 +253,7 @@ struct ServerConfig {
         UA_Variant_clear(&int64_val);
         UA_Variant_clear(&float_val);
         UA_Variant_clear(&double_val);
+        UA_Variant_clear(&double_array_val);
         UA_Variant_clear(&guid_val);
 
         return cfg;

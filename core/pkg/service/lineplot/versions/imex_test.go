@@ -115,6 +115,12 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		))
 	})
 
+	It("Should reject a v5 envelope with a mistyped body", func(ctx SpecContext) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_v5_bad_body.json"),
+		)).Error().To(MatchError(ContainSubstring("decode envelope body")))
+	})
+
 	It("Should reject a body carrying no line plot structure", func(ctx SpecContext) {
 		Expect(versions.DecodeImExEnvelope(
 			ctx, LoadEnvelope("testdata/import_unrecognized.json"),

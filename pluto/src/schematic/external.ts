@@ -10,6 +10,7 @@
 export * from "@/schematic/clipboard";
 export * from "@/schematic/edge";
 export * from "@/schematic/element";
+export * from "@/schematic/group";
 export * from "@/schematic/haul";
 export * from "@/schematic/Icons";
 export * from "@/schematic/node";

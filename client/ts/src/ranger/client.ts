@@ -288,6 +288,21 @@ const retrieveMultiParamsZ = retrieveRequestZ
 
 const retrieveResZ = z.object({ ranges: payloadZ.array().default(() => []) });
 
+/** Request addressing a page of a range's children, in relationship-key order. */
+export type ChildrenRequest = {
+  key: Key;
+  limit?: number;
+  offset?: number;
+};
+
+/** Params addressing a range's children. A bare key addresses all of them. */
+export type ChildrenParams = Key | ChildrenRequest;
+
+const CHILDREN_SERVER_FIELDS = ["limit", "offset"] as const;
+
+const normalizeChildren = (params: ChildrenParams): ChildrenRequest =>
+  typeof params === "string" ? { key: params } : params;
+
 /** The base flags applied to every composed range fetch. */
 const BASE_REQUEST: Partial<RetrieveRequest> = {
   includeLabels: true,
@@ -386,7 +401,7 @@ export class Client extends query.Retriever<
   /** The range alias table; injected into sibling clients at wiring. */
   readonly aliases: query.Table<string, alias.Alias>;
   /** Cached queries for the children of a range, keyed by the parent's key. */
-  readonly children: query.Retrieves<Key, Range[]>;
+  readonly children: query.Retrieves<ChildrenParams, Range[]>;
   /**
    * Cached queries for the closest range parent of a resource, keyed by the
    * child's ontology ID.
@@ -429,7 +444,7 @@ export class Client extends query.Retriever<
       table: composed,
       fetch: async (query) => [(await this.fetchSingle(query)).key],
       compose: ([record]) => record,
-      keyOf: (query) => (keyZ.safeParse(query).success ? query : null),
+      keyOf: (query) => (z.validate(keyZ, query) ? query : null),
       matches: (r, query) => r.key === query || r.name === query,
       single: true,
     });
@@ -453,17 +468,27 @@ export class Client extends query.Retriever<
     this.store = ranges;
     this.kvPairs = kvPairs;
     this.aliases = aliases;
-    this.children = cache.queries<Key, Range[], Key, Range>({
+    const children = cache.queries<ChildrenRequest, Range[], Key, Range>({
       name: "child ranges",
       table: composed,
       fetch: async (query) => (await this.fetchChildren(query)).map((r) => r.key),
       compose: (records) => records,
       matches: (r, query) => {
         const parent = this.cfg.ontology.cache.parentID(ontologyID(r.key));
-        return parent != null && ontology.idsEqual(parent, ontologyID(query));
+        return parent != null && ontology.idsEqual(parent, ontologyID(query.key));
       },
-      watch: [watchRelationships<Key>(this.cfg.ontology.cache.relationships)],
+      serverFields: CHILDREN_SERVER_FIELDS,
+      watch: [
+        watchRelationships<ChildrenRequest>(this.cfg.ontology.cache.relationships),
+      ],
     });
+    this.children = {
+      retrieve: async (params, options) =>
+        await children.retrieve(normalizeChildren(params), options),
+      onChange: (params, handler) =>
+        children.onChange(normalizeChildren(params), handler),
+      getCached: (params) => children.getCached(normalizeChildren(params)),
+    };
     this.parent = cache.queries<ontology.ID, Range | null, Key, Range>({
       name: "parent range",
       table: composed,
@@ -551,9 +576,9 @@ export class Client extends query.Retriever<
   }
 
   async retrieve(params: Key | Name): Promise<Range>;
-  async retrieve(params: Key[] | Name[]): Promise<Range[]>;
-  async retrieve(params: CrudeTimeRange): Promise<Range[]>;
-  async retrieve(params: RetrieveRequest): Promise<Range[]>;
+  async retrieve(
+    params: Key[] | Name[] | CrudeTimeRange | RetrieveRequest,
+  ): Promise<Range[]>;
   async retrieve(params: RetrieveParams): Promise<Range | Range[]> {
     // The branches narrow params onto different base overloads.
     if (typeof params === "string") return await super.retrieve(params);
@@ -610,12 +635,22 @@ export class Client extends query.Retriever<
     return this.sugarOne(next);
   }
 
-  /** Writes a fetched range and its included labels/parent relationships. */
   private writeThrough(range: Range): void {
     this.store.set(range);
+    if (range.labels != null) this.cfg.labels.store.set(range.labels);
+    this.writeRelationships(range);
+  }
+
+  private hydrate(range: Range): void {
+    if (this.store.status(range.key) === "tombstoned") return;
+    this.store.ingest(range);
+    if (range.labels != null) this.cfg.labels.store.ingest(range.labels);
+    this.writeRelationships(range);
+  }
+
+  private writeRelationships(range: Range): void {
     const id = ontologyID(range.key);
-    if (range.labels != null) {
-      this.cfg.labels.store.set(range.labels);
+    if (range.labels != null)
       range.labels.forEach((l) => {
         const rel: ontology.Relationship = {
           from: id,
@@ -627,7 +662,6 @@ export class Client extends query.Retriever<
           rel,
         );
       });
-    }
     if (range.parent != null) {
       const rel: ontology.Relationship = {
         from: ontologyID(range.parent.key),
@@ -641,12 +675,12 @@ export class Client extends query.Retriever<
     }
   }
 
-  /** Writes a fetch response as one batch per table, so each table flushes once. */
-  private writeThroughMany(ranges: Range[]): void {
+  // One batch per table, so each table flushes once.
+  private hydrateMany(ranges: Range[]): void {
     this.store.batch(() =>
       this.cfg.labels.store.batch(() =>
         this.cfg.ontology.cache.relationships.batch(() =>
-          ranges.forEach((r) => this.writeThrough(r)),
+          ranges.forEach((r) => this.hydrate(r)),
         ),
       ),
     );
@@ -662,17 +696,21 @@ export class Client extends query.Retriever<
       keys,
       ignoreNotFoundError: true,
     });
-    this.writeThroughMany(ranges);
+    this.hydrateMany(ranges);
     return ranges;
   }
 
   private async fetchSingle(query: Key | Name): Promise<Range> {
     const cached = this.store.get(query);
     if (cached != null) return this.composeOne(cached);
-    const req = keyZ.safeParse(query).success ? { keys: [query] } : { names: [query] };
-    const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...req });
+    if (z.validate(keyZ, query)) {
+      const ranges = await this.store.retrieve([query]);
+      checkForMultipleOrNoResults("Range", query, ranges, true);
+      return this.composeOne(ranges[0]);
+    }
+    const ranges = await this.execRetrieve({ ...BASE_REQUEST, names: [query] });
     checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.writeThrough(ranges[0]);
+    this.hydrate(ranges[0]);
     return ranges[0];
   }
 
@@ -684,7 +722,7 @@ export class Client extends query.Retriever<
     if (rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE) {
       if (rel.to.type !== "label" || this.cfg.labels.store.has(rel.to.key)) return;
       const fetched = await this.cfg.labels.retrieve(rel.to.key);
-      this.cfg.labels.store.set(rel.to.key, fetched);
+      this.cfg.labels.store.ingest(fetched);
       return;
     }
     if (rel.type === ontology.PARENT_OF_RELATIONSHIP_TYPE) {
@@ -696,7 +734,7 @@ export class Client extends query.Retriever<
   private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
     if (isKeysOnly(query)) return await this.store.retrieve(query.keys);
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
-    this.writeThroughMany(ranges);
+    this.hydrateMany(ranges);
     return ranges;
   }
 
@@ -721,10 +759,12 @@ export class Client extends query.Retriever<
     return true;
   }
 
-  private async fetchChildren(query: Key): Promise<Range[]> {
+  private async fetchChildren(query: ChildrenRequest): Promise<Range[]> {
     const resources = await this.cfg.ontology.children.retrieve({
-      ids: ontologyID(query),
+      ids: ontologyID(query.key),
       types: ["range"],
+      limit: query.limit,
+      offset: query.offset,
     });
     if (resources.length === 0) return [];
     return await this.store.retrieve(resources.map(({ id: { key } }) => key));

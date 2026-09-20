@@ -138,8 +138,8 @@ covers persistence and reset behavior in more depth.
 tank_pressure -> scale_reading{} -> pressure_scaled
 ```
 
-The `->` arrow creates a **flow**, a reactive connection that runs every time new data
-arrives:
+The `->` arrow creates a **flow**, a reactive connection that runs whenever the source
+produces a value:
 
 - `tank_pressure` is the source channel
 - `scale_reading{}` processes each value (the `{}` instantiates the function)
@@ -216,8 +216,8 @@ New concepts in this example:
   Here, `limit=15.0` sets the threshold
 - **Return type `bool`**: The comparison `reading > limit` returns `true` or `false`
 - **Conditional edge** (`=>`) -> fires the target while the source is truthy. Unlike
-  `->`, which fires on every data arrival, `=>` only fires on ticks where the source
-  expression holds
+  `->`, which fires whenever the source produces a value, `=>` only fires on ticks where
+  the source expression holds
 - **Standard library function** (`status.set`): Publishes a status notification to the
   Core. It lives in the `status` module, so the program imports it with `import status`
   at the top

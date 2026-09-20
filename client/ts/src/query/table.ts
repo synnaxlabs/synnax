@@ -177,7 +177,7 @@ export class Table<
     this.equal = equal;
     this.fetchEntries = fetch;
     this.hydrateMode = hydrate;
-    this.indexes = indexes;
+    this.indexes = [...indexes];
     this.fetchBatcher =
       fetch == null
         ? null
@@ -186,7 +186,27 @@ export class Table<
             exec: async (requests) => {
               const keys = new Set<Key>();
               requests.forEach(({ req }) => req.forEach((key) => keys.add(key)));
-              const fetched = await fetch(Array.from(keys));
+              let fetched: Array<Keyed<Key, Value>>;
+              try {
+                fetched = await fetch(Array.from(keys));
+              } catch (exc) {
+                if (!NotFoundError.matches(exc) || requests.length === 1)
+                  throw errors.fromUnknown(exc);
+                // A strict fetch rejects the whole batch when any caller's key
+                // has vanished. Refetch per caller so each settles exactly as
+                // its own request would have, keeping the batch transparent.
+                await Promise.all(
+                  requests.map(async ({ req, resolve, reject }) => {
+                    try {
+                      const mine = new Set(req);
+                      resolve((await fetch(req)).filter(({ key }) => mine.has(key)));
+                    } catch (exc) {
+                      reject(exc);
+                    }
+                  }),
+                );
+                return;
+              }
               // The window's fetch carries other callers' keys too; each caller
               // hydrates only the entries it asked for.
               requests.forEach(({ req, resolve }) => {
@@ -205,6 +225,17 @@ export class Table<
   private applyDelete(key: Key): void {
     this.entries.delete(key);
     for (const index of this.indexes) index.delete(key);
+  }
+
+  /**
+   * Registers a secondary index and backfills it from the live entries, for a
+   * domain that owns an index's meaning but not the table it reads.
+   * @returns the index.
+   */
+  index<I extends LookupIndex<Key, Value>>(index: I): I {
+    this.entries.forEach((value, key) => index.set(key, value));
+    this.indexes.push(index);
+    return index;
   }
 
   private setOne(
@@ -271,21 +302,25 @@ export class Table<
   }
 
   /**
-   * Writes fetched records into the table under its declared hydrate mode:
-   * "set" overwrites entries, "if-absent" leaves existing entries untouched.
+   * Writes fetched records into the table under its declared hydrate mode, or the given
+   * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
+   * tombstoned key is skipped: the fetch may predate the delete, and only a {@link set}
+   * revives a deleted record.
    * @returns A rollback that undoes the entries this call wrote.
    */
-  ingest(values: Keyed<Key, Value> | Array<Keyed<Key, Value>>): destructor.Destructor {
-    const arr = array.toArray(values);
-    if (this.hydrateMode === "if-absent") return this.setIfAbsent(arr);
+  ingest(
+    values: Keyed<Key, Value> | Array<Keyed<Key, Value>>,
+    mode: HydrateMode = this.hydrateMode,
+  ): destructor.Destructor {
+    const arr = array.toArray(values).filter(({ key }) => !this.tombstones.has(key));
+    if (mode === "if-absent") return this.setIfAbsent(arr);
     return this.set(arr);
   }
 
-  /** Returns every entry in the table. */
-  get(): Value[];
+  /** Returns every entry in the table, or every entry the filter accepts. */
+  get(filter?: (value: Value) => boolean): Value[];
   get(key: Key): Value | undefined;
   get(keys: Key[]): Value[];
-  get(filter: (value: Value) => boolean): Value[];
   get(keys?: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
     if (keys === undefined) return Array.from(this.entries.values());
     if (typeof keys === "function")
@@ -327,9 +362,11 @@ export class Table<
   /**
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
-   * every key is fetched regardless of presence. Returns the table's entries for the
-   * found keys in input order, deduplicated; keys the cluster no longer has are
-   * omitted. Tables without a fetch serve cached entries only.
+   * every key is fetched regardless of presence and cached entries the fetch omits are
+   * tombstoned. A key deleted while the fetch was in flight stays deleted either way.
+   * Returns the table's entries for the found keys in input order, deduplicated; keys
+   * the cluster no longer has are omitted. Tables without a fetch serve cached entries
+   * only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -338,9 +375,19 @@ export class Table<
       if (misses.length > 0) {
         const gen = this.gen;
         const fetched = await this.fetchBatcher.enqueue(misses);
-        if (gen === this.gen && fetched.length > 0)
-          if (opts.refresh === true) this.set(fetched);
-          else this.ingest(fetched);
+        if (gen === this.gen)
+          if (opts.refresh === true) {
+            // A refresh is authoritative for its keys: cached entries the
+            // fetch omitted vanished from the cluster and are tombstoned.
+            const present = new Set<Key>(fetched.map(({ key }) => key));
+            const vanished = misses.filter(
+              (key) => !present.has(key) && this.entries.has(key),
+            );
+            this.batch(() => {
+              if (vanished.length > 0) this.delete(vanished);
+              if (fetched.length > 0) this.ingest(fetched, "set");
+            });
+          } else if (fetched.length > 0) this.ingest(fetched);
       }
     }
     const seen = new Set<Key>();

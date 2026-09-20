@@ -79,10 +79,10 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.writer_config")
-	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
-	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
-	validate.NotNil(v, "persist", c.Persist)
-	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
+	v.NotEmptyString("subject.key", c.Subject.Key)
+	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
+	v.NotNil("persist", c.Persist)
+	v.NotNil("enable_auto_commit", c.EnableAutoCommit)
 	v.Ternary(
 		"end",
 		!c.End.IsZero() && c.End.Before(c.Start),
@@ -319,7 +319,7 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 
 func (w *Writer) updateHwm(series telem.Series) {
 	if series.Len() != 0 {
-		w.highWaterMark = telem.ValueAt[telem.TimeStamp](series, -1)
+		w.highWaterMark = series.ValueAt[telem.TimeStamp](-1)
 	}
 }
 

@@ -47,8 +47,8 @@ func ChangeDocument(
 ) {
 	gomega.Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 		TextDocument: protocol.VersionedTextDocumentIdentifier{
-			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
-			Version:                version,
+			URI:     uri,
+			Version: version,
 		},
 		ContentChanges: []protocol.TextDocumentContentChangeEvent{
 			&protocol.TextDocumentContentChangeWholeDocument{Text: content},
@@ -64,10 +64,8 @@ func Hover(
 	line, char uint32,
 ) *protocol.Hover {
 	return testutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Position:     protocol.Position{Line: line, Character: char},
 	}))
 }
 
@@ -100,10 +98,8 @@ func Definition(
 	line, char uint32,
 ) []protocol.Location {
 	result := testutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Position:     protocol.Position{Line: line, Character: char},
 	}))
 	switch r := result.(type) {
 	case protocol.LocationSlice:
@@ -127,10 +123,8 @@ func Completion(
 	line, char uint32,
 ) *protocol.CompletionList {
 	result := testutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			Position:     protocol.Position{Line: line, Character: char},
-		},
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Position:     protocol.Position{Line: line, Character: char},
 	}))
 	switch r := result.(type) {
 	case *protocol.CompletionList:

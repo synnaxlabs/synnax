@@ -22,7 +22,6 @@ import { Status } from "@/status/base";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
-const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
 
 // Select-all sends "to end" rather than a concrete index so the entry count never
@@ -232,7 +231,7 @@ export const Base = ({
         )}
         <Menu.Item
           itemKey="copy"
-          trigger={COPY_TRIGGER}
+          trigger={Triggers.COPY}
           triggerIndicator
           disabled={!hasSelection}
         >

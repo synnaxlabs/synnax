@@ -88,7 +88,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return wrapWriter[K, E](tx, d.retrieve.keyPrefix, d.indexes).Delete(ctx, keys...)
+	return wrapWriter(tx, d.retrieve.keyPrefix, d.indexes).Delete(ctx, keys...)
 }
 
 type (

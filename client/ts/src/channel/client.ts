@@ -545,6 +545,7 @@ export class Client extends query.Retriever<
 
   /**
    * Retrieves a channel from the database using the given key or name.
+   * @param params - The key or the name of the channel to retrieve.
    * @param options - Optional parameters to control the retrieval process.
    * @param options.dataTypes - Limits the query to only channels with the specified
    * data type.
@@ -575,8 +576,6 @@ export class Client extends query.Retriever<
    * @param options.notDataTypes - Limits the query to only channels without the
    * specified
    */
-  async retrieve(params: Key | string, options?: RetrieveOptions): Promise<Channel>;
-
   async retrieve(
     params: PrimitiveParams | Payload[],
     options?: RetrieveOptions,
@@ -644,7 +643,7 @@ export class Client extends query.Retriever<
     }
     const names = normalized;
     await this.writer.delete({ names });
-    const cached = Array.from(new Set(names), (name) => this.byName.get(name)).flat();
+    const cached = this.byName.get(names);
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
@@ -769,10 +768,11 @@ export class Client extends query.Retriever<
     const { key, rangeKey } = query;
     let ch = this.store.get(key);
     if (ch == null) {
-      const payloads = await this.execRetrieve([key]);
-      checkForMultipleOrNoResults("channel", key, payloads, true);
-      ch = this.sugar(stripComposed(payloads[0]));
-      this.store.set(key, ch);
+      // Through the table, so concurrent misses coalesce into one request. A plot
+      // panel resolves one channel per telemetry source, all in the same tick.
+      const fetched = await this.store.retrieve([key]);
+      checkForMultipleOrNoResults("channel", key, fetched, true);
+      [ch] = fetched;
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
