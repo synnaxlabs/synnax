@@ -1961,6 +1961,47 @@ var _ = Describe("ProgramState", func() {
 		)
 
 		It(
+			"Should not re-arm a literal on a node that also has an edge-fed input",
+			func() {
+				prog := ir.IR{
+					Nodes: ir.Nodes{
+						{
+							Key:  "src",
+							Type: "f",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+						},
+						{
+							Key:  "dst",
+							Type: "f",
+							Inputs: types.Params{
+								{Name: "a", Type: types.I64(), Value: int64(5)},
+								{Name: "b", Type: types.I64()},
+							},
+						},
+					},
+					Edges: ir.Edges{{
+						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "dst", Param: "b"},
+					}},
+				}
+				s := node.New(prog)
+				src, dst := s.Node("src"), s.Node("dst")
+				*src.Output(0) = telem.NewSeriesV[int64](1)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				src.MarkFresh(0)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+				dst.Reset(node.Context{})
+				Expect(dst.RefreshInputs()).To(BeFalse())
+				*src.Output(0) = telem.NewSeriesV[int64](2)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				src.MarkFresh(0)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+			},
+		)
+
+		It(
 			"Should not re-arm a consumed variable register read",
 			func(ctx SpecContext) {
 				g := graph.Graph{

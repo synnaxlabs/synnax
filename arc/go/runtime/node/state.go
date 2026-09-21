@@ -221,6 +221,12 @@ func (s *ProgramState) Node(key string) *State {
 	nd.outputCache = outputCache
 	nd.isReference = isReference
 	nd.literal = literal
+	for i := range literal {
+		if !literal[i] && !isReference[i] {
+			nd.edgeFed = true
+			break
+		}
+	}
 	nd.progRev = &s.rev
 	return nd
 }
@@ -264,6 +270,9 @@ type State struct {
 	// literal marks inputs fed by a configured value rather than an edge. A
 	// configured value has no time of its own.
 	literal []bool
+	// edgeFed is true when an edge feeds at least one data input. Reset leaves the
+	// literals of such a node consumed, so only fresh edge data re-runs it.
+	edgeFed bool
 	// rearm[i] selects when a consumed input i fires again.
 	rearm       []rearmRule
 	accumulated []inputEntry
@@ -308,7 +317,7 @@ func (s *State) Reset(Context) {
 		case rearmOnArrival:
 			s.absorbInput(i)
 		case rearmAlways:
-			if !s.literal[i] {
+			if !s.literal[i] || s.edgeFed {
 				continue
 			}
 			s.accumulated[i].consumed = false

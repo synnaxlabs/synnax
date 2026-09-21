@@ -98,6 +98,9 @@ class Node {
     /// @brief marks inputs fed by a configured value rather than an edge. A
     /// configured value has no time of its own.
     std::vector<bool> literal;
+    /// @brief true when an edge feeds at least one data input. reset leaves the
+    /// literals of such a node consumed, so only fresh edge data re-runs it.
+    bool edge_fed = false;
     /// @brief rearm[i] selects when a consumed input i fires again.
     std::vector<Rearm> rearm;
     /// @brief params holds the node's input params with their configured values.
@@ -128,7 +131,13 @@ class Node {
         is_reference(std::move(is_reference)),
         literal(std::move(literal)),
         rearm(std::move(rearm)),
-        params(std::move(params)) {}
+        params(std::move(params)) {
+        for (size_t i = 0; i < this->literal.size(); i++)
+            if (!this->literal[i] && !this->is_reference[i]) {
+                this->edge_fed = true;
+                break;
+            }
+    }
 
     /// @brief marks input i consumed at its current source revision.
     void absorb_input(size_t i);
@@ -279,7 +288,7 @@ public:
                     this->absorb_input(i);
                     break;
                 case Rearm::Always:
-                    if (!this->literal[i]) break;
+                    if (!this->literal[i] || this->edge_fed) break;
                     this->accumulated[i].consumed = false;
                     this->accumulated[i].last_rev = 0;
                     break;

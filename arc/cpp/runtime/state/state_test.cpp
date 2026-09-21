@@ -1542,6 +1542,24 @@ TEST(ResetTest, ReArmsALiteralInput) {
     EXPECT_TRUE(sink.refresh_inputs());
 }
 
+/// @brief reset should leave a literal consumed when the node also has an edge-fed
+/// input, so re-entry does not re-emit the edge's retained value.
+TEST(ResetTest, DoesNotReArmALiteralOnANodeWithAnEdgeFedInput) {
+    const auto s = new_literal_and_edge_state();
+    const auto src = ASSERT_NIL_P(s->node("src"));
+    auto sink = ASSERT_NIL_P(s->node("sink"));
+    *src.output(0) = x::telem::Series(std::vector<int32_t>{1});
+    *src.output_time(0) = x::telem::Series(x::telem::TimeStamp(10 * x::telem::SECOND));
+    src.mark_fresh(0);
+    ASSERT_TRUE(sink.refresh_inputs());
+    sink.reset();
+    EXPECT_FALSE(sink.refresh_inputs());
+    *src.output(0) = x::telem::Series(std::vector<int32_t>{2});
+    *src.output_time(0) = x::telem::Series(x::telem::TimeStamp(20 * x::telem::SECOND));
+    src.mark_fresh(0);
+    EXPECT_TRUE(sink.refresh_inputs());
+}
+
 /// @brief refresh_inputs should leave an unpublished write invisible to the reader.
 TEST(EmitTest, LeavesAnUnpublishedWriteInvisibleToTheReader) {
     const auto s = new_linked_state();
