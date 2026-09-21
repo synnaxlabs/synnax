@@ -140,6 +140,26 @@ describe("EtherCAT Device queries", () => {
     });
   });
 
+  describe("useSlavesByKeys", () => {
+    it("should retrieve the slaves the keys name once there are keys", async () => {
+      const first = await createSlaveDevice(rack.key, { network: "eth0" });
+      const second = await createSlaveDevice(rack.key, { network: "eth1" });
+      const none: string[] = [];
+      const { result, rerender } = renderHook(
+        ({ keys }: { keys: string[] }) => EtherCAT.Device.useSlavesByKeys(keys),
+        { wrapper, initialProps: { keys: none } },
+      );
+      await act(async () => {});
+      expect(result.current).toBeUndefined();
+      rerender({ keys: [first.key, second.key] });
+      await waitFor(() =>
+        expect(result.current?.map(({ key }) => key).sort()).toEqual(
+          [first.key, second.key].sort(),
+        ),
+      );
+    });
+  });
+
   describe("useCommonNetwork", () => {
     it("should return network from first device in channels", async () => {
       const dev = await createSlaveDevice(rack.key, {
