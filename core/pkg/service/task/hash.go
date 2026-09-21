@@ -33,9 +33,9 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	return fmt.Sprintf("%016x", xxhash.Sum64(b)), nil
 }
 
-// configContent returns config without the record key and without the key of any
-// nested row, so hashes track content rather than identity: a row re-added under a
-// fresh key hashes as the row it replaces, and no Driver reads a row key.
+// configContent returns config without the record key and without the key of any nested
+// row, so hashes track content rather than identity: a row re-added under a fresh key
+// hashes as the row it replaces, and no Driver reads a row key.
 func configContent(config msgpack.EncodedJSON) msgpack.EncodedJSON {
 	content := make(msgpack.EncodedJSON, len(config))
 	for k, v := range config {
@@ -46,8 +46,6 @@ func configContent(config msgpack.EncodedJSON) msgpack.EncodedJSON {
 	return content
 }
 
-// stripKeys returns v with the key field removed from every nested object. It copies
-// every object it rewrites, so the caller's config is unchanged.
 func stripKeys(v any) any {
 	switch t := v.(type) {
 	case map[string]any:
