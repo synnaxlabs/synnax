@@ -111,8 +111,8 @@ Every manifest carries `0.0.0` and the build injects the resolved `version`:
   `STABLE_SYNNAX_VERSION`; the `//core/pkg/version` genrule, already stamped, reads
   `stable-status.txt` and takes the timestamp from `volatile-status.txt`.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`.
-- **TypeScript**: `pnpm -r exec npm version X.Y.Z --no-git-tag-version`. Internal deps
-  use `workspace:*`, which pnpm rewrites to an exact pin at publish.
+- **TypeScript**: `pnpm -r exec npm version X.Y.Z --no-git-tag-version`. The catalog
+  pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish.
 - **Python**: `uv version X.Y.Z` per package before `pin_internal_deps.sh`.
 
 Dev builds therefore run at `0.0.0`. The client compatibility checks (`isCompatible` in
@@ -134,16 +134,19 @@ machines reinstall. `latest.json` lives on the Console release.
 
 The docs site gains two Astro endpoints, `/releases/console/latest.json` and
 `/releases/console/next.json`, with `s-maxage` so the Vercel CDN absorbs the polling.
-The first 302s to the manifest of the newest stable Console; the second to the newest
-Console on either channel. Stable builds point at the first; pre-release builds get the
-second through `--config`. Semver ranks `0.59.0` above `0.59.0-rc.3`, so a QA machine
-follows candidates, installs the next stable, and lands on the stable endpoint.
+The first 302s to the manifest of the highest stable Console version; the second to the
+highest version on either channel. Highest means semver order, never release date, so a
+hotfix on an old train never outranks the current one. Stable builds point at the first;
+pre-release builds get the second through `--config`. Semver ranks `0.59.0` above
+`0.59.0-rc.3`, so a QA machine follows candidates, installs the next stable, and lands
+on the stable endpoint.
 
 `fetchVersion.ts` becomes `releases.ts`: `latest(product)` queries the releases API with
-a server-side token, filters by tag prefix, skips drafts and pre-releases, and caches
-for a few minutes. Every download component passes its product; the header shows the
-Core's train. The site is server-rendered, so links flip within the cache window with no
-deploy hook. The docs site reads the release, never the repo.
+a server-side token, filters by tag prefix, skips drafts and pre-releases, returns the
+highest semver, and caches for a few minutes. The API lists by creation date, so a
+hotfix on an old train can sit first. Every download component passes its product; the
+header shows the Core's train. The site is server-rendered, so links flip within the
+cache window with no deploy hook. The docs site reads the release, never the repo.
 
 ### 2.4 Feature flags
 
@@ -178,7 +181,7 @@ flag and workflow file.
 - **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
   updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
-  overrides them, so no source file changes. Then merge `rc` into `main` (publishes
+  overrides them, so no version file changes. Then merge `rc` into `main` (publishes
   nothing), `gh pr edit --base main` for open PRs, delete `rc`.
 - **Phase 3: Versions and Console flags.** Delete the version literals, scripts, and
   `test.updates.yaml`; add the Bazel status script, the `0.0` compatibility rule in all
@@ -212,8 +215,8 @@ flag and workflow file.
 10. **Lockstep language packages**: Per-package versions rejected. Every npm and PyPI
     package in a product publishes under the product tag, changed or not; that is the
     common monorepo pattern (Babel, Jest, AWS SDK v3), an empty republish is free, and
-    the exact `workspace:*` pins require it: client 0.59.1 installs only if alamos
-    0.59.1 exists.
+    the published `^0.59.0` ranges lock the minor on 0.x, so a minor bump cascades to
+    every dependent anyway.
 
 ## 5 Open questions
 
