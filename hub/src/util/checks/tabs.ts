@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Check } from "./check.ts";
-import { locate } from "./crawl.ts";
-import { islands, QUOTED } from "./html.ts";
+import { type Check } from "@/util/checks/check";
+import { locate } from "@/util/checks/crawl";
+import { islands, QUOTED } from "@/util/checks/html";
 
 const NAMED_SLOT = new RegExp(`data-astro-template=${QUOTED}|<astro-slot name=`);
 const STYLE_ATTR = new RegExp(`\\sstyle=${QUOTED}`, "g");

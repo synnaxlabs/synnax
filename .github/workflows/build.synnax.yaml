@@ -47,6 +47,10 @@ on:
         description: "Build: Console Tauri Desktop App"
         type: boolean
         default: false
+      desktop:
+        description: "Build: Synnax Desktop (needs Core)"
+        type: boolean
+        default: false
       core:
         description: "Build: Core"
         type: boolean
@@ -97,6 +101,9 @@ on:
         type: boolean
         default: false
       console_tauri:
+        type: boolean
+        default: false
+      desktop:
         type: boolean
         default: false
       core:
@@ -198,7 +205,8 @@ jobs:
             "${{ inputs.console_tauri }}" \
             "${{ inputs.core }}" \
             "${{ inputs.debug }}" \
-            "${{ inputs.sign_binaries }}"
+            "${{ inputs.sign_binaries }}" \
+            "${{ inputs.desktop }}"
 
       - name: Generate Go Build Tags
         id: go-tags
@@ -976,3 +984,165 @@ jobs:
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.sig
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
           gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe.sig
+
+  build-desktop-tauri:
+    name: Build Synnax Desktop
+    needs: [setup, build]
+    if: inputs.desktop && needs.setup.outputs.console_tauri_matrix != '[]'
+    env:
+      SYNNAX_TS_ENV: prod
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      VITE_DESKTOP: "true"
+      OS_NAME: ${{ startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
+      BUNDLE_DIR: console/src-tauri/target/release/bundle
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.setup.outputs.console_tauri_matrix) }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Import Apple Developer Certificate
+        if: startsWith(matrix.os, 'macos') && inputs.sign_binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          KEYCHAIN_NAME: build-${{ runner.name }}.keychain
+        run: scripts/import_apple_certificate.sh
+
+      - name: Get Desktop Version
+        id: desktop-version
+        working-directory: console
+        run: |
+          DESKTOP_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "DESKTOP_VERSION=${DESKTOP_VERSION}" >> $GITHUB_OUTPUT
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=${DESKTOP_VERSION}" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+            echo "VERSION=${DESKTOP_VERSION}-rc" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${DESKTOP_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
+        with:
+          # The self-hosted mac's label lacks -build-bot, so it still uses the cache.
+          cache: ${{ !endsWith(matrix.os, '-build-bot') }}
+
+      - name: Adjust Auto Updater URL for Release Candidate
+        if: inputs.sign_binaries && github.ref == 'refs/heads/rc'
+        working-directory: console/src-tauri
+        run: |
+          jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.desktop.json"]' tauri.desktop.conf.json > temp.json
+          mv temp.json tauri.desktop.conf.json
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-workspaces: console/src-tauri -> target
+          cache-shared-key: ${{ runner.os }}-desktop
+
+      - name: Download Core Binary
+        uses: actions/download-artifact@v8
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
+            env.OS_NAME) || format('synnax-core-v{0}-{1}', needs.setup.outputs.VERSION,
+            env.OS_NAME) }}
+          path: core-artifact
+
+      - name: Install Core as the Desktop Sidecar
+        run: |
+          # Tauri resolves a sidecar by the Rust host triple.
+          TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+          EXT=""
+          case "$TRIPLE" in *windows*) EXT=".exe" ;; esac
+          mkdir -p console/src-tauri/binaries
+          SIDECAR="console/src-tauri/binaries/synnax-core-${TRIPLE}${EXT}"
+          cp "core-artifact/synnax-v${{ needs.setup.outputs.VERSION }}${EXT}" "$SIDECAR"
+          chmod +x "$SIDECAR"
+
+      - name: Build Workspace Packages
+        run: pnpm exec turbo build --filter "@synnaxlabs/console^..."
+
+      - name: Install trusted-signing-cli
+        if: matrix.os == 'windows-latest' && inputs.sign_binaries
+        run: cargo install trusted-signing-cli
+
+      - name: Build Synnax Desktop (Signed)
+        if: inputs.sign_binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+        working-directory: console
+        run: pnpm build-desktop
+
+      - name: Build Synnax Desktop (Unsigned)
+        if: ${{ !inputs.sign_binaries }}
+        working-directory: console
+        run: pnpm build-desktop --no-sign
+
+      - name: Stage Bundles
+        env:
+          DESKTOP_VERSION: ${{ steps.desktop-version.outputs.DESKTOP_VERSION }}
+        run: |
+          # GitHub rewrites a space in a release asset name, so the staged names have
+          # none. The updater manifest points at these names.
+          mkdir -p desktop-bundles
+          stage() {
+            cp "$BUNDLE_DIR/$1" "desktop-bundles/$2"
+            if [ -f "$BUNDLE_DIR/$1.sig" ]; then
+              cp "$BUNDLE_DIR/$1.sig" "desktop-bundles/$2.sig"
+            fi
+          }
+          if [ "$OS_NAME" = "macos" ]; then
+            stage "dmg/Synnax Desktop_${DESKTOP_VERSION}_aarch64.dmg" \
+              "Synnax-Desktop_${DESKTOP_VERSION}_aarch64.dmg"
+            if [ -f "$BUNDLE_DIR/macos/Synnax Desktop.app.tar.gz" ]; then
+              stage "macos/Synnax Desktop.app.tar.gz" "Synnax-Desktop.app.tar.gz"
+            fi
+          else
+            stage "msi/Synnax Desktop_${DESKTOP_VERSION}_x64_en-US.msi" \
+              "Synnax-Desktop_${DESKTOP_VERSION}_x64_en-US.msi"
+            stage "nsis/Synnax Desktop_${DESKTOP_VERSION}_x64-setup.exe" \
+              "Synnax-Desktop_${DESKTOP_VERSION}_x64-setup.exe"
+          fi
+
+      - name: Upload Synnax Desktop as Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name:
+            ${{ format('synnax-desktop-v{0}-{1}', steps.desktop-version.outputs.VERSION,
+            env.OS_NAME) }}
+          path: desktop-bundles
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload Release Assets
+        if: inputs.upload_to_release
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          shell: bash
+          command:
+            gh release upload --clobber console-v${{
+            steps.desktop-version.outputs.VERSION }} desktop-bundles/*

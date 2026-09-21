@@ -11,9 +11,9 @@ import fs from "fs";
 import path from "path";
 import { styleText } from "util";
 
-import { type Check, type Context } from "./check.ts";
-import { locate, normalizeRoute, pageFiles, PAGES_DIR } from "./crawl.ts";
-import { attrValues, idValues } from "./html.ts";
+import { type Check, type Context } from "@/util/checks/check";
+import { locate, normalizeRoute, pageFiles, PAGES_DIR } from "@/util/checks/crawl";
+import { attrValues, idValues } from "@/util/checks/html";
 
 // Hosts that block automated requests or answer too slowly to probe; entries skip the
 // external check. Omron redirects and takes several seconds from a datacenter IP, so it
