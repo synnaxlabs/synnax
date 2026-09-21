@@ -17,9 +17,8 @@ export const components = mdxOverrides;
 This page walks you through what channels are, their important properties, and how to
 use them in your Core.
 
-If you’re looking for a practical guide on creating or retrieving channels, visit the
-respective pages for the [Python](/reference/python-client/channels) and
-[TypeScript](/reference/typescript-client/channels) clients.
+Create, retrieve, rename, and delete channels from the Console or the
+[client libraries](/reference/client/channels).
 
 <Divider.Divider x />
 
@@ -100,6 +99,44 @@ channel with a `string`, `json`, or `bytes` data type instead.
 
 <Divider.Divider x />
 
+## Calculated Channels
+
+Calculated channels compute values from other channels with an Arc expression. See
+[calculated channels](/reference/client/calculated-channels) to create one.
+
+### On-Demand Computation
+
+A calculated channel runs only while something reads or streams it. Opening a line plot
+or requesting its data through the API activates the calculation, and stopping the
+stream pauses it. Nothing runs in the background, so a calculation uses CPU and memory
+only while its results are needed.
+
+### Nested Calculations
+
+Calculated channels can depend on other calculated channels, creating calculation
+chains:
+
+```
+sensor_raw → temp_celsius → temp_fahrenheit → temp_status
+```
+
+Data arriving at `sensor_raw` propagates through the chain, each channel calculating
+from the output of the one before it. Nesting has no depth limit, but each level adds
+computation time.
+
+### Historical Evaluation
+
+A calculated channel can be queried historically, as if it had been running at that
+time. Two conditions apply:
+
+- Every input channel must have data in the queried time range.
+- Operations with time-based windows may not behave as they do live.
+
+Nested calculations work historically too, as long as the channels at the bottom of the
+chain are persisted.
+
+<Divider.Divider x />
+
 ## Channel Fields
 
 All channel types have a common set of fields. There may be slight variations in the
@@ -163,6 +200,6 @@ channels.
 #### Expression
 
 The expression field is only used for
-[calculated channels](/reference/console/calculated-channels). This expression is an Arc
+[calculated channels](/reference/client/calculated-channels). This expression is an Arc
 string that calculates what value should be written to the channel and returns it with
 `return`. Channel dependencies are automatically detected from the expression.
