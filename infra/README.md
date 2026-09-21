@@ -8,8 +8,8 @@ on. State lives in HCP Terraform, organization `synnaxlabs`, workspace `hub`.
 Terraform declares the AWS signing key and its IAM identity, the Vercel environment and
 domain, and the GitHub Actions secret. Three vendors stay outside it: Neon and Clerk are
 installed through the Vercel Marketplace, which injects their connection string and keys
-into the project and has no Terraform surface; Resend and Plain have no provider. Their
-one-time steps are below.
+into the project and has no Terraform surface; Resend has no provider. Their one-time
+steps are below.
 
 ### Apply
 
@@ -75,7 +75,3 @@ Sign in to the portal as staff, open the Synnax Labs organization's licenses, is
 subscription of a few months with one node and no channel cap labelled "CI", and use
 "Download floating token" on it. The file's content is `ci_license_token`. Rotate it by
 issuing a new one before the old one expires and applying again.
-
-### Plain
-
-Plain has no Terraform provider. Its setup is documented with the support work.
