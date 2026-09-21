@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 //! Supervises the embedded Core: starts it, reports when it is ready, restarts it after
-//! a crash, and stops it on request.
+//! a crash or a hang, and stops it on request.
 
+mod backup;
 pub mod commands;
+mod diagnostics;
 mod launch;
 pub mod probe;
 pub mod restart;
@@ -19,22 +21,26 @@ use std::io;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{mpsc, oneshot, watch};
+use tokio::task::JoinHandle;
 
 /// The line that asks the Core to stop.
 const STOP_LINE: &[u8] = b"stop\n";
 
 /// Configures a [`Supervisor`].
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Config {
     /// The Core executable.
     pub program: PathBuf,
-    /// The directory that receives the Core config file.
+    /// The version of the app, and so of the bundled Core.
+    pub version: String,
+    /// The directory that receives the Core config file and the data backups.
     pub work_dir: PathBuf,
     /// The Core data directory.
     pub data_dir: PathBuf,
@@ -46,6 +52,10 @@ pub struct Config {
     pub stop_timeout: Duration,
     /// The pause between two probes of a Core that is not ready.
     pub probe_interval: Duration,
+    /// The pause between two probes of a Core that is ready.
+    pub liveness_interval: Duration,
+    /// The number of consecutive failed probes after which a ready Core is killed.
+    pub liveness_failures: u32,
     /// The restart policy.
     pub restart: restart::Config,
     /// The readiness probe.
@@ -53,18 +63,28 @@ pub struct Config {
 }
 
 impl Config {
-    /// Returns the production configuration for the given executable and directories.
-    pub fn new(program: PathBuf, work_dir: PathBuf, data_dir: PathBuf, log_dir: PathBuf) -> Self {
+    /// Returns the production configuration for the given executable, app version, and
+    /// directories.
+    pub fn new(
+        program: PathBuf,
+        version: String,
+        work_dir: PathBuf,
+        data_dir: PathBuf,
+        log_dir: PathBuf,
+    ) -> Self {
         Self {
             program,
+            version,
             work_dir,
             data_dir,
             log_dir,
             start_timeout: Duration::from_secs(60),
             stop_timeout: Duration::from_secs(30),
             probe_interval: Duration::from_millis(100),
+            liveness_interval: Duration::from_secs(5),
+            liveness_failures: 3,
             restart: restart::Config::default(),
-            probe: probe::check,
+            probe: Arc::new(probe::check),
         }
     }
 }
@@ -96,8 +116,20 @@ pub enum Status {
     Stopped,
 }
 
+/// What the Cores of one launch have done so far.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct History {
+    /// The number of Cores started in this launch.
+    pub starts: u32,
+    /// When the current Core became ready, in milliseconds since the Unix epoch.
+    pub ready_at: Option<u64>,
+    /// Why the last Core exited without a stop request.
+    pub last_exit: Option<String>,
+}
+
 enum Request {
-    /// Start the Core again from `Failed` or `Stopped`.
+    /// Start a new Core, after a stop of the one that runs.
     Restart,
     /// Stop the Core. The sender resolves once the Core process has exited.
     Stop(oneshot::Sender<()>),
@@ -107,6 +139,7 @@ enum Request {
 #[derive(Clone)]
 pub struct Supervisor {
     status: watch::Receiver<Status>,
+    history: watch::Receiver<History>,
     requests: mpsc::Sender<Request>,
 }
 
@@ -118,16 +151,27 @@ impl Supervisor {
         std::fs::create_dir_all(&cfg.data_dir)?;
         std::fs::create_dir_all(&cfg.log_dir)?;
         let (status_tx, status) = watch::channel(Status::Starting);
+        let (history_tx, history) = watch::channel(History::default());
         let (requests, requests_rx) = mpsc::channel(8);
         let task = Task {
             cfg,
             password,
             port: None,
             status: status_tx,
+            history: history_tx,
             requests: requests_rx,
         };
         tokio::spawn(task.run());
-        Ok(Self { status, requests })
+        Ok(Self {
+            status,
+            history,
+            requests,
+        })
+    }
+
+    /// Returns what the Cores of this launch have done so far.
+    pub fn history(&self) -> History {
+        self.history.borrow().clone()
     }
 
     /// Returns the current status.
@@ -140,8 +184,8 @@ impl Supervisor {
         self.status.clone()
     }
 
-    /// Starts the Core again when it is `Failed` or `Stopped`. It has no effect in any
-    /// other state.
+    /// Starts a new Core. A Core that runs stops in order first, and its clients see
+    /// `Restarting`.
     pub async fn restart(&self) {
         // A closed channel means the task is gone, and so is the Core.
         let _ = self.requests.send(Request::Restart).await;
@@ -163,6 +207,8 @@ enum Outcome {
     Exited { uptime: Duration, message: String },
     /// The Core exited after a stop request.
     Stopped(Option<oneshot::Sender<()>>),
+    /// The Core exited after a restart request.
+    Restart,
 }
 
 struct Task {
@@ -172,6 +218,7 @@ struct Task {
     /// clients of the launch reconnect to the address they know.
     port: Option<u16>,
     status: watch::Sender<Status>,
+    history: watch::Sender<History>,
     /// Closes when every `Supervisor` handle is dropped.
     requests: mpsc::Receiver<Request>,
 }
@@ -186,6 +233,10 @@ impl Task {
                     if let Some(ack) = ack {
                         let _ = ack.send(());
                     }
+                }
+                Outcome::Restart => {
+                    policy.reset();
+                    continue;
                 }
                 Outcome::Exited { uptime, message } => match policy.decide(uptime) {
                     restart::Decision::Restart(backoff) => {
@@ -207,23 +258,20 @@ impl Task {
         }
     }
 
-    /// Waits out a restart backoff. It returns false when a stop request arrived first.
+    /// Waits out a restart backoff, which a restart request cuts short. It returns false
+    /// when a stop request arrived first.
     async fn backoff(&mut self, backoff: Duration) -> bool {
-        let sleep = tokio::time::sleep(backoff);
-        tokio::pin!(sleep);
-        loop {
-            tokio::select! {
-                _ = &mut sleep => return true,
-                req = self.requests.recv() => match req {
-                    Some(Request::Restart) => {}
-                    Some(Request::Stop(ack)) => {
-                        self.status.send_replace(Status::Stopped);
-                        let _ = ack.send(());
-                        return false;
-                    }
-                    None => return false,
-                },
-            }
+        tokio::select! {
+            _ = tokio::time::sleep(backoff) => true,
+            req = self.requests.recv() => match req {
+                Some(Request::Restart) => true,
+                Some(Request::Stop(ack)) => {
+                    self.status.send_replace(Status::Stopped);
+                    let _ = ack.send(());
+                    false
+                }
+                None => false,
+            },
         }
     }
 
@@ -244,23 +292,40 @@ impl Task {
     /// Runs one Core process from spawn to exit.
     async fn run_once(&mut self) -> Outcome {
         let started = Instant::now();
+        let outcome = self.supervise(started).await;
+        if let Outcome::Exited { message, .. } = &outcome {
+            self.history
+                .send_modify(|h| h.last_exit = Some(message.clone()));
+        }
+        self.history.send_modify(|h| h.ready_at = None);
+        outcome
+    }
+
+    async fn supervise(&mut self, started: Instant) -> Outcome {
         let exited = |message: String| Outcome::Exited {
             uptime: started.elapsed(),
             message,
         };
+        let cfg = self.cfg.clone();
+        match tokio::task::spawn_blocking(move || backup::run(&cfg)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => return exited(format!("failed to back up the data: {err}")),
+            Err(err) => return exited(format!("failed to back up the data: {err}")),
+        }
         let (mut child, port) = match self.spawn() {
             Ok(v) => v,
             Err(err) => return exited(format!("failed to start: {err}")),
         };
+        self.history.send_modify(|h| h.starts += 1);
         // Child::wait closes the stdin it still holds, and a closed stdin stops the
         // Core, so the pipe lives outside the child.
         let mut stdin = child.stdin.take();
         let addr = SocketAddr::from((launch::HOST, port));
         let deadline = tokio::time::sleep(self.cfg.start_timeout);
         tokio::pin!(deadline);
-        let mut probe = tokio::time::interval(self.cfg.probe_interval);
-        probe.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut probes = Prober::start(self.cfg.probe.clone(), addr, self.cfg.probe_interval);
         let mut ready = false;
+        let mut missed = 0;
         loop {
             tokio::select! {
                 status = child.wait() => {
@@ -270,12 +335,18 @@ impl Task {
                     });
                 }
                 req = self.requests.recv() => match req {
-                    Some(Request::Restart) => {}
+                    Some(Request::Restart) => {
+                        self.status.send_replace(Status::Restarting);
+                        self.stop(&mut child, stdin.as_mut()).await;
+                        return Outcome::Restart;
+                    }
                     Some(Request::Stop(ack)) => {
+                        self.status.send_replace(Status::Stopping);
                         self.stop(&mut child, stdin.as_mut()).await;
                         return Outcome::Stopped(Some(ack));
                     }
                     None => {
+                        self.status.send_replace(Status::Stopping);
                         self.stop(&mut child, stdin.as_mut()).await;
                         return Outcome::Stopped(None);
                     }
@@ -284,10 +355,16 @@ impl Task {
                     kill(&mut child).await;
                     return exited(format!("not ready after {:?}", self.cfg.start_timeout));
                 }
-                _ = probe.tick(), if !ready => {
-                    if (self.cfg.probe)(addr).await {
+                Some(ok) = probes.results.recv() => {
+                    if ok && !ready {
                         ready = true;
                         self.port = Some(port);
+                        probes = Prober::start(
+                            self.cfg.probe.clone(),
+                            addr,
+                            self.cfg.liveness_interval,
+                        );
+                        self.history.send_modify(|h| h.ready_at = Some(now_millis()));
                         self.status.send_replace(Status::Running {
                             connection: Connection {
                                 host: launch::HOST.to_string(),
@@ -296,6 +373,14 @@ impl Task {
                                 password: self.password.clone(),
                             },
                         });
+                    }
+                    if !ready {
+                        continue;
+                    }
+                    missed = if ok { 0 } else { missed + 1 };
+                    if missed >= self.cfg.liveness_failures {
+                        kill(&mut child).await;
+                        return exited(format!("stopped answering after {missed} probes"));
                     }
                 }
             }
@@ -340,7 +425,6 @@ impl Task {
 
     /// Asks the Core to stop and kills it when it outlives the stop timeout.
     async fn stop(&self, child: &mut Child, stdin: Option<&mut ChildStdin>) {
-        self.status.send_replace(Status::Stopping);
         let asked = match stdin {
             Some(stdin) => stdin.write_all(STOP_LINE).await.is_ok(),
             None => false,
@@ -361,19 +445,63 @@ async fn kill(child: &mut Child) {
     let _ = child.kill().await;
 }
 
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Probes the Core on an interval from its own task, so a slow probe never delays a
+/// stop request or the notice of an exit. The task ends when the prober is dropped.
+struct Prober {
+    results: mpsc::Receiver<bool>,
+    task: JoinHandle<()>,
+}
+
+impl Prober {
+    fn start(probe: probe::Probe, addr: SocketAddr, interval: Duration) -> Self {
+        let (tx, results) = mpsc::channel(1);
+        let task = tokio::spawn(async move {
+            let mut ticks = tokio::time::interval(interval);
+            ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                ticks.tick().await;
+                if tx.send(probe(addr).await).await.is_err() {
+                    return;
+                }
+            }
+        });
+        Self { results, task }
+    }
+}
+
+impl Drop for Prober {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::future::Future;
     use std::os::unix::fs::PermissionsExt;
     use std::pin::Pin;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
-    fn ready(_: SocketAddr) -> Pin<Box<dyn Future<Output = bool> + Send>> {
-        Box::pin(async { true })
+    fn always(ok: bool) -> probe::Probe {
+        Arc::new(move |_| Box::pin(async move { ok }))
     }
 
-    fn never_ready(_: SocketAddr) -> Pin<Box<dyn Future<Output = bool> + Send>> {
-        Box::pin(async { false })
+    /// A probe that answers with the current value of `ok`.
+    fn following(ok: Arc<AtomicBool>) -> probe::Probe {
+        Arc::new(move |_| {
+            let ok = ok.clone();
+            let answer: Pin<Box<dyn Future<Output = bool> + Send>> =
+                Box::pin(async move { ok.load(Ordering::SeqCst) });
+            answer
+        })
     }
 
     /// A stand-in Core that appends a line to `runs` on each start and stops on the
@@ -411,6 +539,8 @@ while true; do sleep 1; done
                 start_timeout: Duration::from_secs(5),
                 stop_timeout: Duration::from_millis(300),
                 probe_interval: Duration::from_millis(5),
+                liveness_interval: Duration::from_millis(5),
+                liveness_failures: 3,
                 restart: restart::Config {
                     base_interval: Duration::from_millis(5),
                     scale: 1.0,
@@ -420,6 +550,7 @@ while true; do sleep 1; done
                 probe,
                 ..Config::new(
                     program,
+                    "0.0.0".to_string(),
                     dir.path().join("work"),
                     dir.path().join("data"),
                     dir.path().join("logs"),
@@ -459,7 +590,7 @@ while true; do sleep 1; done
 
     #[tokio::test]
     async fn reports_running_with_the_connection_once_the_probe_passes() {
-        let f = Fixture::new(OBEDIENT, ready);
+        let f = Fixture::new(OBEDIENT, always(true));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         let status = wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         let Status::Running { connection } = status else {
@@ -474,7 +605,7 @@ while true; do sleep 1; done
 
     #[tokio::test]
     async fn stops_the_core_through_its_stdin() {
-        let f = Fixture::new(OBEDIENT, ready);
+        let f = Fixture::new(OBEDIENT, always(true));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         let started = Instant::now();
@@ -485,7 +616,7 @@ while true; do sleep 1; done
 
     #[tokio::test]
     async fn kills_a_core_that_outlives_the_stop_timeout() {
-        let f = Fixture::new(STUBBORN, ready);
+        let f = Fixture::new(STUBBORN, always(true));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         let started = Instant::now();
@@ -496,7 +627,7 @@ while true; do sleep 1; done
 
     #[tokio::test]
     async fn gives_up_on_a_crash_loop_and_starts_again_on_request() {
-        let f = Fixture::new(CRASHING, never_ready);
+        let f = Fixture::new(CRASHING, always(false));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
         let Status::Failed { message } = status else {
@@ -512,7 +643,7 @@ while true; do sleep 1; done
 
     #[tokio::test]
     async fn kills_a_core_that_is_never_ready_and_counts_a_failed_run() {
-        let mut f = Fixture::new(OBEDIENT, never_ready);
+        let mut f = Fixture::new(OBEDIENT, always(false));
         f.cfg.start_timeout = Duration::from_millis(50);
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         let status = wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
@@ -526,7 +657,7 @@ while true; do sleep 1; done
 
     #[tokio::test]
     async fn restarts_a_core_that_exits_while_running() {
-        let f = Fixture::new(OBEDIENT, ready);
+        let f = Fixture::new(OBEDIENT, always(true));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         f.wait_for_runs(1).await;
@@ -541,8 +672,112 @@ while true; do sleep 1; done
     }
 
     #[tokio::test]
+    async fn kills_and_replaces_a_core_that_stops_answering() {
+        let ok = Arc::new(AtomicBool::new(true));
+        let f = Fixture::new(STUBBORN, following(ok.clone()));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(1).await;
+        ok.store(false, Ordering::SeqCst);
+        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        assert_eq!(
+            sup.history().last_exit,
+            Some("stopped answering after 3 probes".to_string())
+        );
+        ok.store(true, Ordering::SeqCst);
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(2).await;
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn keeps_a_core_that_misses_fewer_probes_than_the_limit() {
+        let ok = Arc::new(AtomicBool::new(true));
+        let mut f = Fixture::new(OBEDIENT, following(ok.clone()));
+        f.cfg.liveness_failures = u32::MAX;
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(1).await;
+        ok.store(false, Ordering::SeqCst);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert!(matches!(sup.status(), Status::Running { .. }));
+        assert_eq!(f.runs(), 1);
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn replaces_a_running_core_on_request_without_a_stop_in_between() {
+        let f = Fixture::new(OBEDIENT, always(true));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(1).await;
+        let mut rx = sup.subscribe();
+        rx.mark_unchanged();
+        let seen = tokio::spawn(async move {
+            let mut seen = Vec::new();
+            while rx.changed().await.is_ok() {
+                let status = rx.borrow_and_update().clone();
+                let done = matches!(status, Status::Running { .. });
+                seen.push(status);
+                if done {
+                    break;
+                }
+            }
+            seen
+        });
+        sup.restart().await;
+        let seen = tokio::time::timeout(Duration::from_secs(10), seen)
+            .await
+            .expect("timed out waiting for the new Core")
+            .unwrap();
+        assert_eq!(seen[0], Status::Restarting);
+        assert!(matches!(seen[seen.len() - 1], Status::Running { .. }));
+        assert_eq!(seen.len(), 2);
+        f.wait_for_runs(2).await;
+        assert_eq!(sup.history().last_exit, None);
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn records_the_starts_and_the_last_exit_of_the_launch() {
+        let f = Fixture::new(OBEDIENT, always(true));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(1).await;
+        let first = sup.history();
+        assert_eq!(first.starts, 1);
+        assert!(first.ready_at.is_some());
+        assert_eq!(first.last_exit, None);
+        std::process::Command::new("pkill")
+            .args(["-f", f.cfg.program.to_str().unwrap()])
+            .status()
+            .unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        let second = sup.history();
+        assert_eq!(second.starts, 2);
+        assert!(second.last_exit.unwrap().contains("signal"));
+        sup.stop().await;
+        assert_eq!(sup.history().ready_at, None);
+    }
+
+    #[tokio::test]
+    async fn backs_up_the_store_before_the_core_of_a_new_version_starts() {
+        let f = Fixture::new(OBEDIENT, always(true));
+        std::fs::create_dir_all(f.cfg.data_dir.join("kv")).unwrap();
+        std::fs::write(f.cfg.data_dir.join("kv").join("MANIFEST"), "old").unwrap();
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        let backups: Vec<_> = std::fs::read_dir(f.cfg.work_dir.join("backups"))
+            .unwrap()
+            .collect();
+        assert_eq!(backups.len(), 1);
+        sup.stop().await;
+    }
+
+    #[tokio::test]
     async fn keeps_one_connection_for_every_core_of_a_launch() {
-        let f = Fixture::new(OBEDIENT, ready);
+        let f = Fixture::new(OBEDIENT, always(true));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         let connection = |s: Status| match s {
             Status::Running { connection } => connection,
@@ -559,7 +794,7 @@ while true; do sleep 1; done
 
     #[tokio::test]
     async fn stops_the_core_when_every_handle_is_dropped() {
-        let f = Fixture::new(OBEDIENT, ready);
+        let f = Fixture::new(OBEDIENT, always(true));
         let sup = Supervisor::open(f.cfg.clone()).unwrap();
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         let mut rx = sup.subscribe();

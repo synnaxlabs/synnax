@@ -12,13 +12,15 @@
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 /// A readiness probe: resolves to true when the Core at the address serves its API.
-pub type Probe = fn(SocketAddr) -> Pin<Box<dyn Future<Output = bool> + Send>>;
+pub type Probe =
+    Arc<dyn Fn(SocketAddr) -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>;
 
 /// The Core endpoint that answers without a token.
 const PATH: &str = "/api/v1/connectivity/check";

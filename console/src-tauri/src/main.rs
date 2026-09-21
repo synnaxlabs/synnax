@@ -92,6 +92,10 @@ fn main() {
         supervisor::commands::supervisor_restart,
         supervisor::commands::supervisor_stop,
         supervisor::commands::supervisor_show_logs,
+        supervisor::commands::supervisor_show_data,
+        supervisor::commands::supervisor_diagnostics,
+        supervisor::commands::supervisor_log_tail,
+        supervisor::commands::supervisor_export_diagnostics,
     ]);
     builder
         .on_page_load(|window, _| {

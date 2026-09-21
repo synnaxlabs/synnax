@@ -10,11 +10,12 @@
 //! Binds the supervisor to the Tauri app: its commands, its status event, and its
 //! place in the app lifecycle.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
-use super::{Config, Status, Supervisor};
+use super::{Config, History, Status, Supervisor, diagnostics};
 
 /// The event every window receives on each status change.
 const STATUS_EVENT: &str = "supervisor://status";
@@ -26,8 +27,24 @@ const PROGRAM: &str = if cfg!(windows) {
     "synnax-core"
 };
 
-/// The log directory, managed so the show-logs command can reach it.
-pub struct LogDir(PathBuf);
+/// What the diagnostics commands read, managed as app state.
+pub struct Paths {
+    version: String,
+    data_dir: PathBuf,
+    log_dir: PathBuf,
+}
+
+/// What the diagnostics dialog shows beside the status.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Diagnostics {
+    version: String,
+    history: History,
+    data_dir: PathBuf,
+    log_dir: PathBuf,
+    /// The size of the data directory in bytes.
+    data_size: u64,
+}
 
 /// Starts the supervisor, manages it as app state, and forwards its status to every
 /// window.
@@ -39,7 +56,15 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
         .join(PROGRAM);
     let local = app.path().app_local_data_dir()?;
     let log_dir = app.path().app_log_dir()?;
-    let cfg = Config::new(program, local.clone(), local.join("core"), log_dir.clone());
+    let version = app.package_info().version.to_string();
+    let data_dir = local.join("core");
+    let cfg = Config::new(
+        program,
+        version.clone(),
+        local,
+        data_dir.clone(),
+        log_dir.clone(),
+    );
     // Supervisor::open spawns onto the current runtime, which setup does not enter.
     let supervisor = tauri::async_runtime::block_on(async { Supervisor::open(cfg) })?;
     let mut status = supervisor.subscribe();
@@ -53,7 +78,11 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
         }
     });
     app.manage(supervisor);
-    app.manage(LogDir(log_dir));
+    app.manage(Paths {
+        version,
+        data_dir,
+        log_dir,
+    });
     Ok(())
 }
 
@@ -86,9 +115,69 @@ pub async fn supervisor_stop(supervisor: State<'_, Supervisor>) -> Result<(), ()
     Ok(())
 }
 
+#[tauri::command]
+pub async fn supervisor_diagnostics(
+    supervisor: State<'_, Supervisor>,
+    paths: State<'_, Paths>,
+) -> Result<Diagnostics, String> {
+    let data_dir = paths.data_dir.clone();
+    let data_size = blocking(move || diagnostics::dir_size(&data_dir)).await?;
+    Ok(Diagnostics {
+        version: paths.version.clone(),
+        history: supervisor.history(),
+        data_dir: paths.data_dir.clone(),
+        log_dir: paths.log_dir.clone(),
+        data_size,
+    })
+}
+
+/// Returns the last lines of the Core log.
+#[tauri::command]
+pub async fn supervisor_log_tail(paths: State<'_, Paths>) -> Result<String, String> {
+    let log_dir = paths.log_dir.clone();
+    blocking(move || diagnostics::log_tail(&log_dir)).await
+}
+
+/// Writes a diagnostics archive for support to `path`.
+#[tauri::command]
+pub async fn supervisor_export_diagnostics(
+    path: PathBuf,
+    supervisor: State<'_, Supervisor>,
+    paths: State<'_, Paths>,
+) -> Result<(), String> {
+    let (status, history) = (supervisor.status(), supervisor.history());
+    let (version, data_dir, log_dir) = (
+        paths.version.clone(),
+        paths.data_dir.clone(),
+        paths.log_dir.clone(),
+    );
+    blocking(move || diagnostics::export(&path, &version, &status, &history, &data_dir, &log_dir))
+        .await
+}
+
 /// Opens the log directory in the platform file manager.
 #[tauri::command]
-pub fn supervisor_show_logs(log_dir: State<'_, LogDir>) -> Result<(), String> {
+pub fn supervisor_show_logs(paths: State<'_, Paths>) -> Result<(), String> {
+    reveal(&paths.log_dir)
+}
+
+/// Opens the data directory in the platform file manager.
+#[tauri::command]
+pub fn supervisor_show_data(paths: State<'_, Paths>) -> Result<(), String> {
+    reveal(&paths.data_dir)
+}
+
+/// Runs file work off the async runtime and flattens its errors to a message.
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> std::io::Result<T> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|err| err.to_string())?
+        .map_err(|err| err.to_string())
+}
+
+fn reveal(dir: &Path) -> Result<(), String> {
     let opener = if cfg!(target_os = "macos") {
         "open"
     } else if cfg!(windows) {
@@ -97,8 +186,8 @@ pub fn supervisor_show_logs(log_dir: State<'_, LogDir>) -> Result<(), String> {
         "xdg-open"
     };
     std::process::Command::new(opener)
-        .arg(&log_dir.0)
+        .arg(dir)
         .spawn()
         .map(|_| ())
-        .map_err(|err| format!("failed to open {}: {err}", log_dir.0.display()))
+        .map_err(|err| format!("failed to open {}: {err}", dir.display()))
 }

@@ -49,6 +49,9 @@ tauri-plugin-process = "2.3.1"
 tauri-plugin-prevent-default = "5.0.2"
 window-shadows = "0.2.2"
 getrandom = { version = "0.3.4", optional = true }
+zip = { version = "4.6.1", optional = true, default-features = false, features = [
+    "deflate",
+] }
 tokio = { version = "1.53.1", optional = true, features = [
     "io-util",
     "macros",
@@ -71,4 +74,4 @@ default = ["custom-protocol"]
 # NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
 # Synnax Desktop: the app bundles a Core and supervises it.
-desktop = ["dep:getrandom", "dep:tokio"]
+desktop = ["dep:getrandom", "dep:tokio", "dep:zip"]
