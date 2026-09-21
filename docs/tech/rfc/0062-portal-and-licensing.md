@@ -1,4 +1,4 @@
-# 62 Portal, licensing, and support
+# 62 Portal and licensing
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-09-17
@@ -11,22 +11,20 @@
 
 Synnax has no account. A user downloads a public binary, and an enterprise customer
 pastes a key that encodes an expiry and a channel count with arithmetic anyone can
-reverse (`core/pkg/service/channel/verification/verification.go:28-110`). Support
-arrives through a Formspree form and a marketing contact link. Nothing connects a person
-to a machine, a machine to a license, or a license to a conversation.
+reverse (`core/pkg/service/channel/verification/verification.go:28-110`). Nothing
+connects a person to a machine or a machine to a license.
 
 This RFC turns docs.synnaxlabs.com into that connection. The site moves from `docs/site`
-to a top-level `hub/`, gains accounts through Clerk, organizations and licenses in Neon
-Postgres, and support threads on Plain, all inside the existing Astro server deployment
-on Vercel, with every cloud resource declared in Terraform. The Core gains one license
-primitive: a JWT signed with Ed25519 and bound to a machine, verified offline with
-public keys compiled into the binary. Two paths issue that token. The free edition,
-Synnax Desktop, signs the user in through the system browser and issues itself a
-short-lived license that renews while signed in. The enterprise edition, the standalone
-Core, activates through a start flag or the Console against a license that staff issued
-in the portal, on a subscription or perpetual term. Downloads stay public, the Core
-never phones home, a running Core never stops because of time, and the old key format is
-deleted.
+to a top-level `hub/`, gains accounts through Clerk, and organizations and licenses in
+Neon Postgres, all inside the existing Astro server deployment on Vercel, with every
+cloud resource declared in Terraform. The Core gains one license primitive: a JWT signed
+with Ed25519 and bound to a machine, verified offline with public keys compiled into the
+binary. Two paths issue that token. The free edition, Synnax Desktop, signs the user in
+through the system browser and issues itself a short-lived license that renews while
+signed in. The enterprise edition, the standalone Core, activates through a start flag
+or the Console against a license that staff issued in the portal, on a subscription or
+perpetual term. Downloads stay public, the Core never phones home, a running Core never
+stops because of time, and the old key format is deleted.
 
 ## 1 Motivation
 
@@ -42,10 +40,6 @@ deleted.
   keyless 50-channel tier has no product left to serve.
 - **A perpetual deal already exists** and the current key cannot express it: the key has
   an expiry and nothing else.
-- **Support has no context.** A Formspree submission
-  (`docs/site/src/components/feedback/Feedback.tsx:73`) carries a name, an email, and a
-  description. Staff cannot see which organization, license, or machine the writer is
-  talking about.
 - **Installs cannot be counted.** Download anchors fire no event, and GitHub asset
   counters are the only signal.
 
@@ -53,8 +47,8 @@ deleted.
 
 - **Hub**: The Astro site at `hub/`, formerly `docs/site`: the docs, blog, releases, and
   the portal. One deployment on Vercel.
-- **Portal**: The signed-in surface of the hub: account, organizations, licenses, and
-  support. It is the same Astro site, not a second deployment.
+- **Portal**: The signed-in surface of the hub: account, organizations, and licenses. It
+  is the same Astro site, not a second deployment.
 - **Organization**: The owner of every license. A row in the portal's own table. A
   personal organization exists for every user; a team organization is additionally
   backed by a Clerk organization for membership, invitations, and roles.
@@ -75,7 +69,6 @@ deleted.
   reactivate.
 - **Grace window**: The period after a subscription expires during which a Core still
   starts, with warnings.
-- **Tenant**: Plain's grouping of customers. One per organization.
 
 ## 3 Principles
 
@@ -93,16 +86,13 @@ deleted.
    mid-run; they lose nothing if the Core refuses to start the next morning.
 5. **Enforcement lives in the license, not the download**: Every artifact stays public.
    Desktop sign-in counts free users; activation counts enterprise machines.
-6. **Buy the standard parts, build the Synnax parts**: Identity, teams, email, key
-   custody, and support come from Clerk, Resend, AWS KMS, and Plain. The license token,
-   the fingerprint, the verifier, the organization model, and the activation ledger are
-   ours.
+6. **Buy the standard parts, build the Synnax parts**: Identity, teams, email, and key
+   custody come from Clerk, Resend, and AWS KMS. The license token, the fingerprint, the
+   verifier, the organization model, and the activation ledger are ours.
 7. **Vendor ids never enter a stored format**: The license names the portal's own
-   organization key. Clerk and Plain ids are columns on that row, replaceable without
-   reissuing anything.
-8. **The docs stay the knowledge base**: Plain stores threads, not articles. Support is
-   rendered inside the site through Plain's API.
-9. **Infrastructure is code**: Every cloud resource the hub needs is declared in
+   organization key. The Clerk id is a column on that row, replaceable without reissuing
+   anything.
+8. **Infrastructure is code**: Every cloud resource the hub needs is declared in
    Terraform under `infra/`, one root per lifecycle. What a vendor cannot expose is a
    documented manual step, never an undocumented click.
 
@@ -148,11 +138,18 @@ through a registry (`console/src/app/link/useDeep.ts`).
 
 Every license belongs to an organization, and the portal owns the organization record. A
 user who signs up gets a personal organization whose only member is that user; no Clerk
-organization is created for it. A user who creates a team gets a team organization
-backed by a Clerk organization, which supplies membership, invitations, and the `owner`,
-`admin`, and `member` roles. Owners and admins manage licenses and invite members. Every
-member opens and reads the organization's support threads. Moving a license from a
-personal to a team organization is a transfer of one row.
+organization is created for it. An enterprise customer gets a team organization backed
+by a Clerk organization, which supplies membership, invitations, and the `admin` and
+`member` roles. Staff create it in the Clerk dashboard when the deal closes and invite
+the customer's admin there; customers never create teams, and a personal account shows
+no organization concept at all. Admins manage the team and invite members. Moving a
+license from a personal to a team organization is a transfer of one row.
+
+An account is therefore personal or enterprise. A personal user sees their Desktop
+machines and, where a team feature would sit, one Enterprise panel that names the
+feature and offers Talk to us, linking to the contact form. A user in at least one team
+sees that team's licenses and members, and an organization switcher only when they
+belong to more than one.
 
 Clerk prices organizations at 100 monthly retained organizations free and then one
 dollar each per month. Desktop makes every free user an organization owner, so personal
@@ -179,7 +176,7 @@ The claims are defined once, in `schemas/synnax/verification.oracle`, with
 `@go output "core/pkg/service/channel/verification"`,
 `@ts output "client/ts/src/license"`, and `@py output "client/py/synnax/license"`. The
 Go type keeps a neutral name (`verification.Grant`); `@ts name` and `@py name` expose it
-to clients as `License` (§5.11). The TypeScript output is both the client's type and the
+to clients as `License` (§5.10). The TypeScript output is both the client's type and the
 portal signer's type, since the site already imports `@synnaxlabs/client`. Keys are
 short in the JWT tradition, which also keeps the Core's struct tags free of license
 vocabulary:
@@ -188,7 +185,7 @@ vocabulary:
 - **`iat`**: Issued-at, seconds since the epoch, as JWT defines it.
 - **`exp`** (optional): Expiry. Absent on a perpetual license.
 - **`v`**: Claim set version. Starts at `1`.
-- **`org`**: The portal's organization UUID. Never a Clerk or Plain id.
+- **`org`**: The portal's organization UUID. Never a Clerk id.
 - **`ed`**: Edition, `d` for desktop or `e` for enterprise.
 - **`fp`**: List of per-interface hashes (§5.2). Empty for a floating license.
 - **`fs`**: The fingerprint scheme. Starts at `1`.
@@ -236,7 +233,7 @@ later scheme ship without invalidating issued licenses.
 
 ### 5.3 Core verifier and enforcement
 
-`core/pkg/service/channel/verification` keeps its name and location (§5.11). The service
+`core/pkg/service/channel/verification` keeps its name and location (§5.10). The service
 holds the parsed grant, the machine fingerprint, the public key set, and the clock
 high-water mark. The public keys are package constants. `ServiceConfig` takes an
 optional `Keys` override for tests only; `start` never populates it, and no environment
@@ -293,7 +290,7 @@ on an unlicensed container.
 
 Two authenticated operations, under `core/pkg/api/verification`, wired at the five
 transport sites like every other endpoint. On the wire they are `license.retrieve` and
-`license.activate`; the Core holds the route strings as base64 literals (§5.11):
+`license.activate`; the Core holds the route strings as base64 literals (§5.10):
 
 - **`license.retrieve`**: Returns the state (`unlicensed`, `expired`, `licensed`), any
   warning, the fingerprint, and the decoded grant when present. Requires an
@@ -316,7 +313,7 @@ migration. The Console labels the type "License" in its permission views.
 The `--license-key` flag and `SYNNAX_LICENSE_KEY` remain, now accepting a token, and a
 `--license-file` flag reads one from a path, which is what systemd units and the Windows
 service want. Both activate at start with no interactive step, which is how a
-provisioned server and the CI runner (§5.10) run. A running Core is activated from the
+provisioned server and the CI runner (§5.9) run. A running Core is activated from the
 Console, desktop or embedded (§5.5). There is no `synnax license` command: nothing in
 `core/cmd` talks to a running Core today and there is no Go client, so a CLI would be a
 client library built for one command. Scripts that want the state call the retrieve
@@ -347,27 +344,38 @@ The same screen serves the embedded web Console the Core hosts, which is how a h
 server is activated without a desktop install.
 
 Desktop builds add a sign-in state (§5.8) above the activation screen; enterprise builds
-never show it. The Desktop build is selected by a Vite build-time flag, the first such
-flag in `console/src`.
+never show it. The Desktop build is the one RFC 0063 defines, selected by its `DESKTOP`
+build-time constant, which only `console/src/app` reads. `app/window/Guard.tsx` puts the
+license gate in both guard trees. In Desktop the gate sits outside the embedded Core
+guard, because an unlicensed Core never settles, and its activation screen is
+standalone: no connection island and no log out action.
 
 ### 5.6 Portal identity and organizations
 
 Clerk provides sign-up, sign-in, sessions, and, for team organizations, membership,
-invitations, and roles through `@clerk/astro`, on a direct Clerk account. The site's
-middleware gains the Clerk handler ahead of the existing CSP handler, and the CSP
-allowlist gains Clerk's domains. After sign-in, PostHog identifies the user, which the
-site's `person_profiles: "identified_only"` setting already anticipates. A Clerk webhook
-creates the personal organization on user creation and mirrors team organization
-creation into a Plain tenant (§5.9).
+invitations, and roles through `@clerk/astro`, on a direct Clerk account. The portal
+renders every one of those screens itself on Clerk's client API (§5.11); no Clerk widget
+appears on the site. The site's middleware gains the Clerk handler ahead of the existing
+CSP handler, and the CSP allowlist gains Clerk's domains. After sign-in, PostHog
+identifies the user, which the site's `person_profiles: "identified_only"` setting
+already anticipates. The portal's organization rows follow Clerk at the seams that read
+them: resolving a session upserts a row for every team the user belongs to, and issuing
+a license upserts the row for the team the staff member chose from Clerk's organization
+list. A Clerk webhook mirrors the same creations as a fast path; it is idempotent and
+nothing depends on its delivery.
 
 Staff are members of the Synnax Labs team organization with the `owner` or `admin` role;
 the staff area checks membership of that one organization key, held in an environment
 variable.
 
+Inside a team, every member activates machines, releases seats, and downloads tokens,
+because the person at the test stand is rarely the account admin. Only admins invite and
+remove members and change roles. No license action is admin-only.
+
 Neon Postgres, on a direct Neon account, holds the portal's tables through Drizzle:
 
 - **`organization`**: `key`, `kind` (`personal` or `team`), `name`, `clerk_org_id` (team
-  only), `plain_tenant_id`, `owner_user_id` (personal only).
+  only), `owner_user_id` (personal only).
 - **`license`**: `key`, `organization`, `edition`, `term` (`subscription` or
   `perpetual`), `nodes`, `channels`, `expires_at`, `max_version`, `label`, `issued_by`,
   `revoked_at`. The token is regenerated from the row, never stored.
@@ -384,10 +392,9 @@ identity the Vercel runtime signs with, the Vercel environment variables and dom
 the GitHub Actions secret for CI. State lives in the HCP Terraform free tier. Cron
 schedules stay in `vercel.json`. Neon and Clerk are installed through the Vercel
 Marketplace, which injects the connection string and the Clerk keys into the project;
-their remaining dashboard steps, and Resend and Plain, which have no provider, are
-documented in `infra/README.md`. The layout is one Terraform root per lifecycle, so
-`infra/runners/` can later provision integration test runners without sharing state with
-the signing key.
+their remaining dashboard steps, and Resend, which has no provider, are documented in
+`infra/README.md`. The layout is one Terraform root per lifecycle, so `infra/runners/`
+can later provision integration test runners without sharing state with the signing key.
 
 ### 5.7 Portal licenses and the activation ledger
 
@@ -425,24 +432,7 @@ portal releases the activation, so the next renewal is refused and the license l
 expiry plus the grace window. A laptop that never reaches the portal runs until then,
 and shows the activation screen with the offline instructions on its next start.
 
-### 5.9 Support on Plain
-
-Every Plain call runs server-side in the site, through `@team-plain/graphql`, with the
-API key as a Vercel secret. Plain's hosted help center is not used.
-
-- **Tenants**: One per organization, created by the portal with the organization key as
-  `externalId`. Members are added as Plain customers to their tenants.
-- **Support page**: A signed-in page listing the organization's threads with status, a
-  form that creates a thread, and a thread view with reply. Visibility is tenant-wide,
-  so every member sees the organization's threads.
-- **Feedback modal**: The Formspree form becomes a Plain thread. Signed-out visitors
-  still submit; the thread is created against a customer keyed by the email they enter.
-- **Customer card**: The site serves Plain's customer card protocol at one endpoint,
-  verified with the request signature header, returning the customer's organizations,
-  licenses, and recent activations. Staff reading a thread see the machine the customer
-  is describing.
-
-### 5.10 Development, CI, and hosted Cores
+### 5.9 Development, CI, and hosted Cores
 
 Every build enforces, so development needs real licenses, and the Synnax Labs
 organization provides them:
@@ -465,7 +455,7 @@ organization provides them:
   grants with `Sign`. No other test touches licensing, because the test fixtures that
   open a service layer inject a signed test license the same way.
 
-### 5.11 Obfuscation
+### 5.10 Obfuscation
 
 The Core hides where enforcement lives. Release builds strip symbols with `-w -s`
 (`.github/workflows/build.synnax.yaml:627`), but Go keeps package paths and function
@@ -492,14 +482,77 @@ this RFC extends it to every new piece in the Core:
 Obfuscation raises the cost of a casual `strings` or `grep`; it does not stop a reader
 of the source. Principle 3 sets the bar it works toward.
 
+### 5.11 Portal interface
+
+The portal is a section of the hub, not a second shell. The header gains a fourth entry,
+Portal, beside Reference, Blog, and Releases, visible signed out; a signed-out click
+lands on sign-in and returns to the page asked for. Signed in, the header's sign-in
+button becomes an avatar menu with Portal, Account, and Sign out. Below the header, a
+portal page takes the docs' left rail for its own sidebar: the organization switcher on
+top for a user in more than one team, then Licenses for a team member or Desktop for a
+personal user, and Account, and for staff a second group with Licenses. The content
+column runs at Pluto's own type scale and radius, scoped to the portal frame the way the
+feedback modal already scopes them, so the portal reads as an application while the docs
+keep their editorial scale. Theme follows the operating system, as the docs do. Below
+the mobile breakpoint the sidebar folds into the existing drawer and tables collapse to
+cards.
+
+Every portal page is an Astro page that loads its data on the server through the
+existing server functions and renders one React island with that data as props, hydrated
+on load so the first paint is server HTML. Actions open Pluto modal dialogs with the
+Console's anatomy: a header bar carrying the title and a close button, a body, and a
+footer bar with the primary action and the save shortcut. A dialog posts JSON to the
+existing `/api/portal/...` route, shows a route error inline as a status summary, and on
+success navigates to the same URL so the page reloads its data. The `?error=` query
+channel and the page-level form posts are deleted. That anatomy moves from the Console
+into Pluto as `Modal` (frame, header, body, footer), and the Console's `platform/modals`
+keeps only what binds it to the session: the factory and the stack.
+
+- **Sign-in and sign-up**: `/sign-in`, `/sign-up`, `/sign-in/reset`, and
+  `/sso-callback`, built on `signIn`, `signUp`, `setActive`, and
+  `handleRedirectCallback` from Clerk's client. Sign-in offers email and password, a
+  Google button, and a Microsoft button; a second factor renders when the account has
+  one. Reset sends an email code and takes a new password. Sign-up takes name, email,
+  and password, verifies the email with a six-digit code, and lands on `/portal`. OAuth
+  redirects to `/sso-callback` and completes to the requested page. Clerk's error codes
+  map to field help text; nothing else surfaces raw vendor copy.
+- **Licenses** (`/portal`, team members): The organization's licenses as a table of
+  label, edition, term, seats in use, and a status tag. Activate a machine opens a
+  dialog: the license to activate, if the page did not name one, a field for the
+  fingerprint the Console copied, and an Activate action that downloads the token and
+  leaves the dialog in a done state with Download again. `/portal/licenses/activate`,
+  the page the Console links, is the licenses page with that dialog open, taking
+  `?license=`. An organization with no licenses sees why.
+- **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
+  with first seen and last renewal, an Unlink action per machine, and an empty state
+  until Phase 4 ships. The Enterprise panel sits beneath the list.
+- **License** (`/portal/licenses/<key>`): The label, status tag, and actions on top:
+  Activate a machine, and for staff Floating token and Revoke, the latter a hold to
+  confirm. A facts grid for edition, term, seats, channels, issued, and key. The
+  machines table with first seen, last token, and a per-machine menu of Download token
+  and Release, the latter confirmed. The license's activity from the event table
+  beneath, newest first.
+- **Account** (`/portal/account`): Profile with name, email, avatar, and password change
+  through Clerk's user API. For a personal user, the Enterprise panel in place of a
+  teams section. For each team the user belongs to, its members with their roles, and
+  for an admin an Invite dialog taking email and role, with remove and role change in a
+  per-member menu. Membership goes through Clerk's organization API; there is no team
+  creation on the site.
+- **Staff licenses** (`/portal/staff/licenses`): Every license with its organization,
+  and Issue license as a dialog: the organization chosen from Clerk's organization list,
+  label, term, nodes, channels, and the expiry or maximum version the term needs,
+  validated before the post. Issuing upserts the organization row (§5.6).
+
 ## 6 What this RFC does not cover
 
+- Support. The docs feedback form stays on Formspree, and the portal has no support
+  threads, inbox, or help desk integration.
 - Building Synnax Desktop itself: embedding a Core in the Console bundle and the feature
-  flag surface beyond the sign-in state. This RFC defines the license path Desktop uses.
+  flag surface beyond the sign-in state. RFC 0063 covers that build. This RFC defines
+  the license path Desktop uses.
 - Payments and self-serve purchase. The license table is shaped so a Stripe flow can
   create rows later; nothing here depends on it.
-- Plain's Ask AI and any mirroring of docs into Plain's knowledge base.
-- The privacy policy. Accounts, Clerk, Plain, and PostHog identification change the data
+- The privacy policy. Accounts, Clerk, and PostHog identification change the data
   processing it describes, and it is updated alongside Phase 2, outside this RFC.
 - Merging the landing page into the hub. It lives in the separate `synnaxlabs/landing`
   repository on the same stack, and moving it in, with the docs under one domain, needs
@@ -518,7 +571,7 @@ without a format change:
 
 ## 7 Implementation phases
 
-A rename lands first on its own, then Phases 1 through 3 stack on `rc` and merge as one
+A rename lands first on its own, then Phases 1 and 2 stack on `rc` and merge as one
 unit, so no Core on `rc` demands a token before the key that signs it exists. Phase 4
 lands with the Desktop bundle.
 
@@ -547,12 +600,21 @@ lands with the Desktop bundle.
   the key and the CI secret must exist before Phase 1's Core runs in CI. Boundary earned
   by a green intermediate state: after this phase staff issue the cutover licenses
   (§7.0) and the release can ship.
-- **Phase 3: Support on Plain.** Tenant mirroring, the support page, the feedback modal
-  cutover, and the customer card endpoint. Boundary earned by reviewability: a different
-  domain with a different vendor, and nothing in the release depends on it.
-- **Phase 4: Desktop sign-in.** The browser handoff page, the deep link handler, the
-  account slice and renewal loop, and the Vite flag. Depends on the Desktop bundle
-  existing, so it lands when that work does.
+- **Phase 3: Portal interface.** Two pull requests. The first moves the modal anatomy
+  from the Console into Pluto and migrates the Console's callers, a mechanical change
+  kept apart by risk isolation. The second replaces every portal page: the header entry
+  and avatar menu, the sidebar, the custom sign-in, sign-up, reset, and callback pages,
+  the licenses, license, account, and staff pages with their dialogs, the `/portal`
+  routes with the Console's activation link moved, and the deletion of the form-post
+  pages, the `?error=` channel, and the portal stylesheet. Boundary earned by
+  reviewability: Phase 2 is reviewed on its server behavior, and this one on its
+  interface. Before it deploys, the production Clerk instance needs the name attribute,
+  organizations, and the Microsoft connection enabled, and the Neon database needs the
+  Drizzle migration applied; neither the build nor the deploy runs it.
+- **Phase 4: Desktop sign-in.** The browser handoff page, the deep link handler, and the
+  account slice and renewal loop. The Desktop bundle and its build flag exist (RFC
+  0063), and until this phase lands a Desktop install activates through the standalone
+  activation screen.
 
 ### 7.0 Compatibility
 
@@ -571,9 +633,8 @@ registered error types. New clients decode it.
 ## 8 Resolved decisions
 
 1. **Organizations own every license, with a personal organization per user**: A
-   polymorphic owner (user or organization) forks every query, permission check, and
-   Plain mapping in two. The trade is real: a solo user sees one more concept, and Plain
-   holds one tenant per hobbyist.
+   polymorphic owner (user or organization) forks every query and permission check in
+   two. The trade is real: a solo user sees one more concept.
 2. **One signed offline token with expiry and renewal**: Online-only validation makes a
    running Core depend on our uptime and cannot run air-gapped. Extending the opaque key
    keeps it forgeable. Keygen would remove the signer but not the portal, the verifier,
@@ -584,104 +645,141 @@ registered error types. New clients decode it.
    Tauri updater, `pip`, and `docker pull` cannot be gated. Desktop sign-in and
    activation give the counts a wall would have given. The trade is real: nothing stops
    a direct GitHub link.
-4. **Support is built on Plain's API inside the site**: The hosted help center lives on
-   its own domain, cannot sit under a path on the docs site, and would duplicate the
-   docs as a second knowledge base.
-5. **Clerk and Neon inside the Astro site**: Supabase has no organization concept, so
+4. **Clerk and Neon inside the Astro site**: Supabase has no organization concept, so
    invitations and roles would be ours to build. PocketBase is pre-1.0, has no
    organizations, runs on one node, and needs a second host. A separate Go service adds
    a deploy for logic that has no Go consumer. The trade is real: Vercel becomes
    critical for issuance and renewal, though never for a running Core.
-6. **Browser handoff for Desktop**: RFC 8252. An embedded web view is what the RFC
+5. **Browser handoff for Desktop**: RFC 8252. An embedded web view is what the RFC
    forbids, and Google and Apple block their sign-in inside it. A first draft paired it
-   with a device code flow in a CLI; decision 24 removed the CLI.
-7. **The standalone Core requires a license**: Desktop is the free edition; anything
+   with a device code flow in a CLI; decision 23 removed the CLI.
+6. **The standalone Core requires a license**: Desktop is the free edition; anything
    standalone is enterprise. An unlicensed Core starts and only activation works,
    because refusing to start would block online activation and the embedded Console.
-8. **Every build enforces**: Injecting the key only at release would make any clone an
+7. **Every build enforces**: Injecting the key only at release would make any clone an
    unlimited Core. The cost is one activation per engineer machine and one rotating CI
    secret.
-9. **MAC-derived fingerprint with an activation ledger**: FlexNet uses the MAC host id
+8. **MAC-derived fingerprint with an activation ledger**: FlexNet uses the MAC host id
    and documents the VM and Docker holes. Ignition uses a hardware fingerprint plus a
    server-side activation count with reactivate, which this design copies. Keygen's
    random-per-boot fingerprint needs an online heartbeat. Grafana's URL binding does not
    fit Cores on private networks.
-10. **Staff issue every enterprise license**: No self-serve trial. The standalone quick
-    start directs readers to request a license.
-11. **Activation is an API operation callable from the Console**: The Core is the
+9. **Staff issue every enterprise license**: No self-serve trial. The standalone quick
+   start directs readers to request a license.
+10. **Activation is an API operation callable from the Console**: The Core is the
     verifier, so the worst a caller can do is install a license Synnax issued for that
     machine.
-12. **Hard cutover from the old key**: A grace window keeps the forgeable parser alive
+11. **Hard cutover from the old key**: A grace window keeps the forgeable parser alive
     for a release. The holder list is small and known.
-13. **The Core stays obfuscated**: A first draft renamed the package to `license` on the
+12. **The Core stays obfuscated**: A first draft renamed the package to `license` on the
     grounds that the CLI and Console say the word anyway. Rejected: Go binaries keep
     package and function names even when stripped, so the identifiers are what a
     `strings` pass finds. Readable names belong to the surfaces that do not enforce
-    (§5.11).
-14. **A standard JWT, not a custom line**: A first draft framed the token as
+    (§5.10).
+13. **A standard JWT, not a custom line**: A first draft framed the token as
     `synnax1.<payload>.<signature>`. Rejected: the Core already verifies EdDSA JWTs, a
     custom frame has no `kid` and so no key rotation, and every parsing edge the
     libraries handle would be ours.
-15. **Private key in AWS KMS**: A Vercel environment secret is one leaked variable away
+14. **Private key in AWS KMS**: A Vercel environment secret is one leaked variable away
     from unlimited licenses until a binary ships with a new key set. KMS supports
     Ed25519 signing and the key never exists in plaintext. The trade is real: a second
     cloud account and a network call per issuance.
-16. **The portal owns organizations; Clerk backs only teams**: A first draft made every
+15. **The portal owns organizations; Clerk backs only teams**: A first draft made every
     organization a Clerk organization and put its id in the token. Rejected on cost,
     since Clerk bills per retained organization and Desktop makes every free user one,
     and on principle 7, since a vendor id would sit in every stored license.
-17. **Time is checked at start, never against a running process**: A first draft
+16. **Time is checked at start, never against a running process**: A first draft
     hard-stopped an expired Core. Rejected: Grafana keeps running on an expired license
     with a banner, and a test operator's cost of a mid-run stop is a lost test. The
     trade is real: a process can outlive its license until its next restart.
-18. **The fingerprint is a set matched by intersection**: A single hash over all
+17. **The fingerprint is a set matched by intersection**: A single hash over all
     addresses breaks on any adapter change. FlexNet's any-listed-host-id rule keeps the
     same deterrent with far fewer reactivations.
-19. **Perpetual licenses are first-class**: An existing deal is perpetual. `mv` and the
+18. **Perpetual licenses are first-class**: An existing deal is perpetual. `mv` and the
     perpetual term ship in Phase 1 and the staff form in Phase 2, not as a reserved
     claim. A perpetual license with no ceiling can only be limited by the machine
     binding; that is the nature of the deal and a conscious choice per contract.
-20. **Version ceiling by minor version, not release date**: The repository ships one
+19. **Version ceiling by minor version, not release date**: The repository ships one
     shared minor version, patch releases stay covered automatically, and no build
     timestamp or clock is involved.
-21. **License state on the connectivity check, not a retrieve after connect**: A first
+20. **License state on the connectivity check, not a retrieve after connect**: A first
     draft had the Console call `license.retrieve` once connected. Rejected: the
     Console's synchronizers run when the change stream goes live, before any
     Console-level call, and they hit gated endpoints. The connection machine must know
     first, and the check is the call it already makes. The trade is real: one word of
     state is readable without credentials.
-22. **The gate is a transport roster, not target matching**: The request target is a
+21. **The gate is a transport roster, not target matching**: The request target is a
     path on HTTP and a method name on gRPC. The roster idiom already exempts login and
     connectivity, and a reviewer reads which endpoints are gated from one list.
-23. **A `verification` resource type, not the `builtin` root and not the root-user
+22. **A `verification` resource type, not the `builtin` root and not the root-user
     flag**: Enforcing update on the ontology root node was rejected as a shortcut
     through an unrelated object. Checking the root-user flag was rejected as a second
     permission mechanism outside RBAC, since the flag is already reconciled into the
     Owner role on every start. The trade is real: an ontology version migration.
-24. **No CLI**: A `synnax license` group needs a Go HTTP client that speaks TLS, and
+23. **No CLI**: A `synnax license` group needs a Go HTTP client that speaks TLS, and
     none exists; the freighter Go client is test-only and hard-codes plain HTTP.
     Extending it or hand-rolling `net/http` builds a client library for one command.
     Start flags, the Console screen, and `curl` cover every case it served.
-25. **No bootstrap signing key**: Phases 1 through 3 merge as one unit, so the KMS key
+24. **No bootstrap signing key**: Phases 1 through 3 merge as one unit, so the KMS key
     exists before any Core on `rc` demands a token. A first draft carried a temporary
     key and a rotation; the unit merge made both unnecessary.
-26. **The Driver retries the gate error**: Its reconnect loops retry only unreachable
+25. **The Driver retries the gate error**: Its reconnect loops retry only unreachable
     Cores, so an unlicensed Core would kill the driver it spawns. Treating the
     verification error like unreachable lets it recover on activation.
-27. **Terraform for the providers that exist; the Vercel Marketplace for Neon and
+26. **Terraform for the providers that exist; the Vercel Marketplace for Neon and
     Clerk**: A first draft put every vendor on a direct account under Terraform.
     Revised: Clerk's providers are community ones that cover a resource or two, Resend
     has none, and a Marketplace install bills through Vercel and injects its variables
     without a secret changing hands. The trade is real: Neon and Clerk settings are
     dashboard steps in `infra/README.md`, not code.
-28. **Portal routes**: `/account`, `/licenses`, `/licenses/activate`, `/licenses/<key>`,
-    `/staff/licenses`, and `/api/portal/...` for the endpoints. The organization is a
-    query parameter on the licenses page, not a path segment, so a license URL never
-    changes when an organization is renamed.
-29. **The site becomes `hub/`**: `docs/site` understates a site that carries accounts,
-    licenses, and support. `site/` and `www/` were rejected as generic, `portal/` names
-    one section, `cloud/` implies a hosted service, and a coined name was offered and
+27. **Portal routes under one prefix**: `/portal` lands on licenses, then
+    `/portal/licenses/<key>`, `/portal/licenses/activate`, `/portal/account`,
+    `/portal/staff/licenses`, and `/api/portal/...` for the endpoints. Sign-in, sign-up,
+    and the SSO callback stay at the root, since they are not portal pages. A first
+    draft put the pages at the root; once the header named the section Portal, the URL
+    had to say the same. The organization is a query parameter, not a path segment, so a
+    license URL never changes when an organization is renamed.
+28. **The site becomes `hub/`**: `docs/site` understates a site that carries accounts
+    and licenses. `site/` and `www/` were rejected as generic, `portal/` names one
+    section, `cloud/` implies a hosted service, and a coined name was offered and
     declined. The landing page merge is deferred (§6).
+29. **The portal is a section, not a shell**: Tailscale, Vercel, Linear, and Stripe put
+    the signed-in surface in an application shell on its own host. The hub is one
+    deployment, and the portal will stay small, so it takes one header entry and a
+    sidebar in the docs' left rail rather than a shell of its own. The trade is real:
+    the portal inherits the docs header and footer, and its density is scoped by CSS
+    rather than by a separate layout.
+30. **Sign-in and the team screens are ours, on Clerk's client API**: Clerk's prebuilt
+    components take an appearance object, not a design; they render their own layout and
+    copy, and they would be the only surface on the site not built from Pluto. The trade
+    is real: password reset, email verification, second factors, and OAuth callbacks are
+    our pages to maintain against Clerk's API.
+31. **One island per page over JSON**: Restyling the server-rendered forms was cheaper
+    but cannot produce a dialog or an inline error, and every action would remain a
+    full-page round trip through a query string. The routes already accept JSON, so the
+    island model costs nothing on the server. The trade is real: the portal pages need
+    React to act, where the docs pages do not.
+32. **Members act on licenses, admins act on the team**: Making every license action
+    admin-only would send the engineer at the stand to their manager for a token. The
+    trade is real: any member can release another member's machine, and the event log is
+    the recourse.
+33. **Staff create teams in the Clerk dashboard**: A first draft let any user create a
+    team and invite members. Every license is staff-issued (decision 9), so a
+    customer-made team is an empty shell until a deal closes, and it puts a second
+    concept in front of every personal user. Clerk's dashboard already creates
+    organizations and sends invitations, so a creation dialog on the site would be a
+    second interface over the same API. The trade is real: onboarding a customer is a
+    staff step, and the site has no team creation to test.
+34. **Personal accounts see no organization concept**: A personal user has one
+    organization they never chose, so a switcher, a teams section, and an organization
+    subtitle would name something they cannot act on. Where a team feature would sit,
+    one Enterprise panel names it and offers Talk to us. The trade is real: the two
+    account shapes fork the licenses page and the account page.
+35. **Organization rows follow Clerk at the seams that read them**: A first draft relied
+    on the webhook alone, so a dropped delivery, or a local instance the webhook cannot
+    reach, left a team invisible to the portal. Session resolve and license issue now
+    upsert the rows they need; the webhook remains a fast path. The trade is real: every
+    session resolve costs one query per team.
 
 ## 9 Open questions
 
