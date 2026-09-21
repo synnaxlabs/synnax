@@ -14,6 +14,7 @@ import { useCallback } from "react";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
+import { Link } from "@/platform/link";
 import { useKey } from "@/platform/task/useKey";
 
 export const UtilityButtons = () => {
@@ -48,6 +49,7 @@ export const UtilityButtons = () => {
     copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
   };
   const hasKey = !primitive.isZero(taskKey);
+  const linksDisabled = Link.useDisabled();
   return (
     <Flex.Box x gap="small">
       {hasKey && (
@@ -90,15 +92,17 @@ export const UtilityButtons = () => {
       {hasKey && (
         <>
           <Divider.Divider y />
-          <Button.Button
-            onClick={handleCopyLink}
-            tooltip="Copy link"
-            tooltipLocation="left"
-            variant="text"
-            textColor={9}
-          >
-            <Icon.Link />
-          </Button.Button>
+          {!linksDisabled && (
+            <Button.Button
+              onClick={handleCopyLink}
+              tooltip="Copy link"
+              tooltipLocation="left"
+              variant="text"
+              textColor={9}
+            >
+              <Icon.Link />
+            </Button.Button>
+          )}
           <Button.Button
             onClick={handleExport}
             tooltip="Export"

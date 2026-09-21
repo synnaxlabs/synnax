@@ -13,9 +13,9 @@ packages:
   - client/ts
   - configs/**
   - console
-  - docs/site
   - drift
   - freighter/ts
+  - hub
   - pluto
   - x/media
   - x/ts

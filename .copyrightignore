@@ -22,4 +22,4 @@ pnpm-lock.yaml
 # Test fixtures and third-party assets
 integration/tests/fixtures/test_symbol.svg
 integration/tests/fixtures/styled_symbol.svg
-docs/site/public/images/us-flag.svg
+hub/public/images/us-flag.svg

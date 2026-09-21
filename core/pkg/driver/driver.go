@@ -125,7 +125,8 @@ func (c Config) format(trustAnchorFile string) map[string]any {
 		"connection": map[string]any{
 			"host":             c.Address.Host(),
 			"port":             c.Address.Port(),
-			"credentials":      c.Credentials,
+			"username":         c.Credentials.Username,
+			"password":         c.Credentials.Password,
 			"ca_cert_file":     trustAnchorFile,
 			"client_cert_file": c.ClientCertFile,
 			"client_key_file":  c.ClientKeyFile,
