@@ -207,6 +207,7 @@ export class Iterator {
    * Closes the iterator. An iterator MUST be closed after use, and this method
    * should probably be placed in a 'finally' block. If the iterator is not closed,
    * it may leak resources.
+   * @throws the error that stopped the iterator, if a read failed.
    */
   async close(): Promise<void> {
     await this.stream.closeAndAck();

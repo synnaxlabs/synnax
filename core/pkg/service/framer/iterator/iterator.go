@@ -51,6 +51,8 @@ type Iterator struct {
 	wg          signal.WaitGroup
 	value       []Response
 	valueFrames []framer.Frame
+	// closed is true once Close has run.
+	closed bool
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
@@ -108,10 +110,15 @@ func (i *Iterator) Error() error {
 	return err
 }
 
-// Close closes the Iterator, ensuring that all in-progress reads complete
-// before closing the Source outlet. All iterators must be Closed, or the
-// distribution layer will panic.
+// Close closes the Iterator, ensuring that all in-progress reads complete before
+// closing the Source outlet. It returns the error that stopped the iterator, unless a
+// seek has cleared it since. Closing a closed iterator returns nil. All iterators must
+// be Closed, or the distribution layer will panic.
 func (i *Iterator) Close() error {
+	if i.closed {
+		return nil
+	}
+	i.closed = true
 	defer i.shutdown()
 	i.requests.Close()
 	return i.wg.Wait()

@@ -15,8 +15,10 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -1052,6 +1054,116 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(i.Close()).To(Succeed())
 					},
 				)
+
+				// openFaulty writes five samples to an index and a data channel through
+				// a fault-injecting file system and returns the keys of both.
+				openFaulty := func(
+					ctx SpecContext,
+				) (*FaultyFS, *cesium.DB, []cesium.ChannelKey) {
+					GinkgoHelper()
+					var (
+						faulty   = WrapFaultyFS(openFS())
+						faultyDB = mustOpenDBOnFS(ctx, faulty)
+						indexKey = GenerateChannelKey()
+						dataKey  = GenerateChannelKey()
+					)
+					Expect(faultyDB.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      indexKey,
+							Name:     "Mawson",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						},
+						cesium.Channel{
+							Key:      dataKey,
+							Name:     "Wilkins",
+							DataType: telem.Int64T,
+							Index:    indexKey,
+						},
+					)).To(Succeed())
+					Expect(faultyDB.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{indexKey, dataKey},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
+						},
+					))).To(Succeed())
+					return faulty, faultyDB, []cesium.ChannelKey{indexKey, dataKey}
+				}
+
+				It("Should return the read error that stopped the iterator", func(
+					ctx SpecContext,
+				) {
+					faulty, faultyDB, keys := openFaulty(ctx)
+					i := MustSucceed(faultyDB.OpenIterator(cesium.IteratorConfig{
+						Bounds:   telem.TimeRangeMax,
+						Channels: keys,
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					faulty.SetOptions(WithFailReadAt())
+					Expect(i.Next(cesium.AutoSpan)).To(BeFalse())
+					Expect(i.Error()).To(MatchError(ErrFault))
+					Expect(i.Close()).To(MatchError(ErrFault))
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should close cleanly once a seek clears the read error", func(
+					ctx SpecContext,
+				) {
+					faulty, faultyDB, keys := openFaulty(ctx)
+					i := MustSucceed(faultyDB.OpenIterator(cesium.IteratorConfig{
+						Bounds:   telem.TimeRangeMax,
+						Channels: keys,
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					faulty.SetOptions(WithFailReadAt())
+					Expect(i.Next(cesium.AutoSpan)).To(BeFalse())
+					faulty.SetOptions()
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+					Expect(i.Close()).To(Succeed())
+				})
+
+				It(
+					"Should end a stream iterator with the read error that stopped it",
+					func(
+						ctx SpecContext,
+					) {
+						faulty, faultyDB, keys := openFaulty(ctx)
+						it := MustSucceed(
+							faultyDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: keys,
+							}),
+						)
+						sCtx, cancel := signal.Isolated()
+						defer cancel()
+						requests, responses := confluence.Attach(it, 1)
+						it.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandSeekFirst,
+						}
+						Eventually(responses.Outlet()).Should(Receive())
+						faulty.SetOptions(WithFailReadAt())
+						requests.Inlet() <- cesium.IteratorRequest{
+							Command: cesium.IteratorCommandNext,
+							Span:    cesium.AutoSpan,
+						}
+						var res cesium.IteratorResponse
+						Eventually(responses.Outlet()).Should(Receive(&res))
+						Expect(res.Ack).To(BeFalse())
+						requests.Close()
+						Expect(sCtx.Wait()).To(MatchError(ErrFault))
+					},
+				)
+
+				It("Should return a read error from Read", func(ctx SpecContext) {
+					faulty, faultyDB, keys := openFaulty(ctx)
+					faulty.SetOptions(WithFailReadAt())
+					Expect(faultyDB.Read(ctx, telem.TimeRangeMax, keys...)).Error().
+						To(MatchError(ErrFault))
+				})
 
 				It(
 					"Should not allow opening an iterator on a closed db",

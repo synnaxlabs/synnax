@@ -105,7 +105,8 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 // Value implements Iterator.
 func (i *Iterator) Value() Frame { return i.frame }
 
-// Close implements Iterator.
+// Close closes the iterator and returns the error that stopped it, unless a seek has
+// cleared that error since. Closing a closed iterator returns nil.
 func (i *Iterator) Close() error {
 	if i.closed {
 		return nil

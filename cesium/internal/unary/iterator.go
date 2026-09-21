@@ -421,18 +421,19 @@ func (i *Iterator) Error() error {
 // its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
-// Close closes the iterator and releases any resources it holds. As with all other
-// iterator methods, Close is not safe to call concurrently with any other database
-// method.
+// Close closes the iterator and releases any resources it holds. It returns the error
+// that stopped the iterator, unless a seek has cleared it since. Closing a closed
+// iterator returns nil. As with all other iterator methods, Close is not safe to call
+// concurrently with any other database method.
 //
 // After close is called, the iterator should no longer be used.
-func (i *Iterator) Close() (err error) {
+func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
 	}
 	i.closed = true
 	wrap := channel.NewErrorWrapper(i.Channel)
-	return wrap(i.internal.Close())
+	return wrap(errors.Combine(i.err, i.internal.Close()))
 }
 
 // accumulate reads the underlying data contained in the view from OS and appends them
