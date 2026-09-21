@@ -1,0 +1,407 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Channels"
+description:
+  "Learn the fundamentals of creating, retrieving, renaming, and deleting channels."
+next: "Calculated Channels"
+nextURL: "/reference/client/calculated-channels"
+prev: "Authentication"
+prevURL: "/reference/client/authentication"
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A [channel](/reference/concepts/channels) is a collection of time-ordered data. Channels
+store sensor readings, actuator commands, post-processed results, logs, or any other
+time-ordered data.
+
+[Calculated channels](/reference/client/calculated-channels) are computed from other
+channels.
+
+<Divider.Divider x />
+
+## Channel Parameters
+
+| Parameter                                                                        | Type       | Default                                          | Description                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                                                           | string     | Required                                         | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                                                    |
+| <Client.Var client:load py="data_type" ts="dataType" />                          | `DataType` | Required                                         | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                                                |
+| <Client.Var client:load py="is_index" ts="isIndex" />                            | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is an index channel, <Client.Var client:load py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
+| `index`                                                                          | number     | `0`                                              | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                                                 |
+| `virtual`                                                                        | boolean    | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                                       |
+| <Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | boolean    | <Client.Var client:load py="False" ts="false" /> | If <Client.Var client:load py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                                  |
+
+<Divider.Divider x />
+
+## Create Channels
+
+Use the `create` method to create one channel or many channels. Creating many channels
+in a single call is more efficient than creating them individually. The call is atomic,
+so Synnax creates all of the channels or none of them.
+
+<Note.Note variant="warning" className="compact">
+  You must create an index channel before the non-virtual data channels that use it.
+</Note.Note>
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Create a channel from the [Channels Toolbar](/reference/console/ui-overview#channels),
+or with the "Create Channel" command in the
+[Command Palette](/reference/console/ui-overview#search-and-command-palette).
+
+<Video client:only="react" id="client/channels/create" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+import numpy as np, synnax as sy
+
+time_index = client.channels.create(
+    name="time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True,
+)
+
+sensor_one = sy.Channel(
+    name="sensor_one",
+    data_type=sy.DataType.FLOAT32, # Use Synnax datatypes
+    index=time_index.key,
+)
+
+sensor_two = sy.Channel(
+    name="sensor_two",
+    data_type=np.float32, # Or numpy
+    index=time_index.key,
+)
+
+sensor_three = sy.Channel(
+    name="sensor_three",
+    data_type="float32", # Or strings
+    index=time_index.key,
+)
+
+data_channels = client.channels.create(
+    [sensor_one, sensor_two, sensor_three],
+    retrieve_if_name_exists=True, # Optional
+)
+```
+
+<Note.Note variant="info" className="compact">
+  `retrieve_if_name_exists` returns the existing channel if the name already exists.
+</Note.Note>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Channel } from "@synnaxlabs/client";
+
+const timeIndexChannel = await client.channels.create({
+  name: "time",
+  dataType: DataType.TIMESTAMP,
+  isIndex: true,
+});
+
+const sensorOne = new Channel({
+  name: "sensor_one",
+  dataType: DataType.FLOAT32,
+  index: timeIndexChannel.key,
+});
+
+const sensorTwo = new Channel({
+  name: "sensor_two",
+  dataType: DataType.FLOAT32,
+  index: timeIndexChannel.key,
+});
+
+const sensorThree = new Channel({
+  name: "sensor_three",
+  dataType: DataType.FLOAT32,
+  index: timeIndexChannel.key,
+});
+
+const sensors = await client.channels.create(
+  [sensorOne, sensorTwo, sensorThree],
+  { retrieveIfNameExists: true }, // optional
+);
+```
+
+<Note.Note variant="info" className="compact">
+  `retrieveIfNameExists` returns the existing channel if the name already exists.
+</Note.Note>
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Retrieve Channels
+
+To retrieve channel(s), pass the channel name(s) or key(s) to the `retrieve` method.
+Retrieving by key is faster than retrieving by name, and is recommended whenever
+possible.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+# One channel, by key or by name
+my_sensor = client.channels.retrieve(my_sensor.key)
+my_sensor = client.channels.retrieve("my_sensor")
+
+# Many channels, by key or by name
+my_channels = client.channels.retrieve([sensor_one.key, sensor_two.key])
+my_channels = client.channels.retrieve(["sensor_one", "sensor_two"])
+
+# This won't work!
+my_channels = client.channels.retrieve(["sensor_one", sensor_two.key])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// One channel, by key or by name
+const tempChannel = await client.channels.retrieve(tempChannel.key);
+const tempChannel = await client.channels.retrieve("my_temp_sensor");
+
+// Many channels, by key or by name
+const my_channels = await client.channels.retrieve([sensorOne.key, sensorTwo.key]);
+const my_channels = await client.channels.retrieve(["sensor_one", "sensor_two"]);
+
+// This won't work!
+const my_channels = await client.channels.retrieve(["sensor_one", sensor_two.key]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+If you pass one key or name, the client raises a `NotFoundError` when no channel matches
+and a `MultipleFoundError` when more than one channel matches. If you pass a list, the
+client raises no error and leaves missing channels out of the results.
+
+<Note.Note variant="info" className="compact">
+  Channels can also be retrieved using
+  [ranges](/reference/client/ranges#read-from-a-range).
+</Note.Note>
+
+### Regular Expressions
+
+Channels can be retrieved using regular expression patterns. The Core treats any name
+starting with `^` or ending with `$` as a regex pattern.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+# Returns list[sy.Channel]
+sensor_channels = client.channels.retrieve(["^sensor.*"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Returns Channel[]
+const sensorChannels = await client.channels.retrieve(["^sensor.*"]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+If you expect multiple channels to match the pattern, you must pass in a list to the
+`retrieve` method, otherwise the client will raise a `MultipleFoundError`.
+
+<Divider.Divider x />
+
+## Rename Channels
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+<Video client:only="react" id="client/channels/rename" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Rename channels by key with `channels.rename`, or call `rename` on a channel object.
+
+```python
+# Rename an already existing channel
+data_channel.rename("new_name")
+
+# Renaming single channel
+client.channels.rename(data_channel.key, "new_name")
+
+# Renaming multiple channels
+client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_two"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Rename channels by key with `channels.rename`.
+
+```typescript
+// Renaming single channel
+await client.channels.rename(dataChannel.key, "new_name");
+
+// Renaming multiple channels
+await client.channels.rename(
+  [channelOne.key, channelTwo.key],
+  ["name_one", "name_two"],
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Delete Channels
+
+<Note.Note variant="warning" className="compact">
+  Deleting a channel will also delete all of the data stored for that channel in a
+  Synnax Core. This is a permanent operation that cannot be undone. Be careful!
+</Note.Note>
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+<Video client:only="react" id="client/channels/delete" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Use the `channels.delete` method. `delete` does not raise an error if a channel is not
+found, so it is safe to call again. Deleting by name deletes **all** channels with that
+name.
+
+```python
+# Delete by name
+client.channels.delete("my_sensor")
+
+# Delete multiple by name
+client.channels.delete(["sensor_one", "sensor_two"])
+
+# Delete by key
+client.channels.delete(sensor_three.key)
+
+# Delete multiple by key
+client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Use the `channels.delete` method. `delete` does not raise an error if a channel is not
+found, so it is safe to call again. Deleting by name deletes **all** channels with that
+name.
+
+```typescript
+// Delete by name
+await client.channels.delete("my_sensor");
+
+// Delete multiple by name
+await client.channels.delete(["sensor_one", "sensor_two"]);
+
+// Delete by key
+await client.channels.delete(sensor_three.key);
+
+// Delete multiple by key
+await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Channel Aliases
+
+Ranges allow you to define [aliases](/reference/concepts/ranges#channel-aliases) for
+channels that only apply within that range's context. This is useful when you want to
+give a channel a more descriptive name for a specific test or operation.
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+<Video client:only="react" id="client/channels/alias" />
+
+The alias is only shown while its range is active, and only in your own Console.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
+
+# Set an alias for a channel
+burst_test.set_alias("daq_analog_input_1", "tank_pressure")
+
+# Access the channel using its alias
+burst_test.tank_pressure
+
+# List all aliases on the range
+aliases = burst_test.list_aliases()
+
+# Delete an alias
+burst_test.delete_alias(channel_key)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const burstTest = await client.ranges.retrieve("Oct 10 Burst Test");
+
+// Set an alias for a channel
+await burstTest.setAlias("daq_analog_input_1", "tank_pressure");
+
+// Resolve an alias back to its channel key
+const channelKey = await burstTest.resolveAlias("tank_pressure");
+
+// List all aliases on the range
+const aliases = await burstTest.listAliases();
+
+// Delete an alias
+await burstTest.deleteAlias(channelKey);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Note.Note variant="info">
+  Aliases are only valid within the context of a particular range. If you try to access
+  an aliased channel outside of the range, Synnax will not be able to find it.
+</Note.Note>

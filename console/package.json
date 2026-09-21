@@ -7,6 +7,8 @@
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
     "build": "tsc --noEmit && tauri build",
+    "dev-desktop": "VITE_DESKTOP=true tauri dev --config src-tauri/tauri.desktop.conf.json",
+    "build-desktop": "tsc --noEmit && VITE_DESKTOP=true tauri build --config src-tauri/tauri.desktop.conf.json",
     "dev-vite": "VITE_IS_DEV=true vite --force",
     "build-vite": "vite build",
     "preview": "vite preview",

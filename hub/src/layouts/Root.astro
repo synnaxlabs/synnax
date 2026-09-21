@@ -1,0 +1,114 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Header from "@/components/layout/Header.astro";
+import "@/styles/main.css";
+import "@fontsource/geist-mono";
+import PostHog from "@/components/analytics/PostHog.astro";
+import { ClientRouter } from "astro:transitions";
+import { SEO } from "astro-seo";
+import Footer from "@/components/layout/Footer.astro";
+const {
+    frontmatter: { title, description, url, image },
+} = Astro.props;
+const DEFAULT_OG_IMAGE =
+    "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
+const ogImage = image || DEFAULT_OG_IMAGE;
+const canonicalUrl = new URL(
+    Astro.url.pathname,
+    Astro.site || "https://docs.synnaxlabs.com",
+).href;
+const cleanTitle = title?.replace(/`/g, "");
+const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
+---
+
+<html>
+    <head>
+        <PostHog />
+        <SEO
+            title={cleanTitle}
+            titleTemplate="%s | Synnax"
+            titleDefault="Synnax"
+            description={description}
+            openGraph={{
+                basic: {
+                    title: fullTitle,
+                    type: "website",
+                    image: ogImage,
+                    url: canonicalUrl,
+                },
+                optional: {
+                    description: description,
+                    siteName: "Synnax",
+                },
+                image: {
+                    alt: cleanTitle || "Synnax",
+                },
+            }}
+            twitter={{
+                card: "summary_large_image",
+                title: fullTitle,
+                description: description,
+                image: ogImage,
+            }}
+            extend={{
+                link: [
+                    {
+                        rel: "icon",
+                        href: "/favicon.svg",
+                    },
+                ],
+                meta: [
+                    {
+                        name: "viewport",
+                        content: "width=device-width, initial-scale=1.0",
+                    },
+                ],
+            }}
+        />
+        <ClientRouter />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    </head>
+    <body>
+        <Header url={url} transition:persist />
+        <main>
+            <slot />
+        </main>
+        <Footer />
+    </body><script>
+        import { addCodeButtonListeners } from "@/components/code/codeUtil";
+        import { startPinningHashTarget } from "@/util/hash";
+        import { startUpdatingIframeHref } from "@/util/iframe";
+        const bindClickHandlersToHeadingAnchors = () => {
+            const anchors =
+                document.querySelectorAll<HTMLAnchorElement>(".heading-anchor");
+            anchors.forEach((anchor) => {
+                if (anchor.previousElementSibling?.classList.contains("no-link"))
+                    anchor.style.display = "none";
+                anchor.addEventListener("click", () => {
+                    const url = window.location.href;
+                    const newUrl = url.split("#")[0];
+                    const hash = anchor.getAttribute("href");
+                    navigator.clipboard.writeText(newUrl + hash);
+                });
+            });
+        };
+
+        addCodeButtonListeners();
+        startUpdatingIframeHref();
+        bindClickHandlersToHeadingAnchors();
+        startPinningHashTarget();
+        document.addEventListener("astro:after-swap", () => {
+            addCodeButtonListeners();
+            startUpdatingIframeHref();
+            bindClickHandlersToHeadingAnchors();
+        });
+    </script>
+</html>

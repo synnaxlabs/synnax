@@ -35,6 +35,7 @@ const (
 	FlagTaskShutdownTimeout          = "task-shutdown-timeout"
 	FlagTaskWorkerCount              = "task-worker-count"
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
+	FlagStopOnStdinClose             = "stop-on-stdin-close"
 )
 
 // AddFlags adds the start flags to the given command.
@@ -78,6 +79,11 @@ func AddFlags(cmd *cobra.Command) {
 		"Automatically generate self-signed certificates",
 	)
 	cmd.Flags().Bool(FlagNoDriver, false, "Disable the embedded Driver")
+	cmd.Flags().Bool(
+		FlagStopOnStdinClose,
+		false,
+		"Stop the Core when its standard input closes. For a parent process that manages the Core through a pipe",
+	)
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
 		2500*time.Millisecond,

@@ -33,9 +33,12 @@ const LINKS: Link.Registry = {
   ...Project.LINKS,
 };
 
-export const useDeep = () => {
+const useLinks = (): void => {
   const linkHandlers = Object.fromEntries(
     Object.entries(LINKS).map(([key, handler]) => [key, handler()]),
   );
   Link.useDeep(Core.useLink(), linkHandlers);
 };
+
+// Desktop registers no URL scheme, so no link can reach it.
+export const useDeep: () => void = DESKTOP ? () => {} : useLinks;

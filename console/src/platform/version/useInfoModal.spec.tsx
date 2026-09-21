@@ -14,7 +14,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(
   (): {
     engine: "web" | "tauri";
-    update: { version: string; downloadAndInstall: ReturnType<typeof vi.fn> } | null;
+    update: {
+      version: string;
+      download: ReturnType<typeof vi.fn>;
+      install: ReturnType<typeof vi.fn>;
+    } | null;
     relaunch: ReturnType<typeof vi.fn>;
   } => ({
     engine: "web",
@@ -44,10 +48,26 @@ const wrapper = ({ children }: PropsWithChildren): ReactElement => (
   </Wrapper>
 );
 
-const openModal = (): void => {
-  const { result } = renderHook(Version.useInfoModal, { wrapper });
+const openModal = (middleware?: Version.InstallMiddleware): void => {
+  const { result } = renderHook(Version.useInfoModal, {
+    wrapper:
+      middleware == null
+        ? wrapper
+        : ({ children }: PropsWithChildren): ReactElement => (
+            <Version.InstallProvider middleware={middleware}>
+              {wrapper({ children })}
+            </Version.InstallProvider>
+          ),
+  });
   act(() => {
     result.current();
+  });
+};
+
+const clickUpdate = async (): Promise<void> => {
+  await waitFor(() => expect(screen.getByText("Version 9.9.9 available")).toBeTruthy());
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Update and restart" }));
   });
 };
 
@@ -69,22 +89,48 @@ describe("version useInfoModal", () => {
 
   it("should present an available update and install it on request", async () => {
     mocks.engine = "tauri";
-    const downloadAndInstall = vi.fn(async (onProgress: (event: unknown) => void) => {
+    const download = vi.fn(async (onProgress: (event: unknown) => void) => {
       onProgress({ event: "Started", data: { contentLength: 1000 } });
       onProgress({ event: "Progress", data: { chunkLength: 400 } });
       onProgress({ event: "Progress", data: { chunkLength: 600 } });
       onProgress({ event: "Finished" });
     });
-    mocks.update = { version: "9.9.9", downloadAndInstall };
+    const install = vi.fn(async () => {});
+    mocks.update = { version: "9.9.9", download, install };
     openModal();
-    await waitFor(() =>
-      expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
-    );
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Update and restart" }));
+    await clickUpdate();
+    await waitFor(() => expect(mocks.relaunch).toHaveBeenCalledTimes(1));
+    expect(download).toHaveBeenCalledTimes(1);
+    expect(install).toHaveBeenCalledTimes(1);
+  });
+
+  it("should run the install through the provided middleware", async () => {
+    mocks.engine = "tauri";
+    const order: string[] = [];
+    const download = vi.fn(async () => void order.push("download"));
+    const install = vi.fn(async () => void order.push("install"));
+    mocks.relaunch.mockImplementation(() => void order.push("relaunch"));
+    mocks.update = { version: "9.9.9", download, install };
+    openModal(async (run) => {
+      order.push("before");
+      await run();
+      order.push("after");
     });
-    await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
-    expect(mocks.relaunch).toHaveBeenCalledTimes(1);
+    await clickUpdate();
+    await waitFor(() =>
+      expect(order).toEqual(["download", "before", "install", "after", "relaunch"]),
+    );
+  });
+
+  it("should not relaunch when the middleware rejects", async () => {
+    mocks.engine = "tauri";
+    const install = vi.fn(async () => {});
+    mocks.update = { version: "9.9.9", download: vi.fn(async () => {}), install };
+    openModal(async () => await Promise.reject(new Error("the app is busy")));
+    await clickUpdate();
+    expect(await screen.findByText("Failed to update Console")).toBeTruthy();
+    expect(install).not.toHaveBeenCalled();
+    expect(mocks.relaunch).not.toHaveBeenCalled();
   });
 
   it("should report up to date in tauri when the check finds no update", async () => {
@@ -96,8 +142,8 @@ describe("version useInfoModal", () => {
 
   it("should hold the progress bar empty until the download reports a total", async () => {
     mocks.engine = "tauri";
-    const downloadAndInstall = vi.fn(async () => await new Promise<void>(() => {}));
-    mocks.update = { version: "9.9.9", downloadAndInstall };
+    const download = vi.fn(async () => await new Promise<void>(() => {}));
+    mocks.update = { version: "9.9.9", download, install: vi.fn(async () => {}) };
     openModal();
     await waitFor(() =>
       expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
@@ -112,13 +158,13 @@ describe("version useInfoModal", () => {
 
   it("should never install an update without a click", async () => {
     mocks.engine = "tauri";
-    const downloadAndInstall = vi.fn(async () => {});
-    mocks.update = { version: "9.9.9", downloadAndInstall };
+    const download = vi.fn(async () => {});
+    mocks.update = { version: "9.9.9", download, install: vi.fn(async () => {}) };
     openModal();
     await waitFor(() =>
       expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
     );
-    expect(downloadAndInstall).not.toHaveBeenCalled();
+    expect(download).not.toHaveBeenCalled();
     expect(mocks.relaunch).not.toHaveBeenCalled();
   });
 });

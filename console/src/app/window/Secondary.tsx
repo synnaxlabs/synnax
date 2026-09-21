@@ -15,10 +15,8 @@ import { type ReactElement } from "react";
 import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
 import { Triggers } from "@/app/triggers";
-import { Auth } from "@/feature/auth";
-import { License } from "@/feature/license";
+import { Guard } from "@/app/window/Guard";
 import { Panel } from "@/feature/panel";
-import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
 
 const SideEffect = (): null => {
@@ -26,7 +24,7 @@ const SideEffect = (): null => {
   return null;
 };
 
-// Tear-off reads the required project selectors, so it mounts inside Project.Guard.
+// Tear-off reads the required project selectors, so it mounts inside the guard.
 const ProjectSideEffect = (): null => {
   Panel.useTearOff();
   return null;
@@ -39,19 +37,13 @@ const ProjectSideEffect = (): null => {
 export const Secondary = (): ReactElement => (
   <>
     <SideEffect />
-    <Auth.Guard>
-      <License.Guard>
-        <Auth.ConnectionGuard>
-          <Project.Guard>
-            <ProjectSideEffect />
-            <Nav.Bar.Top secondary />
-            <Flex.Box gap="small" grow className={CSS.B("secondary")}>
-              <Mosaic.Mosaic />
-              <Nav.Drawer.Bottom />
-            </Flex.Box>
-          </Project.Guard>
-        </Auth.ConnectionGuard>
-      </License.Guard>
-    </Auth.Guard>
+    <Guard>
+      <ProjectSideEffect />
+      <Nav.Bar.Top secondary />
+      <Flex.Box gap="small" grow className={CSS.B("secondary")}>
+        <Mosaic.Mosaic />
+        <Nav.Drawer.Bottom />
+      </Flex.Box>
+    </Guard>
   </>
 );

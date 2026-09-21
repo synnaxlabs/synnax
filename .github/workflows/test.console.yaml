@@ -117,3 +117,26 @@ jobs:
           directory: console
           lint: true
           test_args: -- --no-file-parallelism
+
+  test-desktop-shell:
+    name: Test Synnax Desktop Shell
+    # macOS compiles the Tauri shell with no extra system packages.
+    runs-on: macos-latest
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache-workspaces: console/src-tauri -> target
+          cache-shared-key: ${{ runner.os }}-desktop-test
+
+      - name: Create an Empty Frontend
+        # The Tauri context embeds the frontend directory, so it must exist.
+        run: mkdir -p console/dist && touch console/dist/index.html
+
+      - name: Test
+        working-directory: console/src-tauri
+        run: cargo test --features desktop
