@@ -8,16 +8,114 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon, Text } from "@synnaxlabs/pluto";
+
 const props = Astro.props;
+const html = await Astro.slots.render("default");
+const labels = [...html.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/g)].map((m) =>
+    m[1].replace(/<[^>]+>/g, "").trim(),
+);
+const labeled = html.replace(/<tr\b[^>]*>[\s\S]*?<\/tr>/g, (row) => {
+    let i = 0;
+    return row.replace(
+        /<td\b([^>]*)>([\s\S]*?)<\/td>/g,
+        (_, attrs, body) =>
+            `<td data-label="${labels[i++] ?? ""}"${attrs}><span>${body}</span></td>`,
+    );
+});
 ---
 
 <div class="table-wrapper styled-scrollbar">
-    <table {...props}><slot /></table>
+    <details class="table-collapse" open>
+        <summary>
+            <Text.Text level="p">Table</Text.Text>
+            <Icon.Caret.Right className="indicator" />
+        </summary>
+        <table {...props} set:html={labeled} />
+    </details>
 </div>
 
 <style>
     .table-wrapper {
         overflow-x: auto;
         padding-bottom: 0.5rem;
+    }
+
+    .table-collapse {
+        display: contents;
+    }
+
+    .table-collapse > summary {
+        display: none;
+    }
+
+    @media (max-width: 800px) {
+        .table-collapse {
+            display: block;
+            border: var(--pluto-border);
+            border-radius: 1rem;
+            overflow: hidden;
+            background: var(--pluto-gray-l1);
+        }
+
+        .table-collapse > summary {
+            display: flex;
+            position: relative;
+            width: 100%;
+            padding: 1.666rem 2rem;
+            background: var(--pluto-gray-l2-70);
+        }
+
+        .table-collapse > summary::marker {
+            content: none;
+        }
+
+        .table-collapse > summary :global(.pluto-text) {
+            margin: 0;
+        }
+
+        .table-collapse > summary :global(.indicator) {
+            position: absolute;
+            right: 2rem;
+            height: 2.5rem;
+            width: 2.5rem;
+        }
+
+        .table-collapse[open] > summary {
+            border-bottom: var(--pluto-border);
+        }
+
+        .table-collapse[open] > summary :global(.indicator) {
+            transform: rotate(90deg);
+        }
+
+        .table-collapse > :global(table) {
+            margin: 0;
+        }
+
+        .table-wrapper :global(thead) {
+            display: none;
+        }
+
+        .table-wrapper :global(tr) {
+            display: block;
+            padding-bottom: 1rem;
+            border-bottom-width: 1.5px;
+        }
+
+        .table-wrapper :global(tr:last-child) {
+            border-bottom: none;
+        }
+
+        .table-wrapper :global(td) {
+            display: grid;
+            grid-template-columns: minmax(14rem, max-content) 1fr;
+            gap: 1rem;
+        }
+
+        .table-wrapper :global(td)::before {
+            content: attr(data-label);
+            font-weight: 600;
+        }
     }
 </style>
