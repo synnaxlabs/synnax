@@ -33,9 +33,13 @@ export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
   ZIP: "application/zip",
-  FRAME: "application/vnd.synnax.frame",
   CSV: "text/csv",
 };
+
+const contentType = (encoding: FileOptions["encoding"]): string =>
+  typeof encoding === "string"
+    ? ENCODING_CONTENT_TYPES[encoding]
+    : encoding.contentType;
 
 const UNREACHABLE_CODES = new Set([
   "ECONNREFUSED",
@@ -209,7 +213,7 @@ export class HTTPClient
           body: await toSendableBody(body),
           headers: {
             ...this.defaultHeaders,
-            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],
+            [CONTENT_TYPE_HEADER_KEY]: contentType(options.encoding),
             ...ctx.params,
           },
           duplex: "half",
@@ -250,7 +254,7 @@ export class HTTPClient
           body: this.encoder.encode(req, reqSchema),
           headers: {
             ...this.defaultHeaders,
-            [ACCEPT_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],
+            [ACCEPT_HEADER_KEY]: contentType(options.encoding),
             ...ctx.params,
           },
         });

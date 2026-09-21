@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FileEncoding, type FileTransport } from "@synnaxlabs/freighter";
+import { type FileOptions, type FileTransport } from "@synnaxlabs/freighter";
 import { type CrudeTimeRange, errors, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -18,6 +18,7 @@ import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { Frame } from "@/framer/frame";
 
 const READ_ENDPOINT = "/frame/read";
+const FRAME_ENCODING = { contentType: "application/vnd.synnax.frame" };
 
 const reqZ = z.object({
   keys: keyZ.array(),
@@ -62,7 +63,12 @@ export class Reader {
     opts: ReadOptions = {},
   ): Promise<Frame> {
     const adapter = await ReadAdapter.open(this.retrieveChannels, channels);
-    const stream = await this.download(Array.from(adapter.keys), tr, "FRAME", opts);
+    const stream = await this.download(
+      Array.from(adapter.keys),
+      tr,
+      FRAME_ENCODING,
+      opts,
+    );
     const frame = new Frame();
     for await (const record of readRecords(stream))
       frame.push(new Frame(adapter.codec.decode(record)));
@@ -97,7 +103,7 @@ export class Reader {
   private async download(
     keys: channel.Key[],
     tr: CrudeTimeRange,
-    encoding: FileEncoding,
+    encoding: FileOptions["encoding"],
     opts: ReadOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     return await this.file.download(

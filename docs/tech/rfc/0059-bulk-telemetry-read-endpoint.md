@@ -213,8 +213,9 @@ main consumer, would never see one.
 
 - **TypeScript**: `client.read(tr, channels)` posts to `/read` through
   `FileTransport.download` (`freighter/ts/src/http.ts:203`) and decodes records
-  incrementally with the static `Codec`. The `FileEncoding` union
-  (`freighter/ts/src/file.ts:26`) opens to carry the two content types.
+  incrementally with the static `Codec`. `FileOptions.encoding`
+  (`freighter/ts/src/file.ts:40`) also accepts a `contentType` sent verbatim, so the
+  frame media type stays in the client. `FileEncoding` gains only the generic `CSV`.
 - **Console**: `useDownload` (`console/src/platform/csv/useDownload.ts:49`) requests
   `text/csv` and pipes the response into `Runtime.downloadStream` unchanged.
 - **Python**: `client.read` posts to `/read`. Freighter gains a download-to-memory
