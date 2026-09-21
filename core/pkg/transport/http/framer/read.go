@@ -29,8 +29,9 @@ const (
 	// recordTerminator ends the body. Its payload is empty when the read completed and
 	// a JSON error payload when it did not.
 	recordTerminator byte = 1
-	recordHeaderSize      = 5
 )
+
+const recordHeaderSize = 5
 
 // FrameEncoder encodes a read as a sequence of records, each a one-byte kind, a
 // four-byte little-endian length, and that many bytes of payload. Data records hold the

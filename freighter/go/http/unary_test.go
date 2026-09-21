@@ -687,7 +687,9 @@ var _ = Describe("Unary", func() {
 		It("should gzip a compressed encoder's body when the request accepts it", func(
 			ctx context.Context,
 		) {
-			res := streamingPost(ctx, test.Request{ID: 3, Message: "ab"}, repeat, "gzip")
+			res := streamingPost(
+				ctx, test.Request{ID: 3, Message: "ab"}, repeat, "gzip",
+			)
 			Expect(res.StatusCode).To(Equal(http.StatusOK))
 			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(Equal("gzip"))
 			r := MustSucceed(gzip.NewReader(res.Body))
