@@ -27,12 +27,13 @@ export const CopyLinkToolbarButton = ({
   ontologyID,
   ...rest
 }: CopyLinkToolbarButtonProps): ReactElement | null => {
+  const disabled = Link.useDisabled();
   const copyLink = useCopyLinkToClipboard();
   const handleClick = useCallback(
     () => copyLink({ name, ontologyID }),
     [copyLink, name, ontologyID],
   );
-  if (Link.useDisabled()) return null;
+  if (disabled) return null;
   return (
     <Button.Button
       tooltip="Copy link"

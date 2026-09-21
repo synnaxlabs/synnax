@@ -30,7 +30,6 @@ import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
-import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
 
@@ -92,14 +91,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     mode: canEdit ? "normal" : "preview",
   });
 
-  const handleLink = Core.useCopyLinkToClipboard();
-  const linksDisabled = Link.useDisabled();
   const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
-  const handleCopyLink = () =>
-    handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
   const getPythonCode = useCallback(
     () =>
@@ -189,17 +184,13 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Icon.CSV />
             </Button.Button>
             <Divider.Divider y />
-            {!linksDisabled && (
-              <Button.Button
-                variant="text"
-                tooltip={`Copy link to ${name}`}
-                tooltipLocation="bottom"
-                onClick={handleCopyLink}
-                textColor={9}
-              >
-                <Icon.Link />
-              </Button.Button>
-            )}
+            <Core.CopyLinkToolbarButton
+              name={name}
+              ontologyID={ranger.ontologyID(rangeKey)}
+              tooltip={`Copy link to ${name}`}
+              tooltipLocation="bottom"
+              textColor={9}
+            />
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>

@@ -15,17 +15,17 @@ import (
 	"io"
 )
 
-// StopKeyword is the line that requests a stop.
-const StopKeyword = "stop"
+// stopKeyword is the line that requests a stop.
+const stopKeyword = "stop"
 
-// Watch reads lines from r until r is exhausted, and calls stop for each line equal to
-// StopKeyword. When stopOnClose is set, Watch also calls stop once r is exhausted, so a
-// Core whose parent process holds the other end of the pipe stops when that parent
-// exits. Watch blocks, so callers run it in its own goroutine.
+// Watch reads lines from r until r is exhausted, and calls stop for each "stop" line.
+// When stopOnClose is set, Watch also calls stop once r is exhausted, so a Core whose
+// parent process holds the other end of the pipe stops when that parent exits. Watch
+// blocks, so callers run it in its own goroutine.
 func Watch(r io.Reader, stopOnClose bool, stop func()) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
-		if scanner.Text() == StopKeyword {
+		if scanner.Text() == stopKeyword {
 			stop()
 		}
 	}
