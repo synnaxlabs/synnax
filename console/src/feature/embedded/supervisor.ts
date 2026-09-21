@@ -54,6 +54,12 @@ export const restart = async (): Promise<void> => await invoke("supervisor_resta
 /** Stops the embedded Core and resolves once its process has exited. */
 export const stop = async (): Promise<void> => await invoke("supervisor_stop");
 
+/**
+ * Stops the embedded Core, erases everything it stored, and starts the app again. It
+ * resolves only when the erase fails, because a success ends this launch.
+ */
+export const reset = async (): Promise<void> => await invoke("supervisor_reset");
+
 /** Opens the log directory in the file manager of the operating system. */
 export const showLogs = async (): Promise<void> => await invoke("supervisor_show_logs");
 

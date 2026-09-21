@@ -167,6 +167,15 @@ complete. Telemetry (`core/cesium`) is left out: it is large, and the metadata
 (channels, schematics, ranges, workspaces) is what a user cannot record again. A backup
 that fails counts as a failed run, so a Core never migrates data that has no copy.
 
+**Reset.** A reset stops the Core, erases the data directory and the backups, and leaves
+the state at `stopped`. Each directory is renamed to a `.erased` name first, which is
+atomic, and removed after it, so a failure never leaves half-erased data under the name
+the Core opens. The next start removes any `.erased` directory that is left. The logs
+stay. The `supervisor_reset` command then starts the app again: a new launch is the one
+state in which no window, cache, or client holds data of the erased Core. The new Core
+has a new cluster key, so the session drops the stored state of the old one
+(`console/src/session/core/synchronizer.ts:59-66`).
+
 **Stop.** On `RunEvent::Exit` the supervisor writes `stop\n` to the Core's stdin and
 waits up to 30 s, then kills. The Core stops the Driver in its own close path. If
 Desktop dies without a clean exit, the Core's stdin closes and the Core stops itself
@@ -180,13 +189,14 @@ previous Core is kept under a second name.
 **History.** The supervisor keeps, for the launch, the number of Cores started, the time
 the current Core became ready, and the reason for the last unexpected exit.
 
-**Surface to the webview.** Eight commands and one event, the first custom Tauri surface
+**Surface to the webview.** Nine commands and one event, the first custom Tauri surface
 in the Console shell:
 
 - `supervisor_status`: Returns the state and, when `running`, the host, port, username,
   and password.
 - `supervisor_restart`: Starts a new Core, after a stop of the one that runs.
 - `supervisor_stop`: Stops the Core and resolves when its process has exited.
+- `supervisor_reset`: Erases the data and the backups, then starts the app again.
 - `supervisor_show_logs`: Opens the log directory in the file manager.
 - `supervisor_show_data`: Opens the data directory in the file manager.
 - `supervisor_diagnostics`: Returns the app version, the history, the data and log
@@ -299,8 +309,8 @@ imports it, so it is a feature and not a platform package.
   and, on `running`, sets and selects the embedded Core record.
 - `Embedded.Indicator`: The top bar status, shown only while the connection is not
   healthy.
-- `Embedded.COMMANDS`: "Open diagnostics", "Restart Synnax", "Show logs", and "Show data
-  folder".
+- `Embedded.COMMANDS`: "Open diagnostics", "Restart Synnax", "Show logs", "Show data
+  folder", and "Erase all data".
 - `Embedded.useDiagnosticsModal`: Opens the diagnostics dialog in §5.5.
 - `Embedded.installMiddleware`: The update middleware in §5.3.
 
@@ -340,8 +350,9 @@ The role is an instrumentation engineer at first launch, and a test operator in 
   session, the last problem, the place and size of the data, and the end of the log in
   readable lines. Its buttons show the data folder, show the logs, export an archive for
   support, and restart. A restart of a Core that runs asks first, because it interrupts
-  every task and every live plot. The dialog gives no raw access to the Core's stdin:
-  the Core reads one word from it, and a button covers that word.
+  every task and every live plot. "Erase all data" asks too, and the person must hold
+  the button for 1 s to confirm. The dialog gives no raw access to the Core's stdin: the
+  Core reads one word from it, and a button covers that word.
 
 ### 5.6 Build and release
 

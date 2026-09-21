@@ -47,6 +47,17 @@ describe("Embedded commands", () => {
     await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_restart"));
   });
 
+  it("should ask before it erases the data", async () => {
+    const { commands } = mockSupervisor(() => ({ state: "starting" }));
+    const { openCommandPalette, selectCommand } = await renderPalette({
+      commands: Embedded.COMMANDS,
+    });
+    await openCommandPalette();
+    await selectCommand("Erase all data");
+    expect(await screen.findByText(/want to erase all data/)).toBeTruthy();
+    expect(commands).not.toHaveBeenCalledWith("supervisor_reset");
+  });
+
   it("should open the diagnostics dialog", async () => {
     mockSupervisor(() => ({ state: "starting" }));
     const { openCommandPalette, selectCommand } = await renderPalette({

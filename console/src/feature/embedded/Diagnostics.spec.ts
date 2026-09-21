@@ -112,6 +112,19 @@ describe("Embedded.useDiagnosticsModal", () => {
     expect(commands).not.toHaveBeenCalledWith("supervisor_export_diagnostics");
   });
 
+  it("should erase the data only after a held confirmation", async () => {
+    const { commands } = await openDiagnostics(RUNNING);
+    fireEvent.click(screen.getByRole("button", { name: "Erase all data" }));
+    expect(await screen.findByText(/want to erase all data/)).toBeTruthy();
+    const buttons = screen.getAllByRole("button", { name: "Erase all data" });
+    const confirm = buttons[buttons.length - 1];
+    fireEvent.click(confirm);
+    await act(async () => {});
+    expect(commands).not.toHaveBeenCalledWith("supervisor_reset");
+    fireEvent.mouseDown(confirm);
+    await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_reset"));
+  });
+
   it("should show the data folder and the logs", async () => {
     const { commands } = await openDiagnostics(RUNNING);
     fireEvent.click(screen.getByRole("button", { name: "Show data folder" }));

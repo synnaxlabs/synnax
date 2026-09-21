@@ -11,6 +11,7 @@ import { Icon, Status } from "@synnaxlabs/pluto";
 
 import { useDiagnosticsModal } from "@/feature/embedded/Diagnostics";
 import { showData, showLogs } from "@/feature/embedded/supervisor";
+import { useReset } from "@/feature/embedded/useReset";
 import { useRestart } from "@/feature/embedded/useRestart";
 import { Command } from "@/platform/command";
 
@@ -52,9 +53,18 @@ export const ShowDataCommand = Command.create({
   },
 });
 
+export const EraseDataCommand = Command.create({
+  key: "erase-all-data",
+  name: "Erase all data",
+  icon: <Icon.Delete />,
+  useVisible: () => true,
+  useOnSelect: useReset,
+});
+
 export const COMMANDS = [
   OpenDiagnosticsCommand,
   RestartCommand,
   ShowLogsCommand,
   ShowDataCommand,
+  EraseDataCommand,
 ];

@@ -91,6 +91,7 @@ fn main() {
         supervisor::commands::supervisor_status,
         supervisor::commands::supervisor_restart,
         supervisor::commands::supervisor_stop,
+        supervisor::commands::supervisor_reset,
         supervisor::commands::supervisor_show_logs,
         supervisor::commands::supervisor_show_data,
         supervisor::commands::supervisor_diagnostics,

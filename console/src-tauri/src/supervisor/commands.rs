@@ -115,6 +115,17 @@ pub async fn supervisor_stop(supervisor: State<'_, Supervisor>) -> Result<(), ()
     Ok(())
 }
 
+/// Erases everything the Core stored, then starts the app again. A new launch is the
+/// one state in which no window holds data of the erased Core.
+#[tauri::command]
+pub async fn supervisor_reset<R: Runtime>(
+    app: AppHandle<R>,
+    supervisor: State<'_, Supervisor>,
+) -> Result<(), String> {
+    supervisor.reset().await.map_err(|err| err.to_string())?;
+    app.restart()
+}
+
 #[tauri::command]
 pub async fn supervisor_diagnostics(
     supervisor: State<'_, Supervisor>,
