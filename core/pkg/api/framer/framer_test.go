@@ -53,30 +53,44 @@ var _ = Describe("Framer", func() {
 			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Key()).To(Equal(data.Key()))
+			Expect(res.Indexes).To(BeEmpty())
 		})
 
-		It("Should pull in the index channels the request left out", func(
+		It(
+			"Should pull in the index channels an indexes-included request left out",
+			func(ctx SpecContext) {
+				res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+					Keys:            channel.Keys{data.Key()},
+					Bounds:          telem.TimeRangeMax,
+					IndexesIncluded: true,
+				}))
+				DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
+				Expect(res.Indexes).To(HaveLen(1))
+				Expect(res.Indexes[0].Key()).To(Equal(index.Key()))
+			},
+		)
+
+		It("Should not repeat an index the request already asked for", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:            channel.Keys{data.Key(), index.Key()},
+				Bounds:          telem.TimeRangeMax,
+				IndexesIncluded: true,
+			}))
+			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
+			Expect(res.Channels).To(HaveLen(2))
+			Expect(res.Indexes).To(BeEmpty())
+		})
+
+		It("Should close its iterator when the response is closed", func(
 			ctx SpecContext,
 		) {
 			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
 				Keys:   channel.Keys{data.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
-			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
-			Expect(res.Indexes).To(HaveLen(1))
-			Expect(res.Indexes[0].Key()).To(Equal(index.Key()))
-		})
-
-		It("Should not repeat an index the request already asked for", func(
-			ctx SpecContext,
-		) {
-			res := MustSucceed(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:   channel.Keys{data.Key(), index.Key()},
-				Bounds: telem.TimeRangeMax,
-			}))
-			DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
-			Expect(res.Channels).To(HaveLen(2))
-			Expect(res.Indexes).To(BeEmpty())
+			Expect(res.Close()).To(Succeed())
 		})
 
 		It("Should return an error when a key has no channel", func(ctx SpecContext) {
@@ -98,11 +112,32 @@ var _ = Describe("Framer", func() {
 				Expect(apiSvc.Read(
 					subjectCtx(ctx, u.OntologyID()),
 					apiframer.ReadRequest{
-						Keys:   channel.Keys{data.Key()},
-						Bounds: telem.TimeRangeMax,
+						Keys:            channel.Keys{data.Key()},
+						Bounds:          telem.TimeRangeMax,
+						IndexesIncluded: true,
 					},
 				)).Error().To(MatchError(access.ErrDenied))
 			})
+
+			It(
+				"Should allow a subject granted only the channel when indexes are left out",
+				func(ctx SpecContext) {
+					u := createUserGranted(
+						ctx,
+						access.ActionRetrieve,
+						svcframer.OntologyIDs(channel.Keys{data.Key()})...,
+					)
+					res := MustSucceed(apiSvc.Read(
+						subjectCtx(ctx, u.OntologyID()),
+						apiframer.ReadRequest{
+							Keys:   channel.Keys{data.Key()},
+							Bounds: telem.TimeRangeMax,
+						},
+					))
+					DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })
+					Expect(res.Indexes).To(BeEmpty())
+				},
+			)
 
 			It("Should allow a subject granted both the channel and its index", func(
 				ctx SpecContext,
@@ -115,8 +150,9 @@ var _ = Describe("Framer", func() {
 				res := MustSucceed(apiSvc.Read(
 					subjectCtx(ctx, u.OntologyID()),
 					apiframer.ReadRequest{
-						Keys:   channel.Keys{data.Key()},
-						Bounds: telem.TimeRangeMax,
+						Keys:            channel.Keys{data.Key()},
+						Bounds:          telem.TimeRangeMax,
+						IndexesIncluded: true,
 					},
 				))
 				DeferCleanup(func() { Expect(res.Iterator.Close()).To(Succeed()) })

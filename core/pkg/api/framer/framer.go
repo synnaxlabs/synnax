@@ -112,6 +112,8 @@ type ReadRequest struct {
 	Keys             channel.Keys    `json:"keys"              msgpack:"keys"`
 	Bounds           telem.TimeRange `json:"bounds"            msgpack:"bounds"`
 	DownsampleFactor int             `json:"downsample_factor" msgpack:"downsample_factor"`
+	// IndexesIncluded also reads the index channels of Keys that Keys leaves out.
+	IndexesIncluded bool `json:"indexes_included" msgpack:"indexes_included"`
 }
 
 // ReadResponse is the handle a read encoder drives to produce the response body. It
@@ -122,14 +124,17 @@ type ReadResponse struct {
 	// Channels holds the records of the requested channels, in no particular order.
 	Channels []channel.Channel
 	// Indexes holds the records of the index channels pulled in to timestamp the
-	// requested channels, excluding any the caller already requested. An encoder that
-	// needs sample timestamps reads them; one that does not ignores them.
+	// requested channels, excluding any the caller already requested. It is empty
+	// unless the request set IndexesIncluded.
 	Indexes []channel.Channel
 }
 
+// Close closes the response's iterator. Call it for a response that no encoder drains.
+func (r ReadResponse) Close() error { return r.Iterator.Close() }
+
 // Read opens an iterator over the channels and bounds in req, along with their index
-// channels. The caller is the response encoder, which drains the iterator and closes
-// it.
+// channels when req sets IndexesIncluded. The caller is the response encoder, which
+// drains the iterator and closes it.
 func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, error) {
 	if err := s.enforceRetrieve(ctx, req.Keys); err != nil {
 		return ReadResponse{}, err
@@ -141,15 +146,18 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 		Exec(ctx, nil); err != nil {
 		return ReadResponse{}, err
 	}
-	indexes, err := s.retrieveMissingIndexes(ctx, channels)
-	if err != nil {
-		return ReadResponse{}, err
+	var indexes []channel.Channel
+	if req.IndexesIncluded {
+		var err error
+		if indexes, err = s.retrieveMissingIndexes(ctx, channels); err != nil {
+			return ReadResponse{}, err
+		}
 	}
 	indexKeys := channel.KeysFromChannels(indexes)
-	// The CSV encoding emits a column for every index, so an index the caller never
-	// named still needs its own check.
+	// An encoder writes every index it receives, so an index the caller never named
+	// still needs its own check.
 	if len(indexKeys) > 0 {
-		if err = s.enforceRetrieve(ctx, indexKeys); err != nil {
+		if err := s.enforceRetrieve(ctx, indexKeys); err != nil {
 			return ReadResponse{}, err
 		}
 	}

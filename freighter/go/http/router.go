@@ -162,7 +162,8 @@ func (r *Router) NewStreamServer[RQ, RS freighter.Payload](
 
 // NewUnaryServer registers a unary HTTP server at the given path on the router and
 // returns a freighter.UnaryServer the caller can attach a handler to via BindHandler.
-// The route is bound on the POST method.
+// The route is bound on the POST method. When a middleware fails after the handler
+// succeeds, the server closes a response that implements io.Closer.
 func (r *Router) NewUnaryServer[RQ, RS freighter.Payload](
 	path string,
 	opts ...UnaryServerOption,

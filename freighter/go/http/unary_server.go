@@ -149,7 +149,10 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 		return fCtx.SendStatus(fiber.StatusNotAcceptable)
 	}
 	fCtx.Set(fiber.HeaderContentType, encoder.ContentType())
-	var res RS
+	var (
+		res     RS
+		handled bool
+	)
 	oMD, err := s.Exec(
 		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path()), false),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
@@ -163,10 +166,16 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 				return oCtx, err
 			}
 			res, err = s.handle(ctx, req)
+			handled = err == nil
 			return oCtx, err
 		}),
 	)
 	setResponseCtx(fCtx, oMD)
+	// A middleware can fail after the handler succeeds. No encoder then receives res,
+	// so nothing else releases what it holds.
+	if closer, ok := any(res).(io.Closer); ok && handled && err != nil {
+		err = errors.Combine(err, closer.Close())
+	}
 	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
 	if fErr.Type == errors.TypeNil {
 		if s.streaming {
@@ -234,9 +243,9 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 }
 
 // streamAndWrite writes v as a chunked body, gzipping it when the route names the
-// resolved encoder as compressed and the request accepts that encoding. fasthttp runs
-// the writer after the handler returns and c is recycled by then, so the closure only
-// captures values read here.
+// resolved encoder as compressed and the request accepts that encoding. The writer can
+// outlive the handler, which recycles c on return, so the closure only captures values
+// read here.
 func (s *unaryServer[RQ, RS]) streamAndWrite(
 	c fiber.Ctx,
 	encoder http.Encoder,
