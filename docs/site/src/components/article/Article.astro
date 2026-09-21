@@ -191,6 +191,9 @@ const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
             font-family: var(--pluto-font-family);
             font-weight: 450;
             line-height: var(--pluto-small-line-height);
+            @media (max-width: 800px) {
+                font-size: calc(var(--pluto-small-size) * 0.9);
+            }
             & :is(p, li) {
                 font: inherit;
             }
