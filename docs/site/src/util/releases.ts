@@ -8,8 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
+import { z } from "zod";
 
 export type Product = "console" | "core" | "driver";
+const PRODUCTS: readonly Product[] = ["console", "core", "driver"];
+const isProduct = (name: string): name is Product =>
+  PRODUCTS.some((product) => product === name);
 export type Channel = "stable" | "next";
 
 const REPO = "synnaxlabs/synnax";
@@ -41,11 +45,12 @@ const parse = (tagName: string): Parsed | null => {
   const match = TAG.exec(tagName);
   if (match == null) return null;
   const [, product, major, minor, patch, rc] = match;
+  if (!isProduct(product)) return null;
   const candidate = rc != null;
   // A stable release outranks every candidate for its version.
   const rank = candidate ? Number(rc) : Infinity;
   return {
-    product: product as Product,
+    product,
     version: tagName.slice(product.length + 2),
     order: [Number(major), Number(minor), Number(patch), rank],
     candidate,
@@ -58,11 +63,14 @@ const compare = (a: number[], b: number[]): number => {
 };
 
 /** A release as the GitHub API lists it, reduced to the fields the lookup reads. */
-export interface Release {
-  tag_name: string;
-  draft: boolean;
-  prerelease: boolean;
-}
+const releaseZ = z.object({
+  tag_name: z.string(),
+  draft: z.boolean(),
+  prerelease: z.boolean(),
+});
+const listingZ = z.array(releaseZ);
+
+export type Release = z.infer<typeof releaseZ>;
 
 /**
  * Finds the highest version among the listed releases of a product. Semver order,
@@ -158,11 +166,10 @@ export class Releases {
       const response: Response = await this.fetcher(url, { headers });
       if (!response.ok)
         throw new Error(`GitHub releases API returned ${response.status}`);
-      const body: unknown = await response.json();
-      if (!Array.isArray(body)) throw new Error("GitHub releases API returned no list");
-      const listed = body as Release[];
-      releases.push(...listed);
-      if (!listed.some(({ tag_name }) => parse(tag_name) != null)) break;
+      const listed = listingZ.safeParse(await response.json());
+      if (!listed.success) throw new Error("GitHub releases API returned no list");
+      releases.push(...listed.data);
+      if (!listed.data.some(({ tag_name }) => parse(tag_name) != null)) break;
       url = NEXT_LINK.exec(response.headers.get("link") ?? "")?.[1] ?? null;
     }
     return releases;

@@ -85,13 +85,11 @@ describe("releases", () => {
   });
 
   describe("Releases", () => {
-    const respond = (body: unknown, ok = true, status = 200, next?: string): Response =>
-      ({
-        ok,
+    const respond = (body: unknown, status = 200, next?: string): Response =>
+      new Response(JSON.stringify(body), {
         status,
-        json: async () => body,
-        headers: new Headers(next == null ? {} : { link: `<${next}>; rel="next"` }),
-      }) as unknown as Response;
+        headers: next == null ? {} : { link: `<${next}>; rel="next"` },
+      });
 
     it("should fetch once per TTL window", async () => {
       let time = 0;
@@ -110,16 +108,17 @@ describe("releases", () => {
     });
 
     it("should send the token", async () => {
-      const fetch = vi.fn(async () => respond(RELEASES));
+      const fetch = vi.fn<typeof globalThis.fetch>(async () => respond(RELEASES));
       await new Releases({ fetch, token: "abc" }).latest("core");
-      const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-      expect(init.headers).toMatchObject({ Authorization: "Bearer abc" });
+      expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({
+        Authorization: "Bearer abc",
+      });
     });
 
     it("should throw on an API error and retry on the next lookup", async () => {
       const fetch = vi
         .fn()
-        .mockResolvedValueOnce(respond(null, false, 503))
+        .mockResolvedValueOnce(respond(null, 503))
         .mockResolvedValueOnce(respond(RELEASES));
       const releases = new Releases({ fetch });
       await expect(releases.latest("core")).rejects.toThrow("503");
@@ -130,9 +129,9 @@ describe("releases", () => {
     it("should follow pagination while pages list product releases", async () => {
       const fetch = vi
         .fn()
-        .mockResolvedValueOnce(respond([release("core/v0.59.0")], true, 200, "p2"))
-        .mockResolvedValueOnce(respond([release("core/v0.59.1")], true, 200, "p3"))
-        .mockResolvedValueOnce(respond([release("synnax-v0.58.2")], true, 200, "p4"));
+        .mockResolvedValueOnce(respond([release("core/v0.59.0")], 200, "p2"))
+        .mockResolvedValueOnce(respond([release("core/v0.59.1")], 200, "p3"))
+        .mockResolvedValueOnce(respond([release("synnax-v0.58.2")], 200, "p4"));
       const releases = new Releases({ fetch });
       expect(await releases.latest("core")).toEqual("0.59.1");
       expect(fetch).toHaveBeenCalledTimes(3);

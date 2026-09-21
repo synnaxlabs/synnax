@@ -13,21 +13,23 @@ import { FLAG_PLUTO, VERCEL_ENV } from "astro:env/client";
 const PREVIEW = VERCEL_ENV === "preview";
 
 /**
- * Static build-time flags that hide unfinished docs in production. Each entry names
- * its owner and what removes it. `FLAG_<NAME>=true` at build time turns one on.
+ * Static build-time flags that hide unfinished docs in production. Each entry names its
+ * owner and what removes it. `FLAG_<NAME>=true` at build time turns one on.
  */
 export const FLAGS = {
   // Owner: Patrick Dotson. Removed when the Pluto section returns to the nav.
   pluto: FLAG_PLUTO || PREVIEW,
-} as const;
+} satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
+
+const isFlag = (name: string): name is Flag => Object.hasOwn(FLAGS, name);
 
 /**
  * Reports whether a flag is on.
  * @throws {Error} if the flag is not registered, since a typo must not hide a page.
  */
 export const enabled = (flag: string): boolean => {
-  if (!(flag in FLAGS)) throw new Error(`unknown flag: ${flag}`);
-  return FLAGS[flag as Flag];
+  if (!isFlag(flag)) throw new Error(`unknown flag: ${flag}`);
+  return FLAGS[flag];
 };
