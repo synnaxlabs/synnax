@@ -53,7 +53,8 @@ One `workflow_dispatch` workflow per product, `release.<product>.yaml`, with inp
 - **`bump`**: `patch` (default) or `minor`.
 - **`prerelease`**: Tag `-rc.N` and mark the release pre-release.
 - **`console_version`, `driver_version`** (Core only): Releases to embed. Default: the
-  newest stable, or the newest pre-release when `prerelease` is set.
+  newest stable on the resolved minor, or the newest pre-release on it when `prerelease`
+  is set, so a hotfix from `release/core-0.59` never picks up 0.60.
 
 Each runs four stages:
 
@@ -71,8 +72,10 @@ Each runs four stages:
 
 Assets per product:
 
-- **Console** (`console/vX.Y.Z`): `console-web-vX.Y.Z.tar.gz`, the DMG, MSI, and NSIS
-  installers, their `.sig` files, and `latest.json`.
+- **Console** (`console/vX.Y.Z`): `console-web-vX.Y.Z.tar.gz`, the DMG, the updater
+  artifacts (`Synnax.app.tar.gz`, the MSI, and the NSIS installer) with their `.sig`
+  files, and `latest.json`, which points at the updater artifacts. The DMG is for first
+  installs only and carries no signature.
 - **Driver** (`driver/vX.Y.Z`): The four platform binaries and the NI install script.
 - **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries from their
   releases into `core/pkg/console/dist/` and `core/pkg/driver/assets/`, then builds the
@@ -80,11 +83,13 @@ Assets per product:
   pre-release). No workflow rebuilds another product. The notes name the embedded
   versions.
 - **Python** (`py/vX.Y.Z`), **TypeScript** (`ts/vX.Y.Z`): Version injection, then the
-  existing `uv publish` and `pnpm publish -r`, moved to OIDC trusted publishing. A
-  pre-release publishes with `--tag next`, so npm's `latest` stays on the stable
-  release; pip already skips pre-releases.
+  existing `uv publish` and `pnpm publish -r`. Python moves to OIDC trusted publishing;
+  TypeScript already has `id-token: write`. A pre-release publishes with `--tag next`,
+  so npm's `latest` stays on the stable release; pip already skips pre-releases.
 
-`deploy.synnax.yaml`, `deploy.ts.yaml`, and `deploy.py.yaml` are deleted.
+`deploy.synnax.yaml`, `deploy.ts.yaml`, `deploy.py.yaml`, and
+`scripts/prune_published.py` are deleted; every release is a new version, so nothing is
+ever already published.
 
 ### 2.2 Versions
 
@@ -104,6 +109,12 @@ Every manifest carries `0.0.0` and the build injects the resolved `version`:
 - **TypeScript**: `pnpm -r exec npm version X.Y.Z --no-git-tag-version`. Internal deps
   already resolve to `workspace:^`, which pnpm rewrites at publish.
 - **Python**: `uv version X.Y.Z` per package before `pin_internal_deps.sh`.
+
+Dev builds therefore run at `0.0.0`. The client compatibility checks (`isCompatible` in
+`client/ts/src/connection/status.ts`, `_versions_compatible` in
+`client/py/synnax/connection.py`) treat a `0.0` major.minor on either side as
+compatible, so a dev Console or client connects to any Core, and a dev Core accepts any
+client, without a mismatch warning.
 
 `check_versions.sh`, `bump_versions.sh`, and `test.updates.yaml` are deleted.
 
@@ -131,8 +142,9 @@ A flag is a static build-time boolean, default off, that hides unfinished work i
 production. One registry per surface names each flag's owner and the release that
 removes it:
 
-- **Console**: `console/src/flags.ts` builds `const FLAGS` from `VITE_FLAG_*` through a
-  Vite `define`, so production tree-shakes dark code. `IS_DEV` folds in.
+- **Console**: `console/src/flags.ts` builds `const FLAGS` from
+  `import.meta.env.VITE_FLAG_*`, which Vite replaces statically, so production
+  tree-shakes dark code. `IS_DEV` folds in.
 - **Docs site**: `docs/site/src/flags.ts` reads `FLAG_*` through `astro:env`. Pages opt
   in with `flag` frontmatter (404 when off); `PageNavNode` gains `flag`. Preview deploys
   set every flag on.
@@ -145,11 +157,15 @@ flag and workflow file.
 
 ## 3 Implementation phases
 
-- **Phase 1: Docs site.** One manual release per product under its new tag at today's
-  stable, with the 0.58.2 assets copied from `synnax-v0.58.2` and `console-v0.58.2`, so
+- **Phase 1: Docs site.** One manual release per product under its new tag, so
   `latest(product)` needs no legacy map and the first dispatched release computes its
-  version from a real tag. Then `releases.ts`, the updater routes, per-product
-  consumers, and docs flags, all deployable before any workflow change.
+  version from a real tag. Core, Driver, and Console at 0.58.2 with the assets copied
+  from `synnax-v0.58.2` and `console-v0.58.2`, plus a `latest.json` written from
+  `release-spec.json`, which is the only place the manifest exists today. Python and
+  TypeScript at the highest version on PyPI and npm, since the packages disagree
+  (`synnax` is 0.58.1 on PyPI, 0.58.0 in `pyproject.toml`) and the next patch must
+  exceed the registry. Then `releases.ts`, the updater routes, per-product consumers,
+  and docs flags, all deployable before any workflow change.
 - **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
   updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
@@ -185,7 +201,8 @@ flag and workflow file.
 
 ## 5 Open questions
 
-- Tag prefix separator: `console/v` or `console-v`.
+- Tag prefix separator: `console/v`, the shape the repo's own tags had through 0.13
+  (`synnax/v0.13.1`), or `console-v`.
 - Cache TTLs on the docs site and updater routes.
 - Whether the Driver release also publishes a Docker image.
 - Which PR labels `.github/release.yml` categorizes on.
