@@ -8,20 +8,20 @@
 ## 0 Summary
 
 The Core, Console, and Driver release on every push to `main` or `rc`, versions live in
-fourteen files, and the Console updater polls a JSON file a bot force-pushes to `main`.
-This RFC moves to trunk-based development on `main`, one dispatched release workflow per
+14 files, and the Console updater polls a JSON file a bot force-pushes to `main`. This
+RFC moves to trunk-based development on `main`, one dispatched release workflow per
 product, Git tags as the only version source, an updater manifest hosted on the GitHub
 release, and static feature flags. It supersedes RFC 0020 §2, §3, §5, and §7, and
-retires the `rc.md` checklist that §6 links.
+retires the `rc.md` checklist that RFC 0020 §6 links.
 
 ## 1 Motivation
 
-- **`rc` is a second mainline**: 76 commits ahead of `main`, 26 open PRs, sixteen
-  back-merges from `main` in July and August 2026.
+- **`rc` is a second mainline**: 76 commits ahead of `main`, 26 open PRs, 16 back-merges
+  from `main` in July and August 2026.
 - **Release is a side effect of a merge**: `deploy.synnax.yaml:12-89` publishes on any
   push to `main` or `rc` that touches a product path. Hotfix branches cannot release.
-- **Versions are hand-maintained**: `core/pkg/version/VERSION`, `tauri.conf.json`, eight
-  `package.json`, four `pyproject.toml`, checked for major.minor agreement only.
+- **Versions are hand-maintained**: `core/pkg/version/VERSION`, `tauri.conf.json`, 8
+  `package.json`, 4 `pyproject.toml`, checked for major.minor agreement only.
 - **`console/release-spec.json` is a production endpoint**: force-pushed to `main` by CI
   and polled every 30 s by every shipped Console.
 - **Docs links go stale**: `fetchVersion.ts:33` memoizes the releases lookup for the
@@ -43,8 +43,8 @@ template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main`
 
 A hotfix is fixed on `main` first, then cherry-picked by PR onto
 `release/<product>-X.Y`, cut from the product's latest stable tag. The release workflow
-runs from that branch and computes the next patch from the tags reachable from it. The
-branch is deleted afterwards.
+runs from that branch and resolves its minor from the tags reachable from it. The branch
+is deleted afterwards.
 
 ### 2.1 Release workflows
 
@@ -58,9 +58,11 @@ One `workflow_dispatch` workflow per product, `release.<product>.yaml`, with inp
 
 Each runs four stages:
 
-1. **Resolve**: A composite action `.github/actions/resolve-version` reads the tags with
-   the product prefix reachable from `HEAD`, applies `bump` and `-rc.N`, and enforces
-   the train rule (§2.2).
+1. **Resolve**: A composite action `.github/actions/resolve-version` takes the minor
+   from the highest product tag reachable from `HEAD`, then the patch from the highest
+   product tag on that minor anywhere in the repo, applies `bump` and `-rc.N`, and
+   enforces the train rule (§2.2). Reachability picks the train; the repo-wide scan
+   keeps a hotfix tag from being reissued.
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
    as a `workflow_call` job.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
@@ -112,16 +114,18 @@ Every manifest carries `0.0.0` and the build injects the resolved `version`:
 
 Dev builds therefore run at `0.0.0`. The client compatibility checks (`isCompatible` in
 `client/ts/src/connection/status.ts`, `_versions_compatible` in
-`client/py/synnax/connection.py`) treat a `0.0` major.minor on either side as
-compatible, so a dev Console or client connects to any Core, and a dev Core accepts any
-client, without a mismatch warning.
+`client/py/synnax/connection.py`) require an equal major.minor today and gain one rule:
+a `0.0` on either side is compatible. A dev Console or client then connects to any Core,
+and a dev Core accepts any client, without a mismatch warning.
 
 `check_versions.sh`, `bump_versions.sh`, and `test.updates.yaml` are deleted.
 
 ### 2.3 Updater manifest and docs site
 
-`release-spec.json`, the `publish-console-update` job, and the `rc` endpoint rewrite in
-`build.synnax.yaml:891-897` are deleted. `latest.json` lives on the Console release.
+The `publish-console-update` job and the `rc` endpoint rewrite in
+`build.synnax.yaml:891-897` are deleted; `release-spec.json` follows once 0.58 is out of
+support (§3). Consoles built from `rc` poll a URL that dies with the branch, so those
+machines reinstall. `latest.json` lives on the Console release.
 
 The docs site gains two Astro endpoints, `/releases/console/latest.json` and
 `/releases/console/next.json`, with `s-maxage` so the Vercel CDN absorbs the polling.
@@ -163,20 +167,23 @@ flag and workflow file.
   from `synnax-v0.58.2` and `console-v0.58.2`, plus a `latest.json` written from
   `release-spec.json`, which is the only place the manifest exists today. Python and
   TypeScript at the highest version on PyPI and npm, since the packages disagree
-  (`synnax` is 0.58.1 on PyPI, 0.58.0 in `pyproject.toml`) and the next patch must
-  exceed the registry. Then `releases.ts`, the updater routes, per-product consumers,
-  and docs flags, all deployable before any workflow change.
+  (`synnax` is 0.58.1 on PyPI, `alamos` 0.58.0) and the next patch must exceed the
+  registry. Then `releases.ts`, the updater routes, per-product consumers, and docs
+  flags, all deployable before any workflow change.
 - **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
   updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
-  overrides them, so the PR is workflow-only. Then merge `rc` into `main` (publishes
-  nothing), `gh pr edit --base main` for open PRs, delete `rc`.
+  overrides them, so the PR touches only workflows and `tauri.conf.json`. Then merge
+  `rc` into `main` (publishes nothing), `gh pr edit --base main` for open PRs, delete
+  `rc`.
 - **Phase 3: Versions and Console flags.** Delete the version literals, scripts, and
-  `test.updates.yaml`; add the Bazel status script and `console/src/flags.ts`.
-- **Phase 4: First releases.** Console and Driver with `bump: minor`, then the Core,
-  opening train 0.59. After the Console release, one manual commit copies its
-  `latest.json` into `release-spec.json`, so installed 0.58 builds upgrade once and land
-  on the new endpoint. The file stays on `main` until 0.58 is out of support.
+  `test.updates.yaml`; add the Bazel status script, the `0.0` compatibility rule, and
+  `console/src/flags.ts`.
+- **Phase 4: First releases.** Console, Driver, Python, and TypeScript with
+  `bump: minor`, then the Core, opening train 0.59. After the Console release, one
+  manual commit copies its `latest.json` into `release-spec.json`, so installed 0.58
+  builds upgrade once and land on the new endpoint. The file stays on `main` until 0.58
+  is out of support.
 
 ## 4 Resolved decisions
 
