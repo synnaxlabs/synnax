@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import { array, type destructor } from "@synnaxlabs/x";
 
 import {
   type ID,
@@ -83,7 +83,7 @@ export class Cache {
    * Returns a rollback restoring them.
    */
   deleteRelationships(ids: ID | ID[]): destructor.Destructor {
-    const idsArr = Array.isArray(ids) ? ids : [ids];
+    const idsArr = array.toArray(ids);
     const keys = new Set<string>();
     for (const id of idsArr) {
       for (const rel of this.relationshipsTo(id)) keys.add(relationshipToString(rel));
@@ -97,7 +97,7 @@ export class Cache {
    * every relationship touching them. Returns a rollback restoring both.
    */
   deleteResources(ids: ID | ID[]): destructor.Destructor {
-    const idsArr = Array.isArray(ids) ? ids : [ids];
+    const idsArr = array.toArray(ids);
     const undoRels = this.deleteRelationships(idsArr);
     const undoResources = this.resources.delete(idToString(idsArr));
     return () => {
