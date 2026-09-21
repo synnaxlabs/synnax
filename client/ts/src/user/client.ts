@@ -54,6 +54,8 @@ const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
 const changeUsernameResZ = z.object({});
+const changePasswordReqZ = z.object({ key: keyZ, password: z.string().min(1) });
+const changePasswordResZ = z.object({});
 const renameReqZ = z.object({
   key: keyZ,
   firstName: z.string().optional(),
@@ -180,6 +182,19 @@ export class Client extends query.Retriever<
         ),
     });
     update();
+  }
+
+  /**
+   * Replaces the password of the user with the given key. The caller must hold
+   * update access on that user; the current password is not required.
+   */
+  async changePassword(key: Key, newPassword: string): Promise<void> {
+    await this.cfg.unary.send(
+      "/user/change-password",
+      { key, password: newPassword },
+      changePasswordReqZ,
+      changePasswordResZ,
+    );
   }
 
   async rename(

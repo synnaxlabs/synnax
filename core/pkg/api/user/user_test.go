@@ -306,6 +306,100 @@ var _ = Describe("Service", func() {
 		)
 	})
 
+	Describe("ChangePassword", func() {
+		It(
+			"Should replace the password without the current one",
+			func(ctx SpecContext) {
+				username := "change-password-" + uuid.NewString()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{Key: u.Key, Password: "new"},
+					),
+				).Error().
+					ToNot(HaveOccurred())
+
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: username, Password: "new",
+				})).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+		It(
+			"Should reject a self-change through the user service",
+			func(ctx SpecContext) {
+				fctx, subject := nonRootCtx(ctx)
+				Expect(apiSvc.ChangePassword(fctx, db, apiuser.ChangePasswordRequest{
+					Key:      subject.Key,
+					Password: "anything",
+				})).Error().To(MatchError(ContainSubstring("change your own password")))
+			},
+		)
+		It(
+			"Should deny access when the subject lacks update permission",
+			func(ctx SpecContext) {
+				username := "change-password-denied-" + uuid.NewString()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+				fctx, _ := nonRootCtx(ctx)
+				Expect(apiSvc.ChangePassword(fctx, db, apiuser.ChangePasswordRequest{
+					Key:      u.Key,
+					Password: "new",
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+			},
+		)
+		It(
+			"Should return query.ErrNotFound when the target user does not exist",
+			func(ctx SpecContext) {
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{Key: uuid.New(), Password: "new"},
+					),
+				).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
+			"Should reject an empty password",
+			func(ctx SpecContext) {
+				username := "change-password-empty-" + uuid.NewString()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{Key: u.Key, Password: ""},
+					),
+				).Error().
+					To(MatchError(ContainSubstring("password: required")))
+			},
+		)
+	})
+
 	Describe("Delete", func() {
 		It(
 			"Should be a no-op when none of the supplied keys exist",

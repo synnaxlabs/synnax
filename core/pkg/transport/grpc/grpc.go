@@ -80,6 +80,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// USER
 	t.UserRename = noop.UnaryServer[user.RenameRequest, types.Nil]{}
 	t.UserChangeUsername = noop.UnaryServer[user.ChangeUsernameRequest, types.Nil]{}
+	t.UserChangePassword = noop.UnaryServer[user.ChangePasswordRequest, types.Nil]{}
 	t.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, types.Nil]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}

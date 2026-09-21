@@ -142,6 +142,44 @@ func (s *Service) ChangeUsername(
 		UpdateUsername(ctx, u.Username, req.Username)
 }
 
+type ChangePasswordRequest struct {
+	Password string   `json:"password" msgpack:"password" validate:"required"`
+	Key      user.Key `json:"key"      msgpack:"key"`
+}
+
+// ChangePassword replaces the password for the user with the given key. The subject
+// must hold update access on that user; the current password is not required. A
+// subject cannot change its own password here and must use the auth service instead.
+func (s *Service) ChangePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ChangePasswordRequest,
+) (types.Nil, error) {
+	subject := auth.GetSubject(ctx)
+	if subject.Key == req.Key.String() {
+		return types.Nil{}, errors.New(
+			"you cannot change your own password through the user service",
+		)
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{user.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	var u user.User
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(req.Key)).Entry(&u).
+		Exec(ctx, tx); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.auth.NewWriter(tx).ChangePassword(ctx, svcauth.Credentials{
+		Username: u.Username,
+		Password: req.Password,
+	})
+}
+
 type RenameRequest struct {
 	FirstName string   `json:"first_name" msgpack:"first_name"`
 	LastName  string   `json:"last_name"  msgpack:"last_name"`

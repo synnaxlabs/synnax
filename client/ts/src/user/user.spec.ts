@@ -235,6 +235,25 @@ describe("User", () => {
       ).rejects.toThrow(AuthError);
     });
   });
+  describe("Change Password", () => {
+    test("Successful", async () => {
+      const username = id.create();
+      const user = await client.users.create({ username, password: "old" });
+      await expect(
+        client.users.changePassword(user.key, "new"),
+      ).resolves.toBeUndefined();
+      const asUser = createTestClient({ username, password: "new" });
+      await expect(asUser.connect()).resolves.toBeDefined();
+      await asUser.close();
+      const asOld = createTestClient({ username, password: "old" });
+      await expect(asOld.connect()).rejects.toThrow(AuthError);
+      await asOld.close();
+    });
+    test("Empty password fails", async () =>
+      await expect(
+        client.users.changePassword(userTwo.key as string, ""),
+      ).rejects.toThrow());
+  });
   describe("Change Name", () => {
     test("Successful", async () => {
       await expect(

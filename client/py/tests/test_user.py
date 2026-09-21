@@ -87,3 +87,24 @@ class TestUserClient:
         assert len(repeated_user_list) == len(new_user_list)
         for i in range(len(repeated_user_list)):
             compare_users(repeated_user_list[i], new_user_list[i])
+
+    def test_change_password(self, client: sy.Synnax, login_info, new_user):
+        host, port, _, _ = login_info
+        user = client.users.create(user=new_user)
+        client.users.change_password(user.key, "rotated")
+        sy.Synnax(host=host, port=port, username=user.username, password="rotated")
+        with pytest.raises(sy.AuthError):
+            sy.Synnax(host=host, port=port, username=user.username, password="password")
+
+    def test_change_username(self, client: sy.Synnax, new_user):
+        user = client.users.create(user=new_user)
+        renamed = uuid().__str__()
+        client.users.change_username(user.key, renamed)
+        assert client.users.retrieve(key=user.key).username == renamed
+
+    def test_change_name(self, client: sy.Synnax, new_user):
+        user = client.users.create(user=new_user)
+        client.users.change_name(user.key, first_name="a", last_name="b")
+        retrieved = client.users.retrieve(key=user.key)
+        assert retrieved.first_name == "a"
+        assert retrieved.last_name == "b"
