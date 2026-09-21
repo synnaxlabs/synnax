@@ -56,6 +56,29 @@ export const createRetrieve = <
 
 export const { use, useResult, createResultSelector } = createRetrieve();
 
+export type RetrieveMultipleQuery = device.RetrieveMultipleParams;
+
+export const createRetrieveMultiple = <
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+>(
+  schemas: device.DeviceSchemas<Properties, Make, Model>,
+) =>
+  Flux.createRetrieve<RetrieveMultipleQuery, device.Device<Properties, Make, Model>[]>({
+    name: PLURAL_RESOURCE_NAME,
+    retrieve: async ({ client, query }) =>
+      await client.devices.retrieve({ ...query, schemas }),
+    onChange: ({ client, query }, handler) =>
+      client.devices.onChange(
+        query,
+        handler as unknown as query.ChangeHandler<device.Device[]>,
+      ),
+    getCached: ({ client, query }) =>
+      client.devices.getCached(query) as
+        query.Cached<device.Device<Properties, Make, Model>[]> | undefined,
+  });
+
 /** Compared by variant and message: a heartbeat that changes neither is silenced. */
 export const useResultStatus = createResultSelector(
   ({ status }) => status,

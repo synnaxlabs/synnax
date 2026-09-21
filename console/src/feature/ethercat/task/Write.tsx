@@ -35,6 +35,8 @@ import {
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
+const STATE_KEY_SUFFIX = "_state";
+
 const Properties = () => (
   <Flex.Box x grow>
     <PForm.NumericField
@@ -104,9 +106,6 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
   type: WRITE_TYPE,
   config: WRITE_SCHEMAS.config.parse(config ?? {}),
 });
-
-// The state half of a pair lives beside its command under this suffix.
-const STATE_KEY_SUFFIX = "_state";
 
 const WRITE_INDEX_OPTIONS = {
   indexProperty: "writeStateIndex" as const,
@@ -195,9 +194,9 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 
     channels.forEach((ch) => {
       const mapKey = channelMapKey(ch);
-      ch.cmdChannel = getChannelByMapKey(slave.properties.write.channels, mapKey);
+      ch.cmdChannel = getChannelByMapKey(existingChannels, mapKey);
       ch.stateChannel = getChannelByMapKey(
-        slave.properties.write.channels,
+        existingChannels,
         `${mapKey}${STATE_KEY_SUFFIX}`,
       );
     });

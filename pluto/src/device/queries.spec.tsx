@@ -1377,6 +1377,58 @@ describe("queries", () => {
       });
     });
 
+    describe("createRetrieveMultiple", () => {
+      const createDevice = async (rack: number, sampleRate: number) =>
+        await client.devices.create(
+          {
+            key: id.create(),
+            name: "schema-multi-device",
+            rack,
+            location: "test",
+            make: "custom_make",
+            model: "test",
+            properties: { sampleRate, channels: {} },
+          },
+          schemas,
+        );
+
+      it("should retrieve the devices the keys name with typed properties", async () => {
+        const rack = await client.racks.create({ name: "schema-multi-rack" });
+        const first = await createDevice(rack.key, 100);
+        const second = await createDevice(rack.key, 200);
+        const { use } = Device.createRetrieveMultiple(schemas);
+        const { result } = await renderHookSuspended(
+          () => use({ keys: [first.key, second.key] }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current).toHaveLength(2));
+        const rates = result.current.map(({ properties }) => properties.sampleRate);
+        expect(rates.sort()).toEqual([100, 200]);
+      });
+
+      it("should update when one of the devices changes", async () => {
+        const rack = await client.racks.create({ name: "schema-multi-update-rack" });
+        const first = await createDevice(rack.key, 100);
+        const second = await createDevice(rack.key, 200);
+        const { use } = Device.createRetrieveMultiple(schemas);
+        const { result } = await renderHookSuspended(
+          () => use({ keys: [first.key, second.key] }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current).toHaveLength(2));
+        await act(async () => {
+          await client.devices.create(
+            { ...second, properties: { sampleRate: 500, channels: {} } },
+            schemas,
+          );
+        });
+        await waitFor(() => {
+          const updated = result.current.find(({ key }) => key === second.key);
+          expect(updated?.properties.sampleRate).toBe(500);
+        });
+      });
+    });
+
     describe("createCreate", () => {
       it("should create a device with typed properties", async () => {
         const rack = await client.racks.create({ name: "schema-create-rack" });

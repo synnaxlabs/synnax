@@ -7,36 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type query } from "@synnaxlabs/client";
-import { Device as PDevice, Flux, Form } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { type device } from "@synnaxlabs/client";
+import { Device as PDevice } from "@synnaxlabs/pluto";
 
 import { type Device, SCHEMAS } from "@/feature/ni/device/types";
+import { Device as PlatformDevice } from "@/platform/device";
 
 export const { use, useResult } = PDevice.createRetrieve(SCHEMAS);
 
-/** The device the form's config names, or undefined until it resolves or on failure. */
-export const useFromConfig = (): Device | undefined => {
-  const key = Form.useFieldValue<device.Key>("config.device", { optional: true });
-  return useResult(primitive.isNonZero(key) ? { key } : null).data;
-};
+export const useFromConfig = PlatformDevice.createUseFromConfig(useResult);
 
-const { useResult: useResultByKeys } = Flux.createRetrieve<
-  { keys: device.Key[] },
-  Device[]
->({
-  name: "NI devices",
-  retrieve: async ({ client, query: { keys } }) =>
-    await client.devices.retrieve({ keys, schemas: SCHEMAS }),
-  onChange: ({ client, query }, handler) =>
-    client.devices.onChange(
-      query,
-      handler as unknown as query.ChangeHandler<device.Device[]>,
-    ),
-  getCached: ({ client, query }) =>
-    client.devices.getCached(query) as query.Cached<Device[]> | undefined,
-});
+const { useResult: useResultMultiple } = PDevice.createRetrieveMultiple(SCHEMAS);
 
 /** The devices the keys name, or undefined until they resolve or on failure. */
 export const useByKeys = (keys: device.Key[]): Device[] | undefined =>
-  useResultByKeys(keys.length === 0 ? null : { keys }).data;
+  useResultMultiple(keys.length === 0 ? null : { keys }).data;
