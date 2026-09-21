@@ -385,9 +385,9 @@ macOS, which compiles the Tauri shell with no extra system packages.
 
 ## 7 What this RFC does not cover
 
-- Portal account sign-in and the license gate. Desktop ships with the channel limit that
-  `main` has: 50 channels without a key
-  (`core/pkg/service/channel/verification/service.go:31`).
+- Portal account sign-in and the license that Desktop runs under. RFC 0062 defines both.
+  The embedded Core refuses work until a license applies, and the license gate sits
+  outside the embedded Core guard in `app/window/Guard.tsx`.
 - Access to the embedded Core from the Python client, an external Driver, or a browser.
 - A Linux build. The Console has no Linux bundle.
 - A move of data between Desktop and a standalone Core.
