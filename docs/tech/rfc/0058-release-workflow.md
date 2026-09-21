@@ -59,18 +59,21 @@ One `workflow_dispatch` workflow per product, `release.<product>.yaml`, with inp
 Each runs four stages:
 
 1. **Resolve**: A composite action `.github/actions/resolve-version` takes the minor
-   from the highest product tag reachable from `HEAD`, then the patch from the highest
-   product tag on that minor anywhere in the repo, applies `bump` and `-rc.N`, and
-   enforces the train rule (§2.2). Reachability picks the train; the repo-wide scan
-   keeps a hotfix tag from being reissued.
+   from the highest stable product tag reachable from `HEAD`, then the patch from the
+   highest stable product tag on that minor anywhere in the repo, applies `bump`, and
+   enforces the train rule (§2.2). Candidates never set the base: `-rc.N` counts up from
+   the candidates already tagged for that version, and promoting one repeats the same
+   `bump`. The action also emits the previous product tag. Reachability picks the train;
+   the repo-wide scan keeps a hotfix tag from being reissued.
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
    as a `workflow_call` job.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed. Python and TypeScript inject the version and build in place.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
-   with categories from `.github/release.yml`, then clear the draft. The release creates
-   the tag, so a failed build leaves none. Concurrency group `release-<product>`
-   serializes a product's releases.
+   with categories from `.github/release.yml` and `previous_tag_name` set to the
+   previous product tag, since GitHub's default is the repo's last release of any
+   product, then clear the draft. The release creates the tag, so a failed build leaves
+   none. Concurrency group `release-<product>` serializes a product's releases.
 
 Assets per product:
 
@@ -105,18 +108,20 @@ Every manifest carries `0.0.0` and the build injects the resolved `version`:
   and `//go:embed` fallback in `get.go` are deleted; `Prod()` returns `0.0.0-dev` when
   unset.
 - **Driver**: Bazel `--stamp` with a `--workspace_status_command` emitting
-  `STABLE_SYNNAX_VERSION`; the `version.h` genrule reads `stable-status.txt` and takes
-  the timestamp from `volatile-status.txt`.
+  `STABLE_SYNNAX_VERSION`; the `//core/pkg/version` genrule, already stamped, reads
+  `stable-status.txt` and takes the timestamp from `volatile-status.txt`.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`.
 - **TypeScript**: `pnpm -r exec npm version X.Y.Z --no-git-tag-version`. Internal deps
-  already resolve to `workspace:^`, which pnpm rewrites at publish.
+  use `workspace:*`, which pnpm rewrites to an exact pin at publish.
 - **Python**: `uv version X.Y.Z` per package before `pin_internal_deps.sh`.
 
 Dev builds therefore run at `0.0.0`. The client compatibility checks (`isCompatible` in
 `client/ts/src/connection/status.ts`, `_versions_compatible` in
-`client/py/synnax/connection.py`) require an equal major.minor today and gain one rule:
-a `0.0` on either side is compatible. A dev Console or client then connects to any Core,
-and a dev Core accepts any client, without a mismatch warning.
+`client/py/synnax/connection.py`, and `versions_compatible` in
+`client/cpp/connection/checker.cpp`, which the Driver ships) require an equal
+major.minor today and gain one rule: a `0.0` on either side is compatible. A dev
+Console, client, or Driver then connects to any Core, and a dev Core accepts any of
+them, without a mismatch warning.
 
 `check_versions.sh`, `bump_versions.sh`, and `test.updates.yaml` are deleted.
 
@@ -173,12 +178,11 @@ flag and workflow file.
 - **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
   updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
-  overrides them, so the PR touches only workflows and `tauri.conf.json`. Then merge
-  `rc` into `main` (publishes nothing), `gh pr edit --base main` for open PRs, delete
-  `rc`.
+  overrides them, so no source file changes. Then merge `rc` into `main` (publishes
+  nothing), `gh pr edit --base main` for open PRs, delete `rc`.
 - **Phase 3: Versions and Console flags.** Delete the version literals, scripts, and
-  `test.updates.yaml`; add the Bazel status script, the `0.0` compatibility rule, and
-  `console/src/flags.ts`.
+  `test.updates.yaml`; add the Bazel status script, the `0.0` compatibility rule in all
+  three clients, and `console/src/flags.ts`.
 - **Phase 4: First releases.** Console, Driver, Python, and TypeScript with
   `bump: minor`, then the Core, opening train 0.59. After the Console release, one
   manual commit copies its `latest.json` into `release-spec.json`, so installed 0.58
@@ -208,7 +212,8 @@ flag and workflow file.
 10. **Lockstep language packages**: Per-package versions rejected. Every npm and PyPI
     package in a product publishes under the product tag, changed or not; that is the
     common monorepo pattern (Babel, Jest, AWS SDK v3), an empty republish is free, and
-    `^0.59.0` locks the minor on 0.x, so a minor bump would cascade anyway.
+    the exact `workspace:*` pins require it: client 0.59.1 installs only if alamos
+    0.59.1 exists.
 
 ## 5 Open questions
 
