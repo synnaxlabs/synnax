@@ -40,7 +40,6 @@ on:
   push:
     branches:
       - main
-      - rc
     paths:
       - .github/workflows/check.oracle.yaml
       - oracle/**
@@ -67,14 +66,12 @@ concurrency:
 
 jobs:
   check:
-    # Pushes to rc already run this check, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: oracle check
     runs-on: ubuntu-latest
-    # Advisory until the existing drift on `rc` is resolved. The check
+    # Advisory until the existing drift on `main` is resolved. The check
     # gate is correct - it surfaces real on-disk vs. canonical-output
     # divergence - but the divergence predates this workflow, so blocking
-    # PRs on it would punish unrelated changes. Once `rc` is clean (a
+    # PRs on it would punish unrelated changes. Once `main` is clean (a
     # one-off `oracle sync` PR), drop continue-on-error and add this
     # job to the required-checks list in branch protection.
     continue-on-error: true

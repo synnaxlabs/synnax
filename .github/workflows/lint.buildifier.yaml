@@ -25,7 +25,6 @@ on:
   push:
     branches:
       - main
-      - rc
     paths:
       - "**/BUILD"
       - "**/BUILD.bazel"
@@ -45,8 +44,6 @@ concurrency:
 
 jobs:
   lint:
-    # Pushes to rc already run this lint, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Lint
     runs-on: ubuntu-latest
     steps:

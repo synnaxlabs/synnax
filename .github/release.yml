@@ -1,0 +1,44 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Categories for generated release notes, keyed on pull request labels.
+changelog:
+  exclude:
+    labels:
+      - dependencies
+  categories:
+    - title: Console
+      labels:
+        - console
+    - title: Driver
+      labels:
+        - driver
+    - title: Core
+      labels:
+        - server
+        - go
+    - title: Clients
+      labels:
+        - py-client
+        - ts-client
+        - cpp-client
+    - title: Arc
+      labels:
+        - arc
+    - title: Pluto and Drift
+      labels:
+        - pluto
+        - drift
+    - title: Documentation
+      labels:
+        - user docs
+        - tech docs
+    - title: Other changes
+      labels:
+        - "*"

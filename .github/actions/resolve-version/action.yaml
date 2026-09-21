@@ -1,0 +1,48 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Resolve Version
+description: Resolves the next version of a product from its Git tags
+
+inputs:
+  product:
+    description: console, core, or driver
+    required: true
+  bump:
+    description: patch or minor
+    required: true
+  prerelease:
+    description: Tag a release candidate (-rc.N)
+    required: false
+    default: "false"
+
+outputs:
+  version:
+    description: The resolved version, such as 0.59.0 or 0.59.0-rc.2
+    value: ${{ steps.resolve.outputs.version }}
+  tag:
+    description: The release tag, such as console/v0.59.0
+    value: ${{ steps.resolve.outputs.tag }}
+  minor:
+    description: The train the version belongs to, such as 0.59
+    value: ${{ steps.resolve.outputs.minor }}
+  previous_tag:
+    description: The previous stable product tag, the baseline for release notes
+    value: ${{ steps.resolve.outputs.previous_tag }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve Version
+      id: resolve
+      shell: bash
+      run: |
+        scripts/resolve_version.sh \
+          "${{ inputs.product }}" "${{ inputs.bump }}" "${{ inputs.prerelease }}" \
+          >> "$GITHUB_OUTPUT"

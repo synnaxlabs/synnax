@@ -297,3 +297,4 @@ vendor/boringssl/MODULE.bazel.lock
 
 # Playwright MCP session output
 .playwright-mcp/
+console/release.tauri.conf.json

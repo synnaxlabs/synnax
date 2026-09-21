@@ -18,9 +18,11 @@ telemetry. Monorepo:
 
 ## Release model
 
-Users only ever run builds released from `main`; `rc` is pre-release integration and
-never ships. Backward compatibility — file formats, stored shapes, wire quirks,
-migrations — is owed only to what `main` released. rc-era formats may be dropped freely.
+`main` is the only long-lived branch. A person dispatches every release from `main` or
+from a `release/<product>-X.Y` hotfix branch; nothing publishes on push. Candidates
+(`-rc.N` tags) never count as shipped. Backward compatibility — file formats, stored
+shapes, wire quirks, migrations — is owed only to what a stable release shipped;
+candidate-era formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 
@@ -210,13 +212,13 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 
 ### Rule 2: Pull request conventions
 
-1. **Confirm the base branch.** Feature/fix PRs almost always target `rc`; only hotfixes
-   target `main`; stacked PRs target the parent branch. Ask if unclear — never default
-   to `main`.
+1. **Confirm the base branch.** Every PR targets `main`; stacked PRs target the parent
+   branch. A hotfix lands on `main` first, then a cherry-pick PR targets
+   `release/<product>-X.Y`. Ask if unclear.
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
 3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
-   prefixes like `[docs]`/`[rc]` for non-issue work. Check
+   prefixes like `[docs]` for non-issue work. Check
    `gh pr list --state all --limit 20 --json title,baseRefName` and match — don't invent
    a format.
 4. **Fill the template** at `.github/PULL_REQUEST_TEMPLATE/issue.md`: Linear issue

@@ -74,7 +74,8 @@ Each runs four stages:
    same baseline, so its notes cover every change since the last stable. Reachability
    picks the train; the repo-wide scan keeps a hotfix tag from being reissued.
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
-   as a `workflow_call` job.
+   as a `workflow_call` job. The train verifies once and passes `verified` to the
+   product workflows.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
@@ -139,7 +140,9 @@ Every binary manifest carries `0.0.0` and the build injects the resolved `versio
   `STABLE_SYNNAX_VERSION`. The `//core/pkg/version` genrule is already stamped; it
   switches from the `VERSION` file and `date` to `stable-status.txt` and
   `volatile-status.txt`.
-- **Console**: `tauri build --config '{"version":"X.Y.Z"}'`.
+- **Console**: `tauri build --config '{"version":"X.Y.Z"}'`. A candidate runs as app
+  version `X.Y.Z-N`, since the MSI bundler accepts only a numeric pre-release; its tag
+  stays `X.Y.Z-rc.N` and its manifest carries the app version.
 
 Dev binaries therefore run at `0.0.0`. The client compatibility checks (`isCompatible`
 in `client/ts/src/connection/status.ts`, `_versions_compatible` in

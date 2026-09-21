@@ -24,7 +24,6 @@ on:
   push:
     branches:
       - main
-      - rc
     paths:
       - .github/workflows/test.aspen.yaml
       - .github/workflows/test.go.yaml

@@ -22,7 +22,6 @@ on:
   push:
     branches:
       - main
-      - rc
     paths:
       - .github/workflows/test.go.yaml
       - .github/workflows/test.x.go.yaml

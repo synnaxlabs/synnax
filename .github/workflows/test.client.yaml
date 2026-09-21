@@ -53,7 +53,6 @@ on:
   push:
     branches:
       - main
-      - rc
     paths:
       - .github/actions/test-python/**
       - .bazeliskrc
@@ -101,8 +100,6 @@ concurrency:
 
 jobs:
   changes:
-    # Pushes to rc already run these tests, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Changes
     runs-on: ubuntu-latest
     outputs:
@@ -167,8 +164,6 @@ jobs:
               - x/ts/**
 
   server:
-    # Pushes to rc already run these tests, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     uses: ./.github/workflows/build.docker.yaml
     permissions:
       packages: write

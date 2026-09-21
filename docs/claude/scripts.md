@@ -50,6 +50,12 @@ Neither script touches `.oracle` schema files — no header comments there.
   range, derived from each dependency's own version. Runs in the deploy pipeline
   immediately before `uv build` against an ephemeral release checkout; not meant to be
   committed or run locally.
+- `resolve_version.sh <product> <bump> [prerelease]` — resolves the next `console`,
+  `core`, or `driver` version from Git tags and prints workflow outputs (`version`,
+  `tag`, `minor`, `previous_tag`). Backs `.github/actions/resolve-version`; tests in
+  `test_resolve_version.py`.
+- `verify_checks.sh <sha> <run_id>` — fails unless every GitHub Actions check on the
+  commit passed, ignoring the given run. Backs `.github/actions/verify-checks`.
 - `verify_build_config.sh` / `generate_os_matrix.sh` — CI-only, consume positional
   platform/build flags from the GitHub Actions workflow to validate the build matrix and
   emit its OS list. Not useful outside that workflow context.

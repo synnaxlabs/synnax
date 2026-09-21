@@ -36,7 +36,6 @@ on:
   push:
     branches:
       - main
-      - rc
     paths:
       - .bazeliskrc
       - .bazelrc
@@ -70,8 +69,6 @@ concurrency:
 
 jobs:
   server:
-    # Pushes to rc already run these tests, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     uses: ./.github/workflows/build.docker.yaml
     permissions:
       packages: write

@@ -1,0 +1,254 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Release - Core
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options:
+          - patch
+          - minor
+        default: patch
+      prerelease:
+        description: Tag a release candidate (-rc.N)
+        type: boolean
+        default: false
+      console_version:
+        description: "Console release to embed (default: newest on the resolved minor)"
+        type: string
+        default: ""
+      driver_version:
+        description: "Driver release to embed (default: newest on the resolved minor)"
+        type: string
+        default: ""
+
+  workflow_call:
+    inputs:
+      bump:
+        type: string
+        default: patch
+      prerelease:
+        type: boolean
+        default: false
+      verified:
+        description: The caller already verified the commit's checks and integration
+        type: boolean
+        default: false
+      console_version:
+        type: string
+        default: ""
+      driver_version:
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: The released version
+        value: ${{ jobs.resolve.outputs.version }}
+
+concurrency:
+  group: release-core
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  resolve:
+    name: Resolve Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      previous_tag: ${{ steps.resolve.outputs.previous_tag }}
+      console_version: ${{ steps.embed.outputs.console_version }}
+      driver_version: ${{ steps.embed.outputs.driver_version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Version
+        id: resolve
+        uses: ./.github/actions/resolve-version
+        with:
+          product: core
+          bump: ${{ inputs.bump }}
+          prerelease: ${{ inputs.prerelease }}
+
+      # The train rule: the Core embeds only releases on its own minor.
+      - name: Resolve Embedded Versions
+        id: embed
+        env:
+          MINOR: ${{ steps.resolve.outputs.minor }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          CONSOLE: ${{ inputs.console_version }}
+          DRIVER: ${{ inputs.driver_version }}
+        run: |
+          CONSOLE=${CONSOLE:-$(scripts/latest_version.sh console "$MINOR" "$PRERELEASE")}
+          DRIVER=${DRIVER:-$(scripts/latest_version.sh driver "$MINOR" "$PRERELEASE")}
+          for pair in "console=$CONSOLE" "driver=$DRIVER"; do
+            product=${pair%%=*}
+            version=${pair#*=}
+            if [ -z "$version" ]; then
+              echo "no $product release exists on train $MINOR" >&2
+              exit 1
+            fi
+            case "$version" in
+              "$MINOR".*) ;;
+              *)
+                echo "train rule: $product $version is not on train $MINOR" >&2
+                exit 1
+                ;;
+            esac
+            echo "${product}_version=$version" >> "$GITHUB_OUTPUT"
+          done
+
+  verify:
+    name: Verify Checks
+    if: ${{ !inputs.verified }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Verify Checks
+        uses: ./.github/actions/verify-checks
+        with:
+          sha: ${{ github.sha }}
+
+  integration:
+    name: Integration
+    if: ${{ !inputs.verified }}
+    uses: ./.github/workflows/test.integration.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    secrets: inherit
+
+  draft:
+    name: Draft Release
+    needs: [resolve, verify, integration]
+    if: >-
+      !cancelled() && needs.resolve.result == 'success' && (needs.verify.result ==
+      'success' || needs.verify.result == 'skipped') && (needs.integration.result ==
+      'success' || needs.integration.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+    steps:
+      # A failed earlier run can leave a draft under the same tag; the tag itself only
+      # exists once a release is published.
+      - name: Delete Stale Draft
+        run: |
+          if gh release list --json tagName,isDraft \
+            --jq --arg tag "$TAG" '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
+            gh release delete "$TAG" --yes
+          fi
+
+      - name: Create Draft Release
+        run: |
+          gh release create "$TAG" --draft --target "${{ github.sha }}" \
+            --title "Core v${{ needs.resolve.outputs.version }}" \
+            --notes "Embeds Console v${{ needs.resolve.outputs.console_version }} and Driver v${{ needs.resolve.outputs.driver_version }}." \
+            --generate-notes --notes-start-tag "${{ needs.resolve.outputs.previous_tag }}" \
+            ${{ inputs.prerelease && '--prerelease' || '' }}
+
+  build:
+    name: Build
+    needs: [resolve, draft]
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      ubuntu: true
+      docker: true
+      core: true
+      sign_binaries: true
+      use_simple_artifact_names: true
+      version: ${{ needs.resolve.outputs.version }}
+      release_tag: ${{ needs.resolve.outputs.tag }}
+      console_release: console/v${{ needs.resolve.outputs.console_version }}
+      driver_release: driver/v${{ needs.resolve.outputs.driver_version }}
+      docker_channel: ${{ inputs.prerelease && 'next' || 'latest' }}
+    secrets: inherit
+
+  windows-installer:
+    name: Build Windows Installer
+    needs: [resolve, build]
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Download Core Binary
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-core-windows
+          path: scripts/
+
+      - name: Rename Binary for Installer
+        shell: powershell
+        run:
+          Move-Item -Force scripts/synnax-v${{ env.VERSION }}.exe
+          scripts/synnax-server.exe
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install trusted-signing-cli
+        run: cargo install trusted-signing-cli
+
+      - name: Build Windows Installer
+        shell: powershell
+        run: |
+          choco install nsis -y --no-progress
+          $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          $env:Path = "$nsisDir;$env:Path"
+          Copy-Item -Force .\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
+          makensis /DVERSION=${{ env.VERSION }} .\scripts\windows_installer.nsi
+
+      - name: Sign Windows Installer
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
+          Installer" .\scripts\synnax-setup-v${{ env.VERSION }}.exe
+
+      - name: Upload Windows Installer
+        run: |
+          gh release upload --clobber ${{ needs.resolve.outputs.tag }} .\scripts\synnax-setup-v${{ env.VERSION }}.exe
+
+  publish:
+    name: Publish
+    needs: [resolve, build, windows-installer]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish Release
+        run: gh release edit "${{ needs.resolve.outputs.tag }}" --draft=false

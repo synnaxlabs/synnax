@@ -1,0 +1,109 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Release - Train
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump for every product
+        type: choice
+        options:
+          - patch
+          - minor
+        default: patch
+      prerelease:
+        description: Tag release candidates (-rc.N)
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-train
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+jobs:
+  verify:
+    name: Verify Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Verify Checks
+        uses: ./.github/actions/verify-checks
+        with:
+          sha: ${{ github.sha }}
+
+  integration:
+    name: Integration
+    uses: ./.github/workflows/test.integration.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    secrets: inherit
+
+  console:
+    name: Console
+    needs: [verify, integration]
+    uses: ./.github/workflows/release.console.yaml
+    concurrency:
+      group: release-console
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      bump: ${{ inputs.bump }}
+      prerelease: ${{ inputs.prerelease }}
+      verified: true
+    secrets: inherit
+
+  driver:
+    name: Driver
+    needs: [verify, integration]
+    uses: ./.github/workflows/release.driver.yaml
+    concurrency:
+      group: release-driver
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      bump: ${{ inputs.bump }}
+      prerelease: ${{ inputs.prerelease }}
+      verified: true
+    secrets: inherit
+
+  core:
+    name: Core
+    needs: [console, driver]
+    uses: ./.github/workflows/release.core.yaml
+    concurrency:
+      group: release-core
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      bump: ${{ inputs.bump }}
+      prerelease: ${{ inputs.prerelease }}
+      verified: true
+      console_version: ${{ needs.console.outputs.version }}
+      driver_version: ${{ needs.driver.outputs.version }}
+    secrets: inherit
