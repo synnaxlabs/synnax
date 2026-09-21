@@ -47,8 +47,8 @@ def new_user_list():
 
 def compare_users(user: sy.user.User, new_user: sy.user.New):
     assert user.username == new_user.username
-    assert user.first_name == new_user.first_name
-    assert user.last_name == new_user.last_name
+    assert user.first_name == (new_user.first_name or "")
+    assert user.last_name == (new_user.last_name or "")
     if new_user.key is not None:
         assert user.key == new_user.key
     else:

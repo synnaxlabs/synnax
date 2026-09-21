@@ -115,6 +115,20 @@ describe("role", () => {
     });
   });
 
+  describe("unassign", () => {
+    it("should remove an assigned role from a user", async () => {
+      const r = await client.access.roles.create({ name: "test", description: "test" });
+      const u = await client.users.create({ username: id.create(), password: "test" });
+      const params = { user: u.key, role: r.key };
+      await client.access.roles.assign(params);
+      const parentsOf = async () =>
+        await client.ontology.parents.retrieve({ ids: user.ontologyID(u.key) });
+      expect((await parentsOf()).map((p) => p.id.key)).toContain(r.key);
+      await client.access.roles.unassign(params);
+      expect((await parentsOf()).map((p) => p.id.key)).not.toContain(r.key);
+    });
+  });
+
   describe("built-in roles", () => {
     it("should connect a client holding a built-in role's permissions", async () => {
       const viewer = await createTestClientWithRole(client, "Viewer");

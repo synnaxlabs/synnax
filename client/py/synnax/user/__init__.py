@@ -8,7 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.user.client import Client
-from synnax.user.payload import New, User
-from synnax.user.types_gen import Key
+from synnax.user.types_gen import ONTOLOGY_TYPE, Key, New, User, ontology_id
+from x.deprecation import deprecated_getattr
 
-__all__ = ["Client", "Key", "New", "User"]
+__all__ = ["ONTOLOGY_TYPE", "Client", "Key", "New", "User", "ontology_id"]
+
+_DEPRECATED = {"NewUser": "New"}
+
+__getattr__ = deprecated_getattr(__name__, _DEPRECATED, globals())
