@@ -11,8 +11,9 @@ The Core, Console, and Driver release on every push to `main` or `rc`, versions 
 14 files, and the Console updater polls a JSON file a bot force-pushes to `main`. This
 RFC moves to trunk-based development on `main`, one dispatched release workflow per
 product, Git tags as the only version source, an updater manifest hosted on the GitHub
-release, and static feature flags. It supersedes RFC 0020 §2, §3, §5, and §7, and
-retires the `rc.md` checklist that RFC 0020 §6 links.
+release, and static feature flags. It supersedes RFC 0020 §2, §3, §4, §5, and §7, and
+retires the `rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor
+survives: every product and package shares one minor, and patches move independently.
 
 ## 1 Motivation
 
@@ -63,15 +64,16 @@ Each runs four stages:
    highest stable product tag on that minor anywhere in the repo, applies `bump`, and
    enforces the train rule (§2.2). Candidates never set the base: `-rc.N` counts up from
    the candidates already tagged for that version, and promoting one repeats the same
-   `bump`. The action also emits the previous product tag. Reachability picks the train;
-   the repo-wide scan keeps a hotfix tag from being reissued.
+   `bump`. The action also emits the previous stable product tag; a candidate uses the
+   same baseline, so its notes cover every change since the last stable. Reachability
+   picks the train; the repo-wide scan keeps a hotfix tag from being reissued.
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
    as a `workflow_call` job.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed. Python and TypeScript inject the version and build in place.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
    with categories from `.github/release.yml` and `previous_tag_name` set to the
-   previous product tag, since GitHub's default is the repo's last release of any
+   previous stable product tag, since GitHub's default is the repo's last release of any
    product, then clear the draft. The release creates the tag, so a failed build leaves
    none. Concurrency group `release-<product>` serializes a product's releases.
 
@@ -100,7 +102,9 @@ ever already published.
 
 Train rule: a product may bump to at most one minor ahead of the Core's latest stable,
 and the Core release fails unless the Console and Driver it embeds share its minor.
-Console and Driver open a train; the Core closes it.
+Console and Driver open a train; the Core closes it. Every product and every package in
+it shares the train's minor; patches are independent, so a Console hotfix ships as
+`0.59.1` while the Core stays at `0.59.0`.
 
 Every manifest carries `0.0.0` and the build injects the resolved `version`:
 
@@ -108,11 +112,14 @@ Every manifest carries `0.0.0` and the build injects the resolved `version`:
   and `//go:embed` fallback in `get.go` are deleted; `Prod()` returns `0.0.0-dev` when
   unset.
 - **Driver**: Bazel `--stamp` with a `--workspace_status_command` emitting
-  `STABLE_SYNNAX_VERSION`; the `//core/pkg/version` genrule, already stamped, reads
-  `stable-status.txt` and takes the timestamp from `volatile-status.txt`.
+  `STABLE_SYNNAX_VERSION`. The `//core/pkg/version` genrule is already stamped; it
+  switches from the `VERSION` file and `date` to `stable-status.txt` and
+  `volatile-status.txt`.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`.
 - **TypeScript**: `pnpm -r exec npm version X.Y.Z --no-git-tag-version`. The catalog
   pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish.
+  `pluto/package.json` pins `@synnaxlabs/freighter` and `@synnaxlabs/media` as
+  `workspace:*`, which publishes exact versions; both move to the catalog.
 - **Python**: `uv version X.Y.Z` per package before `pin_internal_deps.sh`.
 
 Dev builds therefore run at `0.0.0`. The client compatibility checks (`isCompatible` in
@@ -173,19 +180,21 @@ flag and workflow file.
   `latest(product)` needs no legacy map and the first dispatched release computes its
   version from a real tag. Core, Driver, and Console at 0.58.2 with the assets copied
   from `synnax-v0.58.2` and `console-v0.58.2`, plus a `latest.json` written from
-  `release-spec.json`, which is the only place the manifest exists today. Python and
-  TypeScript at the highest version on PyPI and npm, since the packages disagree
-  (`synnax` is 0.58.1 on PyPI, `alamos` 0.58.0) and the next patch must exceed the
-  registry. Then `releases.ts`, the updater routes, per-product consumers, and docs
-  flags, all deployable before any workflow change.
+  `release-spec.json`, which is the only place the manifest exists today. Every
+  bootstrap tag sits on the `synnax-v0.58.2` commit on `main`, so Resolve reaches it
+  from `HEAD`. Python and TypeScript at the highest version on PyPI and npm, since the
+  packages disagree (`synnax` is 0.58.1 on PyPI, `alamos` 0.58.0) and the next patch
+  must exceed the registry. Then `releases.ts`, the updater routes, per-product
+  consumers, and docs flags, all deployable before any workflow change.
 - **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
   updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
   overrides them, so no version file changes. Then merge `rc` into `main` (publishes
   nothing), `gh pr edit --base main` for open PRs, delete `rc`.
 - **Phase 3: Versions and Console flags.** Delete the version literals, scripts, and
-  `test.updates.yaml`; add the Bazel status script, the `0.0` compatibility rule in all
-  three clients, and `console/src/flags.ts`.
+  `test.updates.yaml`; move Pluto's two `workspace:*` pins to the catalog; add the Bazel
+  status script, the `0.0` compatibility rule in all three clients, and
+  `console/src/flags.ts`.
 - **Phase 4: First releases.** Console, Driver, Python, and TypeScript with
   `bump: minor`, then the Core, opening train 0.59. After the Console release, one
   manual commit copies its `latest.json` into `release-spec.json`, so installed 0.58
