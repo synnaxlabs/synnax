@@ -56,8 +56,10 @@ export const createRetrieve = <
 
 export const { use, useResult, createResultSelector } = createRetrieve();
 
+/** Names the devices to retrieve by key or by filter. */
 export type RetrieveMultipleQuery = device.RetrieveMultipleParams;
 
+/** Creates retrieve hooks for many devices, each parsed through the given schemas. */
 export const createRetrieveMultiple = <
   Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
