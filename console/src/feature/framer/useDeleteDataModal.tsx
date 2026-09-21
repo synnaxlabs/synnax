@@ -140,7 +140,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                     <Input.DateTime
                       level="h4"
                       variant="text"
-                      role="start"
+                      bound="start"
                       anchors={{ end }}
                       {...p}
                     />
@@ -172,7 +172,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                     <Input.DateTime
                       level="h4"
                       variant="text"
-                      role="end"
+                      bound="end"
                       anchors={{ start }}
                       {...p}
                     />

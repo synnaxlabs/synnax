@@ -11,9 +11,6 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
-  describeDay,
-  formatTime,
-  formatTimeStamp,
   nudge,
   parseTimeSpan,
   parseTimeStamp,
@@ -25,28 +22,34 @@ const NOW = new TimeStamp(new Date(2026, 7, 23, 14, 5, 0, 0));
 
 describe("parseTimeSpan", () => {
   it("should parse unit runs", () => {
-    expect(parseTimeSpan("30s")?.equals(TimeSpan.seconds(30))).toBe(true);
-    expect(parseTimeSpan("2h 30m")?.equals(TimeSpan.minutes(150))).toBe(true);
-    expect(parseTimeSpan("2h30m")?.equals(TimeSpan.minutes(150))).toBe(true);
-    expect(parseTimeSpan("1.5h")?.equals(TimeSpan.minutes(90))).toBe(true);
-    expect(parseTimeSpan("500ms")?.equals(TimeSpan.milliseconds(500))).toBe(true);
-    expect(parseTimeSpan("250us")?.equals(TimeSpan.microseconds(250))).toBe(true);
-    expect(parseTimeSpan("250µs")?.equals(TimeSpan.microseconds(250))).toBe(true);
-    expect(parseTimeSpan("10ns")?.equals(TimeSpan.nanoseconds(10))).toBe(true);
-    expect(parseTimeSpan("2d")?.equals(TimeSpan.days(2))).toBe(true);
+    expect(parseTimeSpan("30s")?.value.equals(TimeSpan.seconds(30))).toBe(true);
+    expect(parseTimeSpan("2h 30m")?.value.equals(TimeSpan.minutes(150))).toBe(true);
+    expect(parseTimeSpan("2h30m")?.value.equals(TimeSpan.minutes(150))).toBe(true);
+    expect(parseTimeSpan("1.5h")?.value.equals(TimeSpan.minutes(90))).toBe(true);
+    expect(parseTimeSpan("500ms")?.value.equals(TimeSpan.milliseconds(500))).toBe(true);
+    expect(parseTimeSpan("250us")?.value.equals(TimeSpan.microseconds(250))).toBe(true);
+    expect(parseTimeSpan("250µs")?.value.equals(TimeSpan.microseconds(250))).toBe(true);
+    expect(parseTimeSpan("10ns")?.value.equals(TimeSpan.nanoseconds(10))).toBe(true);
+    expect(parseTimeSpan("2d")?.value.equals(TimeSpan.days(2))).toBe(true);
   });
 
   it("should parse clock form", () => {
-    expect(parseTimeSpan("1:30:00")?.equals(TimeSpan.minutes(90))).toBe(true);
-    expect(parseTimeSpan("0:30")?.equals(TimeSpan.minutes(30))).toBe(true);
-    expect(parseTimeSpan("00:00:30.250")?.equals(TimeSpan.milliseconds(30250))).toBe(
-      true,
-    );
+    expect(parseTimeSpan("1:30:00")?.value.equals(TimeSpan.minutes(90))).toBe(true);
+    expect(parseTimeSpan("0:30")?.value.equals(TimeSpan.minutes(30))).toBe(true);
+    expect(
+      parseTimeSpan("00:00:30.250")?.value.equals(TimeSpan.milliseconds(30250)),
+    ).toBe(true);
   });
 
   it("should treat a bare number as seconds", () => {
-    expect(parseTimeSpan("45")?.equals(TimeSpan.seconds(45))).toBe(true);
-    expect(parseTimeSpan("0.5")?.equals(TimeSpan.milliseconds(500))).toBe(true);
+    expect(parseTimeSpan("45")?.value.equals(TimeSpan.seconds(45))).toBe(true);
+    expect(parseTimeSpan("0.5")?.value.equals(TimeSpan.milliseconds(500))).toBe(true);
+  });
+
+  it("should say which form the duration took", () => {
+    expect(parseTimeSpan("2h 30m")?.kind).toBe("units");
+    expect(parseTimeSpan("1:30:00")?.kind).toBe("clock");
+    expect(parseTimeSpan("45")?.kind).toBe("seconds");
   });
 
   it("should reject text that is not a duration", () => {
@@ -77,7 +80,28 @@ describe("parseTimeStamp", () => {
     expect(
       t.ok && t.value.equals(anchors.parent.add(TimeSpan.milliseconds(3200))),
     ).toBe(true);
-    expect(t.ok && t.anchor).toBe("parent");
+    expect(t).toMatchObject({
+      kind: "anchor",
+      anchor: "parent",
+      offset: TimeSpan.milliseconds(3200),
+    });
+    expect(res).toMatchObject({ kind: "anchor", offset: TimeSpan.minutes(-5) });
+  });
+
+  it("should say how the expression was read", () => {
+    const kinds: [string, object][] = [
+      ["now", { kind: "anchor", anchor: "now", offset: TimeSpan.ZERO }],
+      ["1756000000", { kind: "epoch", unit: "seconds" }],
+      ["1756000000000", { kind: "epoch", unit: "milliseconds" }],
+      ["1756000000000000000", { kind: "epoch", unit: "nanoseconds" }],
+      ["2026-08-23T14:05:00Z", { kind: "iso" }],
+      ["14:05", { kind: "clock" }],
+      ["14:05:00.250 137", { kind: "clock" }],
+      ["2026-08-23", { kind: "local" }],
+      ["2026-08-23 14:05", { kind: "local" }],
+    ];
+    for (const [text, reading] of kinds)
+      expect(parseTimeStamp(text, anchors), text).toMatchObject(reading);
   });
 
   it("should report a missing anchor", () => {
@@ -124,6 +148,32 @@ describe("parseTimeStamp", () => {
     expect(res.ok && res.value.equals(NOW)).toBe(true);
   });
 
+  it("should read an epoch in the one unit that lands near the present", () => {
+    const ns = NOW.valueOf();
+    const units: [string, bigint][] = [
+      ["seconds", 1000000000n],
+      ["milliseconds", 1000000n],
+      ["microseconds", 1000n],
+      ["nanoseconds", 1n],
+    ];
+    for (const [unit, size] of units) {
+      const res = parseTimeStamp((ns / size).toString(), anchors);
+      expect(res, unit).toMatchObject({ kind: "epoch", unit });
+      expect(res.ok && res.value.equals(NOW), unit).toBe(true);
+    }
+  });
+
+  it("should read a 9-digit epoch as seconds", () => {
+    const res = parseTimeStamp("999999999", anchors);
+    expect(res).toMatchObject({ kind: "epoch", unit: "seconds" });
+  });
+
+  it("should read an epoch that no unit places near the present as nanoseconds", () => {
+    const res = parseTimeStamp("86400000000000", anchors);
+    expect(res).toMatchObject({ kind: "epoch", unit: "nanoseconds" });
+    expect(res.ok && res.value.equals(new TimeStamp(TimeSpan.DAY))).toBe(true);
+  });
+
   it("should reject nonsense", () => {
     expect(parseTimeStamp("yesterday-ish", anchors)).toEqual({
       ok: false,
@@ -156,30 +206,6 @@ describe("roundNumeric", () => {
   });
 });
 
-describe("formatTimeStamp", () => {
-  it("should drop trailing zero groups", () => {
-    expect(formatTimeStamp(NOW)).toBe("2026-08-23 14:05:00");
-    expect(formatTimeStamp(NOW.add(TimeSpan.milliseconds(250)))).toBe(
-      "2026-08-23 14:05:00.250",
-    );
-    expect(formatTimeStamp(NOW.add(TimeSpan.microseconds(250137)))).toBe(
-      "2026-08-23 14:05:00.250 137",
-    );
-    expect(formatTimeStamp(NOW.add(TimeSpan.nanoseconds(250137004)))).toBe(
-      "2026-08-23 14:05:00.250 137 004",
-    );
-    expect(formatTimeStamp(NOW.add(TimeSpan.microseconds(4)))).toBe(
-      "2026-08-23 14:05:00.000 004",
-    );
-  });
-
-  it("should round trip through parseTimeStamp", () => {
-    const ts = NOW.add(TimeSpan.nanoseconds(123456789));
-    const res = parseTimeStamp(formatTimeStamp(ts), { now: NOW });
-    expect(res.ok && res.value.equals(ts)).toBe(true);
-  });
-});
-
 describe("unitAt", () => {
   it("should name the unit under the caret", () => {
     // 2026-08-23 14:05:00.250 137 004
@@ -204,38 +230,12 @@ describe("nudge", () => {
     ).toBe(true);
   });
 
-  it("should step months on the calendar and keep sub-millisecond digits", () => {
+  it("should step months and years on the local calendar", () => {
     const ts = NOW.add(TimeSpan.microseconds(137));
     const next = nudge(ts, "month", 1);
-    expect(formatTimeStamp(next)).toBe("2026-09-23 14:05:00.000 137");
-    expect(formatTimeStamp(nudge(ts, "year", -1))).toBe("2025-08-23 14:05:00.000 137");
-  });
-});
-
-describe("describeDay", () => {
-  it("should name nearby days and fall back to month and day", () => {
-    expect(describeDay(NOW, NOW)).toBe("Today");
-    expect(describeDay(NOW.sub(TimeSpan.DAY), NOW)).toBe("Yesterday");
-    expect(describeDay(NOW.add(TimeSpan.DAY), NOW)).toBe("Tomorrow");
-    expect(describeDay(NOW.sub(TimeSpan.days(3)), NOW)).toBe("Thursday");
-    expect(describeDay(NOW.sub(TimeSpan.days(30)), NOW)).toBe("Jul 24");
-    expect(describeDay(NOW.sub(TimeSpan.days(400)), NOW)).toBe("Jul 19, 2025");
-  });
-});
-
-describe("formatTime", () => {
-  it("should drop zero seconds and keep set precision", () => {
-    expect(formatTime(NOW)).toBe("14:05");
-    expect(formatTime(NOW.add(TimeSpan.seconds(32)))).toBe("14:05:32");
-    expect(formatTime(NOW.add(TimeSpan.milliseconds(250)))).toBe("14:05:00.250");
-  });
-});
-
-describe("formatTime", () => {
-  it("should drop label digits below the resolution", () => {
-    const ts = NOW.add(TimeSpan.seconds(32)).add(TimeSpan.milliseconds(250));
-    expect(formatTime(ts, TimeSpan.MINUTE)).toBe("14:05");
-    expect(formatTime(ts, TimeSpan.SECOND)).toBe("14:05:32");
-    expect(formatTime(ts)).toBe("14:05:32.250");
+    expect(next.toPreciseString("local")).toBe("2026-09-23 14:05:00.000 137");
+    expect(nudge(ts, "year", -1).toPreciseString("local")).toBe(
+      "2025-08-23 14:05:00.000 137",
+    );
   });
 });

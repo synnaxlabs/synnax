@@ -210,7 +210,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime
                 level="h4"
                 variant="text"
-                role="start"
+                bound="start"
                 anchors={{ end: timeRange.end }}
                 {...p}
               />
@@ -225,7 +225,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime
                 level="h4"
                 variant="text"
-                role="end"
+                bound="end"
                 anchors={{ start: timeRange.start }}
                 {...p}
               />

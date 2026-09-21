@@ -129,8 +129,8 @@ class Overview(Surface):
     ) -> None:
         """Set a time in the range overview by cell index (0=start, 1=end)."""
         time_range = self.layout.page.locator(".console-time-range")
-        time_range.locator(".pluto-time-cell__trigger").nth(index).click(timeout=5000)
-        editor = self.layout.page.locator(".pluto-time-cell__editor input")
+        time_range.locator(".pluto-time-editor__trigger").nth(index).click(timeout=5000)
+        editor = self.layout.page.locator(".pluto-time-editor__dialog input")
         editor.fill(
             f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}",
             timeout=5000,

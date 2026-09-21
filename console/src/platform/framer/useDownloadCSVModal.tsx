@@ -101,7 +101,7 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                     <Input.DateTime
                       level="h4"
                       variant="text"
-                      role="start"
+                      bound="start"
                       anchors={{ end: range.end }}
                       {...p}
                     />
@@ -116,7 +116,7 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
                     <Input.DateTime
                       level="h4"
                       variant="text"
-                      role="end"
+                      bound="end"
                       anchors={{ start: range.start }}
                       {...p}
                     />
