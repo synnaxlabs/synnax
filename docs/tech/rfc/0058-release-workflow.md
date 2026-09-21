@@ -80,7 +80,9 @@ Assets per product:
   pre-release). No workflow rebuilds another product. The notes name the embedded
   versions.
 - **Python** (`py/vX.Y.Z`), **TypeScript** (`ts/vX.Y.Z`): Version injection, then the
-  existing `uv publish` and `pnpm publish -r`, moved to OIDC trusted publishing.
+  existing `uv publish` and `pnpm publish -r`, moved to OIDC trusted publishing. A
+  pre-release publishes with `--tag next`, so npm's `latest` stays on the stable
+  release; pip already skips pre-releases.
 
 `deploy.synnax.yaml`, `deploy.ts.yaml`, and `deploy.py.yaml` are deleted.
 
