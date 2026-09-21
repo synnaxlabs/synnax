@@ -12,10 +12,10 @@ import "@/button/Button.css";
 import { color, record, text, type TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useHold, type UseHoldProps } from "@/button/useHold";
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
+import { useHold, type UseHoldProps } from "@/hooks";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";

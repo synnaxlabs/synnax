@@ -16,8 +16,7 @@ import {
   useState,
 } from "react";
 
-import { useDestructors } from "@/hooks";
-import { Triggers } from "@/triggers";
+import { useDestructors } from "@/hooks/useDestructors";
 import { ACTIVATION_KEYS } from "@/util/event";
 
 export interface UseHoldProps<E extends Element> {
@@ -70,7 +69,7 @@ export const useHold = <E extends Element>({
 
   const handleMouseDown: MouseEventHandler<E> = (e) => {
     onMouseDown?.(e);
-    if (disabled || e.button !== Triggers.MOUSE_LEFT_NUMBER) return;
+    if (disabled || e.button !== 0) return;
     destructors.cleanup();
     setPressed(true);
     const timeout = delay.isZero

@@ -11,10 +11,10 @@ import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Button } from "@/button";
+import { useHold, type UseHoldProps } from "@/hooks/useHold";
 
-const Host = (props: Button.UseHoldProps<HTMLButtonElement>): ReactElement => {
-  const hold = Button.useHold(props);
+const Host = (props: UseHoldProps<HTMLButtonElement>): ReactElement => {
+  const hold = useHold(props);
   return (
     <button
       aria-pressed={hold.pressed}
@@ -29,7 +29,7 @@ const Host = (props: Button.UseHoldProps<HTMLButtonElement>): ReactElement => {
 };
 
 const renderHold = (
-  props: Button.UseHoldProps<HTMLButtonElement> = {},
+  props: UseHoldProps<HTMLButtonElement> = {},
 ): RenderResult & { button: HTMLElement } => {
   const result = render(<Host {...props} />);
   return { ...result, button: result.getByRole("button") };

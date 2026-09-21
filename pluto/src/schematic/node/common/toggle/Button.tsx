@@ -10,8 +10,8 @@
 import { color, type CrudeTimeSpan } from "@synnaxlabs/x";
 import { type ComponentPropsWithRef, type ReactElement, useMemo } from "react";
 
-import { Button as Base } from "@/button";
 import { CSS } from "@/css";
+import { useHold } from "@/hooks";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
@@ -41,7 +41,7 @@ export const Button = ({
   children,
   ...rest
 }: ButtonProps): ReactElement => {
-  const hold = Base.useHold<HTMLButtonElement>({
+  const hold = useHold<HTMLButtonElement>({
     onClick,
     onMouseDown,
     onClickDelay,

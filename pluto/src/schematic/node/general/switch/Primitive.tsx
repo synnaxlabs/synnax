@@ -12,8 +12,8 @@ import "@/schematic/node/general/switch/switch.css";
 import { location } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
-import { Button } from "@/button";
 import { CSS } from "@/css";
+import { useHold } from "@/hooks";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -36,7 +36,7 @@ export const Switch = ({
   disabled,
 }: Props): ReactElement => {
   const colorVar = symbolColorVar(colorVal);
-  const hold = Button.useHold<HTMLElement>({ onClick, onClickDelay, disabled });
+  const hold = useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
   const style: CSSProperties = {
     [CSS.variable("switch-scale")]: scale,

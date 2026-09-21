@@ -11,4 +11,3 @@ export * from "@/button/Button";
 export * from "@/button/Close";
 export * from "@/button/Copy";
 export * from "@/button/Toggle";
-export * from "@/button/useHold";
