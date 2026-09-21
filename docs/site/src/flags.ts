@@ -14,7 +14,8 @@ const PREVIEW = VERCEL_ENV === "preview";
 
 /**
  * Static build-time flags that hide unfinished docs in production. Each entry names its
- * owner and what removes it. `FLAG_<NAME>=true` at build time turns one on.
+ * owner and what removes it. `FLAG_<NAME>=true` at build time turns one on; set it in
+ * Vercel for the site and as a repository variable for the search index job.
  */
 export const FLAGS = {
   // Owner: Patrick Dotson. Removed when the Pluto section returns to the nav.

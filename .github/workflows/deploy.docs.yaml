@@ -37,6 +37,8 @@ jobs:
     env:
       DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
       DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+      # Flags on in production must be on here too, or the index drops their pages.
+      FLAG_PLUTO: ${{ vars.FLAG_PLUTO }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
