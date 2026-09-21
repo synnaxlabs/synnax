@@ -14,6 +14,7 @@ from freighter import (
     AsyncMiddleware,
     AsyncNext,
     Context,
+    Empty,
     Middleware,
     Next,
     UnaryClient,
@@ -41,6 +42,10 @@ class TokenResponse(BaseModel):
     token: str
     user: User
     cluster_info: ClusterInfo = ClusterInfo()
+
+
+class _ChangePasswordRequest(Credentials):
+    new_password: str
 
 
 AUTHORIZATION_HEADER = "Authorization"
@@ -78,6 +83,23 @@ class Client:
         self.token = res.token
         self.user = res.user
         self.authenticated = True
+
+    def change_password(self, new_password: str) -> None:
+        """Replaces the password of the authenticated user. The Core verifies the
+        current password before it writes the new one.
+
+        :param new_password: The new password.
+        """
+        self.client.send(
+            "/auth/change-password",
+            _ChangePasswordRequest(
+                username=self.username,
+                password=self.password,
+                new_password=new_password,
+            ),
+            Empty,
+        )
+        self.password = new_password
 
     def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next) -> Context:
