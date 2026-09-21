@@ -150,17 +150,19 @@ describe("connection", () => {
       expect(status.details.clientVersion).toBe(__VERSION__);
     });
 
-    it("should adjust status if the server is too old", async () => {
+    // A Core built without an injected version reports 0.0.0-dev, which pairs with
+    // anything, so the mismatch cases carry their own node version.
+    it("should adjust status if the server is too old", () => {
       const config = createConfig({ clientVersion: "50000.0.0" });
-      const info = await sendCheck(liveUnary());
+      const info = { clusterKey: "k", nodeVersion: "1.0.0", clockSkew: TimeSpan.ZERO };
       const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
       expect(status.details.clientVersion).toBe("50000.0.0");
     });
 
-    it("should adjust status if the server is too new", async () => {
+    it("should adjust status if the server is too new", () => {
       const config = createConfig({ clientVersion: "0.1.0" });
-      const info = await sendCheck(liveUnary());
+      const info = { clusterKey: "k", nodeVersion: "1.0.0", clockSkew: TimeSpan.ZERO };
       const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
     });

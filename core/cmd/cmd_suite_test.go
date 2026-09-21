@@ -10,21 +10,19 @@
 package cmd_test
 
 import (
-	"os"
-	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var version string
+var expected string
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
-	data := MustSucceed(os.ReadFile("../pkg/version/VERSION"))
-	version = "Synnax " + strings.ReplaceAll(string(data), "\r\n", "\n")
+	expected = "Synnax " + version.Full() + "\n"
 })
 
 func TestCmd(t *testing.T) {

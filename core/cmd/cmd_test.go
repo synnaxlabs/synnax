@@ -24,7 +24,7 @@ var _ = Describe("Cmd", func() {
 			cmd.Cmd.SetArgs([]string{"--version"})
 			cmd.Cmd.SetOut(&buf)
 			Expect(cmd.Cmd.Execute()).To(Succeed())
-			Expect(buf.String()).To(Equal(version))
+			Expect(buf.String()).To(Equal(expected))
 		})
 	})
 })
