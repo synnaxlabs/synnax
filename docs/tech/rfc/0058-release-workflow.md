@@ -55,7 +55,7 @@ One `workflow_dispatch` workflow per product, `release.<product>.yaml`, with inp
 - **`console_version`, `driver_version`** (Core only): Releases to embed. Default: the
   newest stable, or the newest pre-release when `prerelease` is set.
 
-Each runs five stages:
+Each runs four stages:
 
 1. **Resolve**: A composite action `.github/actions/resolve-version` reads the tags with
    the product prefix reachable from `HEAD`, applies `bump` and `-rc.N`, and enforces
@@ -64,10 +64,10 @@ Each runs five stages:
    as a `workflow_call` job.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed. Python and TypeScript inject the version and build in place.
-4. **Publish**: Draft release under the tag, upload assets, clear the draft. The release
-   creates the tag, so a failed build leaves none. Concurrency group `release-<product>`
+4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
+   with categories from `.github/release.yml`, then clear the draft. The release creates
+   the tag, so a failed build leaves none. Concurrency group `release-<product>`
    serializes a product's releases.
-5. **Notes**: `generate_release_notes` with categories from `.github/release.yml`.
 
 Assets per product:
 
@@ -111,10 +111,11 @@ Every manifest carries `0.0.0` and the build injects the resolved `version`:
 `build.synnax.yaml:891-897` are deleted. `latest.json` lives on the Console release.
 
 The docs site gains two Astro endpoints, `/releases/console/latest.json` and
-`/releases/console/next.json`, that 302 to the manifest of the newest stable or
-pre-release Console, with `s-maxage` so the Vercel CDN absorbs the polling. Stable
-builds point at the first; pre-release builds get the second through `--config`, so a QA
-machine follows candidates until it installs a stable build.
+`/releases/console/next.json`, with `s-maxage` so the Vercel CDN absorbs the polling.
+The first 302s to the manifest of the newest stable Console; the second to the newest
+Console on either channel. Stable builds point at the first; pre-release builds get the
+second through `--config`. Semver ranks `0.59.0` above `0.59.0-rc.3`, so a QA machine
+follows candidates, installs the next stable, and lands on the stable endpoint.
 
 `fetchVersion.ts` becomes `releases.ts`: `latest(product)` queries the releases API with
 a server-side token, filters by tag prefix, skips drafts and pre-releases, and caches
@@ -142,8 +143,11 @@ flag and workflow file.
 
 ## 3 Implementation phases
 
-- **Phase 1: Docs site.** `releases.ts`, the updater routes, per-product consumers, docs
-  flags. Works with today's `synnax-v` tags and deploys before any workflow change.
+- **Phase 1: Docs site.** One manual release per product under its new tag at today's
+  stable, with the 0.58.2 assets copied from `synnax-v0.58.2` and `console-v0.58.2`, so
+  `latest(product)` needs no legacy map and the first dispatched release computes its
+  version from a real tag. Then `releases.ts`, the updater routes, per-product
+  consumers, and docs flags, all deployable before any workflow change.
 - **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
   updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
