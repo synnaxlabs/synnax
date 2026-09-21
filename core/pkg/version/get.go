@@ -10,21 +10,17 @@
 package version
 
 import (
-	"embed"
 	"fmt"
-	"io"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
 )
 
-//go:embed VERSION
-var fs embed.FS
-
 const (
-	unknown  = "unknown"
-	errorMsg = "unexpected failure to resolve version"
+	unknown = "unknown"
+	// dev marks a build without an injected version. A 0.0 major.minor pairs with
+	// any Core or client in the compatibility checks.
+	dev = "0.0.0-dev"
 )
 
 // These variables can be set at build time using -ldflags:
@@ -37,28 +33,12 @@ var (
 	BuildDate string
 )
 
-// Prod returns the production version of Synnax.
+// Prod returns the version injected at build time, or 0.0.0-dev when none was.
 func Prod() string {
-	// If version was injected at build time, use it
 	if Version != "" {
 		return Version
 	}
-
-	// Otherwise fall back to embedded VERSION file
-	f, err := fs.Open("VERSION")
-	if err != nil {
-		zap.S().Errorw(errorMsg, "error", err)
-		return unknown
-	}
-	v, err := io.ReadAll(f)
-	if err != nil {
-		zap.S().Errorw(errorMsg, "error", err)
-		return unknown
-	}
-	vString := string(v)
-	vString = strings.TrimSpace(vString)
-	vString = strings.ReplaceAll(vString, "\n", "")
-	return vString
+	return dev
 }
 
 // Get returns the production version of Synnax.

@@ -132,10 +132,9 @@ Every binary manifest carries `0.0.0` and the build injects the resolved `versio
 - **Core**: The existing `-ldflags -X` (`build.synnax.yaml:621-626`). The `VERSION` file
   and `//go:embed` fallback in `get.go` are deleted; `Prod()` returns `0.0.0-dev` when
   unset.
-- **Driver**: Bazel `--stamp` with a `--workspace_status_command` emitting
-  `STABLE_SYNNAX_VERSION`. The `//core/pkg/version` genrule is already stamped; it
-  switches from the `VERSION` file and `date` to `stable-status.txt` and
-  `volatile-status.txt`.
+- **Driver**: A `SYNNAX_VERSION` Bazel define, `0.0.0` in `.bazelrc`, that the release
+  build overrides; the `//core/pkg/version` genrule reads it instead of the `VERSION`
+  file.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`. A candidate runs as app
   version `X.Y.Z-N`, since the MSI bundler accepts only a numeric pre-release; its tag
   stays `X.Y.Z-rc.N` and its manifest carries the app version.
@@ -210,8 +209,8 @@ flag and workflow file.
   nothing), `gh pr edit --base main` for open PRs, delete `rc`.
 - **Phase 3: Versions and Console flags.** Delete the binary version literals; point
   `check_versions.sh` at the `core/` tags and trim `bump_versions.sh`; move Pluto's two
-  `workspace:*` pins to the catalog; add the Bazel status script, the `0.0`
-  compatibility rule in all three clients, and `console/src/flags.ts`.
+  `workspace:*` pins to the catalog; add the Bazel define, the `0.0` compatibility rule
+  in all three clients, and `console/src/flags.ts`.
 - **Phase 4: First releases.** One PR bumps every package manifest to 0.59, then one
   `release.yaml` dispatch with `bump: minor` opens train 0.59. After the Console
   release, one manual commit copies its `latest.json` into `release-spec.json`, so

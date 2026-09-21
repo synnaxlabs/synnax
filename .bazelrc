@@ -2,6 +2,8 @@
 # rules_proto_grpc See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390
 # for info
 common --define=protobuf_allow_msvc=true
+# The product version stamped into the Driver; release builds override it.
+build --define=SYNNAX_VERSION=0.0.0
 
 # Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH to
 # /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake

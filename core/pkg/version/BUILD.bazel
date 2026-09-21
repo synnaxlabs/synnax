@@ -7,15 +7,13 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-exports_files(["VERSION"])
-
+# The version is the SYNNAX_VERSION define; .bazelrc defaults it to 0.0.0 for dev builds.
 genrule(
     name = "version",
-    srcs = ["VERSION"],
     outs = ["version.h"],
     cmd = """
         echo '#pragma once' > $@ &&
-        echo '#define SYNNAX_VERSION \"'$$(cat $(execpath VERSION))'\"' >> $@ &&
+        echo '#define SYNNAX_VERSION \"$(SYNNAX_VERSION)\"' >> $@ &&
         echo '#define SYNNAX_DRIVER_VERSION SYNNAX_VERSION' >> $@ &&
         echo '#define SYNNAX_BUILD_TIMESTAMP \"'$$(date "+%Y-%m-%d %H:%M:%S")'\"' >> $@
     """,

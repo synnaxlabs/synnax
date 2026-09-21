@@ -159,10 +159,26 @@ describe("connection", () => {
     });
 
     it("should adjust status if the server is too new", async () => {
-      const config = createConfig({ clientVersion: "0.0.0" });
+      const config = createConfig({ clientVersion: "0.1.0" });
       const info = await sendCheck(liveUnary());
       const status = apply(config, { type: "check.success", info });
       expect(status.details.clientServerCompatible).toBe(false);
+    });
+
+    it("should treat a 0.0 build on either side as compatible", () => {
+      const config = createConfig({ clientVersion: "0.0.0-dev" });
+      const info = {
+        clusterKey: "k",
+        nodeVersion: "50000.0.0",
+        clockSkew: TimeSpan.ZERO,
+      };
+      let status = apply(config, { type: "check.success", info });
+      expect(status.details.clientServerCompatible).toBe(true);
+      status = apply(createConfig({ clientVersion: "50000.0.0" }), {
+        type: "check.success",
+        info: { ...info, nodeVersion: "0.0.0-abc1234" },
+      });
+      expect(status.details.clientServerCompatible).toBe(true);
     });
 
     it("should propagate transport failures", async () => {

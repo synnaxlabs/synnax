@@ -55,8 +55,13 @@ def _parse_version(v: str) -> tuple[int, int]:
         return 0, 0
 
 
+_DEV = (0, 0)
+
+
 def _versions_compatible(v1: str, v2: str) -> bool:
-    return _parse_version(v1) == _parse_version(v2)
+    """A 0.0 major.minor marks a development build, which pairs with anything."""
+    a, b = _parse_version(v1), _parse_version(v2)
+    return a == _DEV or b == _DEV or a == b
 
 
 def _client_is_newer(client_version: str, node_version: str) -> bool:

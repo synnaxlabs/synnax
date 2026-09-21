@@ -190,13 +190,9 @@ jobs:
             echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
             echo "PURE_VERSION=${PURE_VERSION}" >> $GITHUB_OUTPUT
           else
-            BASE_VERSION=$(cat pkg/version/VERSION)
-            echo "PURE_VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
-            if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-              echo "VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
-            else
-              echo "VERSION=${BASE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
-            fi
+            # A build without a resolved version is a dev build.
+            echo "PURE_VERSION=0.0.0" >> $GITHUB_OUTPUT
+            echo "VERSION=0.0.0-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate OS Matrix
@@ -266,7 +262,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       BAZEL_BUILD_FLAGS:
         --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt'
-        }} --announce_rc --verbose_failures
+        }} --announce_rc --verbose_failures --define=SYNNAX_VERSION=${{
+        needs.setup.outputs.VERSION }}
       BAZEL_REMOTE_CACHE_FLAGS:
         --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
         --remote_cache_compression=true

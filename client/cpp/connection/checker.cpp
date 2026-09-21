@@ -26,8 +26,13 @@ std::pair<int, int> parse_version(const std::string &v) {
     return {major, minor};
 }
 
+/// @brief a 0.0 major.minor marks a development build, which pairs with anything.
+constexpr std::pair<int, int> DEV_VERSION = {0, 0};
+
 bool versions_compatible(const std::string &v1, const std::string &v2) {
-    return parse_version(v1) == parse_version(v2);
+    const auto a = parse_version(v1);
+    const auto b = parse_version(v2);
+    return a == DEV_VERSION || b == DEV_VERSION || a == b;
 }
 
 bool client_is_newer(const std::string &client_ver, const std::string &node_ver) {

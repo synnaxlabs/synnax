@@ -10,7 +10,6 @@
 package version_test
 
 import (
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,10 +19,8 @@ import (
 
 var _ = Describe("Version", func() {
 	Describe("Get", func() {
-		It("Should return the version name", func() {
-			v := version.Prod()
-			cv := strings.TrimSpace(strings.ReplaceAll(v, "\n", ""))
-			Expect(strings.Count(cv, ".")).To(Equal(2))
+		It("Should return the dev version when not set via ldflags", func() {
+			Expect(version.Prod()).To(Equal("0.0.0-dev"))
 		})
 	})
 
@@ -51,8 +48,7 @@ var _ = Describe("Version", func() {
 	Describe("Full", func() {
 		It("Should return just version when commit and date are unknown", func() {
 			full := version.Full()
-			// Should just be the version number since commit/date aren't set
-			Expect(strings.Count(full, ".")).To(Equal(2))
+			Expect(full).To(Equal("0.0.0-dev"))
 			Expect(full).NotTo(ContainSubstring("commit:"))
 			Expect(full).NotTo(ContainSubstring("built:"))
 		})

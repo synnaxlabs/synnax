@@ -31,6 +31,16 @@ grpc::connectivity::CheckResponse make_response(
     return res;
 }
 
+TEST(TestVersionsCompatible, EqualMinor) {
+    EXPECT_TRUE(versions_compatible("0.59.2", "0.59.0"));
+    EXPECT_FALSE(versions_compatible("0.59.2", "0.60.0"));
+}
+
+TEST(TestVersionsCompatible, DevBuild) {
+    EXPECT_TRUE(versions_compatible("0.0.0-dev", "0.59.0"));
+    EXPECT_TRUE(versions_compatible("0.59.0", "0.0.0-abc1234"));
+}
+
 TEST(TestChecker, ConnectedOnValidResponse) {
     auto res = make_response();
     auto mock = std::make_unique<freighter::mock::UnaryClient<
