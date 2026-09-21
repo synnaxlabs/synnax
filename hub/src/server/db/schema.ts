@@ -43,7 +43,6 @@ export const organization = pgTable("organization", {
   kind: text("kind", { enum: ORGANIZATION_KINDS }).notNull(),
   name: text("name").notNull(),
   clerkOrgID: text("clerk_org_id").unique(),
-  plainTenantID: text("plain_tenant_id"),
   ownerUserID: text("owner_user_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

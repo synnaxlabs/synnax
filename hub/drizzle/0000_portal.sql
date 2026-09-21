@@ -38,7 +38,6 @@ CREATE TABLE "organization" (
 	"kind" text NOT NULL,
 	"name" text NOT NULL,
 	"clerk_org_id" text,
-	"plain_tenant_id" text,
 	"owner_user_id" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "organization_clerk_org_id_unique" UNIQUE("clerk_org_id"),
