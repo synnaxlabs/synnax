@@ -46,6 +46,7 @@ const UNLICENSED: connection.Status = {
 const renderGuard = async (
   client: Client | null,
   status?: connection.Status,
+  standalone?: boolean,
 ): Promise<void> => {
   const { wrapper: Console } = await createConsoleWrapper({ client: null });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -57,7 +58,7 @@ const renderGuard = async (
   );
   Wrapper.displayName = "GuardWrapper";
   render(
-    <License.Guard>
+    <License.Guard standalone={standalone}>
       <span>licensed content</span>
     </License.Guard>,
     { wrapper: Wrapper },
@@ -78,6 +79,17 @@ describe("License.Guard", () => {
     await renderGuard(null, UNLICENSED);
     expect(screen.getByText(MESSAGE)).toBeTruthy();
     expect(screen.queryByText("licensed content")).toBeNull();
+  });
+
+  it("should offer a log out action", async () => {
+    await renderGuard(null, UNLICENSED);
+    expect(findButton("Log out")).toBeTruthy();
+  });
+
+  it("should offer no log out action when standalone", async () => {
+    await renderGuard(null, UNLICENSED, true);
+    expect(screen.getByText(MESSAGE)).toBeTruthy();
+    expect(screen.queryByText("Log out")).toBeNull();
   });
 
   it("should enable activation only once a token is entered", async () => {
