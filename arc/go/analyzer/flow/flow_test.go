@@ -1508,6 +1508,102 @@ sequence main {
 			},
 		)
 
+		DescribeTable(
+			"Should reject a polymorphic func output that does not match the sink",
+			func(bCtx SpecContext, fn string, src, sink types.Type) {
+				customResolver := StaticResolver{
+					{Name: "src", Kind: symbol.KindChannel, Type: types.Chan(src)},
+					{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(sink)},
+				}
+				source := `
+			import math
+
+			src -> ` + fn + `{} -> sink`
+				ast := MustSucceed(parser.Parse(source))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+				analyzer.AnalyzeProgram(ctx)
+				errs := ctx.Diagnostics.Errors()
+				Expect(errs).To(HaveLen(1))
+				Expect(errs[0].Message).To(ContainSubstring(
+					"func " + fn + " output type " + src.String() +
+						" does not match channel sink value type " + sink.String(),
+				))
+				line := strings.Split(source, "\n")[errs[0].Range.Start.Line]
+				Expect(int(errs[0].Range.Start.Character)).To(
+					Equal(strings.Index(line, "sink")),
+				)
+			},
+			Entry("avg f32 into f64", "math.avg", types.F32(), types.F64()),
+			Entry("avg f64 into f32", "math.avg", types.F64(), types.F32()),
+			Entry("avg u8 into f32", "math.avg", types.U8(), types.F32()),
+			Entry("avg i32 into u8", "math.avg", types.I32(), types.U8()),
+			Entry("avg f32 into str", "math.avg", types.F32(), types.String()),
+			Entry("avg u8 into str", "math.avg", types.U8(), types.String()),
+			Entry("min f32 into f64", "math.min", types.F32(), types.F64()),
+			Entry("min f32 into str", "math.min", types.F32(), types.String()),
+			Entry("max f32 into f64", "math.max", types.F32(), types.F64()),
+			Entry("max f32 into str", "math.max", types.F32(), types.String()),
+		)
+
+		DescribeTable(
+			"Should accept a polymorphic func output that matches the sink",
+			func(bCtx SpecContext, fn string, t types.Type) {
+				customResolver := StaticResolver{
+					{Name: "src", Kind: symbol.KindChannel, Type: types.Chan(t)},
+					{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(t)},
+				}
+				ast := MustSucceed(parser.Parse(`
+			import math
+
+			src -> ` + fn + `{} -> sink`))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+			Entry("avg f32", "math.avg", types.F32()),
+			Entry("avg f64", "math.avg", types.F64()),
+			Entry("avg u8", "math.avg", types.U8()),
+			Entry("avg i32", "math.avg", types.I32()),
+			Entry("min f64", "math.min", types.F64()),
+			Entry("max f64", "math.max", types.F64()),
+		)
+
+		It(
+			"Should keep polymorphic calls independent across sinks",
+			func(bCtx SpecContext) {
+				customResolver := StaticResolver{
+					{
+						Name: "a_f32",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+					},
+					{
+						Name: "out_f32",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+					},
+					{
+						Name: "b_f64",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+					},
+					{
+						Name: "out_f64",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+					},
+				}
+				ast := MustSucceed(parser.Parse(`
+			import math
+
+			a_f32 -> math.avg{} -> out_f32
+			b_f64 -> math.avg{} -> out_f64`))
+				ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			},
+		)
+
 		It(
 			"Should reject a func with named outputs in a non-terminal chain position",
 			func(bCtx SpecContext) {
