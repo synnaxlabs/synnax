@@ -198,6 +198,10 @@ flag and workflow file.
    without a deploy.
 9. **Cutover order**: Workflows first, then merge `rc`, then retarget and delete, so no
    PR pays a rebase and the first release ships a whole train.
+10. **Lockstep language packages**: Per-package versions rejected. Every npm and PyPI
+    package in a product publishes under the product tag, changed or not; that is the
+    common monorepo pattern (Babel, Jest, AWS SDK v3), an empty republish is free, and
+    `^0.59.0` locks the minor on 0.x, so a minor bump would cascade anyway.
 
 ## 5 Open questions
 
