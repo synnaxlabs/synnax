@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, type RenderResult } from "@testing-library/react";
+import { TimeSpan } from "@synnaxlabs/x";
+import {
+  fireEvent,
+  render,
+  renderHook,
+  type RenderResult,
+} from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,6 +72,23 @@ describe("useHold", () => {
       expect(pressed(button)).toBe(true);
       fireEvent.mouseUp(document);
       expect(pressed(button)).toBe(false);
+    });
+  });
+
+  describe("delay", () => {
+    it("should keep the same TimeSpan across equal crude values", () => {
+      const initialProps: UseHoldProps<HTMLElement> = {
+        onClickDelay: TimeSpan.milliseconds(500),
+      };
+      const { result, rerender } = renderHook(useHold, { initialProps });
+      const first = result.current.delay;
+      rerender({ onClickDelay: TimeSpan.milliseconds(500) });
+      expect(result.current.delay).toBe(first);
+      rerender({ onClickDelay: 500 });
+      expect(result.current.delay).toBe(first);
+      rerender({ onClickDelay: 501 });
+      expect(result.current.delay).not.toBe(first);
+      expect(result.current.delay.milliseconds).toBe(501);
     });
   });
 

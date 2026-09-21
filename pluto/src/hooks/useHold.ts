@@ -12,11 +12,11 @@ import {
   type KeyboardEventHandler,
   type MouseEventHandler,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import { useDestructors } from "@/hooks/useDestructors";
+import { useMemoCompare } from "@/memo";
 import { ACTIVATION_KEYS } from "@/util/event";
 
 export interface UseHoldProps<E extends Element> {
@@ -56,7 +56,13 @@ export const useHold = <E extends Element>({
   onClickDelay = 0,
   disabled = false,
 }: UseHoldProps<E>): UseHoldReturn<E> => {
-  const delay = useMemo(() => TimeSpan.fromMilliseconds(onClickDelay), [onClickDelay]);
+  // Keyed on length, not identity, so a caller's fresh TimeSpan keeps the same delay.
+  const delay = useMemoCompare(
+    () => TimeSpan.fromMilliseconds(onClickDelay),
+    ([prev], [next]) =>
+      TimeSpan.fromMilliseconds(prev).equals(TimeSpan.fromMilliseconds(next)),
+    [onClickDelay],
+  );
   const destructors = useDestructors();
   // WebKit sets :active on a secondary press, so pressed styling follows this flag.
   const [pressed, setPressed] = useState(false);
