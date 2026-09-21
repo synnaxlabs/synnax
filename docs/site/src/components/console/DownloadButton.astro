@@ -8,8 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import BaseMoveCommand from "@/components/code/MoveCommand.astro";
-const { os } = Astro.props;
+import { DownloadLink } from "@/components/console/DownloadLink";
+import { releases } from "@/util/releases";
+
+const version = await releases.latest("console");
 ---
 
-<BaseMoveCommand os={os} name="synnax" product="core" />
+<DownloadLink client:load version={version} />

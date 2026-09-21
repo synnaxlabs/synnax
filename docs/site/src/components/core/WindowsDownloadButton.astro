@@ -9,10 +9,10 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Icon } from "@synnaxlabs/pluto";
-import { fetchVersion } from "@/util/fetchVersion";
+import { assetURL, releases } from "@/util/releases";
 
-const version = await fetchVersion();
-const url = `https://github.com/synnaxlabs/synnax/releases/download/synnax-v${version}/synnax-setup-v${version}.exe`;
+const version = await releases.latest("core");
+const url = assetURL("core", version, `synnax-setup-v${version}.exe`);
 ---
 
 <Button.Button href={url} size="large" variant="filled">

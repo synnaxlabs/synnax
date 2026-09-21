@@ -9,19 +9,19 @@
 // included in the file licenses/APL.txt.
 
 import Inline from "@/components/code/Inline.astro";
-import { fetchVersion } from "@/util/fetchVersion";
+import { assetURL, releases } from "@/util/releases";
 const { os } = Astro.props;
 
-const version = await fetchVersion();
-const baseURL = `github.com/synnaxlabs/synnax/releases/download/synnax-v${version.trim()}`;
-let url = `${baseURL}/synnax-driver-v${version.trim()}-${os.toLowerCase()}`;
-if (os === "ni-linux-rt") url = `${baseURL}/install-driver-nilinuxrt.sh`;
-if (os === "windows") url = `${baseURL}/synnax-driver-v${version.trim()}-windows.exe`;
+const version = await releases.latest("driver");
+let asset = `synnax-driver-v${version}-${os.toLowerCase()}`;
+if (os === "ni-linux-rt") asset = "install-driver-nilinuxrt.sh";
+if (os === "windows") asset = `synnax-driver-v${version}-windows.exe`;
+const url = assetURL("driver", version, asset);
 let cmd = `curl -LO ${url}`;
 if (os === "ni-linux-rt")
     cmd += ` && chmod +x install-driver-nilinuxrt.sh && ./install-driver-nilinuxrt.sh`;
 if (os === "windows")
-    cmd = `Invoke-WebRequest -Uri "https://${url}" -OutFile "synnax-driver.exe"`;
+    cmd = `Invoke-WebRequest -Uri "${url}" -OutFile "synnax-driver.exe"`;
 ---
 
 <Inline

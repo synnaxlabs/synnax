@@ -12,9 +12,9 @@ import { Logo } from "@synnaxlabs/media";
 import { Icon, Button, Flex } from "@synnaxlabs/pluto";
 import Search from "@/components/search/Search.astro";
 import { PageMobile } from "@/components/nav/Page";
-import { fetchVersion } from "@/util/fetchVersion";
+import { releases } from "@/util/releases";
 const url = Astro.url.pathname;
-const version = await fetchVersion().catch(() => null);
+const version = await releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
 ---
 

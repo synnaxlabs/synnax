@@ -1,4 +1,3 @@
----
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -8,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import BaseMoveCommand from "@/components/code/MoveCommand.astro";
-const { os } = Astro.props;
----
+import { type APIRoute } from "astro";
 
-<BaseMoveCommand os={os} name="synnax" product="core" />
+import { manifest } from "@/pages/releases/console/_manifest";
+
+export const GET: APIRoute = async () => await manifest("next");

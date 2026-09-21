@@ -11,7 +11,7 @@ import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
-import { defineConfig } from "astro/config";
+import { defineConfig, envField } from "astro/config";
 
 import { symbols, theme } from "./src/util/shiki";
 
@@ -19,6 +19,21 @@ import { symbols, theme } from "./src/util/shiki";
 export default defineConfig({
   integrations: [react(), mdx()],
   output: "server",
+  env: {
+    schema: {
+      // Vercel sets this at build time; flags read it to light up preview deploys.
+      VERCEL_ENV: envField.string({
+        context: "client",
+        access: "public",
+        optional: true,
+      }),
+      FLAG_PLUTO: envField.boolean({
+        context: "client",
+        access: "public",
+        default: false,
+      }),
+    },
+  },
   adapter: vercel(),
   markdown: {
     shikiConfig: {

@@ -13,6 +13,8 @@ export const PLUTO_NAV: PageNavNode = {
   key: "pluto",
   name: "Pluto Components",
   icon: "Visualize",
+  // Off until the section is useful again and the line-plot example is fixed.
+  flag: "pluto",
   children: [
     {
       name: "Get Started",
