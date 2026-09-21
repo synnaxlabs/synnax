@@ -207,6 +207,7 @@ import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
   SiCplusplus,
   SiGooglenearby,
+  SiMqtt,
   SiNpm,
   SiPagerduty,
   SiPnpm,
@@ -370,6 +371,7 @@ export const Logo = {
   LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
   Modbus,
+  MQTT: wrapSVGIcon(SiMqtt, "logo-mqtt"),
   NI,
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),

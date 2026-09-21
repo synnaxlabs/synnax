@@ -1,0 +1,24 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-mqtt-topic-list-item__text {
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* A long topic keeps its last levels, which tell topics apart. */
+.console-mqtt-topic-list-item__topic {
+    direction: rtl;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

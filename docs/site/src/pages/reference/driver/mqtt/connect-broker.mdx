@@ -1,0 +1,174 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "MQTT | Connect Broker"
+heading: "Connect an MQTT Broker"
+description: "Connect to an MQTT broker using Synnax."
+prev: "Modbus Write Task"
+prevURL: "/reference/driver/modbus/write-task"
+next: "Read Task"
+nextURL: "/reference/driver/mqtt/read-task"
+---
+
+import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax reads from and writes to any MQTT 3.1.1 broker, such as Mosquitto, EMQX, HiveMQ,
+or the broker of a cloud IoT service. Topics carry JSON payloads or bare values. TLS,
+client certificates, and username and password authentication are supported.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+Before you can connect to an MQTT broker, you will need to ensure that you have the
+following:
+
+1. A [Synnax Core](/reference/core/quick-start) running on your network. The Core must
+   be able to reach the broker.
+2. The [Synnax Console](/reference/console/get-started) installed on your local machine.
+3. An MQTT broker that accepts MQTT 3.1.1 connections.
+
+<Note.Note variant="info" className="compact">
+  MQTT tasks run inside the Core. You do not need a separate Synnax Driver. When you
+  connect a broker, choose the rack named after your Core node, such as `Node 1`.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Configuration Parameters Reference
+
+| Parameter              | Type    | Required | Default | Description                                                            |
+| ---------------------- | ------- | -------- | ------- | ---------------------------------------------------------------------- |
+| `name`                 | string  | Yes      | -       | Human-readable broker name for identification in Console               |
+| `rack`                 | integer | Yes      | -       | Key of the rack of the Core that connects to the broker                |
+| `host`                 | string  | Yes      | -       | Host name or address of the broker (e.g., `192.168.1.50`)              |
+| `port`                 | integer | No       | `0`     | TCP port. `0` selects `1883`, or `8883` when `secure` is `true`        |
+| `secure`               | boolean | No       | `false` | Connect with TLS                                                       |
+| `verification_skipped` | boolean | No       | `false` | Accept any broker certificate                                          |
+| `ca_file`              | string  | No       | `""`    | Path on the Core host to the CA certificates that verify the broker    |
+| `cert_file`            | string  | No       | `""`    | Path on the Core host to a client certificate                          |
+| `key_file`             | string  | No       | `""`    | Path on the Core host to the key of the client certificate             |
+| `username`             | string  | No       | `""`    | Username for the broker                                                |
+| `password`             | string  | No       | `""`    | Password for the broker                                                |
+| `client_id`            | string  | No       | `""`    | MQTT client ID. When empty, Synnax derives a stable ID from the device |
+| `keep_alive`           | integer | No       | `0`     | Keep-alive interval in seconds. `0` selects `30`                       |
+
+<Note.Note variant="warning" className="compact">
+  A broker allows one connection for each client ID. If you set `client_id`, make sure
+  that no other client uses the same value, or the two clients disconnect each other.
+</Note.Note>
+
+<Note.Note variant="warning" className="compact">
+  Only set `verification_skipped` to `true` for a broker with a self-signed certificate
+  on a network you trust. Prefer `ca_file` with the certificate of your own CA.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Connection Behavior
+
+All tasks of one broker share a single connection. The connection opens when the first
+task starts and closes when the last task stops.
+
+If the connection drops, Synnax connects again on its own. It waits 1 second after the
+first failure and doubles the wait up to 30 seconds. After each connect it subscribes to
+every topic again. While the connection is down, the tasks of the broker stay running
+and show a warning. The warning clears when the connection returns.
+
+The Core also checks each broker every few seconds and shows the result as the status of
+the device in the Console.
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+1. Open the command palette and run **Connect an MQTT broker**.
+2. Enter a name, and choose the rack of your Core under **Connect from**.
+3. Enter the host and the port of the broker.
+4. If the broker uses TLS, turn on **TLS** and give the certificate paths it needs.
+5. Enter a username and password if the broker requires them.
+6. Click **Connect**. The Console tests the connection before it saves the broker.
+
+  </Fragment>
+  <Fragment slot="python">
+
+<Details open>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to a broker</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+# MQTT tasks run inside the Core, so the broker goes on the rack of the Core.
+rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)
+
+broker = sy.mqtt.Device(
+    name="My MQTT Broker",
+    host="192.168.1.50",
+    rack=rack.key,
+)
+client.devices.create(broker)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect with TLS and a password</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)
+
+broker = sy.mqtt.Device(
+    name="My Secure Broker",
+    host="broker.example.com",
+    secure=True,
+    # Paths are on the machine that runs the Core.
+    ca_file="/etc/synnax/mqtt/ca.crt",
+    username="synnax",
+    password="my-password",
+    rack=rack.key,
+)
+client.devices.create(broker)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect with a client certificate</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+rack = client.racks.retrieve(integration=sy.mqtt.INTEGRATION)
+
+broker = sy.mqtt.Device(
+    name="My mTLS Broker",
+    host="broker.example.com",
+    port=8884,
+    secure=True,
+    ca_file="/etc/synnax/mqtt/ca.crt",
+    cert_file="/etc/synnax/mqtt/client.crt",
+    key_file="/etc/synnax/mqtt/client.key",
+    rack=rack.key,
+)
+client.devices.create(broker)
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

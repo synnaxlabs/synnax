@@ -1,0 +1,321 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "MQTT | Read Task"
+heading: "MQTT Read Task"
+description: "Learn how to read topics from an MQTT broker with Synnax."
+prev: "Connect a Broker"
+prevURL: "/reference/driver/mqtt/connect-broker"
+next: "Write Task"
+nextURL: "/reference/driver/mqtt/write-task"
+---
+
+import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The MQTT read task subscribes to topics on a broker and writes the values in their
+payloads to Synnax channels. One task reads any number of topics.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter              | Type    | Required | Default | Description                                                   |
+| ---------------------- | ------- | -------- | ------- | ------------------------------------------------------------- |
+| `device`               | string  | Yes      | -       | Key of the broker device                                      |
+| `entries`              | array   | Yes      | -       | List of [topics](#topic-configuration-reference) to read      |
+| `data_saving_disabled` | boolean | No       | `false` | Stream data for live use only, and do not store it            |
+| `auto_start`           | boolean | No       | `false` | Start the task when it is configured and when the Core starts |
+
+<Divider.Divider x />
+
+## Topic Configuration Reference
+
+Each entry reads one topic. The task needs at least one entry that is not disabled. A
+topic may appear once in a task, and it may not hold the wildcards `+` or `#`.
+
+| Parameter          | Type    | Required | Default          | Description                                                                      |
+| ------------------ | ------- | -------- | ---------------- | -------------------------------------------------------------------------------- |
+| `type`             | string  | Yes      | `"plain"`        | The kind of entry. `"plain"` reads the payload of one topic                      |
+| `topic`            | string  | Yes      | -                | The topic to subscribe to (e.g., `plant/line1/sensors`)                          |
+| `qos`              | string  | No       | `"at_most_once"` | `"at_most_once"` (0), `"at_least_once"` (1), or `"exactly_once"` (2)             |
+| `retained_ignored` | boolean | No       | `false`          | Drop the retained message that the broker sends when the task subscribes         |
+| `fields`           | array   | Yes      | -                | List of [fields](#field-extraction-reference) to take from each payload          |
+| `index`            | string  | No       | `""`             | Key of the field that holds the [timestamp](#timestamp-handling) of each payload |
+| `disabled`         | boolean | No       | `false`          | Excludes the entry from the task                                                 |
+
+<Divider.Divider x />
+
+## Field Extraction Reference
+
+Each field takes one value from the payload and writes it to a channel. A
+[JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) selects the value. An
+empty pointer takes the whole payload, which is how you read a topic that carries a bare
+number or string.
+
+| Parameter     | Type    | Required | Default     | Description                                                                 |
+| ------------- | ------- | -------- | ----------- | --------------------------------------------------------------------------- |
+| `pointer`     | string  | Yes      | -           | JSON Pointer to the value (e.g., `/temperature`). `""` is the whole payload |
+| `channel`     | integer | Yes      | -           | Key of the Synnax channel to write to                                       |
+| `data_type`   | string  | No       | `"float64"` | Data type of the channel                                                    |
+| `time_format` | string  | No       | -           | [Timestamp format](#timestamp-handling). Required for `TIMESTAMP` channels  |
+| `enum_values` | array   | No       | `[]`        | Maps string labels in the payload to numbers (e.g., `"ON"` to `1`)          |
+| `disabled`    | boolean | No       | `false`     | Excludes the field from the task                                            |
+
+The task writes all fields of a payload or none of them. If a payload lacks one field,
+or holds a value that the channel cannot store, the task drops that payload and shows a
+warning. For the same reason, all fields of one topic must share one index channel, and
+two topics may not write to the same channel.
+
+<Divider.Divider x />
+
+## Timestamp Handling
+
+By default, the task stamps each payload with the time it arrives at the Core. If the
+payload carries its own timestamp, add a field for it that writes to the index channel,
+set its `time_format`, and put its key in the `index` parameter of the entry.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Supported Timestamp Formats</Text.Text>
+
+| Format     | Description                   | Example                      |
+| ---------- | ----------------------------- | ---------------------------- |
+| `iso8601`  | ISO 8601 date-time string     | `"2024-01-15T10:30:00.000Z"` |
+| `unix_sec` | Seconds since Unix epoch      | `1705312200`                 |
+| `unix_ms`  | Milliseconds since Unix epoch | `1705312200000`              |
+| `unix_us`  | Microseconds since Unix epoch | `1705312200000000`           |
+| `unix_ns`  | Nanoseconds since Unix epoch  | `1705312200000000000`        |
+
+</Details>
+
+Timestamps in a channel must always increase. The task drops a payload whose timestamp
+is not after the last one it wrote, and shows a warning. A broker can cause such a
+payload when it delivers a message twice at quality of service 1.
+
+<Divider.Divider x />
+
+## Retained Messages and Overload
+
+When the task subscribes, the broker sends the retained message of each topic, if it has
+one. The task treats it like any other message. Set `retained_ignored` to drop it.
+
+Each task holds up to 4096 messages that wait to be written. If messages arrive faster
+than the task can write them, the task drops the oldest ones and shows a warning.
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+1. Open the command palette and run **Create an MQTT read task**.
+2. Select the broker. To find topics, enter a filter such as `plant/#` in the browser
+   and click **Browse**. The browser listens for a few seconds and lists the topics it
+   saw with a sample of each payload.
+3. Drag topics from the browser into the task. The Console makes one field for each
+   value it finds in the sample payload. You can also add a topic by hand.
+4. Adjust the pointer, the data type, and the channel name of each field.
+5. Click **Configure**, then start the task. The Console creates the channels for you.
+
+  </Fragment>
+  <Fragment slot="python">
+
+<Details open>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+from synnax import mqtt
+
+client = sy.Synnax()
+
+# Retrieve the broker device
+dev = client.devices.retrieve(name="My MQTT Broker")
+
+# Create an index channel for timestamps
+mqtt_time = client.channels.create(
+    name="mqtt_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create data channels
+temperature = client.channels.create(
+    name="mqtt_temperature",
+    index=mqtt_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+pressure = client.channels.create(
+    name="mqtt_pressure",
+    index=mqtt_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+# Create the read task. The payload of plant/line1/sensors is:
+# {"temperature": 23.5, "pressure": 101.3}
+tsk = mqtt.ReadTask(
+    name="My MQTT Read Task",
+    device=dev.key,
+    entries=[
+        mqtt.PlainReadEntry(
+            topic="plant/line1/sensors",
+            fields=[
+                mqtt.ReadField(
+                    pointer="/temperature",
+                    channel=temperature.key,
+                    data_type="float64",
+                ),
+                mqtt.ReadField(
+                    pointer="/pressure",
+                    channel=pressure.key,
+                    data_type="float64",
+                ),
+            ],
+        ),
+    ],
+)
+
+client.tasks.configure(tsk)
+
+# Run the task and stream its data
+with tsk.run():
+    with client.open_streamer(["mqtt_temperature", "mqtt_pressure"]) as streamer:
+        for i in range(10):
+            print(streamer.read())
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Read a bare value and an enum label</Text.Text>
+
+```python
+import synnax as sy
+from synnax import mqtt
+
+client = sy.Synnax()
+dev = client.devices.retrieve(name="My MQTT Broker")
+
+level_time = client.channels.create(
+    name="mqtt_level_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+level = client.channels.create(
+    name="mqtt_level",
+    index=level_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+pump_time = client.channels.create(
+    name="mqtt_pump_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+pump_on = client.channels.create(
+    name="mqtt_pump_on",
+    index=pump_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+tsk = mqtt.ReadTask(
+    name="My MQTT Scalar Task",
+    device=dev.key,
+    entries=[
+        # The payload of tank/level is a bare number, such as 42.7
+        mqtt.PlainReadEntry(
+            topic="tank/level",
+            fields=[
+                mqtt.ReadField(pointer="", channel=level.key, data_type="float32"),
+            ],
+        ),
+        # The payload of tank/pump is the bare text ON or OFF
+        mqtt.PlainReadEntry(
+            topic="tank/pump",
+            qos="at_least_once",
+            fields=[
+                mqtt.ReadField(
+                    pointer="",
+                    channel=pump_on.key,
+                    data_type="uint8",
+                    enum_values=[
+                        mqtt.EnumEntry(label="OFF", value=0),
+                        mqtt.EnumEntry(label="ON", value=1),
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+client.tasks.configure(tsk)
+```
+
+</Details>
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Use the timestamp in the payload</Text.Text>
+
+```python
+import synnax as sy
+from synnax import mqtt
+
+client = sy.Synnax()
+dev = client.devices.retrieve(name="My MQTT Broker")
+
+sample_time = client.channels.create(
+    name="mqtt_sample_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+value = client.channels.create(
+    name="mqtt_sample_value",
+    index=sample_time.key,
+    data_type=sy.DataType.FLOAT64,
+    retrieve_if_name_exists=True,
+)
+
+# The payload is {"value": 0.42, "ts": 1705312200000}
+stamp = mqtt.ReadField(
+    pointer="/ts",
+    channel=sample_time.key,
+    data_type="timestamp",
+    time_format="unix_ms",
+)
+
+tsk = mqtt.ReadTask(
+    name="My MQTT Timed Task",
+    device=dev.key,
+    entries=[
+        mqtt.PlainReadEntry(
+            topic="plant/line1/sample",
+            index=stamp.key,
+            fields=[
+                stamp,
+                mqtt.ReadField(
+                    pointer="/value", channel=value.key, data_type="float64"
+                ),
+            ],
+        ),
+    ],
+)
+
+client.tasks.configure(tsk)
+```
+
+</Details>
+
+  </Fragment>
+</Client.Tabs>

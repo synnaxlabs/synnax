@@ -1,0 +1,186 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  Button,
+  type Component,
+  Flex,
+  Form as PForm,
+  Haul,
+  Header,
+  Icon,
+  List,
+  Menu,
+  Select,
+} from "@synnaxlabs/pluto";
+import { useCallback, useMemo } from "react";
+
+import {
+  canDropHaulItem,
+  filterHaulItems,
+  HAUL_TYPE,
+} from "@/feature/mqtt/device/Browser";
+import { ContextMenu } from "@/feature/mqtt/task/ContextMenu";
+import { type BrowsedTopic } from "@/feature/mqtt/task/types";
+import { CSS } from "@/platform/css";
+import { Empty } from "@/platform/empty";
+import { Task } from "@/platform/task";
+
+interface Item {
+  key: string;
+  type: string;
+  topic?: string;
+}
+
+export interface TopicListProps<E extends Item> {
+  path: string;
+  title: string;
+  noun: string;
+  selected: string[];
+  onSelect: (keys: string[]) => void;
+  create: (topic?: BrowsedTopic) => E;
+  duplicate: (item: E) => E;
+  onRename?: (key: string) => void;
+  children: Component.RenderProp<List.ItemProps<string>>;
+}
+
+export const TopicList = <E extends Item>({
+  path,
+  title,
+  noun,
+  selected,
+  onSelect,
+  create,
+  duplicate,
+  onRename,
+  children,
+}: TopicListProps<E>) => {
+  const { data, push, remove } = PForm.useFieldList<string, E>(path);
+  const items = PForm.useFieldValue<E[]>(path);
+  const ctx = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+
+  // The form edits plain topics only. A Sparkplug B item stays in the config.
+  const plainData = useMemo(() => {
+    const plain = new Set(items.filter((i) => i.type === "plain").map((i) => i.key));
+    return data.filter((key) => plain.has(key));
+  }, [data, items]);
+
+  const handleAdd = useCallback(() => {
+    const item = create();
+    push(item);
+    onSelect([item.key]);
+  }, [create, push, onSelect]);
+
+  const handleRemove = useCallback(
+    (keys: string[]) => {
+      remove(keys);
+      onSelect([]);
+    },
+    [remove, onSelect],
+  );
+
+  const handleDuplicate = useCallback(
+    (keys: string[]) => {
+      const duplicated = ctx
+        .get<E[]>(path)
+        .value.filter(({ key }) => keys.includes(key))
+        .map(duplicate);
+      push(duplicated);
+      if (duplicated.length > 0) onSelect([duplicated[0].key]);
+    },
+    [ctx, path, duplicate, push, onSelect],
+  );
+
+  const handleDrop = useCallback(
+    ({ items: dropped }: Haul.OnDropProps): Haul.Item[] => {
+      const topics = new Set(ctx.get<E[]>(path).value.map(({ topic }) => topic));
+      const haulItems = filterHaulItems(dropped);
+      const added = haulItems
+        .filter(({ data }) => !topics.has(data.topic))
+        .map(({ data }) => create(data));
+      push(added);
+      if (added.length > 0) onSelect([added[0].key]);
+      return haulItems;
+    },
+    [ctx, path, create, push, onSelect],
+  );
+
+  const dropProps = Haul.useDrop({
+    type: HAUL_TYPE,
+    canDrop: canDropHaulItem,
+    onDrop: handleDrop,
+  });
+  // The browser hides in preview, but the browser of a second tab can still source
+  // drags, so the drop target goes inert too.
+  const haulProps = isPreview ? {} : dropProps;
+
+  const menuProps = Menu.useContextMenu();
+  const menuRenderProp = useCallback(
+    (p: Menu.ContextMenuMenuProps) => (
+      <ContextMenu
+        keys={p.keys}
+        disablePath={path}
+        onRemove={handleRemove}
+        onDuplicate={handleDuplicate}
+        onRename={onRename}
+      />
+    ),
+    [path, handleRemove, handleDuplicate, onRename],
+  );
+
+  return (
+    <Flex.Box className={CSS.B("topic-list")} y empty>
+      <Header.Header>
+        <Header.Title weight={500} color={10}>
+          {title}
+        </Header.Title>
+        {!isPreview && (
+          <Header.Actions>
+            <Button.Button
+              onClick={handleAdd}
+              variant="filled"
+              tooltip={`Add ${noun}`}
+              size="small"
+            >
+              <Icon.Add />
+            </Button.Button>
+          </Header.Actions>
+        )}
+      </Header.Header>
+      <Menu.ContextMenu {...menuProps} {...haulProps} menu={menuRenderProp}>
+        <Select.Frame<string, E>
+          multiple
+          data={plainData}
+          value={selected}
+          onChange={onSelect}
+          replaceOnSingle
+          allowNone={false}
+          autoSelectOnNone
+        >
+          <List.Items<string, E>
+            full="y"
+            className={menuProps.className}
+            onContextMenu={menuProps.open}
+            emptyContent={
+              <Empty.Action
+                message={`No ${title.toLowerCase()}`}
+                action={isPreview ? undefined : `Add ${noun}`}
+                onClick={handleAdd}
+              />
+            }
+            {...haulProps}
+          >
+            {children}
+          </List.Items>
+        </Select.Frame>
+      </Menu.ContextMenu>
+    </Flex.Box>
+  );
+};

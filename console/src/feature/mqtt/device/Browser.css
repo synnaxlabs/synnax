@@ -1,0 +1,35 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-mqtt-browser {
+    height: 100%;
+    border-right: var(--pluto-border);
+    width: 275px;
+    flex-shrink: 0;
+}
+
+.console-mqtt-browser__controls {
+    padding: 1.5rem 2rem;
+    border-bottom: var(--pluto-border);
+
+    .pluto-input {
+        flex-grow: 1;
+    }
+}
+
+.console-mqtt-browser__note,
+.console-mqtt-browser__empty {
+    padding: 1.5rem 2rem;
+}
+
+.console-mqtt-browser__loading-icon {
+    font-size: 5rem;
+}
