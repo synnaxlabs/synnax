@@ -11,6 +11,7 @@ package user_test
 
 import (
 	"fmt"
+	"go/types"
 	"sync"
 
 	"github.com/google/uuid"
@@ -30,6 +31,7 @@ import (
 // access.ErrDenied. Returns both the context and the underlying user so callers can
 // assert on identity-bearing behavior (e.g., the self-rename guard).
 func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
+	GinkgoHelper()
 	u := MustSucceed(writer.Create(ctx, user.User{
 		Username: "non-root-" + uuid.NewString(),
 	}))
@@ -164,7 +166,7 @@ var _ = Describe("Service", func() {
 					Key:       u.Key,
 					FirstName: "Renamed",
 					LastName:  "User",
-				})).Error().ToNot(HaveOccurred())
+				})).To(Equal(types.Nil{}))
 				var updated user.User
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
 					Entry(&updated).Exec(ctx, nil)).To(Succeed())
@@ -210,8 +212,7 @@ var _ = Describe("Service", func() {
 							Username: newName,
 						},
 					),
-				).Error().
-					ToNot(HaveOccurred())
+				).To(Equal(types.Nil{}))
 
 				var updated user.User
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
@@ -241,8 +242,7 @@ var _ = Describe("Service", func() {
 							Username: username,
 						},
 					),
-				).Error().
-					ToNot(HaveOccurred())
+				).To(Equal(types.Nil{}))
 			},
 		)
 		It(
@@ -256,7 +256,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should return an error when the target user does not exist",
+			"Should return query.ErrNotFound when the target user does not exist",
 			func(ctx SpecContext) {
 				Expect(
 					apiSvc.ChangeUsername(
@@ -268,7 +268,7 @@ var _ = Describe("Service", func() {
 						},
 					),
 				).Error().
-					To(HaveOccurred())
+					To(MatchError(query.ErrNotFound))
 			},
 		)
 		It(
@@ -327,8 +327,7 @@ var _ = Describe("Service", func() {
 						db,
 						apiuser.ChangePasswordRequest{Key: u.Key, Password: "new"},
 					),
-				).Error().
-					ToNot(HaveOccurred())
+				).To(Equal(types.Nil{}))
 
 				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 					Username: username, Password: "new",
@@ -350,8 +349,7 @@ var _ = Describe("Service", func() {
 							Password: "root-new",
 						},
 					),
-				).Error().
-					ToNot(HaveOccurred())
+				).To(Equal(types.Nil{}))
 				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 					Username: root.Username, Password: "root-new",
 				})).To(Succeed())
@@ -437,7 +435,7 @@ var _ = Describe("Service", func() {
 								Key:      u.Key,
 								Password: newPassword,
 							},
-						)).Error().ToNot(HaveOccurred())
+						)).To(Equal(types.Nil{}))
 					})
 					wg.Go(func() {
 						defer GinkgoRecover()
@@ -448,7 +446,7 @@ var _ = Describe("Service", func() {
 								Key:      u.Key,
 								Username: newName,
 							},
-						)).Error().ToNot(HaveOccurred())
+						)).To(Equal(types.Nil{}))
 					})
 					wg.Wait()
 					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
@@ -469,9 +467,7 @@ var _ = Describe("Service", func() {
 						db,
 						apiuser.DeleteRequest{Keys: []user.Key{uuid.New()}},
 					),
-				).
-					Error().
-					ToNot(HaveOccurred())
+				).To(Equal(types.Nil{}))
 			},
 		)
 		It(
@@ -489,7 +485,7 @@ var _ = Describe("Service", func() {
 					rootCtx(ctx),
 					db,
 					apiuser.DeleteRequest{Keys: []user.Key{created.Key, uuid.New()}},
-				)).Error().ToNot(HaveOccurred())
+				)).To(Equal(types.Nil{}))
 				Expect(
 					userSvc.NewRetrieve().
 						Where(user.MatchKeys(created.Key)).
