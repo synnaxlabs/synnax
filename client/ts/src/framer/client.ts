@@ -28,7 +28,7 @@ import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
-import { Reader, type ReadOptions } from "@/framer/reader";
+import { type ReadCSVOptions, Reader, type ReadOptions } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
 import { ontology } from "@/ontology";
@@ -210,13 +210,13 @@ export class Client {
    *
    * @param tr - the time range to read.
    * @param channels - the channels to read, by key or by name.
-   * @param opts - see {@link ReadOptions}.
+   * @param opts - see {@link ReadCSVOptions}.
    * @returns the CSV as a stream of bytes.
    */
   async readCSV(
     tr: CrudeTimeRange,
     channels: channel.Params,
-    opts?: ReadOptions,
+    opts?: ReadCSVOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     return await this.reader.readCSV(tr, channels, opts);
   }

@@ -24,6 +24,7 @@ const reqZ = z.object({
   keys: keyZ.array(),
   bounds: TimeRange.z,
   downsampleFactor: z.int(),
+  indexesIncluded: z.boolean(),
 });
 
 /** Options controlling how the Core resolves a read. */
@@ -34,6 +35,9 @@ export interface ReadOptions {
    */
   downsampleFactor?: number;
 }
+
+/** Options controlling how the Core resolves and formats a CSV read. */
+export interface ReadCSVOptions extends ReadOptions {}
 
 /**
  * Reader pulls historical telemetry from the Core in a single request per read, letting
@@ -67,6 +71,7 @@ export class Reader {
       Array.from(adapter.keys),
       tr,
       FRAME_ENCODING,
+      false,
       opts,
     );
     const frame = new Frame();
@@ -83,19 +88,20 @@ export class Reader {
    *
    * @param tr - the time range to read.
    * @param channels - the channels to read, by key or by name.
-   * @param opts - see {@link ReadOptions}.
+   * @param opts - see {@link ReadCSVOptions}.
    * @returns the CSV as a stream of bytes the caller pipes wherever it likes.
    */
   async readCSV(
     tr: CrudeTimeRange,
     channels: channel.Params,
-    opts: ReadOptions = {},
+    opts: ReadCSVOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
     const payloads = await this.retrieveChannels(channels);
     return await this.download(
       payloads.map((c) => c.key),
       tr,
       "CSV",
+      true,
       opts,
     );
   }
@@ -104,6 +110,7 @@ export class Reader {
     keys: channel.Key[],
     tr: CrudeTimeRange,
     encoding: FileOptions["encoding"],
+    indexesIncluded: boolean,
     opts: ReadOptions,
   ): Promise<ReadableStream<Uint8Array>> {
     return await this.file.download(
@@ -112,6 +119,7 @@ export class Reader {
         keys,
         bounds: new TimeRange(tr),
         downsampleFactor: opts.downsampleFactor ?? 1,
+        indexesIncluded,
       },
       reqZ,
       { encoding },

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import pathlib
+
 import numpy as np
 import pytest
 
@@ -58,6 +60,21 @@ class TestReader:
         _, data_ch = written_pair
         series = client.read(sy.TimeRange.MAX, data_ch.key, downsample_factor=2)
         assert np.array_equal(series, np.arange(0, 10, 2, dtype=np.float64))
+
+    def test_read_csv(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        tmp_path: pathlib.Path,
+    ):
+        """Should write the channel and its index to a CSV file"""
+        idx_ch, data_ch = written_pair
+        dest = tmp_path / "out.csv"
+        client.read_csv(sy.TimeRange.MAX, data_ch.key, dest)
+        lines = dest.read_text().splitlines()
+        assert lines[0] == f"{idx_ch.name},{data_ch.name}"
+        assert lines[1] == "1000000000,0"
+        assert len(lines) == 11
 
     def test_read_empty(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax

@@ -28,7 +28,10 @@ from x.codec import Codec
 from x.exceptions import ExceptionPayload, decode_exception
 from x.fs import FilePath, stream_to_file
 
-_FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
+_FILE_CONTENT_TYPES: dict[str, str] = {
+    "json": "application/json",
+    "csv": "text/csv",
+}
 
 
 def _file_content_type(path: FilePath) -> str:

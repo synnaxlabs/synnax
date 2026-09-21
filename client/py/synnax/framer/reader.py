@@ -22,6 +22,7 @@ from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame
 from synnax.telem import TimeRange
 from x.exceptions import ExceptionPayload, decode_exception
+from x.fs import FilePath
 
 _ENDPOINT = "/frame/read"
 _FRAME_CONTENT_TYPE = "application/vnd.synnax.frame"
@@ -34,6 +35,7 @@ class _Request(BaseModel):
     keys: list[channel.Key]
     bounds: TimeRange
     downsample_factor: int
+    indexes_included: bool = False
 
 
 class Reader:
@@ -73,6 +75,35 @@ class Reader:
                 frame.append(Frame(channels=pld.keys, series=pld.series))
         return adapter.adapt(frame)
 
+    def read_csv(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        downsample_factor: int = 1,
+    ) -> None:
+        """Reads every sample the given channels hold within tr into a CSV file.
+
+        The Core writes the CSV. Channels are grouped by the index channel that
+        timestamps them, and each group contributes its index column followed by one
+        column per channel. Channels with no index are excluded.
+
+        :param tr: the time range to read.
+        :param channels: the channels to read, by key or by name.
+        :param dest: the path of the CSV file to write. It must end in .csv.
+        :param downsample_factor: keeps one sample in every downsample_factor. A factor
+            of 1, the default, keeps every sample.
+        """
+        adapter = ReadFrameAdapter(self._retriever)
+        adapter.update(channels)
+        req = _Request(
+            keys=adapter.keys,
+            bounds=tr,
+            downsample_factor=downsample_factor,
+            indexes_included=True,
+        )
+        self._file.download(_ENDPOINT, req, dest)
+
 
 def _records(body: Iterator[bytes]) -> Iterator[bytes]:
     """Yields the payload of every data record in a frame-encoded read body.
@@ -97,7 +128,8 @@ def _records(body: Iterator[bytes]) -> Iterator[bytes]:
         size = int.from_bytes(buf[1:_HEADER_SIZE], "little")
         if not fill(_HEADER_SIZE + size):
             raise UnexpectedError(_TRUNCATED)
-        payload = bytes(buf[_HEADER_SIZE : _HEADER_SIZE + size])
+        with memoryview(buf) as view:
+            payload = bytes(view[_HEADER_SIZE : _HEADER_SIZE + size])
         del buf[: _HEADER_SIZE + size]
         if kind != _TERMINATOR_KIND:
             yield payload
