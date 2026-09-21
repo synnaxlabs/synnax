@@ -206,7 +206,8 @@ var _ = Describe("Statement", func() {
 					statement.Analyze(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
-						"stateful variables cannot be declared at the top level"))
+						"stateful variables cannot be declared at the top level",
+					))
 				},
 			)
 		})
@@ -289,7 +290,8 @@ var _ = Describe("Statement", func() {
 					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(
-						ContainSubstring("cannot be assigned to stateful"))
+						ContainSubstring("cannot be assigned to stateful"),
+					)
 				},
 				Entry("bare channel", "bad $= sensor"),
 				Entry("channel-read expression", "bad $= sensor + 1"),
@@ -311,7 +313,8 @@ var _ = Describe("Statement", func() {
 				ctx := declareIn(bCtx, root, "x := s")
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(
-					ContainSubstring("stateful variables cannot be assigned"))
+					ContainSubstring("stateful variables cannot be assigned"),
+				)
 			})
 
 			It(
@@ -322,7 +325,8 @@ var _ = Describe("Statement", func() {
 					ctx := declareIn(bCtx, root, "total i64 $= base")
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(
-						ContainSubstring("must be a literal value"))
+						ContainSubstring("must be a literal value"),
+					)
 				},
 			)
 
@@ -333,7 +337,8 @@ var _ = Describe("Statement", func() {
 					ctx := declareIn(bCtx, root, "total i64 $= 2 + 3")
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(
-						ContainSubstring("must be a literal value"))
+						ContainSubstring("must be a literal value"),
+					)
 				},
 			)
 
@@ -473,7 +478,8 @@ var _ = Describe("Statement", func() {
 				ctx := assignIn(bCtx, root, stage, "a = wave")
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(
-					ContainSubstring("type mismatch: cannot rebind"))
+					ContainSubstring("type mismatch: cannot rebind"),
+				)
 				Expect(
 					MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned,
 				).To(BeFalse())
@@ -501,7 +507,8 @@ var _ = Describe("Statement", func() {
 				ctx := assignIn(bCtx, root, stage, "x = [1.0, 2.0]")
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(
-					ContainSubstring("type mismatch: cannot reassign"))
+					ContainSubstring("type mismatch: cannot reassign"),
+				)
 				Expect(
 					MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned,
 				).To(BeFalse())
@@ -517,7 +524,8 @@ var _ = Describe("Statement", func() {
 				ctx := assignIn(bCtx, root, stage, "x = 5")
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(
-					ContainSubstring("from a constant value"))
+					ContainSubstring("from a constant value"),
+				)
 				Expect(
 					MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned,
 				).To(BeFalse())
@@ -533,7 +541,8 @@ var _ = Describe("Statement", func() {
 				ctx := assignIn(bCtx, root, stage, "x = f32(5)")
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(
-					ContainSubstring("from a constant value"))
+					ContainSubstring("from a constant value"),
+				)
 				Expect(
 					MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned,
 				).To(BeFalse())
@@ -560,11 +569,13 @@ var _ = Describe("Statement", func() {
 			ctx := assignIn(bCtx, root, stage, "gain = 3")
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(
-				ContainSubstring("cannot reassign top-level variable 'gain'"))
+				ContainSubstring("cannot reassign top-level variable 'gain'"),
+			)
 			ctx = assignIn(bCtx, root, stage, "gain += 1")
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(
-				ContainSubstring("cannot reassign top-level variable 'gain'"))
+				ContainSubstring("cannot reassign top-level variable 'gain'"),
+			)
 		})
 
 		It("Should reject rebinding a top-level alias", func(bCtx SpecContext) {
@@ -574,7 +585,8 @@ var _ = Describe("Statement", func() {
 			ctx := assignIn(bCtx, root, stage, "a = backup")
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(
-				ContainSubstring("cannot rebind top-level variable 'a'"))
+				ContainSubstring("cannot rebind top-level variable 'a'"),
+			)
 			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned).To(BeFalse())
 		})
 
@@ -587,7 +599,8 @@ var _ = Describe("Statement", func() {
 				ctx := assignIn(bCtx, root, stage, "x = sensor * 2")
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(
-					ContainSubstring("cannot reassign top-level variable 'x'"))
+					ContainSubstring("cannot reassign top-level variable 'x'"),
+				)
 				Expect(
 					MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned,
 				).To(BeFalse())

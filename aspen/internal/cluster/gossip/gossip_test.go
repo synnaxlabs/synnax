@@ -42,13 +42,17 @@ var _ = Describe("OperationSender", func() {
 		BeforeEach(func() {
 			t1, t2, t3 = net.UnaryServer(""), net.UnaryServer(""), net.UnaryServer("")
 			nodes = node.Group{
-				1: {Key: 1, Address: t1.Address},
-				2: {Key: 2, Address: t2.Address},
+				1: {Key: 1, Address: t1.Address()},
+				2: {Key: 2, Address: t2.Address()},
 			}
 			sOne = store.New(context.Background())
 			sOne.SetState(context.Background(), store.State{Nodes: nodes, HostKey: 1})
 			nodesTwo = nodes.Copy()
-			nodesTwo[3] = node.Node{Key: 3, Address: t3.Address, State: node.StateDead}
+			nodesTwo[3] = node.Node{
+				Key:     3,
+				Address: t3.Address(),
+				State:   node.StateDead,
+			}
 			sTwo := store.New(context.Background())
 			sTwo.SetState(
 				context.Background(),
@@ -98,7 +102,7 @@ var _ = Describe("OperationSender", func() {
 		It("Should DPanic when an invalid message is received", func() {
 			Expect(func() {
 				_, _ = net.UnaryClient().
-					Send(context.Background(), t2.Address, gossip.Message{})
+					Send(context.Background(), t2.Address(), gossip.Message{})
 			}).To(Panic())
 		})
 	})

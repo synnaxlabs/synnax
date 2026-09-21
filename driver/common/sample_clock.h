@@ -222,18 +222,17 @@ inline void generate_index_data(
     const x::telem::TimeStamp &start,
     const x::telem::TimeStamp &end,
     const size_t n_read,
-    const size_t offset,
-    const bool inclusive = false
+    const size_t offset
 ) {
     if (index_keys.empty()) return;
     // Hot path: Common to have one index, and it means we can avoid a deep copy.
     if (index_keys.size() == 1) {
         auto &s = f.series->at(offset);
         s.clear();
-        s.write_linspace(start, end, n_read, inclusive);
+        s.write_linspace(start, end, n_read);
         return;
     }
-    const auto index_data = x::telem::Series::linspace(start, end, n_read, inclusive);
+    const auto index_data = x::telem::Series::linspace(start, end, n_read);
     for (size_t i = offset; i < index_keys.size() + offset; i++) {
         auto &s = f.series->at(i);
         s.clear();

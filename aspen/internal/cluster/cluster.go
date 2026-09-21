@@ -211,7 +211,7 @@ func (c *Cluster) gossipInitialState(ctx context.Context) error {
 
 func (c *Cluster) goFlushStore(sCtx signal.Context) {
 	if c.Storage != nil {
-		flush := &kv.Subscriber[State]{
+		flush := &kv.Subscriber{
 			Key:         c.StorageKey,
 			MinInterval: c.StorageFlushInterval,
 			Store:       c.Storage,

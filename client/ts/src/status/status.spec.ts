@@ -11,11 +11,12 @@ import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
+import { NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { status } from "@/status";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -229,6 +230,52 @@ describe("Status", () => {
   });
 
   describe("retrieve", () => {
+    it("coalesces concurrent single retrieves into one request", async () => {
+      const keys = [id.create(), id.create()];
+      await Promise.all(
+        keys.map(
+          async (key) =>
+            await client.statuses.set({
+              key,
+              name: "Coalesce Test",
+              variant: "info",
+              message: "coalesce",
+              time: TimeStamp.now(),
+            }),
+        ),
+      );
+      const local = createTestClient();
+      await local.connect();
+      const send = spyOnSend(local);
+      const res = await Promise.all(
+        keys.map(async (key) => await local.statuses.retrieve(key)),
+      );
+      expect(res.map(({ key }) => key)).toEqual(keys);
+      expect(
+        send.mock.calls.filter(([target]) => target === "/status/retrieve"),
+      ).toHaveLength(1);
+    });
+
+    it("does not reject concurrent retrieves when a key in the window is missing", async () => {
+      const s = await client.statuses.set({
+        key: id.create(),
+        name: "Isolation Test",
+        variant: "info",
+        message: "isolation",
+        time: TimeStamp.now(),
+      });
+      const local = createTestClient();
+      await local.connect();
+      const [ok, missing] = await Promise.allSettled([
+        local.statuses.retrieve(s.key),
+        local.statuses.retrieve(`missing-${id.create()}`),
+      ]);
+      expect(ok.status).toEqual("fulfilled");
+      expect(missing.status).toEqual("rejected");
+      if (missing.status === "rejected")
+        expect(NotFoundError.matches(missing.reason)).toBe(true);
+    });
+
     it("should retrieve a status by key", async () => {
       const created = await client.statuses.set({
         name: "Retrieve Test",
@@ -687,6 +734,90 @@ describe("fromException", () => {
 
   it("should leave the description empty without a cause or message", () => {
     expect(status.fromException(new Error("boom")).description).toBe("");
+  });
+
+  describe("clone safety", () => {
+    it("should keep the original error instance when it is cloneable", () => {
+      const err = new Error("boom", { cause: new Error("root") });
+      expect(status.fromException(err).details.error).toBe(err);
+    });
+
+    it("should rebuild an error whose cause cannot be cloned", () => {
+      const err = new Error("boom", { cause: () => {} });
+      err.name = "SocketError";
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(stored.message).toBe("boom");
+      expect(stored.name).toBe("SocketError");
+      expect(stored.stack).toBe(err.stack);
+      expect(typeof stored.cause).toBe("string");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild an error carrying an un-cloneable own field", () => {
+      const err = new Error("boom");
+      (err as unknown as { cb: () => void }).cb = () => {};
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should preserve error causes as errors in the rebuilt chain", () => {
+      const root = new Error("root", { cause: () => {} });
+      const err = new Error("boom", { cause: root });
+      const stored = status.fromException(err).details.error;
+      expect(stored.cause).toBeInstanceOf(Error);
+      expect((stored.cause as Error).message).toBe("root");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should terminate on a cyclic cause chain", () => {
+      const err = new Error("boom");
+      err.cause = err;
+      (err as unknown as { cb: () => void }).cb = () => {};
+      const stored = status.fromException(err).details.error;
+      expect(stored.message).toBe("boom");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild an error carrying a throwing enumerable getter", () => {
+      const err = new Error("boom");
+      Object.defineProperty(err, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const stored = status.fromException(err).details.error;
+      // Passing err to expect would trip the getter while vitest inspects it.
+      expect(stored === err).toBe(false);
+      expect(stored.message).toBe("boom");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild when the cause carries a throwing enumerable getter", () => {
+      const cause: Record<string, unknown> = { ok: 1 };
+      Object.defineProperty(cause, "trap", {
+        enumerable: true,
+        get() {
+          throw new Error("trapped");
+        },
+      });
+      const err = new Error("boom", { cause });
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(typeof stored.cause).toBe("string");
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
+
+    it("should rebuild conservatively when the clone check budget is exhausted", () => {
+      const wide: Record<string, number> = {};
+      for (let i = 0; i < 100; i++) wide[`k${i}`] = i;
+      const err = new Error("boom", { cause: wide });
+      const stored = status.fromException(err).details.error;
+      expect(stored).not.toBe(err);
+      expect(() => structuredClone(stored)).not.toThrow();
+    });
   });
 });
 

@@ -34,7 +34,7 @@ func compile(bCtx SpecContext, source string) []byte {
 	analyzer.AnalyzeStatement(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-	Expect(MustSucceed(statement.Compile(context.Child(ctx, stmt)))).To(BeFalse())
+	Expect(MustSucceed(statement.Compile(ctx.Child(stmt)))).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
 
@@ -44,7 +44,7 @@ func compileBlock(bCtx SpecContext, source string) []byte {
 	analyzer.AnalyzeBlock(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-	diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+	diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 	Expect(diverged).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
@@ -77,7 +77,7 @@ var _ = Describe("Statement Compiler", func() {
 			)
 			ctx.Outputs = outputs
 			ctx.OutputMemoryBase = memBase
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 			return ctx.Writer.Bytes()
 		}
@@ -187,7 +187,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -216,7 +216,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -242,7 +242,7 @@ var _ = Describe("Statement Compiler", func() {
 				aCtx.TypeMap,
 				resolve.NewResolver(),
 			)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -282,9 +282,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -325,7 +323,7 @@ var _ = Describe("Statement Compiler", func() {
 				aCtx.TypeMap,
 				resolve.NewResolver(),
 			)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -368,7 +366,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -396,9 +394,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -434,9 +430,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -473,9 +467,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -844,7 +836,7 @@ var _ = Describe("Statement Compiler", func() {
 				aCtx.TypeMap,
 				resolve.NewResolver(),
 			)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 			sLit = uint64(0)
 			sConcat = uint64(1)
@@ -1027,7 +1019,7 @@ var _ = Describe("Statement Compiler", func() {
 				aCtx.TypeMap,
 				resolve.NewResolver(),
 			)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			// Verify that bytecode contains correct sequence for indexed assignment:
@@ -1061,9 +1053,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -1107,9 +1097,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -1154,9 +1142,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -1208,7 +1194,7 @@ var _ = Describe("Statement Compiler", func() {
 				aCtx.TypeMap,
 				resolve.NewResolver(),
 			)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 			return FinalizeContext(ctx)
 		}
@@ -1879,7 +1865,7 @@ var _ = Describe("Statement Compiler", func() {
 				aCtx.TypeMap,
 				resolve.NewResolver(),
 			)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 			return FinalizeContext(ctx)
 		}
@@ -1976,7 +1962,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -2026,7 +2012,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -2075,7 +2061,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -2110,7 +2096,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -2143,9 +2129,7 @@ var _ = Describe("Statement Compiler", func() {
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -2187,7 +2171,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -2234,7 +2218,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			// i=0, __for_limit=1, __for_step=2, x=3
@@ -2299,7 +2283,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
@@ -2331,9 +2315,7 @@ var _ = Describe("Statement Compiler", func() {
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				bytecode := ctx.Writer.Bytes()
@@ -2356,7 +2338,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -2407,7 +2389,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
@@ -2440,7 +2422,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
@@ -2473,9 +2455,7 @@ var _ = Describe("Statement Compiler", func() {
 					bCtx, aCtx.Scope, aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
@@ -2521,9 +2501,7 @@ var _ = Describe("Statement Compiler", func() {
 					bCtx, aCtx.Scope, aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
@@ -2568,9 +2546,7 @@ var _ = Describe("Statement Compiler", func() {
 					bCtx, aCtx.Scope, aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(
-					statement.CompileBlock(context.Child(ctx, block)),
-				)
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
@@ -2609,7 +2585,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 			Expect(diverged).To(BeFalse())
 			Expect(ctx.Writer.Bytes()).ToNot(BeEmpty())
 		})
@@ -2632,7 +2608,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
 				Expect(diverged).To(BeFalse())
 				Expect(FinalizeContext(ctx)).To(BeEmpty())
 			},
@@ -2654,7 +2630,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
 				Expect(diverged).To(BeFalse())
 				Expect(FinalizeContext(ctx)).To(BeEmpty())
 			},

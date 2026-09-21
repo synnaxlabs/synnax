@@ -147,7 +147,7 @@ func (s *Service) Retrieve(
 
 	if req.IncludeStatus {
 		statuses := make([]task.Status, 0, len(res.Tasks))
-		if err := status.NewRetrieve[task.StatusDetails](s.status).
+		if err := s.status.NewRetrieve[task.StatusDetails]().
 			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {

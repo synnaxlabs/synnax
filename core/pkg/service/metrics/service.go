@@ -101,14 +101,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.metrics")
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "framer", c.Framer)
-	validate.NotNil(v, "host_provider", c.HostProvider)
-	validate.NotNil(v, "storage", c.Storage)
-	validate.Positive(v, "collection_interval", c.CollectionInterval)
-	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "db", c.DB)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
+	v.NotNil("host_provider", c.HostProvider)
+	v.NotNil("storage", c.Storage)
+	v.Positive("collection_interval", c.CollectionInterval)
+	v.NotNil("group", c.Group)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -251,27 +251,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	p := plumber.New()
-	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, writerAddr, w)
-	plumber.SetSource[framer.WriterRequest](p, collectorAddr, c)
+	p.SetSegment[framer.WriterRequest, framer.WriterResponse](writerAddr, w)
+	p.SetSource[framer.WriterRequest](collectorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(_ context.Context, response framer.WriterResponse) {
 		if response.Err != nil {
 			cfg.L.Error("failed to write metrics to node", zap.Error(response.Err))
 		}
 	})
-	plumber.SetSink[framer.WriterResponse](p, loggerAddr, o)
-	plumber.MustConnect[framer.WriterRequest](
-		p,
-		collectorAddr,
-		writerAddr,
-		channelBufferSize,
-	)
-	plumber.MustConnect[framer.WriterResponse](
-		p,
-		writerAddr,
-		loggerAddr,
-		channelBufferSize,
-	)
+	p.SetSink[framer.WriterResponse](loggerAddr, o)
+	p.MustConnect[framer.WriterRequest](collectorAddr, writerAddr, channelBufferSize)
+	p.MustConnect[framer.WriterResponse](writerAddr, loggerAddr, channelBufferSize)
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return s, nil

@@ -32,7 +32,8 @@
         { "case": "console/task/opcua_invalid" },
         { "case": "console/task/modbus_read_task" },
         { "case": "console/task/modbus_write_task" },
-        { "case": "console/task/modbus_invalid" }
+        { "case": "console/task/modbus_invalid" },
+        { "case": "console/device/http_legacy_device" }
       ]
     },
     {

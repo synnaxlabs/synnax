@@ -86,7 +86,8 @@ var _ = Describe("Transport", func() {
 				},
 			)).To(Equal(types.Nil{}))
 			Expect(received.Renames).To(Equal(
-				map[distchannel.Key]string{1: "beta", 2: "gamma"}),
+				map[distchannel.Key]string{1: "beta", 2: "gamma"},
+			),
 			)
 		})
 	})

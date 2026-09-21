@@ -105,7 +105,7 @@ func (cs *ProgramState) stampIndexes(now telem.TimeStamp) (highest telem.TimeSta
 		stamps.TimeRange = data.TimeRange
 		cs.writes[idx] = stamps
 		cs.activeWriteKeys = append(cs.activeWriteKeys, idx)
-		if last := telem.ValueAt[telem.TimeStamp](stamps, -1); last > highest {
+		if last := stamps.ValueAt[telem.TimeStamp](-1); last > highest {
 			highest = last
 		}
 	}

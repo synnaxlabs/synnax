@@ -657,6 +657,7 @@ class TestHTTPDevice:
         assert props["secure"] is True
         assert props["verify_ssl"] is True
         assert props["timeout_ms"] == 100
+        assert props["max_concurrent_requests"] == 6
         assert props["auth"] == {"type": "none"}
         assert props["version"] == 1
 
@@ -666,6 +667,7 @@ class TestHTTPDevice:
             host="192.168.1.100:9090",
             secure=False,
             timeout_ms=5000,
+            max_concurrent_requests=2,
             verify_ssl=False,
             auth={"type": "bearer", "token": "my-token"},
             name="My Server",
@@ -675,9 +677,16 @@ class TestHTTPDevice:
         props = dev.properties
         assert props["secure"] is False
         assert props["timeout_ms"] == 5000
+        assert props["max_concurrent_requests"] == 2
         assert props["verify_ssl"] is False
         assert props["auth"]["type"] == "bearer"
         assert props["auth"]["token"] == "my-token"
+
+    @pytest.mark.parametrize("value", [0, -1])
+    def test_device_rejects_non_positive_max_concurrent_requests(self, value: int):
+        """Test that Device rejects a max_concurrent_requests below 1."""
+        with pytest.raises(ValueError):
+            sy.http.Device(host="127.0.0.1:8080", max_concurrent_requests=value)
 
     def test_device_basic_auth(self):
         """Test device with basic authentication."""
@@ -798,10 +807,40 @@ class TestHTTPHealthCheck:
         assert hc["method"] == "GET"
         assert hc["headers"] == [{"name": "Accept", "value": "application/json"}]
 
+    def test_health_check_validate_response_flag(self):
+        """Test that validate_response mirrors whether a response is configured."""
+        dev = sy.http.Device(host="localhost:8080")
+        assert dev.properties["health_check"]["validate_response"] is False
+        dev = sy.http.Device(
+            host="localhost:8080",
+            health_check=sy.http.HealthCheck(
+                response=sy.http.ExpectedResponse(
+                    pointer="/status",
+                    expected_value_type="string",
+                    expected_value="ok",
+                ),
+            ),
+        )
+        assert dev.properties["health_check"]["validate_response"] is True
+
 
 @pytest.mark.http
 class TestHTTPDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
+
+    def test_max_concurrent_requests_round_trip(self, client: sy.Synnax):
+        """Test that max_concurrent_requests survives create and retrieve."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.http.Device(
+            host="127.0.0.1:8080",
+            secure=False,
+            max_concurrent_requests=3,
+            name="Test HTTP Cap Device",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        retrieved = client.devices.retrieve(key=device.key)
+        assert retrieved.properties["max_concurrent_requests"] == 3
 
     def test_read_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a ReadTask updates device properties."""
@@ -860,6 +899,52 @@ class TestHTTPDevicePropertyUpdates:
         ep_props = props["read"]["/api/v1/data"]
         assert ep_props["channels"]["/temperature"] == temp_ch.key
         assert ep_props["channels"]["/pressure"] == pres_ch.key
+        assert ep_props["index"] == 0
+
+    def test_read_task_stores_index_channel_key(self, client: sy.Synnax):
+        """A value-timed endpoint stores its index field's channel key."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.http.Device(
+            host="127.0.0.1:8080",
+            secure=False,
+            name="Test HTTP Read Index Device",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+
+        suffix = random_name()
+        time_ch = client.channels.create(
+            name=f"http_time_{suffix}",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        temp_ch = client.channels.create(
+            name=f"http_temp_{suffix}",
+            data_type=sy.DataType.FLOAT64,
+            index=time_ch.key,
+        )
+        time_field = sy.http.ReadField(
+            pointer="/timestamp", channel=time_ch.key, time_format="unix_sec"
+        )
+        task = sy.http.ReadTask(
+            name="Test HTTP Read Index",
+            device=device.key,
+            rate=1.0,
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/api/v1/data",
+                    index=time_field.key,
+                    fields=[
+                        time_field,
+                        sy.http.ReadField(pointer="/temperature", channel=temp_ch.key),
+                    ],
+                ),
+            ],
+        )
+        task.update_device_properties(client.devices)
+
+        ep_props = client.devices.retrieve(key=device.key).properties["read"]
+        assert ep_props["/api/v1/data"]["index"] == time_ch.key
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax):
         """Test that configuring a WriteTask updates device properties."""

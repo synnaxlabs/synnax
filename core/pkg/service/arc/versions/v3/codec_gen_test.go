@@ -73,12 +73,10 @@ var _ = Describe("Codec", func() {
 					},
 					Edges: []graph.Edge{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{Node: "test_22", Param: "test_23"},
-								Target: ir.Handle{Node: "test_25", Param: "test_26"},
-								Kind:   ir.EdgeKind(0),
-							},
-							Key: "test_28",
+							Source: ir.Handle{Node: "test_22", Param: "test_23"},
+							Target: ir.Handle{Node: "test_25", Param: "test_26"},
+							Kind:   ir.EdgeKind(0),
+							Key:    "test_28",
 						},
 					},
 					Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
@@ -146,12 +144,10 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 			},
 			Edges: []graph.Edge{
 				{
-					Edge: ir.Edge{
-						Source: ir.Handle{Node: "test_22", Param: "test_23"},
-						Target: ir.Handle{Node: "test_25", Param: "test_26"},
-						Kind:   ir.EdgeKind(0),
-					},
-					Key: "test_28",
+					Source: ir.Handle{Node: "test_22", Param: "test_23"},
+					Target: ir.Handle{Node: "test_25", Param: "test_26"},
+					Kind:   ir.EdgeKind(0),
+					Key:    "test_28",
 				},
 			},
 			Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
@@ -219,12 +215,10 @@ func FuzzDecodeArc(f *testing.F) {
 				},
 				Edges: []graph.Edge{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{Node: "test_22", Param: "test_23"},
-							Target: ir.Handle{Node: "test_25", Param: "test_26"},
-							Kind:   ir.EdgeKind(0),
-						},
-						Key: "test_28",
+						Source: ir.Handle{Node: "test_22", Param: "test_23"},
+						Target: ir.Handle{Node: "test_25", Param: "test_26"},
+						Kind:   ir.EdgeKind(0),
+						Key:    "test_28",
 					},
 				},
 				Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},

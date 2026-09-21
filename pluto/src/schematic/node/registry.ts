@@ -21,6 +21,7 @@ import {
 import { Fittings } from "@/schematic/node/fittings";
 import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
+import { GroupBox } from "@/schematic/node/groupBox";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { Safety } from "@/schematic/node/safety";
@@ -39,6 +40,7 @@ export const REGISTRY = {
   ...Vessels.REGISTRY,
   customActuator: customActuatorSpec,
   customStatic: customStaticSpec,
+  groupBox: GroupBox.spec,
 } as const;
 
 const VARIANTS = Object.keys(REGISTRY);
@@ -56,6 +58,7 @@ export const configZ = z.discriminatedUnion("variant", [
   ...Vessels.configZ.options,
   customActuatorConfigZ,
   customStaticConfigZ,
+  GroupBox.configZ,
 ]);
 export type Config = z.infer<typeof configZ>;
 export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
@@ -90,6 +93,8 @@ export const isCustomConfig = (config: Config): config is CustomConfig =>
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
 /// variant. Used by the symbols toolbar to render the built-in catalog.
+// groupBox is excluded by key: it is created only by grouping, and a spec-level
+// hidden flag is not worth the plumbing for one symbol.
 export const STATIC_SPECS: readonly Spec[] = (
   Object.values(REGISTRY) as ReadonlyArray<Spec>
-).filter((s) => !isCustomVariant(s.key));
+).filter((s) => !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT);

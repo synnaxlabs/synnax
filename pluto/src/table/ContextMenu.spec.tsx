@@ -14,6 +14,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
+import { Menu } from "@/menu";
 import { Table } from "@/table";
 import {
   DefaultContextMenu,
@@ -85,6 +86,11 @@ describe("table DefaultContextMenu", () => {
     renderMenu({ editable: true });
     expect(await screen.findByText("Undo")).toBeDefined();
     expect(screen.getByText("Redo")).toBeDefined();
+  });
+
+  it("appends the consumer's extra items", async () => {
+    renderMenu({ extra: <Menu.Item itemKey="extra">Extra</Menu.Item> });
+    expect(await screen.findByText("Extra")).toBeDefined();
   });
 
   it("withholds undo and redo from a read-only table", async () => {

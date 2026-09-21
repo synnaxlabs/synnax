@@ -11,7 +11,6 @@ package stable
 
 import (
 	"bytes"
-	"context"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -84,7 +83,7 @@ type Host struct{}
 // NewHost constructs a stable Host.
 func NewHost() *Host { return &Host{} }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
@@ -128,7 +127,7 @@ func (s *forNode) refreshDuration() {
 		return
 	}
 	if v := s.RefInput(i); v.Len() > 0 {
-		s.duration = telem.TimeSpan(telem.ValueAt[int64](v, -1))
+		s.duration = telem.TimeSpan(v.ValueAt[int64](-1))
 	}
 }
 
@@ -148,7 +147,7 @@ func (s *forNode) Next(ctx node.Context) {
 		if inputData.Len() > 0 {
 			for i := int64(0); i < inputData.Len(); i++ {
 				currentValue := inputData.At(int(i))
-				currentTime := telem.ValueAt[telem.TimeStamp](inputTime, int(i))
+				currentTime := inputTime.ValueAt[telem.TimeStamp](int(i))
 				if s.value == nil || !bytes.Equal(s.value, currentValue) {
 					s.value = bytes.Clone(currentValue)
 					s.lastChanged = currentTime
@@ -166,7 +165,7 @@ func (s *forNode) Next(ctx node.Context) {
 			out := s.Output(0)
 			out.Resize(1)
 			copy(out.Data, s.value)
-			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](ctx.Now)
+			*s.OutputTime(0) = telem.NewSeriesV(ctx.Now)
 			s.lastSent = bytes.Clone(s.value)
 			s.Emit(ctx, 0)
 		}

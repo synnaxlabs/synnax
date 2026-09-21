@@ -70,6 +70,13 @@ export class Unary {
     this.static.write(series);
   }
 
+  /** Records tr as fetched so reads stop reporting it as a gap even when it holds no
+   * samples. Call after a fetch for tr completes. */
+  markFetched(tr: TimeRange): void {
+    this.checkOpen("markFetched");
+    this.static.markFetched(tr);
+  }
+
   /**
    * Reads cached data overlapping the given time range. The result includes the live
    * leading buffer when the data it actually holds overlaps the range, judged by the

@@ -27,7 +27,7 @@ func compileTypeCast(
 		return types.Type{}, errors.New("unknown cast target type")
 	}
 	sourceType, err := Compile(
-		context.Child(ctx, ctx.AST.Expression()).WithHint(targetType),
+		ctx.Child(ctx.AST.Expression()).WithHint(targetType),
 	)
 	if err != nil {
 		return types.Type{}, err

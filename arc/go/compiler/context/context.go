@@ -50,8 +50,9 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Config parser.Config
 }
 
-func Child[P, ASTNode antlr.ParserRuleContext](
-	ctx Context[P],
+// Child returns a context that shares the parent's state but points at the given child
+// AST node, whose type may differ from the parent's.
+func (ctx Context[P]) Child[ASTNode antlr.ParserRuleContext](
 	node ASTNode,
 ) Context[ASTNode] {
 	return Context[ASTNode]{

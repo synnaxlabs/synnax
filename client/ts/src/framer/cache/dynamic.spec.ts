@@ -669,4 +669,96 @@ describe("DynamicCache", () => {
       expect(cache.dataTimeRange).toBeNull();
     });
   });
+
+  describe("compaction", () => {
+    // 100k samples of float32 is 400KB, so a buffer holding a handful of them wastes
+    // far more than the floor and sits well under the fill fraction.
+    const ROOMY = 100_000;
+
+    it("should right-size a buffer that rotates nearly empty", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      const first = cache.write(new MultiSeries([f32([1, 2, 3])]));
+      const original = first.allocated.series[0];
+      // A series of its own size does not fit beside it, forcing a rotation.
+      const { flushed } = cache.write(
+        new MultiSeries([f32(Array.from({ length: ROOMY }, (_, i) => i)).reAlign(3n)]),
+      );
+      const compacted = flushed.series[0];
+      expect(compacted).not.toBe(original);
+      expect(Array.from(compacted)).toEqual([1, 2, 3]);
+      expect(compacted.alignment).toEqual(original.alignment);
+      expect(compacted.timeRange).toEqual(original.timeRange);
+      expect(compacted.key).toEqual(original.key);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
+    });
+
+    it("should leave a buffer a consumer holds alone", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      const first = cache.write(new MultiSeries([f32([1, 2, 3])]));
+      const original = first.allocated.series[0];
+      // Copying would strand the holder on an object the cache no longer serves.
+      original.acquire();
+      const { flushed } = cache.write(
+        new MultiSeries([f32(Array.from({ length: ROOMY }, (_, i) => i)).reAlign(3n)]),
+      );
+      expect(flushed.series[0]).toBe(original);
+      original.release();
+    });
+
+    it("should leave a nearly full buffer alone", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      const fill = Array.from({ length: ROOMY - 1 }, (_, i) => i);
+      const first = cache.write(new MultiSeries([f32(fill)]));
+      const original = first.allocated.series[0];
+      const { flushed } = cache.write(
+        new MultiSeries([f32([1, 2]).reAlign(BigInt(fill.length))]),
+      );
+      expect(flushed.series[0]).toBe(original);
+    });
+
+    it("should leave a buffer whose waste is under the floor alone", () => {
+      // 100 float32 samples is 400 bytes of capacity, so nothing is worth copying.
+      const cache = new Dynamic({ dynamicBufferSize: 100 });
+      const first = cache.write(new MultiSeries([f32([1, 2, 3])]));
+      const original = first.allocated.series[0];
+      const { flushed } = cache.write(
+        new MultiSeries([f32(Array.from({ length: 100 }, (_, i) => i)).reAlign(3n)]),
+      );
+      expect(flushed.series[0]).toBe(original);
+    });
+
+    it("should leave a buffer that rotates inside its own write alone", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY });
+      // Both series land in one write, so the buffer the first allocates is flushed
+      // before any subscriber has seen it. The response has to name one object, or
+      // a subscriber reading back what it streamed would see two.
+      const { flushed, allocated } = cache.write(
+        new MultiSeries([
+          f32([1, 2, 3]),
+          f32(Array.from({ length: ROOMY }, (_, i) => i)).reAlign(3n),
+        ]),
+      );
+      expect(flushed.series[0]).toBe(allocated.series[0]);
+    });
+
+    it("should right-size a variable-length buffer", () => {
+      const cache = new Dynamic({ dynamicBufferSize: 10_000 });
+      const first = cache.write(
+        new MultiSeries([new Series({ data: ["one"], dataType: DataType.STRING })]),
+      );
+      const original = first.allocated.series[0];
+      const { flushed } = cache.write(
+        new MultiSeries([
+          new Series({
+            data: Array.from({ length: 10_000 }, () => "x".repeat(40)),
+            dataType: DataType.STRING,
+          }).reAlign(1n),
+        ]),
+      );
+      const compacted = flushed.series[0];
+      expect(compacted).not.toBe(original);
+      expect(Array.from(compacted)).toEqual(["one"]);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
+    });
+  });
 });

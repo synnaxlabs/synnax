@@ -77,25 +77,41 @@ var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 }
 
+// driverEnabled reports whether the embedded Driver starts with this Core.
+func (c CoreConfig) driverEnabled() bool { return c.noDriver != nil && !*c.noDriver }
+
+// DriverTrustAnchors returns the PEM certificates the embedded Driver verifies the
+// Core against: the Core CA and the node certificate. It returns nil in insecure mode.
+func DriverTrustAnchors(insecure bool, lc cert.LoaderConfig) ([]byte, error) {
+	if insecure {
+		return nil, nil
+	}
+	l, err := cert.NewLoader(lc)
+	if err != nil {
+		return nil, err
+	}
+	return l.TrustAnchorsPEM()
+}
+
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
-	validate.NotNil(v, "insecure", c.insecure)
-	validate.NotNil(v, "debug", c.debug)
-	validate.NotNil(v, "auto_cert", c.autoCert)
-	validate.NotNil(v, "mem_backed", c.memBacked)
+	v.NotNil("insecure", c.insecure)
+	v.NotNil("debug", c.debug)
+	v.NotNil("auto_cert", c.autoCert)
+	v.NotNil("mem_backed", c.memBacked)
 	v.Exec(c.listeners.Validate)
-	if c.insecure != nil && !*c.insecure {
+	if c.insecure != nil && !*c.insecure && (len(c.peers) > 0 || c.driverEnabled()) {
 		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
-	validate.NotEmptyString(v, "data_path", c.dataPath)
-	validate.NonZero(v, "slow_consumer_timeout", c.slowConsumerTimeout)
-	validate.NotNil(v, "no_driver", c.noDriver)
+	v.NotEmptyString("data_path", c.dataPath)
+	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
+	v.NotNil("no_driver", c.noDriver)
 	v.Exec(c.rootCredentials.Validate)
-	validate.NonZero(v, "task_op_timeout", c.taskOpTimeout)
-	validate.NonZero(v, "task_poll_interval", c.taskPollInterval)
-	validate.NonZero(v, "task_shutdown_timeout", c.taskShutdownTimeout)
-	validate.NonZero(v, "task_worker_count", c.taskWorkerCount)
-	validate.NotNil(v, "validate_channel_names", c.validateChannelNames)
+	v.NonZero("task_op_timeout", c.taskOpTimeout)
+	v.NonZero("task_poll_interval", c.taskPollInterval)
+	v.NonZero("task_shutdown_timeout", c.taskShutdownTimeout)
+	v.NonZero("task_worker_count", c.taskWorkerCount)
+	v.NotNil("validate_channel_names", c.validateChannelNames)
 	v.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
 }
@@ -280,6 +296,8 @@ func BootupCore(
 		securityProvider,
 		cfg.certFactoryConfig,
 		*cfg.insecure,
+		len(cfg.peers) > 0 || len(distributionLayer.Cluster.Nodes()) > 1,
+		cfg.driverEnabled(),
 	)
 	if !ok(err, nil) {
 		return err
@@ -320,6 +338,16 @@ func BootupCore(
 		return nil
 	}
 
+	// The embedded Driver dials the advertised listener, which does not always serve
+	// the node certificate.
+	driverTrustAnchors, err := DriverTrustAnchors(
+		*cfg.insecure,
+		cfg.certFactoryConfig.LoaderConfig,
+	)
+	if !ok(err, nil) {
+		return err
+	}
+
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
@@ -335,7 +363,7 @@ func BootupCore(
 			ClusterKey:          distributionLayer.Cluster.Key(),
 			Credentials:         cfg.rootCredentials,
 			Debug:               cfg.debug,
-			CACertPath:          cfg.certFactoryConfig.AbsoluteNodeCertPath(),
+			TrustAnchorsPEM:     driverTrustAnchors,
 			ClientCertFile:      cfg.certFactoryConfig.AbsoluteCACertPath(),
 			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteCAKeyPath(),
 			ParentDirname:       workDir,

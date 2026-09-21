@@ -26,8 +26,6 @@ import {
   type ReactFlowProps,
   ReactFlowProvider,
   SelectionMode,
-  useOnViewportChange as useRFOnViewportChange,
-  useReactFlow,
   type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
@@ -70,6 +68,8 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
+import { useFitView, useInitialFitView } from "@/vis/diagram/useFitView";
+import { useOnViewportChange } from "@/vis/diagram/useOnViewportChange";
 import {
   calculateCursorPosition,
   internalNodeBox,
@@ -140,7 +140,7 @@ export type ClipboardHandler = (
 
 export interface DiagramProps
   extends
-    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onPaste">,
+    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onCut" | "onPaste">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
     Pick<
@@ -176,6 +176,12 @@ export interface DiagramProps
    * the most recent mousemove over the diagram.
    */
   onCopy?: ClipboardHandler;
+  /**
+   * Called when a cut event fires on the diagram. The second argument is the
+   * cursor position in diagram space at the moment of the cut, derived from
+   * the most recent mousemove over the diagram. Ignored when not editable.
+   */
+  onCut?: ClipboardHandler;
   /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
@@ -287,6 +293,7 @@ export const create = ({
     autoRenderInterval,
     onDoubleClick,
     onCopy,
+    onCut,
     onPaste,
     onMouseMove,
     onContextMenu,
@@ -309,9 +316,9 @@ export const create = ({
       [visible, autoRenderInterval],
     );
 
-    const { fitView } = useReactFlow();
+    const fitView = useFitView();
     const debouncedFitView = useDebouncedCallback(
-      (args: diagram.FitViewOptions) => void fitView(args),
+      (args: diagram.FitViewOptions) => fitView(args),
       FIT_VIEW_DEBOUNCE,
       [fitView],
     );
@@ -331,40 +338,34 @@ export const create = ({
       ),
     );
 
+    useInitialFitView(visible && isSized, fitViewOptions);
+
     const triggers = useMemoCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
       Triggers.compareModeConfigs,
       [pTriggers],
     );
 
-    const zoomRef = useRef<number>(viewport.zoom);
-    const syncZoomCSSVar = useCallback((zoom: number): void => {
-      if (zoomRef.current === zoom) return;
-      zoomRef.current = zoom;
-      triggerRef.current?.style.setProperty(CSS.variable("diagram-zoom"), `${zoom}`);
-    }, []);
-    syncZoomCSSVar(viewport.zoom);
-
     const viewportRef = useRef<RFViewport | null>(null);
     const handleViewportChange = useCallback(
       (vp: RFViewport): void => {
+        // Set before the dedupe: a remounted React Flow reports an unchanged viewport
+        // on a fresh element that has no variable yet.
+        triggerRef.current?.style.setProperty(
+          CSS.variable("diagram-zoom"),
+          `${vp.zoom}`,
+        );
         const prev = viewportRef.current;
         if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
           return;
         viewportRef.current = vp;
         if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
-        syncZoomCSSVar(vp.zoom);
         setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
         onViewportChange(translateViewportBackward(vp));
       },
-      [setState, onViewportChange, syncZoomCSSVar],
+      [setState, onViewportChange],
     );
-
-    useRFOnViewportChange({
-      onStart: handleViewportChange,
-      onChange: handleViewportChange,
-      onEnd: handleViewportChange,
-    });
+    useOnViewportChange(handleViewportChange);
 
     const selectedSet = useMemo(() => new Set(selected), [selected]);
     const selectedRef = useSyncedRef(selectedSet);
@@ -461,7 +462,7 @@ export const create = ({
         ({ stage, cursor }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
           if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
-          void fitView();
+          fitView();
         },
         [fitView],
       ),
@@ -538,6 +539,14 @@ export const create = ({
       [onCopy, cursorInDiagramSpace],
     );
 
+    const handleCut = useCallback(
+      (e: ReactClipboardEvent<HTMLDivElement>): void => {
+        if (!editable) return;
+        onCut?.(e, cursorInDiagramSpace(e.currentTarget));
+      },
+      [onCut, editable, cursorInDiagramSpace],
+    );
+
     const handlePaste = useCallback(
       (e: ReactClipboardEvent<HTMLDivElement>): void => {
         onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
@@ -551,6 +560,7 @@ export const create = ({
         ref={containerRefs}
         onDoubleClick={onDoubleClick}
         onCopy={handleCopy}
+        onCut={handleCut}
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
         onContextMenu={onContextMenu}
@@ -572,7 +582,6 @@ export const create = ({
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 ref={triggerRef}
-                fitView
                 onNodesChange={handleNodesChange}
                 onEdgesChange={handleEdgesChange}
                 onConnect={handleConnect}
@@ -585,7 +594,6 @@ export const create = ({
                 maxZoom={fitViewOptions.maxZoom}
                 isValidConnection={isValidConnection}
                 connectionMode={ConnectionMode.Loose}
-                fitViewOptions={fitViewOptions}
                 selectionMode={SelectionMode.Partial}
                 proOptions={PRO_OPTIONS}
                 deleteKeyCode={DELETE_KEY_CODES}

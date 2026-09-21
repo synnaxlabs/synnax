@@ -52,516 +52,403 @@ func Bind(layer *api.Layer, router *http.Router) {
 	framerServerOption := framer.WithCodec(layer.Channel)
 	layer.BindTo(api.Transport{
 		// AUTH
-		AuthLogin: http.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](
-			router,
+		AuthLogin: router.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](
 			"/api/v1/auth/login",
 		),
-		AuthChangePassword: http.NewUnaryServer[auth.ChangePasswordRequest, types.Nil](
-			router,
+		AuthChangePassword: router.NewUnaryServer[auth.ChangePasswordRequest, types.Nil](
 			"/api/v1/auth/change-password",
 		),
 
 		// USER
-		UserRename: http.NewUnaryServer[user.RenameRequest, types.Nil](
-			router,
+		UserRename: router.NewUnaryServer[user.RenameRequest, types.Nil](
 			"/api/v1/user/rename",
 		),
-		UserChangeUsername: http.NewUnaryServer[user.ChangeUsernameRequest, types.Nil](
-			router,
+		UserChangeUsername: router.NewUnaryServer[user.ChangeUsernameRequest, types.Nil](
 			"/api/v1/user/change-username",
 		),
-		UserCreate: http.NewUnaryServer[user.CreateRequest, user.CreateResponse](
-			router,
+		UserCreate: router.NewUnaryServer[user.CreateRequest, user.CreateResponse](
 			"/api/v1/user/create",
 		),
-		UserDelete: http.NewUnaryServer[user.DeleteRequest, types.Nil](
-			router,
+		UserDelete: router.NewUnaryServer[user.DeleteRequest, types.Nil](
 			"/api/v1/user/delete",
 		),
-		UserRetrieve: http.NewUnaryServer[user.RetrieveRequest, user.RetrieveResponse](
-			router,
+		UserRetrieve: router.NewUnaryServer[user.RetrieveRequest, user.RetrieveResponse](
 			"/api/v1/user/retrieve",
 		),
 
 		// CHANNEL
-		ChannelCreate: http.NewUnaryServer[channel.CreateRequest, channel.CreateResponse](
-			router,
+		ChannelCreate: router.NewUnaryServer[channel.CreateRequest, channel.CreateResponse](
 			"/api/v1/channel/create",
 		),
-		ChannelRetrieve: http.NewUnaryServer[channel.RetrieveRequest, channel.RetrieveResponse](
-			router,
+		ChannelRetrieve: router.NewUnaryServer[channel.RetrieveRequest, channel.RetrieveResponse](
 			"/api/v1/channel/retrieve",
 		),
-		ChannelDelete: http.NewUnaryServer[channel.DeleteRequest, types.Nil](
-			router,
+		ChannelDelete: router.NewUnaryServer[channel.DeleteRequest, types.Nil](
 			"/api/v1/channel/delete",
 		),
-		ChannelRename: http.NewUnaryServer[channel.RenameRequest, types.Nil](
-			router,
+		ChannelRename: router.NewUnaryServer[channel.RenameRequest, types.Nil](
 			"/api/v1/channel/rename",
 		),
-		ChannelRetrieveGroup: http.NewUnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse](
-			router,
+		ChannelRetrieveGroup: router.NewUnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse](
 			"/api/v1/channel/retrieve-group",
 		),
 
 		// CONNECTIVITY
-		ConnectivityCheck: http.NewUnaryServer[types.Nil, connectivity.CheckResponse](
-			router,
+		ConnectivityCheck: router.NewUnaryServer[types.Nil, connectivity.CheckResponse](
 			"/api/v1/connectivity/check",
 		),
 
 		// FRAME
-		FrameWriter: http.NewStreamServer[framer.WriterRequest, framer.WriterResponse](
-			router,
+		FrameWriter: router.NewStreamServer[framer.WriterRequest, framer.WriterResponse](
 			"/api/v1/frame/write",
 			framerServerOption,
 		),
-		FrameIterator: http.NewStreamServer[framer.IteratorRequest, framer.IteratorResponse](
-			router,
+		FrameIterator: router.NewStreamServer[framer.IteratorRequest, framer.IteratorResponse](
 			"/api/v1/frame/iterate",
 			framerServerOption,
 		),
-		FrameStreamer: http.NewStreamServer[framer.StreamerRequest, framer.StreamerResponse](
-			router,
+		FrameStreamer: router.NewStreamServer[framer.StreamerRequest, framer.StreamerResponse](
 			"/api/v1/frame/stream",
 			framerServerOption,
 		),
-		FrameDelete: http.NewUnaryServer[framer.DeleteRequest, types.Nil](
-			router,
+		FrameDelete: router.NewUnaryServer[framer.DeleteRequest, types.Nil](
 			"/api/v1/frame/delete",
 		),
 
 		// CONTROL
-		ControlRetrieve: http.NewUnaryServer[control.RetrieveRequest, control.RetrieveResponse](
-			router,
+		ControlRetrieve: router.NewUnaryServer[control.RetrieveRequest, control.RetrieveResponse](
 			"/api/v1/control/retrieve",
 		),
 
 		// ONTOLOGY
-		OntologyRetrieve: http.NewUnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse](
-			router,
+		OntologyRetrieve: router.NewUnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse](
 			"/api/v1/ontology/retrieve",
 		),
-		OntologyAddChildren: http.NewUnaryServer[ontology.AddChildrenRequest, types.Nil](
-			router,
+		OntologyAddChildren: router.NewUnaryServer[ontology.AddChildrenRequest, types.Nil](
 			"/api/v1/ontology/add-children",
 		),
-		OntologyRemoveChildren: http.NewUnaryServer[ontology.RemoveChildrenRequest, types.Nil](
-			router,
+		OntologyRemoveChildren: router.NewUnaryServer[ontology.RemoveChildrenRequest, types.Nil](
 			"/api/v1/ontology/remove-children",
 		),
-		OntologyMoveChildren: http.NewUnaryServer[ontology.MoveChildrenRequest, types.Nil](
-			router,
+		OntologyMoveChildren: router.NewUnaryServer[ontology.MoveChildrenRequest, types.Nil](
 			"/api/v1/ontology/move-children",
 		),
 
 		// GROUP
-		GroupCreate: http.NewUnaryServer[group.CreateRequest, group.CreateResponse](
-			router,
+		GroupCreate: router.NewUnaryServer[group.CreateRequest, group.CreateResponse](
 			"/api/v1/ontology/create-group",
 		),
-		GroupDelete: http.NewUnaryServer[group.DeleteRequest, types.Nil](
-			router,
+		GroupDelete: router.NewUnaryServer[group.DeleteRequest, types.Nil](
 			"/api/v1/ontology/delete-group",
 		),
-		GroupRename: http.NewUnaryServer[group.RenameRequest, types.Nil](
-			router,
+		GroupRename: router.NewUnaryServer[group.RenameRequest, types.Nil](
 			"/api/v1/ontology/rename-group",
 		),
-		GroupRetrieve: http.NewUnaryServer[group.RetrieveRequest, group.RetrieveResponse](
-			router,
+		GroupRetrieve: router.NewUnaryServer[group.RetrieveRequest, group.RetrieveResponse](
 			"/api/v1/ontology/retrieve-group",
 		),
 
 		// RANGE
-		RangeRetrieve: http.NewUnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](
-			router,
+		RangeRetrieve: router.NewUnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](
 			"/api/v1/range/retrieve",
 		),
-		RangeCreate: http.NewUnaryServer[ranger.CreateRequest, ranger.CreateResponse](
-			router,
+		RangeCreate: router.NewUnaryServer[ranger.CreateRequest, ranger.CreateResponse](
 			"/api/v1/range/create",
 		),
-		RangeDelete: http.NewUnaryServer[ranger.DeleteRequest, types.Nil](
-			router,
+		RangeDelete: router.NewUnaryServer[ranger.DeleteRequest, types.Nil](
 			"/api/v1/range/delete",
 		),
-		RangeRename: http.NewUnaryServer[ranger.RenameRequest, types.Nil](
-			router,
+		RangeRename: router.NewUnaryServer[ranger.RenameRequest, types.Nil](
 			"/api/v1/range/rename",
 		),
-		RangeSetEnd: http.NewUnaryServer[ranger.SetEndRequest, types.Nil](
-			router,
+		RangeSetEnd: router.NewUnaryServer[ranger.SetEndRequest, types.Nil](
 			"/api/v1/range/set-end",
 		),
 
 		// KV
-		KVGet: http.NewUnaryServer[kv.GetRequest, kv.GetResponse](
-			router,
+		KVGet: router.NewUnaryServer[kv.GetRequest, kv.GetResponse](
 			"/api/v1/range/kv/get",
 		),
-		KVSet: http.NewUnaryServer[kv.SetRequest, types.Nil](
-			router,
+		KVSet: router.NewUnaryServer[kv.SetRequest, types.Nil](
 			"/api/v1/range/kv/set",
 		),
-		KVDelete: http.NewUnaryServer[kv.DeleteRequest, types.Nil](
-			router,
+		KVDelete: router.NewUnaryServer[kv.DeleteRequest, types.Nil](
 			"/api/v1/range/kv/delete",
 		),
 
 		// ALIAS
-		AliasSet: http.NewUnaryServer[alias.SetRequest, types.Nil](
-			router,
+		AliasSet: router.NewUnaryServer[alias.SetRequest, types.Nil](
 			"/api/v1/range/alias/set",
 		),
-		AliasResolve: http.NewUnaryServer[alias.ResolveRequest, alias.ResolveResponse](
-			router,
+		AliasResolve: router.NewUnaryServer[alias.ResolveRequest, alias.ResolveResponse](
 			"/api/v1/range/alias/resolve",
 		),
-		AliasRetrieve: http.NewUnaryServer[alias.RetrieveRequest, alias.RetrieveResponse](
-			router,
+		AliasRetrieve: router.NewUnaryServer[alias.RetrieveRequest, alias.RetrieveResponse](
 			"/api/v1/range/alias/retrieve",
 		),
-		AliasList: http.NewUnaryServer[alias.ListRequest, alias.ListResponse](
-			router,
+		AliasList: router.NewUnaryServer[alias.ListRequest, alias.ListResponse](
 			"/api/v1/range/alias/list",
 		),
-		AliasDelete: http.NewUnaryServer[alias.DeleteRequest, types.Nil](
-			router,
+		AliasDelete: router.NewUnaryServer[alias.DeleteRequest, types.Nil](
 			"/api/v1/range/alias/delete",
 		),
 
 		// PROJECT
-		ProjectCreate: http.NewUnaryServer[project.CreateRequest, project.CreateResponse](
-			router,
+		ProjectCreate: router.NewUnaryServer[project.CreateRequest, project.CreateResponse](
 			"/api/v1/project/create",
 		),
-		ProjectRetrieve: http.NewUnaryServer[project.RetrieveRequest, project.RetrieveResponse](
-			router,
+		ProjectRetrieve: router.NewUnaryServer[project.RetrieveRequest, project.RetrieveResponse](
 			"/api/v1/project/retrieve",
 		),
-		ProjectDelete: http.NewUnaryServer[project.DeleteRequest, types.Nil](
-			router,
+		ProjectDelete: router.NewUnaryServer[project.DeleteRequest, types.Nil](
 			"/api/v1/project/delete",
 		),
-		ProjectRename: http.NewUnaryServer[project.RenameRequest, types.Nil](
-			router,
+		ProjectRename: router.NewUnaryServer[project.RenameRequest, types.Nil](
 			"/api/v1/project/rename",
 		),
-		ProjectSetLayout: http.NewUnaryServer[project.SetLayoutRequest, types.Nil](
-			router,
+		ProjectSetLayout: router.NewUnaryServer[project.SetLayoutRequest, types.Nil](
 			"/api/v1/project/set-layout",
 		),
-		ProjectExport: http.NewUnaryServer[project.ExportRequest, project.ExportResponse](
-			router,
+		ProjectExport: router.NewUnaryServer[project.ExportRequest, project.ExportResponse](
 			"/api/v1/project/export",
 			http.WithResponseEncoders(zip.Codec),
 		),
-		ProjectImport: http.NewUnaryServer[project.ImportRequest, project.ImportResponse](
-			router,
+		ProjectImport: router.NewUnaryServer[project.ImportRequest, project.ImportResponse](
 			"/api/v1/project/import",
 			http.WithRequestDecoders(zip.Codec),
 		),
 
 		// SCHEMATIC
-		SchematicCreate: http.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](
-			router,
+		SchematicCreate: router.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](
 			"/api/v1/schematic/create",
 		),
-		SchematicRetrieve: http.NewUnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse](
-			router,
+		SchematicRetrieve: router.NewUnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse](
 			"/api/v1/schematic/retrieve",
 		),
-		SchematicDelete: http.NewUnaryServer[schematic.DeleteRequest, types.Nil](
-			router,
+		SchematicDelete: router.NewUnaryServer[schematic.DeleteRequest, types.Nil](
 			"/api/v1/schematic/delete",
 		),
-		SchematicDispatch: http.NewUnaryServer[schematic.DispatchRequest, types.Nil](
-			router,
+		SchematicDispatch: router.NewUnaryServer[schematic.DispatchRequest, types.Nil](
 			"/api/v1/schematic/dispatch",
 		),
-		SchematicCopy: http.NewUnaryServer[schematic.CopyRequest, schematic.CopyResponse](
-			router,
+		SchematicCopy: router.NewUnaryServer[schematic.CopyRequest, schematic.CopyResponse](
 			"/api/v1/schematic/copy",
 		),
 
 		// SCHEMATIC SYMBOL
-		SchematicSymbolCreate: http.NewUnaryServer[symbol.CreateRequest, symbol.CreateResponse](
-			router,
+		SchematicSymbolCreate: router.NewUnaryServer[symbol.CreateRequest, symbol.CreateResponse](
 			"/api/v1/schematic/symbol/create",
 		),
-		SchematicSymbolRetrieve: http.NewUnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse](
-			router,
+		SchematicSymbolRetrieve: router.NewUnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse](
 			"/api/v1/schematic/symbol/retrieve",
 		),
-		SchematicSymbolDelete: http.NewUnaryServer[symbol.DeleteRequest, types.Nil](
-			router,
+		SchematicSymbolDelete: router.NewUnaryServer[symbol.DeleteRequest, types.Nil](
 			"/api/v1/schematic/symbol/delete",
 		),
-		SchematicSymbolRename: http.NewUnaryServer[symbol.RenameRequest, types.Nil](
-			router,
+		SchematicSymbolRename: router.NewUnaryServer[symbol.RenameRequest, types.Nil](
 			"/api/v1/schematic/symbol/rename",
 		),
-		SchematicSymbolRetrieveGroup: http.NewUnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
-			router,
+		SchematicSymbolRetrieveGroup: router.NewUnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
 			"/api/v1/schematic/symbol/retrieve-group",
 		),
-		SchematicSymbolExportGroup: http.NewUnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
-			router,
+		SchematicSymbolExportGroup: router.NewUnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			"/api/v1/schematic/symbol/group/export",
 			http.WithResponseEncoders(zip.Codec),
 		),
-		SchematicSymbolImportGroup: http.NewUnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse](
-			router,
+		SchematicSymbolImportGroup: router.NewUnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse](
 			"/api/v1/schematic/symbol/group/import",
 			http.WithRequestDecoders(zip.Codec),
 		),
-		SchematicSymbolDeleteGroup: http.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
-			router,
+		SchematicSymbolDeleteGroup: router.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
 			"/api/v1/schematic/symbol/group/delete",
 		),
 
 		// LINE PLOT
-		LinePlotCreate: http.NewUnaryServer[lineplot.CreateRequest, lineplot.CreateResponse](
-			router,
+		LinePlotCreate: router.NewUnaryServer[lineplot.CreateRequest, lineplot.CreateResponse](
 			"/api/v1/lineplot/create",
 		),
-		LinePlotRetrieve: http.NewUnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse](
-			router,
+		LinePlotRetrieve: router.NewUnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse](
 			"/api/v1/lineplot/retrieve",
 		),
-		LinePlotDelete: http.NewUnaryServer[lineplot.DeleteRequest, types.Nil](
-			router,
+		LinePlotDelete: router.NewUnaryServer[lineplot.DeleteRequest, types.Nil](
 			"/api/v1/lineplot/delete",
 		),
-		LinePlotDispatch: http.NewUnaryServer[lineplot.DispatchRequest, types.Nil](
-			router,
+		LinePlotDispatch: router.NewUnaryServer[lineplot.DispatchRequest, types.Nil](
 			"/api/v1/lineplot/dispatch",
 		),
 
 		// PANEL
-		PanelCreate: http.NewUnaryServer[panel.CreateRequest, panel.CreateResponse](
-			router,
+		PanelCreate: router.NewUnaryServer[panel.CreateRequest, panel.CreateResponse](
 			"/api/v1/panel/create",
 		),
-		PanelRetrieve: http.NewUnaryServer[panel.RetrieveRequest, panel.RetrieveResponse](
-			router,
+		PanelRetrieve: router.NewUnaryServer[panel.RetrieveRequest, panel.RetrieveResponse](
 			"/api/v1/panel/retrieve",
 		),
-		PanelDelete: http.NewUnaryServer[panel.DeleteRequest, types.Nil](
-			router,
+		PanelDelete: router.NewUnaryServer[panel.DeleteRequest, types.Nil](
 			"/api/v1/panel/delete",
 		),
-		PanelDispatch: http.NewUnaryServer[panel.DispatchRequest, types.Nil](
-			router,
+		PanelDispatch: router.NewUnaryServer[panel.DispatchRequest, types.Nil](
 			"/api/v1/panel/dispatch",
 		),
 
 		// LOG
-		LogCreate: http.NewUnaryServer[log.CreateRequest, log.CreateResponse](
-			router,
+		LogCreate: router.NewUnaryServer[log.CreateRequest, log.CreateResponse](
 			"/api/v1/log/create",
 		),
-		LogRetrieve: http.NewUnaryServer[log.RetrieveRequest, log.RetrieveResponse](
-			router,
+		LogRetrieve: router.NewUnaryServer[log.RetrieveRequest, log.RetrieveResponse](
 			"/api/v1/log/retrieve",
 		),
-		LogDelete: http.NewUnaryServer[log.DeleteRequest, types.Nil](
-			router,
+		LogDelete: router.NewUnaryServer[log.DeleteRequest, types.Nil](
 			"/api/v1/log/delete",
 		),
-		LogDispatch: http.NewUnaryServer[log.DispatchRequest, types.Nil](
-			router,
+		LogDispatch: router.NewUnaryServer[log.DispatchRequest, types.Nil](
 			"/api/v1/log/dispatch",
 		),
 
 		// TABLE
-		TableCreate: http.NewUnaryServer[table.CreateRequest, table.CreateResponse](
-			router,
+		TableCreate: router.NewUnaryServer[table.CreateRequest, table.CreateResponse](
 			"/api/v1/table/create",
 		),
-		TableRetrieve: http.NewUnaryServer[table.RetrieveRequest, table.RetrieveResponse](
-			router,
+		TableRetrieve: router.NewUnaryServer[table.RetrieveRequest, table.RetrieveResponse](
 			"/api/v1/table/retrieve",
 		),
-		TableDelete: http.NewUnaryServer[table.DeleteRequest, types.Nil](
-			router,
+		TableDelete: router.NewUnaryServer[table.DeleteRequest, types.Nil](
 			"/api/v1/table/delete",
 		),
-		TableDispatch: http.NewUnaryServer[table.DispatchRequest, types.Nil](
-			router,
+		TableDispatch: router.NewUnaryServer[table.DispatchRequest, types.Nil](
 			"/api/v1/table/dispatch",
 		),
 
 		// LABEL
-		LabelCreate: http.NewUnaryServer[label.CreateRequest, label.CreateResponse](
-			router,
+		LabelCreate: router.NewUnaryServer[label.CreateRequest, label.CreateResponse](
 			"/api/v1/label/create",
 		),
-		LabelRetrieve: http.NewUnaryServer[label.RetrieveRequest, label.RetrieveResponse](
-			router,
+		LabelRetrieve: router.NewUnaryServer[label.RetrieveRequest, label.RetrieveResponse](
 			"/api/v1/label/retrieve",
 		),
-		LabelDelete: http.NewUnaryServer[label.DeleteRequest, types.Nil](
-			router,
+		LabelDelete: router.NewUnaryServer[label.DeleteRequest, types.Nil](
 			"/api/v1/label/delete",
 		),
-		LabelAdd: http.NewUnaryServer[label.AddRequest, types.Nil](
-			router,
+		LabelAdd: router.NewUnaryServer[label.AddRequest, types.Nil](
 			"/api/v1/label/set",
 		),
-		LabelRemove: http.NewUnaryServer[label.RemoveRequest, types.Nil](
-			router,
+		LabelRemove: router.NewUnaryServer[label.RemoveRequest, types.Nil](
 			"/api/v1/label/remove",
 		),
 
 		// RACK
-		RackCreate: http.NewUnaryServer[rack.CreateRequest, rack.CreateResponse](
-			router,
+		RackCreate: router.NewUnaryServer[rack.CreateRequest, rack.CreateResponse](
 			"/api/v1/rack/create",
 		),
-		RackRetrieve: http.NewUnaryServer[rack.RetrieveRequest, rack.RetrieveResponse](
-			router,
+		RackRetrieve: router.NewUnaryServer[rack.RetrieveRequest, rack.RetrieveResponse](
 			"/api/v1/rack/retrieve",
 		),
-		RackDelete: http.NewUnaryServer[rack.DeleteRequest, types.Nil](
-			router,
+		RackDelete: router.NewUnaryServer[rack.DeleteRequest, types.Nil](
 			"/api/v1/rack/delete",
 		),
 
 		// TASK
-		TaskCreate: http.NewUnaryServer[task.CreateRequest, task.CreateResponse](
-			router,
+		TaskCreate: router.NewUnaryServer[task.CreateRequest, task.CreateResponse](
 			"/api/v1/task/create",
 		),
-		TaskRetrieve: http.NewUnaryServer[task.RetrieveRequest, task.RetrieveResponse](
-			router,
+		TaskRetrieve: router.NewUnaryServer[task.RetrieveRequest, task.RetrieveResponse](
 			"/api/v1/task/retrieve",
 		),
-		TaskDelete: http.NewUnaryServer[task.DeleteRequest, types.Nil](
-			router,
+		TaskDelete: router.NewUnaryServer[task.DeleteRequest, types.Nil](
 			"/api/v1/task/delete",
 		),
-		TaskCopy: http.NewUnaryServer[task.CopyRequest, task.CopyResponse](
-			router,
+		TaskCopy: router.NewUnaryServer[task.CopyRequest, task.CopyResponse](
 			"/api/v1/task/copy",
 		),
 
 		// DEVICE
-		DeviceCreate: http.NewUnaryServer[device.CreateRequest, device.CreateResponse](
-			router,
+		DeviceCreate: router.NewUnaryServer[device.CreateRequest, device.CreateResponse](
 			"/api/v1/device/create",
 		),
-		DeviceRetrieve: http.NewUnaryServer[device.RetrieveRequest, device.RetrieveResponse](
-			router,
+		DeviceRetrieve: router.NewUnaryServer[device.RetrieveRequest, device.RetrieveResponse](
 			"/api/v1/device/retrieve",
 		),
-		DeviceDelete: http.NewUnaryServer[device.DeleteRequest, types.Nil](
-			router,
+		DeviceDelete: router.NewUnaryServer[device.DeleteRequest, types.Nil](
 			"/api/v1/device/delete",
 		),
 
 		// ACCESS
-		AccessCreatePolicy: http.NewUnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse](
-			router,
+		AccessCreatePolicy: router.NewUnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse](
 			"/api/v1/access/policy/create",
 		),
-		AccessDeletePolicy: http.NewUnaryServer[access.DeletePolicyRequest, types.Nil](
-			router,
+		AccessDeletePolicy: router.NewUnaryServer[access.DeletePolicyRequest, types.Nil](
 			"/api/v1/access/policy/delete",
 		),
-		AccessRetrievePolicy: http.NewUnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse](
-			router,
+		AccessRetrievePolicy: router.NewUnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse](
 			"/api/v1/access/policy/retrieve",
 		),
-		AccessCreateRole: http.NewUnaryServer[access.CreateRoleRequest, access.CreateRoleResponse](
-			router,
+		AccessCreateRole: router.NewUnaryServer[access.CreateRoleRequest, access.CreateRoleResponse](
 			"/api/v1/access/role/create",
 		),
-		AccessDeleteRole: http.NewUnaryServer[access.DeleteRoleRequest, types.Nil](
-			router,
+		AccessDeleteRole: router.NewUnaryServer[access.DeleteRoleRequest, types.Nil](
 			"/api/v1/access/role/delete",
 		),
-		AccessRetrieveRole: http.NewUnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
-			router,
+		AccessRetrieveRole: router.NewUnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
 			"/api/v1/access/role/retrieve",
 		),
-		AccessAssignRole: http.NewUnaryServer[access.AssignRoleRequest, types.Nil](
-			router,
+		AccessAssignRole: router.NewUnaryServer[access.AssignRoleRequest, types.Nil](
 			"/api/v1/access/role/assign",
 		),
-		AccessUnassignRole: http.NewUnaryServer[access.UnassignRoleRequest, types.Nil](
-			router,
+		AccessUnassignRole: router.NewUnaryServer[access.UnassignRoleRequest, types.Nil](
 			"/api/v1/access/role/unassign",
 		),
 
 		// ARC
-		ArcCreate: http.NewUnaryServer[arc.CreateRequest, arc.CreateResponse](
-			router,
+		ArcCreate: router.NewUnaryServer[arc.CreateRequest, arc.CreateResponse](
 			"/api/v1/arc/create",
 		),
-		ArcDelete: http.NewUnaryServer[arc.DeleteRequest, types.Nil](
-			router,
+		ArcDelete: router.NewUnaryServer[arc.DeleteRequest, types.Nil](
 			"/api/v1/arc/delete",
 		),
-		ArcRetrieve: http.NewUnaryServer[arc.RetrieveRequest, arc.RetrieveResponse](
-			router,
+		ArcRetrieve: router.NewUnaryServer[arc.RetrieveRequest, arc.RetrieveResponse](
 			"/api/v1/arc/retrieve",
 		),
-		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, types.Nil](
-			router,
+		ArcDispatch: router.NewUnaryServer[arc.DispatchRequest, types.Nil](
 			"/api/v1/arc/dispatch",
 		),
-		ArcSetRack: http.NewUnaryServer[arc.SetRackRequest, arc.SetRackResponse](
-			router,
+		ArcSetRack: router.NewUnaryServer[arc.SetRackRequest, arc.SetRackResponse](
 			"/api/v1/arc/set-rack",
 		),
-		ArcLSP: http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](
-			router,
+		ArcLSP: router.NewStreamServer[arc.LSPMessage, arc.LSPMessage](
 			"/api/v1/arc/lsp",
 		),
 
 		// STATUS
-		StatusSet: http.NewUnaryServer[status.SetRequest, status.SetResponse](
-			router,
+		StatusSet: router.NewUnaryServer[status.SetRequest, status.SetResponse](
 			"/api/v1/status/set",
 		),
-		StatusRetrieve: http.NewUnaryServer[status.RetrieveRequest, status.RetrieveResponse](
-			router,
+		StatusRetrieve: router.NewUnaryServer[status.RetrieveRequest, status.RetrieveResponse](
 			"/api/v1/status/retrieve",
 		),
-		StatusDelete: http.NewUnaryServer[status.DeleteRequest, types.Nil](
-			router,
+		StatusDelete: router.NewUnaryServer[status.DeleteRequest, types.Nil](
 			"/api/v1/status/delete",
 		),
-		StatusSetByKeyOrName: http.NewUnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse](
-			router,
+		StatusSetByKeyOrName: router.NewUnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse](
 			"/api/v1/status/set-by-key-or-name",
 		),
 
 		// VIEW
-		ViewCreate: http.NewUnaryServer[view.CreateRequest, view.CreateResponse](
-			router,
+		ViewCreate: router.NewUnaryServer[view.CreateRequest, view.CreateResponse](
 			"/api/v1/view/create",
 		),
-		ViewRetrieve: http.NewUnaryServer[view.RetrieveRequest, view.RetrieveResponse](
-			router,
+		ViewRetrieve: router.NewUnaryServer[view.RetrieveRequest, view.RetrieveResponse](
 			"/api/v1/view/retrieve",
 		),
-		ViewDelete: http.NewUnaryServer[view.DeleteRequest, types.Nil](
-			router,
+		ViewDelete: router.NewUnaryServer[view.DeleteRequest, types.Nil](
 			"/api/v1/view/delete",
 		),
 
 		// IMPORT/EXPORT
-		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](
-			router,
+		ImExImport: router.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](
 			"/api/v1/imex/import",
 			http.WithRequestDecoders(json.Codec),
 		),
-		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
-			router,
+		ImExExport: router.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](
 			"/api/v1/imex/export",
 			http.WithResponseEncoders(imex.JSONCodec),
 		),

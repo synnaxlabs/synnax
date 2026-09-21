@@ -46,8 +46,8 @@ type UnaryClientConfig struct {
 // Validate implements config.Config.
 func (c UnaryClientConfig) Validate() error {
 	v := validate.New("http.unary_client")
-	validate.NotNil(v, "encoder", c.Encoder)
-	validate.NotEmptySlice(v, "decoders", c.Decoders)
+	v.NotNil("encoder", c.Encoder)
+	v.NotEmptySlice("decoders", c.Decoders)
 	return v.Error()
 }
 

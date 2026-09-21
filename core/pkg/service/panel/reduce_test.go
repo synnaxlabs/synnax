@@ -97,7 +97,7 @@ var _ = Describe("Reduce", func() {
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
 		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ResourceTab{
-			TabBase:  panel.TabBase{Key: k},
+			Key:      k,
 			Resource: tabResource(other),
 		}}))
 	})
@@ -111,8 +111,8 @@ var _ = Describe("Reduce", func() {
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
 		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.ViewTab{
-			TabBase: panel.TabBase{Key: k},
-			View:    view,
+			Key:  k,
+			View: view,
 		}}))
 	})
 

@@ -1143,6 +1143,25 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
+   * @returns a copy sized to exactly the samples held, or this series when it has no
+   * spare capacity. The copy is a separate object, so a caller holding the original by
+   * reference or by an acquired GPU buffer must keep using it.
+   */
+  compact(): Series {
+    if (this.writePos === FULL_BUFFER || this.writePos === this.capacity) return this;
+    return new Series({
+      data: this.data.slice(),
+      dataType: this.dataType,
+      timeRange: this.timeRange,
+      sampleOffset: this.sampleOffset,
+      glBufferUsage: this.gl.bufferUsage,
+      alignment: this.alignment,
+      alignmentMultiple: this.alignmentMultiple,
+      key: this.key,
+    });
+  }
+
+  /**
    * Creates a new series with a different alignment.
    * @returns A new series with the specified alignment.
    */
@@ -1436,9 +1455,6 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * as the existing series in this collection.
    * @throws Error if the series being added has a different data type
    */
-  push(series: Series<T>): void;
-  push(series: MultiSeries<T>): void;
-
   push(series: Series<T> | MultiSeries<T>): void {
     const invalidDataTypeError = () =>
       new Error(

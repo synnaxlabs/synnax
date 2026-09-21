@@ -55,8 +55,8 @@ var _ config.Config[Config] = Config{}
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("signals")
-	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "framer", c.Framer)
+	v.NotNil("channel", c.Channel)
+	v.NotNil("framer", c.Framer)
 	return v.Error()
 }
 

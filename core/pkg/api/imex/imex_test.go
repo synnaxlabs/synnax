@@ -198,7 +198,7 @@ var _ = Describe("ResolveEncoding", func() {
 			SVG string `json:"svg"`
 		}
 		env := imex.Envelope{Version: 1, Type: "symbol", Name: "valve"}
-		Expect(imex.Encode(&env, symbol{SVG: `<svg id="a"/>`})).To(Succeed())
+		Expect(env.Encode(symbol{SVG: `<svg id="a"/>`})).To(Succeed())
 		Expect(string(MustSucceed(enc.Encode(ctx, env)))).
 			To(ContainSubstring(`"<svg id=\"a\"/>"`))
 	})

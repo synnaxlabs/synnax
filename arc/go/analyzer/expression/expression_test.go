@@ -1127,7 +1127,8 @@ var _ = Describe("Expressions", func() {
 					arr series i32 := [1, 2, 3]
 					x := arr[undefinedIdx]
 				}
-			`, nil, "undefined symbol")
+			`, nil, "undefined symbol",
+			)
 		})
 	})
 

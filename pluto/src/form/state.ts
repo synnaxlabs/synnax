@@ -9,7 +9,7 @@
 
 import { type status } from "@synnaxlabs/client";
 import { deep, map, observe, zod } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { z } from "zod";
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -245,10 +245,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     );
   }
 
-  getState<V>(path: string, opts?: RequiredGetOptions): FieldState<V>;
-  getState<V>(path: string, opts?: DefaultGetOptions<V>): FieldState<V>;
-  getState<V>(path: string, opts?: OptionalGetOptions): FieldState<V> | null;
-  getState<V>(path: string, opts?: ExtensionGetOptions<V>): FieldState<V> | null;
+  getState<V>(
+    path: string,
+    opts?: RequiredGetOptions | DefaultGetOptions<V>,
+  ): FieldState<V>;
+  getState<V>(
+    path: string,
+    opts?: OptionalGetOptions | ExtensionGetOptions<V>,
+  ): FieldState<V> | null;
 
   getState<V>(path: string, opts: GetOptions<V> = {}): FieldState<V> | null {
     const { optional = false, defaultValue = undefined } = opts;
@@ -265,8 +269,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     cachedRef.required = false;
     if (this.schema != null) {
       const fieldSchema = zod.getFieldSchema(this.schema, path, { optional: true });
-      if (fieldSchema != null)
-        cachedRef.required = !fieldSchema.safeParse(undefined).success;
+      if (fieldSchema != null) cachedRef.required = !z.validate(fieldSchema, undefined);
     }
     cachedRef.status = map.getOrSetDefault(this.statuses, path, {
       key: path,

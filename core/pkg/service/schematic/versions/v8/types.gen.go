@@ -64,6 +64,6 @@ type Schematic struct {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	validate.NotEmptyString(v, "name", s.Name)
+	v.NotEmptyString("name", s.Name)
 	return v.Error()
 }

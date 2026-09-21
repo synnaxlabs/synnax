@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { crdt, id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
 import { AccessDeniedError } from "@/errors";
@@ -41,7 +41,15 @@ describe("arc", () => {
     });
   });
 
+  // A dispatch posts its ops to the Core, and the materialized text reaches this
+  // client's cache through the change stream, so reads after one poll. The stream must
+  // be live before the first dispatch: a missed echo leaves the dispatch outstanding
+  // and the cache pinned to the pre-dispatch document.
   describe("dispatch", () => {
+    beforeAll(async () => {
+      await waitForStreamLive(client.connection);
+    });
+
     it("materializes insert_char ops into the document's raw text", async () => {
       const created = await client.arcs.create(newTextArc(`dispatch-${id.create()}`));
       const gen = new crdt.Text(2);
@@ -61,8 +69,9 @@ describe("arc", () => {
       const insertOps = gen.insert(0, "hello").map((op) => arc.insertChar(op));
       const deleteOps = gen.delete(0, 1).map((op) => arc.deleteChar(op));
       await client.arcs.dispatch(created.key, [...insertOps, ...deleteOps]);
-      const res = await client.arcs.retrieve(created.key);
-      expect(res.text.raw).toEqual("ello");
+      await expect
+        .poll(async () => (await client.arcs.retrieve(created.key)).text.raw)
+        .toEqual("ello");
     });
 
     it("reclaims tombstoned characters via a forget_chars dispatch", async () => {
@@ -77,10 +86,16 @@ describe("arc", () => {
       await client.arcs.dispatch(created.key, [
         arc.forgetChars({ ids: deletes.map((op) => op.id) }),
       ]);
-      const res = await client.arcs.retrieve(created.key);
-      expect(res.text.raw).toEqual("hell");
-      expect(res.text.doc.deletes).toHaveLength(0);
-      expect(res.text.doc.inserts).toHaveLength(4);
+      await expect
+        .poll(async () => {
+          const { text } = await client.arcs.retrieve(created.key);
+          return {
+            raw: text.raw,
+            deletes: text.doc.deletes.length,
+            inserts: text.doc.inserts.length,
+          };
+        })
+        .toEqual({ raw: "hell", deletes: 0, inserts: 4 });
     });
   });
 

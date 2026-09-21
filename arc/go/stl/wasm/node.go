@@ -49,9 +49,8 @@ type nodeImpl struct {
 	outputValues  []result
 	memBase       uint32
 	params        []uint64
+	stack         []uint64
 	offsets       []int
-	initialized   bool
-	isEntryNode   bool
 	selIdx        int
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
@@ -61,17 +60,17 @@ type nodeImpl struct {
 	strings       *stlstrings.ProgramState
 }
 
-func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error) {
+func (n *nodeImpl) call(ctx context.Context) ([]result, error) {
 	for i := range n.outputValues {
 		n.outputValues[i].Changed = false
 	}
-	results, err := n.fn.Call(ctx, params...)
-	if err != nil {
+	copy(n.stack, n.params)
+	if err := n.fn.CallWithStack(ctx, n.stack); err != nil {
 		return nil, err
 	}
 	if n.memBase == 0 {
 		if len(n.outputValues) > 0 {
-			n.outputValues[0] = result{Value: results[0], Changed: true}
+			n.outputValues[0] = result{Value: n.stack[0], Changed: true}
 		}
 		return n.outputValues, nil
 	}
@@ -110,13 +109,6 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 	}()
 
-	if n.isEntryNode {
-		if n.initialized {
-			return
-		}
-		n.initialized = true
-	}
-
 	// A $sel-only change re-points without emitting; the value fires on the next input.
 	if n.selIdx >= 0 && !n.dataFresh() {
 		n.RefreshInputs()
@@ -137,7 +129,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		if t.Len() == 0 {
 			return
 		}
-		n.params[i] = uint64(telem.ValueAt[uint32](t, -1))
+		n.params[i] = uint64(t.ValueAt[uint32](-1))
 	}
 
 	// A var input references a variable's node; re-read the latest each pass.
@@ -243,7 +235,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 				n.params[j] = uint64(n.strings.Create(string(data)))
 			}
 		}
-		res, err := n.call(ctx.Context, n.params...)
+		res, err := n.call(ctx.Context)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,
@@ -292,7 +284,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.ir.Outputs {
 		if n.stringOutputs[j] {
 			out := n.Output(j)
-			out.Data = telem.NewSeriesV[string](stringResults[j]...).Data
+			out.Data = telem.NewSeriesV(stringResults[j]...).Data
 		} else {
 			n.Output(j).Resize(int64(n.offsets[j]))
 		}
@@ -305,7 +297,6 @@ func (n *nodeImpl) Next(ctx node.Context) {
 
 func (n *nodeImpl) Reset(ctx node.Context) {
 	n.State.Reset(ctx)
-	n.initialized = false
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.ClearNode(n.ir.Key)
 	}

@@ -132,10 +132,10 @@ type ModuleConfig struct {
 
 func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	v := validate.New("arc.ranges")
-	validate.NotNil(v, "ranger", cfg.Ranger)
-	validate.NotNil(v, "reporter", cfg.Reporter)
+	v.NotNil("ranger", cfg.Ranger)
+	v.NotNil("reporter", cfg.Reporter)
 	if cfg.Runtime != nil {
-		validate.NotNil(v, "strings", cfg.Strings)
+		v.NotNil("strings", cfg.Strings)
 	}
 	if err := v.Error(); err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 	return m, nil
 }
 
-func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (m *module) Create(cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case createMemberName:
 		if err := createSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
@@ -213,8 +213,8 @@ func (n *createNode) Next(ctx node.Context) {
 	key := dispatchCreate(ctx, n.rng, n.report,
 		n.StringInput("name"), n.StringInput("parent"), n.StringInput("color"))
 	*n.Output(0) = telem.NewSeriesV(key)
-	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
-	ctx.MarkChanged(0)
+	*n.OutputTime(0) = telem.NewSeriesV(ctx.Now)
+	n.Emit(ctx, 0)
 }
 
 // dispatchCreate creates an open range that starts now, parsing the color and parent
@@ -270,8 +270,8 @@ type endNode struct {
 func (n *endNode) Next(ctx node.Context) {
 	key := dispatchEnd(ctx, n.rng, n.report, n.StringInput("key"))
 	*n.Output(0) = telem.NewSeriesV(key)
-	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
-	ctx.MarkChanged(0)
+	*n.OutputTime(0) = telem.NewSeriesV(ctx.Now)
+	n.Emit(ctx, 0)
 }
 
 // dispatchEnd sets the end bound on the range identified by key to now, reporting
