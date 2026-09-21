@@ -127,92 +127,88 @@ describe("CounterRead", () => {
     expect(screen.queryByText("Measurement method")).toBeNull();
   });
 
-  describe("deploying against a live Core", () => {
-    it("should create counter channels and update the device", async () => {
-      const dev = await createNIDevice(client);
-      const namedChannel = uniqueName("ctr_named");
-      const rendered = await renderCounterRead(
-        createConfig([
-          createChannel("ci_frequency", 0, { device: dev.key }),
-          createChannel("ci_edge_count", 1, { device: dev.key, name: namedChannel }),
-        ]),
-      );
-      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
-      const created = await client.tasks.retrieve({
-        key: rendered.draft.key,
-        schemas: NI.Task.COUNTER_READ_SCHEMAS,
-      });
-      expect(created.type).toBe(NI.Task.COUNTER_READ_TYPE);
-      expect(created.rack).toBe(dev.rack);
-      const [c0, c1] = created.config.channels;
-      expect(c0.channel).not.toBe(0);
-      expect(c1.channel).not.toBe(0);
-
-      const identifier = dev.properties.identifier;
-      const defaultNamed = await client.channels.retrieve(c0.channel);
-      expect(defaultNamed.name).toBe(`${identifier}_ctr_0`);
-      const named = await client.channels.retrieve(c1.channel);
-      expect(named.name).toBe(namedChannel);
-
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: NI.Device.SCHEMAS,
-      });
-      expect(updated.properties.counterInput.channels["0"]).toBe(c0.channel);
-      expect(updated.properties.counterInput.channels["1"]).toBe(c1.channel);
-      const index = await client.channels.retrieve(
-        updated.properties.counterInput.index,
-      );
-      expect(index.name).toBe(`${identifier}_ctr_time`);
-      expect(index.isIndex).toBe(true);
-    });
-
-    it("should bind a new entry to the channel the device already maps", async () => {
-      const dev = await createNIDevice(client);
-      const config = createConfig([
+  it("should create counter channels and update the device", async () => {
+    const dev = await createNIDevice(client);
+    const namedChannel = uniqueName("ctr_named");
+    const rendered = await renderCounterRead(
+      createConfig([
         createChannel("ci_frequency", 0, { device: dev.key }),
-      ]);
-      const first = await renderCounterRead(config);
-      await deployAndAwaitTask(client, first.container, first.draft.key);
-      const firstTask = await client.tasks.retrieve({
-        key: first.draft.key,
+        createChannel("ci_edge_count", 1, { device: dev.key, name: namedChannel }),
+      ]),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+    const created = await client.tasks.retrieve({
+      key: rendered.draft.key,
+      schemas: NI.Task.COUNTER_READ_SCHEMAS,
+    });
+    expect(created.type).toBe(NI.Task.COUNTER_READ_TYPE);
+    expect(created.rack).toBe(dev.rack);
+    const [c0, c1] = created.config.channels;
+    expect(c0.channel).not.toBe(0);
+    expect(c1.channel).not.toBe(0);
+
+    const identifier = dev.properties.identifier;
+    const defaultNamed = await client.channels.retrieve(c0.channel);
+    expect(defaultNamed.name).toBe(`${identifier}_ctr_0`);
+    const named = await client.channels.retrieve(c1.channel);
+    expect(named.name).toBe(namedChannel);
+
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: NI.Device.SCHEMAS,
+    });
+    expect(updated.properties.counterInput.channels["0"]).toBe(c0.channel);
+    expect(updated.properties.counterInput.channels["1"]).toBe(c1.channel);
+    const index = await client.channels.retrieve(updated.properties.counterInput.index);
+    expect(index.name).toBe(`${identifier}_ctr_time`);
+    expect(index.isIndex).toBe(true);
+  });
+
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createNIDevice(client);
+    const config = createConfig([
+      createChannel("ci_frequency", 0, { device: dev.key }),
+    ]);
+    const first = await renderCounterRead(config);
+    await deployAndAwaitTask(client, first.container, first.draft.key);
+    const firstTask = await client.tasks.retrieve({
+      key: first.draft.key,
+      schemas: NI.Task.COUNTER_READ_SCHEMAS,
+    });
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const second = await renderCounterRead(config);
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: second.draft.key,
         schemas: NI.Task.COUNTER_READ_SCHEMAS,
       });
-      first.unmount();
-      const existing = await client.channels.retrieve(
-        firstTask.config.channels[0].channel,
-      );
-      const second = await renderCounterRead(config);
-      await screen.findByText(existing.name);
-      await waitFor(async () => {
-        const saved = await client.tasks.retrieve({
-          key: second.draft.key,
-          schemas: NI.Task.COUNTER_READ_SCHEMAS,
-        });
-        expect(saved.config.channels[0].channel).toBe(existing.key);
-      });
+      expect(saved.config.channels[0].channel).toBe(existing.key);
     });
+  });
 
-    it("should surface an error when the task has no channels", async () => {
-      const { statuses, container } = await renderCounterRead(createConfig([]));
-      await clickDeploy(container);
-      await awaitStatusDescription(statuses, /No device selected/);
-    });
+  it("should surface an error when the task has no channels", async () => {
+    const { statuses, container } = await renderCounterRead(createConfig([]));
+    await clickDeploy(container);
+    await awaitStatusDescription(statuses, /No device selected/);
+  });
 
-    it("should surface an error when channels span devices on different racks", async () => {
-      const devA = await createNIDevice(client);
-      const devB = await createNIDevice(client);
-      const { statuses, container } = await renderCounterRead(
-        createConfig([
-          createChannel("ci_frequency", 0, { device: devA.key }),
-          createChannel("ci_frequency", 1, { device: devB.key }),
-        ]),
-      );
-      await clickDeploy(container);
-      await awaitStatusDescription(
-        statuses,
-        /Cannot create task with channels from multiple racks/,
-      );
-    });
+  it("should surface an error when channels span devices on different racks", async () => {
+    const devA = await createNIDevice(client);
+    const devB = await createNIDevice(client);
+    const { statuses, container } = await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { device: devA.key }),
+        createChannel("ci_frequency", 1, { device: devB.key }),
+      ]),
+    );
+    await clickDeploy(container);
+    await awaitStatusDescription(
+      statuses,
+      /Cannot create task with channels from multiple racks/,
+    );
   });
 });

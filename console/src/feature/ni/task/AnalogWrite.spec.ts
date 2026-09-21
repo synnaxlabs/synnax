@@ -105,114 +105,10 @@ describe("AnalogWrite", () => {
     expect(screen.queryByText("Custom scaling")).toBeNull();
   });
 
-  describe("deploying against a live Core", () => {
-    it("should create command and state channels and update the device", async () => {
-      const dev = await createNIDevice(client);
-      const rendered = await renderAnalogWrite(
-        createConfig(
-          [
-            createChannel("ao_voltage", 0, {
-              cmdChannelName: "",
-              stateChannelName: "",
-            }),
-          ],
-          dev.key,
-        ),
-      );
-      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
-      const created = await client.tasks.retrieve({
-        key: rendered.draft.key,
-        schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
-      });
-      expect(created.type).toBe(NI.Task.ANALOG_WRITE_TYPE);
-      expect(created.rack).toBe(dev.rack);
-      const [c0] = created.config.channels;
-      expect(c0.cmdChannel).not.toBe(0);
-      expect(c0.stateChannel).not.toBe(0);
-
-      const identifier = dev.properties.identifier;
-      const cmd = await client.channels.retrieve(c0.cmdChannel);
-      expect(cmd.name).toBe(`${identifier}_ao_0_cmd`);
-      const state = await client.channels.retrieve(c0.stateChannel);
-      expect(state.name).toBe(`${identifier}_ao_0_state`);
-      const cmdIndex = await client.channels.retrieve(cmd.index);
-      expect(cmdIndex.name).toBe(`${identifier}_ao_0_cmd_time`);
-      expect(cmdIndex.isIndex).toBe(true);
-
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: NI.Device.SCHEMAS,
-      });
-      expect(updated.properties.analogOutput.stateIndex).not.toBe(0);
-      expect(updated.properties.analogOutput.channels["0"]).toEqual({
-        command: c0.cmdChannel,
-        state: c0.stateChannel,
-      });
-      const stateIndex = await client.channels.retrieve(
-        updated.properties.analogOutput.stateIndex,
-      );
-      expect(stateIndex.name).toBe(`${identifier}_ao_state_time`);
-    });
-
-    it("should use custom command and state channel names when provided", async () => {
-      const dev = await createNIDevice(client);
-      const cmdName = uniqueName("ao_cmd");
-      const stateName = uniqueName("ao_state");
-      const rendered = await renderAnalogWrite(
-        createConfig(
-          [
-            createChannel("ao_voltage", 0, {
-              cmdChannelName: cmdName,
-              stateChannelName: stateName,
-            }),
-          ],
-          dev.key,
-        ),
-      );
-      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
-      const created = await client.tasks.retrieve({
-        key: rendered.draft.key,
-        schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
-      });
-      const [c0] = created.config.channels;
-      const cmd = await client.channels.retrieve(c0.cmdChannel);
-      expect(cmd.name).toBe(cmdName);
-      const state = await client.channels.retrieve(c0.stateChannel);
-      expect(state.name).toBe(stateName);
-      const cmdIndex = await client.channels.retrieve(cmd.index);
-      expect(cmdIndex.name).toBe(`${cmdName}_time`);
-    });
-
-    it("should bind a new entry to the channel the device already maps", async () => {
-      const dev = await createNIDevice(client);
-      const config = createConfig(
-        [createChannel("ao_voltage", 0, { cmdChannelName: "", stateChannelName: "" })],
-        dev.key,
-      );
-      const first = await renderAnalogWrite(config);
-      await deployAndAwaitTask(client, first.container, first.draft.key);
-      const firstTask = await client.tasks.retrieve({
-        key: first.draft.key,
-        schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
-      });
-      first.unmount();
-      const [bound] = firstTask.config.channels;
-      const cmd = await client.channels.retrieve(bound.cmdChannel);
-      const second = await renderAnalogWrite(config);
-      await screen.findByText(cmd.name);
-      await waitFor(async () => {
-        const saved = await client.tasks.retrieve({
-          key: second.draft.key,
-          schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
-        });
-        expect(saved.config.channels[0].cmdChannel).toBe(bound.cmdChannel);
-        expect(saved.config.channels[0].stateChannel).toBe(bound.stateChannel);
-      });
-    });
-
-    it("should reuse existing channels when redeployed", async () => {
-      const dev = await createNIDevice(client);
-      const config = createConfig(
+  it("should create command and state channels and update the device", async () => {
+    const dev = await createNIDevice(client);
+    const rendered = await renderAnalogWrite(
+      createConfig(
         [
           createChannel("ao_voltage", 0, {
             cmdChannelName: "",
@@ -220,28 +116,130 @@ describe("AnalogWrite", () => {
           }),
         ],
         dev.key,
-      );
-      const first = await renderAnalogWrite(config);
-      await deployAndAwaitTask(client, first.container, first.draft.key);
-      const firstTask = await client.tasks.retrieve({
-        key: first.draft.key,
+      ),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+    const created = await client.tasks.retrieve({
+      key: rendered.draft.key,
+      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+    });
+    expect(created.type).toBe(NI.Task.ANALOG_WRITE_TYPE);
+    expect(created.rack).toBe(dev.rack);
+    const [c0] = created.config.channels;
+    expect(c0.cmdChannel).not.toBe(0);
+    expect(c0.stateChannel).not.toBe(0);
+
+    const identifier = dev.properties.identifier;
+    const cmd = await client.channels.retrieve(c0.cmdChannel);
+    expect(cmd.name).toBe(`${identifier}_ao_0_cmd`);
+    const state = await client.channels.retrieve(c0.stateChannel);
+    expect(state.name).toBe(`${identifier}_ao_0_state`);
+    const cmdIndex = await client.channels.retrieve(cmd.index);
+    expect(cmdIndex.name).toBe(`${identifier}_ao_0_cmd_time`);
+    expect(cmdIndex.isIndex).toBe(true);
+
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: NI.Device.SCHEMAS,
+    });
+    expect(updated.properties.analogOutput.stateIndex).not.toBe(0);
+    expect(updated.properties.analogOutput.channels["0"]).toEqual({
+      command: c0.cmdChannel,
+      state: c0.stateChannel,
+    });
+    const stateIndex = await client.channels.retrieve(
+      updated.properties.analogOutput.stateIndex,
+    );
+    expect(stateIndex.name).toBe(`${identifier}_ao_state_time`);
+  });
+
+  it("should use custom command and state channel names when provided", async () => {
+    const dev = await createNIDevice(client);
+    const cmdName = uniqueName("ao_cmd");
+    const stateName = uniqueName("ao_state");
+    const rendered = await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_voltage", 0, {
+            cmdChannelName: cmdName,
+            stateChannelName: stateName,
+          }),
+        ],
+        dev.key,
+      ),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+    const created = await client.tasks.retrieve({
+      key: rendered.draft.key,
+      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+    });
+    const [c0] = created.config.channels;
+    const cmd = await client.channels.retrieve(c0.cmdChannel);
+    expect(cmd.name).toBe(cmdName);
+    const state = await client.channels.retrieve(c0.stateChannel);
+    expect(state.name).toBe(stateName);
+    const cmdIndex = await client.channels.retrieve(cmd.index);
+    expect(cmdIndex.name).toBe(`${cmdName}_time`);
+  });
+
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createNIDevice(client);
+    const config = createConfig(
+      [createChannel("ao_voltage", 0, { cmdChannelName: "", stateChannelName: "" })],
+      dev.key,
+    );
+    const first = await renderAnalogWrite(config);
+    await deployAndAwaitTask(client, first.container, first.draft.key);
+    const firstTask = await client.tasks.retrieve({
+      key: first.draft.key,
+      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+    });
+    first.unmount();
+    const [bound] = firstTask.config.channels;
+    const cmd = await client.channels.retrieve(bound.cmdChannel);
+    const second = await renderAnalogWrite(config);
+    await screen.findByText(cmd.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: second.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
-      first.unmount();
-      const second = await renderAnalogWrite(config);
-      await deployAndAwaitTask(client, second.container, second.draft.key);
-      await waitFor(async () => {
-        const again = await client.tasks.retrieve({
-          key: second.draft.key,
-          schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
-        });
-        expect(again.config.channels[0].cmdChannel).toBe(
-          firstTask.config.channels[0].cmdChannel,
-        );
-        expect(again.config.channels[0].stateChannel).toBe(
-          firstTask.config.channels[0].stateChannel,
-        );
+      expect(saved.config.channels[0].cmdChannel).toBe(bound.cmdChannel);
+      expect(saved.config.channels[0].stateChannel).toBe(bound.stateChannel);
+    });
+  });
+
+  it("should reuse existing channels when redeployed", async () => {
+    const dev = await createNIDevice(client);
+    const config = createConfig(
+      [
+        createChannel("ao_voltage", 0, {
+          cmdChannelName: "",
+          stateChannelName: "",
+        }),
+      ],
+      dev.key,
+    );
+    const first = await renderAnalogWrite(config);
+    await deployAndAwaitTask(client, first.container, first.draft.key);
+    const firstTask = await client.tasks.retrieve({
+      key: first.draft.key,
+      schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
+    });
+    first.unmount();
+    const second = await renderAnalogWrite(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+    await waitFor(async () => {
+      const again = await client.tasks.retrieve({
+        key: second.draft.key,
+        schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
+      expect(again.config.channels[0].cmdChannel).toBe(
+        firstTask.config.channels[0].cmdChannel,
+      );
+      expect(again.config.channels[0].stateChannel).toBe(
+        firstTask.config.channels[0].stateChannel,
+      );
     });
   });
 });

@@ -45,7 +45,7 @@ const createDraft = async (
   config: task.Payload<Modbus.Task.ReadSchemas>["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
 
-describe("Modbus.Read", () => {
+describe("Read", () => {
   it("should build channels in the form and create them on the Core on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {

@@ -46,7 +46,7 @@ const createDraft = async (
   config: task.Payload<Modbus.Task.WriteSchemas>["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.WRITE_SCHEMAS);
 
-describe("Modbus.Write", () => {
+describe("Write", () => {
   it("should create command channels and indexes for the built channels on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {

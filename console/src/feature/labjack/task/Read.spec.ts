@@ -59,7 +59,7 @@ const createDraft = async (
   config: LabJack.Task.ReadPayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.READ_SCHEMAS);
 
-describe("LabJack Read", () => {
+describe("Read", () => {
   it("should prompt for a selection when the form carries no device", async () => {
     const draft = await createDraft(client, createConfig("", []));
     await renderRead({ client, taskKey: draft.key });
@@ -189,121 +189,119 @@ describe("LabJack Read", () => {
     await waitFor(() => expect(screen.getAllByText("FIO4").length).toBeGreaterThan(0));
   });
 
-  describe("deploying against a live Core", () => {
-    it("should create the index and data channels, update the device, and save the task", async () => {
-      const dev = await createLabJackDevice(client);
-      const namedChannel = uniqueName("lj_named");
-      const draft = await createDraft(
-        client,
-        createConfig(dev.key, [
-          createAnalogReadChannel("AIN0"),
-          createDigitalReadChannel("DIO8", { name: namedChannel }),
-        ]),
-      );
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        LabJack.Task.READ_SCHEMAS,
-      );
-      expect(created.type).toBe(LabJack.Task.READ_TYPE);
-      expect(created.rack).toBe(dev.rack);
-      const [ai, di] = created.config.channels;
-      expect(ai.channel).not.toBe(0);
-      expect(di.channel).not.toBe(0);
+  it("should create the index and data channels, update the device, and save the task", async () => {
+    const dev = await createLabJackDevice(client);
+    const namedChannel = uniqueName("lj_named");
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogReadChannel("AIN0"),
+        createDigitalReadChannel("DIO8", { name: namedChannel }),
+      ]),
+    );
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      LabJack.Task.READ_SCHEMAS,
+    );
+    expect(created.type).toBe(LabJack.Task.READ_TYPE);
+    expect(created.rack).toBe(dev.rack);
+    const [ai, di] = created.config.channels;
+    expect(ai.channel).not.toBe(0);
+    expect(di.channel).not.toBe(0);
 
-      const identifier = dev.properties.identifier;
-      const aiChannel = await client.channels.retrieve(ai.channel);
-      expect(aiChannel.name).toBe(`${identifier}_AIN0`);
-      expect(aiChannel.dataType.toString()).toBe("float32");
-      const diChannel = await client.channels.retrieve(di.channel);
-      expect(diChannel.name).toBe(namedChannel);
-      expect(diChannel.dataType.toString()).toBe("uint8");
+    const identifier = dev.properties.identifier;
+    const aiChannel = await client.channels.retrieve(ai.channel);
+    expect(aiChannel.name).toBe(`${identifier}_AIN0`);
+    expect(aiChannel.dataType.toString()).toBe("float32");
+    const diChannel = await client.channels.retrieve(di.channel);
+    expect(diChannel.name).toBe(namedChannel);
+    expect(diChannel.dataType.toString()).toBe("uint8");
 
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: LabJack.Device.SCHEMAS,
-      });
-      expect(updated.properties.readIndex).not.toBe(0);
-      expect(updated.properties.AI.channels.AIN0).toBe(ai.channel);
-      expect(updated.properties.DI.channels.DIO8).toBe(di.channel);
-      const index = await client.channels.retrieve(updated.properties.readIndex);
-      expect(index.name).toBe(`${identifier}_time`);
-      expect(index.isIndex).toBe(true);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: LabJack.Device.SCHEMAS,
     });
+    expect(updated.properties.readIndex).not.toBe(0);
+    expect(updated.properties.AI.channels.AIN0).toBe(ai.channel);
+    expect(updated.properties.DI.channels.DIO8).toBe(di.channel);
+    const index = await client.channels.retrieve(updated.properties.readIndex);
+    expect(index.name).toBe(`${identifier}_time`);
+    expect(index.isIndex).toBe(true);
+  });
 
-    it("should bind a new entry to the channel the device already maps", async () => {
-      const dev = await createLabJackDevice(client);
-      const config = createConfig(dev.key, [createAnalogReadChannel("AIN0")]);
-      const firstDraft = await createDraft(client, config);
-      const first = await renderRead({ client, taskKey: firstDraft.key });
-      const firstTask = await deployAndAwaitTask(
-        client,
-        first.container,
-        firstDraft.key,
-        LabJack.Task.READ_SCHEMAS,
-      );
-      first.unmount();
-      const existing = await client.channels.retrieve(
-        firstTask.config.channels[0].channel,
-      );
-      const secondDraft = await createDraft(client, config);
-      await renderRead({ client, taskKey: secondDraft.key });
-      await screen.findByText(existing.name);
-      await waitFor(async () => {
-        const saved = await client.tasks.retrieve({
-          key: secondDraft.key,
-          schemas: LabJack.Task.READ_SCHEMAS,
-        });
-        expect(saved.config.channels[0].channel).toBe(existing.key);
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createLabJackDevice(client);
+    const config = createConfig(dev.key, [createAnalogReadChannel("AIN0")]);
+    const firstDraft = await createDraft(client, config);
+    const first = await renderRead({ client, taskKey: firstDraft.key });
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      LabJack.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const secondDraft = await createDraft(client, config);
+    await renderRead({ client, taskKey: secondDraft.key });
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: secondDraft.key,
+        schemas: LabJack.Task.READ_SCHEMAS,
       });
+      expect(saved.config.channels[0].channel).toBe(existing.key);
     });
+  });
 
-    it("should reuse existing channels when redeployed", async () => {
-      const dev = await createLabJackDevice(client);
-      const config = createConfig(dev.key, [createAnalogReadChannel("AIN0")]);
-      const firstDraft = await createDraft(client, config);
-      const first = await renderRead({ client, taskKey: firstDraft.key });
-      const firstTask = await deployAndAwaitTask(
-        client,
-        first.container,
-        firstDraft.key,
-        LabJack.Task.READ_SCHEMAS,
-      );
-      first.unmount();
+  it("should reuse existing channels when redeployed", async () => {
+    const dev = await createLabJackDevice(client);
+    const config = createConfig(dev.key, [createAnalogReadChannel("AIN0")]);
+    const firstDraft = await createDraft(client, config);
+    const first = await renderRead({ client, taskKey: firstDraft.key });
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      LabJack.Task.READ_SCHEMAS,
+    );
+    first.unmount();
 
-      const secondDraft = await createDraft(client, config);
-      const second = await renderRead({ client, taskKey: secondDraft.key });
-      const secondTask = await deployAndAwaitTask(
-        client,
-        second.container,
-        secondDraft.key,
-        LabJack.Task.READ_SCHEMAS,
-      );
-      expect(secondTask.config.channels[0].channel).toBe(
-        firstTask.config.channels[0].channel,
-      );
+    const secondDraft = await createDraft(client, config);
+    const second = await renderRead({ client, taskKey: secondDraft.key });
+    const secondTask = await deployAndAwaitTask(
+      client,
+      second.container,
+      secondDraft.key,
+      LabJack.Task.READ_SCHEMAS,
+    );
+    expect(secondTask.config.channels[0].channel).toBe(
+      firstTask.config.channels[0].channel,
+    );
+  });
+
+  it("should recreate the index when the stored one no longer exists", async () => {
+    const dev = await createLabJackDevice(client, {
+      properties: { readIndex: 999999999 },
     });
-
-    it("should recreate the index when the stored one no longer exists", async () => {
-      const dev = await createLabJackDevice(client, {
-        properties: { readIndex: 999999999 },
-      });
-      const draft = await createDraft(
-        client,
-        createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
-      );
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      await deployAndAwaitTask(client, container, draft.key, LabJack.Task.READ_SCHEMAS);
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: LabJack.Device.SCHEMAS,
-      });
-      expect(updated.properties.readIndex).not.toBe(0);
-      expect(updated.properties.readIndex).not.toBe(999999999);
-      const index = await client.channels.retrieve(updated.properties.readIndex);
-      expect(index.isIndex).toBe(true);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+    );
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await deployAndAwaitTask(client, container, draft.key, LabJack.Task.READ_SCHEMAS);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: LabJack.Device.SCHEMAS,
     });
+    expect(updated.properties.readIndex).not.toBe(0);
+    expect(updated.properties.readIndex).not.toBe(999999999);
+    const index = await client.channels.retrieve(updated.properties.readIndex);
+    expect(index.isIndex).toBe(true);
   });
 });

@@ -78,7 +78,7 @@ const awaitStatus = async (
   });
 };
 
-describe("EtherCAT Read", () => {
+describe("Read", () => {
   it("should render channels from the task row's config with their port labels", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
@@ -151,141 +151,137 @@ describe("EtherCAT Read", () => {
     await waitFor(() => expect(screen.getByText(slave.name)).toBeTruthy());
   });
 
-  describe("deploying against a live Core", () => {
-    it("should create the index and data channels, update the slave, and save the task", async () => {
-      const identifier = createIdentifier();
-      const namedChannel = uniqueName("ecat_named");
-      const slave = await createSlaveDevice(client, testRack.key, {
-        identifier,
-        network: "eth0",
-        pdos: createPDOs(),
-      });
-      const { container, draft } = await renderRead({
-        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [
-          createAutoReadChannel(slave.key, "Status"),
-          createManualReadChannel(slave.key, 0x6001, 2, { name: namedChannel }),
-        ],
-      });
-      const created = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        EtherCAT.Task.READ_SCHEMAS,
-      );
-      expect(created.type).toBe(EtherCAT.Task.READ_TYPE);
-      expect(created.rack).toBe(testRack.key);
-      const [auto, manual] = created.config.channels;
-      expect(auto.channel).not.toBe(0);
-      expect(manual.channel).not.toBe(0);
-
-      const autoChannel = await client.channels.retrieve(auto.channel);
-      expect(autoChannel.name).toBe(`${identifier}_Status`);
-      expect(autoChannel.dataType.toString()).toBe("uint16");
-      const named = await client.channels.retrieve(manual.channel);
-      expect(named.name).toBe(namedChannel);
-
-      const updated = await client.devices.retrieve({
-        key: slave.key,
-        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
-      });
-      expect(updated.properties.readIndex).not.toBe(0);
-      expect(updated.properties.read.channels.auto_Status).toBe(auto.channel);
-      expect(updated.properties.read.channels[`manual_${0x6001}_2`]).toBe(
-        manual.channel,
-      );
-      const index = await client.channels.retrieve(updated.properties.readIndex);
-      expect(index.name).toBe(`${identifier}_time`);
-      expect(index.isIndex).toBe(true);
+  it("should create the index and data channels, update the slave, and save the task", async () => {
+    const identifier = createIdentifier();
+    const namedChannel = uniqueName("ecat_named");
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
     });
-
-    it("should bind a new entry to the channel the device already maps", async () => {
-      const slave = await createSlaveDevice(client, testRack.key, {
-        identifier: createIdentifier(),
-        network: "eth0",
-        pdos: createPDOs(),
-      });
-      const config = {
-        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createAutoReadChannel(slave.key, "Status")],
-      };
-      const first = await renderRead(config);
-      const firstTask = await deployAndAwaitTask(
-        client,
-        first.container,
-        first.draft.key,
-        EtherCAT.Task.READ_SCHEMAS,
-      );
-      first.unmount();
-      const existing = await client.channels.retrieve(
-        firstTask.config.channels[0].channel,
-      );
-      const second = await renderRead(config);
-      await screen.findByText(existing.name);
-      await waitFor(async () => {
-        const saved = await client.tasks.retrieve({
-          key: second.draft.key,
-          schemas: EtherCAT.Task.READ_SCHEMAS,
-        });
-        expect(saved.config.channels[0].channel).toBe(existing.key);
-      });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createAutoReadChannel(slave.key, "Status"),
+        createManualReadChannel(slave.key, 0x6001, 2, { name: namedChannel }),
+      ],
     });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.type).toBe(EtherCAT.Task.READ_TYPE);
+    expect(created.rack).toBe(testRack.key);
+    const [auto, manual] = created.config.channels;
+    expect(auto.channel).not.toBe(0);
+    expect(manual.channel).not.toBe(0);
 
-    it("should reuse the existing index and channels when redeployed", async () => {
-      const slave = await createSlaveDevice(client, testRack.key, {
-        identifier: createIdentifier(),
-        network: "eth0",
-        pdos: createPDOs(),
-      });
-      const config = {
-        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createAutoReadChannel(slave.key, "Status")],
-      };
-      const first = await renderRead(config);
-      const firstTask = await deployAndAwaitTask(
-        client,
-        first.container,
-        first.draft.key,
-        EtherCAT.Task.READ_SCHEMAS,
-      );
-      first.unmount();
+    const autoChannel = await client.channels.retrieve(auto.channel);
+    expect(autoChannel.name).toBe(`${identifier}_Status`);
+    expect(autoChannel.dataType.toString()).toBe("uint16");
+    const named = await client.channels.retrieve(manual.channel);
+    expect(named.name).toBe(namedChannel);
 
-      const second = await renderRead(config);
-      const secondTask = await deployAndAwaitTask(
-        client,
-        second.container,
-        second.draft.key,
-        EtherCAT.Task.READ_SCHEMAS,
-      );
-      expect(secondTask.config.channels[0].channel).toBe(
-        firstTask.config.channels[0].channel,
-      );
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
+    expect(updated.properties.readIndex).not.toBe(0);
+    expect(updated.properties.read.channels.auto_Status).toBe(auto.channel);
+    expect(updated.properties.read.channels[`manual_${0x6001}_2`]).toBe(manual.channel);
+    const index = await client.channels.retrieve(updated.properties.readIndex);
+    expect(index.name).toBe(`${identifier}_time`);
+    expect(index.isIndex).toBe(true);
+  });
 
-    it("should surface an error when the task has no channels", async () => {
-      const { container, statuses } = await renderRead({
-        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [],
-      });
-      await clickDeploy(container);
-      await awaitStatus(statuses, /Failed to/);
-      await awaitStatus(statuses, /No channels configured/);
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
     });
+    const config = {
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status")],
+    };
+    const first = await renderRead(config);
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const second = await renderRead(config);
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: second.draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].channel).toBe(existing.key);
+    });
+  });
 
-    it("should surface an error when a slave is not configured", async () => {
-      const slave = await createSlaveDevice(
-        client,
-        testRack.key,
-        { identifier: createIdentifier(), network: "eth0", pdos: createPDOs() },
-        false,
-      );
-      const { container, statuses } = await renderRead({
-        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [createAutoReadChannel(slave.key, "Status")],
-      });
-      await clickDeploy(container);
-      await awaitStatus(statuses, /Failed to/);
-      await awaitStatus(statuses, /is not configured/);
+  it("should reuse the existing index and channels when redeployed", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
     });
+    const config = {
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status")],
+    };
+    const first = await renderRead(config);
+    const firstTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+
+    const second = await renderRead(config);
+    const secondTask = await deployAndAwaitTask(
+      client,
+      second.container,
+      second.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(secondTask.config.channels[0].channel).toBe(
+      firstTask.config.channels[0].channel,
+    );
+  });
+
+  it("should surface an error when the task has no channels", async () => {
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [],
+    });
+    await clickDeploy(container);
+    await awaitStatus(statuses, /Failed to/);
+    await awaitStatus(statuses, /No channels configured/);
+  });
+
+  it("should surface an error when a slave is not configured", async () => {
+    const slave = await createSlaveDevice(
+      client,
+      testRack.key,
+      { identifier: createIdentifier(), network: "eth0", pdos: createPDOs() },
+      false,
+    );
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createAutoReadChannel(slave.key, "Status")],
+    });
+    await clickDeploy(container);
+    await awaitStatus(statuses, /Failed to/);
+    await awaitStatus(statuses, /is not configured/);
   });
 });

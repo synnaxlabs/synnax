@@ -68,7 +68,7 @@ const ZERO_DRAFT: task.New<OPCUA.Task.WriteSchemas> = {
 const createDraft = async (client: Synnax, config: OPCUA.Task.WritePayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.WRITE_SCHEMAS);
 
-describe("OPCUA.Write", () => {
+describe("Write", () => {
   it("should create command and index channels on deploy", async () => {
     const dev = await createOPCDevice(client);
     const chA = createWriteChannel();

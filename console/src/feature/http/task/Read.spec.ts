@@ -68,7 +68,7 @@ const ZERO_DRAFT: task.New<HTTP.Task.ReadSchemas> = {
 const createDraft = async (client: Synnax, config: HTTP.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
 
-describe("HTTP Read form", () => {
+describe("Read", () => {
   it("should show the empty state and add + select an endpoint", async () => {
     await renderRead();
     await screen.findByText("Select an endpoint to configure");
@@ -165,204 +165,202 @@ describe("HTTP Read form", () => {
     await screen.findByText(/\/seeded/);
   });
 
-  describe("deploying against a live Core", () => {
-    const client = createTestClient();
+  const client = createTestClient();
 
-    it("should create index, data, and virtual channels and persist them to the device", async () => {
-      const dev = await createHTTPDevice(client);
-      const config = createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/data",
-          index: "tf",
-          fields: [
-            createReadField("f1", "/temperature"),
-            createReadField("f2", "/label", { dataType: "string" }),
-            createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
-          ],
-        },
-      ]);
-      const draft = await createDraft(client, config);
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        HTTP.Task.READ_SCHEMAS,
-      );
+  it("should create index, data, and virtual channels and persist them to the device", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createReadConfig(dev.key, [
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep1",
+        path: "/data",
+        index: "tf",
+        fields: [
+          createReadField("f1", "/temperature"),
+          createReadField("f2", "/label", { dataType: "string" }),
+          createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
+        ],
+      },
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
 
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: HTTP.Device.SCHEMAS,
-      });
-      const epProps = updated.properties.read["/data"];
-      expect(epProps.index).toBeGreaterThan(0);
-
-      const dataKey = epProps.channels["/temperature"];
-      const dataCh = await client.channels.retrieve(dataKey);
-      expect(dataCh.index).toBe(epProps.index);
-
-      const virtualKey = epProps.channels["/label"];
-      const virtualCh = await client.channels.retrieve(virtualKey);
-      expect(virtualCh.virtual).toBe(true);
-
-      const fields = created.config.endpoints[0].fields;
-      expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
-      expect(fields.find((f) => f.key === "f2")?.channel).toBe(virtualKey);
-      expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
     });
+    const epProps = updated.properties.read["/data"];
+    expect(epProps.index).toBeGreaterThan(0);
 
-    it("should bind a new field to the channel the device already stores", async () => {
-      const dev = await createHTTPDevice(client);
-      const idxCh = await client.channels.create({
-        name: uniqueName("http_idx"),
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      const dataCh = await client.channels.create({
-        name: uniqueName("http_data"),
-        dataType: "float64",
-        index: idxCh.key,
-      });
-      dev.properties = {
-        ...HTTP.Device.ZERO_PROPERTIES,
-        read: {
-          "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
-        },
-      };
-      await client.devices.create(dev);
-      const draft = await createDraft(
-        client,
-        createReadConfig(dev.key, [
-          {
-            ...http.readEndpointZ.parse({}),
-            key: "ep1",
-            path: "/data",
-            fields: [createReadField("f1", "/temperature")],
-          },
-        ]),
-      );
-      await renderRead({ client, taskKey: draft.key });
-      await waitFor(async () => {
-        const saved = await client.tasks.retrieve({
-          key: draft.key,
-          schemas: HTTP.Task.READ_SCHEMAS,
-        });
-        expect(saved.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
-      });
+    const dataKey = epProps.channels["/temperature"];
+    const dataCh = await client.channels.retrieve(dataKey);
+    expect(dataCh.index).toBe(epProps.index);
+
+    const virtualKey = epProps.channels["/label"];
+    const virtualCh = await client.channels.retrieve(virtualKey);
+    expect(virtualCh.virtual).toBe(true);
+
+    const fields = created.config.endpoints[0].fields;
+    expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
+    expect(fields.find((f) => f.key === "f2")?.channel).toBe(virtualKey);
+    expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
+  });
+
+  it("should bind a new field to the channel the device already stores", async () => {
+    const dev = await createHTTPDevice(client);
+    const idxCh = await client.channels.create({
+      name: uniqueName("http_idx"),
+      dataType: "timestamp",
+      isIndex: true,
     });
-
-    it("should reuse channels already stored on the device instead of creating new ones", async () => {
-      const dev = await createHTTPDevice(client);
-      const idxCh = await client.channels.create({
-        name: uniqueName("http_idx"),
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      const dataCh = await client.channels.create({
-        name: uniqueName("http_data"),
-        dataType: "float64",
-        index: idxCh.key,
-      });
-      dev.properties = {
-        ...HTTP.Device.ZERO_PROPERTIES,
-        read: {
-          "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
-        },
-      };
-      await client.devices.create(dev);
-      const config = createReadConfig(dev.key, [
+    const dataCh = await client.channels.create({
+      name: uniqueName("http_data"),
+      dataType: "float64",
+      index: idxCh.key,
+    });
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      read: {
+        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
+      },
+    };
+    await client.devices.create(dev);
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
         {
           ...http.readEndpointZ.parse({}),
           key: "ep1",
           path: "/data",
           fields: [createReadField("f1", "/temperature")],
         },
-      ]);
-      const draft = await createDraft(client, config);
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        HTTP.Task.READ_SCHEMAS,
-      );
-      expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: HTTP.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
     });
+  });
 
-    it("should drop a request body left over from POST when the method switches to GET", async () => {
-      const dev = await createHTTPDevice(client);
-      const config = createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/switched",
-          method: "POST",
-          body: '{"query": "latest"}',
-          fields: [createReadField("f1", "/temperature")],
-        },
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep2",
-          path: "/kept",
-          method: "POST",
-          body: '{"query": "kept"}',
-          fields: [createReadField("f2", "/pressure")],
-        },
-      ]);
-      const draft = await createDraft(client, config);
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      fireEvent.click(await screen.findByText(/\/switched/));
-      await screen.findByDisplayValue('{"query": "latest"}');
-      fireEvent.click(screen.getByRole("button", { name: "GET" }));
-      await waitFor(() =>
-        expect(screen.queryByDisplayValue('{"query": "latest"}')).toBeNull(),
-      );
-      const created = await deployAndAwaitTask(
-        client,
-        container,
-        draft.key,
-        HTTP.Task.READ_SCHEMAS,
-      );
-      const endpoints = created.config.endpoints;
-      expect(endpoints.find((e) => e.key === "ep1")?.body).toBe("");
-      expect(endpoints.find((e) => e.key === "ep2")?.body).toBe('{"query": "kept"}');
+  it("should reuse channels already stored on the device instead of creating new ones", async () => {
+    const dev = await createHTTPDevice(client);
+    const idxCh = await client.channels.create({
+      name: uniqueName("http_idx"),
+      dataType: "timestamp",
+      isIndex: true,
     });
+    const dataCh = await client.channels.create({
+      name: uniqueName("http_data"),
+      dataType: "float64",
+      index: idxCh.key,
+    });
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      read: {
+        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
+      },
+    };
+    await client.devices.create(dev);
+    const config = createReadConfig(dev.key, [
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep1",
+        path: "/data",
+        fields: [createReadField("f1", "/temperature")],
+      },
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
+    expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
+  });
 
-    it("should recover the index from an existing data channel when the stored index is gone", async () => {
-      const dev = await createHTTPDevice(client);
-      const idxCh = await client.channels.create({
-        name: uniqueName("http_idx"),
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      const dataCh = await client.channels.create({
-        name: uniqueName("http_data"),
-        dataType: "float64",
-        index: idxCh.key,
-      });
-      dev.properties = {
-        ...HTTP.Device.ZERO_PROPERTIES,
-        read: { "/data": { index: 0, channels: { "/existing": dataCh.key } } },
-      };
-      await client.devices.create(dev);
-      const config = createReadConfig(dev.key, [
-        {
-          ...http.readEndpointZ.parse({}),
-          key: "ep1",
-          path: "/data",
-          fields: [createReadField("f1", "/temperature")],
-        },
-      ]);
-      const draft = await createDraft(client, config);
-      const { container } = await renderRead({ client, taskKey: draft.key });
-      await deployAndAwaitTask(client, container, draft.key, HTTP.Task.READ_SCHEMAS);
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: HTTP.Device.SCHEMAS,
-      });
-      expect(updated.properties.read["/data"].index).toBe(idxCh.key);
+  it("should drop a request body left over from POST when the method switches to GET", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createReadConfig(dev.key, [
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep1",
+        path: "/switched",
+        method: "POST",
+        body: '{"query": "latest"}',
+        fields: [createReadField("f1", "/temperature")],
+      },
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep2",
+        path: "/kept",
+        method: "POST",
+        body: '{"query": "kept"}',
+        fields: [createReadField("f2", "/pressure")],
+      },
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText(/\/switched/));
+    await screen.findByDisplayValue('{"query": "latest"}');
+    fireEvent.click(screen.getByRole("button", { name: "GET" }));
+    await waitFor(() =>
+      expect(screen.queryByDisplayValue('{"query": "latest"}')).toBeNull(),
+    );
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
+    const endpoints = created.config.endpoints;
+    expect(endpoints.find((e) => e.key === "ep1")?.body).toBe("");
+    expect(endpoints.find((e) => e.key === "ep2")?.body).toBe('{"query": "kept"}');
+  });
+
+  it("should recover the index from an existing data channel when the stored index is gone", async () => {
+    const dev = await createHTTPDevice(client);
+    const idxCh = await client.channels.create({
+      name: uniqueName("http_idx"),
+      dataType: "timestamp",
+      isIndex: true,
     });
+    const dataCh = await client.channels.create({
+      name: uniqueName("http_data"),
+      dataType: "float64",
+      index: idxCh.key,
+    });
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      read: { "/data": { index: 0, channels: { "/existing": dataCh.key } } },
+    };
+    await client.devices.create(dev);
+    const config = createReadConfig(dev.key, [
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep1",
+        path: "/data",
+        fields: [createReadField("f1", "/temperature")],
+      },
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await deployAndAwaitTask(client, container, draft.key, HTTP.Task.READ_SCHEMAS);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(updated.properties.read["/data"].index).toBe(idxCh.key);
   });
 });

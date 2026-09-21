@@ -73,7 +73,7 @@ const ZERO_DRAFT: task.New<OPCUA.Task.ReadSchemas> = {
 const createDraft = async (client: Synnax, config: OPCUA.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.READ_SCHEMAS);
 
-describe("OPCUA.Read", () => {
+describe("Read", () => {
   it("should create channels under a new index on deploy", async () => {
     const dev = await createOPCDevice(client);
     const chA = createReadChannel();

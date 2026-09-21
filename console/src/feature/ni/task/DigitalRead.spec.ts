@@ -75,91 +75,87 @@ describe("DigitalRead", () => {
     expect(screen.queryByDisplayValue("1")).toBeNull();
   });
 
-  describe("deploying against a live Core", () => {
-    it("should create per-line channels keyed by port and line and update the device", async () => {
-      const dev = await createNIDevice(client);
-      const namedChannel = uniqueName("di_named");
-      const rendered = await renderDigitalRead(
-        createConfig(
-          [createChannel(0, 0), createChannel(0, 1, { name: namedChannel })],
-          dev.key,
-        ),
-      );
-      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
-      const created = await client.tasks.retrieve({
-        key: rendered.draft.key,
-        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
-      });
-      expect(created.type).toBe(NI.Task.DIGITAL_READ_TYPE);
-      expect(created.rack).toBe(dev.rack);
-      const [c0, c1] = created.config.channels;
-      expect(c0.channel).not.toBe(0);
-      expect(c1.channel).not.toBe(0);
-
-      const identifier = dev.properties.identifier;
-      const defaultNamed = await client.channels.retrieve(c0.channel);
-      expect(defaultNamed.name).toBe(`${identifier}_di_0_0`);
-      const named = await client.channels.retrieve(c1.channel);
-      expect(named.name).toBe(namedChannel);
-
-      const updated = await client.devices.retrieve({
-        key: dev.key,
-        schemas: NI.Device.SCHEMAS,
-      });
-      expect(updated.properties.digitalInput.channels["0l0"]).toBe(c0.channel);
-      expect(updated.properties.digitalInput.channels["0l1"]).toBe(c1.channel);
-      const index = await client.channels.retrieve(
-        updated.properties.digitalInput.index,
-      );
-      expect(index.name).toBe(`${identifier}_di_time`);
-      expect(index.isIndex).toBe(true);
+  it("should create per-line channels keyed by port and line and update the device", async () => {
+    const dev = await createNIDevice(client);
+    const namedChannel = uniqueName("di_named");
+    const rendered = await renderDigitalRead(
+      createConfig(
+        [createChannel(0, 0), createChannel(0, 1, { name: namedChannel })],
+        dev.key,
+      ),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+    const created = await client.tasks.retrieve({
+      key: rendered.draft.key,
+      schemas: NI.Task.DIGITAL_READ_SCHEMAS,
     });
+    expect(created.type).toBe(NI.Task.DIGITAL_READ_TYPE);
+    expect(created.rack).toBe(dev.rack);
+    const [c0, c1] = created.config.channels;
+    expect(c0.channel).not.toBe(0);
+    expect(c1.channel).not.toBe(0);
 
-    it("should bind a new entry to the channel the device already maps", async () => {
-      const dev = await createNIDevice(client);
-      const config = createConfig([createChannel(0, 0)], dev.key);
-      const first = await renderDigitalRead(config);
-      await deployAndAwaitTask(client, first.container, first.draft.key);
-      const firstTask = await client.tasks.retrieve({
-        key: first.draft.key,
+    const identifier = dev.properties.identifier;
+    const defaultNamed = await client.channels.retrieve(c0.channel);
+    expect(defaultNamed.name).toBe(`${identifier}_di_0_0`);
+    const named = await client.channels.retrieve(c1.channel);
+    expect(named.name).toBe(namedChannel);
+
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: NI.Device.SCHEMAS,
+    });
+    expect(updated.properties.digitalInput.channels["0l0"]).toBe(c0.channel);
+    expect(updated.properties.digitalInput.channels["0l1"]).toBe(c1.channel);
+    const index = await client.channels.retrieve(updated.properties.digitalInput.index);
+    expect(index.name).toBe(`${identifier}_di_time`);
+    expect(index.isIndex).toBe(true);
+  });
+
+  it("should bind a new entry to the channel the device already maps", async () => {
+    const dev = await createNIDevice(client);
+    const config = createConfig([createChannel(0, 0)], dev.key);
+    const first = await renderDigitalRead(config);
+    await deployAndAwaitTask(client, first.container, first.draft.key);
+    const firstTask = await client.tasks.retrieve({
+      key: first.draft.key,
+      schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+    });
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      firstTask.config.channels[0].channel,
+    );
+    const second = await renderDigitalRead(config);
+    await screen.findByText(existing.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: second.draft.key,
         schemas: NI.Task.DIGITAL_READ_SCHEMAS,
       });
-      first.unmount();
-      const existing = await client.channels.retrieve(
+      expect(saved.config.channels[0].channel).toBe(existing.key);
+    });
+  });
+
+  it("should reuse existing channels when redeployed", async () => {
+    const dev = await createNIDevice(client);
+    const config = createConfig([createChannel(0, 0)], dev.key);
+    const first = await renderDigitalRead(config);
+    await deployAndAwaitTask(client, first.container, first.draft.key);
+    const firstTask = await client.tasks.retrieve({
+      key: first.draft.key,
+      schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+    });
+    first.unmount();
+    const second = await renderDigitalRead(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+    await waitFor(async () => {
+      const again = await client.tasks.retrieve({
+        key: second.draft.key,
+        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+      });
+      expect(again.config.channels[0].channel).toBe(
         firstTask.config.channels[0].channel,
       );
-      const second = await renderDigitalRead(config);
-      await screen.findByText(existing.name);
-      await waitFor(async () => {
-        const saved = await client.tasks.retrieve({
-          key: second.draft.key,
-          schemas: NI.Task.DIGITAL_READ_SCHEMAS,
-        });
-        expect(saved.config.channels[0].channel).toBe(existing.key);
-      });
-    });
-
-    it("should reuse existing channels when redeployed", async () => {
-      const dev = await createNIDevice(client);
-      const config = createConfig([createChannel(0, 0)], dev.key);
-      const first = await renderDigitalRead(config);
-      await deployAndAwaitTask(client, first.container, first.draft.key);
-      const firstTask = await client.tasks.retrieve({
-        key: first.draft.key,
-        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
-      });
-      first.unmount();
-      const second = await renderDigitalRead(config);
-      await deployAndAwaitTask(client, second.container, second.draft.key);
-      await waitFor(async () => {
-        const again = await client.tasks.retrieve({
-          key: second.draft.key,
-          schemas: NI.Task.DIGITAL_READ_SCHEMAS,
-        });
-        expect(again.config.channels[0].channel).toBe(
-          firstTask.config.channels[0].channel,
-        );
-      });
     });
   });
 });
