@@ -10,6 +10,9 @@
 package user_test
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -405,6 +408,53 @@ var _ = Describe("Service", func() {
 					),
 				).Error().
 					To(MatchError(ContainSubstring("password: required")))
+			},
+		)
+		It(
+			"Should keep the password under the new username when a rename races it",
+			func(ctx SpecContext) {
+				// Both mutations read the username and then write the auth row by it.
+				// Without serialization the rename lands while the password change is
+				// still hashing, so the password write targets a username that no
+				// longer exists.
+				username := "change-password-race-" + uuid.NewString()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "p0",
+				})).To(Succeed())
+				for i := range 5 {
+					newName := fmt.Sprintf("%s-%d", username, i)
+					newPassword := fmt.Sprintf("p%d", i+1)
+					var wg sync.WaitGroup
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(apiSvc.ChangePassword(
+							rootCtx(ctx),
+							db,
+							apiuser.ChangePasswordRequest{
+								Key:      u.Key,
+								Password: newPassword,
+							},
+						)).Error().ToNot(HaveOccurred())
+					})
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(apiSvc.ChangeUsername(
+							rootCtx(ctx),
+							db,
+							apiuser.ChangeUsernameRequest{
+								Key:      u.Key,
+								Username: newName,
+							},
+						)).Error().ToNot(HaveOccurred())
+					})
+					wg.Wait()
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: newName, Password: newPassword,
+					})).To(Succeed())
+				}
 			},
 		)
 	})
