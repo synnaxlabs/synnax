@@ -8,59 +8,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { OrganizationList } from "@clerk/astro/components";
 import Portal from "@/portal/layouts/Portal.astro";
 import { load } from "@/portal/page";
-import { ensurePersonal, listForMember } from "@/server/organization";
+import { Account } from "@/portal/ui/account/Account";
+import { organizationsFor } from "@/server/organization";
 
 const loaded = await load(Astro);
 if (loaded instanceof Response) return loaded;
 const { portal, session } = loaded;
 
-await ensurePersonal(portal.store, { userID: session.userID, name: session.name });
-const organizations = await listForMember(portal.store, session);
+const organizations = await organizationsFor(portal.store, session);
 ---
 
-<Portal title="Account" session={session}>
-    <section class="portal-section">
-        <dl class="portal-fields">
-            <dt>Name</dt>
-            <dd>{session.name}</dd>
-            <dt>Email</dt>
-            <dd>{session.email}</dd>
-        </dl>
-    </section>
-    <section class="portal-section">
-        <h2>Organizations</h2>
-        <p class="portal-muted">
-            Licenses belong to an organization. Your personal organization is yours
-            alone; a team organization shares its licenses with every member.
-        </p>
-        <table class="portal-table">
-            <thead>
-                <tr><th>Name</th><th>Kind</th><th></th></tr>
-            </thead>
-            <tbody>
-                {
-                    organizations.map((org) => (
-                        <tr>
-                            <td>{org.name}</td>
-                            <td>{org.kind}</td>
-                            <td>
-                                <a href={`/licenses?org=${org.key}`}>Licenses</a>
-                            </td>
-                        </tr>
-                    ))
-                }
-            </tbody>
-        </table>
-    </section>
-    <section class="portal-section">
-        <h2>Teams</h2>
-        <OrganizationList
-            hidePersonal
-            afterCreateOrganizationUrl="/account"
-            afterSelectOrganizationUrl="/account"
-        />
-    </section>
+<Portal title="Account" session={session} organizations={organizations}>
+    <Account
+        client:load
+        name={session.name}
+        email={session.email}
+        organizations={organizations}
+    />
 </Portal>

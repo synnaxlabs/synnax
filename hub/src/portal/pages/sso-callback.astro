@@ -9,14 +9,12 @@
 // included in the file licenses/APL.txt.
 
 import Root from "@/layouts/Root.astro";
-import { SignIn } from "@/portal/ui/auth/SignIn";
+import { SSOCallback } from "@/portal/ui/auth/SSOCallback";
 import "@/portal/portal.css";
-
-if (Astro.locals.auth().userId != null) return Astro.redirect("/portal", 303);
 ---
 
-<Root frontmatter={{ title: "Sign in" }}>
+<Root frontmatter={{ title: "Signing in" }}>
     <section class="portal-auth-page">
-        <SignIn client:load />
+        <SSOCallback client:load />
     </section>
 </Root>

@@ -9,55 +9,34 @@
 // included in the file licenses/APL.txt.
 
 import Root from "@/layouts/Root.astro";
+import { Sidebar } from "@/portal/ui/Sidebar";
+import type { Organization } from "@/server/db/schema";
 import type { Session } from "@/server/session";
 import "@/portal/portal.css";
 
 interface Props {
     title: string;
-    session?: Session;
-    error?: string;
+    session: Session;
+    organizations: Organization[];
+    organization?: Organization | null;
 }
 
-const { title, session, error } = Astro.props;
-const path = Astro.url.pathname;
-const tabs = [
-    { href: "/account", label: "Account" },
-    { href: "/licenses", label: "Licenses" },
-    ...(session?.staff === true ? [{ href: "/staff/licenses", label: "Staff" }] : []),
-];
+const { title, session, organizations, organization = null } = Astro.props;
 ---
 
 <Root frontmatter={{ title }}>
-    <div class="portal">
-        {
-            session != null && (
-                <nav class="portal-nav" aria-label="Portal">
-                    {tabs.map((tab) => (
-                        <a
-                            href={tab.href}
-                            class:list={[
-                                "portal-nav__link",
-                                {
-                                    "portal-nav__link--active": path.startsWith(
-                                        tab.href,
-                                    ),
-                                },
-                            ]}
-                        >
-                            {tab.label}
-                        </a>
-                    ))}
-                </nav>
-            )
-        }
-        <h1 class="portal-title">{title}</h1>
-        {
-            error != null && error !== "" && (
-                <p class="portal-error" role="alert">
-                    {error}
-                </p>
-            )
-        }
+    <nav class="page-nav portal-nav">
+        <Sidebar
+            client:load
+            path={Astro.url.pathname}
+            staff={session.staff}
+            teams={organizations
+                .filter((o) => o.kind === "team")
+                .map((o) => ({ key: o.key, name: o.name }))}
+            selected={organization?.kind === "team" ? organization.key : null}
+        />
+    </nav>
+    <section class="portal">
         <slot />
-    </div>
+    </section>
 </Root>

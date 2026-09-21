@@ -9,14 +9,14 @@
 // included in the file licenses/APL.txt.
 
 import Root from "@/layouts/Root.astro";
-import { SignIn } from "@/portal/ui/auth/SignIn";
+import { Reset } from "@/portal/ui/auth/Reset";
 import "@/portal/portal.css";
 
 if (Astro.locals.auth().userId != null) return Astro.redirect("/portal", 303);
 ---
 
-<Root frontmatter={{ title: "Sign in" }}>
+<Root frontmatter={{ title: "Reset your password" }}>
     <section class="portal-auth-page">
-        <SignIn client:load />
+        <Reset client:load />
     </section>
 </Root>

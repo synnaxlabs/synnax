@@ -1,4 +1,3 @@
----
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -8,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Root from "@/layouts/Root.astro";
-import { SignIn } from "@/portal/ui/auth/SignIn";
-import "@/portal/portal.css";
+import { Triggers } from "@synnaxlabs/pluto";
+import { type PropsWithChildren, type ReactElement } from "react";
 
-if (Astro.locals.auth().userId != null) return Astro.redirect("/portal", 303);
----
-
-<Root frontmatter={{ title: "Sign in" }}>
-    <section class="portal-auth-page">
-        <SignIn client:load />
-    </section>
-</Root>
+/** Root wraps a portal island with the providers Pluto's interactive pieces need. */
+export const Root = ({ children }: PropsWithChildren): ReactElement => (
+  <Triggers.Provider>{children}</Triggers.Provider>
+);

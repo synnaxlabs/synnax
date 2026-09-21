@@ -14,15 +14,18 @@ import { type AstroIntegration } from "astro";
  * `src/pages` so the static site check never builds or crawls a session-bound page.
  */
 const ROUTES: Record<string, string> = {
+  "/sign-in/reset": "pages/reset.astro",
   "/sign-in/[...rest]": "pages/sign-in.astro",
   "/sign-up/[...rest]": "pages/sign-up.astro",
-  "/account": "pages/account.astro",
-  "/licenses": "pages/licenses/index.astro",
-  "/licenses/activate": "pages/licenses/activate.astro",
-  "/licenses/[key]": "pages/licenses/[key].astro",
-  "/staff/licenses": "pages/staff/licenses.astro",
+  "/sso-callback": "pages/sso-callback.astro",
+  "/portal": "pages/licenses/index.astro",
+  "/portal/licenses/activate": "pages/licenses/activate.astro",
+  "/portal/licenses/[key]": "pages/licenses/[key].astro",
+  "/portal/account": "pages/account.astro",
+  "/portal/staff/licenses": "pages/staff/licenses.astro",
   "/api/webhooks/clerk": "routes/webhooks/clerk.ts",
   "/api/cron/expiry": "routes/cron/expiry.ts",
+  "/api/portal/licenses": "routes/licenses/issue.ts",
   "/api/portal/licenses/[key]/activate": "routes/licenses/activate.ts",
   "/api/portal/licenses/[key]/revoke": "routes/licenses/revoke.ts",
   "/api/portal/licenses/[key]/floating": "routes/licenses/floating.ts",
