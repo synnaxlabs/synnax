@@ -10,25 +10,25 @@
  */
 
 /* The trigger is the value as content: it sizes to its text, never to the form. */
-.pluto-time-cell {
+.pluto-time-editor {
     width: fit-content;
     flex-grow: 0;
 
     --pluto-control-width: fit-content;
 
-    & .pluto-time-cell__trigger {
+    & .pluto-time-editor__trigger {
         width: fit-content;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
 
     /* Content at rest carries no frame; the hover fill says it is editable. */
-    &.pluto--shadow .pluto-time-cell__trigger {
+    &.pluto--shadow .pluto-time-editor__trigger {
         padding: 0 0.75rem;
     }
 }
 
-.pluto-time-cell__editor {
+.pluto-time-editor__dialog {
     min-width: max-content;
     max-width: 64rem;
 
@@ -43,7 +43,7 @@
     color: var(--pluto-gray-l9);
 }
 
-/* An empty cell reads as a placeholder, the way an empty field does. */
+/* An empty input reads as a placeholder, the way an empty field does. */
 .pluto-datetime__empty {
     color: var(--pluto-text-placeholder);
 }
@@ -53,19 +53,16 @@
     color: var(--pluto-gray-l9);
 }
 
-.pluto-datetime__suggestions,
-.pluto-timespan__suggestions {
+.pluto-time-editor__suggestions {
     padding: 1rem;
     white-space: nowrap;
 }
 
-.pluto-datetime__note,
-.pluto-timespan__note {
+.pluto-time-editor__note {
     padding: 0.5rem 1.5rem;
 }
 
-.pluto-datetime__suggestion,
-.pluto-timespan__suggestion {
+.pluto-time-editor__suggestion {
     height: fit-content;
     padding-top: 1rem;
     padding-bottom: 1rem;
@@ -78,15 +75,15 @@
     }
 }
 
-.pluto-datetime__actions {
+.pluto-time-editor__actions {
     padding: 1rem;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 }
 
-.pluto-datetime__action {
+.pluto-time-editor__action {
     padding: 0.5rem 1.5rem;
 
-    & .pluto-datetime__hint {
+    & .pluto-time-editor__hint {
         margin-left: auto;
         padding-left: 2rem;
         font-family: var(--pluto-code-font-family);
@@ -95,10 +92,10 @@
 
 /* Caller content sits in its own region so it never displaces the row's hints. A
    row whose slot renders nothing keeps the height it had. */
-.pluto-datetime__effect:empty {
+.pluto-time-editor__effect:empty {
     display: none;
 }
 
-.pluto-datetime__action .pluto-datetime__effect {
+.pluto-time-editor__action .pluto-time-editor__effect {
     padding-left: 2rem;
 }
