@@ -44,6 +44,10 @@
         user-select: text;
     }
 
+    .console-diagnostics__erase {
+        margin-right: auto;
+    }
+
     .console-diagnostics__actions {
         width: 100%;
         justify-content: flex-end;

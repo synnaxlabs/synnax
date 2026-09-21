@@ -25,6 +25,11 @@ const KEEP: usize = 3;
 /// The suffix of a backup whose copy has not finished.
 const PARTIAL: &str = ".partial";
 
+/// Returns the directory that holds the backups.
+pub fn dir(cfg: &Config) -> PathBuf {
+    cfg.work_dir.join("backups")
+}
+
 /// Copies the metadata store aside when the app version differs from the version that
 /// last ran on the data, then records the app version. It does nothing on any later
 /// call for the same version. Call it only while no Core runs.
@@ -36,7 +41,7 @@ pub fn run(cfg: &Config) -> io::Result<()> {
     }
     let store = cfg.data_dir.join(STORE);
     if store.is_dir() {
-        let dir = cfg.work_dir.join("backups");
+        let dir = dir(cfg);
         std::fs::create_dir_all(&dir)?;
         let seconds = SystemTime::now()
             .duration_since(UNIX_EPOCH)

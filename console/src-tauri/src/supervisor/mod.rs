@@ -15,6 +15,7 @@ pub mod commands;
 mod diagnostics;
 mod launch;
 pub mod probe;
+mod reset;
 pub mod restart;
 
 use std::io;
@@ -133,6 +134,8 @@ enum Request {
     Restart,
     /// Stop the Core. The sender resolves once the Core process has exited.
     Stop(oneshot::Sender<()>),
+    /// Stop the Core and erase what it stored. The sender resolves with the result.
+    Reset(oneshot::Sender<io::Result<()>>),
 }
 
 /// A handle to the supervisor task. Dropping every handle stops the Core.
@@ -201,6 +204,19 @@ impl Supervisor {
     }
 }
 
+impl Supervisor {
+    /// Stops the Core, erases its data and the backups, and leaves it `Stopped`.
+    pub async fn reset(&self) -> io::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        let gone = || io::Error::other("the supervisor has stopped");
+        self.requests
+            .send(Request::Reset(tx))
+            .await
+            .map_err(|_| gone())?;
+        rx.await.map_err(|_| gone())?
+    }
+}
+
 /// How one run of the Core ended.
 enum Outcome {
     /// The Core exited without a stop request.
@@ -209,6 +225,8 @@ enum Outcome {
     Stopped(Option<oneshot::Sender<()>>),
     /// The Core exited after a restart request.
     Restart,
+    /// The Core exited after a reset request.
+    Reset(oneshot::Sender<io::Result<()>>),
 }
 
 struct Task {
@@ -238,6 +256,7 @@ impl Task {
                     policy.reset();
                     continue;
                 }
+                Outcome::Reset(ack) => self.erase(ack).await,
                 Outcome::Exited { uptime, message } => match policy.decide(uptime) {
                     restart::Decision::Restart(backoff) => {
                         self.status.send_replace(Status::Restarting);
@@ -270,6 +289,10 @@ impl Task {
                     let _ = ack.send(());
                     false
                 }
+                Some(Request::Reset(ack)) => {
+                    self.erase(ack).await;
+                    false
+                }
                 None => false,
             },
         }
@@ -284,9 +307,20 @@ impl Task {
                 Some(Request::Stop(ack)) => {
                     let _ = ack.send(());
                 }
+                Some(Request::Reset(ack)) => self.erase(ack).await,
                 None => return false,
             }
         }
+    }
+
+    /// Erases the stored data while no Core runs and reports the result.
+    async fn erase(&self, ack: oneshot::Sender<io::Result<()>>) {
+        let cfg = self.cfg.clone();
+        let result = tokio::task::spawn_blocking(move || reset::run(&cfg))
+            .await
+            .unwrap_or_else(|err| Err(io::Error::other(err)));
+        self.status.send_replace(Status::Stopped);
+        let _ = ack.send(result);
     }
 
     /// Runs one Core process from spawn to exit.
@@ -307,7 +341,15 @@ impl Task {
             message,
         };
         let cfg = self.cfg.clone();
-        match tokio::task::spawn_blocking(move || backup::run(&cfg)).await {
+        let prepare = move || {
+            // A directory that a reset retired holds no live data, so one that cannot be
+            // removed yet does not block the start.
+            if let Err(err) = reset::sweep(&cfg) {
+                eprintln!("failed to remove erased data: {err}");
+            }
+            backup::run(&cfg)
+        };
+        match tokio::task::spawn_blocking(prepare).await {
             Ok(Ok(())) => {}
             Ok(Err(err)) => return exited(format!("failed to back up the data: {err}")),
             Err(err) => return exited(format!("failed to back up the data: {err}")),
@@ -344,6 +386,11 @@ impl Task {
                         self.status.send_replace(Status::Stopping);
                         self.stop(&mut child, stdin.as_mut()).await;
                         return Outcome::Stopped(Some(ack));
+                    }
+                    Some(Request::Reset(ack)) => {
+                        self.status.send_replace(Status::Stopping);
+                        self.stop(&mut child, stdin.as_mut()).await;
+                        return Outcome::Reset(ack);
                     }
                     None => {
                         self.status.send_replace(Status::Stopping);
@@ -773,6 +820,36 @@ while true; do sleep 1; done
             .collect();
         assert_eq!(backups.len(), 1);
         sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn erases_the_data_of_a_running_core_and_leaves_it_stopped() {
+        let f = Fixture::new(OBEDIENT, always(true));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(1).await;
+        let file = f.cfg.data_dir.join("kv").join("MANIFEST");
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, "data").unwrap();
+        sup.reset().await.unwrap();
+        assert_eq!(sup.status(), Status::Stopped);
+        assert!(!file.exists());
+        assert_eq!(f.runs(), 1);
+        sup.restart().await;
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn erases_the_data_after_the_restart_policy_gave_up() {
+        let f = Fixture::new(CRASHING, always(false));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        let file = f.cfg.data_dir.join("MANIFEST");
+        std::fs::write(&file, "data").unwrap();
+        sup.reset().await.unwrap();
+        assert_eq!(sup.status(), Status::Stopped);
+        assert!(!file.exists());
     }
 
     #[tokio::test]

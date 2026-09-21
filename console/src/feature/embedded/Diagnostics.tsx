@@ -26,6 +26,7 @@ import {
   showLogs,
   type Status as SupervisorStatus,
 } from "@/feature/embedded/supervisor";
+import { useReset } from "@/feature/embedded/useReset";
 import { useRestart } from "@/feature/embedded/useRestart";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -133,6 +134,7 @@ export const useDiagnosticsModal = Modals.create(() => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const restart = useRestart();
+  const reset = useReset();
   const handleExport = (): void =>
     handleError(async () => {
       const stamp = TimeStamp.now().toString("ISODate", "local");
@@ -187,6 +189,15 @@ export const useDiagnosticsModal = Modals.create(() => {
           align="center"
           className={CSS.BE("diagnostics", "actions")}
         >
+          <Button.Button
+            className={CSS.BE("diagnostics", "erase")}
+            variant="text"
+            status="error"
+            onClick={reset}
+          >
+            <Icon.Delete />
+            Erase all data
+          </Button.Button>
           <Button.Button
             variant="outlined"
             onClick={() => handleError(showData, "Failed to show the data folder")}
