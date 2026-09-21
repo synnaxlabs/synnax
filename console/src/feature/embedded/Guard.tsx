@@ -18,9 +18,10 @@ import {
   useState,
 } from "react";
 
+import { useDiagnosticsModal } from "@/feature/embedded/Diagnostics";
 import { useStatus } from "@/feature/embedded/Provider";
-import { restart, showLogs } from "@/feature/embedded/supervisor";
 import { NAME } from "@/feature/embedded/useConnParams";
+import { useRestart } from "@/feature/embedded/useRestart";
 import { Shell } from "@/feature/shell";
 import { Access } from "@/platform/access";
 import { CSS } from "@/platform/css";
@@ -136,7 +137,8 @@ interface FailedProps {
 }
 
 const Failed = ({ message }: FailedProps): ReactElement => {
-  const handleError = Status.useErrorHandler();
+  const openDiagnostics = useDiagnosticsModal();
+  const restart = useRestart();
   return (
     <Body>
       <Status.Summary
@@ -145,17 +147,11 @@ const Failed = ({ message }: FailedProps): ReactElement => {
         description={message}
       />
       <Flex.Box x gap="small">
-        <Button.Button
-          variant="outlined"
-          onClick={() => handleError(showLogs, "Failed to show the logs")}
-        >
-          <Icon.Log />
-          Show logs
+        <Button.Button variant="outlined" onClick={() => openDiagnostics()}>
+          <Icon.Hardware />
+          Diagnostics
         </Button.Button>
-        <Button.Button
-          variant="filled"
-          onClick={() => handleError(restart, "Failed to restart Synnax")}
-        >
+        <Button.Button variant="filled" onClick={restart}>
           <Icon.Refresh />
           Restart
         </Button.Button>

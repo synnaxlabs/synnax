@@ -14,6 +14,7 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { expect, type Mock, vi } from "vitest";
 
 import { Embedded } from "@/feature/embedded";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
@@ -36,19 +37,26 @@ export interface MockedSupervisor {
   emitStatus: (status: Embedded.Status) => Promise<void>;
 }
 
+/** Answers one supervisor command from the arguments the app sent with it. */
+export type CommandHandler = (args: unknown) => unknown;
+
 /**
  * Stands in for the Desktop shell. Undo it with {@link clearSupervisor}.
  * @param retrieveStatus - Answers the status command.
+ * @param handlers - Answer other commands, keyed by command name. A command without a
+ * handler resolves with nothing.
  */
 export const mockSupervisor = (
   retrieveStatus: () => Embedded.Status | Promise<Embedded.Status>,
+  handlers: Record<string, CommandHandler> = {},
 ): MockedSupervisor => {
   const commands = vi.fn<(cmd: string) => void>();
   mockIPC(
-    (cmd) => {
+    (cmd, args) => {
       if (!cmd.startsWith("supervisor_")) return undefined;
       commands(cmd);
-      return cmd === "supervisor_status" ? retrieveStatus() : undefined;
+      if (cmd === "supervisor_status") return retrieveStatus();
+      return handlers[cmd]?.(args);
     },
     { shouldMockEvents: true },
   );
@@ -74,7 +82,7 @@ const SynnaxProvider = ({ children }: PropsWithChildren): ReactElement => (
 
 /**
  * Creates the provider stack of a Desktop window: the client follows the embedded Core,
- * exactly as the production Pluto context does.
+ * exactly as the production Pluto context does, and a modal stack is mounted.
  */
 export const createDesktopWrapper = async (): Promise<{
   wrapper: FC<PropsWithChildren>;
@@ -86,6 +94,7 @@ export const createDesktopWrapper = async (): Promise<{
       <Console>
         <SynnaxProvider>
           <Session.SettledProvider>{children}</Session.SettledProvider>
+          <Modals.Stack />
         </SynnaxProvider>
       </Console>
     </Embedded.Provider>

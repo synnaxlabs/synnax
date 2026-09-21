@@ -80,9 +80,11 @@ describe("Embedded.Guard", () => {
     );
     expect(await screen.findByText("Synnax stopped unexpectedly")).toBeTruthy();
     expect(screen.queryByText("workspace")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show logs" }));
-    await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_show_logs"));
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
     await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_restart"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Diagnostics" }));
+    });
+    expect(await screen.findByText("Stopped unexpectedly")).toBeTruthy();
   });
 });

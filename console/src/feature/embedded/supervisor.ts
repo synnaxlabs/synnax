@@ -48,7 +48,7 @@ export const onStatusChange = async (
 ): Promise<UnlistenFn> =>
   await listen(STATUS_EVENT, ({ payload }) => handler(statusZ.parse(payload)));
 
-/** Starts the embedded Core again after it failed or was stopped. */
+/** Starts a new embedded Core. One that runs stops in order first. */
 export const restart = async (): Promise<void> => await invoke("supervisor_restart");
 
 /** Stops the embedded Core and resolves once its process has exited. */
@@ -56,3 +56,35 @@ export const stop = async (): Promise<void> => await invoke("supervisor_stop");
 
 /** Opens the log directory in the file manager of the operating system. */
 export const showLogs = async (): Promise<void> => await invoke("supervisor_show_logs");
+
+/** Opens the data directory in the file manager of the operating system. */
+export const showData = async (): Promise<void> => await invoke("supervisor_show_data");
+
+/** What the embedded Cores of this launch have done, and where their files are. */
+export const diagnosticsZ = z.object({
+  version: z.string(),
+  history: z.object({
+    /** The number of Cores started in this launch. */
+    starts: z.number(),
+    /** When the current Core became ready, in milliseconds since the Unix epoch. */
+    readyAt: z.number().nullable(),
+    /** Why the last Core exited without a stop request. */
+    lastExit: z.string().nullable(),
+  }),
+  dataDir: z.string(),
+  logDir: z.string(),
+  /** The size of the data directory in bytes. */
+  dataSize: z.number(),
+});
+export interface Diagnostics extends z.infer<typeof diagnosticsZ> {}
+
+export const retrieveDiagnostics = async (): Promise<Diagnostics> =>
+  diagnosticsZ.parse(await invoke("supervisor_diagnostics"));
+
+/** @returns The last lines of the log of the embedded Core. */
+export const retrieveLogTail = async (): Promise<string> =>
+  z.string().parse(await invoke("supervisor_log_tail"));
+
+/** Writes a zip archive of the logs and a summary to the given path. */
+export const exportDiagnostics = async (path: string): Promise<void> =>
+  await invoke("supervisor_export_diagnostics", { path });

@@ -9,8 +9,26 @@
 
 import { Icon, Status } from "@synnaxlabs/pluto";
 
-import { showLogs } from "@/feature/embedded/supervisor";
+import { useDiagnosticsModal } from "@/feature/embedded/Diagnostics";
+import { showData, showLogs } from "@/feature/embedded/supervisor";
+import { useRestart } from "@/feature/embedded/useRestart";
 import { Command } from "@/platform/command";
+
+export const OpenDiagnosticsCommand = Command.create({
+  key: "open-diagnostics",
+  name: "Open diagnostics",
+  icon: <Icon.Hardware />,
+  useVisible: () => true,
+  useOnSelect: useDiagnosticsModal,
+});
+
+export const RestartCommand = Command.create({
+  key: "restart-synnax",
+  name: "Restart Synnax",
+  icon: <Icon.Refresh />,
+  useVisible: () => true,
+  useOnSelect: useRestart,
+});
 
 export const ShowLogsCommand = Command.create({
   key: "show-logs",
@@ -23,4 +41,20 @@ export const ShowLogsCommand = Command.create({
   },
 });
 
-export const COMMANDS = [ShowLogsCommand];
+export const ShowDataCommand = Command.create({
+  key: "show-data-folder",
+  name: "Show data folder",
+  icon: <Icon.Explore />,
+  useVisible: () => true,
+  useOnSelect: () => {
+    const handleError = Status.useErrorHandler();
+    return () => handleError(showData, "Failed to show the data folder");
+  },
+});
+
+export const COMMANDS = [
+  OpenDiagnosticsCommand,
+  RestartCommand,
+  ShowLogsCommand,
+  ShowDataCommand,
+];
