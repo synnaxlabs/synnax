@@ -13,7 +13,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
-	"net"
+	stdnet "net"
 	"os"
 	"time"
 
@@ -140,10 +140,10 @@ var _ = Describe("MultiListener", func() {
 	It("Should close earlier listeners when a later listener fails to bind", func() {
 		// The server binds every interface, so the port must be occupied the same way
 		// for the second listener to collide with it.
-		occupied := MustSucceed(net.Listen("tcp", ":0"))
+		occupied := MustSucceed(stdnet.Listen("tcp", ":0"))
 		defer func() { Expect(occupied.Close()).To(Succeed()) }()
 		occupiedAddr := address.Newf(
-			"localhost:%d", occupied.Addr().(*net.TCPAddr).Port,
+			"localhost:%d", occupied.Addr().(*stdnet.TCPAddr).Port,
 		)
 		Expect(server.Serve(server.Config{
 			Debug:    new(false),
@@ -175,15 +175,17 @@ var _ = Describe("MultiListener", func() {
 				if external == "" {
 					Skip("no non-loopback IPv4 interface")
 				}
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-				MustOpen(server.Serve(server.Config{
-					Debug:     new(false),
-					Security:  server.SecurityConfig{Insecure: new(true)},
-					Listeners: []server.Listener{{Address: addr, Loopback: loopback}},
+				s := MustOpen(server.Serve(server.Config{
+					Debug:    new(false),
+					Security: server.SecurityConfig{Insecure: new(true)},
+					Listeners: []server.Listener{
+						{Address: "localhost:0", Loopback: loopback},
+					},
 					Branches: []server.Branch{&server.SecureHTTPBranch{
 						MaxIdleWorkerDuration: 100 * time.Millisecond,
 					}},
 				}))
+				addr := s.Addresses()[0]
 				Expect(reachable("127.0.0.1", addr)).To(BeTrue())
 				Expect(reachable(external, addr)).To(Equal(!loopback))
 			},
