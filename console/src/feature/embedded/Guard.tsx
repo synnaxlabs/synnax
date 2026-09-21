@@ -9,7 +9,7 @@
 
 import "@/feature/embedded/Guard.css";
 
-import { Access, Button, Errors, Flex, Icon, Status, Synnax } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Status, Synnax } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -22,6 +22,7 @@ import { useStatus } from "@/feature/embedded/Provider";
 import { restart, showLogs } from "@/feature/embedded/supervisor";
 import { NAME } from "@/feature/embedded/useConnParams";
 import { Shell } from "@/feature/shell";
+import { Access } from "@/platform/access";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
@@ -42,12 +43,9 @@ export const Guard = ({ children }: PropsWithChildren): ReactNode => {
     content = <Starting connected={client != null && selected} />;
   else
     content = (
-      <Errors.SuspenseBoundary
-        loading={<Starting connected />}
-        FallbackComponent={PermissionsFallback}
-      >
-        <AwaitPermissions>{children}</AwaitPermissions>
-      </Errors.SuspenseBoundary>
+      <Access.PermissionsBoundary loading={<Starting connected />}>
+        {children}
+      </Access.PermissionsBoundary>
     );
   return (
     <>
@@ -91,27 +89,6 @@ const SideEffect = (): null => {
 
 // Every guarded surface reads a denial from an empty policy set, so the workspace
 // cannot render before the policies land.
-const AwaitPermissions = ({ children }: PropsWithChildren): ReactNode => {
-  Access.useEnsurePermissions({});
-  return children;
-};
-
-const PermissionsFallback = (props: Errors.FallbackProps): ReactElement => {
-  const invalidate = Access.useInvalidatePermissions();
-  const retry = (): void => {
-    invalidate({});
-    props.resetErrorBoundary();
-  };
-  return (
-    <Errors.Fallback {...props}>
-      <Button.Button variant="filled" onClick={retry}>
-        <Icon.Refresh />
-        Retry
-      </Button.Button>
-    </Errors.Fallback>
-  );
-};
-
 interface BodyProps extends PropsWithChildren {
   revealed?: boolean;
 }
