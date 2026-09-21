@@ -30,6 +30,11 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Channels",
     },
     {
+      key: "/reference/client/calculated-channels",
+      href: "/reference/client/calculated-channels",
+      name: "Calculated Channels",
+    },
+    {
       key: "/reference/client/ranges",
       href: "/reference/client/ranges",
       name: "Ranges",
