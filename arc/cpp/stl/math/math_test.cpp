@@ -1490,6 +1490,57 @@ TEST(MathArithmeticTest, StampsTheCycleWhenEveryInputIsALiteral) {
     EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 1234 * sec);
 }
 
+/// @brief builds a single-input node of node_type whose input is a configured
+/// literal, so the node has no input carrying time.
+ir::IR build_literal_input_ir(const std::string &node_type) {
+    types::Param input;
+    input.name = ir::default_input_param;
+    input.type = types::Type{.kind = types::Kind::F64};
+    input.value = 5.0;
+
+    types::Param out;
+    out.name = ir::default_output_param;
+    out.type = types::Type{.kind = types::Kind::F64};
+
+    ir::Node target;
+    target.key = "target";
+    target.type = node_type;
+    target.inputs.push_back(input);
+    target.outputs.push_back(out);
+
+    ir::IR prog;
+    prog.nodes.push_back(target);
+    return prog;
+}
+
+class MathLiteralInputTest : public testing::TestWithParam<std::string> {};
+
+TEST_P(MathLiteralInputTest, StampsTheCycleWhenTheInputIsALiteral) {
+    const auto prog = build_literal_input_ir(GetParam());
+    runtime::state::State state(
+        runtime::state::Config{.ir = prog, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    Module module;
+    auto target = ASSERT_NIL_P(state.node("target"));
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(prog, prog.nodes[0], std::move(target)))
+    );
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    ctx.cycle.now = x::telem::TimeStamp(1234 * sec);
+    ASSERT_NIL(node->next(ctx));
+    auto checker = ASSERT_NIL_P(state.node("target"));
+    ASSERT_EQ(checker.output_time(0)->size(), 1);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 1234 * sec);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Nodes,
+    MathLiteralInputTest,
+    testing::Values("avg", "min", "max", "derivative", "neg")
+);
+
 TEST(MathArithmeticTest, TakesTimeFromTheLongerInput) {
     BinaryTestSetup setup(types::Kind::F64, "add");
     Module module;

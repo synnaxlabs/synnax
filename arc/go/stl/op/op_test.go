@@ -919,6 +919,29 @@ var _ = Describe("Literal inputs", func() {
 		Expect(*s.Node("op").OutputTime(0)).
 			To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
 	})
+
+	It("Should stamp the cycle when a unary input is a literal", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "op",
+			Type: "not",
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.U8(), Value: uint8(1)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		c := MustSucceed(op.NewHost().Create(node.Config{
+			Node:  prog.Nodes[0],
+			State: s.Node("op"),
+		}))
+		c.Next(node.Context{
+			Context:     ctx,
+			Now:         1234 * telem.SecondTS,
+			MarkChanged: func(int) {},
+		})
+		Expect(*s.Node("op").OutputTime(0)).
+			To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+	})
 })
 
 var _ = Describe("Construction validation", func() {

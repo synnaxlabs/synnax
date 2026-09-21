@@ -952,6 +952,38 @@ var _ = Describe("Derivative", func() {
 	})
 })
 
+var _ = Describe("Literal inputs", func() {
+	DescribeTable("Should stamp the cycle when the input is a literal",
+		func(ctx SpecContext, nodeType string) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:  "n",
+				Type: nodeType,
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.F64(), Value: 5.0},
+				},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+			}}}
+			s := node.New(prog)
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			n := MustSucceed(m.Create(node.Config{
+				Node:  prog.Nodes[0],
+				State: s.Node("n"),
+			}))
+			n.Next(node.Context{
+				Context:     ctx,
+				Now:         1234 * telem.SecondTS,
+				MarkChanged: func(int) {},
+			})
+			Expect(*s.Node("n").OutputTime(0)).
+				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+		},
+		Entry("avg", "avg"),
+		Entry("min", "min"),
+		Entry("max", "max"),
+		Entry("derivative", "derivative"),
+	)
+})
+
 var _ = Describe("Construction validation", func() {
 	DescribeTable("Should error at construction when the input param is missing",
 		func(ctx SpecContext, nodeType string) {
