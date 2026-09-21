@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { screen, waitFor } from "@testing-library/react";
+import { renderHook, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
@@ -22,7 +22,7 @@ const DeviceName = () => (
   <span>{HTTP.Device.useFromConfig()?.name ?? "no device"}</span>
 );
 
-describe("HTTP device queries", () => {
+describe("use", () => {
   it("should retrieve the device with its typed properties", async () => {
     const dev = await createHTTPDevice(client, { properties: { timeoutMs: 1234 } });
     const wrapper = await createAsyncSynnaxWrapper({ client });
@@ -32,9 +32,23 @@ describe("HTTP device queries", () => {
     );
     await waitFor(() => expect(result.current?.properties.timeoutMs).toBe(1234));
   });
+});
 
+describe("useResult", () => {
+  it("should resolve the device without suspending", async () => {
+    const dev = await createHTTPDevice(client, { properties: { timeoutMs: 1234 } });
+    const wrapper = await createAsyncSynnaxWrapper({ client });
+    const { result } = renderHook(() => HTTP.Device.useResult({ key: dev.key }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.data?.key).toBe(dev.key));
+    expect(result.current.variant).toBe("success");
+  });
+});
+
+describe("useFromConfig", () => {
   it("should return the device the form's config names", async () => {
-    const dev = await createHTTPDevice(client);
+    const dev = await createHTTPDevice(client, { properties: { timeoutMs: 1234 } });
     await renderWithDeviceForm(<DeviceName />, { deviceKey: dev.key, client });
     await screen.findByText(dev.name);
   });

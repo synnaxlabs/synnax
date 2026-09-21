@@ -20,7 +20,7 @@ const client = createTestClient();
 
 const DeviceName = () => <span>{NI.Device.useFromConfig()?.name ?? "no device"}</span>;
 
-describe("NI device queries", () => {
+describe("use", () => {
   it("should retrieve the device with its typed properties", async () => {
     const dev = await createNIDevice(client);
     const wrapper = await createAsyncSynnaxWrapper({ client });
@@ -32,13 +32,29 @@ describe("NI device queries", () => {
       expect(result.current?.properties.identifier).toBe(dev.properties.identifier),
     );
   });
+});
 
+describe("useResult", () => {
+  it("should resolve the device without suspending", async () => {
+    const dev = await createNIDevice(client);
+    const wrapper = await createAsyncSynnaxWrapper({ client });
+    const { result } = renderHook(() => NI.Device.useResult({ key: dev.key }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.data?.key).toBe(dev.key));
+    expect(result.current.variant).toBe("success");
+  });
+});
+
+describe("useFromConfig", () => {
   it("should return the device the form's config names", async () => {
     const dev = await createNIDevice(client);
     await renderWithDeviceForm(<DeviceName />, { deviceKey: dev.key, client });
     await screen.findByText(dev.name);
   });
+});
 
+describe("useByKeys", () => {
   it("should retrieve the devices the keys name once there are keys", async () => {
     const first = await createNIDevice(client);
     const second = await createNIDevice(client);
