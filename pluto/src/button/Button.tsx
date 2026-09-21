@@ -10,7 +10,14 @@
 import "@/button/Button.css";
 
 import { color, record, text, type TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type KeyboardEventHandler,
+  type MouseEvent as ReactMouseEvent,
+  type ReactElement,
+  useCallback,
+  useMemo,
+} from "react";
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
@@ -61,10 +68,13 @@ export interface ExtensionProps
 /** The props for the {@link Button} component. */
 export type ButtonProps<E extends ElementType = "button"> = Omit<
   Generic.OptionalElementProps<E>,
-  "color" | "onClick" | "onMouseDown"
+  "color" | "onClick" | "onMouseDown" | "onKeyDown" | "onKeyUp"
 > &
   ExtensionProps &
-  Pick<UseHoldProps<HTMLElement>, "onClick" | "onMouseDown">;
+  Pick<UseHoldProps<HTMLElement>, "onClick" | "onMouseDown"> & {
+    onKeyDown?: KeyboardEventHandler<HTMLElement>;
+    onKeyUp?: KeyboardEventHandler<HTMLElement>;
+  };
 
 const MODULE_CLASS = "btn";
 
@@ -139,7 +149,7 @@ const Base = <E extends ElementType = "button">({
 
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = (e: ReactMouseEvent<HTMLElement>) => {
     if (!propagateClick) e.stopPropagation();
     if (isDisabled || preview === true || preventClick === true) return;
     hold.onClick(e);
@@ -152,22 +162,23 @@ const Base = <E extends ElementType = "button">({
   const resolvedEl = Text.parseElement(level, el, defaultEl, textVariant, href);
   const ownsActivation =
     (resolvedEl === "div" || resolvedEl === "label") && tabIndex != null;
-  const handleKeyDown = (e: any) => {
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     onKeyDown?.(e);
     hold.onKeyDown(e);
     if (!ownsActivation || e.defaultPrevented) return;
     if (e.target !== e.currentTarget) return;
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    handleClick(e);
+    // Keyboard activation reaches onClick as the keydown, like the trigger path.
+    handleClick(e as unknown as ReactMouseEvent<HTMLElement>);
   };
 
-  const handleKeyUp = (e: any) => {
+  const handleKeyUp = (e: ReactKeyboardEvent<HTMLElement>) => {
     onKeyUp?.(e);
     hold.onKeyUp(e);
   };
 
-  const handleMouseDown = (e: any) => {
+  const handleMouseDown = (e: ReactMouseEvent<HTMLElement>) => {
     // Preventing default on mousedown cancels a native dragstart, so skip it for
     // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
     // cancelled default also moves focus, so skip it when a focusable descendant owns
@@ -186,9 +197,7 @@ const Base = <E extends ElementType = "button">({
     callback: useCallback<(e: Triggers.UseEvent) => void>(
       ({ stage }) => {
         if (stage !== "end" || isDisabled || preview === true) return;
-        handleClick(
-          new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
-        );
+        handleClick(new MouseEvent("click") as unknown as ReactMouseEvent<HTMLElement>);
       },
       [handleClick, isDisabled],
     ),
