@@ -11,8 +11,8 @@ import { type Device, type Flux, Form } from "@synnaxlabs/pluto";
 import { primitive, type state } from "@synnaxlabs/x";
 
 /**
- * Creates a hook that returns the device the form's config names, or undefined until
- * it resolves or on failure.
+ * Creates a hook that returns the device the form's config names, or undefined until it
+ * resolves or on failure.
  * @param useResult - The vendor's typed device retrieve result hook.
  */
 export const createUseFromConfig =
