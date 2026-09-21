@@ -1,4 +1,4 @@
-# 59 Release workflow
+# 58 Release workflow
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-09-21
@@ -7,73 +7,63 @@
 
 ## 0 Summary
 
-Releases fire on every push to `main` or `rc`, versions live in fourteen files, and the
-Console updater polls a JSON file a bot force-pushes to `main`. This RFC moves to
-trunk-based development on `main`, one dispatched release workflow per product, Git tags
-as the only version source, an updater manifest hosted on the GitHub release, and static
-feature flags. It supersedes RFC 0020 §2, §3, and §5.
+The Core, Console, and Driver release on every push to `main` or `rc`, versions live in
+fourteen files, and the Console updater polls a JSON file a bot force-pushes to `main`.
+This RFC moves to trunk-based development on `main`, one dispatched release workflow per
+product, Git tags as the only version source, an updater manifest hosted on the GitHub
+release, and static feature flags. It supersedes RFC 0020 §2, §3, §5, and §7, and
+retires the `rc.md` checklist that §6 links.
 
 ## 1 Motivation
 
-- **`rc` is a second mainline**: 76 commits ahead of `main`, 26 open PRs, ten
+- **`rc` is a second mainline**: 76 commits ahead of `main`, 26 open PRs, sixteen
   back-merges from `main` in July and August 2026.
 - **Release is a side effect of a merge**: `deploy.synnax.yaml:12-89` publishes on any
-  push to `main` or `rc` touching a product path. Hotfix branches cannot release at all.
+  push to `main` or `rc` that touches a product path. Hotfix branches cannot release.
 - **Versions are hand-maintained**: `core/pkg/version/VERSION`, `tauri.conf.json`, eight
   `package.json`, four `pyproject.toml`, checked for major.minor agreement only.
 - **`console/release-spec.json` is a production endpoint**: force-pushed to `main` by CI
   and polled every 30 s by every shipped Console.
 - **Docs links go stale**: `fetchVersion.ts:33` memoizes the releases lookup for the
   life of a warm Vercel function.
-- **Nothing can ship dark**: no feature flag exists in the Console, Core, or docs site.
+- **Nothing can ship dark**: the Console, Core, and docs site have no feature flags.
 
-## 2 Vocabulary
+## 2 Design
 
-- **Product**: A separately released unit: Console, Core, Driver, Python, TypeScript.
-- **Train**: The major.minor shared by compatible products, `0.59`.
-- **Pre-release**: A release tagged `<product>/vX.Y.Z-rc.N`, marked pre-release on
-  GitHub, invisible to the docs site.
-- **Flag**: A static build-time boolean that hides unfinished work in production.
+Five products release separately: Console, Core, Driver, Python, TypeScript. Compatible
+products share a major.minor, the train, such as `0.59`. `main` is always releasable:
+unfinished work ships dark behind a flag. Nothing publishes on push; a person dispatches
+every release. No file in Git carries a product version; the tag is the version.
 
-## 3 Principles
-
-1. **`main` is always releasable**: Unfinished work ships dark behind a flag.
-2. **A release is an intent**: Nothing publishes on push. A person dispatches it.
-3. **The tag is the version**: No file in Git carries a product version.
-4. **Build once, embed everywhere**: The Core embeds published Console and Driver
-   artifacts. No workflow rebuilds another product.
-5. **The docs site reads the release, never the repo**.
-
-## 4 Design
-
-### 4.0 Branching
+### 2.0 Branching
 
 `main` is the only long-lived branch and every PR targets it. `rc`, the `rc.md` PR
-template, and every `branches: [main, rc]` trigger are deleted.
+template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main` and
+`release/**` build and test only.
 
-A hotfix is fixed on `main` first, then cherry-picked onto `release/<product>-X.Y`, cut
-from the product's latest stable tag. The release workflow runs from that branch and
-computes the next patch from its tag lineage. The branch is abandoned afterwards.
+A hotfix is fixed on `main` first, then cherry-picked by PR onto
+`release/<product>-X.Y`, cut from the product's latest stable tag. The release workflow
+runs from that branch and computes the next patch from the tags reachable from it. The
+branch is deleted afterwards.
 
-### 4.1 Release workflows
+### 2.1 Release workflows
 
-One `workflow_dispatch` workflow per product, `release.<product>.yaml`:
+One `workflow_dispatch` workflow per product, `release.<product>.yaml`, with inputs:
 
-| Input                               | Type    | Meaning                                       |
-| ----------------------------------- | ------- | --------------------------------------------- |
-| `bump`                              | choice  | `patch` (default) or `minor`                  |
-| `prerelease`                        | boolean | Tag `-rc.N` and mark the release pre-release  |
-| `console_version`, `driver_version` | string  | Core only; artifacts to embed, default latest |
+- **`bump`**: `patch` (default) or `minor`.
+- **`prerelease`**: Tag `-rc.N` and mark the release pre-release.
+- **`console_version`, `driver_version`** (Core only): Releases to embed. Default: the
+  newest stable, or the newest pre-release when `prerelease` is set.
 
 Each runs five stages:
 
 1. **Resolve**: A composite action `.github/actions/resolve-version` reads the tags with
    the product prefix reachable from `HEAD`, applies `bump` and `-rc.N`, and enforces
-   the train rule (§4.2).
-2. **Verify**: The commit's required checks must have passed; the integration suite runs
+   the train rule (§2.2).
+2. **Verify**: The commit's required checks must have passed. The integration suite runs
    as a `workflow_call` job.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
-   through. Every release is signed.
+   through, signed. Python and TypeScript inject the version and build in place.
 4. **Publish**: Draft release under the tag, upload assets, clear the draft. The release
    creates the tag, so a failed build leaves none. Concurrency group `release-<product>`
    serializes a product's releases.
@@ -87,20 +77,20 @@ Assets per product:
 - **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries from their
   releases into `core/pkg/console/dist/` and `core/pkg/driver/assets/`, then builds the
   binaries, Windows installer, and Docker image (`latest` for stable, `next` for
-  pre-release). The notes name the embedded versions.
+  pre-release). No workflow rebuilds another product. The notes name the embedded
+  versions.
 - **Python** (`py/vX.Y.Z`), **TypeScript** (`ts/vX.Y.Z`): Version injection, then the
   existing `uv publish` and `pnpm publish -r`, moved to OIDC trusted publishing.
 
-`deploy.synnax.yaml`, `deploy.ts.yaml`, and `deploy.py.yaml` are deleted. Pushes to
-`main` build and test only.
+`deploy.synnax.yaml`, `deploy.ts.yaml`, and `deploy.py.yaml` are deleted.
 
-### 4.2 Versions
+### 2.2 Versions
 
 Train rule: a product may bump to at most one minor ahead of the Core's latest stable,
 and the Core release fails unless the Console and Driver it embeds share its minor.
 Console and Driver open a train; the Core closes it.
 
-Injection from the resolved `version`, with every manifest carrying `0.0.0`:
+Every manifest carries `0.0.0` and the build injects the resolved `version`:
 
 - **Core**: The existing `-ldflags -X` (`build.synnax.yaml:621-626`). The `VERSION` file
   and `//go:embed` fallback in `get.go` are deleted; `Prod()` returns `0.0.0-dev` when
@@ -115,7 +105,7 @@ Injection from the resolved `version`, with every manifest carrying `0.0.0`:
 
 `check_versions.sh`, `bump_versions.sh`, and `test.updates.yaml` are deleted.
 
-### 4.3 Updater manifest and docs site
+### 2.3 Updater manifest and docs site
 
 `release-spec.json`, the `publish-console-update` job, and the `rc` endpoint rewrite in
 `build.synnax.yaml:891-897` are deleted. `latest.json` lives on the Console release.
@@ -130,45 +120,43 @@ machine follows candidates until it installs a stable build.
 a server-side token, filters by tag prefix, skips drafts and pre-releases, and caches
 for a few minutes. Every download component passes its product; the header shows the
 Core's train. The site is server-rendered, so links flip within the cache window with no
-deploy hook.
+deploy hook. The docs site reads the release, never the repo.
 
-### 4.4 Feature flags
+### 2.4 Feature flags
 
-Static release toggles, one registry per surface, each entry naming an owner and the
-release that removes it:
+A flag is a static build-time boolean, default off, that hides unfinished work in
+production. One registry per surface names each flag's owner and the release that
+removes it:
 
 - **Console**: `console/src/flags.ts` builds `const FLAGS` from `VITE_FLAG_*` through a
-  Vite `define`, default off, so production tree-shakes dark code. `IS_DEV` folds in.
+  Vite `define`, so production tree-shakes dark code. `IS_DEV` folds in.
 - **Docs site**: `docs/site/src/flags.ts` reads `FLAG_*` through `astro:env`. Pages opt
   in with `flag` frontmatter (404 when off); `PageNavNode` gains `flag`. Preview deploys
   set every flag on.
 
-### 4.5 What this RFC does not cover
+### 2.5 Out of scope
 
 Release cadence and QA procedure (the `rc.md` checklist becomes a release issue
 template), migration testing between trains, and any future desktop product beyond its
 flag and workflow file.
 
-## 5 Implementation phases
+## 3 Implementation phases
 
 - **Phase 1: Docs site.** `releases.ts`, the updater routes, per-product consumers, docs
-  flags. Works with today's `synnax-v` tags; deployable before any workflow change.
+  flags. Works with today's `synnax-v` tags and deploys before any workflow change.
 - **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
-  updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and are overridden
-  by injection, so the PR is workflow-only. Then merge `rc` into `main` (publishes
+  updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
+  overrides them, so the PR is workflow-only. Then merge `rc` into `main` (publishes
   nothing), `gh pr edit --base main` for open PRs, delete `rc`.
-- **Phase 3: Versions and Console flags.** Delete the version literals, scripts,
-  `test.updates.yaml`, and `release-spec.json`; add the Bazel status script and
-  `console/src/flags.ts`.
+- **Phase 3: Versions and Console flags.** Delete the version literals, scripts, and
+  `test.updates.yaml`; add the Bazel status script and `console/src/flags.ts`.
 - **Phase 4: First releases.** Console and Driver with `bump: minor`, then the Core,
-  opening train 0.59.
+  opening train 0.59. After the Console release, one manual commit copies its
+  `latest.json` into `release-spec.json`, so installed 0.58 builds upgrade once and land
+  on the new endpoint. The file stays on `main` until 0.58 is out of support.
 
-Compatibility: 0.58 Consoles poll the old raw URL, so the first 0.59 Console release
-writes one final `release-spec.json` before the file is deleted. Installed 0.58 builds
-upgrade once and land on the new endpoint.
-
-## 6 Resolved decisions
+## 4 Resolved decisions
 
 1. **Shared minor, independent patch**: Independent semver rejected; users could not
    answer cross-product compatibility questions.
@@ -189,14 +177,14 @@ upgrade once and land on the new endpoint.
 9. **Cutover order**: Workflows first, then merge `rc`, then retarget and delete, so no
    PR pays a rebase and the first release ships a whole train.
 
-## 7 Open questions
+## 5 Open questions
 
 - Tag prefix separator: `console/v` or `console-v`.
 - Cache TTLs on the docs site and updater routes.
 - Whether the Driver release also publishes a Docker image.
 - Which PR labels `.github/release.yml` categorizes on.
 
-## 8 Prior art
+## 6 Prior art
 
 - Fowler, branching patterns: https://martinfowler.com/articles/branching-patterns.html
 - trunkbaseddevelopment.com, Branch for release:
