@@ -42,7 +42,7 @@ html {
     --docs-block-gap: 4rem;
 
     @media (width <= 800px) {
-        --docs-block-inset: 0;
+        --docs-block-inset: 0px;
     }
 
     /* Astro code block styling */
@@ -78,7 +78,7 @@ html {
     --pluto-h5-line-height: 150%;
     --pluto-h5-text-transform: none;
     --pluto-p-size: round(2.666rem, 1px);
-    --pluto-p-weight: 400;
+    --pluto-p-weight: 350;
     --pluto-p-line-height: 175%;
     --pluto-small-size: round(2.333rem, 1px);
     --pluto-small-weight: 350;
@@ -119,7 +119,7 @@ html {
         --pluto-h4-size: 2.75rem;
         --pluto-h5-size: 2.5rem;
         --pluto-p-size: round(2.3333rem, 1px);
-        --pluto-p-weight: 400;
+        --pluto-p-weight: 3500;
     }
 }
 
@@ -243,6 +243,21 @@ table thead tr {
 table th {
     border-bottom: var(--pluto-border);
     text-align: start;
+}
+
+@media (max-width: 800px) {
+    table > :not(caption) > * > * {
+        padding: 1rem;
+    }
+
+    table td,
+    table td code {
+        font-size: calc(var(--pluto-small-size) * 0.9);
+    }
+
+    .astro-code code {
+        font-size: calc(var(--pluto-small-size) * 0.9);
+    }
 }
 
 /* Strong text */
