@@ -24,8 +24,8 @@ export interface BindChannelsProps<C extends record.Keyed<string>> {
 }
 
 /**
- * Applies the bindings the device maps to an entry. Returns the same entry when
- * nothing changes.
+ * Applies the bindings the device maps to an entry. Returns the same entry when nothing
+ * changes.
  * @param before - The bindings the device last mapped for the entry.
  */
 const bind = <C extends record.Keyed<string>>(
