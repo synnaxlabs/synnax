@@ -134,8 +134,8 @@ lifecycle against a shell script that stands in for the Core.
 | State        | Meaning                                    | Leaves on                   |
 | ------------ | ------------------------------------------ | --------------------------- |
 | `starting`   | First spawn of the launch, not yet ready   | Ready, or exit              |
-| `running`    | Ready; connection parameters are available | Process exit                |
-| `restarting` | The Core exited; backoff, then spawn       | Ready, or policy gives up   |
+| `running`    | Ready; connection parameters are available | Exit, hang, or a restart    |
+| `restarting` | The Core is replaced; backoff, then spawn  | Ready, or policy gives up   |
 | `failed`     | The restart policy gave up                 | The user asks for a restart |
 | `stopping`   | A stop was requested                       | Process exit or kill        |
 | `stopped`    | The Core exited on request                 | The app asks for a restart  |
@@ -150,6 +150,23 @@ keeps its client (`pluto/src/synnax/Provider.tsx:149`) and the client reconnects
 itself. When the port is taken, the supervisor picks a new one and Pluto builds a new
 client.
 
+**Liveness.** A Core that runs is probed every 5 s, each probe with a 2 s limit. After 3
+failed probes in a row the supervisor kills the Core and treats the run as an unexpected
+exit, so the restart policy covers a hang as it covers a crash. The probes run in their
+own task, so a slow probe never delays a stop request.
+
+**Manual restart.** `supervisor_restart` works in every state. A Core that runs stops in
+order first, the state goes to `restarting` and not to `stopped`, so the workspace stays
+mounted (§5.5), and the failure count resets.
+
+**Backup before a version change.** The supervisor records the app version in
+`core.version` beside the config file. Before it spawns a Core whose version differs, it
+copies the metadata store (`core/kv`) to `backups/<unix seconds>-<old version>` and
+keeps the newest 3. The copy is written under a `.partial` name and renamed when it is
+complete. Telemetry (`core/cesium`) is left out: it is large, and the metadata
+(channels, schematics, ranges, workspaces) is what a user cannot record again. A backup
+that fails counts as a failed run, so a Core never migrates data that has no copy.
+
 **Stop.** On `RunEvent::Exit` the supervisor writes `stop\n` to the Core's stdin and
 waits up to 30 s, then kills. The Core stops the Driver in its own close path. If
 Desktop dies without a clean exit, the Core's stdin closes and the Core stops itself
@@ -160,14 +177,23 @@ Ctrl+C in a development terminal reaches the supervisor alone.
 stderr, where a Go panic lands, goes to `core-stderr.log` there, and the file of the
 previous Core is kept under a second name.
 
-**Surface to the webview.** Four commands and one event, the first custom Tauri surface
+**History.** The supervisor keeps, for the launch, the number of Cores started, the time
+the current Core became ready, and the reason for the last unexpected exit.
+
+**Surface to the webview.** Eight commands and one event, the first custom Tauri surface
 in the Console shell:
 
 - `supervisor_status`: Returns the state and, when `running`, the host, port, username,
   and password.
-- `supervisor_restart`: Leaves `failed` or `stopped` and starts again.
+- `supervisor_restart`: Starts a new Core, after a stop of the one that runs.
 - `supervisor_stop`: Stops the Core and resolves when its process has exited.
 - `supervisor_show_logs`: Opens the log directory in the file manager.
+- `supervisor_show_data`: Opens the data directory in the file manager.
+- `supervisor_diagnostics`: Returns the app version, the history, the data and log
+  directories, and the size of the data directory.
+- `supervisor_log_tail`: Returns the last whole lines of `core.log`, at most 64 kB.
+- `supervisor_export_diagnostics`: Writes a zip archive to a given path: a summary and
+  every file of the log directory. The archive never holds the launch password.
 - `supervisor://status`: Emitted to every window on each state change.
 
 ### 5.2 Core changes
@@ -273,7 +299,9 @@ imports it, so it is a feature and not a platform package.
   and, on `running`, sets and selects the embedded Core record.
 - `Embedded.Indicator`: The top bar status, shown only while the connection is not
   healthy.
-- `Embedded.COMMANDS`: "Show logs".
+- `Embedded.COMMANDS`: "Open diagnostics", "Restart Synnax", "Show logs", and "Show data
+  folder".
+- `Embedded.useDiagnosticsModal`: Opens the diagnostics dialog in §5.5.
 - `Embedded.installMiddleware`: The update middleware in §5.3.
 
 **The Core record.** Session state is split by cluster key, which the `core` slice
@@ -306,7 +334,14 @@ The role is an instrumentation engineer at first launch, and a test operator in 
   (`client/ts/src/connection/client.ts:130-131`). The indicator shows only while the
   connection is not healthy. The operator sees a short gap in live data and no dialog.
 - **Restart gave up**: A full-window screen that says "Synnax stopped unexpectedly",
-  with "Restart" and "Show logs".
+  with "Restart" and "Diagnostics".
+- **Diagnostics**: A dialog for the person who helps a user, reached from the command
+  palette and from the screen above. It shows the state, the version, the starts of the
+  session, the last problem, the place and size of the data, and the end of the log in
+  readable lines. Its buttons show the data folder, show the logs, export an archive for
+  support, and restart. A restart of a Core that runs asks first, because it interrupts
+  every task and every live plot. The dialog gives no raw access to the Core's stdin:
+  the Core reads one word from it, and a button covers that word.
 
 ### 5.6 Build and release
 
@@ -356,6 +391,8 @@ macOS, which compiles the Tauri shell with no extra system packages.
 - Access to the embedded Core from the Python client, an external Driver, or a browser.
 - A Linux build. The Console has no Linux bundle.
 - A move of data between Desktop and a standalone Core.
+- A backup of telemetry, and a restore flow in the interface. A person restores a
+  metadata backup by hand.
 
 ## 8 Resolved decisions
 
@@ -388,6 +425,13 @@ macOS, which compiles the Tauri shell with no extra system packages.
 9. **A project made on first launch**: Rejected. The user sees the project selector.
 10. **A dialog on each Core crash**: Rejected. A restart that works needs no decision
     from the operator, and the give-up state catches a Core that keeps crashing.
+
+11. **A terminal on the Core's stdin in the diagnostics dialog**: Rejected. The Core
+    reads only `stop` from stdin, and a raw pipe shows the user the process that Desktop
+    hides.
+12. **A data guard in the uninstaller**: Not needed. The Tauri NSIS uninstaller deletes
+    the app data only when the user ticks "Delete the application data", never in an
+    update, and macOS leaves the data when the app goes to the trash.
 
 ## 9 Open questions
 
