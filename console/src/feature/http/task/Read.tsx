@@ -251,6 +251,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   return (
     <>
       <Task.ChannelList<ReadField>
+        resolve={null}
         data={data}
         remove={remove}
         onDuplicate={handleDuplicate}

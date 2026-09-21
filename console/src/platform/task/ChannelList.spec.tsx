@@ -40,6 +40,7 @@ const Harness = ({
   const { data, remove } = Form.useFieldList<string, Task.Channel>("config.channels");
   return (
     <Task.ChannelList<Task.Channel>
+      resolve={null}
       data={data}
       remove={remove}
       path="config.channels"

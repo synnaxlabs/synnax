@@ -127,8 +127,8 @@ export interface ChannelListProps<C extends Channel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
-  /** Omitted only by a nested list whose entries an outer BindChannels binds. */
-  resolve?: BindChannelsProps<C>["resolve"];
+  /** Null only for a nested list whose entries an outer BindChannels binds. */
+  resolve: BindChannelsProps<C>["resolve"] | null;
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
