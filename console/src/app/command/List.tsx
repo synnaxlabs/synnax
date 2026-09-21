@@ -15,6 +15,7 @@ import { Command } from "@/feature/command";
 import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
+import { Embedded } from "@/feature/embedded";
 import { Framer } from "@/feature/framer";
 import { Import } from "@/feature/import";
 import { Label } from "@/feature/label";
@@ -35,7 +36,7 @@ import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
   ...Channel.COMMANDS,
-  ...Core.COMMANDS,
+  ...(DESKTOP ? Embedded.COMMANDS : Core.COMMANDS),
   ...Device.COMMANDS,
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,
@@ -49,7 +50,7 @@ const COMMANDS: Command.Command[] = [
   ...Schematic.COMMANDS,
   ...Table.COMMANDS,
   ...Task.COMMANDS,
-  ...User.COMMANDS,
+  ...(DESKTOP ? [] : User.COMMANDS),
   ...Version.COMMANDS,
   ...Project.COMMANDS,
   ...Arc.COMMANDS,

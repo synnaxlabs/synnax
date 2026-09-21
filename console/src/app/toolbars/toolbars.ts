@@ -28,7 +28,7 @@ export const LEFT: Nav.Toolbar[] = [
   Task.TOOLBAR,
   Arc.TOOLBAR,
   Status.TOOLBAR,
-  User.TOOLBAR,
+  ...(DESKTOP ? [] : [User.TOOLBAR]),
 ];
 
 export const BOTTOM: Nav.Toolbar = Panel.TOOLBAR;

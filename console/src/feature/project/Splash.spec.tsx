@@ -60,6 +60,39 @@ describe("project/Splash", () => {
     });
   });
 
+  describe("session controls", () => {
+    it("should log out of the Core", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+      expect(Session.Core.selectSelected(store.getState())).toBeUndefined();
+    });
+
+    it("should name the selected Core in the connection island", async () => {
+      const { store } = await renderWithConsole(<Project.Splash />);
+      act(() => {
+        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      });
+      const name = Session.Core.selectSelected(store.getState())?.name;
+      if (name == null) throw new Error("no Core is selected");
+      expect(await screen.findByText(name)).toBeTruthy();
+    });
+
+    it("should offer no log out and name no Core when standalone", async () => {
+      const { store } = await renderWithConsole(<Project.Splash standalone />);
+      act(() => {
+        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      });
+      const name = Session.Core.selectSelected(store.getState())?.name;
+      if (name == null) throw new Error("no Core is selected");
+      expect(screen.getByText("Projects")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Log out" })).toBeNull();
+      expect(screen.queryByText(name)).toBeNull();
+    });
+  });
+
   describe("awaiting a deep link's project", () => {
     it("should show the notice only while a link waits on a selection", async () => {
       const { store } = await renderWithConsole(<Project.Splash />);

@@ -17,6 +17,9 @@ extern crate objc2_app_kit;
 #[cfg(target_os = "macos")]
 extern crate objc2_foundation;
 
+#[cfg(feature = "desktop")]
+mod supervisor;
+
 #[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceEventsHandler, DeviceQuery, DeviceState, MouseState};
 #[cfg(target_os = "macos")]
@@ -82,7 +85,15 @@ fn main() {
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(feature = "desktop")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        supervisor::commands::supervisor_status,
+        supervisor::commands::supervisor_restart,
+        supervisor::commands::supervisor_stop,
+        supervisor::commands::supervisor_show_logs,
+    ]);
+    builder
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
         })
@@ -112,6 +123,8 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(feature = "desktop")]
+            supervisor::commands::init(app.handle())?;
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -134,6 +147,12 @@ fn main() {
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            #[cfg(feature = "desktop")]
+            if let tauri::RunEvent::Exit = _event {
+                supervisor::commands::shutdown(_app);
+            }
+        });
 }

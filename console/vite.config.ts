@@ -15,6 +15,8 @@ import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 
 const isDev = process.env.VITE_IS_DEV === "true";
+// Builds Synnax Desktop, the app that bundles and manages its own Core.
+const desktop = process.env.VITE_DESKTOP === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
@@ -154,7 +156,7 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev },
+  define: { IS_DEV: isDev, DESKTOP: desktop },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so aether frames

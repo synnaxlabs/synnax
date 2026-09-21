@@ -48,6 +48,20 @@ tauri-plugin-dialog = "2.7.2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-prevent-default = "5.0.2"
 window-shadows = "0.2.2"
+getrandom = { version = "0.3.4", optional = true }
+tokio = { version = "1.53.1", optional = true, features = [
+    "io-util",
+    "macros",
+    "net",
+    "process",
+    "rt",
+    "sync",
+    "time",
+] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
 
 [features]
 # by default Tauri runs in production mode when `tauri dev` runs it is executed with
@@ -56,3 +70,5 @@ default = ["custom-protocol"]
 # this feature is used for production builds where `devPath` points to the filesystem DO
 # NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
+# Synnax Desktop: the app bundles a Core and supervises it.
+desktop = ["dep:getrandom", "dep:tokio"]

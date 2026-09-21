@@ -30,6 +30,7 @@ import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Framer } from "@/platform/framer";
 import { Label } from "@/platform/label";
+import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
 
@@ -92,6 +93,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   });
 
   const handleLink = Core.useCopyLinkToClipboard();
+  const linksDisabled = Link.useDisabled();
   const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
@@ -187,15 +189,17 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Icon.CSV />
             </Button.Button>
             <Divider.Divider y />
-            <Button.Button
-              variant="text"
-              tooltip={`Copy link to ${name}`}
-              tooltipLocation="bottom"
-              onClick={handleCopyLink}
-              textColor={9}
-            >
-              <Icon.Link />
-            </Button.Button>
+            {!linksDisabled && (
+              <Button.Button
+                variant="text"
+                tooltip={`Copy link to ${name}`}
+                tooltipLocation="bottom"
+                onClick={handleCopyLink}
+                textColor={9}
+              >
+                <Icon.Link />
+              </Button.Button>
+            )}
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>

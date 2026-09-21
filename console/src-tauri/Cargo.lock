@@ -3889,6 +3889,7 @@ name = "synnax-console"
 version = "0.0.0"
 dependencies = [
  "device_query",
+ "getrandom 0.3.4",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
@@ -3905,6 +3906,8 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-store",
  "tauri-plugin-updater",
+ "tempfile",
+ "tokio",
  "window-shadows",
 ]
 
@@ -4560,6 +4563,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
