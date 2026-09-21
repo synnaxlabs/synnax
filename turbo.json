@@ -12,7 +12,8 @@
   "globalEnv": [
     "SYNNAX_TS_ENV",
     "TAURI_SIGNING_PRIVATE_KEY",
-    "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+    "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+    "VITE_DESKTOP"
   ],
   "tasks": {
     "build": {
@@ -34,6 +35,8 @@
     "check-types": { "dependsOn": ["^build"] },
     "dev-vite": { "cache": false },
     "dev": { "cache": false, "dependsOn": ["^build"] },
+    "dev-desktop": { "cache": false, "dependsOn": ["^build"] },
+    "build-desktop": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
     "madge": { "dependsOn": ["^build"] },
     "fix": { "cache": false },

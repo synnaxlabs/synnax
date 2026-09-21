@@ -55,8 +55,8 @@ nav {
 
 /* Page navigation sidebar */
 .page-nav {
-    width: 270px;
-    min-width: 270px;
+    width: 45rem;
+    min-width: 45rem;
     overflow: hidden;
     padding-left: 2rem;
     align-self: flex-start;
@@ -149,6 +149,11 @@ article {
         color: var(--pluto-gray-l10);
     }
 
+    /* Block flow collapses margins in a panel exactly as in the article body. */
+    .pluto-tabs__content {
+        display: block;
+    }
+
     .pluto-tabs__content h2:first-of-type {
         margin-top: 4rem;
     }
@@ -202,10 +207,63 @@ article {
         color: var(--docs-body-color);
     }
 
+    .diagram img,
+    .blog-author__photo {
+        margin: 5rem 0;
+    }
+
+    /* Media shares the note and code block geometry. */
     video,
     iframe,
-    img {
-        margin: 5rem 0;
+    img:not(.diagram img, .blog-author__photo, figure img) {
+        display: block;
+        width: calc(100% - 2 * var(--docs-block-inset));
+        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
+    }
+
+    /* The Video and Image components render inside an astro-island wrapper. */
+    p:has(+ :is(video, img), + astro-island > :is(video, img, .docs-video)) {
+        margin-bottom: 2rem;
+    }
+
+    p + :is(video, img),
+    p + astro-island > :is(video, img),
+    p + astro-island > .docs-video > video {
+        margin-top: 0;
+    }
+
+    /* Leading media sits under the tab strip like a leading code block. */
+    :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
+        > :is(video, img):first-child,
+    :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
+        > astro-island:first-child
+        > :is(video, img),
+    :is(.pluto-tabs__content, .pluto-tabs__content > astro-slot)
+        > astro-island:first-child
+        > .docs-video
+        > video {
+        margin-top: 0;
+    }
+
+    /* Touch devices wrap videos to overlay a play button. */
+    .docs-video {
+        position: relative;
+    }
+
+    .docs-video__play {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        width: 12rem;
+        height: 12rem;
+        margin: auto;
+        border: none;
+        border-radius: 50%;
+        background: rgb(var(--pluto-black-rgb), 0.6);
+        color: var(--pluto-white);
+        font-size: 7.5rem;
+        pointer-events: none;
     }
 
     ul {
@@ -213,7 +271,6 @@ article {
     }
 
     .yt-video {
-        width: 100%;
         aspect-ratio: 3456 / 2240;
         border-radius: 1rem;
         border: var(--pluto-border);

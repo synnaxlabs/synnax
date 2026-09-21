@@ -226,6 +226,7 @@ jobs:
       nilinuxrt: true
       console: true
       console_tauri: true
+      desktop: true
       core: true
       sign_binaries: ${{ needs.setup.outputs.RELEASE == 'true' }}
       upload_to_release: ${{ needs.setup.outputs.RELEASE == 'true' }}
@@ -377,39 +378,45 @@ jobs:
             } = context;
 
             const baseURL = `https://github.com/${owner}/${repo}/releases/download/console-v${version}/`;
-
-            const darwinURL = baseURL + "Synnax.app.tar.gz";
-            const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const windowsURL = baseURL + `Synnax_${consoleVersion}_x64_en-US.msi`;
-            const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
             const ecd = new TextDecoder();
 
-            const data = {
-              version: `v${consoleVersion}`,
-              notes: "Synnax Update",
-              pub_date,
-              platforms: {
-                "darwin-x86_64": {
-                  signature: ecd.decode(darwinSig.data),
-                  url: darwinURL,
+            // The Console and Synnax Desktop share a release and differ by asset name.
+            const writeSpec = async (assetPrefix, specFile) => {
+              const darwinURL = baseURL + `${assetPrefix}.app.tar.gz`;
+              const darwinSig = await github.request(`GET ${darwinURL}.sig`);
+              const windowsURL = baseURL + `${assetPrefix}_${consoleVersion}_x64_en-US.msi`;
+              const windowsSig = await github.request(`GET ${windowsURL}.sig`);
+
+              const data = {
+                version: `v${consoleVersion}`,
+                notes: "Synnax Update",
+                pub_date,
+                platforms: {
+                  "darwin-x86_64": {
+                    signature: ecd.decode(darwinSig.data),
+                    url: darwinURL,
+                  },
+                  "darwin-aarch64": {
+                    signature: ecd.decode(darwinSig.data),
+                    url: darwinURL,
+                  },
+                  "linux-x86_64": {
+                    signature: "not_supported_and_tauri_requires_an_entry",
+                    url: darwinURL,
+                  },
+                  "windows-x86_64": {
+                    signature: ecd.decode(windowsSig.data),
+                    url: windowsURL,
+                  },
                 },
-                "darwin-aarch64": {
-                  signature: ecd.decode(darwinSig.data),
-                  url: darwinURL,
-                },
-                "linux-x86_64": {
-                  signature: "not_supported_and_tauri_requires_an_entry",
-                  url: darwinURL,
-                },
-                "windows-x86_64": {
-                  signature: ecd.decode(windowsSig.data),
-                  url: windowsURL,
-                },
-              },
+              };
+
+              fs.writeFileSync(specFile, JSON.stringify(data, null, 2) + "\n");
             };
 
-            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2) + "\n");
+            await writeSpec("Synnax", "console/release-spec.json");
+            await writeSpec("Synnax-Desktop", "console/release-spec.desktop.json");
 
       - name: Commit & Push Auto Update JSON File on Main
         uses: EndBug/add-and-commit@v10

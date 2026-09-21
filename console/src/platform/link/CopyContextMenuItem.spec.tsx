@@ -23,4 +23,17 @@ describe("Link.CopyContextMenuItem", () => {
     );
     expect(screen.getByText("Copy link")).toBeTruthy();
   });
+
+  it("renders nothing below Link.Disabled", async () => {
+    await renderWithConsole(
+      <Menu.Menu>
+        <Link.Disabled>
+          <Link.CopyContextMenuItem />
+        </Link.Disabled>
+        <Menu.Item itemKey="rename">Rename</Menu.Item>
+      </Menu.Menu>,
+    );
+    expect(screen.getByText("Rename")).toBeTruthy();
+    expect(screen.queryByText("Copy link")).toBeNull();
+  });
 });

@@ -158,6 +158,12 @@ synnax start -l localhost:9090 -im
         "Disables the embedded Synnax Driver for the Synnax Core. This is useful when you want to run Synnax without any device integration.",
     },
     {
+      option: "--stop-on-stdin-close",
+      default: "false",
+      description:
+        "Stops the Core when its standard input closes. Use it when a parent process starts the Core and holds its standard input, so that the Core stops if the parent exits. Do not set it for a Core that runs as a service, because a service has no standard input.",
+    },
+    {
       option: "--disable-integrations",
       default: "[]",
       description:
@@ -259,6 +265,7 @@ Command line flags will take precedence over environment variables.
     { option: "--debug", env: "SYNNAX_DEBUG" },
     { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
     { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
+    { option: "--stop-on-stdin-close", env: "SYNNAX_STOP_ON_STDIN_CLOSE" },
     { option: "--disable-integrations", env: "SYNNAX_DISABLE_INTEGRATIONS" },
     { option: "--enable-integrations", env: "SYNNAX_ENABLE_INTEGRATIONS" },
     { option: "--task-op-timeout", env: "SYNNAX_TASK_OP_TIMEOUT" },
@@ -462,6 +469,11 @@ Each listener object accepts the following fields:
     {
       field: "name",
       description: "An optional label for the listener, shown in logs.",
+    },
+    {
+      field: "loopback",
+      description:
+        "Binds the listener to the loopback interface only, so no other machine can reach it. The address host must be <code>localhost</code> or <code>127.0.0.1</code>. By default, a listener binds its port on every network interface.",
     },
   ]}
 />

@@ -10,16 +10,18 @@
 import { Synnax } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { Activate } from "@/feature/license/Activate";
+import { Activate, type ActivateProps } from "@/feature/license/Activate";
+
+export interface GuardProps extends PropsWithChildren, ActivateProps {}
 
 /**
  * Renders the activation screen instead of its children while the active Core refuses
  * requests for want of a license. The connection check keeps polling, so the screen
  * dismisses on its own once a license applies.
  */
-export const Guard = ({ children }: PropsWithChildren): ReactNode => {
+export const Guard = ({ children, standalone }: GuardProps): ReactNode => {
   const status = Synnax.useConnectionStatus();
   if (status.variant === "error" && status.details.reason === "unlicensed")
-    return <Activate />;
+    return <Activate standalone={standalone} />;
   return children;
 };

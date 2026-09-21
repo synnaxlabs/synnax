@@ -10,11 +10,18 @@
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { useDisabled } from "@/platform/link/Disabled";
+
 export interface CopyContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {}
 
-export const CopyContextMenuItem = (props: CopyContextMenuItemProps): ReactElement => (
-  <Menu.Item {...props} itemKey="link">
-    <Icon.Link />
-    Copy link
-  </Menu.Item>
-);
+export const CopyContextMenuItem = (
+  props: CopyContextMenuItemProps,
+): ReactElement | null => {
+  if (useDisabled()) return null;
+  return (
+    <Menu.Item {...props} itemKey="link">
+      <Icon.Link />
+      Copy link
+    </Menu.Item>
+  );
+};

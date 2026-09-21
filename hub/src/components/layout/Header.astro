@@ -352,12 +352,13 @@ const label = version?.split(".").slice(0, -1).join(".");
     @media (max-width: 800px) and (hover: none) {
         .main-header {
             z-index: 100;
-            flex-direction: column-reverse !important;
             position: fixed;
-            bottom: 0px;
-            top: unset;
+            top: 0;
             width: 100%;
-            border-top: var(--pluto-border);
+        }
+
+        body {
+            padding-top: var(--nav-height);
         }
     }
 </style>
