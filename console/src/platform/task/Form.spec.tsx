@@ -196,6 +196,40 @@ describe("wrapForm", () => {
       expect(configured).toBe(false);
     });
 
+    it("should put an error of a keyed list entry on the field of that entry", async () => {
+      const ChannelStatus: FC = () => {
+        const { status } = PForm.useField<string>("config.channels.ch1.key");
+        return <div>{`channel-status:${status.message}`}</div>;
+      };
+      ChannelStatus.displayName = "ChannelStatus";
+      // The form mounts with its initial values, before the task loads.
+      const ChannelStatusProbe: FC = () => {
+        const channels = PForm.useFieldValue<unknown[]>("config.channels");
+        return channels.length > 0 ? <ChannelStatus /> : null;
+      };
+      ChannelStatusProbe.displayName = "ChannelStatusProbe";
+      const client = createTestClient();
+      const draft = await client.tasks.create({
+        ...getInitialValues({}),
+        config: { device: "dev", channels: [{ key: "ch1", enabled: true }] },
+        rack: 0,
+      });
+      const Renderer = createRenderer({
+        Form: ChannelStatusProbe,
+        deployConfigZ: schemas.config.extend({
+          channels: z.array(z.object({ key: z.string().min(4, "Key is too short") })),
+        }),
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(screen.getByText("channel-status:Key is too short")).toBeTruthy(),
+      );
+    });
+
     it("should deploy when the only issues are warnings", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
