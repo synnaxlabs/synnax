@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, renderHook } from "@testing-library/react";
-import { type MouseEvent } from "react";
+import { type KeyboardEvent, type MouseEvent } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
@@ -18,6 +18,21 @@ const press = (button = 0): MouseEvent<HTMLButtonElement> =>
 
 const release = (): void => {
   fireEvent.mouseUp(document);
+};
+
+const keyPress = (
+  key: string,
+  overrides: Partial<KeyboardEvent<HTMLButtonElement>> = {},
+): KeyboardEvent<HTMLButtonElement> => {
+  const target = {};
+  return {
+    key,
+    target,
+    currentTarget: target,
+    defaultPrevented: false,
+    repeat: false,
+    ...overrides,
+  } as KeyboardEvent<HTMLButtonElement>;
 };
 
 describe("useHold", () => {
@@ -182,6 +197,22 @@ describe("useHold", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it("should release the hold when the window blurs", () => {
+      const onClick = vi.fn();
+      const { result } = renderHook(() =>
+        Button.useHold({ onClick, onClickDelay: 500 }),
+      );
+      act(() => result.current.onMouseDown(press()));
+      act(() => {
+        fireEvent.blur(window);
+      });
+      expect(result.current.pressed).toBe(false);
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
     it("should release the hold when a drag starts", () => {
       const onClick = vi.fn();
       const { result } = renderHook(() =>
@@ -196,6 +227,53 @@ describe("useHold", () => {
         vi.advanceTimersByTime(1000);
       });
       expect(onClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("keyboard", () => {
+    it.each([" ", "Enter"])("should mark %j and clear it on keyup", (key) => {
+      const { result } = renderHook(() => Button.useHold({}));
+      act(() => result.current.onKeyDown(keyPress(key)));
+      expect(result.current.pressed).toBe(true);
+      act(() => result.current.onKeyUp(keyPress(key)));
+      expect(result.current.pressed).toBe(false);
+    });
+
+    it("should ignore other keys", () => {
+      const { result } = renderHook(() => Button.useHold({}));
+      act(() => result.current.onKeyDown(keyPress("a")));
+      expect(result.current.pressed).toBe(false);
+    });
+
+    it("should ignore a prevented keydown", () => {
+      const { result } = renderHook(() => Button.useHold({}));
+      act(() => result.current.onKeyDown(keyPress(" ", { defaultPrevented: true })));
+      expect(result.current.pressed).toBe(false);
+    });
+
+    it("should ignore a keydown from a nested target", () => {
+      const { result } = renderHook(() => Button.useHold({}));
+      act(() => result.current.onKeyDown(keyPress(" ", { target: {} as Element })));
+      expect(result.current.pressed).toBe(false);
+    });
+
+    it("should not mark a delayed control", () => {
+      const onClick = vi.fn();
+      const { result } = renderHook(() =>
+        Button.useHold({ onClick, onClickDelay: 500 }),
+      );
+      act(() => result.current.onKeyDown(keyPress(" ")));
+      expect(result.current.pressed).toBe(false);
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it("should not mark a disabled control", () => {
+      const { result } = renderHook(() => Button.useHold({ disabled: true }));
+      act(() => result.current.onKeyDown(keyPress(" ")));
+      expect(result.current.pressed).toBe(false);
     });
   });
 });

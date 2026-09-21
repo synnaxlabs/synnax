@@ -110,6 +110,7 @@ const Base = <E extends ElementType = "button">({
   onClickDelay = 0,
   onClick,
   onKeyDown,
+  onKeyUp,
   color: colorVal,
   status,
   style,
@@ -153,11 +154,17 @@ const Base = <E extends ElementType = "button">({
     (resolvedEl === "div" || resolvedEl === "label") && tabIndex != null;
   const handleKeyDown = (e: any) => {
     onKeyDown?.(e);
+    hold.onKeyDown(e);
     if (!ownsActivation || e.defaultPrevented) return;
     if (e.target !== e.currentTarget) return;
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
     handleClick(e);
+  };
+
+  const handleKeyUp = (e: any) => {
+    onKeyUp?.(e);
+    hold.onKeyUp(e);
   };
 
   const handleMouseDown = (e: any) => {
@@ -241,6 +248,7 @@ const Base = <E extends ElementType = "button">({
       aria-disabled={isDisabled || undefined}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
       onMouseDown={handleMouseDown}
       style={pStyle}
       color={textColor}

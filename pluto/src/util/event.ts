@@ -13,7 +13,8 @@ export const preventDefault = (e: { preventDefault: () => void }): void =>
 export const stopPropagation = (e: { stopPropagation: () => void }): void =>
   e.stopPropagation();
 
-const ACTIVATION_KEYS = [" ", "Enter"];
+/** The keys whose keydown or keyup the browser turns into a click. */
+export const ACTIVATION_KEYS = [" ", "Enter"];
 
 /**
  * Cancels the browser's synthetic click for Space and Enter so a focused control never

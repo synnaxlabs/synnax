@@ -305,6 +305,36 @@ describe("Button", () => {
       fireEvent.mouseDown(btn);
       expect(btn.className).not.toContain("pluto--pressed");
     });
+
+    it("should mark a Space press and clear it on keyup", () => {
+      const c = render(<Button.Button>Hello</Button.Button>);
+      const btn = c.getByText("Hello");
+      fireEvent.keyDown(btn, { key: " " });
+      expect(btn.className).toContain("pluto--pressed");
+      fireEvent.keyUp(btn, { key: " " });
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+
+    it("should not mark a Space press that a capture handler prevented", () => {
+      const c = render(
+        <div onKeyDownCapture={(e) => e.preventDefault()}>
+          <Button.Button>Hello</Button.Button>
+        </div>,
+      );
+      const btn = c.getByText("Hello");
+      fireEvent.keyDown(btn, { key: " " });
+      expect(btn.className).not.toContain("pluto--pressed");
+    });
+
+    it("should not mark a Space press on a nested input", () => {
+      const c = render(
+        <Button.Button el="div" tabIndex={0}>
+          <input aria-label="nested" />
+        </Button.Button>,
+      );
+      fireEvent.keyDown(c.getByLabelText("nested"), { key: " " });
+      expect(c.container.firstElementChild?.className).not.toContain("pluto--pressed");
+    });
   });
 
   describe("onClickDelay", () => {

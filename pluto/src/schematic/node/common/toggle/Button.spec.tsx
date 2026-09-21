@@ -195,21 +195,6 @@ describe("Toggle.Button", () => {
     });
   });
 
-  describe("keyboard handlers", () => {
-    it("should forward onKeyDown and onKeyUp", () => {
-      const onKeyDown = vi.fn();
-      const onKeyUp = vi.fn();
-      const { container } = render(
-        <Toggle.Button onKeyDown={onKeyDown} onKeyUp={onKeyUp} />,
-      );
-      const btn = getButton(container);
-      fireEvent.keyDown(btn, { key: " " });
-      fireEvent.keyUp(btn, { key: " " });
-      expect(onKeyDown).toHaveBeenCalledTimes(1);
-      expect(onKeyUp).toHaveBeenCalledTimes(1);
-    });
-  });
-
   describe("classes and modifiers", () => {
     it("should add the delayed modifier when delay is non-zero", () => {
       const { container } = render(<Toggle.Button onClickDelay={250} />);

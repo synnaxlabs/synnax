@@ -19,6 +19,7 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 import { symbolColorVar } from "@/schematic/symbolColor";
+import { blockActivation } from "@/util/event";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown"> {
   onClick?: MouseEventHandler<HTMLElement>;
@@ -62,6 +63,10 @@ export const Switch = ({
         disabled={disabled}
         onClick={hold.onClick}
         onChange={() => {}}
+        // The diagram's keyboard guard lets inputs through, so the checkbox blocks
+        // Space itself.
+        onKeyDown={blockActivation}
+        onKeyUp={blockActivation}
       />
       <Handle.Linear orientation={orientation} left={0} right={100} />
     </Primitive.Div>
