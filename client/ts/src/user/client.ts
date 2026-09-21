@@ -185,8 +185,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Replaces the password of the user with the given key. The caller must hold
-   * update access on that user; the current password is not required.
+   * Replaces the password of the user with the given key. The caller must hold update
+   * access on that user; the current password is not required.
    */
   async changePassword(key: Key, newPassword: string): Promise<void> {
     await this.cfg.unary.send(

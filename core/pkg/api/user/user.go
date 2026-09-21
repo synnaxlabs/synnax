@@ -33,10 +33,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *user.Service
 	auth     *svcauth.Service
-	// mu serializes mutations that read a username and then write credentials by it.
-	// A transaction commit does not revalidate earlier reads, so two such mutations
-	// interleaving could leave credentials under a stale username.
-	mu sync.Mutex
+	mu       sync.Mutex
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
