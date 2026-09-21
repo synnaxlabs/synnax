@@ -11,15 +11,15 @@ import { type APIRoute } from "astro";
 
 import { licenseFor, requireStaff } from "@/portal/access";
 import { open } from "@/portal/portal";
-import { handle, redirect, wantsHTML } from "@/portal/respond";
+import { handle } from "@/portal/respond";
 import { revocationText } from "@/server/license/expiry";
 import { revoke } from "@/server/license/issue";
 import { emails } from "@/server/session";
 
 /** POST revokes a license and mails the organization. Staff only. */
-export const POST: APIRoute = async (context) => {
-  const key = context.params.key ?? "";
-  return await handle(context, "/staff/licenses", async () => {
+export const POST: APIRoute = async (context) =>
+  await handle(async () => {
+    const key = context.params.key ?? "";
     const portal = open(context);
     const session = await portal.session();
     requireStaff(session);
@@ -36,7 +36,5 @@ export const POST: APIRoute = async (context) => {
         subject: `Your Synnax license "${license.label}" was revoked`,
         text: revocationText(license, organization.name),
       });
-    if (wantsHTML(context)) return redirect(context, `/licenses/${key}`);
     return new Response(null, { status: 204 });
   });
-};

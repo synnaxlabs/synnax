@@ -11,22 +11,20 @@ import { type APIRoute } from "astro";
 
 import { activationFor } from "@/portal/access";
 import { open } from "@/portal/portal";
-import { handle, redirect, wantsHTML } from "@/portal/respond";
+import { handle } from "@/portal/respond";
 import { release } from "@/server/license/activate";
 
 /** POST frees the seat a machine holds. */
-export const POST: APIRoute = async (context) => {
-  const key = context.params.key ?? "";
-  return await handle(context, "/licenses", async () => {
+export const POST: APIRoute = async (context) =>
+  await handle(async () => {
+    const key = context.params.key ?? "";
     const portal = open(context);
     const session = await portal.session();
-    const { license } = await activationFor(portal, session, key);
+    await activationFor(portal, session, key);
     await release(portal.store, {
       activationKey: key,
       actor: session.userID,
       now: portal.now(),
     });
-    if (wantsHTML(context)) return redirect(context, `/licenses/${license.key}`);
     return new Response(null, { status: 204 });
   });
-};

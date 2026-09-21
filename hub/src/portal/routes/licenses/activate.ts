@@ -11,7 +11,7 @@ import { type APIRoute } from "astro";
 
 import { licenseFor } from "@/portal/access";
 import { open } from "@/portal/portal";
-import { form, handle, redirect, wantsHTML } from "@/portal/respond";
+import { filename, form, handle } from "@/portal/respond";
 import { badRequest } from "@/server/errors";
 import { activate, DENIAL_MESSAGES } from "@/server/license/activate";
 import { parse } from "@/server/license/fingerprint";
@@ -19,13 +19,11 @@ import { check } from "@/server/ratelimit";
 
 /**
  * POST grants a seat to the machine whose host hashes are posted as `fingerprint` and
- * returns its token. A browser is sent to the license page with a download link; an
- * API caller gets `{ token, activation }`.
+ * answers `{ token, activation, filename }`.
  */
-export const POST: APIRoute = async (context) => {
-  const key = context.params.key ?? "";
-  const back = `/licenses/activate?license=${key}`;
-  return await handle(context, back, async () => {
+export const POST: APIRoute = async (context) =>
+  await handle(async () => {
+    const key = context.params.key ?? "";
     const portal = open(context);
     const session = await portal.session();
     const { license, organization } = await licenseFor(portal, session, key);
@@ -49,10 +47,9 @@ export const POST: APIRoute = async (context) => {
       now,
     });
     if (!result.ok) throw badRequest(DENIAL_MESSAGES[result.reason]);
-    if (wantsHTML(context))
-      return redirect(context, `/licenses/${license.key}`, {
-        activated: result.activation.key,
-      });
-    return Response.json({ token: result.token, activation: result.activation.key });
+    return Response.json({
+      token: result.token,
+      activation: result.activation.key,
+      filename: filename(license.label),
+    });
   });
-};
