@@ -85,8 +85,13 @@ describe("releases", () => {
   });
 
   describe("Releases", () => {
-    const respond = (body: unknown, ok = true, status = 200): Response =>
-      ({ ok, status, json: async () => body }) as unknown as Response;
+    const respond = (body: unknown, ok = true, status = 200, next?: string): Response =>
+      ({
+        ok,
+        status,
+        json: async () => body,
+        headers: new Headers(next == null ? {} : { link: `<${next}>; rel="next"` }),
+      }) as unknown as Response;
 
     it("should fetch once per TTL window", async () => {
       let time = 0;
@@ -120,6 +125,25 @@ describe("releases", () => {
       await expect(releases.latest("core")).rejects.toThrow("503");
       expect(await releases.latest("core")).toEqual("0.58.2");
       expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should follow pagination while pages list product releases", async () => {
+      const fetch = vi
+        .fn()
+        .mockResolvedValueOnce(respond([release("core/v0.59.0")], true, 200, "p2"))
+        .mockResolvedValueOnce(respond([release("core/v0.59.1")], true, 200, "p3"))
+        .mockResolvedValueOnce(respond([release("synnax-v0.58.2")], true, 200, "p4"));
+      const releases = new Releases({ fetch });
+      expect(await releases.latest("core")).toEqual("0.59.1");
+      expect(fetch).toHaveBeenCalledTimes(3);
+      expect(fetch.mock.calls[1]?.[0]).toEqual("p2");
+      expect(fetch.mock.calls[2]?.[0]).toEqual("p3");
+    });
+
+    it("should stop at the last page", async () => {
+      const fetch = vi.fn().mockResolvedValueOnce(respond([release("core/v0.59.0")]));
+      expect(await new Releases({ fetch }).latest("core")).toEqual("0.59.0");
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("should throw when the product has no release", async () => {

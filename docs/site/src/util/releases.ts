@@ -14,6 +14,8 @@ export type Channel = "stable" | "next";
 
 const REPO = "synnaxlabs/synnax";
 const API_URL = `https://api.github.com/repos/${REPO}/releases?per_page=100`;
+const MAX_PAGES = 20;
+const NEXT_LINK = /<([^>]+)>;\s*rel="next"/;
 const TAG = /^(console|core|driver)\/v(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?$/;
 
 /** Builds the tag a product release carries, such as `console/v0.59.0`. */
@@ -145,17 +147,24 @@ export class Releases {
     return releases;
   }
 
+  // GitHub lists by creation date, and every product release is newer than every
+  // legacy one, so the walk stops at the first page without a product release.
   private async fetchListing(): Promise<Release[]> {
     const headers: Record<string, string> = { Accept: "application/vnd.github+json" };
     if (this.token != null) headers.Authorization = `Bearer ${this.token}`;
-    const response = await this.fetcher(API_URL, { headers });
-    if (!response.ok)
-      throw new Error(`GitHub releases API returned ${response.status}`);
-    const body: unknown = await response.json();
-    if (!Array.isArray(body)) throw new Error("GitHub releases API returned no list");
-    return body as Release[];
+    const releases: Release[] = [];
+    let url: string | null = API_URL;
+    for (let page = 0; url != null && page < MAX_PAGES; page++) {
+      const response: Response = await this.fetcher(url, { headers });
+      if (!response.ok)
+        throw new Error(`GitHub releases API returned ${response.status}`);
+      const body: unknown = await response.json();
+      if (!Array.isArray(body)) throw new Error("GitHub releases API returned no list");
+      const listed = body as Release[];
+      releases.push(...listed);
+      if (!listed.some(({ tag_name }) => parse(tag_name) != null)) break;
+      url = NEXT_LINK.exec(response.headers.get("link") ?? "")?.[1] ?? null;
+    }
+    return releases;
   }
 }
-
-/** The site-wide lookup. `DOCS_GITHUB_TOKEN` raises the API rate limit when set. */
-export const releases = new Releases({ token: process.env.DOCS_GITHUB_TOKEN });

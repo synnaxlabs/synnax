@@ -9,7 +9,14 @@
 
 import type { MiddlewareHandler } from "astro";
 
-export const onRequest: MiddlewareHandler = async (_, next) => {
+import { Releases } from "@/util/releases";
+
+// The one lookup instance, so its listing cache serves every request of a warm
+// function. `DOCS_GITHUB_TOKEN` raises the GitHub API rate limit when set.
+const releases = new Releases({ token: process.env.DOCS_GITHUB_TOKEN });
+
+export const onRequest: MiddlewareHandler = async (context, next) => {
+  context.locals.releases = releases;
   const response = await next();
   if (import.meta.env.DEV) return response;
 

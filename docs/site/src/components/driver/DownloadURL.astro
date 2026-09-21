@@ -9,10 +9,10 @@
 // included in the file licenses/APL.txt.
 
 import Inline from "@/components/code/Inline.astro";
-import { assetURL, releases } from "@/util/releases";
+import { assetURL } from "@/util/releases";
 const { os } = Astro.props;
 
-const version = await releases.latest("driver");
+const version = await Astro.locals.releases.latest("driver");
 let asset = `synnax-driver-v${version}-${os.toLowerCase()}`;
 if (os === "ni-linux-rt") asset = "install-driver-nilinuxrt.sh";
 if (os === "windows") asset = `synnax-driver-v${version}-windows.exe`;

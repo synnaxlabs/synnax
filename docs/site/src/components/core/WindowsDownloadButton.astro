@@ -9,9 +9,9 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Icon } from "@synnaxlabs/pluto";
-import { assetURL, releases } from "@/util/releases";
+import { assetURL } from "@/util/releases";
 
-const version = await releases.latest("core");
+const version = await Astro.locals.releases.latest("core");
 const url = assetURL("core", version, `synnax-setup-v${version}.exe`);
 ---
 

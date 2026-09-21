@@ -9,9 +9,8 @@
 // included in the file licenses/APL.txt.
 
 import { DownloadLink } from "@/components/console/DownloadLink";
-import { releases } from "@/util/releases";
 
-const version = await releases.latest("console");
+const version = await Astro.locals.releases.latest("console");
 ---
 
-<DownloadLink client:load version={version} />
+<DownloadLink client:only="react" version={version} />

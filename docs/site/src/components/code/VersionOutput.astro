@@ -9,10 +9,9 @@
 // included in the file licenses/APL.txt.
 
 import Inline from "@/components/code/Inline.astro";
-import { releases } from "@/util/releases";
 const { label, product } = Astro.props;
 
-const version = await releases.latest(product);
+const version = await Astro.locals.releases.latest(product);
 ---
 
 <Inline theme="css-variables" lang="text" code={`${label} v${version}`} />

@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Channel, manifestURL, releases } from "@/util/releases";
+import { type Channel, manifestURL, type Releases } from "@/util/releases";
 
 // Vercel's CDN serves the redirect for the window, so polling Consoles reach the
 // function and the GitHub API at most once per window per region.
 const CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=60";
 
-/** Redirects to the manifest of the highest Console release on the channel. */
-export const manifest = async (channel: Channel): Promise<Response> => {
+/**
+ * Redirects to the manifest of the highest Console release on the channel, or answers
+ * 503 with the lookup failure so the updater retries on its next poll.
+ */
+export const manifest = async (
+  releases: Releases,
+  channel: Channel,
+): Promise<Response> => {
   try {
     const version = await releases.latest("console", channel);
     return new Response(null, {
@@ -22,8 +28,8 @@ export const manifest = async (channel: Channel): Promise<Response> => {
       headers: { Location: manifestURL(version), "Cache-Control": CACHE_CONTROL },
     });
   } catch (e) {
-    console.error(e);
-    return new Response("release lookup failed", {
+    const message = e instanceof Error ? e.message : "release lookup failed";
+    return new Response(message, {
       status: 503,
       headers: { "Cache-Control": "no-store" },
     });

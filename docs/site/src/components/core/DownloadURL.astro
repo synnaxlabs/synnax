@@ -9,10 +9,10 @@
 // included in the file licenses/APL.txt.
 
 import Inline from "@/components/code/Inline.astro";
-import { assetURL, releases } from "@/util/releases";
+import { assetURL } from "@/util/releases";
 const { os } = Astro.props;
 
-const version = await releases.latest("core");
+const version = await Astro.locals.releases.latest("core");
 const url = assetURL("core", version, `synnax-v${version}-${os.toLowerCase()}`);
 let code = `curl -LO ${url}`;
 let lang: "bash" | "powershell" = "bash";
