@@ -336,13 +336,22 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should reject a self-change through the user service",
+			"Should let a subject with update access change its own password",
 			func(ctx SpecContext) {
-				fctx, subject := nonRootCtx(ctx)
-				Expect(apiSvc.ChangePassword(fctx, db, apiuser.ChangePasswordRequest{
-					Key:      subject.Key,
-					Password: "anything",
-				})).Error().To(MatchError(ContainSubstring("change your own password")))
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{
+							Key:      root.Key,
+							Password: "root-new",
+						},
+					),
+				).Error().
+					ToNot(HaveOccurred())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: root.Username, Password: "root-new",
+				})).To(Succeed())
 			},
 		)
 		It(

@@ -12,6 +12,7 @@ package user
 import (
 	"context"
 	"go/types"
+	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -32,6 +33,10 @@ type Service struct {
 	access   *rbac.Service
 	internal *user.Service
 	auth     *svcauth.Service
+	// mu serializes mutations that read a username and then write credentials by it.
+	// A transaction commit does not revalidate earlier reads, so two such mutations
+	// interleaving could leave credentials under a stale username.
+	mu sync.Mutex
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -73,6 +78,8 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
@@ -112,6 +119,8 @@ func (s *Service) ChangeUsername(
 	tx gorp.Tx,
 	req ChangeUsernameRequest,
 ) (types.Nil, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	subject := auth.GetSubject(ctx)
 	if subject.Key == req.Key.String() {
 		return types.Nil{}, errors.New(
@@ -148,21 +157,16 @@ type ChangePasswordRequest struct {
 }
 
 // ChangePassword replaces the password for the user with the given key. The subject
-// must hold update access on that user; the current password is not required. A
-// subject cannot change its own password here and must use the auth service instead.
+// must hold update access on that user; the current password is not required.
 func (s *Service) ChangePassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ChangePasswordRequest,
 ) (types.Nil, error) {
-	subject := auth.GetSubject(ctx)
-	if subject.Key == req.Key.String() {
-		return types.Nil{}, errors.New(
-			"you cannot change your own password through the user service",
-		)
-	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: subject,
+		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
@@ -250,6 +254,8 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
