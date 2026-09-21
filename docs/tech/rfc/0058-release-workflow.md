@@ -94,6 +94,14 @@ Assets per product:
   TypeScript already has `id-token: write`. A pre-release publishes with `--tag next`,
   so npm's `latest` stays on the stable release; pip already skips pre-releases.
 
+A sixth workflow, `release.train.yaml`, is the everyday path. It takes the same `bump`
+and `prerelease` inputs and calls the five product workflows, which also expose
+`workflow_call` and a `version` output: Console, Driver, Python, and TypeScript in
+parallel, then the Core with the Console and Driver outputs as `console_version` and
+`driver_version`. One dispatch releases a whole train. A product that fails leaves no
+tag and the rest stand; rerun that product alone, and a Core rerun's defaults pick up
+the others. The per-product workflows stay for hotfix patches.
+
 `deploy.synnax.yaml`, `deploy.ts.yaml`, `deploy.py.yaml`, and
 `scripts/prune_published.py` are deleted; every release is a new version, so nothing is
 ever already published.
@@ -186,7 +194,7 @@ flag and workflow file.
   packages disagree (`synnax` is 0.58.1 on PyPI, `alamos` 0.58.0) and the next patch
   must exceed the registry. Then `releases.ts`, the updater routes, per-product
   consumers, and docs flags, all deployable before any workflow change.
-- **Phase 2: Cutover.** One PR: the five `release.*.yaml`, `resolve-version`,
+- **Phase 2: Cutover.** One PR: the six `release.*.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
   updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
   overrides them, so no version file changes. Then merge `rc` into `main` (publishes
@@ -195,11 +203,10 @@ flag and workflow file.
   `test.updates.yaml`; move Pluto's two `workspace:*` pins to the catalog; add the Bazel
   status script, the `0.0` compatibility rule in all three clients, and
   `console/src/flags.ts`.
-- **Phase 4: First releases.** Console, Driver, Python, and TypeScript with
-  `bump: minor`, then the Core, opening train 0.59. After the Console release, one
-  manual commit copies its `latest.json` into `release-spec.json`, so installed 0.58
-  builds upgrade once and land on the new endpoint. The file stays on `main` until 0.58
-  is out of support.
+- **Phase 4: First releases.** One `release.train.yaml` dispatch with `bump: minor`,
+  opening train 0.59. After the Console release, one manual commit copies its
+  `latest.json` into `release-spec.json`, so installed 0.58 builds upgrade once and land
+  on the new endpoint. The file stays on `main` until 0.58 is out of support.
 
 ## 4 Resolved decisions
 
@@ -226,6 +233,9 @@ flag and workflow file.
     common monorepo pattern (Babel, Jest, AWS SDK v3), an empty republish is free, and
     the published `^0.59.0` ranges lock the minor on 0.x, so a minor bump cascades to
     every dependent anyway.
+11. **One dispatch per train**: `release.train.yaml` composes the five product workflows
+    so a minor ships with one click; separate dispatches were rejected as five clicks in
+    a forced order. The products keep their own tags, releases, and hotfix workflows.
 
 ## 5 Open questions
 
