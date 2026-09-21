@@ -97,9 +97,8 @@ func writeRecord(w io.Writer, kind byte, payload []byte) error {
 }
 
 // drain seeks res.Iterator to the start of its bounds and calls f with every frame it
-// returns, stopping at the first error. It always closes the iterator. Iterator.Error
-// is not reported: the iterator sets it on ordinary exhaustion whenever the read bounds
-// reach past the last sample.
+// returns, stopping at the first error. It always closes the iterator, and it returns
+// the read error that Close reports.
 func drain(res ReadResponse, f func(Frame) error) error {
 	var err error
 	if res.Iterator.SeekFirst() {
