@@ -64,11 +64,11 @@ type Device struct {
 // schema constraints.
 func (d Device) Validate() error {
 	v := validate.New("Device")
-	validate.NonZero(v, "rack", d.Rack)
-	validate.NotEmptyString(v, "location", d.Location)
-	validate.NotEmptyString(v, "make", d.Make)
-	validate.NotEmptyString(v, "model", d.Model)
-	validate.NotEmptyString(v, "name", d.Name)
+	v.NonZero("rack", d.Rack)
+	v.NotEmptyString("location", d.Location)
+	v.NotEmptyString("make", d.Make)
+	v.NotEmptyString("model", d.Model)
+	v.NotEmptyString("name", d.Name)
 	if d.Parent != nil {
 		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
 	}

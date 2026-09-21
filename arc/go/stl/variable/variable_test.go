@@ -48,10 +48,10 @@ func registerState(ctx SpecContext) *node.ProgramState {
 			"f": {"type": "feeder"},
 			"v": {"type": "variable"},
 		},
-		Edges: graph.Edges{{Edge: ir.Edge{
+		Edges: graph.Edges{{
 			Source: ir.Handle{Node: "f", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "v", Param: "f1"},
-		}}},
+		}},
 	}
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -89,14 +89,14 @@ func exprReadState(ctx SpecContext) *node.ProgramState {
 			"v":      {"type": "variable"},
 		},
 		Edges: graph.Edges{
-			{Edge: ir.Edge{
+			{
 				Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "v", Param: "value"},
-			}},
-			{Edge: ir.Edge{
+			},
+			{
 				Source: ir.Handle{Node: "selsrc", Param: ir.DefaultOutputParam},
 				Target: ir.Handle{Node: "v", Param: "sel"},
-			}},
+			},
 		},
 	}
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -157,14 +157,14 @@ var _ = Describe("Variable", func() {
 		var s *node.ProgramState
 		BeforeEach(func(ctx SpecContext) { s = registerState(ctx) })
 
-		It("Should return NotFound for an unknown node type", func(ctx SpecContext) {
+		It("Should return NotFound for an unknown node type", func() {
 			cfg := node.Config{Node: ir.Node{Type: "unknown"}, State: s.Node("v")}
-			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It(
 			"Should create a node for a value-initialized variable",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "variable",
@@ -174,13 +174,13 @@ var _ = Describe("Variable", func() {
 					},
 					State: s.Node("v"),
 				}
-				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 			},
 		)
 
 		It(
 			"Should create a node for a value-initialized stateful_variable",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "stateful_variable",
@@ -190,11 +190,11 @@ var _ = Describe("Variable", func() {
 					},
 					State: s.Node("v"),
 				}
-				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 			},
 		)
 
-		It("Should create a node for an edge-fed variable", func(ctx SpecContext) {
+		It("Should create a node for an edge-fed variable", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "variable",
@@ -202,17 +202,17 @@ var _ = Describe("Variable", func() {
 				},
 				State: s.Node("v"),
 			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
 
-		It("Should create a node for a variable with no inputs", func(ctx SpecContext) {
+		It("Should create a node for a variable with no inputs", func() {
 			cfg := node.Config{Node: ir.Node{Type: "variable"}, State: s.Node("v")}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 		})
 
 		It(
 			"Should create a node for an edge-fed stateful_variable",
-			func(ctx SpecContext) {
+			func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type:   "stateful_variable",
@@ -220,7 +220,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: s.Node("v"),
 				}
-				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+				Expect(MustSucceed(factory.Create(cfg))).ToNot(BeNil())
 			},
 		)
 	})
@@ -231,7 +231,7 @@ var _ = Describe("Variable", func() {
 			v *node.State
 			f *node.State
 		)
-		mk := func(ctx SpecContext, nodeType string) node.Node {
+		mk := func(nodeType string) node.Node {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: nodeType,
@@ -241,7 +241,7 @@ var _ = Describe("Variable", func() {
 				},
 				State: v,
 			}
-			return MustSucceed(factory.Create(ctx, cfg))
+			return MustSucceed(factory.Create(cfg))
 		}
 		BeforeEach(func(ctx SpecContext) {
 			s = registerState(ctx)
@@ -250,8 +250,8 @@ var _ = Describe("Variable", func() {
 
 		It(
 			"Should emit its pending initial value on first Next",
-			func(ctx SpecContext) {
-				n := mk(ctx, "variable")
+			func() {
+				n := mk("variable")
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
@@ -259,15 +259,15 @@ var _ = Describe("Variable", func() {
 			},
 		)
 
-		It("Should not re-emit without new data", func(ctx SpecContext) {
-			n := mk(ctx, "variable")
+		It("Should not re-emit without new data", func() {
+			n := mk("variable")
 			n.Next(nodeCtx)
 			n.Next(nodeCtx)
 			Expect(marked).To(HaveLen(1))
 		})
 
-		It("Should emit a feeder's value", func(ctx SpecContext) {
-			n := mk(ctx, "variable")
+		It("Should emit a feeder's value", func() {
+			n := mk("variable")
 			n.Next(nodeCtx)
 			emit(f, int64(7), 10)
 			n.Next(nodeCtx)
@@ -277,8 +277,8 @@ var _ = Describe("Variable", func() {
 
 		It(
 			"Should take the newest value when multiple are pending",
-			func(ctx SpecContext) {
-				n := mk(ctx, "variable")
+			func() {
+				n := mk("variable")
 				emit(f, int64(7), 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
@@ -286,8 +286,8 @@ var _ = Describe("Variable", func() {
 			},
 		)
 
-		It("Should not alias the feeder's output buffer", func(ctx SpecContext) {
-			n := mk(ctx, "variable")
+		It("Should not alias the feeder's output buffer", func() {
+			n := mk("variable")
 			n.Next(nodeCtx)
 			emit(f, int64(7), 10)
 			n.Next(nodeCtx)
@@ -296,8 +296,8 @@ var _ = Describe("Variable", func() {
 		})
 
 		Context("with a := variable", func() {
-			It("Should restore the initial value on Reset", func(ctx SpecContext) {
-				n := mk(ctx, "variable")
+			It("Should restore the initial value on Reset", func() {
+				n := mk("variable")
 				n.Reset(node.Context{})
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 				Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
@@ -305,8 +305,8 @@ var _ = Describe("Variable", func() {
 
 			It(
 				"Should not double-emit the initial value on Next after Reset",
-				func(ctx SpecContext) {
-					n := mk(ctx, "variable")
+				func() {
+					n := mk("variable")
 					n.Reset(node.Context{})
 					n.Next(nodeCtx)
 					Expect(marked).To(BeEmpty())
@@ -315,8 +315,8 @@ var _ = Describe("Variable", func() {
 
 			It(
 				"Should supersede a pending feeder value on Reset",
-				func(ctx SpecContext) {
-					n := mk(ctx, "variable")
+				func() {
+					n := mk("variable")
 					emit(f, int64(99), 10)
 					n.Reset(node.Context{})
 					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
@@ -327,8 +327,8 @@ var _ = Describe("Variable", func() {
 
 			It(
 				"Should restore the initial value on scope re-entry",
-				func(ctx SpecContext) {
-					n := mk(ctx, "variable")
+				func() {
+					n := mk("variable")
 					n.Reset(node.Context{})
 					emit(f, int64(7), 10)
 					n.Next(nodeCtx)
@@ -338,8 +338,8 @@ var _ = Describe("Variable", func() {
 				},
 			)
 
-			It("Should not alias the initial value on Reset", func(ctx SpecContext) {
-				n := mk(ctx, "variable")
+			It("Should not alias the initial value on Reset", func() {
+				n := mk("variable")
 				n.Reset(node.Context{})
 				v.Output(0).Data[0] = 9
 				n.Reset(node.Context{})
@@ -348,15 +348,15 @@ var _ = Describe("Variable", func() {
 		})
 
 		Context("with a $= variable", func() {
-			It("Should emit its initial value on first Next", func(ctx SpecContext) {
-				n := mk(ctx, "stateful_variable")
+			It("Should emit its initial value on first Next", func() {
+				n := mk("stateful_variable")
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 			})
 
-			It("Should persist its value across Reset", func(ctx SpecContext) {
-				n := mk(ctx, "stateful_variable")
+			It("Should persist its value across Reset", func() {
+				n := mk("stateful_variable")
 				emit(f, int64(7), 10)
 				n.Next(nodeCtx)
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
@@ -366,8 +366,8 @@ var _ = Describe("Variable", func() {
 
 			It(
 				"Should leave pending feeder values consumable after Reset",
-				func(ctx SpecContext) {
-					n := mk(ctx, "stateful_variable")
+				func() {
+					n := mk("stateful_variable")
 					emit(f, int64(7), 10)
 					n.Reset(node.Context{})
 					n.Next(nodeCtx)
@@ -408,10 +408,10 @@ var _ = Describe("Variable", func() {
 						"f": {"type": "feeder"},
 						"v": {"type": "variable"},
 					},
-					Edges: graph.Edges{{Edge: ir.Edge{
+					Edges: graph.Edges{{
 						Source: ir.Handle{Node: "f", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "v", Param: "f1"},
-					}}},
+					}},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -419,7 +419,7 @@ var _ = Describe("Variable", func() {
 				sv, sf = ss.Node("v"), ss.Node("f")
 			})
 
-			It("Should initialize and emit string values", func(ctx SpecContext) {
+			It("Should initialize and emit string values", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "variable",
@@ -429,7 +429,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: sv,
 				}
-				n := MustSucceed(factory.Create(ctx, cfg))
+				n := MustSucceed(factory.Create(cfg))
 				n.Reset(node.Context{})
 				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("hello"))
 				emit(sf, "world", 10)
@@ -460,17 +460,17 @@ var _ = Describe("Variable", func() {
 				},
 				State: v,
 			}
-			n = MustSucceed(factory.Create(ctx, cfg))
+			n = MustSucceed(factory.Create(cfg))
 		})
 
-		It("Should emit the dispatcher's value", func(ctx SpecContext) {
+		It("Should emit the dispatcher's value", func() {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
 		})
 
-		It("Should re-emit an unchanged recompute", func(ctx SpecContext) {
+		It("Should re-emit an unchanged recompute", func() {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			emit(d, int64(5), 20)
@@ -483,7 +483,7 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
 		})
 
-		It("Should absorb the value arriving with a re-point", func(ctx SpecContext) {
+		It("Should absorb the value arriving with a re-point", func() {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
@@ -497,7 +497,7 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](11))
 		})
 
-		It("Should fire the value after a value-less re-point", func(ctx SpecContext) {
+		It("Should fire the value after a value-less re-point", func() {
 			emit(selsrc, uint32(1), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(BeEmpty())
@@ -509,7 +509,7 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](9))
 		})
 
-		It("Should not alias the dispatcher's output buffer", func(ctx SpecContext) {
+		It("Should not alias the dispatcher's output buffer", func() {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			d.Output(0).Data[0] = 9
@@ -519,7 +519,7 @@ var _ = Describe("Variable", func() {
 		Describe("Reset", func() {
 			It(
 				"Should fire the first value after a Reset-absorbed initial sel",
-				func(ctx SpecContext) {
+				func() {
 					emit(selsrc, uint32(0), 5)
 					n.Reset(node.Context{})
 					emit(d, int64(7), 10)
@@ -529,7 +529,7 @@ var _ = Describe("Variable", func() {
 				},
 			)
 
-			It("Should coalesce values replayed by Reset", func(ctx SpecContext) {
+			It("Should coalesce values replayed by Reset", func() {
 				emit(d, int64(5), 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
@@ -542,7 +542,7 @@ var _ = Describe("Variable", func() {
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
 			})
 
-			It("Should keep sel consumed across Reset", func(ctx SpecContext) {
+			It("Should keep sel consumed across Reset", func() {
 				emit(selsrc, uint32(1), 10)
 				emit(d, int64(9), 10)
 				n.Next(nodeCtx)
@@ -580,10 +580,10 @@ var _ = Describe("Variable", func() {
 						"d": {"type": "d"},
 						"v": {"type": "variable"},
 					},
-					Edges: graph.Edges{{Edge: ir.Edge{
+					Edges: graph.Edges{{
 						Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "v", Param: "value"},
-					}}},
+					}},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -596,7 +596,7 @@ var _ = Describe("Variable", func() {
 					},
 					State: vNode,
 				}
-				soleN := MustSucceed(factory.Create(ctx, cfg))
+				soleN := MustSucceed(factory.Create(cfg))
 				emit(feeder, int64(5), 10)
 				soleN.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))

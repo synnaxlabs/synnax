@@ -29,7 +29,7 @@ const Latest = v8.Version
 func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
 	switch env.Version {
 	case v7.Version:
-		t7, err := imex.Decode[v7.Schematic](ctx, env)
+		t7, err := env.Decode[v7.Schematic](ctx)
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -39,7 +39,7 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		}
 		return t8, nil
 	case v8.Version:
-		return imex.Decode[Schematic](ctx, env)
+		return env.Decode[Schematic](ctx)
 	}
 	return Schematic{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

@@ -168,7 +168,7 @@ static x::telem::TimeStamp seconds(const int64_t v) {
 /// @brief returns a context recording the output ordinals a node marks changed.
 static runtime::node::Context mark_context(std::vector<size_t> &marked) {
     return runtime::node::Context{
-        .elapsed = x::telem::SECOND,
+        .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [&marked](const size_t i) { marked.push_back(i); },
         .report_error = [](const x::errors::Error &) {},
     };

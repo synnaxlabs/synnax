@@ -136,17 +136,17 @@ public:
         // past, spinning the scheduler loop. Park without a deadline instead;
         // a later reassignment to a positive value resumes the timer.
         if (!this->guard.usable(ctx, period, "interval period")) return x::errors::NIL;
-        if (ctx.reason != runtime::node::RunReason::TimerTick) {
+        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period);
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->last_fired < period - ctx.tolerance) {
+        if (ctx.cycle.elapsed - this->last_fired < period - ctx.tolerance) {
             ctx.mark_self_changed();
             ctx.set_deadline(this->last_fired + period);
             return x::errors::NIL;
         }
-        this->last_fired = ctx.elapsed;
+        this->last_fired = ctx.cycle.elapsed;
         ctx.mark_self_changed();
         ctx.set_deadline(this->last_fired + period);
         const auto &o = this->state.output(0);
@@ -154,7 +154,7 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, ctx.now);
+        o_time->set(0, ctx.cycle.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
@@ -208,13 +208,13 @@ public:
         // fire: park instead. Timing stays anchored to start_time, so recovery
         // re-checks the live duration against the original activation.
         if (!this->guard.usable(ctx, duration, "wait duration")) return x::errors::NIL;
-        if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
+        if (this->start_time.nanoseconds() < 0) this->start_time = ctx.cycle.elapsed;
         ctx.set_deadline(this->start_time + duration);
-        if (ctx.reason != runtime::node::RunReason::TimerTick) {
+        if (ctx.cycle.reason != runtime::node::RunReason::TimerTick) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
-        if (ctx.elapsed - this->start_time < duration - ctx.tolerance) {
+        if (ctx.cycle.elapsed - this->start_time < duration - ctx.tolerance) {
             ctx.mark_self_changed();
             return x::errors::NIL;
         }
@@ -224,7 +224,7 @@ public:
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
-        o_time->set(0, ctx.now);
+        o_time->set(0, ctx.cycle.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
@@ -256,7 +256,7 @@ public:
         state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        const auto ts = ctx.now;
+        const auto ts = ctx.cycle.now;
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);

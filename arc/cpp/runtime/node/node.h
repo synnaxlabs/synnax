@@ -42,13 +42,9 @@ struct Cycle {
 };
 
 struct Context {
-    /// @brief the current cycle's wall-clock stamp. See Cycle::now.
-    x::telem::TimeStamp now;
-    x::telem::TimeSpan elapsed;
+    /// @brief the timing of the scheduler pass the node runs in.
+    Cycle cycle;
     x::telem::TimeSpan tolerance;
-    /// @brief Indicates what triggered this scheduler run.
-    /// Time-based nodes should only fire when reason is TimerTick.
-    RunReason reason;
     /// @brief records that one of the current node's outputs has a new
     /// value for the current cycle. The ordinal is the output's 0-based
     /// position in the owning ir::Node's outputs slice. Zero hash
@@ -68,7 +64,7 @@ public:
     /// Reset is called when a stage containing this node is activated. Nodes
     /// can override to reset their internal state (e.g., timers, counters).
     /// Activation happens inside a cycle, so ctx carries that cycle's timing; a
-    /// node that stamps an output on reset uses ctx.now like it would in next.
+    /// node that stamps an output on reset uses ctx.cycle.now like it would in next.
     /// Default implementation does nothing.
     virtual void reset(Context &) {}
 

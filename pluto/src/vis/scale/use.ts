@@ -12,6 +12,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { scale } from "@/vis/scale/aether";
 
+export const gutter = scale.gutter;
+
 export interface UseProps extends z.input<typeof scale.Scale.z> {
   aetherKey: string;
 }

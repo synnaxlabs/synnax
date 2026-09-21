@@ -9,6 +9,7 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { assert, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -164,12 +165,10 @@ describe("getPDOName", () => {
 describe("EtherCAT Task statusData", () => {
   describe("readStatusDataZ", () => {
     it("should accept null", () => {
-      expect(EtherCAT.Task.READ_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+      expect(z.validate(EtherCAT.Task.READ_SCHEMAS.statusData, null)).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(EtherCAT.Task.READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(
-        true,
-      );
+      expect(z.validate(EtherCAT.Task.READ_SCHEMAS.statusData, undefined)).toBe(true);
     });
     it("should accept a valid status object", () => {
       const result = EtherCAT.Task.READ_SCHEMAS.statusData.safeParse({
@@ -183,12 +182,10 @@ describe("EtherCAT Task statusData", () => {
 
   describe("writeStatusDataZ", () => {
     it("should accept null", () => {
-      expect(EtherCAT.Task.WRITE_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+      expect(z.validate(EtherCAT.Task.WRITE_SCHEMAS.statusData, null)).toBe(true);
     });
     it("should accept undefined", () => {
-      expect(EtherCAT.Task.WRITE_SCHEMAS.statusData.safeParse(undefined).success).toBe(
-        true,
-      );
+      expect(z.validate(EtherCAT.Task.WRITE_SCHEMAS.statusData, undefined)).toBe(true);
     });
     it("should accept a valid status object", () => {
       const result = EtherCAT.Task.WRITE_SCHEMAS.statusData.safeParse({
@@ -206,16 +203,18 @@ describe("draft configs", () => {
   // accept every zero config; retrieve parses with it.
   it("should accept the zero read config", () => {
     expect(
-      EtherCAT.Task.READ_SCHEMAS.config.safeParse(
+      z.validate(
+        EtherCAT.Task.READ_SCHEMAS.config,
         EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      ).success,
+      ),
     ).toBe(true);
   });
   it("should accept the zero write config", () => {
     expect(
-      EtherCAT.Task.WRITE_SCHEMAS.config.safeParse(
+      z.validate(
+        EtherCAT.Task.WRITE_SCHEMAS.config,
         EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      ).success,
+      ),
     ).toBe(true);
   });
 });

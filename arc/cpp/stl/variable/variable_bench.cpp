@@ -163,7 +163,7 @@ public:
 
 runtime::node::Context bench_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::SECOND,
+        .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
         .mark_self_changed = [] {},
         .set_deadline = [](x::telem::TimeSpan) {},

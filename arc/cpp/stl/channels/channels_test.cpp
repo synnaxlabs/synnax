@@ -30,7 +30,7 @@ constexpr auto FLUSH_NOW = x::telem::TimeStamp(1000LL * 1000 * 1000 * 1000);
 
 runtime::node::Context make_context(bool *changed = nullptr) {
     return runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed =
             [changed](size_t) {
                 if (changed) *changed = true;
@@ -344,7 +344,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
 
     int call_count = 0;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
     };
@@ -402,7 +402,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
 
     int call_count = 0;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
     };
@@ -450,7 +450,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
 
     int call_count = 0;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
     };
@@ -496,7 +496,7 @@ TEST(OnTest, NextCallsMarkChanged) {
 
     std::vector<size_t> marked;
     auto ctx = runtime::node::Context{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&](size_t i) { marked.push_back(i); },
         .report_error = [](const x::errors::Error &) {},
     };
@@ -665,7 +665,7 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
     bool changed = false;
     x::errors::Error captured;
     runtime::node::Context ctx{
-        .elapsed = ::x::telem::SECOND,
+        .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&](size_t) { changed = true; },
         .report_error = [&](const x::errors::Error &e) { captured = e; },
     };

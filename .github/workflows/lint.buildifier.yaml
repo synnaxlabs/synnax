@@ -39,8 +39,14 @@ on:
       - WORKSPACE.bazel
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
+    # Pushes to rc already run this lint, so the rc PR run is redundant.
+    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Lint
     runs-on: ubuntu-latest
     steps:

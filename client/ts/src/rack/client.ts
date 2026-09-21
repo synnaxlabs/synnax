@@ -266,7 +266,6 @@ export class Client extends query.Retriever<
     return isSingle ? sugared[0] : sugared;
   }
 
-  /** Rebuilds a cached rack, attaching its cached status when requested. */
   private compose(cached: Omit<Payload, "status">, includeStatus: boolean): Rack {
     if (!includeStatus) return this.sugar(cached);
     const st = this.statusOf(cached.key);
@@ -281,11 +280,10 @@ export class Client extends query.Retriever<
     return parsed.success ? parsed.data : undefined;
   }
 
-  /** Writes fetched racks and their included statuses. */
   private writeThrough(racks: Payload[]): void {
-    this.store.set(racks.map(stripStatus));
+    this.store.ingest(racks.map(stripStatus));
     racks.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.ingest(st);
     });
   }
 
@@ -299,7 +297,6 @@ export class Client extends query.Retriever<
     return res.racks;
   }
 
-  /** Fetches racks and writes their included statuses through the caches. */
   private async fetchThrough(req: RetrieveRequest): Promise<Payload[]> {
     const racks = await this.execRetrieve(req);
     this.writeThrough(racks);
@@ -307,11 +304,12 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(q: SingleQuery): Promise<Rack> {
-    // Names are not unique, so only key queries can be served from the table.
-    // A status-bearing hit needs both the record and its status cached.
+    // Names are not unique and the table never holds status, so only keyed status-free
+    // queries can be served from it.
     if ("key" in q && q.includeStatus !== true) {
-      const cached = this.store.get(q.key);
-      if (cached != null) return this.sugar(cached);
+      const racks = await this.store.retrieve([q.key]);
+      checkForMultipleOrNoResults("Rack", q, racks, true);
+      return this.sugar(racks[0]);
     }
     const racks = await this.execRetrieve(q);
     checkForMultipleOrNoResults("Rack", q, racks, true);

@@ -173,23 +173,26 @@ func (db *DB) Delete(
 	// Remove old pointers.
 	db.idx.mu.pointers = append(
 		db.idx.mu.pointers[:startDomain],
-		db.idx.mu.pointers[endDomain+1:]...)
+		db.idx.mu.pointers[endDomain+1:]...,
+	)
 
 	if startOffset != 0 {
 		newPointers = append(newPointers, pointer{
-			TimeRange: telem.TimeRange{Start: start.Start, End: tr.Start},
-			fileKey:   start.fileKey,
-			offset:    start.offset,
-			size:      uint32(startOffset), // size from start.Start to tr.Start
+			Start:   start.Start,
+			End:     tr.Start,
+			fileKey: start.fileKey,
+			offset:  start.offset,
+			size:    uint32(startOffset), // size from start.Start to tr.Start
 		})
 	}
 
 	if endOffset != 0 {
 		newPointers = append(newPointers, pointer{
-			TimeRange: telem.TimeRange{Start: tr.End, End: end.End},
-			fileKey:   end.fileKey,
-			offset:    end.offset + end.size - uint32(endOffset),
-			size:      uint32(endOffset), // size from tr.End to end.End
+			Start:   tr.End,
+			End:     end.End,
+			fileKey: end.fileKey,
+			offset:  end.offset + end.size - uint32(endOffset),
+			size:    uint32(endOffset), // size from tr.End to end.End
 		})
 	}
 

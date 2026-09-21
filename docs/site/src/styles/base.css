@@ -36,6 +36,15 @@ html {
     /* Docs body text - softer than l10 */
     --docs-body-color: #3f4140;
 
+    /* Box geometry shared by notes, code blocks, and media */
+    --docs-block-inset: 1.5rem;
+    --docs-block-padding: 3rem;
+    --docs-block-gap: 4rem;
+
+    @media (width <= 800px) {
+        --docs-block-inset: 0;
+    }
+
     /* Astro code block styling */
     --astro-code-color-text: var(--pluto-text-color);
     --astro-code-background: var(--pluto-gray-l1);

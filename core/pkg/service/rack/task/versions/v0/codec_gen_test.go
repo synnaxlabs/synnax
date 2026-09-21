@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/task/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -36,18 +35,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.StatusConfig{
-				KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			}),
-			Entry("zero values", v0.StatusConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}}),
+			Entry("fully populated", v0.StatusConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}),
+			Entry("zero values", v0.StatusConfig{Key: uuid.Nil}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeStatusConfig(b *testing.B) {
-	seed := v0.StatusConfig{
-		KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-	}
+	seed := v0.StatusConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -65,9 +60,7 @@ func BenchmarkEncodeDecodeStatusConfig(b *testing.B) {
 
 func FuzzDecodeStatusConfig(f *testing.F) {
 	{
-		seed := v0.StatusConfig{
-			KeyedConfig: task.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-		}
+		seed := v0.StatusConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -75,7 +68,7 @@ func FuzzDecodeStatusConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.StatusConfig{KeyedConfig: task.KeyedConfig{Key: uuid.Nil}}
+		seed := v0.StatusConfig{Key: uuid.Nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

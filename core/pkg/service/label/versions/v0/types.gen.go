@@ -35,6 +35,6 @@ type Label struct {
 // schema constraints.
 func (l Label) Validate() error {
 	v := validate.New("Label")
-	validate.NotEmptyString(v, "name", l.Name)
+	v.NotEmptyString("name", l.Name)
 	return v.Error()
 }

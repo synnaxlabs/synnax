@@ -177,7 +177,7 @@ public:
         // A literal input has no time to forward, so provenance skips it.
         const auto prov = this->state.provenance_idx();
         if (prov < 0)
-            this->state.stamp_cycle(ctx.now, 0);
+            this->state.stamp_cycle(ctx.cycle.now, 0);
         else {
             const auto &primary_time = this->state.input_time(
                 static_cast<size_t>(prov)
@@ -337,7 +337,7 @@ public:
             default:
                 break;
         }
-        if (this->state.provenance_idx() < 0) this->state.stamp_cycle(ctx.now, 0);
+        if (this->state.provenance_idx() < 0) this->state.stamp_cycle(ctx.cycle.now, 0);
         return x::errors::NIL;
     }
 
@@ -464,7 +464,7 @@ public:
         auto &output_time = this->state.output_time(0);
         // A literal input has no time to forward, so provenance skips it.
         if (const auto prov = this->state.provenance_idx(); prov < 0)
-            this->state.stamp_cycle(ctx.now, 0);
+            this->state.stamp_cycle(ctx.cycle.now, 0);
         else
             output_time->copy_from(*this->state.input_time(static_cast<size_t>(prov)));
         auto alignment = lhs->alignment + rhs->alignment;
@@ -567,7 +567,7 @@ public:
         auto &output_time = this->state.output_time(0);
         // A literal input has no time to forward, so provenance skips it.
         if (const auto prov = this->state.provenance_idx(); prov < 0)
-            this->state.stamp_cycle(ctx.now, 0);
+            this->state.stamp_cycle(ctx.cycle.now, 0);
         else
             output_time = this->state.input_time(static_cast<size_t>(prov));
         output->alignment = input->alignment;

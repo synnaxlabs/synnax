@@ -1389,6 +1389,30 @@ describe("Series", () => {
         expect(realigned.key).not.toBe(original.key);
       });
 
+      it("should preserve properties through compact", () => {
+        const original = Series.alloc({
+          capacity: 100,
+          dataType: DataType.FLOAT32,
+          timeRange: new TimeRange(TimeStamp.seconds(100), TimeStamp.seconds(200)),
+          sampleOffset: 10,
+          alignment: 100n,
+          alignmentMultiple: 5n,
+          key: "original-key",
+        });
+        original.write(new Series(new Float32Array([1, 2, 3])));
+        const compacted = original.compact();
+        expect(compacted.dataType).toEqual(original.dataType);
+        expect(compacted.timeRange).toEqual(original.timeRange);
+        expect(compacted.sampleOffset).toBe(10);
+        expect(compacted.alignment).toBe(100n);
+        expect(compacted.alignmentMultiple).toBe(5n);
+        expect(compacted.length).toBe(3);
+        expect(compacted.alignmentBounds).toEqual({ lower: 100n, upper: 115n });
+        // Compacting re-houses the same series, so consumers tracking it by key
+        // still find it.
+        expect(compacted.key).toBe("original-key");
+      });
+
       it("should preserve properties through alloc", () => {
         const allocated = Series.alloc({
           capacity: 10,
@@ -2034,6 +2058,55 @@ describe("Series", () => {
       next[3_999] = -900;
       series.write(new Series({ data: next }));
       expect(series.boundsFor(2, 10_000)).toStrictEqual({ lower: -900, upper: 5 });
+    });
+  });
+
+  describe("compact", () => {
+    it("should copy a partially written series into a right-sized buffer", () => {
+      const series = Series.alloc({
+        capacity: 100,
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(1).range(TimeStamp.seconds(2)),
+        alignment: 5n,
+        key: "buffer-key",
+      });
+      series.write(new Series(new Float32Array([1, 2, 3])));
+      const compacted = series.compact();
+      expect(compacted).not.toBe(series);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
+      expect(Array.from(compacted)).toEqual([1, 2, 3]);
+      expect(compacted.length).toEqual(3);
+      expect(compacted.alignment).toEqual(5n);
+      expect(compacted.timeRange).toEqual(series.timeRange);
+      expect(compacted.key).toEqual("buffer-key");
+    });
+
+    it("should return itself when the series has no spare capacity", () => {
+      const full = new Series(new Float32Array([1, 2, 3]));
+      expect(full.compact()).toBe(full);
+      const alloc = Series.alloc({ capacity: 3, dataType: DataType.FLOAT32 });
+      alloc.write(new Series(new Float32Array([1, 2, 3])));
+      expect(alloc.compact()).toBe(alloc);
+    });
+
+    it("should copy a partially written variable-length series", () => {
+      const series = Series.alloc({ capacity: 1000, dataType: DataType.STRING });
+      series.write(new Series({ data: ["one", "two"], dataType: DataType.STRING }));
+      const compacted = series.compact();
+      expect(compacted).not.toBe(series);
+      expect(Array.from(compacted)).toEqual(["one", "two"]);
+      expect(compacted.byteCapacity.valueOf()).toEqual(compacted.byteLength.valueOf());
+    });
+
+    it("should leave the original untouched", () => {
+      const series = Series.alloc({ capacity: 100, dataType: DataType.FLOAT32 });
+      series.write(new Series(new Float32Array([1, 2])));
+      series.compact();
+      expect(series.length).toEqual(2);
+      expect(series.capacity).toEqual(100);
+      // The original still has room, so it keeps accepting writes.
+      expect(series.write(new Series(new Float32Array([3])))).toEqual(1);
+      expect(Array.from(series)).toEqual([1, 2, 3]);
     });
   });
 

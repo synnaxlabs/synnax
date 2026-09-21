@@ -372,7 +372,8 @@ var _ = Describe("PipeToLogger", func() {
 			Expect(entries[1]).To(And(
 				HaveKeyWithValue("L", "ERROR"),
 				HaveKeyWithValue("M", ContainSubstring(
-					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***")),
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***",
+				)),
 			))
 		})
 

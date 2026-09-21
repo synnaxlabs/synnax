@@ -20,6 +20,8 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { UnexpectedError } from "@/errors";
 import { type Transform } from "@/framer/cache/transform";
+import { Feed } from "@/framer/feed";
+import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -433,5 +435,27 @@ describe("feed", () => {
     await closable.close();
     const tr = new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1)));
     await expect(closable.read(tr, 123)).rejects.toThrow(UnexpectedError);
+  });
+
+  it("should forward staleCoverageThreshold to the cache", async () => {
+    let calls = 0;
+    const direct = new Feed({
+      staleCoverageThreshold: TimeSpan.milliseconds(50),
+      readRemote: async () => {
+        calls++;
+        return new Frame([], []);
+      },
+      openStreamer: async () => {
+        throw new UnexpectedError("streamer unused");
+      },
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await direct.read(tr, 1);
+    await direct.read(tr, 1);
+    expect(calls).toBe(1);
+    await sleep.sleep(TimeSpan.milliseconds(60));
+    await direct.read(tr, 1);
+    expect(calls).toBe(2);
+    await direct.close();
   });
 });

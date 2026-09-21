@@ -37,6 +37,7 @@ export const Trigger = ({
 }: TriggerProps): ReactElement => {
   const { toggle, visible, variant } = useContext();
   let endIcon: Icon.ReactElement | undefined;
+  const opensDialog = preview !== true;
   if (preview === true) hideCaret = true;
   if (variant !== "modal" && !hideCaret)
     endIcon = (
@@ -52,6 +53,8 @@ export const Trigger = ({
       full="x"
       variant={triggerVariant}
       preview={preview}
+      aria-haspopup={opensDialog ? "dialog" : undefined}
+      aria-expanded={opensDialog ? visible : undefined}
       {...rest}
     >
       {children}

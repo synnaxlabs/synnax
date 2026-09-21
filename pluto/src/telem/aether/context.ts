@@ -91,6 +91,10 @@ export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized
     return this.wrapped.value();
   }
 
+  loading(): boolean {
+    return this.wrapped.loading?.() ?? false;
+  }
+
   cleanup(): void {
     this.wrapped.cleanup?.();
   }

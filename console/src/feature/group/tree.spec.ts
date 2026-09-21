@@ -36,6 +36,16 @@ describe("group ontology service", () => {
     expect(Item.haulItems(res)).toEqual([res.id]);
   });
 
+  it("should offer Reload Console", async () => {
+    const g = await createGroup(ontology.ROOT_ID);
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(g.key, g.name)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should hide rename and ungroup for a zero-depth selection", async () => {
     const g = await createGroup(ontology.ROOT_ID);
     assertDefined(Item.ContextMenu);

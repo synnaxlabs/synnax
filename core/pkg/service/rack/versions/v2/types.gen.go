@@ -48,7 +48,7 @@ type Rack struct {
 // schema constraints.
 func (r Rack) Validate() error {
 	v := validate.New("Rack")
-	validate.NonZero(v, "key", r.Key)
-	validate.NotEmptyString(v, "name", r.Name)
+	v.NonZero("key", r.Key)
+	v.NotEmptyString("name", r.Name)
 	return v.Error()
 }

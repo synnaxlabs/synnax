@@ -7,8 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import gc
+import subprocess
+import sys
 import time
+import weakref
 
+import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
 from synnax.connection import Checker, CheckResponse, State
@@ -151,3 +156,40 @@ class TestChecker:
         )
         assert checker.state.client_server_compatible is True
         checker.stop()
+
+
+class TestClientShutdown:
+    def test_exit_without_close(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should exit cleanly at interpreter shutdown without an explicit close."""
+        host, port, username, password = login_info
+        script = (
+            "import synnax as sy\n"
+            f"sy.Synnax(host={host!r}, port={port}, username={username!r}, "
+            f"password={password!r})\n"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, timeout=15
+        )
+        assert proc.returncode == 0, proc.stderr.decode()
+
+    def test_gc_stops_polling_thread(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should stop the polling thread when an unclosed client is collected."""
+        host, port, username, password = login_info
+        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        thread = client.connectivity._thread
+        ref = weakref.ref(client)
+        del client
+        gc.collect()
+        assert ref() is None
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+    def test_close_idempotent(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should tolerate repeated close calls."""
+        host, port, username, password = login_info
+        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client.close()
+        client.close()
+        assert not client.connectivity._thread.is_alive()

@@ -67,6 +67,8 @@ export interface Telem {
 
 export interface Source<V> extends Telem, observe.Observable<void> {
   value: (props?: ValueProps) => V;
+  /** @returns true while the source's initial read is in flight. */
+  loading?: () => boolean;
 }
 
 export interface Sink<V> extends Telem {
@@ -155,7 +157,20 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   cleanup(): void {}
 }
 
-export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {}
+export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {
+  protected loading_ = false;
+
+  loading(): boolean {
+    return this.loading_;
+  }
+
+  // Idempotent and notifies so a failure still wakes observers of the loading state.
+  protected declareLoaded(): void {
+    if (!this.loading_) return;
+    this.loading_ = false;
+    this.notify();
+  }
+}
 
 export abstract class AbstractSink<P extends z.ZodType> extends Base<P> {}
 

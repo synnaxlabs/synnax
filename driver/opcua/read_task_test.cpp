@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <thread>
@@ -1215,6 +1216,72 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer_config();
     ASSERT_TRUE(writer_cfg.enable_auto_commit);
+}
+
+/// @brief it should stamp array blocks with the interval they took to acquire, so
+/// the next run of the task does not open its writer inside data this run wrote.
+TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
+    constexpr int SAMPLE_RATE = 25;
+    x::json::json array_cfg{
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array(
+             {{{"key", "NS=2;I=1"},
+               {"name", "double_array_test"},
+               {"node_name", "TestDoubleArray"},
+               {"node_id", "NS=1;S=TestDoubleArray"},
+               {"channel", this->double_channel.key},
+               {"disabled", false},
+               {"is_index", false},
+               {"data_type", "float64"}}}
+         )},
+        {"sample_rate", SAMPLE_RATE},
+        {"array_mode", true},
+        {"array_size", mock::DOUBLE_ARRAY_SIZE},
+        {"stream_rate", SAMPLE_RATE}
+    };
+
+    auto p = x::json::Parser(array_cfg);
+    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
+    ASSERT_NIL(p.error());
+
+    const auto rt = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        x::breaker::default_config(task.name),
+        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        mock_factory
+    );
+
+    rt->start("start_cmd");
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        this->mock_factory->writes->size(),
+        static_cast<size_t>(3),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(25)
+    );
+    rt->stop("stop_cmd", true);
+    const auto stopped_at = x::telem::TimeStamp::now();
+
+    std::vector<x::telem::TimeStamp> stamps;
+    for (const auto &fr: *this->mock_factory->writes) {
+        if (!fr.contains(this->index_channel.key)) continue;
+        for (size_t i = 0; i < fr.length(); i++)
+            stamps.push_back(
+                fr.at<x::telem::TimeStamp>(this->index_channel.key, static_cast<int>(i))
+            );
+    }
+    ASSERT_GE(stamps.size(), 3 * mock::DOUBLE_ARRAY_SIZE);
+    EXPECT_LE(stamps.back(), stopped_at);
+    // A block that tiles the acquisition window holds its samples one period apart,
+    // including across the boundary into the next block. The stop cuts the block
+    // timer short, so the last block spans only the read that followed it.
+    const auto complete = stamps.size() - mock::DOUBLE_ARRAY_SIZE;
+    const auto min_spacing = x::telem::Rate(SAMPLE_RATE).period() / 4;
+    for (size_t i = 1; i < complete; i++)
+        EXPECT_GE(stamps[i] - stamps[i - 1], min_spacing)
+            << "samples " << i - 1 << " and " << i;
 }
 
 /// @brief it should hold each configured sample rate over time.

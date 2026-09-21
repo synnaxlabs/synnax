@@ -35,7 +35,8 @@ var _ = Describe("Versioning", func() {
 	Describe("VersionedPath", func() {
 		It("Should append the types/vN sub-path", func() {
 			Expect(versioning.VersionedPath("core/out", 3)).To(
-				Equal("core/out/versions/v3"))
+				Equal("core/out/versions/v3"),
+			)
 		})
 	})
 

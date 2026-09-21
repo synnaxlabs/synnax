@@ -58,6 +58,8 @@ export interface ContextValue {
   setViewport: (viewport: Viewport.UseEvent) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
+  loading: boolean;
+  loadingMessage?: string;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -122,6 +124,7 @@ export interface FrameProps
     Aether.ComponentProps {
   resizeDebounce?: CrudeTimeSpan;
   onHold?: (hold: boolean) => void;
+  loadingMessage?: string;
   ref?: Ref<FrameRef>;
 }
 
@@ -134,6 +137,7 @@ export const Frame = ({
   hold = false,
   onHold,
   visible,
+  loadingMessage,
   ref,
   ...rest
 }: FrameProps): ReactElement => {
@@ -141,7 +145,7 @@ export const Frame = ({
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
-  const [{ path }, { grid }, setState, methods] = Aether.use({
+  const [{ path }, { grid, loading }, setState, methods] = Aether.use({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,
@@ -252,6 +256,8 @@ export const Frame = ({
       addViewportHandler,
       setHold,
       id,
+      loading,
+      loadingMessage,
     }),
     [
       id,
@@ -263,6 +269,8 @@ export const Frame = ({
       setViewport,
       addViewportHandler,
       setHold,
+      loading,
+      loadingMessage,
     ],
   );
 

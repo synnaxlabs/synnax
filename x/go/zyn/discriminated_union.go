@@ -286,7 +286,7 @@ func DiscriminatedUnion(discriminator string, schemas ...ObjectZ) DiscriminatedU
 		variants[key] = schema
 	}
 	d := DiscriminatedUnionZ{
-		baseZ:               baseZ{dataType: DiscriminatedUnionT},
+		dataType:            DiscriminatedUnionT,
 		discriminator:       discriminator,
 		discriminatorSnake:  lo.SnakeCase(discriminator),
 		discriminatorPascal: lo.PascalCase(discriminator),

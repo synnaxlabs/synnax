@@ -74,9 +74,9 @@ var DefaultServiceConfig = ServiceConfig{
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.control")
-	validate.NotNil(v, "cluster", c.Cluster)
-	validate.NotNil(v, "ts", c.TS)
-	validate.NotNil(v, "transport", c.Transport)
+	v.NotNil("cluster", c.Cluster)
+	v.NotNil("ts", c.TS)
+	v.NotNil("transport", c.Transport)
 	return v.Error()
 }
 

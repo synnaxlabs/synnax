@@ -21,8 +21,13 @@ export const matchLabeledBy = (rel: ontology.Relationship, id: ontology.ID): boo
 
 /** Returns the cached labels attached to the given ontology ID. */
 export const cachedLabelsOf = (
-  relationships: query.Table<string, ontology.Relationship>,
+  cache: ontology.Cache,
   labels: query.Table<Key, Label>,
   id: ontology.ID,
 ): Label[] =>
-  labels.get(relationships.get((r) => matchLabeledBy(r, id)).map((r) => r.to.key));
+  labels.get(
+    cache
+      .relationshipsFrom(id)
+      .filter((r) => r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE)
+      .map((r) => r.to.key),
+  );

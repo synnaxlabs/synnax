@@ -42,14 +42,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": t},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -83,7 +83,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = rhs
 			*rhsNode.OutputTime(0) = rhsTime
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: t},
 				State: s.Node("op"),
 			}))
@@ -421,10 +421,10 @@ var _ = Describe("OP", func() {
 					"op":    {"type": t},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -445,7 +445,7 @@ var _ = Describe("OP", func() {
 			*inputNode.Output(0) = input
 			*inputNode.OutputTime(0) = inputTime
 			inputNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: t},
 				State: s.Node("op"),
 			}))
@@ -496,14 +496,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "ge"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -531,7 +531,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[float32](2, 3, 4)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: "ge"},
 				State: s.Node("op"),
 			}))
@@ -556,14 +556,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "eq"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -591,7 +591,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[int16](10, 20, 30, 40, 50)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 10, 15, 20, 25)
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: "eq"},
 				State: s.Node("op"),
 			}))
@@ -617,14 +617,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "or"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -652,7 +652,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true, false)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
 			}))
@@ -678,14 +678,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "and"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -713,7 +713,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true, false, true, true, false)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),
 			}))
@@ -739,14 +739,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "or"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -774,7 +774,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
 			}))
@@ -801,14 +801,14 @@ var _ = Describe("OP", func() {
 					"op":  {"type": "and"},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					}},
-					{Edge: ir.Edge{
+					},
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{
 					{
@@ -836,7 +836,7 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[bool](true)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),
 			}))
@@ -863,10 +863,10 @@ var _ = Describe("Literal inputs", func() {
 					"op":  {"type": "gt", "a": 5.0},
 				},
 				Edges: graph.Edges{
-					{Edge: ir.Edge{
+					{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					}},
+					},
 				},
 				Functions: []ir.Function{{
 					Key: "rhs",
@@ -882,7 +882,7 @@ var _ = Describe("Literal inputs", func() {
 			*rhsNode.Output(0) = telem.NewSeriesV[float64](1)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(777)
 			rhsNode.MarkFresh(0)
-			c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+			c := MustSucceed(op.NewHost().Create(node.Config{
 				Node:  analyzed.Nodes.Get("op"),
 				State: s.Node("op"),
 			}))
@@ -907,7 +907,7 @@ var _ = Describe("Literal inputs", func() {
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 		}}}
 		s := node.New(prog)
-		c := MustSucceed(op.NewHost().Create(ctx, node.Config{
+		c := MustSucceed(op.NewHost().Create(node.Config{
 			Node:  prog.Nodes[0],
 			State: s.Node("op"),
 		}))
@@ -931,7 +931,7 @@ var _ = Describe("Construction validation", func() {
 			}}}
 			s := node.New(prog)
 			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("op")}
-			Expect(op.NewHost().Create(ctx, cfg)).Error().
+			Expect(op.NewHost().Create(cfg)).Error().
 				To(MatchError(node.ErrInputNotFound))
 		},
 		Entry("binary ge", "ge"),

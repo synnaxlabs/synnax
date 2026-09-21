@@ -9,6 +9,7 @@
 
 import { type record, xy } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
+import { type RefObject } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -73,14 +74,23 @@ const makeAdapter = (
   edgeKey,
   getSnapshot: () => snapshot,
   apply: vi.fn(),
+  remove: vi.fn(),
 });
 
 const pasteResultOf = (
   adapter: ClipboardAdapter<Node, Edge>,
 ): PasteResult<Node, Edge> => vi.mocked(adapter.apply).mock.calls[0][0];
 
-const renderClipboard = (adapter: ClipboardAdapter<Node, Edge>, selected?: string[]) =>
-  renderHook(() => useClipboard({ adapter, selected })).result.current;
+interface RenderClipboardOpts {
+  onCut?: (remaining: string[]) => void;
+  container?: RefObject<HTMLDivElement | null>;
+}
+
+const renderClipboard = (
+  adapter: ClipboardAdapter<Node, Edge>,
+  selected?: string[],
+  opts: RenderClipboardOpts = {},
+) => renderHook(() => useClipboard({ adapter, selected, ...opts })).result.current;
 
 const readPayload = (store: Map<string, string>) => JSON.parse(store.get(MIME) ?? "");
 
@@ -226,6 +236,91 @@ describe("clipboard", () => {
     });
   });
 
+  describe("onCut", () => {
+    it("should write the selection and remove it from the diagram", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
+        edges: [edge("e1", "a", "b")],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter, ["a", "b", "e1"]);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).toHaveBeenCalled();
+      const payload = readPayload(store);
+      expect(payload.nodes.map((n: Node) => n.key)).toEqual(["a", "b"]);
+      expect(payload.edges.map((e: Edge) => e.key)).toEqual(["e1"]);
+      expect(adapter.remove).toHaveBeenCalledWith({
+        nodes: ["a", "b"],
+        edges: ["e1"],
+      });
+    });
+
+    it("should report the surviving selection to onCut", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const onCutCb = vi.fn();
+      // "b" is selected but absent from the snapshot, so it survives the cut.
+      const snapshotOnlyA = { ...snapshot, nodes: [node("a", xy.ZERO)] };
+      const { onCut } = renderClipboard(makeAdapter(snapshotOnlyA), ["a", "b"], {
+        onCut: onCutCb,
+      });
+      const { event } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(onCutCb).toHaveBeenCalledWith(["b"]);
+    });
+
+    it("should not invoke onCut when nothing was written", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const onCutCb = vi.fn();
+      const { onCut } = renderClipboard(makeAdapter(snapshot), [], { onCut: onCutCb });
+      const { event } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(onCutCb).not.toHaveBeenCalled();
+    });
+
+    it("should not remove anything when nothing is selected", () => {
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(store.has(MIME)).toBe(false);
+      expect(adapter.remove).not.toHaveBeenCalled();
+    });
+
+    it("should defer to the browser when a text selection exists", () => {
+      vi.spyOn(window, "getSelection").mockReturnValue({
+        toString: () => "selected text",
+      } as Selection);
+      const snapshot: Snapshot<Node, Edge> = {
+        nodes: [node("a", xy.ZERO)],
+        edges: [],
+        configs: {},
+      };
+      const adapter = makeAdapter(snapshot);
+      const { onCut } = renderClipboard(adapter, ["a"]);
+      const { event, store, preventDefault } = fakeClipboardEvent();
+      onCut(event, xy.ZERO);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(store.has(MIME)).toBe(false);
+      expect(adapter.remove).not.toHaveBeenCalled();
+    });
+  });
+
   describe("onPaste", () => {
     const writePayload = (
       store: Map<string, string>,
@@ -254,7 +349,7 @@ describe("clipboard", () => {
       // offset = cursor - anchor = (100, 200)
       expect(result.nodes[0].node.position).toEqual({ x: 100, y: 200 });
       expect(result.nodes[1].node.position).toEqual({ x: 110, y: 210 });
-      expect(result.newKeys).toEqual(result.nodes.map((n) => n.node.key));
+      expect(Object.values(result.remap)).toEqual(result.nodes.map((n) => n.node.key));
     });
 
     it("should preserve other node fields while replacing the key", () => {
@@ -406,6 +501,248 @@ describe("clipboard", () => {
       // anchor is centroid (10, 0); offset to cursor (100, 100) -> (90, 100).
       expect(result.nodes[0].node.position).toEqual({ x: 90, y: 100 });
       expect(result.nodes[1].node.position).toEqual({ x: 110, y: 100 });
+    });
+  });
+
+  describe("menu triggers", () => {
+    const SNAPSHOT: Snapshot<Node, Edge> = {
+      nodes: [node("a", xy.ZERO), node("b", xy.construct(10, 20))],
+      edges: [edge("e1", "a", "b")],
+      configs: {},
+    };
+
+    const containers: HTMLDivElement[] = [];
+
+    const stubExecCommand = () => {
+      const execCommand = vi.fn<(command: string) => boolean>(() => true);
+      Object.defineProperty(document, "execCommand", {
+        configurable: true,
+        value: execCommand,
+      });
+      return execCommand;
+    };
+
+    const makeContainer = (): RefObject<HTMLDivElement | null> => {
+      const el = document.createElement("div");
+      el.tabIndex = -1;
+      document.body.appendChild(el);
+      containers.push(el);
+      return { current: el };
+    };
+
+    // jsdom implements neither constructor the synthetic-paste fallback uses.
+    const stubSyntheticClipboard = () => {
+      class DataTransferStub {
+        private readonly data = new Map<string, string>();
+        setData(type: string, value: string): void {
+          this.data.set(type, value);
+        }
+        getData(type: string): string {
+          return this.data.get(type) ?? "";
+        }
+      }
+      class ClipboardEventStub extends Event {
+        readonly clipboardData: DataTransferStub | null;
+        constructor(
+          type: string,
+          init?: EventInit & { clipboardData?: DataTransferStub },
+        ) {
+          super(type, init);
+          this.clipboardData = init?.clipboardData ?? null;
+        }
+      }
+      vi.stubGlobal("DataTransfer", DataTransferStub);
+      vi.stubGlobal("ClipboardEvent", ClipboardEventStub);
+    };
+
+    const listenForPaste = (container: RefObject<HTMLDivElement | null>): string[] => {
+      const seen: string[] = [];
+      container.current?.addEventListener("paste", (e) => {
+        const data = (e as unknown as { clipboardData: DataTransfer | null })
+          .clipboardData;
+        seen.push(data?.getData(MIME) ?? "");
+      });
+      return seen;
+    };
+
+    afterEach(() => {
+      Reflect.deleteProperty(document, "execCommand");
+      containers.splice(0).forEach((el) => el.remove());
+      vi.unstubAllGlobals();
+    });
+
+    it("should focus the container and fire a native copy", () => {
+      const execCommand = stubExecCommand();
+      const container = makeContainer();
+      const { copy } = renderClipboard(makeAdapter(SNAPSHOT), ["a"], { container });
+      copy();
+      expect(document.activeElement).toBe(container.current);
+      expect(execCommand).toHaveBeenCalledWith("copy");
+    });
+
+    it("should clear an existing text selection before firing", () => {
+      const execCommand = stubExecCommand();
+      const removeAllRanges = vi.fn();
+      vi.spyOn(window, "getSelection").mockReturnValue({
+        toString: () => "",
+        removeAllRanges,
+      } as unknown as Selection);
+      const container = makeContainer();
+      const { copy } = renderClipboard(makeAdapter(SNAPSHOT), ["a"], { container });
+      copy();
+      expect(removeAllRanges).toHaveBeenCalled();
+      expect(execCommand).toHaveBeenCalledWith("copy");
+    });
+
+    it("should do nothing without a container", () => {
+      const execCommand = stubExecCommand();
+      const { copy } = renderClipboard(makeAdapter(SNAPSHOT), ["a"]);
+      copy();
+      expect(execCommand).not.toHaveBeenCalled();
+    });
+
+    it("should remove what cut's copy event wrote", () => {
+      const execCommand = stubExecCommand();
+      const container = makeContainer();
+      const adapter = makeAdapter(SNAPSHOT);
+      const clipboard = renderClipboard(adapter, ["a", "b", "e1"], { container });
+      const { event, store } = fakeClipboardEvent();
+      execCommand.mockImplementation(() => {
+        clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.cut();
+      expect(store.has(MIME)).toBe(true);
+      expect(adapter.remove).toHaveBeenCalledWith({
+        nodes: ["a", "b"],
+        edges: ["e1"],
+      });
+    });
+
+    it("should not remove when cut's copy event writes nothing", () => {
+      const execCommand = stubExecCommand();
+      const container = makeContainer();
+      const adapter = makeAdapter(SNAPSHOT);
+      const clipboard = renderClipboard(adapter, [], { container });
+      const { event, store } = fakeClipboardEvent();
+      execCommand.mockImplementation(() => {
+        clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.cut();
+      expect(store.has(MIME)).toBe(false);
+      expect(adapter.remove).not.toHaveBeenCalled();
+    });
+
+    it("should never remove on a copy trigger", () => {
+      const execCommand = stubExecCommand();
+      const container = makeContainer();
+      const adapter = makeAdapter(SNAPSHOT);
+      const clipboard = renderClipboard(adapter, ["a", "b", "e1"], { container });
+      const { event, store } = fakeClipboardEvent();
+      execCommand.mockImplementation(() => {
+        clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.copy();
+      expect(store.has(MIME)).toBe(true);
+      expect(adapter.remove).not.toHaveBeenCalled();
+    });
+
+    it("should not remove on a copy after a cut completes", () => {
+      const execCommand = stubExecCommand();
+      const container = makeContainer();
+      const adapter = makeAdapter(SNAPSHOT);
+      const clipboard = renderClipboard(adapter, ["a", "b", "e1"], { container });
+      const { event } = fakeClipboardEvent();
+      execCommand.mockImplementation(() => {
+        clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.cut();
+      expect(adapter.remove).toHaveBeenCalledTimes(1);
+      const { event: second } = fakeClipboardEvent();
+      clipboard.onCopy(second, xy.ZERO);
+      expect(adapter.remove).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not remove on a copy after a cut throws", () => {
+      const execCommand = stubExecCommand();
+      const container = makeContainer();
+      const adapter = makeAdapter(SNAPSHOT);
+      const clipboard = renderClipboard(adapter, ["a", "b", "e1"], { container });
+      execCommand.mockImplementation(() => {
+        throw new Error("denied");
+      });
+      expect(() => clipboard.cut()).toThrow("denied");
+      const { event, store } = fakeClipboardEvent();
+      clipboard.onCopy(event, xy.ZERO);
+      expect(store.has(MIME)).toBe(true);
+      expect(adapter.remove).not.toHaveBeenCalled();
+    });
+
+    it("should fire a native paste", () => {
+      const execCommand = stubExecCommand();
+      const container = makeContainer();
+      const { paste } = renderClipboard(makeAdapter(SNAPSHOT), [], { container });
+      paste();
+      expect(execCommand).toHaveBeenCalledWith("paste");
+    });
+
+    it("should replay the last copied payload when the native paste is refused", () => {
+      const execCommand = stubExecCommand();
+      stubSyntheticClipboard();
+      const container = makeContainer();
+      const clipboard = renderClipboard(makeAdapter(SNAPSHOT), ["a", "e1"], {
+        container,
+      });
+      const { event } = fakeClipboardEvent();
+      execCommand.mockImplementation((command) => {
+        if (command !== "copy") return false;
+        clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.copy();
+      const seen = listenForPaste(container);
+      clipboard.paste();
+      expect(seen).toHaveLength(1);
+      const payload = JSON.parse(seen[0]);
+      expect(payload.nodes.map((n: { key: string }) => n.key)).toEqual(["a"]);
+      expect(payload.edges.map((e: { key: string }) => e.key)).toEqual(["e1"]);
+    });
+
+    it("should not replay when the native paste succeeds", () => {
+      const execCommand = stubExecCommand();
+      stubSyntheticClipboard();
+      const container = makeContainer();
+      const clipboard = renderClipboard(makeAdapter(SNAPSHOT), ["a"], { container });
+      const { event } = fakeClipboardEvent();
+      execCommand.mockImplementation((command) => {
+        if (command === "copy") clipboard.onCopy(event, xy.ZERO);
+        return true;
+      });
+      clipboard.copy();
+      const seen = listenForPaste(container);
+      clipboard.paste();
+      expect(seen).toHaveLength(0);
+    });
+
+    it("should not replay before anything was copied", () => {
+      const execCommand = stubExecCommand();
+      stubSyntheticClipboard();
+      execCommand.mockImplementation(() => false);
+      const container = makeContainer();
+      const { paste } = renderClipboard(makeAdapter(SNAPSHOT), [], { container });
+      const seen = listenForPaste(container);
+      paste();
+      expect(seen).toHaveLength(0);
+    });
+
+    it("should compile only while the DOM standard defines execCommand", () => {
+      // Trips the type-check when TS drops execCommand from lib.dom, the signal that
+      // browsers removed it and the triggers need a new mechanism.
+      const canary: Pick<Document, "execCommand"> = document;
+      expect(canary).toBe(document);
     });
   });
 });

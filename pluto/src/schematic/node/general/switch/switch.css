@@ -31,3 +31,38 @@
         background: var(--pluto-gray-l1);
     }
 }
+
+/*
+ * Zero the button chrome so the symbol box hugs the track at every scale.
+ */
+.pluto-symbol-primitive > .pluto-btn.pluto-input__switch {
+    min-height: 0;
+    padding: 0;
+
+    /* Transition only paint so geometry tracks resize drags instantly. Flex must not
+       shrink the indicator into the narrower vertical box. */
+    .pluto-input__switch-indicator {
+        flex: none;
+        transition: background 0.15s;
+    }
+
+    .pluto-input__switch-indicator::before {
+        transition:
+            transform 0.15s,
+            background 0.15s;
+    }
+}
+
+/*
+ * The shared svg rotation in primitive.css cannot rotate this HTML symbol, and
+ * rotating an HTML element leaves its layout box unrotated. So swap the box by hand
+ * and rotate the flex-centered indicator inside it.
+ */
+.pluto-symbol-primitive.pluto--direction-y > .pluto-input__switch {
+    width: var(--pluto-switch-height);
+    height: var(--pluto-switch-width);
+}
+
+.pluto-symbol-primitive.pluto--direction-y .pluto-input__switch-indicator {
+    rotate: -90deg;
+}

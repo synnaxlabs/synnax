@@ -103,8 +103,8 @@ public:
             this->state.string_input("variant")
         );
         *this->state.output(0) = x::telem::Series(resolved_key);
-        *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
-        ctx.mark_changed(0);
+        *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

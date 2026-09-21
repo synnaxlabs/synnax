@@ -195,7 +195,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 	return h, nil
 }
 
-func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
 		periodParam, ok := cfg.Node.Inputs.Get(periodInputParam)
@@ -330,7 +330,7 @@ func parseTime(v any, name string) (telem.TimeSpan, error) {
 // liveSpan returns the named input's current span: the referenced variable's
 // latest value when var-bound, else the value stamped at compile time.
 func liveSpan(s *node.State, name string) telem.TimeSpan {
-	return telem.TimeSpan(node.NumericInput[int64](s, name))
+	return telem.TimeSpan(s.NumericInput[int64](name))
 }
 
 // spanGuard guards a live timer span against non-positive values. It reports
@@ -390,8 +390,8 @@ func (i *Interval) Next(ctx node.Context) {
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ctx.Now)
+	output.SetValueAt(0, uint8(1))
+	outputTime.SetValueAt(0, ctx.Now)
 }
 
 // Reset resets the interval so it fires immediately on the next timer tick.
@@ -439,8 +439,8 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime := w.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[uint8](*output, 0, uint8(1))
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ctx.Now)
+	output.SetValueAt(0, uint8(1))
+	outputTime.SetValueAt(0, ctx.Now)
 	w.Emit(ctx, 0)
 }
 
@@ -464,8 +464,8 @@ func (n *Now) Next(ctx node.Context) {
 	outputTime := n.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
-	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
+	output.SetValueAt(0, ts)
+	outputTime.SetValueAt(0, ts)
 	n.Emit(ctx, 0)
 }
 

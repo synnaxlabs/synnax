@@ -33,3 +33,12 @@ export const renderCoreUI = async (
     </>,
     { preloadedState },
   );
+
+/** The list row for the named Core, so a spec can scope to one row's controls. */
+export const getCoreRow = (container: ParentNode, name: string): HTMLElement => {
+  const row = Array.from(
+    container.querySelectorAll<HTMLElement>(".console-core-list-item"),
+  ).find((el) => el.textContent?.includes(name));
+  if (row == null) throw new Error(`no Core row named ${name}`);
+  return row;
+};

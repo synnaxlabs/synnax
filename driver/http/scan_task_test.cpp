@@ -76,6 +76,26 @@ TEST(HTTPScanTask, ExpectedResponseConfigObjectValue) {
     EXPECT_EQ(cfg.expected_value, expected);
 }
 
+TEST(HTTPScanTask, ExpectedResponseConfigNullValue) {
+    auto j = x::json::json{{"pointer", "/status"}, {"expected_value", nullptr}};
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_TRUE(cfg.expected_value.is_null());
+}
+
+TEST(HTTPScanTask, ExpectedResponseConfigIgnoresExpectedValueType) {
+    auto j = x::json::json{
+        {"pointer", "/count"},
+        {"expected_value_type", "number"},
+        {"expected_value", 42},
+    };
+    auto parser = x::json::Parser(j);
+    const ExpectedResponseConfig cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(cfg.expected_value, 42);
+}
+
 TEST(HTTPScanTask, ExpectedResponseConfigMissingPointer) {
     auto j = x::json::json{{"expected_value", "ok"}};
     auto parser = x::json::Parser(j);
@@ -136,6 +156,44 @@ TEST(HTTPScanTask, HealthCheckConfigDefaults) {
     EXPECT_TRUE(hc.request.query_params.empty());
     EXPECT_TRUE(hc.request.headers.empty());
     EXPECT_TRUE(hc.body.empty());
+    EXPECT_FALSE(hc.expected_response.has_value());
+}
+
+TEST(HTTPScanTask, HealthCheckConfigValidateResponseTrueUsesResponse) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"validate_response", true},
+        {"response", {{"pointer", "/status"}, {"expected_value", "ok"}}},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    ASSERT_TRUE(parser.ok());
+    ASSERT_TRUE(hc.expected_response.has_value());
+    EXPECT_EQ(hc.expected_response->pointer, "/status");
+}
+
+TEST(HTTPScanTask, HealthCheckConfigValidateResponseFalseHasNoResponse) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"validate_response", false},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_FALSE(hc.expected_response.has_value());
+}
+
+TEST(HTTPScanTask, HealthCheckConfigValidateResponseTrueWithoutResponse) {
+    auto j = x::json::json{
+        {"method", "GET"},
+        {"path", "/health"},
+        {"validate_response", true},
+    };
+    auto parser = x::json::Parser(j);
+    const HealthCheckConfig hc(parser);
+    ASSERT_TRUE(parser.ok());
     EXPECT_FALSE(hc.expected_response.has_value());
 }
 
@@ -585,6 +643,58 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
                   {
                       {"pointer", "/status"},
                       {"expected_value", "ok"},
+                  }},
+             }},
+        }
+    );
+
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    devices[dev.key] = dev;
+    common::ScannerContext scan_ctx{.devices = &devices};
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "HTTP Scanner";
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto processor = std::make_shared<Processor>();
+    Scanner scanner(ctx, task, processor);
+
+    const auto result = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(result.size(), 1);
+    EXPECT_EQ(result[0].status->variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(result[0].status->message, "Device connected");
+
+    server.stop();
+}
+
+TEST(HTTPScanTask, ScanConsoleSavedHealthCheckWithNullExpectedValue) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {{
+                .method = Method::GET,
+                .path = "/health",
+                .response_body = R"({"error": null})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+
+    auto dev = make_device(
+        host_port_from_url(server.base_url()),
+        {
+            {"max_concurrent_requests", 6},
+            {"health_check",
+             {
+                 {"method", "GET"},
+                 {"path", "/health"},
+                 {"validate_response", true},
+                 {"response",
+                  {
+                      {"pointer", "/error"},
+                      {"expected_value_type", "null"},
+                      {"expected_value", nullptr},
                   }},
              }},
         }

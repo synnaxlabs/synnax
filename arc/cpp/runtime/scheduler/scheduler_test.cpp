@@ -63,7 +63,7 @@ struct MockNode final : public node::Node {
 
     x::errors::Error next(node::Context &ctx) override {
         next_called++;
-        elapsed_values.push_back(ctx.elapsed);
+        elapsed_values.push_back(ctx.cycle.elapsed);
         if (!suppress_auto_mark)
             for (size_t i = 0; i < output_truthy.size(); ++i)
                 if (output_truthy[i]) ctx.mark_changed(i);
@@ -73,7 +73,7 @@ struct MockNode final : public node::Node {
 
     void reset(node::Context &ctx) override {
         reset_called++;
-        reset_now.push_back(ctx.now);
+        reset_now.push_back(ctx.cycle.now);
     }
 
     [[nodiscard]] bool is_output_truthy(const size_t output_idx) const override {
@@ -281,7 +281,7 @@ TEST_F(SchedulerTest, ExecutesAllPhaseZeroMembers) {
 
 // ----- Phase-based execution -----
 
-TEST_F(SchedulerTest, Phase0ExecutesUnconditionallyEachCycle) {
+TEST_F(SchedulerTest, RunsAnEntryPhase0MemberOncePerActivation) {
     auto &a = mock("A");
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
@@ -292,7 +292,8 @@ TEST_F(SchedulerTest, Phase0ExecutesUnconditionallyEachCycle) {
     s->next(
         {.elapsed = 3 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
     );
-    EXPECT_EQ(a.next_called, 3);
+    // A has no inputs, so it is an entry node: one run per activation.
+    EXPECT_EQ(a.next_called, 1);
 }
 
 TEST_F(SchedulerTest, PhaseNSkipsWithoutIncomingChange) {
@@ -331,7 +332,10 @@ TEST_F(SchedulerTest, ContinuousEdgePropagatesToDownstream) {
 TEST_F(SchedulerTest, ConditionalEdgeGatedOnSourceTruthiness) {
     auto &a = mock("A");
     auto &b = mock("B");
-    a.on_next = mark_on_next(0);
+    a.on_next = [](node::Context &ctx) {
+        ctx.mark_changed(0);
+        ctx.mark_self_changed();
+    };
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
         {conditional_edge("A", "output", "B", "input")},
@@ -454,7 +458,8 @@ TEST_F(SchedulerTest, IgnoresEdgesWithEndpointsOutsideMembership) {
 // ----- Conditional edge lifecycle -----
 
 TEST_F(SchedulerTest, ConditionalFiresEveryCycleWhileTruthy) {
-    mock("A", {true});
+    auto &a = mock("A", {true});
+    a.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
     auto &b = mock("B");
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
@@ -476,6 +481,7 @@ TEST_F(SchedulerTest, ConditionalFiresEveryCycleWhileTruthy) {
 
 TEST_F(SchedulerTest, ConditionalStopsFiringWhenSourceBecomesFalsy) {
     auto &a = mock("A", {true});
+    a.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
     auto &b = mock("B");
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
@@ -581,6 +587,7 @@ TEST_F(SchedulerTest, SelfChangedReplaysUntilNodeStopsMarking) {
 
 TEST_F(SchedulerTest, ElapsedTimePassedThrough) {
     auto &a = mock("A");
+    a.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(
@@ -597,7 +604,7 @@ TEST_F(SchedulerTest, ElapsedTimePassedThrough) {
 TEST_F(SchedulerTest, ReasonChannelInputPassedThrough) {
     auto &a = mock("A");
     node::RunReason received = node::RunReason::TimerTick;
-    a.on_next = [&received](const node::Context &ctx) { received = ctx.reason; };
+    a.on_next = [&received](const node::Context &ctx) { received = ctx.cycle.reason; };
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(
@@ -638,6 +645,7 @@ TEST_F(SchedulerTest, NextDeadlineResetsBetweenCycles) {
     int call = 0;
     a.on_next = [&call](const node::Context &ctx) {
         call++;
+        ctx.mark_self_changed();
         if (call == 1) ctx.set_deadline(x::telem::SECOND);
     };
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
@@ -684,11 +692,12 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
     s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
     EXPECT_EQ(stage_node.next_called, 1);
     EXPECT_EQ(stage_node.reset_called, 1);
+    // Stays active without re-activating; the entry member fired once.
     s->next(
         {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
     );
-    EXPECT_EQ(stage_node.next_called, 2);
-    EXPECT_EQ(stage_node.reset_called, 1); // no re-activation
+    EXPECT_EQ(stage_node.next_called, 1);
+    EXPECT_EQ(stage_node.reset_called, 1);
 }
 
 // Stopping a program calls Scheduler::reset outside any cycle, so the context it
@@ -818,6 +827,7 @@ TEST_F(SchedulerTest, CascadeThroughNestedAlwaysScopesAtDepth) {
 TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
     mock("trigger", {true});
     auto &first = mock("first_node");
+    first.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
     auto &second = mock("second_node");
 
     auto first_scope = parallel_scope(
@@ -860,14 +870,9 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
 }
 
 TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
-    auto &trigger = mock("trigger", {true});
+    mock("trigger", {true});
     auto &first = mock("first_node");
-    // One-shot: release trigger after cycle 1 so exit is permanent.
-    int cycle = 0;
-    trigger.on_next = [&cycle, &trigger](const node::Context &) {
-        cycle++;
-        if (cycle > 1) trigger.output_truthy[0] = false;
-    };
+    first.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
 
     auto first_scope = parallel_scope(
         "first",
@@ -889,6 +894,7 @@ TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
     );
     const auto s = build(std::move(ir));
     s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    // The exit trips on cycle 2; the one-shot trigger cannot re-activate main.
     first.set_truthy(0);
     s->next(
         {.elapsed = 2 * x::telem::MILLISECOND, .reason = node::RunReason::TimerTick}
@@ -903,6 +909,7 @@ TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
 TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
     mock("trigger", {true});
     auto &first = mock("first_node");
+    first.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
     auto &a = mock("a_node");
     auto &b = mock("b_node");
 
@@ -1133,7 +1140,8 @@ TEST_F(
     mock("trigger", {true});
     auto &latch = mock("latch", {true});
     latch.suppress_auto_mark = true;
-    mock("worker");
+    auto &worker = mock("worker");
+    worker.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
 
     auto body = parallel_scope("body", {stratum_of({ir::node_member("worker")})});
     ir::Transition t_exit;
@@ -1174,10 +1182,12 @@ TEST_F(
     int marks = 0;
     latch.on_next = [&marks](const node::Context &ctx) {
         marks++;
+        ctx.mark_self_changed();
         if (marks == 1) ctx.mark_changed(0);
     };
     mock("worker_a");
-    mock("worker_b");
+    auto &worker_b = mock("worker_b");
+    worker_b.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
 
     auto a = parallel_scope("a", {stratum_of({ir::node_member("worker_a")})});
     auto b = parallel_scope("b", {stratum_of({ir::node_member("worker_b")})});
@@ -1229,6 +1239,7 @@ TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCy
     int cycle = 0;
     latch.on_next = [&cycle, &latch](const node::Context &ctx) {
         cycle++;
+        ctx.mark_self_changed();
         if (cycle == 2) {
             latch.set_truthy(0);
             ctx.mark_changed(0);
@@ -1408,14 +1419,119 @@ TEST_F(SchedulerTest, RunsTheNextSequentialStepOnTheSettlePassSoItObservesPriorW
     );
     const auto s = build(std::move(program));
     s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
-    // The transition fires on pass 1, but second_node waits for the settle
-    // pass and runs after V has absorbed first_node's write.
+    // The transition fires on pass 1, but second_node waits for the settle pass and
+    // runs after V has absorbed first_node's write. The entry trigger does not re-run
+    // on the settle pass.
     EXPECT_EQ(
         order,
-        (std::vector<std::string>{"trigger", "V", "first", "trigger", "V", "second"})
+        (std::vector<std::string>{"trigger", "V", "first", "V", "second"})
     );
     EXPECT_EQ(first_node.next_called, 1);
     EXPECT_EQ(second_node.next_called, 1);
+}
+
+// ----- Entry node one-shot -----
+
+TEST_F(SchedulerTest, RunsAnEntryNodeOncePerActivationAcrossCycles) {
+    auto &a = mock("A");
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
+    const auto s = build(std::move(ir));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(a.next_called, 1);
+}
+
+TEST_F(SchedulerTest, KeepsDispatchingANonEntryStratumZeroNodeEveryCycle) {
+    auto &reader = mock("reader");
+    auto n = ir_node("reader", {"output"});
+    // A channel read makes the node non-entry.
+    n.channels.read[1] = "ch";
+    auto ir = program_of({n}, {}, root_scope({ir::node_member("reader")}));
+    const auto s = build(std::move(ir));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(reader.next_called, 3);
+}
+
+TEST_F(SchedulerTest, ReplaysAnEntryNodeThatMarksItself) {
+    auto &a = mock("A");
+    a.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
+    const auto s = build(std::move(ir));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(a.next_called, 3);
+}
+
+TEST_F(SchedulerTest, ReFiresAnEntryNodeWhenItsScopeReActivates) {
+    auto &trigger = mock("trigger", {true});
+    trigger.suppress_auto_mark = true;
+    // Marks on cycles 1 and 3; self-marks keep the trigger running.
+    trigger.on_next = [&trigger](node::Context &ctx) {
+        ctx.mark_self_changed();
+        if (trigger.next_called == 1 || trigger.next_called == 3) ctx.mark_changed(0);
+    };
+    auto &entry_node = mock("A", {true});
+    auto first = parallel_scope("first", {stratum_of({ir::node_member("A")})});
+    ir::Transition t;
+    t.on = ir::Handle{"A", "output"};
+    t.target_key = exit_target();
+    auto main = sequential_scope("main", {ir::scope_member(std::move(first))}, {t});
+    main.activation = ir::Handle{"trigger", "output"};
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), ir_node("A", {"output"})},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    // Cycle 1: main activates; A runs once and exits the sequence.
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_EQ(entry_node.next_called, 1);
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(entry_node.next_called, 1);
+    // Cycle 3: main re-activates; the reset lets A fire again.
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(entry_node.next_called, 2);
+}
+
+TEST_F(SchedulerTest, RunsAnEntrySequentialFlowStepOnceWhileTheStepStaysActive) {
+    mock("trigger", {true});
+    auto &step = mock("step");
+    auto main = sequential_scope("main", {ir::node_member("step")});
+    main.activation = ir::Handle{"trigger", "output"};
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), ir_node("step")},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
+    s->next(
+        {.elapsed = 2 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    s->next(
+        {.elapsed = 3 * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(step.next_called, 1);
 }
 
 // ----- Change-flag consumption -----
@@ -1515,9 +1631,9 @@ TEST_F(SchedulerTest, FiresAStagesOneShotTriggeredNodeOncePerActivation) {
     );
     const auto s = build(std::move(program));
     s->next({.elapsed = x::telem::MICROSECOND, .reason = node::RunReason::TimerTick});
-    // The entry re-runs each pass but marks once; the creator must dispatch
-    // exactly once, like a range create in a stage.
-    EXPECT_EQ(entry.next_called, 2);
+    // The entry node fires once per activation; the creator must dispatch exactly
+    // once, like a range create in a stage.
+    EXPECT_EQ(entry.next_called, 1);
     EXPECT_EQ(creator.next_called, 1);
 }
 
@@ -1603,7 +1719,10 @@ TEST_F(SchedulerTest, PreservesAMarkANodeSetsOnItselfWhileItRuns) {
 TEST_F(SchedulerTest, DispatchesAgainOnAFreshMarkInTheNextCycle) {
     auto &a = mock("A");
     auto &worker = mock("worker");
-    a.on_next = mark_on_next(0);
+    a.on_next = [](node::Context &ctx) {
+        ctx.mark_changed(0);
+        ctx.mark_self_changed();
+    };
     auto program = program_of(
         {ir_node("A", {"output"}), ir_node("worker")},
         {continuous_edge("A", "output", "worker", "in")},
@@ -1646,8 +1765,9 @@ TEST_F(SchedulerTest, ResetsASequentialScopesStrataMembersOnActivation) {
 TEST_F(SchedulerTest, ClearsAPendingSelfChangeAndReResetsOnScopeReEntry) {
     auto &trigger = mock("trigger", {true});
     trigger.suppress_auto_mark = true;
-    // Activate main on cycles 1 and 3 only.
+    // Activate main on cycles 1 and 3; self-marks keep the entry trigger running.
     trigger.on_next = [&trigger](node::Context &ctx) {
+        ctx.mark_self_changed();
         if (trigger.next_called == 1 || trigger.next_called == 3) ctx.mark_changed(0);
     };
     auto &src = mock("src");
@@ -1657,6 +1777,7 @@ TEST_F(SchedulerTest, ClearsAPendingSelfChangeAndReResetsOnScopeReEntry) {
     auto &v = mock("V");
     v.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
     auto &stage_node = mock("A");
+    stage_node.on_next = [](node::Context &ctx) { ctx.mark_self_changed(); };
     auto first = parallel_scope(
         "first",
         {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("V")})}
