@@ -70,6 +70,29 @@ var _ = Describe("Codec", func() {
 })
 
 var _ = Describe("EncodedJSON", func() {
+	Describe("NewEncodedJSON", func() {
+		It("Should encode a struct by its JSON tags", func() {
+			type result struct {
+				Topics []string `json:"topics"`
+				Count  int      `json:"count"`
+			}
+			encoded := MustSucceed(xmsgpack.NewEncodedJSON(
+				result{Topics: []string{"plant/line1"}, Count: 2},
+			))
+			Expect(encoded).To(Equal(xmsgpack.EncodedJSON{
+				"topics": []any{"plant/line1"},
+				"count":  2.0,
+			}))
+			var decoded result
+			Expect(encoded.Unmarshal(&decoded)).To(Succeed())
+			Expect(decoded.Count).To(Equal(2))
+		})
+		It("Should reject a value that is not a JSON object", func() {
+			Expect(xmsgpack.NewEncodedJSON(3)).Error().
+				To(MatchError(ContainSubstring("int does not marshal to a JSON object")))
+		})
+	})
+
 	It("Should round-trip through msgpack encoding and decoding", func() {
 		original := xmsgpack.EncodedJSON{"key": "value", "count": int64(42)}
 		b := MustSucceed(msgpack.Marshal(original))

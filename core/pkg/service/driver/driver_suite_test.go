@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -40,6 +41,7 @@ var (
 	node         mock.Node
 	db           *gorp.DB
 	rackService  *rack.Service
+	deviceSvc    *device.Service
 	taskService  *task.Service
 	taskWriter   task.Writer
 	channelSvc   *channel.Service
@@ -87,6 +89,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
+	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Status:   statusSvc,
+		Rack:     rackService,
+		Search:   searchIdx,
+	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
@@ -121,6 +131,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 type mockFactory struct {
 	configureFunc func(context.Context, task.Task) (driver.Task, error)
 	name          string
+	// initialTasks are the tasks returned by InitialTasks.
+	initialTasks []task.Task
 	// cmdKey records the cmdKey passed to ConfigureTask per task.
 	cmdKey sync.Map
 }
@@ -163,6 +175,8 @@ func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err err
 			Details: details,
 		})).To(Succeed())
 }
+
+func (f *mockFactory) InitialTasks() []task.Task { return f.initialTasks }
 
 func (f *mockFactory) Name() string { return f.name }
 

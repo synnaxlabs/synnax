@@ -10,6 +10,9 @@
 package device_test
 
 import (
+	"context"
+	"sync/atomic"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -20,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -915,6 +919,31 @@ var _ = Describe("Device", func() {
 				).To(MatchError(query.ErrNotFound))
 			},
 		)
+	})
+	Describe("Observe", func() {
+		It("Should notify when a device is created", func(ctx SpecContext) {
+			var created atomic.Value
+			disconnect := svc.Observe().OnChange(
+				func(ctx context.Context, r gorp.TxReader[device.Key, device.Device]) {
+					for change := range r {
+						if change.Variant == xchange.VariantSet {
+							created.Store(change.Value.Name)
+						}
+					}
+				},
+			)
+			defer disconnect()
+			d := device.Device{
+				Key:      "observed",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "dev1",
+				Name:     "Observed",
+				Make:     "Test Make",
+				Model:    "Test Model",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			Eventually(created.Load).Should(Equal("Observed"))
+		})
 	})
 	Describe("Suspect Rack", func() {
 		It(

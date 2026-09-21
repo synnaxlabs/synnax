@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -184,6 +185,11 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
 	}
+}
+
+// Observe returns an observable that notifies callers of changes to devices.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Device]] {
+	return s.table.Observe()
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {

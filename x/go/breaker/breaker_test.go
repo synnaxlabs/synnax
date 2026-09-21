@@ -66,4 +66,24 @@ var _ = Describe("Breaker", func() {
 			duration,
 		).To(BeNumerically("~", 310*time.Millisecond, 100*time.Millisecond))
 	})
+	It("Should stop scaling the timeout at the max interval", func(ctx SpecContext) {
+		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+			BaseInterval: 10 * time.Millisecond,
+			Scale:        10,
+			MaxInterval:  20 * time.Millisecond,
+			MaxRetries:   10,
+		}))
+		start := time.Now()
+		Expect(b.Wait()).To(BeTrue()) // 10ms
+		Expect(b.Wait()).To(BeTrue()) // 20ms
+		Expect(b.Wait()).To(BeTrue()) // 20ms
+		Expect(b.Wait()).To(BeTrue()) // 20ms
+		Expect(time.Since(start)).To(BeNumerically("<", 300*time.Millisecond))
+	})
+	It("Should reject a max interval below the base interval", func(ctx SpecContext) {
+		Expect(breaker.NewBreaker(ctx, breaker.Config{
+			BaseInterval: 20 * time.Millisecond,
+			MaxInterval:  10 * time.Millisecond,
+		})).Error().To(MatchError(ContainSubstring("max_interval")))
+	})
 })
