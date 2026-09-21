@@ -12,6 +12,7 @@ package stdin_test
 import (
 	"io"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,7 +44,7 @@ var _ = Describe("Watch", func() {
 		r, w := io.Pipe()
 		stopped := make(chan struct{})
 		go stdin.Watch(r, true, func() { close(stopped) })
-		Consistently(stopped, "50ms").ShouldNot(BeClosed())
+		Consistently(stopped, 50*time.Millisecond).ShouldNot(BeClosed())
 		Expect(w.Close()).To(Succeed())
 		Eventually(stopped).Should(BeClosed())
 	})
