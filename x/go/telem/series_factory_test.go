@@ -367,6 +367,42 @@ var _ = Describe("SeriesFactory", func() {
 		})
 	})
 
+	Describe("UnmarshalVariableSample", func() {
+		It("Should walk every sample in a buffer", func() {
+			data := telem.NewSeriesV("foo", "", "barbaz").Data
+			var samples []string
+			for {
+				sample, n := telem.UnmarshalVariableSample(data)
+				if n == 0 {
+					break
+				}
+				samples = append(samples, string(sample))
+				data = data[n:]
+			}
+			Expect(samples).To(Equal([]string{"foo", "", "barbaz"}))
+			Expect(data).To(BeEmpty())
+		})
+
+		It("Should return a sample that aliases the buffer", func() {
+			data := telem.MarshalVariableSample([]byte("cat"))
+			sample, n := telem.UnmarshalVariableSample(data)
+			Expect(n).To(Equal(7))
+			sample[0] = 'b'
+			Expect(data[4:]).To(Equal([]byte("bat")))
+		})
+
+		DescribeTable("Should consume nothing from an incomplete buffer",
+			func(data []byte) {
+				sample, n := telem.UnmarshalVariableSample(data)
+				Expect(n).To(BeZero())
+				Expect(sample).To(BeNil())
+			},
+			Entry("empty", []byte{}),
+			Entry("a partial prefix", []byte{3, 0, 0}),
+			Entry("a payload shorter than its prefix", []byte{3, 0, 0, 0, 'a', 'b'}),
+		)
+	})
+
 	Describe("Arrange", func() {
 		It("Should create a series with the correct values for int64", func() {
 			s := telem.Arrange[int64](0, 5, 2)

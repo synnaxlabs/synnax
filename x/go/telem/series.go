@@ -52,13 +52,13 @@ func (s Series) Len() int64 {
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
 			var cl int64
-			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				if offset+variableLengthPrefixSize+length > len(s.Data) {
+			data := s.Data
+			for {
+				_, n := UnmarshalVariableSample(data)
+				if n == 0 {
 					break
 				}
-				offset += variableLengthPrefixSize + length
+				data = data[n:]
 				cl++
 			}
 			s.cachedLength = &cl
@@ -97,22 +97,20 @@ func (s *Series) Validate() error {
 
 func (s *Series) validateVariable() error {
 	var (
-		offset int
-		count  int64
+		data  = s.Data
+		count int64
 	)
-	for offset+variableLengthPrefixSize <= len(s.Data) {
-		length := int(ByteOrder.Uint32(s.Data[offset:]))
-		offset += variableLengthPrefixSize
-		if offset+length > len(s.Data) {
+	for len(data) >= variableLengthPrefixSize {
+		sample, n := UnmarshalVariableSample(data)
+		if n == 0 {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
-				offset-variableLengthPrefixSize,
-				length,
-				len(s.Data)-offset,
+				len(s.Data)-len(data),
+				ByteOrder.Uint32(data),
+				len(data)-variableLengthPrefixSize,
 			)
 		}
-		sample := s.Data[offset : offset+length]
 		if s.DataType == JSONT && !json.Valid(sample) {
 			return errors.Wrapf(
 				validate.ErrValidation,
@@ -127,14 +125,14 @@ func (s *Series) validateVariable() error {
 				sample,
 			)
 		}
-		offset += length
+		data = data[n:]
 		count++
 	}
-	if offset != len(s.Data) {
+	if len(data) != 0 {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"variable-density buffer has %d trailing bytes after last complete sample",
-			len(s.Data)-offset,
+			len(data),
 		)
 	}
 	s.cachedLength = &count
@@ -148,19 +146,14 @@ func (s Series) Size() Size { return Size(len(s.Data)) }
 func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
-			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				offset += variableLengthPrefixSize
-				if offset+length > len(s.Data) {
+			data := s.Data
+			for {
+				sample, n := UnmarshalVariableSample(data)
+				if n == 0 || !yield(sample) {
 					return
 				}
-				if !yield(s.Data[offset : offset+length]) {
-					return
-				}
-				offset += length
+				data = data[n:]
 			}
-			return
 		}
 		den := int64(s.DataType.Density())
 		for i := int64(0); i < s.Len(); i++ {
@@ -176,18 +169,11 @@ func (s Series) Samples() iter.Seq[[]byte] {
 func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
-		offset := 0
-		for offset+variableLengthPrefixSize <= len(s.Data) {
-			length := int(ByteOrder.Uint32(s.Data[offset:]))
-			offset += variableLengthPrefixSize
-			if offset+length > len(s.Data) {
-				break
-			}
+		for sample := range s.Samples() {
 			if i == 0 {
-				return s.Data[offset : offset+length]
+				return sample
 			}
 			i--
-			offset += length
 		}
 		panic(fmt.Sprintf(
 			"index %v out of bounds for series with length %v",
