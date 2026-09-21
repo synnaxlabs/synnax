@@ -189,7 +189,7 @@ var _ = Describe("Constant", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Cycle:       node.Cycle{Now: now},
+					Now:         now,
 					MarkChanged: func(int) {},
 				},
 			)
@@ -304,7 +304,7 @@ var _ = Describe("Constant", func() {
 			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{
 				Context:     ctx,
-				Cycle:       node.Cycle{Now: telem.SecondTS},
+				Now:         telem.SecondTS,
 				MarkChanged: func(int) {},
 			})
 			sink := s.Node("sink")
@@ -412,7 +412,7 @@ var _ = Describe("Constant", func() {
 			n := MustSucceed(factory.Create(cfg))
 			nCtx := node.Context{
 				Context:     ctx,
-				Cycle:       node.Cycle{Now: telem.SecondTS},
+				Now:         telem.SecondTS,
 				MarkChanged: func(int) {},
 			}
 			n.Next(nCtx)
