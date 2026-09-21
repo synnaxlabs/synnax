@@ -274,7 +274,12 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		series, srcLen, err := i.read(ctx, alignment, startOffset, endOffset-startOffset)
+		series, srcLen, err := i.read(
+			ctx,
+			alignment,
+			startOffset,
+			endOffset-startOffset,
+		)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
@@ -514,12 +519,10 @@ func (i *Iterator) read(
 	return series, series.Len(), nil
 }
 
-// strideBufferSize bounds the scratch buffer a strided read holds, so the buffer
-// never scales with the size of the slice being read.
+// strideBufferSize bounds the scratch buffer a strided read holds, so the buffer never
+// scales with the size of the slice being read.
 const strideBufferSize = 64 * telem.Kilobyte
 
-// errPrefixOverrunsSlice reports a variable-length prefix claiming more bytes than the
-// domain slice holds. Log-only: no caller branches on it.
 var errPrefixOverrunsSlice = errors.New("length prefix exceeds domain slice")
 
 // readStrided reads every DownsampleFactor-th sample of the slice [offset, offset+size)
@@ -599,8 +602,8 @@ func (i *Iterator) readStridedVariable(
 			return nil, 0, err
 		}
 		length := int64(telem.ByteOrder.Uint32(lenBuf))
-		// A length prefix is stored data. Without this bound a corrupt one would
-		// drive an allocation of up to 4GiB before the short read caught it.
+		// A length prefix is stored data. Without this bound a corrupt one would drive
+		// an allocation of up to 4GiB before the short read caught it.
 		if pos+4+length > int64(size) {
 			i.logShortStride(offset, start, errPrefixOverrunsSlice)
 			return out, src, nil
