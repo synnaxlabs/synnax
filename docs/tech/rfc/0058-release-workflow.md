@@ -7,12 +7,14 @@
 
 ## 0 Summary
 
-The Core, Console, and Driver release on every push to `main` or `rc`, versions live in
-14 files, and the Console updater polls a JSON file a bot force-pushes to `main`. This
-RFC moves to trunk-based development on `main`, one dispatched release workflow per
-product, Git tags as the only version source, an updater manifest hosted on the GitHub
-release, and static feature flags. It supersedes RFC 0020 §2, §3, §4, §5, and §7, and
-retires the `rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor
+The Core, Console, and Driver release on every push to `main` or `rc`, their versions
+are hand-edited files, and the Console updater polls a JSON file a bot force-pushes to
+`main`. This RFC moves to trunk-based development on `main`, one dispatched release
+workflow per binary product with a train workflow over them, Git tags as the only
+version source for those products, an updater manifest hosted on the GitHub release, and
+static feature flags. Python and TypeScript packages keep their current flow: versioned
+in their manifests, published on merge. It supersedes RFC 0020 §2, §3, §4, §5, and §7,
+and retires the `rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor
 survives: every product and package shares one minor, and patches move independently.
 
 ## 1 Motivation
@@ -21,8 +23,9 @@ survives: every product and package shares one minor, and patches move independe
   from `main` in July and August 2026.
 - **Release is a side effect of a merge**: `deploy.synnax.yaml:12-89` publishes on any
   push to `main` or `rc` that touches a product path. Hotfix branches cannot release.
-- **Versions are hand-maintained**: `core/pkg/version/VERSION`, `tauri.conf.json`, 8
-  `package.json`, 4 `pyproject.toml`, checked for major.minor agreement only.
+- **Binary versions are hand-maintained**: `core/pkg/version/VERSION` and
+  `tauri.conf.json` are edited by hand and checked against the 12 package manifests for
+  major.minor agreement only.
 - **`console/release-spec.json` is a production endpoint**: force-pushed to `main` by CI
   and polled every 30 s by every shipped Console.
 - **Docs links go stale**: `fetchVersion.ts:33` memoizes the releases lookup for the
@@ -31,10 +34,12 @@ survives: every product and package shares one minor, and patches move independe
 
 ## 2 Design
 
-Five products release separately: Console, Core, Driver, Python, TypeScript. Compatible
-products share a major.minor, the train, such as `0.59`. `main` is always releasable:
-unfinished work ships dark behind a flag. Nothing publishes on push; a person dispatches
-every release. No file in Git carries a product version; the tag is the version.
+Three binary products release by dispatch: Console, Core, Driver. The Python and
+TypeScript packages publish on merge, as today. Compatible products and packages share a
+major.minor, the train, such as `0.59`. `main` is always releasable: unfinished work
+ships dark behind a flag. No binary publishes on push; a person dispatches every
+release. No file in Git carries a binary product version; the tag is the version. A
+package manifest carries its own version.
 
 ### 2.0 Branching
 
@@ -49,7 +54,8 @@ is deleted afterwards.
 
 ### 2.1 Release workflows
 
-One `workflow_dispatch` workflow per product, `release.<product>.yaml`, with inputs:
+One `workflow_dispatch` workflow per binary product, `release.<product>.yaml`, with
+inputs:
 
 - **`bump`**: `patch` (default) or `minor`.
 - **`prerelease`**: Tag `-rc.N` and mark the release pre-release.
@@ -70,7 +76,7 @@ Each runs four stages:
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
    as a `workflow_call` job.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
-   through, signed. Python and TypeScript inject the version and build in place.
+   through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
    with categories from `.github/release.yml` and `previous_tag_name` set to the
    previous stable product tag, since GitHub's default is the repo's last release of any
@@ -89,32 +95,41 @@ Assets per product:
   binaries, Windows installer, and Docker image (`latest` for stable, `next` for
   pre-release). No workflow rebuilds another product. The notes name the embedded
   versions.
-- **Python** (`py/vX.Y.Z`), **TypeScript** (`ts/vX.Y.Z`): Version injection, then the
-  existing `uv publish` and `pnpm publish -r`. Python moves to OIDC trusted publishing;
-  TypeScript already has `id-token: write`. A pre-release publishes with `--tag next`,
-  so npm's `latest` stays on the stable release; pip already skips pre-releases.
 
-A sixth workflow, `release.train.yaml`, is the everyday path. It takes the same `bump`
-and `prerelease` inputs and calls the five product workflows, which also expose
-`workflow_call` and a `version` output: Console, Driver, Python, and TypeScript in
-parallel, then the Core with the Console and Driver outputs as `console_version` and
-`driver_version`. One dispatch releases a whole train. A product that fails leaves no
-tag and the rest stand; rerun that product alone, and a Core rerun's defaults pick up
-the others. The per-product workflows stay for hotfix patches.
+A fourth workflow, `release.train.yaml`, is the everyday path. It takes the same `bump`
+and `prerelease` inputs and calls the three product workflows, which also expose
+`workflow_call` and a `version` output: Console and Driver in parallel, then the Core
+with their outputs as `console_version` and `driver_version`. One dispatch releases a
+whole train. A product that fails leaves no tag and the rest stand; rerun that product
+alone, and a Core rerun's defaults pick up the others. The per-product workflows stay
+for hotfix patches.
 
-`deploy.synnax.yaml`, `deploy.ts.yaml`, `deploy.py.yaml`, and
-`scripts/prune_published.py` are deleted; every release is a new version, so nothing is
+`deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
+
+Python and TypeScript keep `deploy.py.yaml` and `deploy.ts.yaml`. A merge to `main` that
+touches a package publishes every package whose manifest version is not yet on the
+registry; `uv publish --check-url` and `pnpm publish -r` skip the rest. The version bump
+in the PR is the release decision, and a package that did not change is never
+republished. Python moves to OIDC trusted publishing; TypeScript already has
+`id-token: write`. Packages have no candidate channel.
 
 ### 2.2 Versions
 
 Train rule: a product may bump to at most one minor ahead of the Core's latest stable,
 and the Core release fails unless the Console and Driver it embeds share its minor.
-Console and Driver open a train; the Core closes it. Every product and every package in
-it shares the train's minor; patches are independent, so a Console hotfix ships as
-`0.59.1` while the Core stays at `0.59.0`.
+Console and Driver open a train; the Core closes it. Every product and every package
+shares the train's minor; patches are independent, so a Console hotfix ships as `0.59.1`
+while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.59.x`.
+`check_versions.sh` enforces the rule for the packages: every manifest's minor is the
+Core's latest stable minor or the next one, read from the `core/` tags instead of the
+`VERSION` file. A package minor bump is one PR that moves every manifest to the new
+train. The catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z`
+at publish, so any patch mix inside a train resolves; `pluto/package.json` pins
+`@synnaxlabs/freighter` and `@synnaxlabs/media` as `workspace:*`, which publishes exact
+versions, and both move to the catalog.
 
-Every manifest carries `0.0.0` and the build injects the resolved `version`:
+Every binary manifest carries `0.0.0` and the build injects the resolved `version`:
 
 - **Core**: The existing `-ldflags -X` (`build.synnax.yaml:621-626`). The `VERSION` file
   and `//go:embed` fallback in `get.go` are deleted; `Prod()` returns `0.0.0-dev` when
@@ -124,21 +139,17 @@ Every manifest carries `0.0.0` and the build injects the resolved `version`:
   switches from the `VERSION` file and `date` to `stable-status.txt` and
   `volatile-status.txt`.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`.
-- **TypeScript**: `pnpm -r exec npm version X.Y.Z --no-git-tag-version`. The catalog
-  pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish.
-  `pluto/package.json` pins `@synnaxlabs/freighter` and `@synnaxlabs/media` as
-  `workspace:*`, which publishes exact versions; both move to the catalog.
-- **Python**: `uv version X.Y.Z` per package before `pin_internal_deps.sh`.
 
-Dev builds therefore run at `0.0.0`. The client compatibility checks (`isCompatible` in
-`client/ts/src/connection/status.ts`, `_versions_compatible` in
+Dev binaries therefore run at `0.0.0`. The client compatibility checks (`isCompatible`
+in `client/ts/src/connection/status.ts`, `_versions_compatible` in
 `client/py/synnax/connection.py`, and `versions_compatible` in
 `client/cpp/connection/checker.cpp`, which the Driver ships) require an equal
-major.minor today and gain one rule: a `0.0` on either side is compatible. A dev
-Console, client, or Driver then connects to any Core, and a dev Core accepts any of
-them, without a mismatch warning.
+major.minor today and gain one rule: a `0.0` on either side is compatible. A dev Console
+or Driver then connects to any Core, and any client connects to a dev Core, without a
+mismatch warning.
 
-`check_versions.sh`, `bump_versions.sh`, and `test.updates.yaml` are deleted.
+`bump_versions.sh` drops the `VERSION` and `tauri.conf.json` edits and bumps only the
+package manifests.
 
 ### 2.3 Updater manifest and docs site
 
@@ -184,29 +195,28 @@ flag and workflow file.
 
 ## 3 Implementation phases
 
-- **Phase 1: Docs site.** One manual release per product under its new tag, so
+- **Phase 1: Docs site.** One manual release per binary product under its new tag, so
   `latest(product)` needs no legacy map and the first dispatched release computes its
   version from a real tag. Core, Driver, and Console at 0.58.2 with the assets copied
   from `synnax-v0.58.2` and `console-v0.58.2`, plus a `latest.json` written from
   `release-spec.json`, which is the only place the manifest exists today. Every
   bootstrap tag sits on the `synnax-v0.58.2` commit on `main`, so Resolve reaches it
-  from `HEAD`. Python and TypeScript at the highest version on PyPI and npm, since the
-  packages disagree (`synnax` is 0.58.1 on PyPI, `alamos` 0.58.0) and the next patch
-  must exceed the registry. Then `releases.ts`, the updater routes, per-product
-  consumers, and docs flags, all deployable before any workflow change.
-- **Phase 2: Cutover.** One PR: the six `release.*.yaml`, `resolve-version`,
-  `.github/release.yml`, `deploy.*` deleted, `rc` removed from every trigger, the
-  updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
+  from `HEAD`. Then `releases.ts`, the updater routes, per-product consumers, and docs
+  flags, all deployable before any workflow change.
+- **Phase 2: Cutover.** One PR: the four `release.*.yaml`, `resolve-version`,
+  `.github/release.yml`, `deploy.synnax.yaml` deleted, `rc` removed from every trigger,
+  the updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
   overrides them, so no version file changes. Then merge `rc` into `main` (publishes
   nothing), `gh pr edit --base main` for open PRs, delete `rc`.
-- **Phase 3: Versions and Console flags.** Delete the version literals, scripts, and
-  `test.updates.yaml`; move Pluto's two `workspace:*` pins to the catalog; add the Bazel
-  status script, the `0.0` compatibility rule in all three clients, and
-  `console/src/flags.ts`.
-- **Phase 4: First releases.** One `release.train.yaml` dispatch with `bump: minor`,
-  opening train 0.59. After the Console release, one manual commit copies its
-  `latest.json` into `release-spec.json`, so installed 0.58 builds upgrade once and land
-  on the new endpoint. The file stays on `main` until 0.58 is out of support.
+- **Phase 3: Versions and Console flags.** Delete the binary version literals; point
+  `check_versions.sh` at the `core/` tags and trim `bump_versions.sh`; move Pluto's two
+  `workspace:*` pins to the catalog; add the Bazel status script, the `0.0`
+  compatibility rule in all three clients, and `console/src/flags.ts`.
+- **Phase 4: First releases.** One PR bumps every package manifest to 0.59, then one
+  `release.train.yaml` dispatch with `bump: minor` opens train 0.59. After the Console
+  release, one manual commit copies its `latest.json` into `release-spec.json`, so
+  installed 0.58 builds upgrade once and land on the new endpoint. The file stays on
+  `main` until 0.58 is out of support.
 
 ## 4 Resolved decisions
 
@@ -228,14 +238,17 @@ flag and workflow file.
    without a deploy.
 9. **Cutover order**: Workflows first, then merge `rc`, then retarget and delete, so no
    PR pays a rebase and the first release ships a whole train.
-10. **Lockstep language packages**: Per-package versions rejected. Every npm and PyPI
-    package in a product publishes under the product tag, changed or not; that is the
-    common monorepo pattern (Babel, Jest, AWS SDK v3), an empty republish is free, and
-    the published `^0.59.0` ranges lock the minor on 0.x, so a minor bump cascades to
-    every dependent anyway.
-11. **One dispatch per train**: `release.train.yaml` composes the five product workflows
-    so a minor ships with one click; separate dispatches were rejected as five clicks in
-    a forced order. The products keep their own tags, releases, and hotfix workflows.
+10. **Packages keep the merge-publish flow**: Tag-resolved lockstep versions rejected
+    for Python and TypeScript; they republished every package on every patch and cost a
+    product tag, a workflow, and version injection to replace a flow that already works.
+    Per-package tags rejected because the cascade through internal ranges then needs a
+    person or Changesets. The manifest version is the release decision, the registry's
+    skip of published versions is the change detection, and the published `^X.Y.0`
+    ranges lock the minor on 0.x, so any patch mix inside a train resolves.
+11. **One dispatch per train**: `release.train.yaml` composes the three product
+    workflows so a minor ships with one click; separate dispatches were rejected as
+    three clicks in a forced order. The products keep their own tags, releases, and
+    hotfix workflows.
 
 ## 5 Open questions
 
