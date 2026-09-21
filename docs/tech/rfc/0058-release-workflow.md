@@ -121,11 +121,12 @@ and the Core release fails unless the Console and Driver it embeds share its min
 Console and Driver open a train; the Core closes it. Every product and every package
 shares the train's minor; patches are independent, so a Console hotfix ships as `0.59.1`
 while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.59.x`.
-`check_versions.sh` enforces the rule for the packages: every manifest's minor is the
-Core's latest stable minor or the next one, read from the `core/` tags instead of the
-`VERSION` file. A package minor bump is one PR that moves every manifest to the new
-train. The catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z`
-at publish, so any patch mix inside a train resolves; `pluto/package.json` pins
+`check_versions.sh` enforces the rule for the packages: every manifest shares one minor,
+and that minor is the Core's latest stable minor or the next one, read from the `core/`
+tags instead of the `VERSION` file. A split, with some manifests on each train, fails
+the check, so a package minor bump is one PR that moves every manifest to the new train.
+The catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at
+publish, so any patch mix inside a train resolves; `pluto/package.json` pins
 `@synnaxlabs/freighter` and `@synnaxlabs/media` as `workspace:*`, which publishes exact
 versions, and both move to the catalog.
 
