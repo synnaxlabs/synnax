@@ -63,7 +63,7 @@ struct MockNode final : public node::Node {
 
     x::errors::Error next(node::Context &ctx) override {
         next_called++;
-        elapsed_values.push_back(ctx.elapsed);
+        elapsed_values.push_back(ctx.cycle.elapsed);
         if (!suppress_auto_mark)
             for (size_t i = 0; i < output_truthy.size(); ++i)
                 if (output_truthy[i]) ctx.mark_changed(i);
@@ -73,7 +73,7 @@ struct MockNode final : public node::Node {
 
     void reset(node::Context &ctx) override {
         reset_called++;
-        reset_now.push_back(ctx.now);
+        reset_now.push_back(ctx.cycle.now);
     }
 
     [[nodiscard]] bool is_output_truthy(const size_t output_idx) const override {
@@ -604,7 +604,7 @@ TEST_F(SchedulerTest, ElapsedTimePassedThrough) {
 TEST_F(SchedulerTest, ReasonChannelInputPassedThrough) {
     auto &a = mock("A");
     node::RunReason received = node::RunReason::TimerTick;
-    a.on_next = [&received](const node::Context &ctx) { received = ctx.reason; };
+    a.on_next = [&received](const node::Context &ctx) { received = ctx.cycle.reason; };
     auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(

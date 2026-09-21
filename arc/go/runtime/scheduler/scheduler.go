@@ -186,10 +186,8 @@ func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 func (s *Scheduler) Next(ctx context.Context, cycle rnode.Cycle) {
 	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
-	s.nodeCtx.Now = cycle.Now
-	s.nodeCtx.Elapsed = cycle.Elapsed
+	s.nodeCtx.Cycle = cycle
 	s.nodeCtx.Tolerance = s.tolerance
-	s.nodeCtx.Reason = cycle.Reason
 	// Re-pass until no change lands on an already-run node, bounded against cycles.
 	for range len(s.changedFlags) + 1 {
 		s.settled = true

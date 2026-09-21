@@ -243,8 +243,7 @@ var _ = Describe("Time", func() {
 
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonTimerTick,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -273,8 +272,7 @@ var _ = Describe("Time", func() {
 			// First tick at 0 - fires
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonTimerTick,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -287,8 +285,10 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 500 * telem.Millisecond,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: 500 * telem.Millisecond,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -315,8 +315,7 @@ var _ = Describe("Time", func() {
 			// First tick at 0 - fires
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonTimerTick,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -329,8 +328,10 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: telem.Second,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -356,10 +357,12 @@ var _ = Describe("Time", func() {
 
 			now := telem.SecondTS * 90
 			n.Next(node.Context{
-				Context:         ctx,
-				Now:             now,
-				Elapsed:         5 * telem.Second,
-				Reason:          node.ReasonTimerTick,
+				Context: ctx,
+				Cycle: node.Cycle{
+					Now:     now,
+					Elapsed: 5 * telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged:     func(int) {},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -409,8 +412,10 @@ var _ = Describe("Time", func() {
 
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 2 * telem.Second,
-					Reason:  node.ReasonChannelInput,
+					Cycle: node.Cycle{
+						Elapsed: 2 * telem.Second,
+						Reason:  node.ReasonChannelInput,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -444,8 +449,7 @@ var _ = Describe("Time", func() {
 				// First tick at 0 - fires (initial fire)
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 0,
-					Reason:  node.ReasonTimerTick,
+					Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -458,8 +462,10 @@ var _ = Describe("Time", func() {
 				changedOutputs = nil
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: telem.Second,
-					Reason:  node.ReasonTimerTick,
+					Cycle: node.Cycle{
+						Elapsed: telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -476,8 +482,10 @@ var _ = Describe("Time", func() {
 				changedOutputs = nil
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: telem.TimeSpan(1500) * telem.Millisecond,
-					Reason:  node.ReasonTimerTick,
+					Cycle: node.Cycle{
+						Elapsed: telem.TimeSpan(1500) * telem.Millisecond,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -615,8 +623,10 @@ var _ = Describe("Time", func() {
 			// Tick at 500ms - should not fire
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 500 * telem.Millisecond,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: 500 * telem.Millisecond,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -643,8 +653,7 @@ var _ = Describe("Time", func() {
 			// First tick at 0 to set start time
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonTimerTick,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -656,8 +665,10 @@ var _ = Describe("Time", func() {
 			// Tick at 1s - should fire
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: telem.Second,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -683,20 +694,24 @@ var _ = Describe("Time", func() {
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
 			n.Next(node.Context{
-				Context:         ctx,
-				Now:             telem.SecondTS * 10,
-				Elapsed:         2 * telem.Second,
-				Reason:          node.ReasonTimerTick,
+				Context: ctx,
+				Cycle: node.Cycle{
+					Now:     telem.SecondTS * 10,
+					Elapsed: 2 * telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged:     func(int) {},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
 			})
 			now := telem.SecondTS * 11
 			n.Next(node.Context{
-				Context:         ctx,
-				Now:             now,
-				Elapsed:         3 * telem.Second,
-				Reason:          node.ReasonTimerTick,
+				Context: ctx,
+				Cycle: node.Cycle{
+					Now:     now,
+					Elapsed: 3 * telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged:     func(int) {},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -724,8 +739,7 @@ var _ = Describe("Time", func() {
 			// First tick at 0 to set start time
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonTimerTick,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -736,8 +750,10 @@ var _ = Describe("Time", func() {
 			// Tick at 1s - fires
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: telem.Second,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -750,8 +766,10 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 2 * telem.Second,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: 2 * telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -778,8 +796,7 @@ var _ = Describe("Time", func() {
 			// First tick at 0
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonTimerTick,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -790,8 +807,10 @@ var _ = Describe("Time", func() {
 			// Tick at 1s - fires
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: telem.Second,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -807,8 +826,10 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 1500 * telem.Millisecond,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: 1500 * telem.Millisecond,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -820,8 +841,10 @@ var _ = Describe("Time", func() {
 			// Tick at 2.5s - should fire (start was reset at ~1.5s tick, 1s elapsed)
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 2500 * telem.Millisecond,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: 2500 * telem.Millisecond,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -856,8 +879,10 @@ var _ = Describe("Time", func() {
 				// does not fire on channel inputs.
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 5 * telem.Second,
-					Reason:  node.ReasonChannelInput,
+					Cycle: node.Cycle{
+						Elapsed: 5 * telem.Second,
+						Reason:  node.ReasonChannelInput,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -870,8 +895,10 @@ var _ = Describe("Time", func() {
 				// The wait duration is 1s, so it should fire here.
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 6 * telem.Second,
-					Reason:  node.ReasonTimerTick,
+					Cycle: node.Cycle{
+						Elapsed: 6 * telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -899,8 +926,7 @@ var _ = Describe("Time", func() {
 			// Fire once normally
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonTimerTick,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -909,8 +935,10 @@ var _ = Describe("Time", func() {
 			})
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: telem.Second,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -926,8 +954,10 @@ var _ = Describe("Time", func() {
 			// Channel input at elapsed=2s sets the new start time
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 2 * telem.Second,
-				Reason:  node.ReasonChannelInput,
+				Cycle: node.Cycle{
+					Elapsed: 2 * telem.Second,
+					Reason:  node.ReasonChannelInput,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -939,8 +969,10 @@ var _ = Describe("Time", func() {
 			// Timer tick at elapsed=3s (1s after channel input). Should fire.
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 3 * telem.Second,
-				Reason:  node.ReasonTimerTick,
+				Cycle: node.Cycle{
+					Elapsed: 3 * telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -974,8 +1006,7 @@ var _ = Describe("Time", func() {
 				// First tick at 0: starts timer, should call MarkSelfChanged
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 0,
-					Reason:  node.ReasonTimerTick,
+					Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -991,8 +1022,10 @@ var _ = Describe("Time", func() {
 				selfChangedCalls = 0
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 500 * telem.Millisecond,
-					Reason:  node.ReasonTimerTick,
+					Cycle: node.Cycle{
+						Elapsed: 500 * telem.Millisecond,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1008,8 +1041,10 @@ var _ = Describe("Time", func() {
 				selfChangedCalls = 0
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: telem.Second,
-					Reason:  node.ReasonTimerTick,
+					Cycle: node.Cycle{
+						Elapsed: telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1047,8 +1082,7 @@ var _ = Describe("Time", func() {
 				// First tick at 0: starts timer
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 0,
-					Reason:  node.ReasonTimerTick,
+					Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1063,8 +1097,10 @@ var _ = Describe("Time", func() {
 				selfChangedCalls = 0
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 200 * telem.Millisecond,
-					Reason:  node.ReasonChannelInput,
+					Cycle: node.Cycle{
+						Elapsed: 200 * telem.Millisecond,
+						Reason:  node.ReasonChannelInput,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1081,8 +1117,10 @@ var _ = Describe("Time", func() {
 				selfChangedCalls = 0
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: telem.Second,
-					Reason:  node.ReasonTimerTick,
+					Cycle: node.Cycle{
+						Elapsed: telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1119,8 +1157,7 @@ var _ = Describe("Time", func() {
 				// First tick at 0 to set start time
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 0,
-					Reason:  node.ReasonTimerTick,
+					Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1131,8 +1168,10 @@ var _ = Describe("Time", func() {
 
 				n.Next(node.Context{
 					Context: ctx,
-					Elapsed: 2 * telem.Second,
-					Reason:  node.ReasonChannelInput,
+					Cycle: node.Cycle{
+						Elapsed: 2 * telem.Second,
+						Reason:  node.ReasonChannelInput,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1200,9 +1239,11 @@ var _ = Describe("Time", func() {
 		)
 		tick := func(ctx context.Context, n node.Node, elapsed telem.TimeSpan) {
 			n.Next(node.Context{
-				Context:         ctx,
-				Elapsed:         elapsed,
-				Reason:          node.ReasonTimerTick,
+				Context: ctx,
+				Cycle: node.Cycle{
+					Elapsed: elapsed,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged:     func(i int) { changed = append(changed, i) },
 				MarkSelfChanged: func() {},
 				SetDeadline: func(d telem.TimeSpan) {
@@ -1466,9 +1507,8 @@ var _ = Describe("Time", func() {
 				tolerance := telem.TimeSpan(50 * telem.Millisecond)
 				n.Next(node.Context{
 					Context:   ctx,
-					Elapsed:   0,
+					Cycle:     node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1479,10 +1519,12 @@ var _ = Describe("Time", func() {
 
 				changedOutputs = nil
 				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: telem.TimeSpan(99500 * telem.Microsecond),
+						Reason:  node.ReasonTimerTick,
+					},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1513,9 +1555,8 @@ var _ = Describe("Time", func() {
 				tolerance := telem.TimeSpan(50 * telem.Millisecond)
 				n.Next(node.Context{
 					Context:   ctx,
-					Elapsed:   0,
+					Cycle:     node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1526,10 +1567,12 @@ var _ = Describe("Time", func() {
 
 				changedOutputs = nil
 				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   40 * telem.Millisecond,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 40 * telem.Millisecond,
+						Reason:  node.ReasonTimerTick,
+					},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1571,10 +1614,12 @@ var _ = Describe("Time", func() {
 
 					for _, elapsed := range tickTimes {
 						n.Next(node.Context{
-							Context:   ctx,
-							Elapsed:   elapsed,
+							Context: ctx,
+							Cycle: node.Cycle{
+								Elapsed: elapsed,
+								Reason:  node.ReasonTimerTick,
+							},
 							Tolerance: tolerance,
-							Reason:    node.ReasonTimerTick,
 							MarkChanged: func(int) {
 								fireCount++
 							},
@@ -1607,9 +1652,8 @@ var _ = Describe("Time", func() {
 				tolerance := time.MinTolerance
 				n.Next(node.Context{
 					Context:   ctx,
-					Elapsed:   0,
+					Cycle:     node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1620,10 +1664,12 @@ var _ = Describe("Time", func() {
 
 				changedOutputs = nil
 				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   96 * telem.Millisecond,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 96 * telem.Millisecond,
+						Reason:  node.ReasonTimerTick,
+					},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -1689,9 +1735,8 @@ var _ = Describe("Time", func() {
 
 				n.Next(node.Context{
 					Context:   ctx,
-					Elapsed:   0,
+					Cycle:     node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						waitChangedOutputs = append(waitChangedOutputs, i)
 					},
@@ -1701,10 +1746,12 @@ var _ = Describe("Time", func() {
 				Expect(waitChangedOutputs).To(BeEmpty())
 
 				n.Next(node.Context{
-					Context:   ctx,
-					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: telem.TimeSpan(99500 * telem.Microsecond),
+						Reason:  node.ReasonTimerTick,
+					},
 					Tolerance: tolerance,
-					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						waitChangedOutputs = append(waitChangedOutputs, i)
 					},
@@ -1764,9 +1811,11 @@ var _ = Describe("Time", func() {
 
 				var deadline telem.TimeSpan
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         0,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 0,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
@@ -1793,9 +1842,11 @@ var _ = Describe("Time", func() {
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         0,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 0,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -1803,9 +1854,11 @@ var _ = Describe("Time", func() {
 
 				var deadline telem.TimeSpan
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         500 * telem.Millisecond,
-					Reason:          node.ReasonChannelInput,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 500 * telem.Millisecond,
+						Reason:  node.ReasonChannelInput,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
@@ -1858,9 +1911,11 @@ var _ = Describe("Time", func() {
 
 				var deadline telem.TimeSpan
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         5 * telem.Second,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 5 * telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
@@ -1887,17 +1942,21 @@ var _ = Describe("Time", func() {
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         0,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 0,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         telem.Second,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -1905,9 +1964,11 @@ var _ = Describe("Time", func() {
 
 				deadlineCalled := false
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         5 * telem.Second,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 5 * telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadlineCalled = true },
@@ -1934,17 +1995,21 @@ var _ = Describe("Time", func() {
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         0,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 0,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         telem.Second,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -1953,9 +2018,11 @@ var _ = Describe("Time", func() {
 
 				var deadline telem.TimeSpan
 				n.Next(node.Context{
-					Context:         ctx,
-					Elapsed:         10 * telem.Second,
-					Reason:          node.ReasonTimerTick,
+					Context: ctx,
+					Cycle: node.Cycle{
+						Elapsed: 10 * telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
@@ -2020,9 +2087,11 @@ var _ = Describe("Time", func() {
 				now := telem.SecondTS * 77
 				n.Next(node.Context{
 					Context: ctx,
-					Now:     now,
-					Elapsed: 5 * telem.Second,
-					Reason:  node.ReasonTimerTick,
+					Cycle: node.Cycle{
+						Now:     now,
+						Elapsed: 5 * telem.Second,
+						Reason:  node.ReasonTimerTick,
+					},
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
@@ -2051,8 +2120,7 @@ var _ = Describe("Time", func() {
 
 			n.Next(node.Context{
 				Context: ctx,
-				Elapsed: 0,
-				Reason:  node.ReasonChannelInput,
+				Cycle:   node.Cycle{Elapsed: 0, Reason: node.ReasonChannelInput},
 				MarkChanged: func(i int) {
 					changedOutputs = append(changedOutputs, i)
 				},
@@ -2097,8 +2165,7 @@ var _ = Describe("Time", func() {
 
 			n.Next(node.Context{
 				Context:         ctx,
-				Elapsed:         0,
-				Reason:          node.ReasonTimerTick,
+				Cycle:           node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged:     func(int) {},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -2124,8 +2191,7 @@ var _ = Describe("Time", func() {
 
 			n.Next(node.Context{
 				Context:         ctx,
-				Elapsed:         0,
-				Reason:          node.ReasonTimerTick,
+				Cycle:           node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick},
 				MarkChanged:     func(i int) { changedOutputs = append(changedOutputs, i) },
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -2136,9 +2202,11 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 
 			n.Next(node.Context{
-				Context:         ctx,
-				Elapsed:         telem.Second,
-				Reason:          node.ReasonTimerTick,
+				Context: ctx,
+				Cycle: node.Cycle{
+					Elapsed: telem.Second,
+					Reason:  node.ReasonTimerTick,
+				},
 				MarkChanged:     func(i int) { changedOutputs = append(changedOutputs, i) },
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -2196,8 +2264,7 @@ var _ = Describe("Time", func() {
 			var r tickResult
 			n.Next(node.Context{
 				Context:         ctx,
-				Elapsed:         elapsed,
-				Reason:          reason,
+				Cycle:           node.Cycle{Elapsed: elapsed, Reason: reason},
 				MarkChanged:     func(int) { r.fired = true },
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(d telem.TimeSpan) { r.deadline = d },

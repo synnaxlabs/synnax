@@ -213,7 +213,7 @@ public:
 
             x::telem::TimeStamp ts;
             if (clock_stamp)
-                ts = ctx.now;
+                ts = ctx.cycle.now;
             else
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
 

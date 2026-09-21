@@ -110,7 +110,7 @@ public:
                                                : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                const auto now = ctx.now;
+                const auto now = ctx.cycle.now;
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
                         ::x::telem::TimeStamp(

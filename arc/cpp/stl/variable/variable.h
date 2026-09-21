@@ -45,7 +45,7 @@ public:
         if (this->stateful) return;
         this->state.absorb_inputs();
         this->state.output(0)->copy_from(*this->state.input(0));
-        stamp_now(this->state.output_time(0), ctx.now);
+        stamp_now(this->state.output_time(0), ctx.cycle.now);
         this->state.mark_fresh(0);
     }
 
@@ -55,7 +55,7 @@ public:
         // Feeders reuse their output buffers in place; the register value must not
         // alias them.
         this->state.output(0)->copy_from(*data);
-        stamp_now(this->state.output_time(0), ctx.now);
+        stamp_now(this->state.output_time(0), ctx.cycle.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
@@ -91,7 +91,7 @@ public:
         auto [data, ok] = this->state.consume_input(0);
         if (!ok || repointed) return x::errors::NIL;
         this->state.output(0)->copy_from(*data);
-        stamp_now(this->state.output_time(0), ctx.now);
+        stamp_now(this->state.output_time(0), ctx.cycle.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }

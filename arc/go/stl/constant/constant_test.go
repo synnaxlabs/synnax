@@ -186,7 +186,13 @@ var _ = Describe("Constant", func() {
 			}
 			n := MustSucceed(factory.Create(cfg))
 			now := telem.SecondTS * 42
-			n.Next(node.Context{Context: ctx, Now: now, MarkChanged: func(int) {}})
+			n.Next(
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: now},
+					MarkChanged: func(int) {},
+				},
+			)
 			outTime := s.Node("const").OutputTime(0)
 			Expect(outTime.Len()).To(Equal(int64(1)))
 			times := outTime.Unmarshal[telem.TimeStamp]()
@@ -298,7 +304,7 @@ var _ = Describe("Constant", func() {
 			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{
 				Context:     ctx,
-				Now:         telem.SecondTS,
+				Cycle:       node.Cycle{Now: telem.SecondTS},
 				MarkChanged: func(int) {},
 			})
 			sink := s.Node("sink")
@@ -406,7 +412,7 @@ var _ = Describe("Constant", func() {
 			n := MustSucceed(factory.Create(cfg))
 			nCtx := node.Context{
 				Context:     ctx,
-				Now:         telem.SecondTS,
+				Cycle:       node.Cycle{Now: telem.SecondTS},
 				MarkChanged: func(int) {},
 			}
 			n.Next(nCtx)

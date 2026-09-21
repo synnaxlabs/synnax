@@ -102,7 +102,7 @@ public:
         }
 
         if (!this->value.has_value()) return x::errors::NIL;
-        const auto current_time = ctx.now;
+        const auto current_time = ctx.cycle.now;
         if (x::telem::TimeSpan(current_time - this->last_changed) >= this->duration) {
             if (!this->last_sent.has_value() || *this->last_sent != *this->value) {
                 const auto &o = this->state.output(0);

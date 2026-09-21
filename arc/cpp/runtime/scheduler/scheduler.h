@@ -232,10 +232,8 @@ public:
     /// activate when their handle fires.
     void next(const node::Cycle &cycle) {
         this->min_deadline = x::telem::TimeSpan::max();
-        this->ctx.now = cycle.now;
-        this->ctx.elapsed = cycle.elapsed;
+        this->ctx.cycle = cycle;
         this->ctx.tolerance = this->tolerance;
-        this->ctx.reason = cycle.reason;
 
         // Re-pass until no change lands on an already-run node, bounded
         // against cycles.

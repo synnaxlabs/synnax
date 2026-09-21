@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/strings"
@@ -583,7 +584,7 @@ var _ = Describe("Channel", func() {
 						source.Next(
 							rnode.Context{
 								Context:     ctx,
-								Now:         now,
+								Cycle:       node.Cycle{Now: now},
 								MarkChanged: func(int) { triggered = true },
 							},
 						)

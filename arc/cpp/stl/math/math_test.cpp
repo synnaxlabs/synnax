@@ -23,9 +23,10 @@ namespace {
 
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::TimeSpan(0),
+        .cycle =
+            {.elapsed = x::telem::TimeSpan(0),
+             .reason = runtime::node::RunReason::TimerTick},
         .tolerance = x::telem::TimeSpan(0),
-        .reason = runtime::node::RunReason::TimerTick,
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };

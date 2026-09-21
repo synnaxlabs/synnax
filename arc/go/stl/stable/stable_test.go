@@ -115,7 +115,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -136,7 +136,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -146,7 +146,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -179,7 +179,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -194,7 +194,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -229,7 +229,11 @@ var _ = Describe("StableFor", func() {
 			source.MarkFresh(0)
 			n, _ := module.Create(cfg)
 			n.Next(
-				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: currentTime},
+					MarkChanged: func(int) {},
+				},
 			)
 
 			// Advance time partway
@@ -243,7 +247,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -255,7 +259,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -268,7 +272,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -297,7 +301,11 @@ var _ = Describe("StableFor", func() {
 			source.MarkFresh(0)
 			n, _ := module.Create(cfg)
 			n.Next(
-				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: currentTime},
+					MarkChanged: func(int) {},
+				},
 			)
 
 			currentTime = telem.SecondTS * 2
@@ -308,7 +316,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -323,7 +331,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -352,13 +360,21 @@ var _ = Describe("StableFor", func() {
 			source.MarkFresh(0)
 			n, _ := module.Create(cfg)
 			n.Next(
-				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: currentTime},
+					MarkChanged: func(int) {},
+				},
 			)
 
 			// Emit first value
 			currentTime = telem.SecondTS
 			n.Next(
-				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: currentTime},
+					MarkChanged: func(int) {},
+				},
 			)
 
 			// Change to value 10
@@ -367,7 +383,11 @@ var _ = Describe("StableFor", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
 			source.MarkFresh(0)
 			n.Next(
-				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: currentTime},
+					MarkChanged: func(int) {},
+				},
 			)
 
 			// Wait for stability
@@ -376,7 +396,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -416,7 +436,11 @@ var _ = Describe("StableFor", func() {
 			source.MarkFresh(0)
 			n, _ := module.Create(cfg)
 			n.Next(
-				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: currentTime},
+					MarkChanged: func(int) {},
+				},
 			)
 
 			// Should track last value (7) with time 0.4s, so wait until 1.4s elapsed
@@ -425,7 +449,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -462,7 +486,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(int) {},
 					},
 				)
@@ -475,7 +499,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -515,7 +539,11 @@ var _ = Describe("StableFor", func() {
 			source.MarkFresh(0)
 			n, _ := module.Create(cfg)
 			n.Next(
-				node.Context{Context: ctx, Now: currentTime, MarkChanged: func(int) {}},
+				node.Context{
+					Context:     ctx,
+					Cycle:       node.Cycle{Now: currentTime},
+					MarkChanged: func(int) {},
+				},
 			)
 
 			// Should use time from first occurrence (0)
@@ -524,7 +552,7 @@ var _ = Describe("StableFor", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         currentTime,
+					Cycle:       node.Cycle{Now: currentTime},
 					MarkChanged: func(i int) { outputs.Add(i) },
 				},
 			)
@@ -624,7 +652,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -635,7 +663,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -647,7 +675,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -668,7 +696,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(int) {},
 					},
 				)
@@ -683,7 +711,7 @@ var _ = Describe("StableFor", func() {
 				n.Next(
 					node.Context{
 						Context:     ctx,
-						Now:         currentTime,
+						Cycle:       node.Cycle{Now: currentTime},
 						MarkChanged: func(i int) { outputs.Add(i) },
 					},
 				)
@@ -805,7 +833,7 @@ var _ = Describe("Variable duration", func() {
 		n.Next(
 			node.Context{
 				Context:     ctx,
-				Now:         currentTime,
+				Cycle:       node.Cycle{Now: currentTime},
 				MarkChanged: func(int) { fired = true },
 			},
 		)
@@ -933,7 +961,7 @@ var _ = Describe("StableFor type preservation", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         now,
+					Cycle:       node.Cycle{Now: now},
 					MarkChanged: func(i int) { fired.Add(i) },
 				},
 			)
@@ -947,7 +975,7 @@ var _ = Describe("StableFor type preservation", func() {
 			n.Next(
 				node.Context{
 					Context:     ctx,
-					Now:         now,
+					Cycle:       node.Cycle{Now: now},
 					MarkChanged: func(i int) { fired.Add(i) },
 				},
 			)

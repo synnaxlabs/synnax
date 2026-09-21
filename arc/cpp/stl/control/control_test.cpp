@@ -67,7 +67,7 @@ private:
 
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::SECOND,
+        .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };

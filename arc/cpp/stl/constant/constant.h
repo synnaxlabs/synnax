@@ -54,7 +54,7 @@ public:
             o->set(0, this->value);
         }
         o_time->resize(1);
-        o_time->set(0, ctx.now);
+        o_time->set(0, ctx.cycle.now);
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }

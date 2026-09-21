@@ -22,9 +22,10 @@ namespace arc::stl::selector {
 namespace {
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::TimeSpan(0),
+        .cycle =
+            {.elapsed = x::telem::TimeSpan(0),
+             .reason = runtime::node::RunReason::ChannelInput},
         .tolerance = x::telem::TimeSpan(0),
-        .reason = runtime::node::RunReason::ChannelInput,
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };

@@ -141,8 +141,8 @@ public:
             this->state.string_input("color")
         );
         *this->state.output(0) = x::telem::Series(key);
-        *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
-        ctx.mark_changed(0);
+        *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
@@ -176,8 +176,8 @@ public:
             this->state.string_input("key")
         );
         *this->state.output(0) = x::telem::Series(out);
-        *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
-        ctx.mark_changed(0);
+        *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 

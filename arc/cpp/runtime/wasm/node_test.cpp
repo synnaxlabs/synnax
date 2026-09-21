@@ -50,7 +50,7 @@ find_node_by_type(const arc::program::Program &mod, const std::string &type) {
 
 node::Context make_context() {
     return node::Context{
-        .elapsed = x::telem::SECOND,
+        .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };

@@ -46,8 +46,8 @@ type Cycle struct {
 // It embeds context.Context for cancellation, deadlines, and values.
 type Context struct {
 	context.Context
-	// Now is the current cycle's wall-clock stamp. See Cycle.Now.
-	Now telem.TimeStamp
+	// Cycle is the timing of the scheduler pass the node runs in.
+	Cycle
 	// MarkChanged signals that an output has new data, identified by the
 	// output's 0-based position in the owning ir.Node's Outputs slice.
 	// This triggers dependent nodes to execute in the next scheduler pass.
@@ -64,13 +64,7 @@ type Context struct {
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
-	// Elapsed is the time elapsed since the runtime started.
-	// Used by time-based nodes (interval, wait) to track timing.
-	Elapsed telem.TimeSpan
 	// Tolerance is the timing tolerance for interval/wait comparisons.
 	// Allows firing up to this amount early to handle OS scheduling jitter.
 	Tolerance telem.TimeSpan
-	// Reason indicates what triggered this scheduler run (timer tick or channel input).
-	// Time-based nodes should only fire when Reason is ReasonTimerTick.
-	Reason RunReason
 }

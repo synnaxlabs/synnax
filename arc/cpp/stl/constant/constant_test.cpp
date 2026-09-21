@@ -20,7 +20,7 @@
 namespace arc::stl::constant {
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::SECOND,
+        .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
@@ -272,13 +272,13 @@ TEST(ConstantTest, TimestampOutputOnFirstNext) {
     Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
-    ctx.now = x::telem::TimeStamp(5 * x::telem::SECOND);
+    ctx.cycle.now = x::telem::TimeStamp(5 * x::telem::SECOND);
     node.next(ctx);
 
     auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     EXPECT_EQ(output_time->size(), 1);
-    EXPECT_EQ(output_time->at<int64_t>(0), ctx.now.nanoseconds());
+    EXPECT_EQ(output_time->at<int64_t>(0), ctx.cycle.now.nanoseconds());
 }
 
 /// @brief Test that string values are correctly output.
@@ -319,14 +319,14 @@ TEST(ConstantTest, StampsEveryNextFromItsCycle) {
     Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
     auto ctx = make_context();
-    ctx.now = x::telem::TimeStamp(5 * x::telem::SECOND);
+    ctx.cycle.now = x::telem::TimeStamp(5 * x::telem::SECOND);
     node.next(ctx);
 
     const auto checker = setup.make_node();
     const auto &output_time = checker.output_time(0);
     const auto ts1 = output_time->at<int64_t>(0);
 
-    ctx.now = x::telem::TimeStamp(6 * x::telem::SECOND);
+    ctx.cycle.now = x::telem::TimeStamp(6 * x::telem::SECOND);
     node.next(ctx);
 
     const auto ts2 = output_time->at<int64_t>(0);
