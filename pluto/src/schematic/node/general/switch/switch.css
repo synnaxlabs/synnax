@@ -67,10 +67,7 @@
     rotate: -90deg;
 }
 
-/*
- * The hold fill sweeps the track. The knob is the track's ::before, so ::after is free
- * and the pill radius clips the sweep.
- */
+/* The knob is the track's ::before, so ::after carries the hold sweep. */
 .pluto-switch-symbol--delayed {
     .pluto-input__switch-indicator::after {
         content: "";

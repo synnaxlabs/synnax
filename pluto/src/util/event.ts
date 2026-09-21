@@ -17,9 +17,8 @@ export const stopPropagation = (e: { stopPropagation: () => void }): void =>
 export const ACTIVATION_KEYS = [" ", "Enter"];
 
 /**
- * Cancels the browser's synthetic click for Space and Enter so a focused control never
- * actuates from the keyboard. Attach to both keydown and keyup: Enter clicks on keydown
- * and Space on keyup.
+ * Cancels the synthetic click for Space and Enter. Attach to both keydown and keyup:
+ * Enter clicks on keydown, Space on keyup.
  */
 export const blockActivation = (e: {
   key: string;

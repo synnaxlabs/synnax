@@ -48,11 +48,8 @@ const releaseTargets = (): [EventTarget, string][] => [
 ];
 
 /**
- * Gates onClick behind a press-and-hold of onClickDelay. A primary press starts the
- * hold, and a release before the delay cancels it. Secondary buttons never actuate. A
- * drag, a window blur, unmounting, or disabling the control releases a hold in
- * progress. Space and Enter only paint the pressed state, and only on an undelayed
- * control whose keydown nothing has prevented.
+ * Gates onClick behind a press-and-hold of onClickDelay. Only a primary press starts
+ * the hold. A release, drag, window blur, unmount, or disable cancels it.
  */
 export const useHold = <E extends Element>({
   onClick,

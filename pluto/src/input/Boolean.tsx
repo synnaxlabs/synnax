@@ -106,9 +106,8 @@ export const Boolean = ({
             value=""
             disabled={disabled}
             onClick={onClick}
-            // WebKit toggles a checkbox on a secondary-button click and reports it
-            // only as an auxclick, which React's onChange never sees, so the
-            // controlled value cannot restore.
+            // WebKit toggles a checkbox on a secondary click with no onChange, so the
+            // controlled value could never restore.
             onAuxClick={preventDefault}
             {...rest}
             aria-labelledby={ariaLabelledBy}

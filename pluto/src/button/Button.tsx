@@ -12,7 +12,7 @@ import "@/button/Button.css";
 import { color, record, text, type TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useHold } from "@/button/useHold";
+import { useHold, type UseHoldProps } from "@/button/useHold";
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
@@ -61,9 +61,10 @@ export interface ExtensionProps
 /** The props for the {@link Button} component. */
 export type ButtonProps<E extends ElementType = "button"> = Omit<
   Generic.OptionalElementProps<E>,
-  "color"
+  "color" | "onClick" | "onMouseDown"
 > &
-  ExtensionProps;
+  ExtensionProps &
+  Pick<UseHoldProps<HTMLElement>, "onClick" | "onMouseDown">;
 
 const MODULE_CLASS = "btn";
 
@@ -129,10 +130,9 @@ const Base = <E extends ElementType = "button">({
 }: ButtonProps<E>): ReactElement => {
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
   if (preview) preventClick = true;
-  // The chassis element is generic, but the hold only needs the event's button.
-  const hold = useHold<HTMLButtonElement>({
-    onClick: onClick as React.MouseEventHandler<HTMLButtonElement> | undefined,
-    onMouseDown: onMouseDown as React.MouseEventHandler<HTMLButtonElement> | undefined,
+  const hold = useHold({
+    onClick,
+    onMouseDown,
     onClickDelay,
     disabled: isDisabled || preview === true,
   });

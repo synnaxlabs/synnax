@@ -31,8 +31,7 @@ interface ButtonProps extends Omit<Config, "variant"> {
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
 }
 
-// A context menu swallows the release of a secondary-button press, so momentary would
-// stay pressed. Only the primary button drives the raw press edges.
+// A context menu swallows a secondary press's release, so momentary would stay pressed.
 const primaryOnly = (
   handler?: MouseEventHandler<HTMLButtonElement>,
 ): MouseEventHandler<HTMLButtonElement> | undefined =>

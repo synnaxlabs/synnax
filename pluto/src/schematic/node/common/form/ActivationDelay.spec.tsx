@@ -32,7 +32,6 @@ describe("ActivationDelayField", () => {
     expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "250");
   });
 
-  // A symbol saved before it had a delay has no key at all; the field must still show.
   it("should show a zero delay when the config has no key", () => {
     const c = render(<Host values={{}} />);
     expect(c.getByLabelText(/Activation delay/)).toHaveProperty("value", "0");

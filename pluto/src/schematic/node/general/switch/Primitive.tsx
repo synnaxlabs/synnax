@@ -63,8 +63,7 @@ export const Switch = ({
         disabled={disabled}
         onClick={hold.onClick}
         onChange={() => {}}
-        // The diagram's keyboard guard lets inputs through, so the checkbox blocks
-        // Space itself.
+        // The diagram's key guard lets inputs through, so the checkbox blocks its own.
         onKeyDown={blockActivation}
         onKeyUp={blockActivation}
       />

@@ -228,7 +228,7 @@ describe("Primitive.SVG", () => {
       render(
         <Primitive.HoldFill value={holdFill}>
           <Primitive.SVG dimensions={{ width: 10, height: 20 }}>
-            <rect data-testid="child" />
+            <rect />
           </Primitive.SVG>
         </Primitive.HoldFill>,
       ).container;
@@ -241,26 +241,25 @@ describe("Primitive.SVG", () => {
 
     it("should mask a fill rect with the symbol's own shapes", () => {
       const container = renderSVG(true);
-      const shapes = container.querySelector('[data-testid="child"]')
-        ?.parentElement as Element;
-      const use = container.querySelector("mask use") as SVGUseElement;
-      const fill = container.querySelector(
-        ".pluto-symbol-hold__fill",
-      ) as SVGRectElement;
-      expect(use.getAttribute("href")).toBe(`#${shapes.id}`);
-      expect(fill.getAttribute("mask")).toBe(
+      const shapes = container.querySelector("rect")?.parentElement;
+      const fill = container.querySelector(".pluto-symbol-hold__fill");
+      expect(shapes?.id).toBeTruthy();
+      expect(container.querySelector("mask use")?.getAttribute("href")).toBe(
+        `#${shapes?.id}`,
+      );
+      expect(fill?.getAttribute("mask")).toBe(
         `url(#${container.querySelector("mask")?.id})`,
       );
-      expect(fill.getAttribute("width")).toBe("14");
-      expect(fill.getAttribute("height")).toBe("24");
+      expect(fill?.getAttribute("width")).toBe("14");
+      expect(fill?.getAttribute("height")).toBe("24");
     });
 
     it("should keep the fill inside the rotating group", () => {
       const container = renderSVG(true);
-      const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.children).toHaveLength(1);
+      const svg = container.querySelector("svg");
+      expect(svg?.children).toHaveLength(1);
       expect(container.querySelector(".pluto-symbol-hold__fill")?.parentElement).toBe(
-        svg.children[0],
+        svg?.children[0],
       );
     });
   });

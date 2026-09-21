@@ -556,14 +556,12 @@ export const create = ({
       [onPaste, cursorInDiagramSpace],
     );
 
-    // Inside the canvas, Space and Enter belong to the diagram, never to whichever
-    // control holds focus: the browser's synthetic click would actuate it. Triggers
-    // listen on the window and React Flow ignores defaultPrevented, so selection and
-    // shortcuts still fire. A dialog opened from a node portals out of this element,
-    // and keeps its own keyboard activation.
+    // Space and Enter would click whichever control holds focus. Triggers and React
+    // Flow ignore defaultPrevented, so shortcuts and selection still fire. A dialog
+    // opened from a node portals out of this element, hence the contains check.
     const handleActivationKey = useCallback(
       (e: ReactKeyboardEvent<HTMLDivElement>): void => {
-        if (!e.currentTarget.contains(e.target as HTMLElement)) return;
+        if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
         if (isInputOrContentEditable(e)) return;
         blockActivation(e);
       },

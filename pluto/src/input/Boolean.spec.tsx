@@ -12,23 +12,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 
-const getInput = (container: HTMLElement): HTMLInputElement =>
-  container.querySelector("input") as HTMLInputElement;
-
 describe("Input.Boolean", () => {
   it("should call onChange on a primary click", () => {
     const onChange = vi.fn();
-    const { container } = render(<Input.Switch value={false} onChange={onChange} />);
-    fireEvent.click(getInput(container));
+    const { getByRole } = render(<Input.Switch value={false} onChange={onChange} />);
+    fireEvent.click(getByRole("checkbox"));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
   it("should cancel a secondary-button click so the value cannot flip", () => {
     const onChange = vi.fn();
-    const { container } = render(<Input.Switch value={false} onChange={onChange} />);
-    const input = getInput(container);
+    const { getByRole } = render(<Input.Switch value={false} onChange={onChange} />);
     const proceeded = fireEvent(
-      input,
+      getByRole("checkbox"),
       new MouseEvent("auxclick", { button: 2, bubbles: true, cancelable: true }),
     );
     expect(proceeded).toBe(false);
