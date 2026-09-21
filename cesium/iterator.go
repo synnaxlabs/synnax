@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 const AutoSpan = unary.AutoSpan
@@ -29,7 +29,6 @@ type Iterator struct {
 	outlet   confluence.Outlet[IteratorResponse]
 	wg       signal.WaitGroup
 	shutdown context.CancelFunc
-	logger   *zap.Logger
 	frame    Frame
 	closed   bool
 }
@@ -37,7 +36,11 @@ type Iterator struct {
 func wrapStreamIterator(internal *streamIterator) *Iterator {
 	ctx, cancel := signal.Isolated()
 	req, res := confluence.Attach(internal, 1)
-	internal.Flow(ctx, confluence.RecoverWithErrOnPanic())
+	internal.Flow(
+		ctx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	return &Iterator{
 		inlet:    req,
 		outlet:   res,
@@ -131,6 +134,12 @@ func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 		}
 		i.frame = i.frame.Extend(res.Frame)
 	}
-	i.logger.DPanic("unexpected early closure of response stream")
-	return false, nil
+	// The response stream only closes when the iterator's routine exits, so an
+	// acknowledgement that never arrives means the routine stopped early. Wait reports
+	// what it stopped with.
+	err := i.wg.Wait()
+	if err == nil {
+		err = errors.New("cesium.iterator: stopped before acknowledging the request")
+	}
+	return false, err
 }
