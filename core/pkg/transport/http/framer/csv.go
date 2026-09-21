@@ -13,23 +13,15 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"math"
 	"slices"
-	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/telem"
 )
 
-const (
-	// csvFlushSize is the number of bytes the encoder accumulates before writing them
-	// out.
-	csvFlushSize = 64 << 10
-	// variablePrefixSize is the size of the length prefix a series writes ahead of each
-	// variable-length sample.
-	variablePrefixSize = 4
-)
+// csvFlushSize is the number of bytes the encoder accumulates before writing them out.
+const csvFlushSize = 64 << 10
 
 // CSVEncoder encodes a read as CSV. Channels are grouped by the index channel that
 // timestamps them. Each group contributes its index column, then one column per data
@@ -76,35 +68,40 @@ func (csvEncoder) EncodeStream(_ context.Context, w io.Writer, value any) error 
 		for i := range groups {
 			groups[i].push(fr)
 		}
-		if buf = appendCSVRows(buf, groups, false); len(buf) < csvFlushSize {
-			return nil
-		}
-		_, err := w.Write(buf)
-		buf = buf[:0]
+		var err error
+		buf, err = writeCSVRows(w, buf, groups, false)
 		return err
 	}); err != nil {
 		return err
 	}
-	_, err = w.Write(appendCSVRows(buf, groups, true))
+	if buf, err = writeCSVRows(w, buf, groups, true); err != nil {
+		return err
+	}
+	_, err = w.Write(buf)
 	return err
 }
 
 // csvGroup holds the columns sharing an index channel. The first column is the index.
-type csvGroup struct{ columns []csvColumn }
+type csvGroup struct {
+	columns []csvColumn
+	// watermark is the latest timestamp the iterator has returned for the index.
+	watermark telem.TimeStamp
+	// exhausted is true once the iterator returns a frame without the index.
+	exhausted bool
+	// writable holds the result of ready for the row being assembled.
+	writable bool
+}
 
 // csvColumn walks the samples of one channel across the series returned for it.
 type csvColumn struct {
 	key      channel.Key
 	name     string
 	dataType telem.DataType
+	// size is the byte size of one sample, or 0 for a variable-length data type.
+	size int
 	// pending holds the series returned for the channel that are not fully written.
 	pending []telem.Series
-	// sample is the index of the next sample to write within the first pending series.
-	sample int64
-	// length is the sample count of the first pending series.
-	length int64
 	// offset is the byte position of the next sample within the first pending series.
-	// Only used for variable-length data types.
 	offset int
 }
 
@@ -138,7 +135,11 @@ func newCSVGroups(res ReadResponse) []csvGroup {
 }
 
 func newCSVColumn(ch channel.Channel) csvColumn {
-	return csvColumn{key: ch.Key(), name: ch.Name, dataType: ch.DataType}
+	c := csvColumn{key: ch.Key(), name: ch.Name, dataType: ch.DataType}
+	if !ch.DataType.IsVariable() {
+		c.size = int(ch.DataType.Density())
+	}
+	return c
 }
 
 // push stages the series fr holds for each of the group's columns.
@@ -147,151 +148,157 @@ func (g *csvGroup) push(fr Frame) {
 		c := &g.columns[i]
 		c.pending = append(c.pending, fr.Get(c.key).Series...)
 	}
+	index := fr.Get(g.columns[0].key).Series
+	g.exhausted = len(index) == 0
+	for _, s := range index {
+		if s.Len() > 0 {
+			g.watermark = s.ValueAt[telem.TimeStamp](-1)
+		}
+	}
 }
 
-// ready reports whether every column in the group has a sample to write.
-func (g *csvGroup) ready() bool {
+// ready reports whether the group can write its next row. Every column must hold a
+// sample, unless flush is set, in which case the index alone is enough.
+func (g *csvGroup) ready(flush bool) bool {
 	for i := range g.columns {
-		if !g.columns[i].ok() {
+		if _, n := g.columns[i].sample(); n == 0 && (i == 0 || !flush) {
 			return false
 		}
 	}
 	return true
 }
 
-// time returns the timestamp of the group's next row. Only valid when ready.
+// time returns the timestamp of the group's next row. Only valid when the index holds
+// a sample.
 func (g *csvGroup) time() telem.TimeStamp {
-	c := &g.columns[0]
-	return c.pending[0].ValueAt[telem.TimeStamp](int(c.sample))
+	sample, _ := g.columns[0].sample()
+	return telem.TimeStamp(telem.ByteOrder.Uint64(sample))
 }
 
-// advance moves every column in the group to its next sample.
-func (g *csvGroup) advance() {
-	for i := range g.columns {
-		g.columns[i].advance()
+// bound returns a lower bound on the timestamp of the group's next row.
+func (g *csvGroup) bound() telem.TimeStamp {
+	if _, n := g.columns[0].sample(); n > 0 {
+		return g.time()
 	}
+	if g.exhausted {
+		return telem.TimeStampMax
+	}
+	return g.watermark + 1
 }
 
-// ok discards the series the column has fully written and reports whether a sample
-// remains.
-func (c *csvColumn) ok() bool {
+// sample discards the series the column has fully written, then returns the sample the
+// column points at and the number of bytes it occupies. n is 0 when no sample remains.
+func (c *csvColumn) sample() (sample []byte, n int) {
 	for len(c.pending) > 0 {
-		if c.sample == 0 {
-			c.length, c.offset = c.pending[0].Len(), 0
+		data := c.pending[0].Data[c.offset:]
+		if c.size == 0 {
+			sample, n = telem.UnmarshalVariableSample(data)
+		} else if len(data) >= c.size {
+			sample, n = data[:c.size], c.size
 		}
-		if c.sample < c.length {
-			return true
+		if n > 0 {
+			return sample, n
 		}
-		c.pending, c.sample = c.pending[1:], 0
+		c.pending, c.offset = c.pending[1:], 0
 	}
-	return false
+	return nil, 0
 }
 
-// value returns the bytes of the sample the column points at. Only valid when the
-// column is ok.
-func (c *csvColumn) value() []byte {
-	data := c.pending[0].Data
-	if !c.dataType.IsVariable() {
-		size := int(c.dataType.Density())
-		return data[int(c.sample)*size:][:size]
-	}
-	size := int(telem.ByteOrder.Uint32(data[c.offset:]))
-	return data[c.offset+variablePrefixSize:][:size]
-}
-
-// advance moves the column to its next sample.
-func (c *csvColumn) advance() {
-	if c.dataType.IsVariable() {
-		c.offset += variablePrefixSize + len(c.value())
-	}
-	c.sample++
-}
-
-// appendCSVRows appends every row the staged samples cover. Unless flush is set, it
-// holds back the latest timestamp, since a later frame can still add columns to it.
-func appendCSVRows(dst []byte, groups []csvGroup, flush bool) []byte {
+// writeCSVRows appends every row that no later frame can precede or add cells to,
+// writing dst to w each time it fills. It returns the rows not yet written. When flush
+// is set, no frame is left to wait for, so it appends every remaining row.
+func writeCSVRows(
+	w io.Writer,
+	dst []byte,
+	groups []csvGroup,
+	flush bool,
+) ([]byte, error) {
 	for {
-		var first, last telem.TimeStamp
-		found := false
+		first := telem.TimeStampMax
 		for i := range groups {
-			if !groups[i].ready() {
-				continue
+			g := &groups[i]
+			if g.writable = g.ready(flush); g.writable {
+				first = min(first, g.time())
 			}
-			t := groups[i].time()
-			if !found || t < first {
-				first = t
-			}
-			if !found || t > last {
-				last = t
-			}
-			found = true
 		}
-		if !found || (!flush && first == last) {
-			return dst
+		if first == telem.TimeStampMax {
+			return dst, nil
+		}
+		for i := range groups {
+			if !flush && !groups[i].writable && groups[i].bound() <= first {
+				return dst, nil
+			}
 		}
 		for i := range groups {
 			g := &groups[i]
-			write := g.ready() && g.time() == first
+			write := g.writable && g.time() == first
 			for j := range g.columns {
 				if i > 0 || j > 0 {
 					dst = append(dst, ',')
 				}
-				if write {
-					dst = appendCSVSample(dst, &g.columns[j])
+				if !write {
+					continue
 				}
-			}
-			if write {
-				g.advance()
+				var err error
+				if dst, err = appendCSVSample(dst, &g.columns[j]); err != nil {
+					return dst, err
+				}
 			}
 		}
 		dst = append(dst, '\n')
-	}
-}
-
-// appendCSVSample appends the sample the column points at. Only valid when the column
-// is ok.
-func appendCSVSample(dst []byte, c *csvColumn) []byte {
-	b := c.value()
-	switch c.dataType {
-	case telem.Float64T:
-		v := math.Float64frombits(telem.ByteOrder.Uint64(b))
-		return strconv.AppendFloat(dst, v, 'f', -1, 64)
-	case telem.Float32T:
-		v := math.Float32frombits(telem.ByteOrder.Uint32(b))
-		return strconv.AppendFloat(dst, float64(v), 'f', -1, 32)
-	case telem.Int64T, telem.TimestampT:
-		return strconv.AppendInt(dst, int64(telem.ByteOrder.Uint64(b)), 10)
-	case telem.Int32T:
-		return strconv.AppendInt(dst, int64(int32(telem.ByteOrder.Uint32(b))), 10)
-	case telem.Int16T:
-		return strconv.AppendInt(dst, int64(int16(telem.ByteOrder.Uint16(b))), 10)
-	case telem.Int8T:
-		return strconv.AppendInt(dst, int64(int8(b[0])), 10)
-	case telem.Uint64T:
-		return strconv.AppendUint(dst, telem.ByteOrder.Uint64(b), 10)
-	case telem.Uint32T:
-		return strconv.AppendUint(dst, uint64(telem.ByteOrder.Uint32(b)), 10)
-	case telem.Uint16T:
-		return strconv.AppendUint(dst, uint64(telem.ByteOrder.Uint16(b)), 10)
-	case telem.Uint8T, telem.BooleanT:
-		return strconv.AppendUint(dst, uint64(b[0]), 10)
-	default:
-		return appendCSVText(dst, b)
-	}
-}
-
-// appendCSVText appends v as a field, quoting it when it holds a comma, quote, or line
-// break.
-func appendCSVText(dst, v []byte) []byte {
-	if !bytes.ContainsAny(v, ",\"\n\r") {
-		return append(dst, v...)
-	}
-	dst = append(dst, '"')
-	for _, b := range v {
-		if b == '"' {
-			dst = append(dst, b)
+		if len(dst) < csvFlushSize {
+			continue
 		}
-		dst = append(dst, b)
+		if _, err := w.Write(dst); err != nil {
+			return dst, err
+		}
+		dst = dst[:0]
 	}
-	return append(dst, '"')
+}
+
+// appendCSVSample appends the sample the column points at, if it holds one, and moves
+// the column past it.
+func appendCSVSample(dst []byte, c *csvColumn) ([]byte, error) {
+	sample, n := c.sample()
+	if n == 0 {
+		return dst, nil
+	}
+	c.offset += n
+	start := len(dst)
+	dst, err := telem.AppendSampleText(dst, c.dataType, sample)
+	// Only variable-length text can hold a character that needs quoting.
+	if err != nil || c.size != 0 {
+		return dst, err
+	}
+	return quoteCSVField(dst, start), nil
+}
+
+// appendCSVText appends v as a field, quoting it when needed.
+func appendCSVText(dst, v []byte) []byte {
+	return quoteCSVField(append(dst, v...), len(dst))
+}
+
+// quoteCSVField quotes the field that starts at dst[start] in place when it holds a
+// comma, quote, or line break.
+func quoteCSVField(dst []byte, start int) []byte {
+	if !bytes.ContainsAny(dst[start:], ",\"\n\r") {
+		return dst
+	}
+	var (
+		end    = len(dst)
+		quotes = bytes.Count(dst[start:], []byte{'"'})
+	)
+	dst = slices.Grow(dst, quotes+2)[:end+quotes+2]
+	w := len(dst) - 1
+	dst[w] = '"'
+	for r := end - 1; r >= start; r-- {
+		w--
+		dst[w] = dst[r]
+		if dst[r] == '"' {
+			w--
+			dst[w] = '"'
+		}
+	}
+	dst[start] = '"'
+	return dst
 }
