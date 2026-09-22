@@ -45,6 +45,7 @@ export { List } from "@/list";
 export { Log } from "@/log";
 export * from "@/memo";
 export { Menu } from "@/menu";
+export { Modal } from "@/modal";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { Notation } from "@/notation";

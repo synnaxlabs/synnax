@@ -231,6 +231,8 @@ export const MODIFIER_KEYS: Key[] = ["Control", "Alt", "Shift"];
 export const keyboardKey = (
   e: KeyboardEvent | React.KeyboardEvent<HTMLElement>,
 ): Key => {
+  // Autofill and IME composition dispatch key events with no code.
+  if (e.code == null || e.code === "") return (e.key ?? "") as Key;
   if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
     return e.code.slice(-1) as Key;
   if (e.code.includes("Meta")) return "Control";
