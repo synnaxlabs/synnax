@@ -11,10 +11,12 @@ package http_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -38,6 +40,9 @@ var (
 	unaryServerFailingEncoder   freighter.UnaryServer[test.Request, test.Response]
 	unaryServerMsgpackErrors    freighter.UnaryServer[test.Request, test.Response]
 	unaryServerNoErrorEncoders  freighter.UnaryServer[test.Request, test.Response]
+	unaryServerStreaming        freighter.UnaryServer[test.Request, test.Response]
+	unaryServerClosing          freighter.UnaryServer[test.Request, *closingResponse]
+	closingResponses            = make(chan *closingResponse, 1)
 	unaryClient                 freighter.UnaryClient[test.Request, test.Response]
 	unaryAddr                   address.Address
 	unaryApp                    *fiber.App
@@ -57,6 +62,86 @@ func (failingEncoder) Encode(context.Context, any) ([]byte, error) {
 
 func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 	return errFailingEncoderEncodeFail
+}
+
+// repeatingEncoder is a unary-server response encoder that writes the response message
+// once per byte of its ID, in as many writes. It is used to drive the streaming
+// response path in unary_server.go.
+type repeatingEncoder struct{}
+
+func (repeatingEncoder) ContentType() string { return "application/x-repeat" }
+
+func (e repeatingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	err := e.EncodeStream(ctx, &buf, v)
+	return buf.Bytes(), err
+}
+
+func (repeatingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+	res, ok := v.(test.Response)
+	if !ok {
+		return errors.Newf("repeating encoder cannot encode %T", v)
+	}
+	for range res.ID {
+		if _, err := w.Write([]byte(res.Message)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// echoingEncoder is a unary-server response encoder that writes the response message
+// once. The streaming route leaves it out of WithStreamingResponse, so it drives the
+// uncompressed half of the streaming path.
+type echoingEncoder struct{}
+
+func (echoingEncoder) ContentType() string { return "application/x-echo" }
+
+func (e echoingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	err := e.EncodeStream(ctx, &buf, v)
+	return buf.Bytes(), err
+}
+
+func (echoingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+	res, ok := v.(test.Response)
+	if !ok {
+		return errors.Newf("echoing encoder cannot encode %T", v)
+	}
+	_, err := w.Write([]byte(res.Message))
+	return err
+}
+
+// failAfterHandlerHeader asks the closing route to fail after its handler returns.
+const failAfterHandlerHeader = "Fail-After-Handler"
+
+// closingResponse is a unary-server response that records whether it was closed.
+type closingResponse struct{ closed atomic.Bool }
+
+// Close implements io.Closer.
+func (r *closingResponse) Close() error {
+	r.closed.Store(true)
+	return nil
+}
+
+// closingEncoder is a unary-server response encoder that writes a fixed body for a
+// closingResponse.
+type closingEncoder struct{}
+
+func (closingEncoder) ContentType() string { return "application/x-closing" }
+
+func (e closingEncoder) Encode(ctx context.Context, v any) ([]byte, error) {
+	var buf bytes.Buffer
+	err := e.EncodeStream(ctx, &buf, v)
+	return buf.Bytes(), err
+}
+
+func (closingEncoder) EncodeStream(_ context.Context, w io.Writer, v any) error {
+	if _, ok := v.(*closingResponse); !ok {
+		return errors.Newf("closing encoder cannot encode %T", v)
+	}
+	_, err := w.Write([]byte("ok"))
+	return err
 }
 
 var _ = BeforeSuite(func() {
@@ -100,6 +185,40 @@ var _ = BeforeSuite(func() {
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithErrorEncoders(),
 	)
+	unaryServerStreaming = router.NewUnaryServer[test.Request, test.Response](
+		"/streaming",
+		fhttp.WithRequestDecoders(json.Codec),
+		fhttp.WithResponseEncoders(repeatingEncoder{}, echoingEncoder{}),
+		fhttp.WithStreamingResponse(repeatingEncoder{}),
+	)
+	unaryServerStreaming.BindHandler(
+		func(_ context.Context, req test.Request) (test.Response, error) {
+			return test.Response(req), nil
+		},
+	)
+	unaryServerClosing = router.NewUnaryServer[test.Request, *closingResponse](
+		"/closing",
+		fhttp.WithRequestDecoders(json.Codec),
+		fhttp.WithResponseEncoders(closingEncoder{}),
+		fhttp.WithStreamingResponse(),
+	)
+	unaryServerClosing.BindHandler(
+		func(context.Context, test.Request) (*closingResponse, error) {
+			res := &closingResponse{}
+			closingResponses <- res
+			return res, nil
+		},
+	)
+	unaryServerClosing.Use(freighter.MiddlewareFunc(func(
+		ctx freighter.Context,
+		next freighter.Next,
+	) (freighter.Context, error) {
+		oCtx, err := next(ctx)
+		if _, fail := ctx.Params.Get(failAfterHandlerHeader); fail && err == nil {
+			err = errors.New("failed after the handler")
+		}
+		return oCtx, err
+	}))
 	unaryClient = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 	router.BindTo(unaryApp)
 	unaryAddr = serveApp(unaryApp)
@@ -581,6 +700,109 @@ var _ = Describe("Unary", func() {
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)
+	})
+
+	Describe("Streaming Response", func() {
+		const (
+			repeat = "application/x-repeat"
+			echo   = "application/x-echo"
+		)
+		// streamingPost sends req to the streaming route, asking for the given content
+		// encoding, and returns the response.
+		streamingPost := func(
+			ctx context.Context,
+			req test.Request,
+			accept string,
+			acceptEncoding string,
+		) *http.Response {
+			GinkgoHelper()
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/streaming",
+				bytes.NewReader(MustSucceed(json.Codec.Encode(ctx, req))),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			httpReq.Header.Set(fiber.HeaderAccept, accept)
+			httpReq.Header.Set(fiber.HeaderAcceptEncoding, acceptEncoding)
+			res := MustSucceed((&http.Client{
+				Transport: &http.Transport{DisableCompression: true},
+			}).Do(httpReq))
+			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+			return res
+		}
+
+		It("should write the encoder's output as a chunked body", func(
+			ctx context.Context,
+		) {
+			res := streamingPost(
+				ctx, test.Request{ID: 3, Message: "ab"}, repeat, "identity",
+			)
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			Expect(res.TransferEncoding).To(ConsistOf("chunked"))
+			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(BeEmpty())
+			Expect(io.ReadAll(res.Body)).To(Equal([]byte("ababab")))
+		})
+
+		It("should gzip a compressed encoder's body when the request accepts it", func(
+			ctx context.Context,
+		) {
+			res := streamingPost(
+				ctx, test.Request{ID: 3, Message: "ab"}, repeat, "gzip",
+			)
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(Equal("gzip"))
+			r := MustSucceed(gzip.NewReader(res.Body))
+			DeferCleanup(func() { Expect(r.Close()).To(Succeed()) })
+			Expect(io.ReadAll(r)).To(Equal([]byte("ababab")))
+		})
+
+		It("should leave an encoder the route did not name uncompressed", func(
+			ctx context.Context,
+		) {
+			res := streamingPost(ctx, test.Request{ID: 3, Message: "ab"}, echo, "gzip")
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			Expect(res.TransferEncoding).To(ConsistOf("chunked"))
+			Expect(res.Header.Get(fiber.HeaderContentEncoding)).To(BeEmpty())
+			Expect(io.ReadAll(res.Body)).To(Equal([]byte("ab")))
+		})
+	})
+
+	Describe("Unencoded Response", func() {
+		// closingPost sends a request to the closing route and returns the response
+		// along with the value the handler produced.
+		closingPost := func(
+			ctx context.Context,
+			failAfterHandler bool,
+		) (*http.Response, *closingResponse) {
+			GinkgoHelper()
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/closing",
+				bytes.NewReader(MustSucceed(json.Codec.Encode(ctx, test.Request{}))),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			if failAfterHandler {
+				httpReq.Header.Set(failAfterHandlerHeader, "true")
+			}
+			res := MustSucceed(http.DefaultClient.Do(httpReq))
+			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+			var value *closingResponse
+			Eventually(closingResponses).Should(Receive(&value))
+			return res, value
+		}
+
+		It("should close a response that a failed middleware keeps from the encoder",
+			func(ctx context.Context) {
+				res, value := closingPost(ctx, true)
+				Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
+				Expect(value.closed.Load()).To(BeTrue())
+			},
+		)
+
+		It("should leave a response it encodes open", func(ctx context.Context) {
+			res, value := closingPost(ctx, false)
+			Expect(res.StatusCode).To(Equal(http.StatusOK))
+			Expect(io.ReadAll(res.Body)).To(Equal([]byte("ok")))
+			Expect(value.closed.Load()).To(BeFalse())
+		})
 	})
 
 	Describe("Report", func() {

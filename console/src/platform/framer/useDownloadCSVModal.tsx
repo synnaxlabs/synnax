@@ -37,7 +37,6 @@ import { Runtime } from "@/platform/runtime";
 import { Triggers } from "@/platform/triggers";
 
 export interface DownloadCSVModalParams {
-  channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
   name: string;
@@ -57,7 +56,7 @@ export interface PromptDownloadCSV extends Modals.Prompt<
 > {}
 
 export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
-  ({ timeRange, channels, name, channelNames, icon, close }) => {
+  ({ timeRange, channels, name, icon, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,
       values: {
@@ -65,7 +64,6 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
         timeRange: new TimeRange(timeRange).numeric,
         downsampleFactor: 1,
         name,
-        channelNames,
       },
     });
     const footer = (
@@ -152,19 +150,10 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
     const timeRange = get<TimeRange>("timeRange").value;
     const channels = get<channel.Key[]>("channels").value;
     const downsampleFactor = get<number>("downsampleFactor").value;
-    const channelNames = get<Record<channel.Key, string>>("channelNames", {
-      optional: true,
-    })?.value;
     const name = get<string>("name").value;
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const stream = await client.read({
-        timeRange,
-        channels,
-        channelNames,
-        iteratorConfig: { downsampleFactor },
-        responseType: "csv",
-      });
+      const stream = await client.readCSV(timeRange, channels, { downsampleFactor });
       await download({
         stream,
         name,
@@ -190,7 +179,6 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
 
 const formSchema = z.object({
   name: z.string(),
-  channelNames: z.record(channel.keyZ, z.string()).optional(),
   channels: channel.keyZ.array(),
   timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
     error: "End time must be after start time",

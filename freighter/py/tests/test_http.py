@@ -216,3 +216,28 @@ class TestDownload:
         client.download("/echo", Message(id=1, message=big), out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == big
+
+
+@pytest.mark.http
+class TestStream:
+    def test_yields_the_body(self, client: HTTPClient) -> None:
+        """Should hand back the response body in chunks the caller joins."""
+        body = client.stream(
+            "/echo", Message(id=1, message="hello"), "application/json"
+        )
+        parsed = Message.model_validate_json(b"".join(body))
+        assert parsed.id == 2
+        assert parsed.message == "hello"
+
+    def test_large_body(self, client: HTTPClient) -> None:
+        big = "a" * (1024 * 1024)
+        body = client.stream("/echo", Message(id=1, message=big), "application/json")
+        assert Message.model_validate_json(b"".join(body)).message == big
+
+    def test_server_error_raises_before_the_first_chunk(
+        self, client: HTTPClient
+    ) -> None:
+        with pytest.raises(Error):
+            client.stream(
+                "/middlewareCheck", Message(id=1, message="x"), "application/json"
+            )

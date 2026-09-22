@@ -80,6 +80,7 @@ type Transport struct {
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
 	FrameStreamer freighter.StreamServer[framer.StreamerRequest, framer.StreamerResponse]
 	FrameDelete   freighter.UnaryServer[framer.DeleteRequest, types.Nil]
+	FrameRead     freighter.UnaryServer[framer.ReadRequest, framer.ReadResponse]
 	// CONTROL
 	ControlRetrieve freighter.UnaryServer[control.RetrieveRequest, control.RetrieveResponse]
 	// RANGE
@@ -280,6 +281,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.FrameIterator,
 		t.FrameStreamer,
 		t.FrameDelete,
+		t.FrameRead,
 
 		// CONTROL
 		t.ControlRetrieve,
@@ -451,6 +453,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
+	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
 	t.ControlRetrieve.BindHandler(l.Control.Retrieve)

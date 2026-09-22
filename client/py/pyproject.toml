@@ -117,6 +117,7 @@ markers = [
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
     "tsconvert: mark test as a tsconvert test",
+    "reader: mark test as a frame reader test",
     "writer: mark test as a frame writer test",
     "streamer: mark test as a frame streamer test",
     "calculations: mark test as a calculated channels test",

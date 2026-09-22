@@ -200,6 +200,25 @@ describe("http", () => {
       expect(decoded).toEqual({ id: 2, message: "hello" });
     });
 
+    test("sends a contentType encoding verbatim as the Accept header", async () => {
+      const stream = await client.download(
+        "/echo",
+        { id: 1, message: "hello" },
+        messageZ,
+        { encoding: { contentType: "application/json" } },
+      );
+      const decoded = await new Response(stream).json();
+      expect(decoded).toEqual({ id: 2, message: "hello" });
+    });
+
+    test("rejects a contentType the server cannot produce", async () => {
+      await expect(
+        client.download("/echo", {}, messageZ, {
+          encoding: { contentType: "application/vnd.unknown" },
+        }),
+      ).rejects.toThrow("Not Acceptable");
+    });
+
     test("params reach the server as a single JSON request param", async () => {
       const stream = await client.download(
         "/paramEcho",
