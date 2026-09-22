@@ -41,7 +41,7 @@ needing broader context:
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
   `arc/CLAUDE.md`, `oracle/CLAUDE.md` — component deep dives (also auto-load)
 
-## Universal Code Style
+## Universal code style
 
 - **88-character lines** in all languages. Formatters: Prettier (TS), Ruff (Python),
   golangci-lint fmt (Go), clang-format (C++).
@@ -74,7 +74,7 @@ needing broader context:
 - **`common/`, never `shared/`**, for directories holding utilities reused by sibling
   modules. All languages.
 
-## Architectural Principles
+## Architectural principles
 
 Dependencies are explicit, injected inputs — never reached for ambiently. All languages.
 
@@ -200,7 +200,7 @@ Red flags. If any of these appear, rewrite immediately:
 - Language-specific form (JSDoc tags, Go identifier-first sentences, Doxygen) lives in
   `docs/claude/toolchains/`.
 
-## Git Workflow Rules
+## Git workflow rules
 
 ### 🚨 Rule 1: NEVER add a Claude co-author to commits or pull requests 🚨
 
@@ -226,7 +226,7 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
    (lead with user-facing/architectural impact, not a diff restatement), readiness
    checkboxes left unchecked unless actually performed.
 
-## Self-Editing Guidelines
+## Self-editing guidelines
 
 When adding context that would benefit future sessions: minimal, sparing edits; only
 genuinely useful development information; prefer the specific doc file over this one.

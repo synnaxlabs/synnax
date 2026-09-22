@@ -1,4 +1,4 @@
-# Repo Scripts (`/scripts/`)
+# Repo scripts (`/scripts/`)
 
 Shell scripts used locally and by CI. Prefer these over hand-rolled equivalents — they
 encode repo-wide conventions (file lists, ignore patterns, per-extension header formats)
@@ -18,7 +18,7 @@ that are easy to get subtly wrong by hand.
 
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.
 
-## Copyright Headers
+## Copyright headers
 
 - `update_copyrights.sh` — rewrites/inserts the BSL header (from
   `licenses/headers/template.txt`) on every tracked file, repo-wide (`git ls-files`, no
@@ -39,7 +39,7 @@ Neither script touches `.oracle` schema files — no header comments there.
   `git diff` alongside modifications. Used to verify generated Go output is checked in
   and current, not to be run as a silent fix-up.
 
-## Versioning & Release
+## Versioning & release
 
 - `check_versions.sh` — verifies version strings are consistent across the repo's
   version-bearing files.
@@ -75,7 +75,7 @@ Neither script touches `.oracle` schema files — no header comments there.
   use it, because those runners hold one output base for weeks. A compile error or a
   failed test still fails on the first run.
 
-## Toolchain Bootstrap
+## Toolchain bootstrap
 
 - `install_antlr4.sh` — installs a pinned, checksum-verified antlr4 4.13.2 onto PATH,
   bypassing `antlr4-tools`' unreliable "latest version" lookup. Used by Arc grammar

@@ -28,7 +28,7 @@ function bodies.
 
 <Divider.Divider x />
 
-## Continuous Flow (`->`)
+## Continuous flow (`->`)
 
 Runs whenever the source produces data:
 
@@ -51,7 +51,7 @@ line order wins.
 
 <Divider.Divider x />
 
-## Conditional Flow (`=>`)
+## Conditional flow (`=>`)
 
 Fires on ticks where the source expression is
 [truthy](/reference/control/arc/reference/operators#truthiness):
@@ -66,7 +66,7 @@ propagates to its target. On ticks where it is falsy, it does not.
 
 <Divider.Divider x />
 
-## Transition Targets
+## Transition targets
 
 A flow whose target is a stage or sequence name is a **transition**. Transitions
 deactivate the current item and activate the target. They use `=>` because they fire
@@ -99,7 +99,7 @@ sequence test {
   error.
 </Note.Note>
 
-### Named Stage Transitions
+### Named stage transitions
 
 ```arc channels="start_btn, pressure, abort_btn" bodies="pressurize, hold, idle, complete"
 sequence test {
@@ -119,7 +119,7 @@ sequence test {
 }
 ```
 
-### Cross-Sequence Transitions
+### Cross-sequence transitions
 
 ```arc channels="emergency, all_valves_cmd" bodies="abort"
 sequence main {
@@ -143,7 +143,7 @@ Cross-sequence transitions:
 
 <Divider.Divider x />
 
-## Expressions in Flows
+## Expressions in flows
 
 Inline expressions act as implicit functions:
 
@@ -158,7 +158,7 @@ variables from function bodies.
 
 <Divider.Divider x />
 
-## Routing Tables
+## Routing tables
 
 A **routing table** is a brace-delimited map written on either end of a flow operator.
 An input table gathers several sources into one function's inputs. An output table
@@ -173,7 +173,7 @@ branches the flow: the output that fires decides which entry runs, instead of an
 sensor -> demux{} -> { high: "high" -> log, low: "low" -> log }
 ```
 
-### Custom Routing
+### Custom routing
 
 [`select`](/reference/control/arc/reference/standard-library/select) is just a function
 with two named outputs. Any function with multiple named outputs can drive a routing
@@ -202,7 +202,7 @@ Output names are arbitrary identifiers declared with the function's
 [named outputs](/reference/control/arc/reference/functions#multiple-named-outputs), and
 the routing table keys must match them exactly.
 
-### Case Bodies
+### Case bodies
 
 The right side of an output routing entry, the **case body**, is a full flow statement
 or an inline body. A bare target (`true: next`, `false: shut_cmd`) is an error.
@@ -219,7 +219,7 @@ sensor -> demux{} -> {
 }
 ```
 
-#### Inline Stage Body
+#### Inline stage body
 
 An anonymous `stage { ... }` written directly as a case body. Its flows run in parallel
 while the branch is active:
@@ -235,7 +235,7 @@ flag -> select{} -> {
 }
 ```
 
-#### Inline Sequence Body
+#### Inline sequence body
 
 An anonymous `sequence { ... }` written directly as a case body. Its items run in order:
 
@@ -249,7 +249,7 @@ sensor -> decide_stage{low=30.0, high=80.0} -> {
 }
 ```
 
-#### Mixed Entries
+#### Mixed entries
 
 A single routing table may freely mix all of the above:
 
@@ -263,7 +263,7 @@ sensor -> decide_stage{low=30.0, high=80.0} -> {
 
 Items inside an inline body are separated by newlines or commas; both are accepted.
 
-### Input Routing
+### Input routing
 
 An input routing table precedes a function invocation and maps each source to a named
 input parameter:
@@ -288,7 +288,7 @@ source directly into a
 [multi-input function](/reference/control/arc/reference/functions#multi-input-functions)
 is an error.
 
-### Output Routing
+### Output routing
 
 An output routing table follows a function invocation and maps each named output to a
 destination:
@@ -314,7 +314,7 @@ entry and leaves `low` untouched.
 
 <Divider.Divider x />
 
-## Inline Bodies
+## Inline bodies
 
 Inline sequence and stage bodies are a shorthand for a branch that needs more than a
 chain. They behave like one-shot bodies activated by the routed output, and a few rules
