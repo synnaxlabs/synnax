@@ -15,6 +15,7 @@
 #include <string>
 #include <utility>
 
+#include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
