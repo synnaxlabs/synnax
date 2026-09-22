@@ -422,9 +422,9 @@ func (i *Iterator) Error() error {
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 // Close closes the iterator and releases any resources it holds. It returns the error
-// that stopped the iterator, unless a seek has cleared it since. Closing a closed
-// iterator returns nil. As with all other iterator methods, Close is not safe to call
-// concurrently with any other database method.
+// that stopped the iterator, unless a seek or SetBounds has cleared it since. Closing
+// a closed iterator returns nil. As with all other iterator methods, Close is not safe
+// to call concurrently with any other database method.
 //
 // After close is called, the iterator should no longer be used.
 func (i *Iterator) Close() error {

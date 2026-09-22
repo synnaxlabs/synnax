@@ -87,8 +87,8 @@ func (i *Iterator) Error() error {
 
 // Close closes the Iterator, ensuring that all in-progress reads complete before
 // closing the Source outlet. It returns the error that stopped the iterator on any
-// node, unless a seek has cleared it since. Closing a closed iterator returns nil. All
-// iterators must be Closed, or the distribution layer will panic.
+// node, unless a seek or SetBounds has cleared it since. Closing a closed iterator
+// returns nil. All iterators must be Closed, or the distribution layer will panic.
 func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
