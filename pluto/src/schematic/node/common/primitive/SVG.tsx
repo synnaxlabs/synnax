@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensions, direction } from "@synnaxlabs/x";
+import { color, dimensions, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   createContext,
@@ -20,7 +20,6 @@ import {
 import { CSS } from "@/css";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface SVGProps
   extends
@@ -69,7 +68,7 @@ export const SVG = ({
       ...style,
       aspectRatio: `${dims.width} / ${dims.height}`,
       width: dimensions.scale(dims, scale * BASE_SCALE).width,
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
     }),
     [style, dims, scale, colorVal],
   );

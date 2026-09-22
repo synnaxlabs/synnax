@@ -10,6 +10,7 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/select/select.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Button as BaseButton } from "@/button";
@@ -18,7 +19,6 @@ import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Select as BaseSelect } from "@/select";
 
 interface RenderProps extends Omit<Config, "sink" | "variant"> {
@@ -31,7 +31,7 @@ interface RenderProps extends Omit<Config, "sink" | "variant"> {
 export const Select = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   value,
   onChange,
   onSend,
@@ -47,8 +47,8 @@ export const Select = ({
   );
   const matched = options.find((o) => o.key === value);
   const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
-    [color],
+    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
+    [colorVal],
   );
   const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (

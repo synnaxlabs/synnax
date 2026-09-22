@@ -12,7 +12,6 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { type Config } from "@/schematic/node/general/scale/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface RenderProps extends Pick<Config, "indicator"> {
   className?: string;
@@ -50,7 +49,7 @@ export const Scale = ({
   className,
 }: RenderProps): ReactElement => {
   const containerStyle = useMemo<CSSProperties>(
-    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: symbolColorVar(c) }),
+    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: color.rgbaString(c) }),
     [c],
   );
   const axis = color.isZero(axisColor) ? AXIS_FALLBACK : color.hex(axisColor);

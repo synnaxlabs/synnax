@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/switch/switch.css";
 
-import { location } from "@synnaxlabs/x";
+import { color, location } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -18,7 +18,6 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { blockActivation } from "@/util/event";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown"> {
@@ -35,7 +34,7 @@ export const Switch = ({
   scale = 1,
   disabled,
 }: Props): ReactElement => {
-  const colorVar = symbolColorVar(colorVal);
+  const colorVar = color.rgbaString(colorVal);
   const hold = useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
   const style: CSSProperties = {

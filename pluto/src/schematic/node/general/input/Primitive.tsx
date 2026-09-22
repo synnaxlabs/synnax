@@ -10,6 +10,7 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/input/input.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
@@ -18,7 +19,6 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface PrimitiveProps extends Omit<Config, "variant"> {
   initialValue?: string;
@@ -30,7 +30,7 @@ export const Input = ({
   className,
   initialValue = "",
   orientation = "left",
-  color,
+  color: colorVal,
   size,
   onSend,
   disabled,
@@ -38,8 +38,8 @@ export const Input = ({
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
   const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
-    [color],
+    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
+    [colorVal],
   );
   return (
     <Primitive.Div

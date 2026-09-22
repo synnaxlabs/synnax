@@ -13,7 +13,6 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
   color: color.Crude;
@@ -34,7 +33,7 @@ export const Base = ({
       return { ...baseStyle, stroke };
     return {
       ...baseStyle,
-      [CSS.variable("symbol-color")]: symbolColorVar(stroke),
+      [CSS.variable("symbol-color")]: color.rgbaString(stroke),
       stroke: "var(--pluto-symbol-display)",
     };
   }, [stroke, baseStyle]);

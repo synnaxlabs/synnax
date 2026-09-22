@@ -10,6 +10,7 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/setpoint/setpoint.css";
 
+import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
@@ -18,7 +19,6 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface RenderProps
   extends Omit<Config, "variant">, Omit<BaseInput.Control<number>, "value"> {
@@ -31,14 +31,14 @@ export const Setpoint = ({
   className,
   style,
   units,
-  color,
+  color: colorVal,
   onChange,
   size = "small",
   disabled,
   onClickDelay,
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(0);
-  const symbolColor = symbolColorVar(color);
+  const symbolColor = color.rgbaString(colorVal);
   const mergedStyle = useMemo(
     () => ({ ...style, [CSS.variable("symbol-color")]: symbolColor }),
     [style, symbolColor],
