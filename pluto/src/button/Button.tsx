@@ -10,11 +10,20 @@
 import "@/button/Button.css";
 
 import { color, record, text, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type KeyboardEventHandler,
+  type MouseEvent as ReactMouseEvent,
+  type ReactElement,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 
 import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
+import { useCombinedRefs, useHold, type UseHoldProps } from "@/hooks";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -29,7 +38,7 @@ export type Variant = "filled" | "outlined" | "text";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
-  extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
+  extends Omit<Text.ExtensionProps, "variant">, Tooltip.ExtensionProps {
   /** The rest-state emphasis. Defaults to "outlined". */
   variant?: Variant;
   /** A keyboard trigger that clicks the button while it is mounted. */
@@ -60,9 +69,13 @@ export interface ExtensionProps
 /** The props for the {@link Button} component. */
 export type ButtonProps<E extends ElementType = "button"> = Omit<
   Generic.OptionalElementProps<E>,
-  "color"
+  "color" | "onClick" | "onMouseDown" | "onKeyDown" | "onKeyUp"
 > &
-  ExtensionProps;
+  ExtensionProps &
+  Pick<UseHoldProps<HTMLElement>, "onClick" | "onMouseDown"> & {
+    onKeyDown?: KeyboardEventHandler<HTMLElement>;
+    onKeyUp?: KeyboardEventHandler<HTMLElement>;
+  };
 
 const MODULE_CLASS = "btn";
 
@@ -79,84 +92,94 @@ const FOCUSABLE =
   'a[href], button, input, select, textarea, [contenteditable="true"], [tabindex]';
 
 /**
- * Use is a basic button component.
- * @param props - Props for the component, which are passed down to the underlying
- * button element.
- * @param props.variant - The variant to render for the button. Options are "filled",
- * "outlined" (default), and "text".
- * @param props.startIcon - An optional icon to render before the start of the button
- * text. This can be a single icon or an array of icons. The icons will be formatted to
- * match the color and size of the button.
- * @param props.endIcon - The same as {@link startIcon}, but renders after the button
- * text.
- * @param props.iconSpacing - The spacing between the optional start and end icons and
- * the button text. Can be "small", "medium", "large", or a number representing the
- * spacing in rem.
- * @param props.onClickDelay - An optional delay to wait before calling the `onClick`
- * handler. This will cause the button to render a progress bar that fills up over the
- * specified time before calling the handler.
+ * The standard clickable. Renders as a `button` unless `el` names another
+ * {@link ElementType}, carries an optional keyboard trigger and tooltip, and lays its
+ * icons and label out on the shared size scale.
+ *
+ * @example <Button.Button onClick={save}><Icon.Save />Save</Button.Button>
+ * @example <Button.Button variant="text" trigger={["Control", "S"]} triggerIndicator />
  */
-const Base = <E extends ElementType = "button">({
-  size,
-  variant = "outlined",
-  className,
-  disabled,
-  preview,
-  preventClick,
-  level,
-  trigger,
-  triggerIndicator,
-  onClickDelay = 0,
-  onClick,
-  onKeyDown,
-  color: colorVal,
-  status,
-  style,
-  onMouseDown,
-  textColor,
-  textVariant,
-  tabIndex,
-  children,
-  defaultEl = "button",
-  el,
-  reveal,
-  propagateClick = false,
-  draggable,
-  href,
-  ...rest
-}: ButtonProps<E>): ReactElement => {
-  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
+export const Button = <E extends ElementType = "button">(
+  props: ButtonProps<E>,
+): ReactElement => {
+  const {
+    size: sizeProp,
+    variant = "outlined",
+    className,
+    disabled,
+    preview,
+    preventClick: preventClickProp,
+    level: levelProp,
+    trigger,
+    triggerIndicator,
+    onClickDelay = 0,
+    onClick,
+    onKeyDown,
+    onKeyUp,
+    color: colorVal,
+    status,
+    style,
+    onMouseDown,
+    textColor,
+    textVariant,
+    tabIndex: tabIndexProp,
+    children,
+    defaultEl = "button",
+    el,
+    reveal,
+    propagateClick = false,
+    draggable,
+    href,
+    ref,
+    tooltip,
+    tooltipLocation,
+    hideTooltip,
+    ...rest
+  }: ButtonProps<ElementType> = props;
+  const elRef = useRef<HTMLElement>(null);
+  const combinedRef = useCombinedRefs<HTMLElement>(ref, elRef);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
-  if (preview) preventClick = true;
+  const preventClick = preventClickProp === true || preview === true;
+  const hold = useHold({
+    onClick,
+    onMouseDown,
+    onClickDelay: TimeSpan.fromMilliseconds(onClickDelay),
+    disabled: isDisabled || preview === true,
+  });
 
-  if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
+  const tabIndex =
+    disabled || (preventClick && tabIndexProp == null) ? -1 : tabIndexProp;
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = (e: ReactMouseEvent<HTMLElement>) => {
     if (!propagateClick) e.stopPropagation();
-    if (isDisabled || preview === true || preventClick === true) return;
-    // @ts-expect-error - TODO: fix this
-    if (parsedDelay.isZero) return onClick?.(e);
+    if (isDisabled || preview === true || preventClick) return;
+    hold.onClick(e);
   };
 
-  // A non-button chassis has no native Enter/Space activation, so a focusable one
-  // gets it from the component. tabIndex -1 still counts: roving-tabindex tabs hold
-  // focus programmatically. The target guard keeps keystrokes on nested interactives
-  // (inputs, editables) from activating the chassis.
-  const resolvedEl = Text.parseElement(level, el, defaultEl, textVariant, href);
+  // A non-button chassis has no native Enter/Space activation, so a focusable one gets
+  // it from the component. tabIndex -1 still counts: roving-tabindex tabs hold focus
+  // programmatically. The target guard keeps keystrokes on nested interactives (inputs,
+  // editables) from activating the chassis.
+  const resolvedEl = Text.parseElement(levelProp, el, defaultEl, textVariant, href);
   const ownsActivation =
     (resolvedEl === "div" || resolvedEl === "label") && tabIndex != null;
-  const handleKeyDown = (e: any) => {
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     onKeyDown?.(e);
+    hold.onKeyDown(e);
     if (!ownsActivation || e.defaultPrevented) return;
     if (e.target !== e.currentTarget) return;
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
-    handleClick(e);
+    if (!propagateClick) e.stopPropagation();
+    e.currentTarget.click();
   };
 
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleKeyUp = (e: ReactKeyboardEvent<HTMLElement>) => {
+    onKeyUp?.(e);
+    hold.onKeyUp(e);
+  };
 
-  const handleMouseDown = (e: any) => {
+  const handleMouseDown = (e: ReactMouseEvent<HTMLElement>) => {
     // Preventing default on mousedown cancels a native dragstart, so skip it for
     // draggable buttons (e.g. roving-tabindex tabs that are also drag sources). The
     // cancelled default also moves focus, so skip it when a focusable descendant owns
@@ -164,19 +187,11 @@ const Base = <E extends ElementType = "button">({
     if (
       tabIndex == -1 &&
       draggable !== true &&
-      (e.target as HTMLElement).closest(FOCUSABLE) === e.currentTarget
+      e.target instanceof Element &&
+      e.target.closest(FOCUSABLE) === e.currentTarget
     )
       e.preventDefault();
-    onMouseDown?.(e);
-    if (isDisabled || preview === true || parsedDelay.isZero) return;
-    document.addEventListener(
-      "mouseup",
-      () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
-    );
-    timeoutRef.current = setTimeout(() => {
-      onClick?.(e);
-      timeoutRef.current = null;
-    }, parsedDelay.milliseconds);
+    hold.onMouseDown(e);
   };
 
   Triggers.use({
@@ -184,11 +199,9 @@ const Base = <E extends ElementType = "button">({
     callback: useCallback<(e: Triggers.UseEvent) => void>(
       ({ stage }) => {
         if (stage !== "end" || isDisabled || preview === true) return;
-        handleClick(
-          new MouseEvent("click") as unknown as React.MouseEvent<HTMLButtonElement>,
-        );
+        elRef.current?.click();
       },
-      [handleClick, isDisabled],
+      [isDisabled, preview],
     ),
   });
 
@@ -207,14 +220,16 @@ const Base = <E extends ElementType = "button">({
           color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
         ),
       };
-    if (!parsedDelay.isZero)
+    if (!hold.delay.isZero)
       s = {
         ...s,
-        [CSS.variable("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
+        [CSS.variable("btn-delay")]: `${hold.delay.seconds.toString()}s`,
       };
     return s;
-  }, [style, hasCustomColor, colorVal, theme, parsedDelay]);
+  }, [style, hasCustomColor, colorVal, theme, hold.delay]);
 
+  let size = sizeProp;
+  let level = levelProp;
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
   else if (defaultEl !== "div") size ??= "medium";
@@ -225,19 +240,20 @@ const Base = <E extends ElementType = "button">({
 
   const parsedTriggerIndicator = resolveTriggerIndicator(triggerIndicator, trigger);
 
-  return (
-    <Text.Text<E>
+  const element = (
+    <Text.Text
       el={el}
       defaultEl={defaultEl}
       direction="x"
       className={CSS.cls(
         CSS.B(MODULE_CLASS),
-        preventClick === true && CSS.BM(MODULE_CLASS, "prevent-click"),
+        preventClick && CSS.BM(MODULE_CLASS, "prevent-click"),
         !preview && CSS.disabled(isDisabled),
         CSS.BM(MODULE_CLASS, variant),
         preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         reveal === true && CSS.M("reveal"),
+        hold.pressed && CSS.M("pressed"),
         className,
       )}
       size={size}
@@ -245,6 +261,7 @@ const Base = <E extends ElementType = "button">({
       aria-disabled={isDisabled || undefined}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
       onMouseDown={handleMouseDown}
       style={pStyle}
       color={textColor}
@@ -257,7 +274,8 @@ const Base = <E extends ElementType = "button">({
       status={status}
       href={href}
       draggable={draggable}
-      {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
+      ref={combinedRef}
+      {...record.purgeUndefined(rest)}
     >
       {(!isLoading || !square) && children}
       {isLoading && <Icon.Loading />}
@@ -274,14 +292,11 @@ const Base = <E extends ElementType = "button">({
       )}
     </Text.Text>
   );
+  if (tooltip == null) return element;
+  return (
+    <Tooltip.Dialog location={tooltipLocation} hide={hideTooltip}>
+      {tooltip}
+      {element}
+    </Tooltip.Dialog>
+  );
 };
-
-/**
- * The standard clickable. Renders as a `button` unless `el` names another
- * {@link ElementType}, carries an optional keyboard trigger and tooltip, and lays its
- * icons and label out on the shared size scale.
- *
- * @example <Button.Button onClick={save}><Icon.Save />Save</Button.Button>
- * @example <Button.Button variant="text" trigger={["Control", "S"]} triggerIndicator />
- */
-export const Button = Tooltip.wrap(Base) as typeof Base;

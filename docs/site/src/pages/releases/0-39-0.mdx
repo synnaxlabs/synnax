@@ -1,5 +1,5 @@
 ---
-title: "Version 0.39 Release Notes"
+title: "Version 0.39 release notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
@@ -13,7 +13,7 @@ export const components = mdxOverrides;
 <Release
     version="0.39.0"
     date="Mar 18, 2025"
-    title="Embedded Control Sequences"
+    title="Embedded control sequences"
     breakingChanges
 >
 <Diagram style="height: 300px" preview>
@@ -30,7 +30,7 @@ the Synnax Driver to make it more reliable and user-friendly.
 
 <Divider.Divider x />
 
-### Embedded Control Sequences
+### Embedded control sequences
 
 <Note.Note variant="warning">
   Embedded control sequences (Lua-based) were deprecated in v0.51.0 and have now been
@@ -53,15 +53,15 @@ data, control hardware, and even run embedded sequences directly on a cRIO contr
 
 <Divider.Divider x />
 
-### NI Analog Write Task
+### NI analog write task
 
-We've added a new [NI Analog Write Task](/reference/driver/ni/analog-write-task) that
+We've added a new [NI analog write task](/reference/driver/ni/analog-write-task) that
 allows you to write analog data to NI devices. This task is useful for a wide variety of
 applications, such as generating test signals or controlling hardware.
 
 <Divider.Divider x />
 
-### Driver Performance and Experience Improvements
+### Driver performance and experience improvements
 
 We've rewritten a large portion of the Synnax Driver to improve its performance and
 stability. We've improved our device discovery mechanisms, made tasks more resilient to
@@ -70,7 +70,7 @@ to make them easier to use.
 
 <Divider.Divider x />
 
-### Removal of Deprecated `synnax` Python Client Command
+### Removal of deprecated `synnax` Python client command
 
 <Note.Note variant="warning">
   The `synnax` command for the Python client was deprecated in v0.38.0 and is now
@@ -79,7 +79,7 @@ to make them easier to use.
 
 <Divider.Divider x />
 
-### Other Improvements
+### Other improvements
 
 - Improved and updated documentation for Writer error communication in the Python and
   TypeScript clients.
@@ -91,13 +91,13 @@ to make them easier to use.
 
 <Divider.Divider x />
 
-### Bug Fixes
+### Bug fixes
 
 - Fixed a minor issue with releasing control authority from the Synnax Schematic.
 - Fixed a race condition on Core startup that would cause search indexing to fail.
 - Fixed an issue where hitting `Ctrl + C` immediately after starting a Core would not
   stop the Core properly.
-- Fixed an issue where the Search and Command Palette would not properly switch between
+- Fixed an issue where the search and command palette would not properly switch between
   modes.
 - Fixed an issue where the theme would not change automatically when the system theme
   changes.

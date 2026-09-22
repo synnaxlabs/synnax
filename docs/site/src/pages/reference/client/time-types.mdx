@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Time Types"
+title: "Time types"
 description: "High-precision time types for timestamps, durations, and ranges."
-next: "Reading Data"
+next: "Reading data"
 nextURL: "/reference/client/read-data"
-prev: "Series and Frames"
+prev: "Series and frames"
 prevURL: "/reference/client/series-and-frames"
 clients: ["python", "typescript"]
 ---
@@ -91,7 +91,7 @@ client:load py="open_streamer" ts="openStreamer" />, and
 
 <Client.Var client:load py="open_writer" ts="openWriter" />.
 
-### Converting to a Date/Datetime
+### Converting to a date/datetime
 
 You can convert a `TimeStamp` to a native date object:
 
@@ -186,7 +186,7 @@ const isBeforeEq = ts1.beforeEq(ts2);
   </Fragment>
 </Client.Tabs>
 
-### Accessing the Underlying Value
+### Accessing the underlying value
 
 You can access the underlying nanosecond value:
 
@@ -268,7 +268,7 @@ const span = TimeSpan.seconds(1).mult(5);
   </Fragment>
 </Client.Tabs>
 
-### Performing Arithmetic
+### Performing arithmetic
 
 You can perform arithmetic on `TimeSpan` objects:
 
@@ -302,7 +302,7 @@ const span3 = TimeSpan.seconds(1).mult(5);
   </Fragment>
 </Client.Tabs>
 
-### Accessing the Underlying Value
+### Accessing the underlying value
 
 You can access the underlying nanosecond value:
 
@@ -431,7 +431,7 @@ console.log(isIn); // true
   </Fragment>
 </Client.Tabs>
 
-### Checking if Two TimeRanges Overlap
+### Checking if two TimeRanges overlap
 
 You can check if two `TimeRange` objects overlap using the `overlapsWith` method:
 

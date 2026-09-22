@@ -1,9 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Series and Frames"
+title: "Series and frames"
 description:
   "Understanding the core data structures for working with telemetry data in Synnax."
-next: "Time Types"
+next: "Time types"
 nextURL: "/reference/client/time-types"
 prev: "Ranges"
 prevURL: "/reference/client/ranges"
@@ -30,7 +30,7 @@ a single channel.
 
 <Divider.Divider x />
 
-### Constructing a Series
+### Constructing a series
 
 Here are a few simple ways to construct a series:
 
@@ -108,7 +108,7 @@ not behave as expected.
 
 <Divider.Divider x />
 
-### Native Array Interop
+### Native array interop
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -179,7 +179,7 @@ console.log(jsArray); // [ { a: 'one', b: 'two', c: 'three' } ]
 
 <Divider.Divider x />
 
-### Accessing Data Elements
+### Accessing data elements
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -217,7 +217,7 @@ console.log(series.at(-1)); // 5
 
 <Divider.Divider x />
 
-### The Time Range Property
+### The time range property
 
 Whenever you read a series from Synnax, it will have a <Client.Var client:load
 py="time_range" ts="timeRange" /> property that represents the time range occupied by
@@ -264,7 +264,7 @@ const series = new Series({
 
 <Divider.Divider x />
 
-### Other Useful Properties
+### Other useful properties
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -376,7 +376,7 @@ instance (`client.openIterator`).
 
 <Divider.Divider x />
 
-### Constructing a Frame
+### Constructing a frame
 
 A frame maps the key or name of a channel to one or more series. Here are a few examples
 of how to construct a frame:
@@ -446,7 +446,7 @@ const frame = new Frame({
 
 <Divider.Divider x />
 
-### Accessing Frame Data
+### Accessing frame data
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -540,7 +540,7 @@ const obj = frame.at(3, true); // Throws an error
 
 <Divider.Divider x />
 
-### Type-Safe Access (TypeScript Only)
+### Type-safe access (TypeScript only)
 
 <Client.Tabs client:load exclude={["cpp","console","python"]}>
 

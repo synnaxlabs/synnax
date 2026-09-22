@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Streams"
-heading: "Streaming Data"
+heading: "Streaming data"
 description: "Learn the process for streaming data from a Synnax Core."
 prev: "Writes"
 prevURL: "/reference/concepts/writes"
@@ -32,7 +32,7 @@ streams easy and efficient.
 
 ## Streamer
 
-### Opening a Streamer
+### Opening a streamer
 
 To open a streamer, you'll need to provide a list of channels that you'd like to stream
 data from. The streamer will validate that the channels exists and are readable before
@@ -58,7 +58,7 @@ There are also a few optional arguments we can provide when opening a streamer:
   </tbody>
 </table>
 
-### Reading Data
+### Reading data
 
 Once the streamer is open, you can read data from the stream using the `read` method.
 This will block until _any_ of the channels have new data available, at which point the
@@ -89,13 +89,13 @@ Or it may look like this:
 }
 ```
 
-### Updating the Streamer's Channels
+### Updating the streamer's channels
 
 It's possible to change the channels that the streamer reads from at any time. This is
 useful for dynamically changing the data that you're interested in, such as when a user
 selects a new set of channels to load in a plot.
 
-### Closing a Streamer
+### Closing a streamer
 
 When you're done receiving data, it's very important ot close the streamer. This
 guarantees that all network connections are closed and local resources are freed.

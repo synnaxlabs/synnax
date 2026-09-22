@@ -2,9 +2,9 @@
 layout: "@/layouts/Reference.astro"
 title: "Ranges"
 description: "Organizing telemetry data with time-based ranges and metadata."
-next: "Series and Frames"
+next: "Series and frames"
 nextURL: "/reference/client/series-and-frames"
-prev: "Calculated Channels"
+prev: "Calculated channels"
 prevURL: "/reference/client/calculated-channels"
 clients: ["console", "python", "typescript"]
 ---
@@ -26,7 +26,7 @@ into tests, runs, and events, and carry metadata about them.
 
 <Divider.Divider x />
 
-## Range Parameters
+## Range parameters
 
 | Parameter                                                 | Type                                                  | Required | Default                                        | Description                                                                                                     |
 | --------------------------------------------------------- | ----------------------------------------------------- | -------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -43,14 +43,14 @@ into tests, runs, and events, and carry metadata about them.
 
 <Divider.Divider x />
 
-## Create a Range
+## Create a range
 
 <Client.Tabs client:load exclude={["cpp"]}>
 
   <Fragment slot="console">
 
 Create a range via the toolbar,
-[Command Palette](/reference/console/ui-overview#search-and-command-palette), or a plot
+[command palette](/reference/console/ui-overview#search-and-command-palette), or a plot
 region.
 
 <Video client:only="react" id="client/ranges/create" />
@@ -112,7 +112,7 @@ const range = await client.ranges.create({
   </Fragment>
 </Client.Tabs>
 
-### Create Child Ranges
+### Create child ranges
 
 [Child ranges](/reference/concepts/ranges#child-ranges) segment a range into smaller
 intervals.
@@ -188,7 +188,7 @@ await client.ranges.create([
 
 <Divider.Divider x />
 
-## Retrieve Ranges
+## Retrieve ranges
 
 ### Single
 
@@ -309,7 +309,7 @@ const parentRange = await myRange.retrieveParent();
 
 <Divider.Divider x />
 
-## Update a Range
+## Update a range
 
 To update an existing range, use the same `client.ranges.create` method but specify the
 `key` of the range to update. This allows modification of the range's name, time range,
@@ -556,7 +556,7 @@ await myRange.removeLabel(label.key);
 
 <Divider.Divider x />
 
-## Read from a Range
+## Read from a range
 
 Ranges provide a convenient way to read data without specifying exact time boundaries.
 Once you have a range, you can read channel data directly from it.
@@ -598,7 +598,7 @@ const celsius = data.map((v) => v - 273.15);
   </Fragment>
 </Client.Tabs>
 
-### Read by Alias
+### Read by alias
 
 Once you've set an [alias](/reference/client/channels#channel-aliases), you can access
 the channel using that alias.
@@ -646,7 +646,7 @@ const data2 = await burstTest.read("daq_analog_input_1");
 
 <Divider.Divider x />
 
-## Write to a Range
+## Write to a range
 
 Writing to a range removes the burden of needing to correctly align the timestamps for
 different channels. The write will assume that the timestamp of the first sample is the
@@ -679,7 +679,7 @@ my_range.write({
 
 <Divider.Divider x />
 
-## Delete a Range
+## Delete a range
 
 <Client.Tabs client:load exclude={["cpp"]}>
 

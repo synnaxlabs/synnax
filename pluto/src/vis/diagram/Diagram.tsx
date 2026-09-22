@@ -33,6 +33,7 @@ import {
   type ComponentPropsWithRef,
   type FC,
   Fragment,
+  type KeyboardEvent,
   memo,
   type MouseEvent as ReactMouseEvent,
   type PropsWithChildren,
@@ -51,6 +52,7 @@ import { CSS } from "@/css";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
 import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
+import { blockActivation, isInputOrContentEditable } from "@/util/event";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -554,6 +556,18 @@ export const create = ({
       [onPaste, cursorInDiagramSpace],
     );
 
+    // Space and Enter would click whichever control holds focus. Triggers and React
+    // Flow ignore defaultPrevented, so shortcuts and selection still fire. A dialog
+    // opened from a node portals out of this element, hence the contains check.
+    const handleActivationKey = useCallback(
+      (e: KeyboardEvent<HTMLDivElement>): void => {
+        if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
+        if (isInputOrContentEditable(e)) return;
+        blockActivation(e);
+      },
+      [],
+    );
+
     return (
       <div
         className={CSS.BE("diagram", "container")}
@@ -564,6 +578,8 @@ export const create = ({
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
         onContextMenu={onContextMenu}
+        onKeyDownCapture={handleActivationKey}
+        onKeyUpCapture={handleActivationKey}
         tabIndex={-1}
       >
         <Context value={ctxValue}>

@@ -1,12 +1,12 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Driver Installation"
-heading: "Driver Installation"
+title: "Driver installation"
+heading: "Driver installation"
 description: "Install the Synnax Driver on a separate machine from the Synnax Core."
 prevURL: "/reference/driver/get-started"
-prev: "Get Started"
+prev: "Get started"
 nextURL: "/reference/driver/task-basics"
-next: "Task Basics"
+next: "Task basics"
 ---
 
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -59,7 +59,7 @@ installation, but keeping it enabled makes updates and management easier.
 The Driver must be able to reach a Synnax Core over the network. Make sure you have a
 [Core running](/reference/core/quick-start) and its connection parameters on hand.
 
-### Install and Run the Driver
+### Install and run the Driver
 
 Open an SSH connection to the cRIO and run:
 
@@ -75,7 +75,7 @@ This downloads, installs, and starts the Driver. Next, connect it to your Core.
   of standard support in April 2027.
 </Note.Note>
 
-### Install and Run the Driver
+### Install and run the Driver
 
 Download the latest binary:
 
@@ -117,7 +117,7 @@ You should see the following output:
 </Fragment>
 <Fragment slot="Windows">
 
-### Install and Run the Driver
+### Install and run the Driver
 
 Download the latest Synnax Driver executable for Windows:
 
@@ -149,7 +149,7 @@ synnax-driver start --standalone
 </Fragment>
 <Fragment slot="macOS">
 
-### Install and Run the Driver
+### Install and run the Driver
 
 Download the latest binary:
 
@@ -234,7 +234,7 @@ GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
 
 <Divider.Divider x />
 
-## <Step step="3" level="h2">Check the Driver Status</Step>
+## <Step step="3" level="h2">Check the Driver status</Step>
 
 As a final step, check the Driver's status:
 
@@ -254,7 +254,7 @@ status.
 
 <Divider.Divider x />
 
-## Configuration Methods
+## Configuration methods
 
 Besides the `synnax-driver login` command, the Driver reads its configuration from
 command line flags, environment variables, and a configuration file.
@@ -276,7 +276,7 @@ identity of the rack the Driver last attached to. It lives at
 `~/Library/Application Support/synnax-driver/persisted-state.json` on macOS. Use the
 `--state-file` flag to move it.
 
-### Configuration File
+### Configuration file
 
 Pass a JSON file with the `--config` flag. Every key is optional and has the same
 meaning as the flag of the same name in the [CLI reference](#cli-reference). The file
@@ -311,7 +311,7 @@ must not contain comments.
 The `integrations` list replaces the default set. Omit `remote_info` to let the Driver
 create a rack on first start and remember it in the persisted state file.
 
-### Environment Variables
+### Environment variables
 
 Every configuration key is also readable from an environment variable named
 `SYNNAX_DRIVER_` followed by the key in upper case. Integrations can't be set from the
@@ -350,7 +350,7 @@ export SYNNAX_DRIVER_CLUSTER_KEY=6f2c7a1e-3b9d-4c58-9e21-0d8f5a7b3c44
 
 <Divider.Divider x />
 
-## CLI Reference
+## CLI reference
 
 The service commands (`install`, `uninstall`, `stop`, `restart`, `status`, and `logs`)
 are only available on Linux and NI Linux Real-Time. On Linux, run them with `sudo`. On

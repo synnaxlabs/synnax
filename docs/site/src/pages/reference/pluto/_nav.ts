@@ -11,16 +11,16 @@ import { type PageNavNode } from "@/components/nav/Page";
 
 export const PLUTO_NAV: PageNavNode = {
   key: "pluto",
-  name: "Pluto Components",
+  name: "Pluto components",
   icon: "Visualize",
   children: [
     {
-      name: "Get Started",
+      name: "Get started",
       key: "/reference/pluto/get-started",
       href: "/reference/pluto/get-started",
     },
     {
-      name: "Provider and Canvas",
+      name: "Provider and canvas",
       key: "/reference/pluto/provider-and-canvas",
       href: "/reference/pluto/provider-and-canvas",
     },
@@ -30,12 +30,12 @@ export const PLUTO_NAV: PageNavNode = {
       href: "/reference/pluto/theming",
     },
     {
-      name: "Line Plot",
+      name: "Line plot",
       key: "/reference/pluto/line-plot",
       href: "/reference/pluto/line-plot",
     },
     {
-      name: "Example App",
+      name: "Example app",
       key: "/reference/pluto/example-app",
       href: "/reference/pluto/example-app",
     },

@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Blog.astro"
-title: "Performance Compared: Synnax vs. Timescale vs. Influx"
+title: "Performance compared: Synnax vs. Timescale vs. Influx"
 description: "See how Synnax compares in performance to other time series databases."
 published: "Oct 15, 2024"
 ---
@@ -91,7 +91,7 @@ and then dive into the results.
 
 <Divider.Divider x />
 
-## Database Overviews
+## Database overviews
 
 Timescale, Influx, and Synnax are all designed to store and query time series data, but
 the authors had different workloads and feature priorities in mind when building them.
@@ -179,7 +179,7 @@ such as user analytics.
 
 <Divider.Divider x />
 
-## Test Summary
+## Test summary
 
 We'll be comparing the performance of Synnax, Timescale, and Influx across three
 separate tests that focus on ingestion performance. We'll be running the tests on a
@@ -227,7 +227,7 @@ database.
 
 <Divider.Divider x />
 
-## <TextComponent.Step level="h2" name="Test" step={1}>Varying Batch Size</TextComponent.Step>
+## <TextComponent.Step level="h2" name="Test" step={1}>Varying batch size</TextComponent.Step>
 
 In the first test, we'll keep the number of channels constant at 20, and vary the batch
 size of data we insert into each database. This table shows the configuration of each
@@ -420,7 +420,7 @@ At 10 samples per batch, all three databases perform comparably. As the batch si
 increases, Synnax's performance increases dramatically, outpacing the capabilities of
 the other two databases.
 
-### Memory Usage
+### Memory usage
 
 <figure>
   <Image
@@ -525,7 +525,7 @@ the other two databases.
 </table>
 </Details>
 
-### CPU Usage
+### CPU usage
 
 <figure>
   <Image
@@ -631,7 +631,7 @@ the other two databases.
 
 <Divider.Divider x />
 
-## <TextComponent.Step level="h2" name="Test" step={2}>Varying Channel Count</TextComponent.Step>
+## <TextComponent.Step level="h2" name="Test" step={2}>Varying channel count</TextComponent.Step>
 
 In the second test, we'll keep the batch size constant at 1,000, and vary the number of
 channels we insert data for.
@@ -844,7 +844,7 @@ At low channel counts, Synnax outperforms both Timescale and Influx by a wide ma
 the counts increase past 1,000, Synnax's performance begins to degrade, while Timescale
 and Influx remain relatively stable.
 
-### Memory Usage
+### Memory usage
 
 <figure>
   <Image
@@ -955,7 +955,7 @@ and Influx remain relatively stable.
 
 </Details>
 
-### CPU Usage
+### CPU usage
 
 <figure>
   <Image
@@ -1039,7 +1039,7 @@ and Influx remain relatively stable.
 <Divider.Divider x />
 
 {/* prettier-ignore */}
-## <TextComponent.Step level="h2" name="Test" step={3}>  One Billion Row Ingestion</TextComponent.Step>
+## <TextComponent.Step level="h2" name="Test" step={3}>  One billion row ingestion</TextComponent.Step>
 
 Inspired by the
 [One Billion Row Challenge](https://www.morling.dev/blog/one-billion-row-challenge/),
@@ -1062,7 +1062,7 @@ data.
 
 <Divider.Divider x />
 
-## Synnax Architecture
+## Synnax architecture
 
 > What about Synnax's architecture leads it to these performance characteristics? And
 > why did our team focus on high throughput, small cardinality ingestion?
@@ -1073,13 +1073,13 @@ summarize two of the most important points here. If you're interested in the det
 take a look at our
 [technical RFCs](https://github.com/synnaxlabs/synnax/tree/main/docs/tech/rfc).
 
-### <TextComponent.Step level="h3" name="Reason" step={1}>Individual Files for Each Channel</TextComponent.Step>
+### <TextComponent.Step level="h3" name="Reason" step={1}>Individual files for each channel</TextComponent.Step>
 
 Synnax is much closer to an object storage system than a traditional database. Storage
 engines like Timescale (Postgres) rely on a strategy calling _paging_ to organize writes
 on disk.
 
-#### Background - paging, OLTP, and concurrency control
+#### Background - Paging, OLTP, and concurrency control
 
 Data inside these databases is stored chunks called _pages_ that are between 4 kB and 16
 kB in size. These pages contain a certain number of rows. When accepting writes, the
@@ -1101,7 +1101,7 @@ time-series values), pages struggle for a few reasons:
    ensure ACID compliance is to use a write-ahead log (WAL). The WAL is a log of all the
    changes to the database. This means that I/O operations are repeated for each write.
 
-#### Individual files for each channel - a seemingly terrible idea
+#### Individual files for each channel - A seemingly terrible idea
 
 Synnax does not use traditional paging strategies. Instead, Synnax maintains an
 individual file for each channel in the database. At first glance, this seems like a
@@ -1150,7 +1150,7 @@ consequences. Why?
    differences drop dramatically with an increase in the number of parallel, random
    write operations.
 
-### <TextComponent.Step level="h3" name="Reason" step={2}>Zero Copy Hot Path</TextComponent.Step>
+### <TextComponent.Step level="h3" name="Reason" step={2}>Zero copy hot path</TextComponent.Step>
 
 The write performance of a database is fundamentally limited by the speed of the drive
 it is connected to (technically this is not true, but it's a fair approximation given
