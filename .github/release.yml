@@ -7,7 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Categories for generated release notes, keyed on pull request labels.
+# Categories for generated release notes, keyed on the labels labeler.yml applies. A
+# pull request lands in the first category that matches one of its labels.
 changelog:
   exclude:
     labels:
@@ -22,7 +23,6 @@ changelog:
     - title: Core
       labels:
         - server
-        - go
     - title: Clients
       labels:
         - py-client
@@ -35,10 +35,16 @@ changelog:
       labels:
         - pluto
         - drift
+    - title: Freighter
+      labels:
+        - freighter
     - title: Documentation
       labels:
         - user docs
         - tech docs
+    - title: Ops
+      labels:
+        - ops
     - title: Other changes
       labels:
         - "*"
