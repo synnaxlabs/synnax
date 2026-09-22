@@ -93,9 +93,55 @@ describe("User", () => {
         });
       });
       test("Repeated username", async () =>
-        await expect(client.users.create([userOne, userTwo])).rejects.toThrow(
-          AuthError,
-        ));
+        await expect(
+          client.users.create([
+            { username: userOne.username, password: "test" },
+            { username: userTwo.username, password: "test" },
+          ]),
+        ).rejects.toThrow(AuthError));
+    });
+    describe("Existing key", () => {
+      test("renames the user, rotates the password, and frees the old username", async () => {
+        const created = await client.users.create({
+          username: id.create(),
+          password: "one",
+        });
+        const renamed = id.create();
+        const updated = await client.users.create({
+          key: created.key,
+          username: renamed,
+          password: "two",
+          firstName: "Thomas",
+        });
+        expect(updated.key).toEqual(created.key);
+        expect(updated.username).toEqual(renamed);
+        expect(updated.firstName).toEqual("Thomas");
+        const asRenamed = createTestClient({ username: renamed, password: "two" });
+        await expect(asRenamed.connect()).resolves.toBeDefined();
+        await asRenamed.close();
+        const asOld = createTestClient({ username: created.username, password: "one" });
+        await expect(asOld.connect()).rejects.toThrow(AuthError);
+        await asOld.close();
+        const restored = await client.users.create({
+          key: created.key,
+          username: created.username,
+          password: "three",
+        });
+        expect(restored.username).toEqual(created.username);
+        const asRestored = createTestClient({
+          username: created.username,
+          password: "three",
+        });
+        await expect(asRestored.connect()).resolves.toBeDefined();
+        await asRestored.close();
+      });
+      test("rejects a username held by another user", async () => {
+        const a = await client.users.create({ username: id.create(), password: "one" });
+        const b = await client.users.create({ username: id.create(), password: "one" });
+        await expect(
+          client.users.create({ key: a.key, username: b.username, password: "two" }),
+        ).rejects.toThrow(AuthError);
+      });
     });
   });
   describe("Retrieve", () => {
