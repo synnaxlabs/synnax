@@ -33,6 +33,8 @@ export interface LatestReader {
   (keys: channel.Key[]): Promise<Frame>;
 }
 
+type LatestBatch = Array<debounce.Entry<channel.Key, MultiSeries>>;
+
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
   extends
@@ -59,6 +61,7 @@ export class Feed {
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly latest: debounce.Batcher<channel.Key, MultiSeries>;
+  private readonly inFlight = new Set<LatestBatch>();
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -103,11 +106,16 @@ export class Feed {
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
         if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-        const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
-        entries.forEach(({ req, resolve }) => {
-          const series = frame.get(req).series.map((s) => transform.convert(s));
-          resolve(new MultiSeries(series));
-        });
+        this.inFlight.add(entries);
+        try {
+          const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
+          entries.forEach(({ req, resolve }) => {
+            const series = frame.get(req).series.map((s) => transform.convert(s));
+            resolve(new MultiSeries(series));
+          });
+        } finally {
+          this.inFlight.delete(entries);
+        }
       },
     });
   }
@@ -144,7 +152,10 @@ export class Feed {
   /** Closes the feed, releasing the stream and all cached buffers. */
   async close(): Promise<void> {
     this.closed = true;
-    this.latest.close(new UnexpectedError("telemetry feed is closed"));
+    const err = new UnexpectedError("telemetry feed is closed");
+    this.latest.close(err);
+    this.inFlight.forEach((batch) => batch.forEach(({ reject }) => reject(err)));
+    this.inFlight.clear();
     await this.streamer.close();
     await this.reader.close();
     this.cache.close();

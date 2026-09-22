@@ -564,5 +564,34 @@ describe("feed", () => {
       await expect(pending).rejects.toThrow(UnexpectedError);
       await expect(direct.readLatest(1)).rejects.toThrow(UnexpectedError);
     });
+
+    it("should reject in-flight reads as soon as the feed closes", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const direct = createFeed(async (keys) => {
+        await gate;
+        return latestFrame(keys);
+      });
+      const reads = [direct.readLatest(1), direct.readLatest(2)];
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      await direct.close();
+      const results = await Promise.allSettled(reads);
+      expect(results.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+      release();
+    });
+
+    it("should report the close rather than a later request failure", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const direct = createFeed(async () => {
+        await gate;
+        throw new Error("iterator exploded");
+      });
+      const read = direct.readLatest(1);
+      await sleep.sleep(TimeSpan.milliseconds(60));
+      await direct.close();
+      release();
+      await expect(read).rejects.toThrow(UnexpectedError);
+    });
   });
 });
