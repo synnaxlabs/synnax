@@ -274,7 +274,7 @@ const SearchDialogContent = () => {
         borderColor={6}
         emptyContent={
           <Text.Text center status="disabled">
-            No Results
+            No results
           </Text.Text>
         }
       >
