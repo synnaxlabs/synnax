@@ -572,23 +572,31 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       let changed: boolean;
       if (target.type === "plain") {
         const { channel: field, topic } = target;
-        [field.channel, changed] = await Task.configureCommandChannel(client, dev.properties.write, {
-          propertiesKey: topic,
-          channel: field.channel,
-          name: primitive.isNonZero(field.name)
-            ? field.name
-            : `${safeDevName}_${channel.escapeInvalidName(topic)}_cmd`,
-          dataType: field.dataType,
-        });
+        [field.channel, changed] = await Task.configureCommandChannel(
+          client,
+          dev.properties.write,
+          {
+            propertiesKey: topic,
+            channel: field.channel,
+            name: primitive.isNonZero(field.name)
+              ? field.name
+              : `${safeDevName}_${channel.escapeInvalidName(topic)}_cmd`,
+            dataType: field.dataType,
+          },
+        );
       } else
-        [target.channel, changed] = await Task.configureCommandChannel(client, dev.properties.write, {
-          propertiesKey: sparkplugPropertiesKey(target),
-          channel: target.channel,
-          name: primitive.isNonZero(target.name)
-            ? target.name
-            : `${sparkplugChannelName(dev.name, target)}_cmd`,
-          dataType: fromSparkplugDataType(target.sparkplugType),
-        });
+        [target.channel, changed] = await Task.configureCommandChannel(
+          client,
+          dev.properties.write,
+          {
+            propertiesKey: sparkplugPropertiesKey(target),
+            channel: target.channel,
+            name: primitive.isNonZero(target.name)
+              ? target.name
+              : `${sparkplugChannelName(dev.name, target)}_cmd`,
+            dataType: fromSparkplugDataType(target.sparkplugType),
+          },
+        );
       modified ||= changed;
     }
   } finally {

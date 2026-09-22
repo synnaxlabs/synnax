@@ -85,6 +85,23 @@ var _ = Describe("Runner", func() {
 			Expect(stat.Message).To(Equal("Task stopped successfully"))
 		})
 
+		It(
+			"Should stop the run when the running status cannot be written",
+			func(ctx SpecContext) {
+				ended := make(chan struct{}, 2)
+				r := open(func(ctx context.Context) error {
+					defer func() { ended <- struct{}{} }()
+					return waitRun(ctx)
+				})
+				cancelled, cancel := context.WithCancel(ctx)
+				cancel()
+				Expect(r.Start(cancelled, "cmd-1")).To(MatchError(context.Canceled))
+				Eventually(ended).Should(Receive())
+				Expect(r.Start(ctx, "cmd-2")).To(Succeed())
+				Expect(opened).To(Equal(2))
+			},
+		)
+
 		It("Should report a run that ends on its own", func(ctx SpecContext) {
 			r := open(func(context.Context) error { return errors.New("boom") })
 			Expect(r.Start(ctx, "cmd-1")).To(Succeed())

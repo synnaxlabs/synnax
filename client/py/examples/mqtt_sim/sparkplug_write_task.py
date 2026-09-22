@@ -6,6 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+
 """
 This example sends a Sparkplug B command to the mock MQTT plant each time a value is
 written to a Synnax channel.

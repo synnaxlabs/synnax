@@ -23,7 +23,7 @@ tags.
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter    | Type    | Required | Default | Description                                                   |
 | ------------ | ------- | -------- | ------- | ------------------------------------------------------------- |
@@ -33,7 +33,7 @@ tags.
 
 <Divider.Divider x />
 
-## Target Configuration Reference
+## Target configuration reference
 
 Each target publishes to one topic. The task needs at least one target that is not
 disabled. A topic may not hold the wildcards `+` or `#`.
@@ -50,7 +50,7 @@ disabled. A topic may not hold the wildcards `+` or `#`.
 
 <Divider.Divider x />
 
-## Command Channel Reference
+## Command channel reference
 
 | Parameter     | Type    | Required | Default     | Description                                                                         |
 | ------------- | ------- | -------- | ----------- | ----------------------------------------------------------------------------------- |
@@ -66,7 +66,7 @@ fields.
 
 <Divider.Divider x />
 
-## Extra Field Reference
+## Extra field reference
 
 A static field adds a fixed value to each payload. A generated field adds a new UUID or
 the current time.
@@ -82,7 +82,7 @@ the current time.
 
 <Divider.Divider x />
 
-## Behavior During an Outage
+## Behavior during an outage
 
 The task never holds a command back for later. If the broker is not connected when a
 command arrives, the task drops the command and shows a warning. A command that waited
@@ -92,7 +92,7 @@ a command.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">

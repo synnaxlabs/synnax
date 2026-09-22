@@ -182,6 +182,16 @@ func (r *Runner) Start(ctx context.Context, cmdKey string) error {
 		}
 		return nil
 	}, signal.RecoverWithErrOnPanic())
+	if err == nil {
+		return nil
+	}
+	// A caller that gets an error drops the task, so the run must not outlive it.
+	if r.release(active) {
+		active.cancel()
+	}
+	if wErr := active.sCtx.Wait(); !errors.Is(wErr, context.Canceled) {
+		err = errors.Combine(err, wErr)
+	}
 	return err
 }
 

@@ -69,9 +69,9 @@ Run all commands from the `client/py` directory.
 
 The plant also mirrors every Sparkplug B edge node that connects to it:
 
-| Topic                                      | Payload                                 |
-| ------------------------------------------ | --------------------------------------- |
-| `plant/sparkplug/<group>/<node>/<tag>`     | Retained JSON `{"value": ...}`          |
+| Topic                                      | Payload                                |
+| ------------------------------------------ | -------------------------------------- |
+| `plant/sparkplug/<group>/<node>/<tag>`     | Retained JSON `{"value": ...}`         |
 | `plant/sparkplug/<group>/<node>/<tag>/set` | A JSON value, sent as a command (NCMD) |
 
 ## Sparkplug B tags of the mock plant
@@ -81,8 +81,8 @@ for a tag sets the value of that tag.
 
 | Device  | Tag           | Data type |
 | ------- | ------------- | --------- |
-|         | `temperature` | Double    |
-|         | `count`       | Int64     |
-|         | `running`     | Boolean   |
-| `Pump1` | `speed`       | Float     |
-| `Pump1` | `setpoint`    | Double    |
+|         | `temperature` | `double`  |
+|         | `count`       | `int64`   |
+|         | `running`     | `boolean` |
+| `Pump1` | `speed`       | `float`   |
+| `Pump1` | `setpoint`    | `double`  |

@@ -22,7 +22,7 @@ payloads to Synnax channels. One task reads any number of topics. It can also re
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter              | Type    | Required | Default | Description                                                   |
 | ---------------------- | ------- | -------- | ------- | ------------------------------------------------------------- |
@@ -33,7 +33,7 @@ payloads to Synnax channels. One task reads any number of topics. It can also re
 
 <Divider.Divider x />
 
-## Topic Configuration Reference
+## Topic configuration reference
 
 Each entry reads one topic. The task needs at least one entry that is not disabled. A
 topic may appear once in a task, and it may not hold the wildcards `+` or `#`.
@@ -50,7 +50,7 @@ topic may appear once in a task, and it may not hold the wildcards `+` or `#`.
 
 <Divider.Divider x />
 
-## Field Extraction Reference
+## Field extraction reference
 
 Each field takes one value from the payload and writes it to a channel. A
 [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) selects the value. An
@@ -73,7 +73,7 @@ two topics may not write to the same channel.
 
 <Divider.Divider x />
 
-## Timestamp Handling
+## Timestamp handling
 
 By default, the task stamps each payload with the time it arrives at the Core. If the
 payload carries its own timestamp, add a field for it that writes to the index channel,
@@ -98,7 +98,7 @@ payload when it delivers a message twice at quality of service 1.
 
 <Divider.Divider x />
 
-## Retained Messages and Overload
+## Retained messages and overload
 
 When the task subscribes, the broker sends the retained message of each topic, if it has
 one. The task treats it like any other message. Set `retained_ignored` to drop it.
@@ -108,7 +108,7 @@ than the task can write them, the task drops the oldest ones and shows a warning
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">

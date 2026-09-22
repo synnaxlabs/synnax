@@ -76,9 +76,7 @@ describe("channels", () => {
         indexKey: "ts",
       });
       expect(modified).toBe(true);
-      expect((await client.channels.retrieve(props.index)).name).toBe(
-        `${prefix}_time`,
-      );
+      expect((await client.channels.retrieve(props.index)).name).toBe(`${prefix}_time`);
       const data = await client.channels.retrieve(fields[0].channel);
       expect(data.name).toBe(`${prefix}_temperature`);
       expect(data.index).toBe(props.index);
@@ -143,9 +141,7 @@ describe("channels", () => {
       });
       expect(modified).toBe(true);
       expect(props.index).toBe(index.key);
-      expect((await client.channels.retrieve(fields[0].channel)).index).toBe(
-        index.key,
-      );
+      expect((await client.channels.retrieve(fields[0].channel)).index).toBe(index.key);
     });
 
     it("should skip the index when no field counts as indexed", async () => {

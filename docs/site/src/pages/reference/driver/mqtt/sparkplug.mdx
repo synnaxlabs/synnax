@@ -24,7 +24,7 @@ for them. The same tasks can hold plain topics and Sparkplug B tags together.
 
 <Divider.Divider x />
 
-## Identify a Tag
+## Identify a tag
 
 An edge node publishes tags for itself and for its devices. Four values identify a tag:
 
@@ -39,7 +39,7 @@ The IDs may not hold `/`, `+`, or `#`.
 
 <Divider.Divider x />
 
-## Host Application ID
+## Host application ID
 
 Two optional settings of the broker device control the host application:
 
@@ -56,7 +56,7 @@ online. Each host ID must be in use by one application only.
 
 <Divider.Divider x />
 
-## Read Tags
+## Read tags
 
 Add an entry of type `"sparkplug"` to the `entries` of a
 [read task](/reference/driver/mqtt/read-task).
@@ -64,10 +64,10 @@ Add an entry of type `"sparkplug"` to the `entries` of a
 | Parameter   | Type    | Required | Default     | Description                                                      |
 | ----------- | ------- | -------- | ----------- | ---------------------------------------------------------------- |
 | `type`      | string  | Yes      | -           | `"sparkplug"`                                                    |
-| `group`     | string  | Yes      | -           | See [Identify a Tag](#identify-a-tag)                            |
-| `edge_node` | string  | Yes      | -           | See [Identify a Tag](#identify-a-tag)                            |
-| `device`    | string  | No       | `""`        | See [Identify a Tag](#identify-a-tag)                            |
-| `tag`       | string  | Yes      | -           | See [Identify a Tag](#identify-a-tag)                            |
+| `group`     | string  | Yes      | -           | See [Identify a tag](#identify-a-tag)                            |
+| `edge_node` | string  | Yes      | -           | See [Identify a tag](#identify-a-tag)                            |
+| `device`    | string  | No       | `""`        | See [Identify a tag](#identify-a-tag)                            |
+| `tag`       | string  | Yes      | -           | See [Identify a tag](#identify-a-tag)                            |
 | `channel`   | integer | Yes      | -           | Key of the Synnax channel to write to                            |
 | `index`     | integer | No       | `0`         | Key of the index channel of `channel`. `0` for a virtual channel |
 | `data_type` | string  | No       | `"float64"` | Data type of the channel                                         |
@@ -82,7 +82,7 @@ The task converts each value to the data type of the channel. It supports the in
 `Float`, `Double`, `Boolean`, `String`, `Text`, `UUID`, and `DateTime` data types of
 Sparkplug B. It does not support `DataSet`, `Bytes`, `File`, `Template`, and array tags.
 
-### Births, Deaths, and Rebirths
+### Births, deaths, and rebirths
 
 An edge node declares its tags in a birth message. When the task starts, it asks each
 edge node for a new birth, so that it starts from the current value of each tag. It asks
@@ -99,7 +99,7 @@ condition ends:
 
 <Divider.Divider x />
 
-## Command Tags
+## Command tags
 
 Add a target of type `"sparkplug"` to the `targets` of a
 [write task](/reference/driver/mqtt/write-task). Each value written to the command
@@ -108,10 +108,10 @@ channel becomes one `NCMD` message, or one `DCMD` message for a tag of a device.
 | Parameter        | Type    | Required | Default    | Description                                       |
 | ---------------- | ------- | -------- | ---------- | ------------------------------------------------- |
 | `type`           | string  | Yes      | -          | `"sparkplug"`                                     |
-| `group`          | string  | Yes      | -          | See [Identify a Tag](#identify-a-tag)             |
-| `edge_node`      | string  | Yes      | -          | See [Identify a Tag](#identify-a-tag)             |
-| `device`         | string  | No       | `""`       | See [Identify a Tag](#identify-a-tag)             |
-| `tag`            | string  | Yes      | -          | See [Identify a Tag](#identify-a-tag)             |
+| `group`          | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
+| `edge_node`      | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
+| `device`         | string  | No       | `""`       | See [Identify a tag](#identify-a-tag)             |
+| `tag`            | string  | Yes      | -          | See [Identify a tag](#identify-a-tag)             |
 | `channel`        | integer | Yes      | -          | Key of the command channel                        |
 | `sparkplug_type` | string  | No       | `"double"` | Data type that the edge node declares for the tag |
 | `disabled`       | boolean | No       | `false`    | Excludes the target from the task                 |
@@ -128,7 +128,7 @@ rejects a command channel whose data type can never fit, such as a string channe
 
 <Divider.Divider x />
 
-## Run an Edge Node
+## Run an edge node
 
 The edge node task, of type `mqtt_sparkplug_edge`, makes the Core one Sparkplug B edge
 node. Each tag publishes one Synnax channel. A SCADA system such as Ignition then sees
@@ -168,7 +168,7 @@ task shows a warning.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
