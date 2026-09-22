@@ -7,63 +7,109 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
+import { type NumericTimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
 import { Input } from "@/input";
-import { moveEnd, moveStart, UNSET } from "@/ranger/move";
-import { getStage, STAGE_NAMES } from "@/ranger/stage";
+import { UNSET } from "@/ranger/move";
+import { getStage, type Stage, STAGE_ICONS, STAGE_NAMES } from "@/ranger/stage";
 import { Text } from "@/text";
 
-export interface TimelineEffectProps {
-  /** The range the cell holds one end of. */
-  range: NumericTimeRange;
-  /** Which end the cell holds. */
-  bound: Input.Bound;
-  /** The instant the cell would commit. */
-  candidate: number;
-}
+/** One thing a commit would change about a range. */
+export type Change =
+  | { kind: "stage"; from: Stage; to: Stage }
+  | {
+      kind: "set" | "moved" | "cleared";
+      bound: Input.Bound;
+      before: number;
+      after: number;
+    };
+
+const MICROSECOND = Number(TimeSpan.MICROSECOND.valueOf());
 
 /**
- * What committing a reading would change about the range besides the cell itself:
- * the other stamp when the edit drags it, and the stage when the edit crosses now.
- * Belongs in the `effect` of a {@link Input.DateTime} holding one end of `range`.
+ * Lists what committing `next` would change about `range` besides the end being
+ * edited: the stage when the commit crosses now, then each other end it sets, moves,
+ * or clears.
+ */
+export const describeChanges = (
+  range: NumericTimeRange,
+  next: NumericTimeRange,
+  editing?: Input.Bound,
+): Change[] => {
+  const out: Change[] = [];
+  // A candidate of now can round up to the next float64, a fraction of a microsecond
+  // ahead, so the stages are read a microsecond late.
+  const now = TimeStamp.now().add(TimeSpan.MICROSECOND);
+  const from = getStage(range, now);
+  const to = getStage(next, now);
+  if (from !== to) out.push({ kind: "stage", from, to });
+  for (const bound of ["start", "end"] as const) {
+    if (bound === editing) continue;
+    const before = range[bound];
+    const after = next[bound];
+    // Float64 nanoseconds carry noise below the microsecond.
+    if (Math.abs(after - before) < MICROSECOND) continue;
+    let kind: "set" | "moved" | "cleared" = "moved";
+    if (after >= UNSET) kind = "cleared";
+    else if (before >= UNSET) kind = "set";
+    out.push({ kind, bound, before, after });
+  }
+  return out;
+};
+
+export interface TimelineEffectProps {
+  changes: Change[];
+  /** The finest unit the effect shows. */
+  resolution?: TimeSpan;
+}
+
+const VERBS = { set: "Sets", moved: "Moves" } as const;
+
+/**
+ * Renders {@link describeChanges}: a stage change as its two stages, a cleared end in
+ * the warning color with the value it loses, and a set or moved end quietly.
  */
 export const TimelineEffect = ({
-  range,
-  bound,
-  candidate,
-}: TimelineEffectProps): ReactElement | null => {
-  const start = bound === "start";
-  const next = start ? moveStart(range, candidate) : moveEnd(range, candidate);
-  const other = start ? "end" : "start";
-  const before = start ? range.end : range.start;
-  const after = start ? next.end : next.start;
-  const stage = getStage(range);
-  const nextStage = getStage(next);
-
-  let moves: string | null = null;
-  if (after !== before)
-    moves =
-      after >= UNSET
-        ? `Clears ${other}`
-        : `Moves ${other} to ${Input.formatInstant(after, TimeStamp.now())}`;
-  if (moves == null && nextStage === stage) return null;
-
+  changes,
+  resolution,
+}: TimelineEffectProps): ReactElement => {
+  const now = TimeStamp.now();
   return (
     <>
-      {moves != null && (
-        <Text.Text level="small" status="warning">
-          {moves}
-        </Text.Text>
-      )}
-      {nextStage !== stage && (
-        <Text.Text level="small" color={9} gap="tiny">
-          <Icon.Arrow.Right />
-          {STAGE_NAMES[nextStage]}
-        </Text.Text>
-      )}
+      {changes.map((change) => {
+        if (change.kind === "stage") {
+          const From = STAGE_ICONS[change.from];
+          const To = STAGE_ICONS[change.to];
+          return (
+            <Text.Text key="stage" level="small" gap="tiny">
+              <Text.Text el="span" level="small" color={9} gap="tiny">
+                <From />
+                {STAGE_NAMES[change.from]}
+              </Text.Text>
+              <Icon.Arrow.Right />
+              <To />
+              {STAGE_NAMES[change.to]}
+            </Text.Text>
+          );
+        }
+        const { kind, bound, before, after } = change;
+        if (kind === "cleared")
+          return (
+            <Text.Text key={bound} level="small" status="warning" gap="small">
+              Clears {bound}
+              <Text.Text el="span" level="small" color={9}>
+                was {Input.formatInstant(before, now, resolution)}
+              </Text.Text>
+            </Text.Text>
+          );
+        return (
+          <Text.Text key={bound} level="small" color={9}>
+            {VERBS[kind]} {bound} to {Input.formatInstant(after, now, resolution)}
+          </Text.Text>
+        );
+      })}
     </>
   );
 };

@@ -21,8 +21,10 @@
     }
 }
 
+/* A fixed width, so the effect of a hovered transition wraps instead of widening the
+   menu. */
 .pluto-stage-button__menu {
-    min-width: 20rem;
+    width: 40rem;
     border-color: var(--pluto-gray-l6);
 }
 

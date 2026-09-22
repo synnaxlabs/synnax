@@ -28,9 +28,12 @@
     }
 }
 
+/* A fixed width, so the dialog holds still while the readings change under it. */
 .pluto-time-editor__dialog {
-    min-width: max-content;
-    max-width: 64rem;
+    --pluto-time-editor-width: min(56rem, calc(100vw - 4rem));
+
+    min-width: var(--pluto-time-editor-width);
+    max-width: var(--pluto-time-editor-width);
 
     /* The field's digits line up in one fixed layout, so a caret position names a
        unit. */
@@ -63,16 +66,16 @@
 }
 
 .pluto-time-editor__suggestion {
-    height: fit-content;
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    text-align: left;
+    padding: 0 1.5rem;
+    font-variant-numeric: tabular-nums;
+}
 
-    & > .pluto-flex {
-        width: 100%;
-        min-width: 0;
-        align-items: stretch;
-    }
+/* The reading's detail yields its width to the value and truncates. */
+.pluto-time-editor__detail {
+    min-width: 0;
+    margin-left: auto;
+    padding-left: 2rem;
+    text-align: right;
 }
 
 .pluto-time-editor__actions {
@@ -90,12 +93,31 @@
     }
 }
 
-/* Caller content sits in its own region so it never displaces the row's hints. A
-   row whose slot renders nothing keeps the height it had. */
-.pluto-time-editor__effect:empty {
-    display: none;
+/* Collapses to zero rows, so the effect slides in and out instead of popping. */
+.pluto-time-effect {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+        grid-template-rows 0.15s ease,
+        opacity 0.15s ease;
+
+    &.pluto--visible {
+        grid-template-rows: 1fr;
+        opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
 }
 
-.pluto-time-editor__action .pluto-time-editor__effect {
-    padding-left: 2rem;
+.pluto-time-effect__clip {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pluto-time-effect__content {
+    padding: 1.5rem 2.5rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 }

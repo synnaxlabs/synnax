@@ -17,6 +17,7 @@ import { mockBoundingClientRect } from "@/testutil/dom";
 
 const HOUR = Number(TimeSpan.HOUR.valueOf());
 const MILLISECOND = Number(TimeSpan.MILLISECOND.valueOf());
+const SECOND = Number(TimeSpan.SECOND.valueOf());
 
 const triggers = (container: HTMLElement): NodeListOf<HTMLElement> =>
   container.querySelectorAll(".pluto-time-editor__trigger");
@@ -88,6 +89,41 @@ describe("Ranger.Timeline", () => {
     );
     expect(screen.getByText("In progress")).toBeTruthy();
     await waitFor(() => expect(screen.getByText("Completed")).toBeTruthy());
+  });
+
+  it("should never read an open range finer than the second", () => {
+    const start = TimeStamp.now().nanoseconds - 5 * SECOND + 123 * MILLISECOND;
+    const { container } = render(
+      <Ranger.Timeline
+        value={{ start, end: TimeStamp.MAX.nanoseconds }}
+        onChange={() => {}}
+      />,
+    );
+    expect(triggers(container)[0].textContent).toMatch(/\d{2}:\d{2}(:\d{2})?$/);
+  });
+
+  it("should offer a planned end once a range is scheduled", () => {
+    const now = TimeStamp.now().nanoseconds;
+    const onChange = vi.fn();
+    render(
+      <Ranger.Timeline
+        value={{ start: now + HOUR, end: TimeStamp.MAX.nanoseconds }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByText("Set an end time"));
+    const field = screen.getByRole("textbox");
+    fireEvent.change(field, { target: { value: "start + 2h" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith({ start: now + HOUR, end: now + 3 * HOUR });
+  });
+
+  it("should not offer an end before a range is scheduled", () => {
+    const unset = TimeStamp.MAX.nanoseconds;
+    render(
+      <Ranger.Timeline value={{ start: unset, end: unset }} onChange={() => {}} />,
+    );
+    expect(screen.queryByText("Set an end time")).toBeNull();
   });
 
   it("should end a running range at its start on a zero elapsed time", () => {

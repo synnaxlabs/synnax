@@ -16,12 +16,28 @@ import { mockBoundingClientRect } from "@/testutil/dom";
 
 const NOW = TimeStamp.now().nanoseconds;
 const HOUR = Number(TimeSpan.HOUR.valueOf());
+const DAY = Number(TimeSpan.DAY.valueOf());
 const UNSET = TimeStamp.MAX.nanoseconds;
 
 /** Opens the `index`th time cell of a rendered timeline. */
-const openCell = (container: HTMLElement, index: number): void => {
+const openCell = (container: HTMLElement, index: number): HTMLInputElement => {
   const triggers = container.querySelectorAll(".pluto-time-editor__trigger");
   fireEvent.click(triggers[index]);
+  return screen.getByRole<HTMLInputElement>("textbox");
+};
+
+const hover = (text: string): void => {
+  fireEvent.mouseEnter(screen.getByRole("menuitem", { name: text }));
+};
+
+const EDITOR_EFFECT = ".pluto-time-effect";
+const STAGE_EFFECT = ".pluto-stage-button__effect";
+
+/** The text the effect footer shows, or null while it is collapsed. */
+const effectText = (selector = EDITOR_EFFECT): string | null => {
+  const effect = document.querySelector(selector);
+  if (effect == null) throw new Error(`no ${selector}`);
+  return effect.classList.contains("pluto--visible") ? effect.textContent : null;
 };
 
 describe("Ranger.TimelineEffect", () => {
@@ -29,47 +45,117 @@ describe("Ranger.TimelineEffect", () => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });
 
-  it("should name the stage an action would land the range in", () => {
-    const { container } = render(
-      <Ranger.Timeline
-        value={{ start: NOW + HOUR, end: NOW + 2 * HOUR }}
-        onChange={() => {}}
-      />,
-    );
-    openCell(container, 0);
-    // Now falls inside the range, so starting it early runs it.
-    expect(screen.getByText("In progress")).toBeTruthy();
+  describe("time editor", () => {
+    it("should name the stage a hovered action would land the range in", () => {
+      const { container } = render(
+        <Ranger.Timeline
+          value={{ start: NOW + HOUR, end: NOW + 2 * HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      openCell(container, 0);
+      hover("Now");
+      expect(effectText()).toBe("To doIn progress");
+    });
+
+    it("should say nothing when a commit leaves the stage and the other end alone", () => {
+      const { container } = render(
+        <Ranger.Timeline
+          value={{ start: NOW - HOUR, end: UNSET }}
+          onChange={() => {}}
+        />,
+      );
+      openCell(container, 0);
+      hover("Now");
+      expect(effectText()).toBeNull();
+    });
+
+    it("should describe the highlighted reading when no action is hovered", () => {
+      const { container } = render(
+        <Ranger.Timeline
+          value={{ start: NOW - 2 * HOUR, end: NOW - HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      const field = openCell(container, 0);
+      fireEvent.change(field, { target: { value: "now + 3h" } });
+      expect(effectText()).toMatch(/^CompletedTo doMoves end to /);
+    });
+
+    it("should return to the highlighted reading when the pointer leaves an action", () => {
+      const { container } = render(
+        <Ranger.Timeline
+          value={{ start: NOW + HOUR, end: NOW + 2 * HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      openCell(container, 0);
+      hover("Now");
+      fireEvent.mouseLeave(screen.getByRole("menuitem", { name: "Now" }));
+      // The highlighted reading is the current value, which changes nothing.
+      expect(effectText()).toBeNull();
+    });
+
+    it("should keep its last content while it collapses out", () => {
+      const { container } = render(
+        <Ranger.Timeline
+          value={{ start: NOW + HOUR, end: NOW + 2 * HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      openCell(container, 0);
+      hover("Now");
+      fireEvent.mouseLeave(screen.getByRole("menuitem", { name: "Now" }));
+      expect(document.querySelector(EDITOR_EFFECT)?.textContent).toBe(
+        "To doIn progress",
+      );
+    });
+
+    it("should report a cleared end with the value it loses", () => {
+      const end = NOW + 2 * HOUR;
+      const { container } = render(
+        <Ranger.Timeline value={{ start: NOW + HOUR, end }} onChange={() => {}} />,
+      );
+      openCell(container, 0);
+      hover("Unschedule");
+      expect(effectText()).toMatch(/^Clears endwas /);
+    });
+
+    it("should drop digits below the row's resolution", () => {
+      // A range over a day long reads to the minute.
+      const start = NOW - 3 * DAY;
+      const end = NOW - DAY + 1_234_567_000;
+      const { container } = render(
+        <Ranger.Timeline value={{ start, end }} onChange={() => {}} />,
+      );
+      const field = openCell(container, 0);
+      fireEvent.change(field, { target: { value: "end + 1h" } });
+      expect(effectText()).toMatch(/Moves end to \D+ \d{2}:\d{2}$/);
+    });
   });
 
-  it("should say nothing when a commit leaves the stage and the other end alone", () => {
-    const { container } = render(
-      <Ranger.Timeline value={{ start: NOW - HOUR, end: UNSET }} onChange={() => {}} />,
-    );
-    openCell(container, 0);
-    const slots = document.querySelectorAll(".pluto-time-editor__effect");
-    expect(slots.length).toBeGreaterThan(0);
-    slots.forEach((slot) => expect(slot.textContent).toBe(""));
-  });
+  describe("stage menu", () => {
+    it("should say what a hovered transition would clear", () => {
+      render(
+        <Ranger.Timeline
+          value={{ start: NOW - 2 * HOUR, end: NOW - HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      fireEvent.click(screen.getByText("Completed"));
+      hover("Reopen");
+      expect(effectText(STAGE_EFFECT)).toMatch(/^CompletedIn progressClears endwas /);
+    });
 
-  it("should warn where a crossing edit drags the other end", () => {
-    const { container } = render(
-      <Ranger.Timeline
-        value={{ start: NOW - 2 * HOUR, end: NOW - HOUR }}
-        onChange={() => {}}
-      />,
-    );
-    openCell(container, 0);
-    expect(screen.getByText(/^Moves end to /)).toBeTruthy();
-  });
-
-  it("should report a cleared end rather than an instant", () => {
-    const { container } = render(
-      <Ranger.Timeline
-        value={{ start: NOW + HOUR, end: NOW + 2 * HOUR }}
-        onChange={() => {}}
-      />,
-    );
-    openCell(container, 0);
-    expect(screen.getByText("Clears end")).toBeTruthy();
+    it("should show no effect until a transition is hovered", () => {
+      render(
+        <Ranger.Timeline
+          value={{ start: NOW - 2 * HOUR, end: NOW - HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      fireEvent.click(screen.getByText("Completed"));
+      expect(effectText(STAGE_EFFECT)).toBeNull();
+    });
   });
 });

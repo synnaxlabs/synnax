@@ -10,7 +10,7 @@
 import "@/input/time/Time.css";
 
 import { TimeSpan as XTimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps, Editor } from "@/input/time/Editor";
@@ -71,15 +71,12 @@ export const TimeSpan = ({
     resolution == null ? formatted : formatTimeSpan(exact.truncate(resolution));
   const exactTooltip = elapsed == null && shown !== formatted ? formatted : undefined;
 
-  const handleCommit = useCallback(
-    (span: XTimeSpan) => {
-      const next = Number(span.valueOf());
-      // An elapsed readout ignores value, so any typed duration is a change.
-      if (elapsedSince != null || roundNumeric(next) !== roundNumeric(value))
-        onChange(next);
-    },
-    [value, onChange, elapsedSince],
-  );
+  const handleCommit = (span: XTimeSpan): void => {
+    const next = Number(span.valueOf());
+    // An elapsed readout ignores value, so any typed duration is a change.
+    if (elapsedSince != null || roundNumeric(next) !== roundNumeric(value))
+      onChange(next);
+  };
 
   return (
     <Editor<XTimeSpan>
@@ -102,7 +99,12 @@ export const TimeSpan = ({
       {({ value: span, reading }) => (
         <>
           <span>{formatTimeSpan(span)}</span>
-          <Text.Text level="small" color={9} overflow="ellipsis">
+          <Text.Text
+            level="small"
+            color={9}
+            overflow="ellipsis"
+            className={CSS.BE("time-editor", "detail")}
+          >
             {reading}
           </Text.Text>
         </>

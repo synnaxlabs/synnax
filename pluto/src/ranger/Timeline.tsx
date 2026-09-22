@@ -10,7 +10,7 @@
 import "@/ranger/Timeline.css";
 
 import { type NumericTimeRange, type text, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { type Button } from "@/button";
 import { type Component } from "@/component";
@@ -23,12 +23,12 @@ import { Menu } from "@/menu";
 import { moveEnd, moveStart, UNSET } from "@/ranger/move";
 import {
   getStage,
+  moveToStage,
   type Stage,
   STAGE_ICONS,
   STAGE_NAMES,
-  wrapNumericTimeRangeToStage,
 } from "@/ranger/stage";
-import { TimelineEffect } from "@/ranger/TimelineEffect";
+import { describeChanges, TimelineEffect } from "@/ranger/TimelineEffect";
 import { Text } from "@/text";
 
 /**
@@ -41,6 +41,20 @@ export const resolutionFor = (span: TimeSpan): TimeSpan => {
   if (span.greaterThanOrEqual(TimeSpan.MINUTE)) return TimeSpan.SECOND;
   if (span.greaterThanOrEqual(TimeSpan.SECOND)) return TimeSpan.MILLISECOND;
   return TimeSpan.MICROSECOND;
+};
+
+/**
+ * The resolution for the labels of `range`. An open range is measured to now, and
+ * never reads finer than the second its elapsed clock ticks by.
+ */
+const rangeResolution = ({ start, end }: NumericTimeRange): TimeSpan => {
+  const open = end >= UNSET;
+  const far = open ? TimeStamp.now().nanoseconds : end;
+  const near = start < UNSET ? start : far;
+  const resolution = resolutionFor(
+    new TimeSpan(BigInt(Math.abs(Math.trunc(far - near)))),
+  );
+  return open && resolution.lessThan(TimeSpan.SECOND) ? TimeSpan.SECOND : resolution;
 };
 
 interface Transition {
@@ -61,6 +75,49 @@ const TRANSITIONS: Record<Stage, Transition[]> = {
   completed: [{ to: "in_progress", name: "Reopen" }],
 };
 
+/**
+ * The transitions out of the range's stage, over the effect of the hovered one. It
+ * mounts with the menu, so the hover resets each time the menu opens.
+ */
+const StageMenu = ({
+  value,
+  onChange,
+}: Input.Control<NumericTimeRange>): ReactElement => {
+  const [hovered, setHovered] = useState<Stage | null>(null);
+  return (
+    <>
+      <Flex.Box y gap="tiny" className={CSS.BE("stage-button", "items")}>
+        <Menu.Menu onChange={(to) => onChange(moveToStage(value, to as Stage))}>
+          {TRANSITIONS[getStage(value)].map(({ to, name }) => {
+            const ToIcon = STAGE_ICONS[to];
+            return (
+              <Menu.Item
+                key={to}
+                itemKey={to}
+                onMouseEnter={() => setHovered(to)}
+                onMouseLeave={() => setHovered(null)}
+                onFocus={() => setHovered(to)}
+                onBlur={() => setHovered(null)}
+              >
+                <ToIcon />
+                {name}
+              </Menu.Item>
+            );
+          })}
+        </Menu.Menu>
+      </Flex.Box>
+      <Input.Effect className={CSS.BE("stage-button", "effect")}>
+        {hovered == null ? null : (
+          <TimelineEffect
+            changes={describeChanges(value, moveToStage(value, hovered))}
+            resolution={rangeResolution(value)}
+          />
+        )}
+      </Input.Effect>
+    </>
+  );
+};
+
 export interface StageButtonProps extends Input.Control<NumericTimeRange> {
   /** Shows the icon alone, for list rows. */
   iconOnly?: boolean;
@@ -75,7 +132,8 @@ export interface StageButtonProps extends Input.Control<NumericTimeRange> {
 /**
  * The range's stage as a chip whose menu holds the transitions out of it. A
  * transition writes the timestamps that define the next stage: Start stamps the
- * start, Complete stamps the end, Reopen clears it.
+ * start, Complete stamps the end, Reopen clears it. The menu says what the hovered
+ * transition would change.
  */
 export const StageButton = ({
   value,
@@ -90,15 +148,7 @@ export const StageButton = ({
 }: StageButtonProps): ReactElement => {
   const [open, setOpen] = useState(false);
   const stage = getStage(value);
-  const { onChange: transition } = wrapNumericTimeRangeToStage({ value, onChange });
   const I = STAGE_ICONS[stage];
-  const handleSelect = useCallback(
-    (to: string) => {
-      transition(to as Stage);
-      setOpen(false);
-    },
-    [transition],
-  );
   return (
     <Dialog.Frame
       variant="floating"
@@ -120,19 +170,13 @@ export const StageButton = ({
         {!iconOnly && STAGE_NAMES[stage]}
       </Dialog.Trigger>
       <Dialog.Dialog className={CSS.BE("stage-button", "menu")} background={1}>
-        <Flex.Box y gap="tiny" className={CSS.BE("stage-button", "items")}>
-          <Menu.Menu onChange={handleSelect}>
-            {TRANSITIONS[stage].map(({ to, name }) => {
-              const ToIcon = STAGE_ICONS[to];
-              return (
-                <Menu.Item key={to} itemKey={to}>
-                  <ToIcon />
-                  {name}
-                </Menu.Item>
-              );
-            })}
-          </Menu.Menu>
-        </Flex.Box>
+        <StageMenu
+          value={value}
+          onChange={(next) => {
+            onChange(next);
+            setOpen(false);
+          }}
+        />
       </Dialog.Dialog>
     </Dialog.Frame>
   );
@@ -179,12 +223,13 @@ const useStageBoundary = ({ start, end }: NumericTimeRange): void => {
 
 /**
  * A range's stage and the timestamps that define it, in one row. To do shows the
- * planned start; In progress shows the start, the elapsed time, and a planned end if
- * one is set; Completed shows start, end, and duration. Editing a timestamp keeps
- * the other in place; an edit that crosses it slides it to keep the duration. Each
- * reading says what it would move and which stage it would land the range in before
- * it is taken. Editing the duration moves the end. The stage chip's menu holds the
- * transitions, which stamp the timestamps.
+ * planned start and, once it is set, the planned end; In progress shows the start, the
+ * elapsed time, and the planned end; Completed shows start, end, and duration.
+ * Editing a timestamp keeps the other in place; an edit that crosses it slides it to
+ * keep the duration. The editor says what the highlighted reading would move and
+ * which stage it would land the range in before it is taken. Editing the duration
+ * moves the end. The stage chip's menu holds the transitions, which stamp the
+ * timestamps.
  */
 export const Timeline = ({
   value,
@@ -201,48 +246,52 @@ export const Timeline = ({
   const { start, end } = value;
   const stage = getStage(value);
   const scheduled = start < UNSET;
+  const ended = end < UNSET;
+  const resolution = rangeResolution(value);
 
-  // Labels read to the unit that separates the range's ends: for a running or
-  // planned range, the far end is now.
-  const far = end < UNSET ? end : TimeStamp.now().nanoseconds;
-  const near = scheduled ? start : far;
-  const resolution = resolutionFor(
-    new TimeSpan(BigInt(Math.abs(Math.trunc(far - near)))),
-  );
+  const handleStart = (next: number): void => onChange(moveStart(value, next));
+  const handleEnd = (next: number): void => onChange(moveEnd(value, next));
+  const handleSpan = (span: number): void => onChange({ start, end: start + span });
 
-  const handleStart = useCallback(
-    (next: number) => onChange(moveStart(value, next)),
-    [onChange, value],
-  );
-  const handleEnd = useCallback(
-    (next: number) => onChange(moveEnd(value, next)),
-    [onChange, value],
-  );
-  const handleSpan = useCallback(
-    (span: number) => onChange({ start, end: start + span }),
-    [onChange, start],
-  );
+  const effectOf = (
+    next: NumericTimeRange,
+    editing: Input.Bound,
+  ): ReactElement | null => {
+    const changes = describeChanges(value, next, editing);
+    if (changes.length === 0) return null;
+    return <TimelineEffect changes={changes} resolution={resolution} />;
+  };
+  const startEffect = ({ candidate }: { candidate: number }): ReactElement | null =>
+    effectOf(moveStart(value, candidate), "start");
+  const endEffect = ({ candidate }: { candidate: number }): ReactElement | null =>
+    effectOf(moveEnd(value, candidate), "end");
 
-  const startEffect = useCallback(
-    ({ candidate }: { candidate: number }) => (
-      <TimelineEffect range={value} bound="start" candidate={candidate} />
-    ),
-    [value],
-  );
-  const endEffect = useCallback(
-    ({ candidate }: { candidate: number }) => (
-      <TimelineEffect range={value} bound="end" candidate={candidate} />
-    ),
-    [value],
-  );
-
-  const startAnchors = useMemo(
-    () => ({ end: end < UNSET ? end : undefined, parent }),
-    [end, parent],
-  );
-  const endAnchors = useMemo(() => ({ start, parent }), [start, parent]);
+  const startAnchors = { end: ended ? end : undefined, parent };
+  const endAnchors = { start, parent };
 
   const cell = { variant, level, size, disabled, preview, resolution };
+
+  const endCell = (
+    <>
+      {ended && (
+        <Text.Text level={level} color={9} className={CSS.BE("range-timeline", "word")}>
+          ends
+        </Text.Text>
+      )}
+      <Input.DateTime
+        value={end}
+        onChange={handleEnd}
+        anchors={endAnchors}
+        emptyValue={UNSET}
+        placeholder="Set an end time"
+        clearLabel="Remove end"
+        sharedDay={start}
+        bound="end"
+        effect={endEffect}
+        {...cell}
+      />
+    </>
+  );
 
   return (
     <Flex.Box
@@ -283,6 +332,7 @@ export const Timeline = ({
             effect={startEffect}
             {...cell}
           />
+          {scheduled && endCell}
         </>
       )}
       {stage === "in_progress" && (
@@ -308,28 +358,7 @@ export const Timeline = ({
             elapsedSince={start}
             {...cell}
           />
-          {end < UNSET && (
-            <>
-              <Text.Text
-                level={level}
-                color={9}
-                className={CSS.BE("range-timeline", "word")}
-              >
-                ends
-              </Text.Text>
-              <Input.DateTime
-                value={end}
-                onChange={handleEnd}
-                anchors={endAnchors}
-                emptyValue={UNSET}
-                clearLabel="Remove end"
-                sharedDay={start}
-                bound="end"
-                effect={endEffect}
-                {...cell}
-              />
-            </>
-          )}
+          {endCell}
         </>
       )}
       {stage === "completed" && (
