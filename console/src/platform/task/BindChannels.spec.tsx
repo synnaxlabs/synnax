@@ -73,6 +73,37 @@ describe("BindChannels", () => {
     await waitFor(() => expect(channelOf(form, "a")).toBe(0));
   });
 
+  it("should bind a channel nested in an object with the zero rule at the leaf", async () => {
+    interface Nested {
+      key: string;
+      port: number;
+      channel: { channel: number; name: string };
+    }
+    const resolve = ({ port, channel }: Nested) => ({
+      channel: { ...channel, channel: port === 1 ? 5 : 0 },
+    });
+    const { form } = await renderInTaskForm(
+      <Task.BindChannels<Nested> resolve={resolve} />,
+      {
+        values: {
+          config: {
+            channels: [
+              { key: "a", port: 1, channel: { channel: 0, name: "n" } },
+              { key: "b", port: 2, channel: { channel: 7, name: "m" } },
+            ],
+          },
+        },
+      },
+    );
+    const leaf = (key: string) =>
+      form.current?.get<number>(`${PATH}.${key}.channel.channel`).value;
+    await waitFor(() => expect(leaf("a")).toBe(5));
+    expect(leaf("b")).toBe(7);
+    act(() => form.current?.set(`${PATH}.a.port`, 2));
+    await waitFor(() => expect(leaf("a")).toBe(0));
+    expect(form.current?.get<string>(`${PATH}.a.channel.name`).value).toBe("n");
+  });
+
   it("should leave a preview form alone", async () => {
     const { form } = await render(
       [{ key: "a", port: 1, channel: 0 }],

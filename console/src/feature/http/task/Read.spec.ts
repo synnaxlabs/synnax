@@ -16,6 +16,7 @@ import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
   awaitEditableForm,
+  commitFieldInput,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -249,6 +250,55 @@ describe("Read", () => {
         schemas: HTTP.Task.READ_SCHEMAS,
       });
       expect(saved.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
+    });
+  });
+
+  it("should follow an endpoint path edit to the channel the new path maps", async () => {
+    const dev = await createHTTPDevice(client);
+    const idxCh = await client.channels.create({
+      name: uniqueName("http_idx"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const [dataCh, otherCh] = await Promise.all(
+      ["http_data", "http_other"].map(
+        async (prefix) =>
+          await client.channels.create({
+            name: uniqueName(prefix),
+            dataType: "float64",
+            index: idxCh.key,
+          }),
+      ),
+    );
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      read: {
+        "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
+        "/other": { index: idxCh.key, channels: { "/temperature": otherCh.key } },
+      },
+    };
+    await client.devices.create(dev);
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        {
+          ...http.readEndpointZ.parse({}),
+          key: "ep1",
+          path: "/data",
+          fields: [createReadField("f1", "/temperature")],
+        },
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(dataCh.name);
+    commitFieldInput(screen.getByDisplayValue("/data"), "/other");
+    await screen.findByText(otherCh.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: HTTP.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.endpoints[0].fields[0].channel).toBe(otherCh.key);
     });
   });
 

@@ -16,6 +16,7 @@ import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
   awaitEditableForm,
+  commitFieldInput,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -225,6 +226,46 @@ describe("Write", () => {
     expect(virtualCh.virtual).toBe(true);
     expect(virtualCh.name).toBe(virtualName);
     expect(created.config.endpoints[1].channel.channel).toBe(virtualKey);
+  });
+
+  it("should follow a path edit to the channel the new path maps, or to none", async () => {
+    const dev = await createHTTPDevice(client);
+    const [cmdCh, otherCh] = await Promise.all(
+      ["http_cmd", "http_other"].map(
+        async (prefix) =>
+          await client.channels.create({
+            name: uniqueName(prefix),
+            dataType: "string",
+            virtual: true,
+          }),
+      ),
+    );
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      write: { "/cmd": cmdCh.key, "/other": otherCh.key },
+    };
+    await client.devices.create(dev);
+    const draft = await createDraft(
+      client,
+      createWriteConfig(dev.key, [
+        createWriteEndpoint("ep1", "/cmd", { dataType: "string" }),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(cmdCh.name);
+    const savedChannel = async () =>
+      (
+        await client.tasks.retrieve({
+          key: draft.key,
+          schemas: HTTP.Task.WRITE_SCHEMAS,
+        })
+      ).config.endpoints[0].channel.channel;
+    commitFieldInput(screen.getByDisplayValue("/cmd"), "/other");
+    await screen.findByText(otherCh.name);
+    await waitFor(async () => expect(await savedChannel()).toBe(otherCh.key));
+    commitFieldInput(screen.getByDisplayValue("/other"), "/none");
+    await waitFor(async () => expect(await savedChannel()).toBe(0));
+    expect(screen.queryByText(otherCh.name)).toBeNull();
   });
 
   it("should bind a new endpoint to the command channel the device already stores", async () => {

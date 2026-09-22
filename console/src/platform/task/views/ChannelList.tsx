@@ -11,7 +11,6 @@ import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
 
 import { Empty } from "@/platform/empty";
-import { type BindChannelsProps } from "@/platform/task/BindChannels";
 import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
@@ -61,9 +60,8 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
 
 export interface ChannelListProps<C extends Channel> extends Omit<
   BaseProps<C>,
-  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate" | "resolve"
+  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
 > {
-  resolve: BindChannelsProps<C>["resolve"];
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;

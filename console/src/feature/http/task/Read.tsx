@@ -209,6 +209,21 @@ const FieldList = ({ epKey }: FieldListProps) => {
   const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
   const data = allData.filter((key) => !indexKeys.has(key));
 
+  const dev = useFromConfig();
+  const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
+  const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
+  const resolve = useCallback(
+    (field: ReadField) => {
+      const props = dev?.properties.read[epPath];
+      if (props == null) return null;
+      return {
+        channel:
+          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
+      };
+    },
+    [dev, epPath, indexKey],
+  );
+
   const handleAdd = useCallback(() => {
     const fields = ctx.get<ReadField[]>(path).value;
     const nonIndex = fields.filter((f) => !isTimingField(f));
@@ -251,7 +266,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   return (
     <>
       <Task.ChannelList<ReadField>
-        resolve={null}
+        resolve={resolve}
         data={data}
         remove={remove}
         onDuplicate={handleDuplicate}
@@ -432,25 +447,6 @@ const Form: FC = () => {
   const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",
   );
-  const dev = useFromConfig();
-  // A field the config already binds keeps its channel, as the deploy honors it first.
-  const resolve = useCallback(
-    (ep: ReadEndpoint) => {
-      const props = dev?.properties.read[ep.path];
-      if (props == null) return null;
-      let changed = false;
-      const fields = ep.fields.map((field) => {
-        if (field.channel !== 0) return field;
-        const stored =
-          field.key === ep.index ? props.index : (props.channels[field.pointer] ?? 0);
-        if (stored === 0) return field;
-        changed = true;
-        return { ...field, channel: stored };
-      });
-      return changed ? { fields } : null;
-    },
-    [dev],
-  );
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
 
@@ -566,7 +562,6 @@ const Form: FC = () => {
           </Flex.Box>
         )}
       </Flex.Box>
-      <Task.BindChannels<ReadEndpoint> path="config.endpoints" resolve={resolve} />
     </Flex.Box>
   );
 };

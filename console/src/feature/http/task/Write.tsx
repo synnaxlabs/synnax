@@ -480,14 +480,11 @@ const Form: FC = () => {
     "config.endpoints",
   );
   const dev = useFromConfig();
-  // An endpoint the config already binds keeps its channel, as the deploy honors it
-  // first.
   const resolve = useCallback(
-    (ep: WriteEndpoint) => {
-      if (dev == null || ep.channel.channel !== 0) return null;
-      const stored = dev.properties.write[ep.path] ?? 0;
-      return stored === 0 ? null : { channel: { ...ep.channel, channel: stored } };
-    },
+    (ep: WriteEndpoint) =>
+      dev == null
+        ? null
+        : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } },
     [dev],
   );
   const ctx = PForm.useContext();

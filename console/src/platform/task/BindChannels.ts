@@ -23,26 +23,37 @@ export interface BindChannelsProps<C extends record.Keyed<string>> {
   resolve: (entry: C) => Partial<C> | null;
 }
 
+const isPlainObject = (value: unknown): value is object =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 /**
- * Applies the bindings the device maps to an entry. Returns the same entry when nothing
- * changes.
+ * Applies the bindings the device maps to an entry, descending into nested objects.
+ * Returns the same entry when nothing changes.
  * @param before - The bindings the device last mapped for the entry.
  */
-const bind = <C extends record.Keyed<string>>(
-  entry: C,
-  patch: Partial<C>,
-  before: Partial<C> | undefined,
-): C => {
-  const changes: Partial<C> = {};
+const bind = <T extends object>(
+  entry: T,
+  patch: Partial<T>,
+  before: Partial<T> | undefined,
+): T => {
+  const changes: Partial<T> = {};
   let changed = false;
   for (const k of record.keys(patch)) {
     const value = patch[k];
-    if (value === undefined || deep.equal(value, entry[k])) continue;
-    // A device record trailing a deploy maps nothing yet, so a zero clears only a
-    // binding the device gave before.
+    const current = entry[k];
     const prior = before?.[k];
-    if (value === 0 && (prior == null || prior === 0)) continue;
-    changes[k] = value;
+    if (value === undefined) continue;
+    if (isPlainObject(value) && isPlainObject(current)) {
+      const nested = bind(current, value, isPlainObject(prior) ? prior : undefined);
+      if (nested === current) continue;
+      changes[k] = nested;
+    } else {
+      if (deep.equal(value, current)) continue;
+      // A device record trailing a deploy maps nothing yet, so a zero clears only a
+      // binding the device gave before.
+      if (value === 0 && (prior == null || prior === 0)) continue;
+      changes[k] = value;
+    }
     changed = true;
   }
   return changed ? { ...entry, ...changes } : entry;
