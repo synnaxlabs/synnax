@@ -22,7 +22,7 @@ on:
   push:
     branches:
       - main
-      - rc
+      - release/**
     paths:
       - .github/workflows/test.go.yaml
       - .github/workflows/test.x.go.yaml

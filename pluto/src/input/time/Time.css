@@ -1,0 +1,101 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The trigger is the value as content: it sizes to its text, never to the form. */
+.pluto-time-editor {
+    width: fit-content;
+    flex-grow: 0;
+
+    --pluto-control-width: fit-content;
+
+    & .pluto-time-editor__trigger {
+        width: fit-content;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    /* Content at rest carries no frame; the hover fill says it is editable. */
+    &.pluto--shadow .pluto-time-editor__trigger {
+        padding: 0 0.75rem;
+    }
+}
+
+.pluto-time-editor__dialog {
+    min-width: max-content;
+    max-width: 64rem;
+
+    /* The field's digits line up in one fixed layout, so a caret position names a
+       unit. */
+    & input {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.pluto-datetime__day {
+    color: var(--pluto-gray-l9);
+}
+
+/* An empty input reads as a placeholder, the way an empty field does. */
+.pluto-datetime__empty {
+    color: var(--pluto-text-placeholder);
+}
+
+/* A duration is derived from the stamps beside it, so it reads one shade quieter. */
+.pluto-timespan__label {
+    color: var(--pluto-gray-l9);
+}
+
+.pluto-time-editor__suggestions {
+    padding: 1rem;
+    white-space: nowrap;
+}
+
+.pluto-time-editor__note {
+    padding: 0.5rem 1.5rem;
+}
+
+.pluto-time-editor__suggestion {
+    height: fit-content;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    text-align: left;
+
+    & > .pluto-flex {
+        width: 100%;
+        min-width: 0;
+        align-items: stretch;
+    }
+}
+
+.pluto-time-editor__actions {
+    padding: 1rem;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+}
+
+.pluto-time-editor__action {
+    padding: 0.5rem 1.5rem;
+
+    & .pluto-time-editor__hint {
+        margin-left: auto;
+        padding-left: 2rem;
+        font-family: var(--pluto-code-font-family);
+    }
+}
+
+/* Caller content sits in its own region so it never displaces the row's hints. A
+   row whose slot renders nothing keeps the height it had. */
+.pluto-time-editor__effect:empty {
+    display: none;
+}
+
+.pluto-time-editor__action .pluto-time-editor__effect {
+    padding-left: 2rem;
+}

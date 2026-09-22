@@ -1,4 +1,4 @@
-# New Contributor Guide
+# New contributor guide
 
 Thanks for your interest in Synnax! We'd love to have you contribute!
 
@@ -9,7 +9,7 @@ Thanks for your interest in Synnax! We'd love to have you contribute!
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
-## 1 - Find Something to Work On
+## 1 - Find something to work on
 
 The next best step is to start thinking about the area or feature you'd like to
 contribute to. There are a few ways to do this:
@@ -40,7 +40,7 @@ in working on, it's time to get into the technical foundations of the project. A
 our technical documentation can be found in the [docs/tech](../docs/tech) directory
 where the [README](./tech/README.md) is the best place to get started.
 
-## 3 - Developer Expectations
+## 3 - Developer expectations
 
 To ensure software reliability and good practices, all contributors must adhere to the
 following principles.
@@ -56,7 +56,7 @@ following principles.
 
 ## 4 - Issue priority
 
-| Priority Level | Feature                                                                                | Bug                                                                                                                                                                                                 |
+| Priority level | Feature                                                                                | Bug                                                                                                                                                                                                 |
 | -------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Urgent         | This feature blocks progress on upcoming pilots.                                       | This bug will stop the user from making progress and will cause significant loss of time and/or resources. Examples are critical bugs which cause complete failure of core elements of the product. |
 | High           | This feature has been requested by users and is important to their use of our product. | This bug significantly degrades the quality of the user's experience and would take priority over most new feature development. Bugs could cause slowing of the user's workflow or repeated work.   |
