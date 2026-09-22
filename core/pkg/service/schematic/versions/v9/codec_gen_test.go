@@ -12,11 +12,9 @@
 package v9_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -27,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -383,13 +382,13 @@ var _ = Describe("Codec", func() {
 					B: 8,
 					A: 8.5,
 				}),
-				Bounds:   spatial.Bounds{},
-				BarWidth: 10.5,
+				Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
+				BarWidth: 12.5,
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
 					Y: spatial.YCenterLocation("top"),
 				},
-				Units: "test_14",
+				Units: "test_16",
 				Level: text.Level("h1"),
 			}}),
 			Entry("input variant", v9.ElementConfig{Variant: v9.InputElementConfig{
@@ -417,12 +416,12 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
-				Threshold:       new(spatial.Bounds{}),
+				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 				Color: new(color.Color{
-					R: 5,
-					G: 6,
-					B: 7,
-					A: 7.5,
+					R: 7,
+					G: 8,
+					B: 9,
+					A: 9.5,
 				}),
 			}}),
 			Entry("line variant", v9.ElementConfig{Variant: v9.LineElementConfig{
@@ -531,26 +530,26 @@ var _ = Describe("Codec", func() {
 						B: 22,
 						A: 22.5,
 					}),
-					Bounds: spatial.Bounds{},
+					Bounds: spatial.Bounds{Lower: 24.5, Upper: 25.5},
 					Color: new(color.Color{
-						R: 26,
-						G: 27,
-						B: 28,
-						A: 28.5,
+						R: 28,
+						G: 29,
+						B: 30,
+						A: 30.5,
 					}),
 					AxisColor: new(color.Color{
-						R: 31,
-						G: 32,
-						B: 33,
-						A: 33.5,
+						R: 33,
+						G: 34,
+						B: 35,
+						A: 35.5,
 					}),
 					TextColor: new(color.Color{
-						R: 36,
-						G: 37,
-						B: 38,
-						A: 38.5,
+						R: 38,
+						G: 39,
+						B: 40,
+						A: 40.5,
 					}),
-					Units:       "test_39",
+					Units:       "test_41",
 					FillHidden:  false,
 					CaretHidden: true,
 					ScaleHidden: false,
@@ -661,18 +660,18 @@ var _ = Describe("Codec", func() {
 				}),
 				Tooltip: []string{"test_14"},
 				Redline: v9.Redline{
-					Bounds: spatial.Bounds{},
+					Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
 					Gradient: []color.Stop{
 						{
-							Key:      "test_18",
+							Key:      "test_20",
 							Color:    color.Color{},
-							Position: 20.5,
+							Position: 22.5,
 							Switched: new(bool(true)),
 						},
 					},
 				},
-				Units:      "test_22",
-				InlineSize: 23.5,
+				Units:      "test_24",
+				InlineSize: 25.5,
 				Level:      text.Level("h1"),
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -878,26 +877,26 @@ var _ = Describe("Codec", func() {
 						B: 40,
 						A: 40.5,
 					}),
-					Bounds: spatial.Bounds{},
+					Bounds: spatial.Bounds{Lower: 42.5, Upper: 43.5},
 					Color: new(color.Color{
-						R: 44,
-						G: 45,
-						B: 46,
-						A: 46.5,
+						R: 46,
+						G: 47,
+						B: 48,
+						A: 48.5,
 					}),
 					AxisColor: new(color.Color{
-						R: 49,
-						G: 50,
-						B: 51,
-						A: 51.5,
+						R: 51,
+						G: 52,
+						B: 53,
+						A: 53.5,
 					}),
 					TextColor: new(color.Color{
-						R: 54,
-						G: 55,
-						B: 56,
-						A: 56.5,
+						R: 56,
+						G: 57,
+						B: 58,
+						A: 58.5,
 					}),
-					Units:       "test_57",
+					Units:       "test_59",
 					FillHidden:  false,
 					CaretHidden: true,
 					ScaleHidden: false,
@@ -1157,13 +1156,13 @@ var _ = Describe("Codec", func() {
 					B: 8,
 					A: 8.5,
 				}),
-				Bounds:   spatial.Bounds{},
-				BarWidth: 10.5,
+				Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
+				BarWidth: 12.5,
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
 					Y: spatial.YCenterLocation("top"),
 				},
-				Units: "test_14",
+				Units: "test_16",
 				Level: text.Level("h1"),
 			}}),
 			Entry("input variant", v9.NodeConfig{Variant: v9.InputNodeConfig{
@@ -1191,12 +1190,12 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:   fullyPopulatedLabeledConfig,
 				StalenessConfig: fullyPopulatedStalenessConfig,
 				Channel:         new(channel.Key(2)),
-				Threshold:       new(spatial.Bounds{}),
+				Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 				Color: new(color.Color{
-					R: 5,
-					G: 6,
-					B: 7,
-					A: 7.5,
+					R: 7,
+					G: 8,
+					B: 9,
+					A: 9.5,
 				}),
 			}}),
 			Entry("line variant", v9.NodeConfig{Variant: v9.LineNodeConfig{
@@ -1305,26 +1304,26 @@ var _ = Describe("Codec", func() {
 						B: 22,
 						A: 22.5,
 					}),
-					Bounds: spatial.Bounds{},
+					Bounds: spatial.Bounds{Lower: 24.5, Upper: 25.5},
 					Color: new(color.Color{
-						R: 26,
-						G: 27,
-						B: 28,
-						A: 28.5,
+						R: 28,
+						G: 29,
+						B: 30,
+						A: 30.5,
 					}),
 					AxisColor: new(color.Color{
-						R: 31,
-						G: 32,
-						B: 33,
-						A: 33.5,
+						R: 33,
+						G: 34,
+						B: 35,
+						A: 35.5,
 					}),
 					TextColor: new(color.Color{
-						R: 36,
-						G: 37,
-						B: 38,
-						A: 38.5,
+						R: 38,
+						G: 39,
+						B: 40,
+						A: 40.5,
 					}),
-					Units:       "test_39",
+					Units:       "test_41",
 					FillHidden:  false,
 					CaretHidden: true,
 					ScaleHidden: false,
@@ -1435,18 +1434,18 @@ var _ = Describe("Codec", func() {
 				}),
 				Tooltip: []string{"test_14"},
 				Redline: v9.Redline{
-					Bounds: spatial.Bounds{},
+					Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
 					Gradient: []color.Stop{
 						{
-							Key:      "test_18",
+							Key:      "test_20",
 							Color:    color.Color{},
-							Position: 20.5,
+							Position: 22.5,
 							Switched: new(bool(true)),
 						},
 					},
 				},
-				Units:      "test_22",
-				InlineSize: 23.5,
+				Units:      "test_24",
+				InlineSize: 25.5,
 				Level:      text.Level("h1"),
 				Location: spatial.LocationXY{
 					X: spatial.XCenterLocation("left"),
@@ -1630,26 +1629,26 @@ var _ = Describe("Codec", func() {
 						B: 40,
 						A: 40.5,
 					}),
-					Bounds: spatial.Bounds{},
+					Bounds: spatial.Bounds{Lower: 42.5, Upper: 43.5},
 					Color: new(color.Color{
-						R: 44,
-						G: 45,
-						B: 46,
-						A: 46.5,
+						R: 46,
+						G: 47,
+						B: 48,
+						A: 48.5,
 					}),
 					AxisColor: new(color.Color{
-						R: 49,
-						G: 50,
-						B: 51,
-						A: 51.5,
+						R: 51,
+						G: 52,
+						B: 53,
+						A: 53.5,
 					}),
 					TextColor: new(color.Color{
-						R: 54,
-						G: 55,
-						B: 56,
-						A: 56.5,
+						R: 56,
+						G: 57,
+						B: 58,
+						A: 58.5,
 					}),
-					Units:       "test_57",
+					Units:       "test_59",
 					FillHidden:  false,
 					CaretHidden: true,
 					ScaleHidden: false,
@@ -1759,23 +1758,26 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v9.Redline{
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
 				Gradient: []color.Stop{
 					{
-						Key: "test_3",
+						Key: "test_5",
 						Color: color.Color{
-							R: 6,
-							G: 7,
-							B: 8,
-							A: 8.5,
+							R: 8,
+							G: 9,
+							B: 10,
+							A: 10.5,
 						},
-						Position: 9.5,
+						Position: 11.5,
 						Switched: new(bool(false)),
 					},
 				},
 			}),
-			Entry("zero values", v9.Redline{Bounds: spatial.Bounds{}, Gradient: nil}),
-			Entry("empty collections", v9.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
+			Entry("zero values", v9.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}),
+			Entry("empty collections", v9.Redline{
+				Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
+				Gradient: []color.Stop{},
+			}),
 		)
 	})
 	Describe("ScaleIndicatorConfig", func() {
@@ -1801,26 +1803,26 @@ var _ = Describe("Codec", func() {
 					B: 10,
 					A: 10.5,
 				}),
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
 				Color: new(color.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 16.5,
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
 				}),
 				AxisColor: new(color.Color{
-					R: 19,
-					G: 20,
-					B: 21,
-					A: 21.5,
+					R: 21,
+					G: 22,
+					B: 23,
+					A: 23.5,
 				}),
 				TextColor: new(color.Color{
-					R: 24,
-					G: 25,
-					B: 26,
-					A: 26.5,
+					R: 26,
+					G: 27,
+					B: 28,
+					A: 28.5,
 				}),
-				Units:       "test_27",
+				Units:       "test_29",
 				FillHidden:  false,
 				CaretHidden: true,
 				ScaleHidden: false,
@@ -1835,7 +1837,7 @@ var _ = Describe("Codec", func() {
 				Notation:         notation.Notation(""),
 				StalenessTimeout: 0,
 				StalenessColor:   nil,
-				Bounds:           spatial.Bounds{},
+				Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 				Color:            nil,
 				AxisColor:        nil,
 				TextColor:        nil,
@@ -1881,12 +1883,12 @@ var _ = Describe("Codec", func() {
 				Configs: map[string]v9.ElementConfig{"test_18": {Variant: v9.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 			}),
 			Entry("zero values", v9.Schematic{
-				Key:      uuid.Nil,
+				Key:      uuid.Nil(),
 				Name:     "",
 				Snapshot: false,
-				Nodes:    nil,
-				Edges:    nil,
-				Configs:  nil,
+				Nodes:    []v9.Node{},
+				Edges:    []v9.Edge{},
+				Configs:  map[string]v9.ElementConfig{},
 			}),
 			Entry("empty collections", v9.Schematic{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -1925,7 +1927,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
-			Entry("zero values", v9.SegmentedEdgeConfig{Color: nil, Segments: nil}),
+			Entry("zero values", v9.SegmentedEdgeConfig{Color: nil, Segments: []v9.Segment{}}),
 			Entry("empty collections", v9.SegmentedEdgeConfig{
 				Color: new(color.Color{
 					R: 3,
@@ -2244,17 +2246,17 @@ func BenchmarkEncodeDecodePage(b *testing.B) {
 
 func BenchmarkEncodeDecodeRedline(b *testing.B) {
 	seed := v9.Redline{
-		Bounds: spatial.Bounds{},
+		Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
 		Gradient: []color.Stop{
 			{
-				Key: "test_3",
+				Key: "test_5",
 				Color: color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 8.5,
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
 				},
-				Position: 9.5,
+				Position: 11.5,
 				Switched: new(bool(false)),
 			},
 		},
@@ -2287,26 +2289,26 @@ func BenchmarkEncodeDecodeScaleIndicatorConfig(b *testing.B) {
 			B: 10,
 			A: 10.5,
 		}),
-		Bounds: spatial.Bounds{},
+		Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
 		Color: new(color.Color{
-			R: 14,
-			G: 15,
-			B: 16,
-			A: 16.5,
+			R: 16,
+			G: 17,
+			B: 18,
+			A: 18.5,
 		}),
 		AxisColor: new(color.Color{
-			R: 19,
-			G: 20,
-			B: 21,
-			A: 21.5,
+			R: 21,
+			G: 22,
+			B: 23,
+			A: 23.5,
 		}),
 		TextColor: new(color.Color{
-			R: 24,
-			G: 25,
-			B: 26,
-			A: 26.5,
+			R: 26,
+			G: 27,
+			B: 28,
+			A: 28.5,
 		}),
-		Units:       "test_27",
+		Units:       "test_29",
 		FillHidden:  false,
 		CaretHidden: true,
 		ScaleHidden: false,
@@ -2539,7 +2541,7 @@ func FuzzDecodeControlStateConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2592,7 +2594,7 @@ func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2671,7 +2673,7 @@ func FuzzDecodeEdgeConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2999,13 +3001,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 8,
 				A: 8.5,
 			}),
-			Bounds:   spatial.Bounds{},
-			BarWidth: 10.5,
+			Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
+			BarWidth: 12.5,
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
 				Y: spatial.YCenterLocation("top"),
 			},
-			Units: "test_14",
+			Units: "test_16",
 			Level: text.Level("h1"),
 		}}
 		w := orc.NewWriter(0)
@@ -3047,12 +3049,12 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
-			Threshold:       new(spatial.Bounds{}),
+			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 			Color: new(color.Color{
-				R: 5,
-				G: 6,
-				B: 7,
-				A: 7.5,
+				R: 7,
+				G: 8,
+				B: 9,
+				A: 9.5,
 			}),
 		}}
 		w := orc.NewWriter(0)
@@ -3196,26 +3198,26 @@ func FuzzDecodeElementConfig(f *testing.F) {
 					B: 22,
 					A: 22.5,
 				}),
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 24.5, Upper: 25.5},
 				Color: new(color.Color{
-					R: 26,
-					G: 27,
-					B: 28,
-					A: 28.5,
+					R: 28,
+					G: 29,
+					B: 30,
+					A: 30.5,
 				}),
 				AxisColor: new(color.Color{
-					R: 31,
-					G: 32,
-					B: 33,
-					A: 33.5,
+					R: 33,
+					G: 34,
+					B: 35,
+					A: 35.5,
 				}),
 				TextColor: new(color.Color{
-					R: 36,
-					G: 37,
-					B: 38,
-					A: 38.5,
+					R: 38,
+					G: 39,
+					B: 40,
+					A: 40.5,
 				}),
-				Units:       "test_39",
+				Units:       "test_41",
 				FillHidden:  false,
 				CaretHidden: true,
 				ScaleHidden: false,
@@ -3368,18 +3370,18 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			}),
 			Tooltip: []string{"test_14"},
 			Redline: v9.Redline{
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
 				Gradient: []color.Stop{
 					{
-						Key:      "test_18",
+						Key:      "test_20",
 						Color:    color.Color{},
-						Position: 20.5,
+						Position: 22.5,
 						Switched: new(bool(true)),
 					},
 				},
 			},
-			Units:      "test_22",
-			InlineSize: 23.5,
+			Units:      "test_24",
+			InlineSize: 25.5,
 			Level:      text.Level("h1"),
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -3991,26 +3993,26 @@ func FuzzDecodeElementConfig(f *testing.F) {
 					B: 40,
 					A: 40.5,
 				}),
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 42.5, Upper: 43.5},
 				Color: new(color.Color{
-					R: 44,
-					G: 45,
-					B: 46,
-					A: 46.5,
+					R: 46,
+					G: 47,
+					B: 48,
+					A: 48.5,
 				}),
 				AxisColor: new(color.Color{
-					R: 49,
-					G: 50,
-					B: 51,
-					A: 51.5,
+					R: 51,
+					G: 52,
+					B: 53,
+					A: 53.5,
 				}),
 				TextColor: new(color.Color{
-					R: 54,
-					G: 55,
-					B: 56,
-					A: 56.5,
+					R: 56,
+					G: 57,
+					B: 58,
+					A: 58.5,
 				}),
-				Units:       "test_57",
+				Units:       "test_59",
 				FillHidden:  false,
 				CaretHidden: true,
 				ScaleHidden: false,
@@ -4183,7 +4185,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4236,7 +4238,7 @@ func FuzzDecodeLabelConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4286,7 +4288,7 @@ func FuzzDecodeLabeledConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -4608,13 +4610,13 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 8,
 				A: 8.5,
 			}),
-			Bounds:   spatial.Bounds{},
-			BarWidth: 10.5,
+			Bounds:   spatial.Bounds{Lower: 10.5, Upper: 11.5},
+			BarWidth: 12.5,
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
 				Y: spatial.YCenterLocation("top"),
 			},
-			Units: "test_14",
+			Units: "test_16",
 			Level: text.Level("h1"),
 		}}
 		w := orc.NewWriter(0)
@@ -4656,12 +4658,12 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			LabeledConfig:   fullyPopulatedLabeledConfig,
 			StalenessConfig: fullyPopulatedStalenessConfig,
 			Channel:         new(channel.Key(2)),
-			Threshold:       new(spatial.Bounds{}),
+			Threshold:       new(spatial.Bounds{Lower: 3.5, Upper: 4.5}),
 			Color: new(color.Color{
-				R: 5,
-				G: 6,
-				B: 7,
-				A: 7.5,
+				R: 7,
+				G: 8,
+				B: 9,
+				A: 9.5,
 			}),
 		}}
 		w := orc.NewWriter(0)
@@ -4805,26 +4807,26 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					B: 22,
 					A: 22.5,
 				}),
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 24.5, Upper: 25.5},
 				Color: new(color.Color{
-					R: 26,
-					G: 27,
-					B: 28,
-					A: 28.5,
+					R: 28,
+					G: 29,
+					B: 30,
+					A: 30.5,
 				}),
 				AxisColor: new(color.Color{
-					R: 31,
-					G: 32,
-					B: 33,
-					A: 33.5,
+					R: 33,
+					G: 34,
+					B: 35,
+					A: 35.5,
 				}),
 				TextColor: new(color.Color{
-					R: 36,
-					G: 37,
-					B: 38,
-					A: 38.5,
+					R: 38,
+					G: 39,
+					B: 40,
+					A: 40.5,
 				}),
-				Units:       "test_39",
+				Units:       "test_41",
 				FillHidden:  false,
 				CaretHidden: true,
 				ScaleHidden: false,
@@ -4977,18 +4979,18 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Tooltip: []string{"test_14"},
 			Redline: v9.Redline{
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 17.5, Upper: 18.5},
 				Gradient: []color.Stop{
 					{
-						Key:      "test_18",
+						Key:      "test_20",
 						Color:    color.Color{},
-						Position: 20.5,
+						Position: 22.5,
 						Switched: new(bool(true)),
 					},
 				},
 			},
-			Units:      "test_22",
-			InlineSize: 23.5,
+			Units:      "test_24",
+			InlineSize: 25.5,
 			Level:      text.Level("h1"),
 			Location: spatial.LocationXY{
 				X: spatial.XCenterLocation("left"),
@@ -5578,26 +5580,26 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 					B: 40,
 					A: 40.5,
 				}),
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 42.5, Upper: 43.5},
 				Color: new(color.Color{
-					R: 44,
-					G: 45,
-					B: 46,
-					A: 46.5,
+					R: 46,
+					G: 47,
+					B: 48,
+					A: 48.5,
 				}),
 				AxisColor: new(color.Color{
-					R: 49,
-					G: 50,
-					B: 51,
-					A: 51.5,
+					R: 51,
+					G: 52,
+					B: 53,
+					A: 53.5,
 				}),
 				TextColor: new(color.Color{
-					R: 54,
-					G: 55,
-					B: 56,
-					A: 56.5,
+					R: 56,
+					G: 57,
+					B: 58,
+					A: 58.5,
 				}),
-				Units:       "test_57",
+				Units:       "test_59",
 				FillHidden:  false,
 				CaretHidden: true,
 				ScaleHidden: false,
@@ -5708,7 +5710,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -5752,7 +5754,7 @@ func FuzzDecodeNumericTelemConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -5791,7 +5793,7 @@ func FuzzDecodePage(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -5800,17 +5802,17 @@ func FuzzDecodePage(f *testing.F) {
 func FuzzDecodeRedline(f *testing.F) {
 	{
 		seed := v9.Redline{
-			Bounds: spatial.Bounds{},
+			Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
 			Gradient: []color.Stop{
 				{
-					Key: "test_3",
+					Key: "test_5",
 					Color: color.Color{
-						R: 6,
-						G: 7,
-						B: 8,
-						A: 8.5,
+						R: 8,
+						G: 9,
+						B: 10,
+						A: 10.5,
 					},
-					Position: 9.5,
+					Position: 11.5,
 					Switched: new(bool(false)),
 				},
 			},
@@ -5822,7 +5824,7 @@ func FuzzDecodeRedline(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v9.Redline{Bounds: spatial.Bounds{}, Gradient: nil}
+		seed := v9.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5830,7 +5832,10 @@ func FuzzDecodeRedline(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v9.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}
+		seed := v9.Redline{
+			Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
+			Gradient: []color.Stop{},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5853,7 +5858,7 @@ func FuzzDecodeRedline(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -5873,26 +5878,26 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 				B: 10,
 				A: 10.5,
 			}),
-			Bounds: spatial.Bounds{},
+			Bounds: spatial.Bounds{Lower: 12.5, Upper: 13.5},
 			Color: new(color.Color{
-				R: 14,
-				G: 15,
-				B: 16,
-				A: 16.5,
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
 			}),
 			AxisColor: new(color.Color{
-				R: 19,
-				G: 20,
-				B: 21,
-				A: 21.5,
+				R: 21,
+				G: 22,
+				B: 23,
+				A: 23.5,
 			}),
 			TextColor: new(color.Color{
-				R: 24,
-				G: 25,
-				B: 26,
-				A: 26.5,
+				R: 26,
+				G: 27,
+				B: 28,
+				A: 28.5,
 			}),
-			Units:       "test_27",
+			Units:       "test_29",
 			FillHidden:  false,
 			CaretHidden: true,
 			ScaleHidden: false,
@@ -5914,7 +5919,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 			Notation:         notation.Notation(""),
 			StalenessTimeout: 0,
 			StalenessColor:   nil,
-			Bounds:           spatial.Bounds{},
+			Bounds:           spatial.Bounds{Lower: 0, Upper: 0},
 			Color:            nil,
 			AxisColor:        nil,
 			TextColor:        nil,
@@ -5948,7 +5953,7 @@ func FuzzDecodeScaleIndicatorConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -5984,12 +5989,12 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := v9.Schematic{
-			Key:      uuid.Nil,
+			Key:      uuid.Nil(),
 			Name:     "",
 			Snapshot: false,
-			Nodes:    nil,
-			Edges:    nil,
-			Configs:  nil,
+			Nodes:    []v9.Node{},
+			Edges:    []v9.Edge{},
+			Configs:  map[string]v9.ElementConfig{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6028,7 +6033,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -6067,7 +6072,7 @@ func FuzzDecodeSegment(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -6083,7 +6088,7 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v9.SegmentedEdgeConfig{Color: nil, Segments: nil}
+		seed := v9.SegmentedEdgeConfig{Color: nil, Segments: []v9.Segment{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6122,7 +6127,7 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -6161,7 +6166,7 @@ func FuzzDecodeStalenessConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -6215,7 +6220,7 @@ func FuzzDecodeStateMapping(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -6266,7 +6271,7 @@ func FuzzDecodeStaticSymbolConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -6322,7 +6327,7 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -6379,7 +6384,7 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

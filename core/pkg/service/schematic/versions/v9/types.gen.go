@@ -12,7 +12,8 @@
 package v9
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -59,10 +60,10 @@ func (s Segment) Validate() error {
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig struct {
 	// Color is the stroke color of the edge.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Segments is the ordered list of orthogonal runs that trace the connector path
 	// from the source handle to the target handle.
-	Segments []Segment `json:"segments,omitzero" msgpack:"segments,omitzero"`
+	Segments []Segment `json:"segments" msgpack:"segments"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -195,98 +196,108 @@ type EdgeConfig struct {
 	Variant EdgeConfigVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u EdgeConfig) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t EdgeConfigType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u EdgeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case PipeEdgeConfig:
-		t = PipeEdgeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PipeEdgeConfig
+		}{Type: PipeEdgeConfigType, PipeEdgeConfig: v})
 	case ElectricEdgeConfig:
-		t = ElectricEdgeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			ElectricEdgeConfig
+		}{Type: ElectricEdgeConfigType, ElectricEdgeConfig: v})
 	case SecondaryEdgeConfig:
-		t = SecondaryEdgeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			SecondaryEdgeConfig
+		}{Type: SecondaryEdgeConfigType, SecondaryEdgeConfig: v})
 	case JacketedEdgeConfig:
-		t = JacketedEdgeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			JacketedEdgeConfig
+		}{Type: JacketedEdgeConfigType, JacketedEdgeConfig: v})
 	case HydraulicEdgeConfig:
-		t = HydraulicEdgeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			HydraulicEdgeConfig
+		}{Type: HydraulicEdgeConfigType, HydraulicEdgeConfig: v})
 	case PneumaticEdgeConfig:
-		t = PneumaticEdgeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			PneumaticEdgeConfig
+		}{Type: PneumaticEdgeConfigType, PneumaticEdgeConfig: v})
 	case DataEdgeConfig:
-		t = DataEdgeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type EdgeConfigType `json:"variant"`
+			DataEdgeConfig
+		}{Type: DataEdgeConfigType, DataEdgeConfig: v})
 	default:
-		return nil, errors.Newf("EdgeConfig: nil or unknown variant %T", u.Variant)
+		return errors.Newf("EdgeConfig: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *EdgeConfig) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type EdgeConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case PipeEdgeConfigType:
 		var v PipeEdgeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ElectricEdgeConfigType:
 		var v ElectricEdgeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SecondaryEdgeConfigType:
 		var v SecondaryEdgeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case JacketedEdgeConfigType:
 		var v JacketedEdgeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HydraulicEdgeConfigType:
 		var v HydraulicEdgeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PneumaticEdgeConfigType:
 		var v PneumaticEdgeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case DataEdgeConfigType:
 		var v DataEdgeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -463,7 +474,7 @@ func (l LabeledConfig) Validate() error {
 type ControlStateConfig struct {
 	// Authority is the control authority requested when the symbol acquires its command
 	// channel. Defaults to absolute authority when unset.
-	Authority *uint8 `json:"authority,omitempty" msgpack:"authority,omitempty"`
+	Authority *uint8 `json:"authority,omitzero" msgpack:"authority,omitempty"`
 	// Hidden hides the control state widget.
 	Hidden bool `json:"hidden" msgpack:"hidden"`
 	// ChipHidden hides the authority chip.
@@ -495,11 +506,11 @@ type ToggleConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// StateChannel is the channel whose value drives the symbol's active state.
-	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
+	StateChannel *channel.Key `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
 	// CommandChannel is the channel actuation commands are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 }
@@ -528,7 +539,7 @@ func (t ToggleConfig) Validate() error {
 type StaticSymbolConfig struct {
 	LabeledConfig
 	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -548,7 +559,7 @@ func (s StaticSymbolConfig) Validate() error {
 type ToggleSymbolConfig struct {
 	ToggleConfig
 	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -573,7 +584,7 @@ type DummyToggleSymbolConfig struct {
 	// Clickable indicates whether clicking the symbol toggles its state.
 	Clickable bool `json:"clickable" msgpack:"clickable"`
 	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -598,7 +609,7 @@ type StateMapping struct {
 	// Value is the channel value this state corresponds to.
 	Value float64 `json:"value" msgpack:"value"`
 	// Color is the display color associated with this state.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 // Redline maps a numeric range to a color gradient for limit visualization.
@@ -606,7 +617,7 @@ type Redline struct {
 	// Bounds is the numeric range mapped onto the gradient.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient,omitzero" msgpack:"gradient,omitzero"`
+	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
 }
 
 type NodeConfigType string
@@ -1201,9 +1212,9 @@ func (f FlowmeterOrificeNodeConfig) Validate() error {
 type BoxNodeConfig struct {
 	LabeledConfig
 	// Color is the border color of the box.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the box.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels.
@@ -1245,17 +1256,17 @@ type ButtonNodeConfig struct {
 	// Size is the rendered size preset of the button.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// Level is the typography level of the button text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// CommandChannel is the channel button presses are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
 	// Color is the background color of the button.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (ButtonNodeConfig) isNodeConfigVariant() {}
@@ -1293,9 +1304,9 @@ type CircleNodeConfig struct {
 	// Radius is the radius of the circle in pixels.
 	Radius float64 `json:"radius" msgpack:"radius"`
 	// Color is the border color of the circle.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the circle.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -1327,9 +1338,9 @@ type GaugeNodeConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the accent color of the gauge arc.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -1386,17 +1397,17 @@ type InputNodeConfig struct {
 	// Size is the rendered size preset of the input.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel submitted values are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the input in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// Color is the accent color of the input.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (InputNodeConfig) isNodeConfigVariant() {}
@@ -1429,11 +1440,11 @@ type LightNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Threshold is the value range within which the light is considered on.
-	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
+	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 func (LightNodeConfig) isNodeConfigVariant() {}
@@ -1455,7 +1466,7 @@ func (l LightNodeConfig) Validate() error {
 // LineNodeConfig is the configuration for straight line symbols.
 type LineNodeConfig struct {
 	// Color is the stroke color of the line.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -1483,9 +1494,9 @@ type OffPageReferenceNodeConfig struct {
 	// Orientation is the direction the reference arrow points.
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
 	// Color is the fill color of the reference.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Page is the page this reference links to.
-	Page *Page `json:"page,omitempty" msgpack:"page,omitempty"`
+	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
 	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
 	DblClickNavDisabled bool `json:"dbl_click_nav_disabled" msgpack:"dbl_click_nav_disabled"`
 }
@@ -1524,9 +1535,9 @@ type PolygonNodeConfig struct {
 	// CornerRounding is the corner rounding radius in pixels.
 	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
 	// Color is the border color of the polygon.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the polygon.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -1561,19 +1572,19 @@ type SelectNodeConfig struct {
 	// Size is the rendered size preset of the select.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel the selected value is written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Color is the accent color of the select.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
-	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
+	Options []StateMapping `json:"options" msgpack:"options"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (SelectNodeConfig) isNodeConfigVariant() {}
@@ -1608,13 +1619,13 @@ func (s SelectNodeConfig) Validate() error {
 type ScaleNodeConfig struct {
 	LabeledConfig
 	// Position is the offset of the scale contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
 	// to the rendered size.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// Color is the color of the fill, which is what the symbol reads as. The toolbar
 	// recolors a selection through this field.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Indicator is the live indicator the scale renders.
 	Indicator ScaleIndicatorConfig `json:"indicator" msgpack:"indicator"`
 }
@@ -1652,11 +1663,11 @@ type SetpointNodeConfig struct {
 	// Size is the rendered size preset of the setpoint.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel submitted setpoints are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// Color is the accent color of the setpoint.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -1664,7 +1675,7 @@ type SetpointNodeConfig struct {
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (SetpointNodeConfig) isNodeConfigVariant() {}
@@ -1700,13 +1711,13 @@ type StateIndicatorNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// Channel is the channel whose value selects the displayed state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Color is the fallback color when no state matches.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
-	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
+	Options []StateMapping `json:"options" msgpack:"options"`
 	// Size is the rendered size preset of the indicator.
 	Size ComponentSize `json:"size" msgpack:"size"`
 }
@@ -1739,15 +1750,15 @@ type StringDisplayNodeConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// Color is the background color of the display.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
+	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Channel is the channel whose string value the symbol displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Level is the typography level of the displayed text.
 	Level text.Level `json:"level" msgpack:"level"`
 }
@@ -1798,7 +1809,7 @@ func (s SwitchNodeConfig) Validate() error {
 type TextBoxNodeConfig struct {
 	LabeledConfig
 	// Color is the text color.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Width is the rendered width of the text box in pixels.
 	Width float64 `json:"width" msgpack:"width"`
 	// Align is the alignment of the text within the box.
@@ -1846,13 +1857,13 @@ type ValueNodeConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the background color of the value.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
+	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the bounds-to-gradient mapping applied to the background.
 	Redline Redline `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
@@ -2976,11 +2987,11 @@ type CylinderNodeConfig struct {
 	// Dimensions is the rendered size of the cylinder in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
-	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
+	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
 	// Color is the border color of the cylinder.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the cylinder.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 }
 
 func (CylinderNodeConfig) isNodeConfigVariant() {}
@@ -3008,11 +3019,11 @@ func (c CylinderNodeConfig) Validate() error {
 type TankNodeConfig struct {
 	LabeledConfig
 	// Position is the offset of the tank contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the border color of the tank.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the tank.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank.
@@ -3097,10 +3108,10 @@ type CustomActuatorNodeConfig struct {
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomActuatorNodeConfig) isNodeConfigVariant() {}
@@ -3124,10 +3135,10 @@ type CustomStaticNodeConfig struct {
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomStaticNodeConfig) isNodeConfigVariant() {}
@@ -3149,7 +3160,7 @@ func (c CustomStaticNodeConfig) Validate() error {
 // of grouped symbols. Groups nest: a member may itself be a group.
 type GroupBoxNodeConfig struct {
 	// Members lists the keys of the symbols the group contains.
-	Members []string `json:"members,omitzero" msgpack:"members,omitzero"`
+	Members []string `json:"members" msgpack:"members"`
 	// Locked pins the group and its members in place.
 	Locked bool `json:"locked" msgpack:"locked"`
 }
@@ -3162,874 +3173,1175 @@ type NodeConfig struct {
 	Variant NodeConfigVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u NodeConfig) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t NodeConfigType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u NodeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case CapNodeConfig:
-		t = CapNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CapNodeConfig
+		}{Type: CapNodeConfigType, CapNodeConfig: v})
 	case FilterNodeConfig:
-		t = FilterNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FilterNodeConfig
+		}{Type: FilterNodeConfigType, FilterNodeConfig: v})
 	case FlowStraightenerNodeConfig:
-		t = FlowStraightenerNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowStraightenerNodeConfig
+		}{Type: FlowStraightenerNodeConfigType, FlowStraightenerNodeConfig: v})
 	case HeaterElementNodeConfig:
-		t = HeaterElementNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			HeaterElementNodeConfig
+		}{Type: HeaterElementNodeConfigType, HeaterElementNodeConfig: v})
 	case IsoCapNodeConfig:
-		t = IsoCapNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			IsoCapNodeConfig
+		}{Type: IsoCapNodeConfigType, IsoCapNodeConfig: v})
 	case IsoFilterNodeConfig:
-		t = IsoFilterNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			IsoFilterNodeConfig
+		}{Type: IsoFilterNodeConfigType, IsoFilterNodeConfig: v})
 	case NozzleNodeConfig:
-		t = NozzleNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			NozzleNodeConfig
+		}{Type: NozzleNodeConfigType, NozzleNodeConfig: v})
 	case OrificeNodeConfig:
-		t = OrificeNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			OrificeNodeConfig
+		}{Type: OrificeNodeConfigType, OrificeNodeConfig: v})
 	case OrificePlateNodeConfig:
-		t = OrificePlateNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			OrificePlateNodeConfig
+		}{Type: OrificePlateNodeConfigType, OrificePlateNodeConfig: v})
 	case StrainerNodeConfig:
-		t = StrainerNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			StrainerNodeConfig
+		}{Type: StrainerNodeConfigType, StrainerNodeConfig: v})
 	case StrainerConeNodeConfig:
-		t = StrainerConeNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			StrainerConeNodeConfig
+		}{Type: StrainerConeNodeConfigType, StrainerConeNodeConfig: v})
 	case ThrusterNodeConfig:
-		t = ThrusterNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ThrusterNodeConfig
+		}{Type: ThrusterNodeConfigType, ThrusterNodeConfig: v})
 	case VentNodeConfig:
-		t = VentNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			VentNodeConfig
+		}{Type: VentNodeConfigType, VentNodeConfig: v})
 	case FlowmeterGeneralNodeConfig:
-		t = FlowmeterGeneralNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterGeneralNodeConfig
+		}{Type: FlowmeterGeneralNodeConfigType, FlowmeterGeneralNodeConfig: v})
 	case FlowmeterElectromagneticNodeConfig:
-		t = FlowmeterElectromagneticNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterElectromagneticNodeConfig
+		}{Type: FlowmeterElectromagneticNodeConfigType, FlowmeterElectromagneticNodeConfig: v})
 	case FlowmeterVariableAreaNodeConfig:
-		t = FlowmeterVariableAreaNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterVariableAreaNodeConfig
+		}{Type: FlowmeterVariableAreaNodeConfigType, FlowmeterVariableAreaNodeConfig: v})
 	case FlowmeterCoriolisNodeConfig:
-		t = FlowmeterCoriolisNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterCoriolisNodeConfig
+		}{Type: FlowmeterCoriolisNodeConfigType, FlowmeterCoriolisNodeConfig: v})
 	case FlowmeterNozzleNodeConfig:
-		t = FlowmeterNozzleNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterNozzleNodeConfig
+		}{Type: FlowmeterNozzleNodeConfigType, FlowmeterNozzleNodeConfig: v})
 	case FlowmeterVenturiNodeConfig:
-		t = FlowmeterVenturiNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterVenturiNodeConfig
+		}{Type: FlowmeterVenturiNodeConfigType, FlowmeterVenturiNodeConfig: v})
 	case FlowmeterRingPistonNodeConfig:
-		t = FlowmeterRingPistonNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterRingPistonNodeConfig
+		}{Type: FlowmeterRingPistonNodeConfigType, FlowmeterRingPistonNodeConfig: v})
 	case FlowmeterPositiveDisplacementNodeConfig:
-		t = FlowmeterPositiveDisplacementNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterPositiveDisplacementNodeConfig
+		}{Type: FlowmeterPositiveDisplacementNodeConfigType, FlowmeterPositiveDisplacementNodeConfig: v})
 	case FlowmeterTurbineNodeConfig:
-		t = FlowmeterTurbineNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterTurbineNodeConfig
+		}{Type: FlowmeterTurbineNodeConfigType, FlowmeterTurbineNodeConfig: v})
 	case FlowmeterPulseNodeConfig:
-		t = FlowmeterPulseNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterPulseNodeConfig
+		}{Type: FlowmeterPulseNodeConfigType, FlowmeterPulseNodeConfig: v})
 	case FlowmeterFloatSensorNodeConfig:
-		t = FlowmeterFloatSensorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterFloatSensorNodeConfig
+		}{Type: FlowmeterFloatSensorNodeConfigType, FlowmeterFloatSensorNodeConfig: v})
 	case FlowmeterOrificeNodeConfig:
-		t = FlowmeterOrificeNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlowmeterOrificeNodeConfig
+		}{Type: FlowmeterOrificeNodeConfigType, FlowmeterOrificeNodeConfig: v})
 	case BoxNodeConfig:
-		t = BoxNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			BoxNodeConfig
+		}{Type: BoxNodeConfigType, BoxNodeConfig: v})
 	case ButtonNodeConfig:
-		t = ButtonNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ButtonNodeConfig
+		}{Type: ButtonNodeConfigType, ButtonNodeConfig: v})
 	case CircleNodeConfig:
-		t = CircleNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CircleNodeConfig
+		}{Type: CircleNodeConfigType, CircleNodeConfig: v})
 	case GaugeNodeConfig:
-		t = GaugeNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			GaugeNodeConfig
+		}{Type: GaugeNodeConfigType, GaugeNodeConfig: v})
 	case InputNodeConfig:
-		t = InputNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			InputNodeConfig
+		}{Type: InputNodeConfigType, InputNodeConfig: v})
 	case LightNodeConfig:
-		t = LightNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			LightNodeConfig
+		}{Type: LightNodeConfigType, LightNodeConfig: v})
 	case LineNodeConfig:
-		t = LineNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			LineNodeConfig
+		}{Type: LineNodeConfigType, LineNodeConfig: v})
 	case OffPageReferenceNodeConfig:
-		t = OffPageReferenceNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			OffPageReferenceNodeConfig
+		}{Type: OffPageReferenceNodeConfigType, OffPageReferenceNodeConfig: v})
 	case PolygonNodeConfig:
-		t = PolygonNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			PolygonNodeConfig
+		}{Type: PolygonNodeConfigType, PolygonNodeConfig: v})
 	case SelectNodeConfig:
-		t = SelectNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			SelectNodeConfig
+		}{Type: SelectNodeConfigType, SelectNodeConfig: v})
 	case ScaleNodeConfig:
-		t = ScaleNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ScaleNodeConfig
+		}{Type: ScaleNodeConfigType, ScaleNodeConfig: v})
 	case SetpointNodeConfig:
-		t = SetpointNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			SetpointNodeConfig
+		}{Type: SetpointNodeConfigType, SetpointNodeConfig: v})
 	case StateIndicatorNodeConfig:
-		t = StateIndicatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			StateIndicatorNodeConfig
+		}{Type: StateIndicatorNodeConfigType, StateIndicatorNodeConfig: v})
 	case StringDisplayNodeConfig:
-		t = StringDisplayNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			StringDisplayNodeConfig
+		}{Type: StringDisplayNodeConfigType, StringDisplayNodeConfig: v})
 	case SwitchNodeConfig:
-		t = SwitchNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			SwitchNodeConfig
+		}{Type: SwitchNodeConfigType, SwitchNodeConfig: v})
 	case TextBoxNodeConfig:
-		t = TextBoxNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			TextBoxNodeConfig
+		}{Type: TextBoxNodeConfigType, TextBoxNodeConfig: v})
 	case ValueNodeConfig:
-		t = ValueNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ValueNodeConfig
+		}{Type: ValueNodeConfigType, ValueNodeConfig: v})
 	case AgitatorNodeConfig:
-		t = AgitatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			AgitatorNodeConfig
+		}{Type: AgitatorNodeConfigType, AgitatorNodeConfig: v})
 	case CrossBeamAgitatorNodeConfig:
-		t = CrossBeamAgitatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CrossBeamAgitatorNodeConfig
+		}{Type: CrossBeamAgitatorNodeConfigType, CrossBeamAgitatorNodeConfig: v})
 	case FlatBladeAgitatorNodeConfig:
-		t = FlatBladeAgitatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlatBladeAgitatorNodeConfig
+		}{Type: FlatBladeAgitatorNodeConfigType, FlatBladeAgitatorNodeConfig: v})
 	case HeatExchangerGeneralNodeConfig:
-		t = HeatExchangerGeneralNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			HeatExchangerGeneralNodeConfig
+		}{Type: HeatExchangerGeneralNodeConfigType, HeatExchangerGeneralNodeConfig: v})
 	case HeatExchangerMNodeConfig:
-		t = HeatExchangerMNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			HeatExchangerMNodeConfig
+		}{Type: HeatExchangerMNodeConfigType, HeatExchangerMNodeConfig: v})
 	case HeatExchangerStraightTubeNodeConfig:
-		t = HeatExchangerStraightTubeNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			HeatExchangerStraightTubeNodeConfig
+		}{Type: HeatExchangerStraightTubeNodeConfigType, HeatExchangerStraightTubeNodeConfig: v})
 	case HelicalAgitatorNodeConfig:
-		t = HelicalAgitatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			HelicalAgitatorNodeConfig
+		}{Type: HelicalAgitatorNodeConfigType, HelicalAgitatorNodeConfig: v})
 	case PaddleAgitatorNodeConfig:
-		t = PaddleAgitatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			PaddleAgitatorNodeConfig
+		}{Type: PaddleAgitatorNodeConfigType, PaddleAgitatorNodeConfig: v})
 	case PropellerAgitatorNodeConfig:
-		t = PropellerAgitatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			PropellerAgitatorNodeConfig
+		}{Type: PropellerAgitatorNodeConfigType, PropellerAgitatorNodeConfig: v})
 	case RotaryMixerNodeConfig:
-		t = RotaryMixerNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			RotaryMixerNodeConfig
+		}{Type: RotaryMixerNodeConfigType, RotaryMixerNodeConfig: v})
 	case StaticMixerNodeConfig:
-		t = StaticMixerNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			StaticMixerNodeConfig
+		}{Type: StaticMixerNodeConfigType, StaticMixerNodeConfig: v})
 	case CavityPumpNodeConfig:
-		t = CavityPumpNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CavityPumpNodeConfig
+		}{Type: CavityPumpNodeConfigType, CavityPumpNodeConfig: v})
 	case CentrifugalCompressorNodeConfig:
-		t = CentrifugalCompressorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CentrifugalCompressorNodeConfig
+		}{Type: CentrifugalCompressorNodeConfigType, CentrifugalCompressorNodeConfig: v})
 	case CompressorNodeConfig:
-		t = CompressorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CompressorNodeConfig
+		}{Type: CompressorNodeConfigType, CompressorNodeConfig: v})
 	case DiaphragmPumpNodeConfig:
-		t = DiaphragmPumpNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			DiaphragmPumpNodeConfig
+		}{Type: DiaphragmPumpNodeConfigType, DiaphragmPumpNodeConfig: v})
 	case EjectionPumpNodeConfig:
-		t = EjectionPumpNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			EjectionPumpNodeConfig
+		}{Type: EjectionPumpNodeConfigType, EjectionPumpNodeConfig: v})
 	case EjectorCompressorNodeConfig:
-		t = EjectorCompressorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			EjectorCompressorNodeConfig
+		}{Type: EjectorCompressorNodeConfigType, EjectorCompressorNodeConfig: v})
 	case LiquidRingCompressorNodeConfig:
-		t = LiquidRingCompressorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			LiquidRingCompressorNodeConfig
+		}{Type: LiquidRingCompressorNodeConfigType, LiquidRingCompressorNodeConfig: v})
 	case PistonPumpNodeConfig:
-		t = PistonPumpNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			PistonPumpNodeConfig
+		}{Type: PistonPumpNodeConfigType, PistonPumpNodeConfig: v})
 	case PumpNodeConfig:
-		t = PumpNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			PumpNodeConfig
+		}{Type: PumpNodeConfigType, PumpNodeConfig: v})
 	case RollerVaneCompressorNodeConfig:
-		t = RollerVaneCompressorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			RollerVaneCompressorNodeConfig
+		}{Type: RollerVaneCompressorNodeConfigType, RollerVaneCompressorNodeConfig: v})
 	case ScrewPumpNodeConfig:
-		t = ScrewPumpNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ScrewPumpNodeConfig
+		}{Type: ScrewPumpNodeConfigType, ScrewPumpNodeConfig: v})
 	case TurboCompressorNodeConfig:
-		t = TurboCompressorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			TurboCompressorNodeConfig
+		}{Type: TurboCompressorNodeConfigType, TurboCompressorNodeConfig: v})
 	case VacuumPumpNodeConfig:
-		t = VacuumPumpNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			VacuumPumpNodeConfig
+		}{Type: VacuumPumpNodeConfigType, VacuumPumpNodeConfig: v})
 	case BurstDiscNodeConfig:
-		t = BurstDiscNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			BurstDiscNodeConfig
+		}{Type: BurstDiscNodeConfigType, BurstDiscNodeConfig: v})
 	case FlameArrestorNodeConfig:
-		t = FlameArrestorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorNodeConfig
+		}{Type: FlameArrestorNodeConfigType, FlameArrestorNodeConfig: v})
 	case FlameArrestorDetonationNodeConfig:
-		t = FlameArrestorDetonationNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorDetonationNodeConfig
+		}{Type: FlameArrestorDetonationNodeConfigType, FlameArrestorDetonationNodeConfig: v})
 	case FlameArrestorExplosionNodeConfig:
-		t = FlameArrestorExplosionNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorExplosionNodeConfig
+		}{Type: FlameArrestorExplosionNodeConfigType, FlameArrestorExplosionNodeConfig: v})
 	case FlameArrestorFireResNodeConfig:
-		t = FlameArrestorFireResNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorFireResNodeConfig
+		}{Type: FlameArrestorFireResNodeConfigType, FlameArrestorFireResNodeConfig: v})
 	case FlameArrestorFireResDetonationNodeConfig:
-		t = FlameArrestorFireResDetonationNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FlameArrestorFireResDetonationNodeConfig
+		}{Type: FlameArrestorFireResDetonationNodeConfigType, FlameArrestorFireResDetonationNodeConfig: v})
 	case IsoBurstDiscNodeConfig:
-		t = IsoBurstDiscNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			IsoBurstDiscNodeConfig
+		}{Type: IsoBurstDiscNodeConfigType, IsoBurstDiscNodeConfig: v})
 	case AngledValveNodeConfig:
-		t = AngledValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			AngledValveNodeConfig
+		}{Type: AngledValveNodeConfigType, AngledValveNodeConfig: v})
 	case AngledReliefValveNodeConfig:
-		t = AngledReliefValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			AngledReliefValveNodeConfig
+		}{Type: AngledReliefValveNodeConfigType, AngledReliefValveNodeConfig: v})
 	case AngledSpringLoadedReliefValveNodeConfig:
-		t = AngledSpringLoadedReliefValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			AngledSpringLoadedReliefValveNodeConfig
+		}{Type: AngledSpringLoadedReliefValveNodeConfigType, AngledSpringLoadedReliefValveNodeConfig: v})
 	case BallValveNodeConfig:
-		t = BallValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			BallValveNodeConfig
+		}{Type: BallValveNodeConfigType, BallValveNodeConfig: v})
 	case BreatherValveNodeConfig:
-		t = BreatherValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			BreatherValveNodeConfig
+		}{Type: BreatherValveNodeConfigType, BreatherValveNodeConfig: v})
 	case ButterflyValveOneNodeConfig:
-		t = ButterflyValveOneNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ButterflyValveOneNodeConfig
+		}{Type: ButterflyValveOneNodeConfigType, ButterflyValveOneNodeConfig: v})
 	case ButterflyValveTwoNodeConfig:
-		t = ButterflyValveTwoNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ButterflyValveTwoNodeConfig
+		}{Type: ButterflyValveTwoNodeConfigType, ButterflyValveTwoNodeConfig: v})
 	case CheckValveNodeConfig:
-		t = CheckValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CheckValveNodeConfig
+		}{Type: CheckValveNodeConfigType, CheckValveNodeConfig: v})
 	case CheckValveWithArrowNodeConfig:
-		t = CheckValveWithArrowNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CheckValveWithArrowNodeConfig
+		}{Type: CheckValveWithArrowNodeConfigType, CheckValveWithArrowNodeConfig: v})
 	case ElectricRegulatorNodeConfig:
-		t = ElectricRegulatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ElectricRegulatorNodeConfig
+		}{Type: ElectricRegulatorNodeConfigType, ElectricRegulatorNodeConfig: v})
 	case ElectricRegulatorMotorizedNodeConfig:
-		t = ElectricRegulatorMotorizedNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ElectricRegulatorMotorizedNodeConfig
+		}{Type: ElectricRegulatorMotorizedNodeConfigType, ElectricRegulatorMotorizedNodeConfig: v})
 	case FourWayValveNodeConfig:
-		t = FourWayValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			FourWayValveNodeConfig
+		}{Type: FourWayValveNodeConfigType, FourWayValveNodeConfig: v})
 	case GateValveNodeConfig:
-		t = GateValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			GateValveNodeConfig
+		}{Type: GateValveNodeConfigType, GateValveNodeConfig: v})
 	case IsoCheckValveNodeConfig:
-		t = IsoCheckValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			IsoCheckValveNodeConfig
+		}{Type: IsoCheckValveNodeConfigType, IsoCheckValveNodeConfig: v})
 	case ManualValveNodeConfig:
-		t = ManualValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ManualValveNodeConfig
+		}{Type: ManualValveNodeConfigType, ManualValveNodeConfig: v})
 	case NeedleValveNodeConfig:
-		t = NeedleValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			NeedleValveNodeConfig
+		}{Type: NeedleValveNodeConfigType, NeedleValveNodeConfig: v})
 	case RegulatorNodeConfig:
-		t = RegulatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			RegulatorNodeConfig
+		}{Type: RegulatorNodeConfigType, RegulatorNodeConfig: v})
 	case RegulatorManualNodeConfig:
-		t = RegulatorManualNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			RegulatorManualNodeConfig
+		}{Type: RegulatorManualNodeConfigType, RegulatorManualNodeConfig: v})
 	case ReliefValveNodeConfig:
-		t = ReliefValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ReliefValveNodeConfig
+		}{Type: ReliefValveNodeConfigType, ReliefValveNodeConfig: v})
 	case SolenoidValveNodeConfig:
-		t = SolenoidValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			SolenoidValveNodeConfig
+		}{Type: SolenoidValveNodeConfigType, SolenoidValveNodeConfig: v})
 	case SpringLoadedReliefValveNodeConfig:
-		t = SpringLoadedReliefValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			SpringLoadedReliefValveNodeConfig
+		}{Type: SpringLoadedReliefValveNodeConfigType, SpringLoadedReliefValveNodeConfig: v})
 	case ThreeWayValveNodeConfig:
-		t = ThreeWayValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ThreeWayValveNodeConfig
+		}{Type: ThreeWayValveNodeConfigType, ThreeWayValveNodeConfig: v})
 	case ThreeWayBallValveNodeConfig:
-		t = ThreeWayBallValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ThreeWayBallValveNodeConfig
+		}{Type: ThreeWayBallValveNodeConfigType, ThreeWayBallValveNodeConfig: v})
 	case ValveNodeConfig:
-		t = ValveNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			ValveNodeConfig
+		}{Type: ValveNodeConfigType, ValveNodeConfig: v})
 	case CrossJunctionNodeConfig:
-		t = CrossJunctionNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CrossJunctionNodeConfig
+		}{Type: CrossJunctionNodeConfigType, CrossJunctionNodeConfig: v})
 	case CylinderNodeConfig:
-		t = CylinderNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CylinderNodeConfig
+		}{Type: CylinderNodeConfigType, CylinderNodeConfig: v})
 	case TankNodeConfig:
-		t = TankNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			TankNodeConfig
+		}{Type: TankNodeConfigType, TankNodeConfig: v})
 	case TJunctionNodeConfig:
-		t = TJunctionNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			TJunctionNodeConfig
+		}{Type: TJunctionNodeConfigType, TJunctionNodeConfig: v})
 	case CustomActuatorNodeConfig:
-		t = CustomActuatorNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CustomActuatorNodeConfig
+		}{Type: CustomActuatorNodeConfigType, CustomActuatorNodeConfig: v})
 	case CustomStaticNodeConfig:
-		t = CustomStaticNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			CustomStaticNodeConfig
+		}{Type: CustomStaticNodeConfigType, CustomStaticNodeConfig: v})
 	case GroupBoxNodeConfig:
-		t = GroupBoxNodeConfigType
+		return json.MarshalEncode(enc, struct {
+			Type NodeConfigType `json:"variant"`
+			GroupBoxNodeConfig
+		}{Type: GroupBoxNodeConfigType, GroupBoxNodeConfig: v})
 	default:
-		return nil, errors.Newf("NodeConfig: nil or unknown variant %T", u.Variant)
+		return errors.Newf("NodeConfig: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *NodeConfig) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type NodeConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CapNodeConfigType:
 		var v CapNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FilterNodeConfigType:
 		var v FilterNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowStraightenerNodeConfigType:
 		var v FlowStraightenerNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeaterElementNodeConfigType:
 		var v HeaterElementNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoCapNodeConfigType:
 		var v IsoCapNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoFilterNodeConfigType:
 		var v IsoFilterNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case NozzleNodeConfigType:
 		var v NozzleNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case OrificeNodeConfigType:
 		var v OrificeNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case OrificePlateNodeConfigType:
 		var v OrificePlateNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StrainerNodeConfigType:
 		var v StrainerNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StrainerConeNodeConfigType:
 		var v StrainerConeNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ThrusterNodeConfigType:
 		var v ThrusterNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case VentNodeConfigType:
 		var v VentNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterGeneralNodeConfigType:
 		var v FlowmeterGeneralNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterElectromagneticNodeConfigType:
 		var v FlowmeterElectromagneticNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterVariableAreaNodeConfigType:
 		var v FlowmeterVariableAreaNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterCoriolisNodeConfigType:
 		var v FlowmeterCoriolisNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterNozzleNodeConfigType:
 		var v FlowmeterNozzleNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterVenturiNodeConfigType:
 		var v FlowmeterVenturiNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterRingPistonNodeConfigType:
 		var v FlowmeterRingPistonNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterPositiveDisplacementNodeConfigType:
 		var v FlowmeterPositiveDisplacementNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterTurbineNodeConfigType:
 		var v FlowmeterTurbineNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterPulseNodeConfigType:
 		var v FlowmeterPulseNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterFloatSensorNodeConfigType:
 		var v FlowmeterFloatSensorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterOrificeNodeConfigType:
 		var v FlowmeterOrificeNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BoxNodeConfigType:
 		var v BoxNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ButtonNodeConfigType:
 		var v ButtonNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CircleNodeConfigType:
 		var v CircleNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GaugeNodeConfigType:
 		var v GaugeNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case InputNodeConfigType:
 		var v InputNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case LightNodeConfigType:
 		var v LightNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case LineNodeConfigType:
 		var v LineNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case OffPageReferenceNodeConfigType:
 		var v OffPageReferenceNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PolygonNodeConfigType:
 		var v PolygonNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SelectNodeConfigType:
 		var v SelectNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ScaleNodeConfigType:
 		var v ScaleNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SetpointNodeConfigType:
 		var v SetpointNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StateIndicatorNodeConfigType:
 		var v StateIndicatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StringDisplayNodeConfigType:
 		var v StringDisplayNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SwitchNodeConfigType:
 		var v SwitchNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TextBoxNodeConfigType:
 		var v TextBoxNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ValueNodeConfigType:
 		var v ValueNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AgitatorNodeConfigType:
 		var v AgitatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CrossBeamAgitatorNodeConfigType:
 		var v CrossBeamAgitatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlatBladeAgitatorNodeConfigType:
 		var v FlatBladeAgitatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeatExchangerGeneralNodeConfigType:
 		var v HeatExchangerGeneralNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeatExchangerMNodeConfigType:
 		var v HeatExchangerMNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeatExchangerStraightTubeNodeConfigType:
 		var v HeatExchangerStraightTubeNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HelicalAgitatorNodeConfigType:
 		var v HelicalAgitatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PaddleAgitatorNodeConfigType:
 		var v PaddleAgitatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PropellerAgitatorNodeConfigType:
 		var v PropellerAgitatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RotaryMixerNodeConfigType:
 		var v RotaryMixerNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StaticMixerNodeConfigType:
 		var v StaticMixerNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CavityPumpNodeConfigType:
 		var v CavityPumpNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CentrifugalCompressorNodeConfigType:
 		var v CentrifugalCompressorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CompressorNodeConfigType:
 		var v CompressorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case DiaphragmPumpNodeConfigType:
 		var v DiaphragmPumpNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case EjectionPumpNodeConfigType:
 		var v EjectionPumpNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case EjectorCompressorNodeConfigType:
 		var v EjectorCompressorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case LiquidRingCompressorNodeConfigType:
 		var v LiquidRingCompressorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PistonPumpNodeConfigType:
 		var v PistonPumpNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PumpNodeConfigType:
 		var v PumpNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RollerVaneCompressorNodeConfigType:
 		var v RollerVaneCompressorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ScrewPumpNodeConfigType:
 		var v ScrewPumpNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TurboCompressorNodeConfigType:
 		var v TurboCompressorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case VacuumPumpNodeConfigType:
 		var v VacuumPumpNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BurstDiscNodeConfigType:
 		var v BurstDiscNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorNodeConfigType:
 		var v FlameArrestorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorDetonationNodeConfigType:
 		var v FlameArrestorDetonationNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorExplosionNodeConfigType:
 		var v FlameArrestorExplosionNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorFireResNodeConfigType:
 		var v FlameArrestorFireResNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorFireResDetonationNodeConfigType:
 		var v FlameArrestorFireResDetonationNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoBurstDiscNodeConfigType:
 		var v IsoBurstDiscNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AngledValveNodeConfigType:
 		var v AngledValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AngledReliefValveNodeConfigType:
 		var v AngledReliefValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AngledSpringLoadedReliefValveNodeConfigType:
 		var v AngledSpringLoadedReliefValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BallValveNodeConfigType:
 		var v BallValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BreatherValveNodeConfigType:
 		var v BreatherValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ButterflyValveOneNodeConfigType:
 		var v ButterflyValveOneNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ButterflyValveTwoNodeConfigType:
 		var v ButterflyValveTwoNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CheckValveNodeConfigType:
 		var v CheckValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CheckValveWithArrowNodeConfigType:
 		var v CheckValveWithArrowNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ElectricRegulatorNodeConfigType:
 		var v ElectricRegulatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ElectricRegulatorMotorizedNodeConfigType:
 		var v ElectricRegulatorMotorizedNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FourWayValveNodeConfigType:
 		var v FourWayValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GateValveNodeConfigType:
 		var v GateValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoCheckValveNodeConfigType:
 		var v IsoCheckValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ManualValveNodeConfigType:
 		var v ManualValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case NeedleValveNodeConfigType:
 		var v NeedleValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RegulatorNodeConfigType:
 		var v RegulatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RegulatorManualNodeConfigType:
 		var v RegulatorManualNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ReliefValveNodeConfigType:
 		var v ReliefValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SolenoidValveNodeConfigType:
 		var v SolenoidValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SpringLoadedReliefValveNodeConfigType:
 		var v SpringLoadedReliefValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ThreeWayValveNodeConfigType:
 		var v ThreeWayValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ThreeWayBallValveNodeConfigType:
 		var v ThreeWayBallValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ValveNodeConfigType:
 		var v ValveNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CrossJunctionNodeConfigType:
 		var v CrossJunctionNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CylinderNodeConfigType:
 		var v CylinderNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TankNodeConfigType:
 		var v TankNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TJunctionNodeConfigType:
 		var v TJunctionNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CustomActuatorNodeConfigType:
 		var v CustomActuatorNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CustomStaticNodeConfigType:
 		var v CustomStaticNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GroupBoxNodeConfigType:
 		var v GroupBoxNodeConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -5166,9 +5478,9 @@ func (f FlowmeterOrificeElementConfig) Validate() error {
 type BoxElementConfig struct {
 	LabeledConfig
 	// Color is the border color of the box.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the box.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Dimensions is the rendered size of the box in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the uniform corner radius of the box in pixels.
@@ -5210,17 +5522,17 @@ type ButtonElementConfig struct {
 	// Size is the rendered size preset of the button.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// Level is the typography level of the button text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// CommandChannel is the channel button presses are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
 	Mode ButtonMode `json:"mode" msgpack:"mode"`
 	// Color is the background color of the button.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (ButtonElementConfig) isElementConfigVariant() {}
@@ -5258,9 +5570,9 @@ type CircleElementConfig struct {
 	// Radius is the radius of the circle in pixels.
 	Radius float64 `json:"radius" msgpack:"radius"`
 	// Color is the border color of the circle.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the circle.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -5292,9 +5604,9 @@ type GaugeElementConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Position is the offset of the gauge contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the accent color of the gauge arc.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Bounds is the numeric range displayed by the gauge.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// BarWidth is the thickness of the gauge arc in pixels.
@@ -5351,17 +5663,17 @@ type InputElementConfig struct {
 	// Size is the rendered size preset of the input.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel submitted values are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the input in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// Color is the accent color of the input.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (InputElementConfig) isElementConfigVariant() {}
@@ -5394,11 +5706,11 @@ type LightElementConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// Channel is the channel whose value drives the light's on state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Threshold is the value range within which the light is considered on.
-	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
+	Threshold *spatial.Bounds `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 }
 
 func (LightElementConfig) isElementConfigVariant() {}
@@ -5420,7 +5732,7 @@ func (l LightElementConfig) Validate() error {
 // LineElementConfig is the configuration for straight line symbols.
 type LineElementConfig struct {
 	// Color is the stroke color of the line.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Start is the first endpoint, offset from the node position.
 	Start spatial.XY `json:"start" msgpack:"start"`
 	// End is the second endpoint, offset from the node position.
@@ -5448,9 +5760,9 @@ type OffPageReferenceElementConfig struct {
 	// Orientation is the direction the reference arrow points.
 	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
 	// Color is the fill color of the reference.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Page is the page this reference links to.
-	Page *Page `json:"page,omitempty" msgpack:"page,omitempty"`
+	Page *Page `json:"page,omitzero" msgpack:"page,omitempty"`
 	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
 	DblClickNavDisabled bool `json:"dbl_click_nav_disabled" msgpack:"dbl_click_nav_disabled"`
 }
@@ -5489,9 +5801,9 @@ type PolygonElementConfig struct {
 	// CornerRounding is the corner rounding radius in pixels.
 	CornerRounding float64 `json:"corner_rounding" msgpack:"corner_rounding"`
 	// Color is the border color of the polygon.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the polygon.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// StrokeWidth is the border stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
@@ -5526,19 +5838,19 @@ type SelectElementConfig struct {
 	// Size is the rendered size preset of the select.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel the selected value is written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Color is the accent color of the select.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of selectable states.
-	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
+	Options []StateMapping `json:"options" msgpack:"options"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (SelectElementConfig) isElementConfigVariant() {}
@@ -5573,13 +5885,13 @@ func (s SelectElementConfig) Validate() error {
 type ScaleElementConfig struct {
 	LabeledConfig
 	// Position is the offset of the scale contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
 	// to the rendered size.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// Color is the color of the fill, which is what the symbol reads as. The toolbar
 	// recolors a selection through this field.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Indicator is the live indicator the scale renders.
 	Indicator ScaleIndicatorConfig `json:"indicator" msgpack:"indicator"`
 }
@@ -5617,11 +5929,11 @@ type SetpointElementConfig struct {
 	// Size is the rendered size preset of the setpoint.
 	Size ComponentSize `json:"size" msgpack:"size"`
 	// CommandChannel is the channel submitted setpoints are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	CommandChannel *channel.Key `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	Dimensions *spatial.Dimensions `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
 	// Color is the accent color of the setpoint.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
@@ -5629,7 +5941,7 @@ type SetpointElementConfig struct {
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
+	Control *ControlStateConfig `json:"control,omitzero" msgpack:"control,omitempty"`
 }
 
 func (SetpointElementConfig) isElementConfigVariant() {}
@@ -5665,13 +5977,13 @@ type StateIndicatorElementConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// Channel is the channel whose value selects the displayed state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Color is the fallback color when no state matches.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Options is the set of displayable states.
-	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
+	Options []StateMapping `json:"options" msgpack:"options"`
 	// Size is the rendered size preset of the indicator.
 	Size ComponentSize `json:"size" msgpack:"size"`
 }
@@ -5704,15 +6016,15 @@ type StringDisplayElementConfig struct {
 	LabeledConfig
 	StalenessConfig
 	// Color is the background color of the display.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
+	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// InlineSize is the inline size of the display in pixels.
 	InlineSize float64 `json:"inline_size" msgpack:"inline_size"`
 	// Channel is the channel whose string value the symbol displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// Level is the typography level of the displayed text.
 	Level text.Level `json:"level" msgpack:"level"`
 }
@@ -5763,7 +6075,7 @@ func (s SwitchElementConfig) Validate() error {
 type TextBoxElementConfig struct {
 	LabeledConfig
 	// Color is the text color.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Width is the rendered width of the text box in pixels.
 	Width float64 `json:"width" msgpack:"width"`
 	// Align is the alignment of the text within the box.
@@ -5811,13 +6123,13 @@ type ValueElementConfig struct {
 	NumericTelemConfig
 	StalenessConfig
 	// Position is the offset of the value contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the background color of the value.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
+	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
 	// Redline is the bounds-to-gradient mapping applied to the background.
 	Redline Redline `json:"redline" msgpack:"redline"`
 	// Units is the unit suffix displayed after the value.
@@ -6941,11 +7253,11 @@ type CylinderElementConfig struct {
 	// Dimensions is the rendered size of the cylinder in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the cylinder.
-	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
+	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
 	// Color is the border color of the cylinder.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the cylinder.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 }
 
 func (CylinderElementConfig) isElementConfigVariant() {}
@@ -6973,11 +7285,11 @@ func (c CylinderElementConfig) Validate() error {
 type TankElementConfig struct {
 	LabeledConfig
 	// Position is the offset of the tank contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	Position *spatial.XY `json:"position,omitzero" msgpack:"position,omitempty"`
 	// Color is the border color of the tank.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// BackgroundColor is the fill color of the tank.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 	// Dimensions is the rendered size of the tank in pixels.
 	Dimensions spatial.Dimensions `json:"dimensions" msgpack:"dimensions"`
 	// BorderRadius is the corner radius of the tank.
@@ -7062,10 +7374,10 @@ type CustomActuatorElementConfig struct {
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomActuatorElementConfig) isElementConfigVariant() {}
@@ -7089,10 +7401,10 @@ type CustomStaticElementConfig struct {
 	// SpecKey is the key of the custom symbol spec this instance renders.
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states,
 	// matched to the spec's states by key.
-	StateOverrides []symbol.State `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
+	StateOverrides []symbol.State `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (CustomStaticElementConfig) isElementConfigVariant() {}
@@ -7114,7 +7426,7 @@ func (c CustomStaticElementConfig) Validate() error {
 // set of grouped symbols. Groups nest: a member may itself be a group.
 type GroupBoxElementConfig struct {
 	// Members lists the keys of the symbols the group contains.
-	Members []string `json:"members,omitzero" msgpack:"members,omitzero"`
+	Members []string `json:"members" msgpack:"members"`
 	// Locked pins the group and its members in place.
 	Locked bool `json:"locked" msgpack:"locked"`
 }
@@ -7225,930 +7537,1252 @@ type ElementConfig struct {
 	Variant ElementConfigVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u ElementConfig) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t ElementConfigType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u ElementConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case CapElementConfig:
-		t = CapElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CapElementConfig
+		}{Type: CapElementConfigType, CapElementConfig: v})
 	case FilterElementConfig:
-		t = FilterElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FilterElementConfig
+		}{Type: FilterElementConfigType, FilterElementConfig: v})
 	case FlowStraightenerElementConfig:
-		t = FlowStraightenerElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowStraightenerElementConfig
+		}{Type: FlowStraightenerElementConfigType, FlowStraightenerElementConfig: v})
 	case HeaterElementElementConfig:
-		t = HeaterElementElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			HeaterElementElementConfig
+		}{Type: HeaterElementElementConfigType, HeaterElementElementConfig: v})
 	case IsoCapElementConfig:
-		t = IsoCapElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			IsoCapElementConfig
+		}{Type: IsoCapElementConfigType, IsoCapElementConfig: v})
 	case IsoFilterElementConfig:
-		t = IsoFilterElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			IsoFilterElementConfig
+		}{Type: IsoFilterElementConfigType, IsoFilterElementConfig: v})
 	case NozzleElementConfig:
-		t = NozzleElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			NozzleElementConfig
+		}{Type: NozzleElementConfigType, NozzleElementConfig: v})
 	case OrificeElementConfig:
-		t = OrificeElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			OrificeElementConfig
+		}{Type: OrificeElementConfigType, OrificeElementConfig: v})
 	case OrificePlateElementConfig:
-		t = OrificePlateElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			OrificePlateElementConfig
+		}{Type: OrificePlateElementConfigType, OrificePlateElementConfig: v})
 	case StrainerElementConfig:
-		t = StrainerElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			StrainerElementConfig
+		}{Type: StrainerElementConfigType, StrainerElementConfig: v})
 	case StrainerConeElementConfig:
-		t = StrainerConeElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			StrainerConeElementConfig
+		}{Type: StrainerConeElementConfigType, StrainerConeElementConfig: v})
 	case ThrusterElementConfig:
-		t = ThrusterElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ThrusterElementConfig
+		}{Type: ThrusterElementConfigType, ThrusterElementConfig: v})
 	case VentElementConfig:
-		t = VentElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			VentElementConfig
+		}{Type: VentElementConfigType, VentElementConfig: v})
 	case FlowmeterGeneralElementConfig:
-		t = FlowmeterGeneralElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterGeneralElementConfig
+		}{Type: FlowmeterGeneralElementConfigType, FlowmeterGeneralElementConfig: v})
 	case FlowmeterElectromagneticElementConfig:
-		t = FlowmeterElectromagneticElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterElectromagneticElementConfig
+		}{Type: FlowmeterElectromagneticElementConfigType, FlowmeterElectromagneticElementConfig: v})
 	case FlowmeterVariableAreaElementConfig:
-		t = FlowmeterVariableAreaElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterVariableAreaElementConfig
+		}{Type: FlowmeterVariableAreaElementConfigType, FlowmeterVariableAreaElementConfig: v})
 	case FlowmeterCoriolisElementConfig:
-		t = FlowmeterCoriolisElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterCoriolisElementConfig
+		}{Type: FlowmeterCoriolisElementConfigType, FlowmeterCoriolisElementConfig: v})
 	case FlowmeterNozzleElementConfig:
-		t = FlowmeterNozzleElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterNozzleElementConfig
+		}{Type: FlowmeterNozzleElementConfigType, FlowmeterNozzleElementConfig: v})
 	case FlowmeterVenturiElementConfig:
-		t = FlowmeterVenturiElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterVenturiElementConfig
+		}{Type: FlowmeterVenturiElementConfigType, FlowmeterVenturiElementConfig: v})
 	case FlowmeterRingPistonElementConfig:
-		t = FlowmeterRingPistonElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterRingPistonElementConfig
+		}{Type: FlowmeterRingPistonElementConfigType, FlowmeterRingPistonElementConfig: v})
 	case FlowmeterPositiveDisplacementElementConfig:
-		t = FlowmeterPositiveDisplacementElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterPositiveDisplacementElementConfig
+		}{Type: FlowmeterPositiveDisplacementElementConfigType, FlowmeterPositiveDisplacementElementConfig: v})
 	case FlowmeterTurbineElementConfig:
-		t = FlowmeterTurbineElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterTurbineElementConfig
+		}{Type: FlowmeterTurbineElementConfigType, FlowmeterTurbineElementConfig: v})
 	case FlowmeterPulseElementConfig:
-		t = FlowmeterPulseElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterPulseElementConfig
+		}{Type: FlowmeterPulseElementConfigType, FlowmeterPulseElementConfig: v})
 	case FlowmeterFloatSensorElementConfig:
-		t = FlowmeterFloatSensorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterFloatSensorElementConfig
+		}{Type: FlowmeterFloatSensorElementConfigType, FlowmeterFloatSensorElementConfig: v})
 	case FlowmeterOrificeElementConfig:
-		t = FlowmeterOrificeElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlowmeterOrificeElementConfig
+		}{Type: FlowmeterOrificeElementConfigType, FlowmeterOrificeElementConfig: v})
 	case BoxElementConfig:
-		t = BoxElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			BoxElementConfig
+		}{Type: BoxElementConfigType, BoxElementConfig: v})
 	case ButtonElementConfig:
-		t = ButtonElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ButtonElementConfig
+		}{Type: ButtonElementConfigType, ButtonElementConfig: v})
 	case CircleElementConfig:
-		t = CircleElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CircleElementConfig
+		}{Type: CircleElementConfigType, CircleElementConfig: v})
 	case GaugeElementConfig:
-		t = GaugeElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			GaugeElementConfig
+		}{Type: GaugeElementConfigType, GaugeElementConfig: v})
 	case InputElementConfig:
-		t = InputElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			InputElementConfig
+		}{Type: InputElementConfigType, InputElementConfig: v})
 	case LightElementConfig:
-		t = LightElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			LightElementConfig
+		}{Type: LightElementConfigType, LightElementConfig: v})
 	case LineElementConfig:
-		t = LineElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			LineElementConfig
+		}{Type: LineElementConfigType, LineElementConfig: v})
 	case OffPageReferenceElementConfig:
-		t = OffPageReferenceElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			OffPageReferenceElementConfig
+		}{Type: OffPageReferenceElementConfigType, OffPageReferenceElementConfig: v})
 	case PolygonElementConfig:
-		t = PolygonElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			PolygonElementConfig
+		}{Type: PolygonElementConfigType, PolygonElementConfig: v})
 	case SelectElementConfig:
-		t = SelectElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			SelectElementConfig
+		}{Type: SelectElementConfigType, SelectElementConfig: v})
 	case ScaleElementConfig:
-		t = ScaleElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ScaleElementConfig
+		}{Type: ScaleElementConfigType, ScaleElementConfig: v})
 	case SetpointElementConfig:
-		t = SetpointElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			SetpointElementConfig
+		}{Type: SetpointElementConfigType, SetpointElementConfig: v})
 	case StateIndicatorElementConfig:
-		t = StateIndicatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			StateIndicatorElementConfig
+		}{Type: StateIndicatorElementConfigType, StateIndicatorElementConfig: v})
 	case StringDisplayElementConfig:
-		t = StringDisplayElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			StringDisplayElementConfig
+		}{Type: StringDisplayElementConfigType, StringDisplayElementConfig: v})
 	case SwitchElementConfig:
-		t = SwitchElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			SwitchElementConfig
+		}{Type: SwitchElementConfigType, SwitchElementConfig: v})
 	case TextBoxElementConfig:
-		t = TextBoxElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			TextBoxElementConfig
+		}{Type: TextBoxElementConfigType, TextBoxElementConfig: v})
 	case ValueElementConfig:
-		t = ValueElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ValueElementConfig
+		}{Type: ValueElementConfigType, ValueElementConfig: v})
 	case AgitatorElementConfig:
-		t = AgitatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			AgitatorElementConfig
+		}{Type: AgitatorElementConfigType, AgitatorElementConfig: v})
 	case CrossBeamAgitatorElementConfig:
-		t = CrossBeamAgitatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CrossBeamAgitatorElementConfig
+		}{Type: CrossBeamAgitatorElementConfigType, CrossBeamAgitatorElementConfig: v})
 	case FlatBladeAgitatorElementConfig:
-		t = FlatBladeAgitatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlatBladeAgitatorElementConfig
+		}{Type: FlatBladeAgitatorElementConfigType, FlatBladeAgitatorElementConfig: v})
 	case HeatExchangerGeneralElementConfig:
-		t = HeatExchangerGeneralElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			HeatExchangerGeneralElementConfig
+		}{Type: HeatExchangerGeneralElementConfigType, HeatExchangerGeneralElementConfig: v})
 	case HeatExchangerMElementConfig:
-		t = HeatExchangerMElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			HeatExchangerMElementConfig
+		}{Type: HeatExchangerMElementConfigType, HeatExchangerMElementConfig: v})
 	case HeatExchangerStraightTubeElementConfig:
-		t = HeatExchangerStraightTubeElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			HeatExchangerStraightTubeElementConfig
+		}{Type: HeatExchangerStraightTubeElementConfigType, HeatExchangerStraightTubeElementConfig: v})
 	case HelicalAgitatorElementConfig:
-		t = HelicalAgitatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			HelicalAgitatorElementConfig
+		}{Type: HelicalAgitatorElementConfigType, HelicalAgitatorElementConfig: v})
 	case PaddleAgitatorElementConfig:
-		t = PaddleAgitatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			PaddleAgitatorElementConfig
+		}{Type: PaddleAgitatorElementConfigType, PaddleAgitatorElementConfig: v})
 	case PropellerAgitatorElementConfig:
-		t = PropellerAgitatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			PropellerAgitatorElementConfig
+		}{Type: PropellerAgitatorElementConfigType, PropellerAgitatorElementConfig: v})
 	case RotaryMixerElementConfig:
-		t = RotaryMixerElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			RotaryMixerElementConfig
+		}{Type: RotaryMixerElementConfigType, RotaryMixerElementConfig: v})
 	case StaticMixerElementConfig:
-		t = StaticMixerElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			StaticMixerElementConfig
+		}{Type: StaticMixerElementConfigType, StaticMixerElementConfig: v})
 	case CavityPumpElementConfig:
-		t = CavityPumpElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CavityPumpElementConfig
+		}{Type: CavityPumpElementConfigType, CavityPumpElementConfig: v})
 	case CentrifugalCompressorElementConfig:
-		t = CentrifugalCompressorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CentrifugalCompressorElementConfig
+		}{Type: CentrifugalCompressorElementConfigType, CentrifugalCompressorElementConfig: v})
 	case CompressorElementConfig:
-		t = CompressorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CompressorElementConfig
+		}{Type: CompressorElementConfigType, CompressorElementConfig: v})
 	case DiaphragmPumpElementConfig:
-		t = DiaphragmPumpElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			DiaphragmPumpElementConfig
+		}{Type: DiaphragmPumpElementConfigType, DiaphragmPumpElementConfig: v})
 	case EjectionPumpElementConfig:
-		t = EjectionPumpElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			EjectionPumpElementConfig
+		}{Type: EjectionPumpElementConfigType, EjectionPumpElementConfig: v})
 	case EjectorCompressorElementConfig:
-		t = EjectorCompressorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			EjectorCompressorElementConfig
+		}{Type: EjectorCompressorElementConfigType, EjectorCompressorElementConfig: v})
 	case LiquidRingCompressorElementConfig:
-		t = LiquidRingCompressorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			LiquidRingCompressorElementConfig
+		}{Type: LiquidRingCompressorElementConfigType, LiquidRingCompressorElementConfig: v})
 	case PistonPumpElementConfig:
-		t = PistonPumpElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			PistonPumpElementConfig
+		}{Type: PistonPumpElementConfigType, PistonPumpElementConfig: v})
 	case PumpElementConfig:
-		t = PumpElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			PumpElementConfig
+		}{Type: PumpElementConfigType, PumpElementConfig: v})
 	case RollerVaneCompressorElementConfig:
-		t = RollerVaneCompressorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			RollerVaneCompressorElementConfig
+		}{Type: RollerVaneCompressorElementConfigType, RollerVaneCompressorElementConfig: v})
 	case ScrewPumpElementConfig:
-		t = ScrewPumpElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ScrewPumpElementConfig
+		}{Type: ScrewPumpElementConfigType, ScrewPumpElementConfig: v})
 	case TurboCompressorElementConfig:
-		t = TurboCompressorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			TurboCompressorElementConfig
+		}{Type: TurboCompressorElementConfigType, TurboCompressorElementConfig: v})
 	case VacuumPumpElementConfig:
-		t = VacuumPumpElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			VacuumPumpElementConfig
+		}{Type: VacuumPumpElementConfigType, VacuumPumpElementConfig: v})
 	case BurstDiscElementConfig:
-		t = BurstDiscElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			BurstDiscElementConfig
+		}{Type: BurstDiscElementConfigType, BurstDiscElementConfig: v})
 	case FlameArrestorElementConfig:
-		t = FlameArrestorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorElementConfig
+		}{Type: FlameArrestorElementConfigType, FlameArrestorElementConfig: v})
 	case FlameArrestorDetonationElementConfig:
-		t = FlameArrestorDetonationElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorDetonationElementConfig
+		}{Type: FlameArrestorDetonationElementConfigType, FlameArrestorDetonationElementConfig: v})
 	case FlameArrestorExplosionElementConfig:
-		t = FlameArrestorExplosionElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorExplosionElementConfig
+		}{Type: FlameArrestorExplosionElementConfigType, FlameArrestorExplosionElementConfig: v})
 	case FlameArrestorFireResElementConfig:
-		t = FlameArrestorFireResElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorFireResElementConfig
+		}{Type: FlameArrestorFireResElementConfigType, FlameArrestorFireResElementConfig: v})
 	case FlameArrestorFireResDetonationElementConfig:
-		t = FlameArrestorFireResDetonationElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FlameArrestorFireResDetonationElementConfig
+		}{Type: FlameArrestorFireResDetonationElementConfigType, FlameArrestorFireResDetonationElementConfig: v})
 	case IsoBurstDiscElementConfig:
-		t = IsoBurstDiscElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			IsoBurstDiscElementConfig
+		}{Type: IsoBurstDiscElementConfigType, IsoBurstDiscElementConfig: v})
 	case AngledValveElementConfig:
-		t = AngledValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			AngledValveElementConfig
+		}{Type: AngledValveElementConfigType, AngledValveElementConfig: v})
 	case AngledReliefValveElementConfig:
-		t = AngledReliefValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			AngledReliefValveElementConfig
+		}{Type: AngledReliefValveElementConfigType, AngledReliefValveElementConfig: v})
 	case AngledSpringLoadedReliefValveElementConfig:
-		t = AngledSpringLoadedReliefValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			AngledSpringLoadedReliefValveElementConfig
+		}{Type: AngledSpringLoadedReliefValveElementConfigType, AngledSpringLoadedReliefValveElementConfig: v})
 	case BallValveElementConfig:
-		t = BallValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			BallValveElementConfig
+		}{Type: BallValveElementConfigType, BallValveElementConfig: v})
 	case BreatherValveElementConfig:
-		t = BreatherValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			BreatherValveElementConfig
+		}{Type: BreatherValveElementConfigType, BreatherValveElementConfig: v})
 	case ButterflyValveOneElementConfig:
-		t = ButterflyValveOneElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ButterflyValveOneElementConfig
+		}{Type: ButterflyValveOneElementConfigType, ButterflyValveOneElementConfig: v})
 	case ButterflyValveTwoElementConfig:
-		t = ButterflyValveTwoElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ButterflyValveTwoElementConfig
+		}{Type: ButterflyValveTwoElementConfigType, ButterflyValveTwoElementConfig: v})
 	case CheckValveElementConfig:
-		t = CheckValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CheckValveElementConfig
+		}{Type: CheckValveElementConfigType, CheckValveElementConfig: v})
 	case CheckValveWithArrowElementConfig:
-		t = CheckValveWithArrowElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CheckValveWithArrowElementConfig
+		}{Type: CheckValveWithArrowElementConfigType, CheckValveWithArrowElementConfig: v})
 	case ElectricRegulatorElementConfig:
-		t = ElectricRegulatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ElectricRegulatorElementConfig
+		}{Type: ElectricRegulatorElementConfigType, ElectricRegulatorElementConfig: v})
 	case ElectricRegulatorMotorizedElementConfig:
-		t = ElectricRegulatorMotorizedElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ElectricRegulatorMotorizedElementConfig
+		}{Type: ElectricRegulatorMotorizedElementConfigType, ElectricRegulatorMotorizedElementConfig: v})
 	case FourWayValveElementConfig:
-		t = FourWayValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			FourWayValveElementConfig
+		}{Type: FourWayValveElementConfigType, FourWayValveElementConfig: v})
 	case GateValveElementConfig:
-		t = GateValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			GateValveElementConfig
+		}{Type: GateValveElementConfigType, GateValveElementConfig: v})
 	case IsoCheckValveElementConfig:
-		t = IsoCheckValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			IsoCheckValveElementConfig
+		}{Type: IsoCheckValveElementConfigType, IsoCheckValveElementConfig: v})
 	case ManualValveElementConfig:
-		t = ManualValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ManualValveElementConfig
+		}{Type: ManualValveElementConfigType, ManualValveElementConfig: v})
 	case NeedleValveElementConfig:
-		t = NeedleValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			NeedleValveElementConfig
+		}{Type: NeedleValveElementConfigType, NeedleValveElementConfig: v})
 	case RegulatorElementConfig:
-		t = RegulatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			RegulatorElementConfig
+		}{Type: RegulatorElementConfigType, RegulatorElementConfig: v})
 	case RegulatorManualElementConfig:
-		t = RegulatorManualElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			RegulatorManualElementConfig
+		}{Type: RegulatorManualElementConfigType, RegulatorManualElementConfig: v})
 	case ReliefValveElementConfig:
-		t = ReliefValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ReliefValveElementConfig
+		}{Type: ReliefValveElementConfigType, ReliefValveElementConfig: v})
 	case SolenoidValveElementConfig:
-		t = SolenoidValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			SolenoidValveElementConfig
+		}{Type: SolenoidValveElementConfigType, SolenoidValveElementConfig: v})
 	case SpringLoadedReliefValveElementConfig:
-		t = SpringLoadedReliefValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			SpringLoadedReliefValveElementConfig
+		}{Type: SpringLoadedReliefValveElementConfigType, SpringLoadedReliefValveElementConfig: v})
 	case ThreeWayValveElementConfig:
-		t = ThreeWayValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ThreeWayValveElementConfig
+		}{Type: ThreeWayValveElementConfigType, ThreeWayValveElementConfig: v})
 	case ThreeWayBallValveElementConfig:
-		t = ThreeWayBallValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ThreeWayBallValveElementConfig
+		}{Type: ThreeWayBallValveElementConfigType, ThreeWayBallValveElementConfig: v})
 	case ValveElementConfig:
-		t = ValveElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ValveElementConfig
+		}{Type: ValveElementConfigType, ValveElementConfig: v})
 	case CrossJunctionElementConfig:
-		t = CrossJunctionElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CrossJunctionElementConfig
+		}{Type: CrossJunctionElementConfigType, CrossJunctionElementConfig: v})
 	case CylinderElementConfig:
-		t = CylinderElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CylinderElementConfig
+		}{Type: CylinderElementConfigType, CylinderElementConfig: v})
 	case TankElementConfig:
-		t = TankElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			TankElementConfig
+		}{Type: TankElementConfigType, TankElementConfig: v})
 	case TJunctionElementConfig:
-		t = TJunctionElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			TJunctionElementConfig
+		}{Type: TJunctionElementConfigType, TJunctionElementConfig: v})
 	case CustomActuatorElementConfig:
-		t = CustomActuatorElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CustomActuatorElementConfig
+		}{Type: CustomActuatorElementConfigType, CustomActuatorElementConfig: v})
 	case CustomStaticElementConfig:
-		t = CustomStaticElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			CustomStaticElementConfig
+		}{Type: CustomStaticElementConfigType, CustomStaticElementConfig: v})
 	case GroupBoxElementConfig:
-		t = GroupBoxElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			GroupBoxElementConfig
+		}{Type: GroupBoxElementConfigType, GroupBoxElementConfig: v})
 	case PipeElementConfig:
-		t = PipeElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			PipeElementConfig
+		}{Type: PipeElementConfigType, PipeElementConfig: v})
 	case ElectricElementConfig:
-		t = ElectricElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			ElectricElementConfig
+		}{Type: ElectricElementConfigType, ElectricElementConfig: v})
 	case SecondaryElementConfig:
-		t = SecondaryElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			SecondaryElementConfig
+		}{Type: SecondaryElementConfigType, SecondaryElementConfig: v})
 	case JacketedElementConfig:
-		t = JacketedElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			JacketedElementConfig
+		}{Type: JacketedElementConfigType, JacketedElementConfig: v})
 	case HydraulicElementConfig:
-		t = HydraulicElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			HydraulicElementConfig
+		}{Type: HydraulicElementConfigType, HydraulicElementConfig: v})
 	case PneumaticElementConfig:
-		t = PneumaticElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			PneumaticElementConfig
+		}{Type: PneumaticElementConfigType, PneumaticElementConfig: v})
 	case DataElementConfig:
-		t = DataElementConfigType
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigType `json:"variant"`
+			DataElementConfig
+		}{Type: DataElementConfigType, DataElementConfig: v})
 	default:
-		return nil, errors.Newf("ElementConfig: nil or unknown variant %T", u.Variant)
+		return errors.Newf("ElementConfig: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *ElementConfig) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type ElementConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CapElementConfigType:
 		var v CapElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FilterElementConfigType:
 		var v FilterElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowStraightenerElementConfigType:
 		var v FlowStraightenerElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeaterElementElementConfigType:
 		var v HeaterElementElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoCapElementConfigType:
 		var v IsoCapElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoFilterElementConfigType:
 		var v IsoFilterElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case NozzleElementConfigType:
 		var v NozzleElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case OrificeElementConfigType:
 		var v OrificeElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case OrificePlateElementConfigType:
 		var v OrificePlateElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StrainerElementConfigType:
 		var v StrainerElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StrainerConeElementConfigType:
 		var v StrainerConeElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ThrusterElementConfigType:
 		var v ThrusterElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case VentElementConfigType:
 		var v VentElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterGeneralElementConfigType:
 		var v FlowmeterGeneralElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterElectromagneticElementConfigType:
 		var v FlowmeterElectromagneticElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterVariableAreaElementConfigType:
 		var v FlowmeterVariableAreaElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterCoriolisElementConfigType:
 		var v FlowmeterCoriolisElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterNozzleElementConfigType:
 		var v FlowmeterNozzleElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterVenturiElementConfigType:
 		var v FlowmeterVenturiElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterRingPistonElementConfigType:
 		var v FlowmeterRingPistonElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterPositiveDisplacementElementConfigType:
 		var v FlowmeterPositiveDisplacementElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterTurbineElementConfigType:
 		var v FlowmeterTurbineElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterPulseElementConfigType:
 		var v FlowmeterPulseElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterFloatSensorElementConfigType:
 		var v FlowmeterFloatSensorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlowmeterOrificeElementConfigType:
 		var v FlowmeterOrificeElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BoxElementConfigType:
 		var v BoxElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ButtonElementConfigType:
 		var v ButtonElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CircleElementConfigType:
 		var v CircleElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GaugeElementConfigType:
 		var v GaugeElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case InputElementConfigType:
 		var v InputElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case LightElementConfigType:
 		var v LightElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case LineElementConfigType:
 		var v LineElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case OffPageReferenceElementConfigType:
 		var v OffPageReferenceElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PolygonElementConfigType:
 		var v PolygonElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SelectElementConfigType:
 		var v SelectElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ScaleElementConfigType:
 		var v ScaleElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SetpointElementConfigType:
 		var v SetpointElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StateIndicatorElementConfigType:
 		var v StateIndicatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StringDisplayElementConfigType:
 		var v StringDisplayElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SwitchElementConfigType:
 		var v SwitchElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TextBoxElementConfigType:
 		var v TextBoxElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ValueElementConfigType:
 		var v ValueElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AgitatorElementConfigType:
 		var v AgitatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CrossBeamAgitatorElementConfigType:
 		var v CrossBeamAgitatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlatBladeAgitatorElementConfigType:
 		var v FlatBladeAgitatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeatExchangerGeneralElementConfigType:
 		var v HeatExchangerGeneralElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeatExchangerMElementConfigType:
 		var v HeatExchangerMElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HeatExchangerStraightTubeElementConfigType:
 		var v HeatExchangerStraightTubeElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HelicalAgitatorElementConfigType:
 		var v HelicalAgitatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PaddleAgitatorElementConfigType:
 		var v PaddleAgitatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PropellerAgitatorElementConfigType:
 		var v PropellerAgitatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RotaryMixerElementConfigType:
 		var v RotaryMixerElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case StaticMixerElementConfigType:
 		var v StaticMixerElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CavityPumpElementConfigType:
 		var v CavityPumpElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CentrifugalCompressorElementConfigType:
 		var v CentrifugalCompressorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CompressorElementConfigType:
 		var v CompressorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case DiaphragmPumpElementConfigType:
 		var v DiaphragmPumpElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case EjectionPumpElementConfigType:
 		var v EjectionPumpElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case EjectorCompressorElementConfigType:
 		var v EjectorCompressorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case LiquidRingCompressorElementConfigType:
 		var v LiquidRingCompressorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PistonPumpElementConfigType:
 		var v PistonPumpElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PumpElementConfigType:
 		var v PumpElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RollerVaneCompressorElementConfigType:
 		var v RollerVaneCompressorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ScrewPumpElementConfigType:
 		var v ScrewPumpElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TurboCompressorElementConfigType:
 		var v TurboCompressorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case VacuumPumpElementConfigType:
 		var v VacuumPumpElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BurstDiscElementConfigType:
 		var v BurstDiscElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorElementConfigType:
 		var v FlameArrestorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorDetonationElementConfigType:
 		var v FlameArrestorDetonationElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorExplosionElementConfigType:
 		var v FlameArrestorExplosionElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorFireResElementConfigType:
 		var v FlameArrestorFireResElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FlameArrestorFireResDetonationElementConfigType:
 		var v FlameArrestorFireResDetonationElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoBurstDiscElementConfigType:
 		var v IsoBurstDiscElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AngledValveElementConfigType:
 		var v AngledValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AngledReliefValveElementConfigType:
 		var v AngledReliefValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case AngledSpringLoadedReliefValveElementConfigType:
 		var v AngledSpringLoadedReliefValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BallValveElementConfigType:
 		var v BallValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case BreatherValveElementConfigType:
 		var v BreatherValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ButterflyValveOneElementConfigType:
 		var v ButterflyValveOneElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ButterflyValveTwoElementConfigType:
 		var v ButterflyValveTwoElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CheckValveElementConfigType:
 		var v CheckValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CheckValveWithArrowElementConfigType:
 		var v CheckValveWithArrowElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ElectricRegulatorElementConfigType:
 		var v ElectricRegulatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ElectricRegulatorMotorizedElementConfigType:
 		var v ElectricRegulatorMotorizedElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case FourWayValveElementConfigType:
 		var v FourWayValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GateValveElementConfigType:
 		var v GateValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case IsoCheckValveElementConfigType:
 		var v IsoCheckValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ManualValveElementConfigType:
 		var v ManualValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case NeedleValveElementConfigType:
 		var v NeedleValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RegulatorElementConfigType:
 		var v RegulatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case RegulatorManualElementConfigType:
 		var v RegulatorManualElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ReliefValveElementConfigType:
 		var v ReliefValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SolenoidValveElementConfigType:
 		var v SolenoidValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SpringLoadedReliefValveElementConfigType:
 		var v SpringLoadedReliefValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ThreeWayValveElementConfigType:
 		var v ThreeWayValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ThreeWayBallValveElementConfigType:
 		var v ThreeWayBallValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ValveElementConfigType:
 		var v ValveElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CrossJunctionElementConfigType:
 		var v CrossJunctionElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CylinderElementConfigType:
 		var v CylinderElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TankElementConfigType:
 		var v TankElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case TJunctionElementConfigType:
 		var v TJunctionElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CustomActuatorElementConfigType:
 		var v CustomActuatorElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case CustomStaticElementConfigType:
 		var v CustomStaticElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GroupBoxElementConfigType:
 		var v GroupBoxElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PipeElementConfigType:
 		var v PipeElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ElectricElementConfigType:
 		var v ElectricElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SecondaryElementConfigType:
 		var v SecondaryElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case JacketedElementConfigType:
 		var v JacketedElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case HydraulicElementConfigType:
 		var v HydraulicElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case PneumaticElementConfigType:
 		var v PneumaticElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case DataElementConfigType:
 		var v DataElementConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -8711,12 +9345,12 @@ type Schematic struct {
 	// Snapshot is true if this schematic is an immutable snapshot copy.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
-	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
+	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	// Edges contains all connections between nodes.
-	Edges []Edge `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	Edges []Edge `json:"edges" msgpack:"edges"`
 	// Configs contains per-element configuration keyed by node or edge key. The variant
 	// of each value selects the symbol or edge style it configures.
-	Configs map[string]ElementConfig `json:"configs,omitzero" msgpack:"configs,omitzero"`
+	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -8746,11 +9380,11 @@ type ScaleIndicatorConfig struct {
 	// Bounds is the numeric range the indicator maps onto its extent.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// Color is the color of the filled portion.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// AxisColor is the color of the scale axis and its ticks.
-	AxisColor *color.Color `json:"axis_color,omitempty" msgpack:"axis_color,omitempty"`
+	AxisColor *color.Color `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
 	// TextColor is the color of the tick labels.
-	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	TextColor *color.Color `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
 	// Units is the unit suffix displayed after each tick label.
 	Units string `json:"units" msgpack:"units"`
 	// FillHidden hides the filled portion.
@@ -8840,7 +9474,7 @@ type StalenessConfig struct {
 	// stale.
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -8854,9 +9488,9 @@ func (s *StalenessConfig) ApplyDefaults() {
 // a channel's value as a number.
 type NumericTelemConfig struct {
 	// Channel is the channel whose value the symbol displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
 	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
 	// Precision is the number of decimal places shown.
 	Precision float64 `json:"precision" msgpack:"precision"`
 	// Notation is the numeric notation used to format the value.

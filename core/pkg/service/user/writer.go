@@ -11,8 +11,8 @@ package user
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -43,7 +43,7 @@ func (w Writer) Create(ctx context.Context, u User) (User, error) {
 }
 
 func (w Writer) create(ctx context.Context, u User) (User, error) {
-	if u.Key == uuid.Nil {
+	if u.Key == uuid.Nil() {
 		u.Key = uuid.New()
 	}
 	exists, err := w.svc.

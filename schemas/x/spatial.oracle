@@ -170,18 +170,10 @@ Location enum {
 }
 
 XCenterLocation enum extends XLocation, CenterLocation {
-    left   = "left"
-    right  = "right"
-    center = "center"
-
     @doc value "is a horizontal-axis location at the left, right, or center."
 }
 
 YCenterLocation enum extends YLocation, CenterLocation {
-    top    = "top"
-    bottom = "bottom"
-    center = "center"
-
     @doc value "is a vertical-axis location at the top, bottom, or center."
 }
 

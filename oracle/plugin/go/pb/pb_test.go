@@ -1057,7 +1057,7 @@ var _ = Describe("Go PB Plugin", func() {
 					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 					ExpectContent(resp, "translator.gen.go").
-						ToContain(`"github.com/google/uuid"`)
+						ToContain(`"uuid"`)
 				},
 			)
 
@@ -2226,7 +2226,7 @@ var _ = Describe("Go PB Plugin", func() {
 							// The typed argument pins the forward instantiation; the
 							// nil converter cannot pin the backward one.
 							"StatusToPB(*r.Status, nil)",
-							"StatusFromPB[gotypes.Nil](pb.Status, nil)",
+							"StatusFromPB[struct{}](pb.Status, nil)",
 						)
 				},
 			)
