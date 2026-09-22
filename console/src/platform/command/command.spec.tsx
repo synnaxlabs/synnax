@@ -11,6 +11,7 @@ import { Icon } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Analytics } from "@/platform/analytics";
 import { Command } from "@/platform/command";
 import { createConsoleWrapper } from "@/testutil";
 
@@ -29,6 +30,27 @@ describe("Command.create", () => {
       fireEvent.click(screen.getByText("Hook Command"), { detail: 0 });
     });
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("should record the key of the command that ran", async () => {
+    const capture = vi.fn();
+    const Cmd = Command.create({
+      key: "cc",
+      name: "Hook Command",
+      icon: <Icon.Close />,
+      useOnSelect: () => vi.fn(),
+    });
+    const { wrapper } = await createConsoleWrapper({ client: null });
+    render(
+      <Analytics.Provider sink={{ ...Analytics.NOOP, capture }}>
+        <Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />
+      </Analytics.Provider>,
+      { wrapper },
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByText("Hook Command"), { detail: 0 });
+    });
+    expect(capture).toHaveBeenCalledWith("command_run", { command: "cc" });
   });
 
   it("should not fire the callback for a real pointer click routed by the list", async () => {

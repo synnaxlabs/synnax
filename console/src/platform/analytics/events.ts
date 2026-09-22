@@ -1,0 +1,72 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { z } from "zod";
+
+/**
+ * The properties of every event, keyed by event name. The schemas are strict, so a
+ * property that is not declared here never reaches the sink. Values stay numbers,
+ * booleans, and strings from a closed set: no name a user typed ever leaves the machine.
+ */
+export const schemas = {
+  app_opened: z.strictObject({
+    version: z.string(),
+    os: z.string(),
+    arch: z.string(),
+    first_launch: z.boolean(),
+    /** Null on a first launch, so retention can tell it apart from a fast relaunch. */
+    hours_since_last_launch: z.number().nullable(),
+  }),
+  app_active: z.strictObject({
+    /** False while the window sits open showing live data that nobody touches. */
+    interacted: z.boolean(),
+  }),
+  command_run: z.strictObject({ command: z.string() }),
+  resource_created: z.strictObject({ resource: z.string() }),
+  core_ready: z.strictObject({
+    time_to_ready_ms: z.number(),
+    starts: z.number(),
+  }),
+  core_exited: z.strictObject({
+    reason: z.enum(["crashed", "not_ready", "unresponsive", "stopped"]),
+    uptime_s: z.number(),
+  }),
+  core_restart_exhausted: z.strictObject({ attempts: z.number() }),
+  core_reset: z.strictObject({ data_size_bytes: z.number() }),
+  update_installed: z.strictObject({
+    from_version: z.string(),
+    to_version: z.string(),
+  }),
+} as const;
+
+export type Name = keyof typeof schemas;
+
+export type Properties<N extends Name> = z.infer<(typeof schemas)[N]>;
+
+/**
+ * What the user has built, recorded against the install rather than as an event. It
+ * turns every count into a segment: an empty install and a loaded one are otherwise
+ * indistinguishable.
+ */
+export const workspaceZ = z.strictObject({
+  channel_count: z.number(),
+  device_count: z.number(),
+  rack_count: z.number(),
+  task_count: z.number(),
+  range_count: z.number(),
+  schematic_count: z.number(),
+  line_plot_count: z.number(),
+  log_count: z.number(),
+  table_count: z.number(),
+  arc_count: z.number(),
+  has_hardware: z.boolean(),
+  uses_arc: z.boolean(),
+});
+
+export interface Workspace extends z.infer<typeof workspaceZ> {}

@@ -16,6 +16,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
 use super::{Config, History, Status, Supervisor, diagnostics};
+use crate::install;
 
 /// The event every window receives on each status change.
 const STATUS_EVENT: &str = "supervisor://status";
@@ -155,6 +156,7 @@ pub async fn supervisor_export_diagnostics(
     path: PathBuf,
     supervisor: State<'_, Supervisor>,
     paths: State<'_, Paths>,
+    install: State<'_, install::Info>,
 ) -> Result<(), String> {
     let (status, history) = (supervisor.status(), supervisor.history());
     let (version, data_dir, log_dir) = (
@@ -162,8 +164,11 @@ pub async fn supervisor_export_diagnostics(
         paths.data_dir.clone(),
         paths.log_dir.clone(),
     );
-    blocking(move || diagnostics::export(&path, &version, &status, &history, &data_dir, &log_dir))
-        .await
+    let id = install.id.clone();
+    blocking(move || {
+        diagnostics::export(&path, &version, &id, &status, &history, &data_dir, &log_dir)
+    })
+    .await
 }
 
 /// Opens the log directory in the platform file manager.

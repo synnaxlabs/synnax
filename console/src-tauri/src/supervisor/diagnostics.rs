@@ -71,6 +71,8 @@ pub fn log_tail(log_dir: &Path) -> io::Result<String> {
 #[serde(rename_all = "camelCase")]
 struct Summary<'a> {
     version: &'a str,
+    /// Joins the archive to what this install reported to analytics.
+    install_id: &'a str,
     os: &'static str,
     arch: &'static str,
     state: serde_json::Value,
@@ -83,6 +85,7 @@ struct Summary<'a> {
 pub fn export(
     dest: &Path,
     version: &str,
+    install_id: &str,
     status: &Status,
     history: &History,
     data_dir: &Path,
@@ -94,6 +97,7 @@ pub fn export(
     }
     let summary = Summary {
         version,
+        install_id,
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
         state,
@@ -180,6 +184,7 @@ mod tests {
         export(
             &dest,
             "0.58.0",
+            "5f3c",
             &status,
             &history,
             &dir.path().join("data"),
@@ -203,6 +208,7 @@ mod tests {
         let summary: serde_json::Value = serde_json::from_str(&summary).unwrap();
         assert_eq!(summary["state"]["state"], "running");
         assert_eq!(summary["version"], "0.58.0");
+        assert_eq!(summary["installId"], "5f3c");
         assert_eq!(summary["history"]["starts"], 2);
         assert_eq!(summary["history"]["lastExit"], "exited with 3");
     }

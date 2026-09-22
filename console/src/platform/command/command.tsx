@@ -10,6 +10,7 @@
 import { Flex, type Icon, type List, Text, Triggers } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useCallback } from "react";
 
+import { Analytics } from "@/platform/analytics";
 import { Palette } from "@/platform/palette";
 
 export interface CommandProps extends List.ItemProps<string> {}
@@ -71,7 +72,12 @@ export const create = ({
 }: CreateParams): Command => {
   const Cmd: Command = (listProps) => {
     const handleSelect = useOnSelect();
-    const onSelect = useCallback(() => handleSelect(), [handleSelect]);
+    const { capture } = Analytics.use();
+    // Every command runs through here, so this is the whole palette in one call.
+    const onSelect = useCallback(() => {
+      capture("command_run", { command: key });
+      handleSelect();
+    }, [capture, handleSelect]);
     return (
       <ListItem
         {...listProps}
