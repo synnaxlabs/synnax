@@ -15,6 +15,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
+import { type Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -27,6 +28,10 @@ interface RenderProps extends Omit<Config, "sink" | "variant"> {
   onChange: (key: string | null) => void;
   onSend?: (value: number) => void;
 }
+
+const DIALOG_PROPS: Dialog.DialogProps = {
+  className: CSS.BE("select-symbol", "dialog"),
+};
 
 export const Select = ({
   className,
@@ -96,6 +101,7 @@ export const Select = ({
           disabled={disabled}
           resourceName="option"
           triggerProps={{ size }}
+          dialogProps={DIALOG_PROPS}
           style={triggerStyle}
         />
         {onSend != null && (
