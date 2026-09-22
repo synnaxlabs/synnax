@@ -215,6 +215,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
 	clockStamp := longestInputIdx < 0 || n.selIdx >= 0
+	var clockStart telem.TimeStamp
+	if clockStamp {
+		clockStart = ctx.ReserveStamps(int(maxLength))
+	}
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
@@ -248,7 +252,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		var ts uint64
 		if clockStamp {
-			ts = uint64(ctx.Now)
+			ts = uint64(clockStart) + uint64(i)
 		} else {
 			ts = valueAt(longestInputTime, int(i))
 		}

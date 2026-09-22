@@ -181,7 +181,7 @@ public:
         };
         this->cycle_now = cycle.now;
         this->time_mod->set_now(cycle.now);
-        this->sched->next(cycle);
+        this->clock.advance(this->sched->next(cycle));
     }
 
     void ingest(const types::ChannelKey channel_key, x::telem::Series &&data) {

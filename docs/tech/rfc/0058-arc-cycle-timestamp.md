@@ -32,7 +32,7 @@ which is the shape the Driver already writes (`generate_index_data`,
 - **Index group**: The channels in one writer that share an index channel, plus that
   index. Cesium requires every write call to carry every member of a group, with equal
   sample counts (`idxWriter.validateWrite`, `cesium/writer_stream.go:822`).
-- **Provenance stamp**: An index timestamp carried in from upstream data rather than
+- **Upstream stamp**: An index timestamp carried in from upstream data rather than
   read from a clock.
 
 ## 2 Motivation
@@ -90,8 +90,8 @@ class into one coherent row is a standing user request rather than a feature.
 3. **Timing is an input, not a dependency**: The runtime loop reads the clock and passes
    the value down, exactly as it already does for `Elapsed`. The scheduler samples
    nothing.
-4. **Provenance beats the clock**: A write carrying real upstream timestamps keeps them.
-   The cycle stamp fills an index only when nothing else did.
+4. **Upstream stamps beat the clock**: A write carrying real upstream timestamps keeps
+   them. The cycle stamp fills an index only when nothing else did.
 5. **Cadence fidelity belongs to the loop**: SY-4693 anchors the loop period to its
    deadline (`x/cpp/loop/loop.h:65`) and SY-4694 gave Windows a high-resolution waitable
    timer. Timestamps report what happened; the loop is what makes it happen on time.
@@ -160,7 +160,7 @@ each index group that was written this cycle:
 - If the group's index buffer is **empty**, synthesize one index series of `n` samples
   starting at the cycle stamp, spaced 1 ns apart, where `n` is the group's per-channel
   sample count.
-- If the index buffer is **not empty**, something supplied provenance stamps. Leave it
+- If the index buffer is **not empty**, something supplied upstream stamps. Leave it
   alone.
 
 `ProgramState.Flush` gains the stamp: `Flush(fr, now)`. The 1 ns spacing matches what
@@ -178,7 +178,14 @@ Flush reports the highest stamp it emitted and the loop's clock resumes above it
 Without this, a fast loop on a coarse platform clock could return `T+1` on the next
 cycle after emitting `T` through `T+9`, and the index would walk backwards.
 
-### 4.4 Provenance passes through
+Producers that stamp several samples from the cycle reserve them through the node
+context: the channel source for an unindexed channel, and a dispatcher driven by `$sel`.
+Each reservation starts where the last one ended, so a pass never hands out a stamp
+twice. `Scheduler.Next` returns the highest stamp reserved, and the loop advances its
+clock past it as it does for flush. The loop never advances past a forwarded stamp,
+because a forwarded stamp can come from another machine's clock.
+
+### 4.4 Upstream stamps pass through
 
 Graph programs write through the channel sink, which passes its input's time series into
 the index (`arc/go/stl/channels/channels.go:280`). This is unchanged and load bearing: a

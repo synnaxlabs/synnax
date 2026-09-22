@@ -70,6 +70,9 @@ struct Config {
     /// @brief Optional RT handle from the Manager. When set, the loop uses this
     /// handle's allocated core instead of auto-selecting one.
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
+    /// @brief the wall clock the runtime stamps its cycles from. Defaults to
+    /// TimeStamp::now when null.
+    x::telem::NowFunc now;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -113,6 +116,7 @@ public:
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
         time_module(std::move(time_module)),
+        clock(cfg.now),
         inputs(x::queue::SPSC<x::telem::Frame>(cfg.input_queue_capacity)),
         outputs(x::queue::SPSC<Output>(cfg.output_queue_capacity)),
         error_handler(std::move(error_handler)),
@@ -159,7 +163,7 @@ public:
                     .reason = reason
                 };
                 this->time_module->set_now(cycle.now);
-                this->scheduler->next(cycle);
+                this->clock.advance(this->scheduler->next(cycle));
                 Output out;
                 out.authority_changes = this->state->flush_authority_changes();
                 this->clock.advance(this->state->flush_into(out.frame, cycle.now));

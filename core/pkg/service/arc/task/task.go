@@ -138,7 +138,7 @@ func (t *impl) ackCurrent(ctx context.Context, cmdKey string, running bool) {
 
 // open builds and flows the Arc runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (err error) {
-	drt := dataRuntime{}
+	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
 	deps, err := runtime.NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
 		return err
@@ -502,7 +502,7 @@ func (d *dataRuntime) next(
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
-	d.scheduler.Next(ctx, cycle)
+	d.clock.Advance(d.scheduler.Next(ctx, cycle))
 	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {

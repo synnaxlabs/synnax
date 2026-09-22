@@ -243,11 +243,8 @@ func (s *source) Next(ctx node.Context) {
 		}
 		var timeSeries telem.Series
 		if indexData.DataType() == telem.UnknownT {
-			timeSeries = telem.Arrange(
-				ctx.Now,
-				int(ser.Len()),
-				1*telem.NanosecondTS,
-			)
+			n := int(ser.Len())
+			timeSeries = telem.Arrange(ctx.ReserveStamps(n), n, 1*telem.NanosecondTS)
 			timeSeries.Alignment = ser.Alignment
 		} else {
 			// Match by alignment, not position: a shared index also buffers other

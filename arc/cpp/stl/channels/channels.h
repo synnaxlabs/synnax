@@ -110,11 +110,11 @@ public:
                                                : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                const auto now = ctx.cycle.now;
+                const auto first = ctx.reserve_stamps(ser.size());
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
                         ::x::telem::TimeStamp(
-                            now.nanoseconds() + static_cast<int64_t>(j)
+                            first.nanoseconds() + static_cast<int64_t>(j)
                         )
                     );
                 time_series.alignment = ser.alignment;

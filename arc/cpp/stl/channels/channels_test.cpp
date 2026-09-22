@@ -21,6 +21,7 @@
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/testutil/stamps.h"
 #include "arc/cpp/stl/channels/channels.h"
 
 namespace arc::stl::channels {
@@ -36,6 +37,7 @@ runtime::node::Context make_context(bool *changed = nullptr) {
                 if (changed) *changed = true;
             },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 }
 
@@ -347,6 +349,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
         .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -405,6 +408,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
         .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -453,6 +457,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
         .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&call_count](size_t) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -499,6 +504,7 @@ TEST(OnTest, NextCallsMarkChanged) {
         .cycle = {.elapsed = ::x::telem::SECOND},
         .mark_changed = [&](size_t i) { marked.push_back(i); },
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = runtime::testutil::reserve_stamps(),
     };
 
     ASSERT_NIL(node->next(ctx));

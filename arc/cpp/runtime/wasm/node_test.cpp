@@ -20,6 +20,7 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/testutil/compile.h"
+#include "arc/cpp/runtime/testutil/stamps.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/runtime/wasm/node.h"
@@ -53,6 +54,7 @@ node::Context make_context() {
         .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
+        .reserve_stamps = testutil::reserve_stamps(),
     };
 }
 
@@ -736,6 +738,102 @@ constant{} -> )" + output_name;
     changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(changed_outputs.size(), 1);
+}
+
+const arc::ir::Node *
+find_node_by_key(const arc::program::Program &mod, const std::string &key) {
+    for (const auto &node: mod.nodes)
+        if (node.key == key) return &node;
+    return nullptr;
+}
+
+/// @brief a dispatcher fed a multi-sample batch stamps each sample 1 ns apart.
+TEST(NodeTest, DispatcherStampsEachSampleOfABatch) {
+    const auto client = new_test_client();
+    auto count_idx = synnax::channel::Channel{
+        .name = random_name("count_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client.channels.create(count_idx));
+    auto count_ch = synnax::channel::Channel{
+        .name = random_name("count"),
+        .data_type = x::telem::INT64_T,
+        .index = count_idx.key,
+    };
+    ASSERT_NIL(client.channels.create(count_ch));
+
+    const std::string source = "sequence main {\n    r := " + count_ch.name +
+                               " + 1\n    r = " + count_ch.name + " + 2\n}";
+    auto mod = testutil::compile_text(client, source);
+    auto str_st = std::make_shared<stl::strings::State>();
+    auto channel_st = std::make_shared<stl::channels::State>(
+        std::vector<stl::channels::Digest>{
+            {count_idx.key, x::telem::TIMESTAMP_T, 0},
+            {count_ch.key, x::telem::INT64_T, count_idx.key},
+        }
+    );
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open({
+            .program = mod,
+            .modules = build_stl_modules(
+                channel_st,
+                str_st,
+                std::make_shared<stl::series::State>(),
+                std::make_shared<stl::stateful::Variables>()
+            ),
+            .strings = str_st,
+        })
+    );
+    const auto *disp_node = find_node_by_key(mod, "disp_r_0");
+    ASSERT_NE(disp_node, nullptr);
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels =
+                {{count_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {count_ch.key, x::telem::INT64_T, count_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto bind_state = ASSERT_NIL_P(state.node("bind_r_0"));
+    bind_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<uint32_t>{0}
+    );
+    bind_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{sec}
+    );
+    bind_state.mark_fresh(0);
+    auto on_state = ASSERT_NIL_P(state.node(on_node->key));
+    on_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{10, 20, 30}
+    );
+    on_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
+        std::vector<int64_t>{sec, 2 * sec, 3 * sec}
+    );
+    on_state.mark_fresh(0);
+
+    auto node_state = ASSERT_NIL_P(state.node(disp_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func(disp_node->type, disp_node->inputs));
+    wasm::Node node(mod, *disp_node, std::move(node_state), func, wasm_mod->strings());
+
+    const auto now = x::telem::TimeStamp(50 * sec);
+    auto ctx = make_context();
+    ctx.cycle.now = now;
+    ctx.reserve_stamps = testutil::reserve_stamps(now);
+    ASSERT_NIL(node.next(ctx));
+
+    auto checker = ASSERT_NIL_P(state.node(disp_node->key));
+    ASSERT_EQ(checker.output(0)->size(), 3);
+    const auto &times = checker.output_time(0);
+    ASSERT_EQ(times->size(), 3);
+    EXPECT_EQ(times->at<x::telem::TimeStamp>(0), now);
+    EXPECT_EQ(times->at<x::telem::TimeStamp>(1), now + int64_t{1});
+    EXPECT_EQ(times->at<x::telem::TimeStamp>(2), now + int64_t{2});
 }
 
 /// @brief nodes with inputs execute on every call to next().

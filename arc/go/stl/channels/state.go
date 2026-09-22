@@ -85,10 +85,10 @@ func (cs *ProgramState) Flush(
 	return fr, highest, flushed
 }
 
-// stampIndexes fills every empty index buffer whose channels wrote this cycle,
-// and returns the highest timestamp it wrote. A non-empty buffer already holds
-// the provenance a sink forwarded and is left alone. Every member of a group
-// starts at now, so one cycle's writes stay aligned across channels.
+// stampIndexes fills every empty index buffer whose channels wrote this cycle, and
+// returns the highest timestamp it wrote. A non-empty buffer already holds the upstream
+// stamps a sink forwarded and is left alone. Every member of a group starts at now, so
+// one cycle's writes stay aligned across channels.
 func (cs *ProgramState) stampIndexes(now telem.TimeStamp) (highest telem.TimeStamp) {
 	for _, key := range cs.activeWriteKeys {
 		idx := cs.indexes[key]

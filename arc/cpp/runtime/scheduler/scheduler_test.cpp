@@ -415,6 +415,60 @@ TEST_F(SchedulerTest, JoinNodeRunsOnceWhenMultipleInputsFire) {
     EXPECT_EQ(c.next_called, 1);
 }
 
+TEST_F(SchedulerTest, NextReturnsTheHighestStampItsNodesReserved) {
+    auto &a = mock("A");
+    auto &b = mock("B");
+    auto first_a = x::telem::TimeStamp(0);
+    auto first_b = x::telem::TimeStamp(0);
+    a.on_next = [&first_a](node::Context &ctx) { first_a = ctx.reserve_stamps(2); };
+    b.on_next = [&first_b](node::Context &ctx) { first_b = ctx.reserve_stamps(3); };
+    auto ir = program_of(
+        {ir_node("A"), ir_node("B")},
+        {},
+        root_with_strata({stratum_of({ir::node_member("A"), ir::node_member("B")})})
+    );
+    const auto s = build(std::move(ir));
+    const auto highest = s->next(
+        {.now = x::telem::TimeStamp(100), .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(first_a, x::telem::TimeStamp(100));
+    EXPECT_EQ(first_b, x::telem::TimeStamp(102));
+    EXPECT_EQ(highest, x::telem::TimeStamp(104));
+}
+
+TEST_F(SchedulerTest, NextRestartsReservationsAtEachCyclesStamp) {
+    auto &a = mock("A");
+    auto first = x::telem::TimeStamp(0);
+    a.on_next = [&first](node::Context &ctx) {
+        first = ctx.reserve_stamps(5);
+        ctx.mark_self_changed();
+    };
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
+    const auto s = build(std::move(ir));
+    s->next({.now = x::telem::TimeStamp(100), .reason = node::RunReason::TimerTick});
+    const auto highest = s->next(
+        {.now = x::telem::TimeStamp(200), .reason = node::RunReason::TimerTick}
+    );
+    EXPECT_EQ(first, x::telem::TimeStamp(200));
+    EXPECT_EQ(highest, x::telem::TimeStamp(204));
+}
+
+TEST_F(SchedulerTest, NextReturnsZeroWhenNoNodeReservesAStamp) {
+    mock("A");
+    auto ir = program_of(
+        {ir_node("A")},
+        {},
+        root_with_strata({stratum_of({ir::node_member("A")})})
+    );
+    const auto s = build(std::move(ir));
+    EXPECT_EQ(
+        s->next(
+            {.now = x::telem::TimeStamp(100), .reason = node::RunReason::TimerTick}
+        ),
+        x::telem::TimeStamp(0)
+    );
+}
+
 TEST_F(SchedulerTest, DiamondSinkRunsExactlyOnce) {
     mock("A").on_next = mark_on_next(0);
     mock("B").on_next = mark_on_next(0);
