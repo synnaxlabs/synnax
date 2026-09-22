@@ -14,10 +14,9 @@
 #
 # The minor comes from the highest stable product tag reachable from HEAD, the patch
 # from the highest stable tag on that minor anywhere in the repo, so a hotfix tag on a
-# release branch is never reissued. Candidates never set the base: a candidate counts
-# up from the candidates already tagged for the version, and promoting one repeats the
-# same bump. The train rule caps a product at one minor ahead of the Core's latest
-# stable.
+# release branch is never reissued. Candidates never set the base: a candidate counts up
+# from the candidates already tagged for the version, and promoting one repeats the same
+# bump. The train rule caps a product at one minor ahead of the Core's latest stable.
 
 set -euo pipefail
 

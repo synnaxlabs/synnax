@@ -16,8 +16,8 @@ import pytest
 
 SCRIPT = Path(__file__).resolve().parent / "verify_checks.sh"
 
-# Stands in for gh: serves canned JSON from FAKE_GH_DIR for the two endpoints the
-# script calls and applies the requested jq expression.
+# Stands in for gh: serves canned JSON from FAKE_GH_DIR for the two endpoints the script
+# calls and applies the requested jq expression.
 FAKE_GH = """#!/usr/bin/env bash
 set -euo pipefail
 ENDPOINT=""

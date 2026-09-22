@@ -15,9 +15,9 @@
 # the commit it runs on. A path filter skips a workflow on a push that leaves its paths
 # alone, so a commit with only passing check runs can still sit on a broken branch. The
 # newest push run of every test, lint, and check workflow on the branch must therefore
-# have passed too. A workflow with no push run on the branch is skipped: a hotfix
-# branch cut from a tag only runs the workflows a cherry-pick touches. Runs from the
-# checkout root, which supplies the workflow files.
+# have passed too. A workflow with no push run on the branch is skipped: a hotfix branch
+# cut from a tag only runs the workflows a cherry-pick touches. Runs from the checkout
+# root, which supplies the workflow files.
 
 set -euo pipefail
 
