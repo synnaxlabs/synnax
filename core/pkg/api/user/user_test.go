@@ -76,6 +76,40 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should reject a key that already belongs to a user and leave that user's "+
+				"record and credentials untouched",
+			func(ctx SpecContext) {
+				username := "original-" + uuid.NewString()
+				tx := DeferClose(db.OpenTx())
+				res := MustSucceed(
+					apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{{Username: username, Password: "one"}},
+					}),
+				)
+				Expect(tx.Commit(ctx)).To(Succeed())
+				key := res.Users[0].Key
+				renamed := "renamed-" + uuid.NewString()
+				tx = DeferClose(db.OpenTx())
+				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+					Users: []apiuser.NewUser{{
+						Username: renamed,
+						Password: "two",
+						Key:      key,
+					}},
+				})).Error().To(MatchError(query.ErrUniqueViolation))
+				var stored user.User
+				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(key)).
+					Entry(&stored).Exec(ctx, nil)).To(Succeed())
+				Expect(stored.Username).To(Equal(username))
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: username, Password: "one",
+				})).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: renamed, Password: "two",
+				})).To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+		It(
 			"Should roll back the auth row when user creation fails inside the tx",
 			func(ctx SpecContext) {
 				// Trigger a per-tx rollback by requesting two users whose usernames
