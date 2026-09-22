@@ -64,6 +64,7 @@ export const License = ({
   const at = new Date(now);
   const status = statusOf(lic, at);
   const held = activations.filter((a) => a.releasedAt == null);
+  const released = activations.filter((a) => a.releasedAt != null);
   const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
   return (
     <Page
@@ -114,6 +115,31 @@ export const License = ({
           </Table>
         )}
       </Section>
+      {released.length > 0 && (
+        <Section title="Released">
+          <Table
+            columns={MACHINE_COLUMNS}
+            head={["Machine", "First seen", "Last seen", "Released"]}
+          >
+            {released.map((a) => (
+              <Row key={a.key} columns={MACHINE_COLUMNS}>
+                <Text.Text level="p" color={9} overflow="ellipsis">
+                  {machineName(a)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.firstSeen)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.lastSeen)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.releasedAt)}
+                </Text.Text>
+              </Row>
+            ))}
+          </Table>
+        </Section>
+      )}
       <Section title="Activity">
         {events.length === 0 ? (
           <Empty message="Nothing yet" />
