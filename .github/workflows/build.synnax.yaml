@@ -55,10 +55,10 @@ on:
         description: "Sign binaries (macOS + Windows)"
         type: boolean
         default: false
-      upload_to_release:
-        description: "Upload to GitHub release"
-        type: boolean
-        default: false
+      release_tag:
+        description: "Upload assets to this GitHub release tag (empty skips upload)"
+        type: string
+        default: ""
       nilinuxrt:
         description: "Build: NI Linux Real-Time Driver"
         type: boolean
@@ -105,9 +105,10 @@ on:
       sign_binaries:
         type: boolean
         default: false
-      upload_to_release:
-        type: boolean
-        default: false
+      release_tag:
+        description: Upload assets to this GitHub release tag (empty skips upload)
+        type: string
+        default: ""
       nilinuxrt:
         type: boolean
         default: false
@@ -126,6 +127,25 @@ on:
         type: string
         required: false
         default: ""
+      console_release:
+        description: Console release tag whose web bundle the Core embeds
+        type: string
+        default: ""
+      driver_release:
+        description: Driver release tag whose binaries the Core embeds
+        type: string
+        default: ""
+      docker_channel:
+        description: Extra Docker tag for a release, latest or next
+        type: string
+        default: ""
+      updater_channel:
+        description: Console updater channel the app polls, stable or next
+        type: string
+        default: stable
+
+env:
+  RELEASE_TAG: ${{ inputs.release_tag }}
 
 jobs:
   setup:
@@ -139,6 +159,26 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
+
+      # Dispatch inputs reach shell commands: reject a malformed tag or version before
+      # any job interpolates one.
+      - name: Validate Inputs
+        env:
+          VERSION: ${{ inputs.version }}
+          CONSOLE_RELEASE: ${{ inputs.console_release }}
+          DRIVER_RELEASE: ${{ inputs.driver_release }}
+        run: |
+          TAG='^((console|core|driver)/v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?)?$'
+          for VALUE in "$RELEASE_TAG" "$CONSOLE_RELEASE" "$DRIVER_RELEASE"; do
+            if ! [[ "$VALUE" =~ $TAG ]]; then
+              echo "malformed release tag: $VALUE" >&2
+              exit 1
+            fi
+          done
+          if ! [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)?$ ]]; then
+            echo "malformed version: $VERSION" >&2
+            exit 1
+          fi
 
       - name: Get Version
         id: version
@@ -154,8 +194,6 @@ jobs:
             echo "PURE_VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
             if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
               echo "VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
-            elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
-              echo "VERSION=${BASE_VERSION}-rc" >> $GITHUB_OUTPUT
             else
               echo "VERSION=${BASE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
             fi
@@ -164,7 +202,7 @@ jobs:
       - name: Generate OS Matrix
         id: set-matrix
         run: |
-          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
+          MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
       - name: Generate Console Tauri Matrix
@@ -186,7 +224,7 @@ jobs:
 
       - name: Verify Build Configuration
         run: |
-          scripts/verify_build_config.sh \
+          .github/scripts/verify_build_config.sh \
             "${{ steps.version.outputs.VERSION }}" \
             "${{ inputs.windows }}" \
             "${{ inputs.macos }}" \
@@ -204,8 +242,12 @@ jobs:
         id: go-tags
         run: |
           TAGS=""
-          if [ "${{ inputs.console }}" = "true" ]; then TAGS="console"; fi
-          if [ "${{ inputs.driver }}" = "true" ]; then TAGS="${TAGS:+$TAGS,}driver"; fi
+          if [ "${{ inputs.console }}" = "true" ] || [ -n "${{ inputs.console_release }}" ]; then
+            TAGS="console"
+          fi
+          if [ "${{ inputs.driver }}" = "true" ] || [ -n "${{ inputs.driver_release }}" ]; then
+            TAGS="${TAGS:+$TAGS,}driver"
+          fi
           if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
           echo "GO_BUILD_TAGS=$TAGS" >> $GITHUB_OUTPUT
 
@@ -361,20 +403,28 @@ jobs:
 
       - name: Upload NI Linux Real-Time Driver to Release
         if:
-          inputs.driver && inputs.nilinuxrt && inputs.upload_to_release && matrix.os ==
+          inputs.driver && inputs.nilinuxrt && inputs.release_tag != '' && matrix.os ==
           'ubuntu-build-bot'
         run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
+          gh release upload --clobber "$RELEASE_TAG" bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
+      # The docs site tells NI Linux Real-Time users to download and run this script.
       - name: Upload NI Linux Real-Time Install Script to Release
         if:
-          inputs.driver && inputs.nilinuxrt && inputs.upload_to_release && matrix.os ==
+          inputs.driver && inputs.nilinuxrt && inputs.release_tag != '' && matrix.os ==
           'ubuntu-build-bot'
+        env:
+          BINARY: synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
         run: |
-          # Update the install script with the current version
-          sed "s/VERSION=\"\${VERSION:-.*}\"/VERSION=\"\${VERSION:-${{ needs.setup.outputs.VERSION }}}\"/" \
-            driver/scripts/install_nilinuxrt.sh > install_nilinuxrt.sh
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install_nilinuxrt.sh
+          cat > install-driver-nilinuxrt.sh <<EOF
+          #!/bin/bash
+          curl -LO "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${BINARY}"
+          chmod +x ${BINARY}
+          ./${BINARY} stop
+          sudo ./${BINARY} install
+          ./${BINARY} start
+          EOF
+          gh release upload --clobber "$RELEASE_TAG" install-driver-nilinuxrt.sh
 
       - name: Build Driver (Linux)
         if:
@@ -412,7 +462,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: scripts/import_apple_certificate.sh
+        run: .github/scripts/import_apple_certificate.sh
 
       - name: Sign Driver (macOS)
         if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos')
@@ -538,13 +588,14 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Driver to Release
-        if: inputs.driver && inputs.upload_to_release
+        if: inputs.driver && inputs.release_tag != ''
         uses: nick-fields/retry@v4
         with:
+          shell: bash
           timeout_minutes: 5
           max_attempts: 3
           command:
-            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }}
+            gh release upload --clobber "$RELEASE_TAG"
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
             matrix.os-name }}${{ matrix.executable }}
 
@@ -558,6 +609,25 @@ jobs:
         shell: powershell
         run: |
           Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
+
+      - name: Download Driver Release
+        if: inputs.driver_release != '' && inputs.core
+        shell: bash
+        run: |
+          mkdir -p core/pkg/driver/assets
+          gh release download "${{ inputs.driver_release }}" \
+            --pattern "synnax-driver-v*-${{ matrix.os-name }}${{ matrix.executable }}" \
+            --output core/pkg/driver/assets/driver${{ matrix.executable }}
+          chmod +x core/pkg/driver/assets/driver${{ matrix.executable }}
+
+      - name: Download Console Release
+        if: inputs.console_release != '' && inputs.core
+        shell: bash
+        run: |
+          mkdir -p core/pkg/console/dist
+          gh release download "${{ inputs.console_release }}" \
+            --pattern "console-web-*.tar.gz" --output console-web.tar.gz
+          tar -xzf console-web.tar.gz -C core/pkg/console/dist
 
       - name: Set up pnpm and Node.js
         if: inputs.console && inputs.console_ref_run_id == ''
@@ -594,6 +664,13 @@ jobs:
           path: console/dist/
           retention-days: 7
           if-no-files-found: error
+
+      - name: Upload Console Web Bundle to Release
+        if:
+          inputs.console && inputs.release_tag != '' && matrix.os == 'ubuntu-build-bot'
+        run: |
+          tar -czf console-web-v${{ needs.setup.outputs.VERSION }}.tar.gz -C console/dist .
+          gh release upload --clobber "$RELEASE_TAG" console-web-v${{ needs.setup.outputs.VERSION }}.tar.gz
 
       - name: Copy Console to Assets
         if: inputs.console && inputs.core && matrix.os != 'windows-build-bot'
@@ -712,21 +789,21 @@ jobs:
           if-no-files-found: error
 
       - name: Rename Core Binary for Release
-        if: inputs.core && inputs.upload_to_release
+        if: inputs.core && inputs.release_tag != ''
         working-directory: core
         run: |
           cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Upload Core to Release
-        if: inputs.core && inputs.upload_to_release
+        if: inputs.core && inputs.release_tag != ''
         uses: nick-fields/retry@v4
         with:
+          shell: bash
           timeout_minutes: 5
           max_attempts: 3
           command:
-            gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }}
-            core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{
-            matrix.executable }}
+            gh release upload --clobber "$RELEASE_TAG" core/synnax-v${{
+            needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Clean Build Caches (Ubuntu)
         if: always() && matrix.os == 'ubuntu-build-bot'
@@ -785,11 +862,31 @@ jobs:
             format('synnax-console-assets-v{0}-linux', needs.setup.outputs.VERSION) }}
           path: core/pkg/console/dist/
 
+      - name: Download Driver Release
+        if: inputs.driver_release != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p core/pkg/driver/assets
+          gh release download "${{ inputs.driver_release }}" \
+            --pattern "synnax-driver-v*-linux" --output core/pkg/driver/assets/driver
+          chmod +x core/pkg/driver/assets/driver
+
+      - name: Download Console Release
+        if: inputs.console_release != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p core/pkg/console/dist
+          gh release download "${{ inputs.console_release }}" \
+            --pattern "console-web-*.tar.gz" --output console-web.tar.gz
+          tar -xzf console-web.tar.gz -C core/pkg/console/dist
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       - name: Login to Docker Hub
-        if: inputs.upload_to_release
+        if: inputs.release_tag != ''
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -816,13 +913,11 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ !inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
-            ${{ inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
-            ${{ inputs.upload_to_release && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
+            ${{ inputs.release_tag == '' && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
+            ${{ inputs.release_tag != '' && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ inputs.release_tag != '' && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ inputs.docker_channel != '' && format('ghcr.io/synnaxlabs/synnax:{0}', inputs.docker_channel) || '' }}
+            ${{ inputs.docker_channel != '' && format('synnaxlabs/synnax:{0}', inputs.docker_channel) || '' }}
           cache-from:
             type=gha,scope=synnax-docker-${{ inputs.driver && inputs.console && 'full'
             || inputs.driver && 'driver' || inputs.console && 'console' || 'base' }}
@@ -830,11 +925,11 @@ jobs:
             type=gha,mode=min,scope=synnax-docker-${{ inputs.driver && inputs.console &&
             'full' || inputs.driver && 'driver' || inputs.console && 'console' || 'base'
             }}
-          sbom: ${{ inputs.upload_to_release }}
-          provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
+          sbom: ${{ inputs.release_tag != '' }}
+          provenance: ${{ inputs.release_tag != '' && 'mode=max' || 'false' }}
           build-args: |
-            DRIVER_ENABLED=${{ inputs.driver }}
-            CONSOLE_ENABLED=${{ inputs.console }}
+            DRIVER_ENABLED=${{ inputs.driver || inputs.driver_release != '' }}
+            CONSOLE_ENABLED=${{ inputs.console || inputs.console_release != '' }}
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.repository.updated_at }}
@@ -865,22 +960,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: scripts/import_apple_certificate.sh
-
-      - name: Get Console Version
-        id: console-version
-        working-directory: console
-        shell: bash
-        run: |
-          CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
-          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
-          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
-            echo "VERSION=${CONSOLE_VERSION}-rc" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=${CONSOLE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
-          fi
+        run: .github/scripts/import_apple_certificate.sh
 
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v2
@@ -888,13 +968,27 @@ jobs:
           # The self-hosted mac's label lacks -build-bot, so it still uses the cache.
           cache: ${{ !endsWith(matrix.os, '-build-bot') }}
 
-      - name: Adjust Auto Updater URL for Release Candidate
-        if: inputs.sign_binaries && github.ref == 'refs/heads/rc'
-        working-directory: console/src-tauri
+      # A release build carries the resolved version and polls its updater channel;
+      # tauri.conf.json never changes. The MSI bundler accepts only a numeric
+      # pre-release, so a candidate X.Y.Z-rc.N runs as app version X.Y.Z-N.
+      - name: Write Tauri Release Config
+        id: config
+        working-directory: console
+        shell: bash
         run: |
-          jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
-          rm tauri.conf.json
-          mv temp.json tauri.conf.json
+          ENDPOINT="https://docs.synnaxlabs.com/releases/console/${{ inputs.updater_channel == 'next' && 'next' || 'latest' }}.json"
+          if [ -n "$RELEASE_TAG" ]; then
+            APP_VERSION="${{ needs.setup.outputs.VERSION }}"
+            APP_VERSION="${APP_VERSION/-rc./-}"
+            jq -n --arg version "$APP_VERSION" --arg endpoint "$ENDPOINT" \
+              '{version: $version, plugins: {updater: {endpoints: [$endpoint]}}}' \
+              > release.tauri.conf.json
+          else
+            APP_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            jq -n --arg endpoint "$ENDPOINT" \
+              '{plugins: {updater: {endpoints: [$endpoint]}}}' > release.tauri.conf.json
+          fi
+          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -924,43 +1018,44 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         working-directory: console
-        run: pnpm build
+        run: pnpm build --config release.tauri.conf.json
 
       - name: Build Console Tauri (Unsigned)
         if: ${{ !inputs.sign_binaries }}
         working-directory: console
-        run: pnpm build --no-sign
+        run: pnpm build --config release.tauri.conf.json --no-sign
 
       - name: Upload Console App as Artifact
         uses: actions/upload-artifact@v7
         with:
           name:
             ${{ startsWith(matrix.os, 'macos') && format('synnax-console-v{0}-macos',
-            steps.console-version.outputs.VERSION) ||
-            format('synnax-console-v{0}-windows', steps.console-version.outputs.VERSION)
-            }}
+            needs.setup.outputs.VERSION) || format('synnax-console-v{0}-windows',
+            needs.setup.outputs.VERSION) }}
           path: |
-            ${{ startsWith(matrix.os, 'macos') && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
-            ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
-            ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/nsis/Synnax_{0}_x64-setup.exe', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
+            ${{ startsWith(matrix.os, 'macos') && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.config.outputs.app_version) || '' }}
+            ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.config.outputs.app_version) || '' }}
+            ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/nsis/Synnax_{0}_x64-setup.exe', steps.config.outputs.app_version) || '' }}
           retention-days: 7
           if-no-files-found: error
 
       - name: Upload macOS Release Assets
-        if: inputs.upload_to_release && startsWith(matrix.os, 'macos')
+        if: inputs.release_tag != '' && startsWith(matrix.os, 'macos')
         uses: nick-fields/retry@v4
         with:
+          shell: bash
           timeout_minutes: 5
           max_attempts: 3
           command: |
-            gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
-            gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-            gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_aarch64.dmg
+            gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+            gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+            gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.config.outputs.app_version }}_aarch64.dmg
 
       - name: Upload Windows Release Assets
-        if: inputs.upload_to_release && matrix.os == 'windows-latest'
+        if: inputs.release_tag != '' && matrix.os == 'windows-latest'
+        shell: bash
         run: |
-          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi
-          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.sig
-          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
-          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe.sig
+          gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.config.outputs.app_version }}_x64_en-US.msi
+          gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.config.outputs.app_version }}_x64_en-US.msi.sig
+          gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.config.outputs.app_version }}_x64-setup.exe
+          gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.config.outputs.app_version }}_x64-setup.exe.sig
