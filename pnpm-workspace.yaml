@@ -17,6 +17,7 @@ packages:
   - drift
   - freighter/ts
   - pluto
+  - studio
   - x/media
   - x/ts
 
