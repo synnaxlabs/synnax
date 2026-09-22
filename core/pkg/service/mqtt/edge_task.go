@@ -122,12 +122,16 @@ type edgeNode struct {
 	commands chan sparkplug.Command
 	// rebirths wakes the serve loop to publish the birth again.
 	rebirths chan struct{}
-	cancel   context.CancelFunc
-	stopped  chan struct{}
-	mu       struct {
+	// changed fires when the state that Health reports may have changed.
+	changed chan struct{}
+	cancel  context.CancelFunc
+	stopped chan struct{}
+	mu      struct {
 		sync.Mutex
-		// edge holds the message sequence, so every sequenced publish holds the
-		// lock. Its birth-death sequence moves only on the reconnect goroutine.
+		// edge holds the message sequence. A sequenced publish encodes its message
+		// and hands it to the client under the lock, so messages leave the client in
+		// sequence order. The wait for the broker happens outside the lock. The
+		// birth-death sequence moves only on the reconnect goroutine.
 		edge   *sparkplug.Edge
 		client paho.Client
 		// latest holds the last value of each tag, for the next birth.
@@ -136,8 +140,6 @@ type edgeNode struct {
 		reported error
 		// commandErr is the error of the last command, or nil when it was written.
 		commandErr error
-		// changed fires when the connection state changes.
-		changed chan struct{}
 	}
 }
 
@@ -151,8 +153,8 @@ func (e *edgeNode) topic(t sparkplug.MessageType) string {
 func (e *edgeNode) Start(ctx context.Context) error {
 	e.commands = make(chan sparkplug.Command, commandBacklog)
 	e.rebirths = make(chan struct{}, 1)
+	e.changed = make(chan struct{}, 1)
 	e.mu.latest = make(map[string]sparkplug.Metric)
-	e.mu.changed = make(chan struct{}, 1)
 	e.mu.reported, e.mu.commandErr = nil, nil
 	e.stopped = make(chan struct{})
 	var (
@@ -280,7 +282,7 @@ func (e *edgeNode) health() error {
 
 func (e *edgeNode) notify() {
 	select {
-	case e.mu.changed <- struct{}{}:
+	case e.changed <- struct{}{}:
 	default:
 	}
 }
@@ -300,7 +302,7 @@ func (e *edgeNode) Health(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-e.mu.changed:
+		case <-e.changed:
 			e.mu.Lock()
 			err := e.health()
 			same := sameHealth(err, e.mu.reported)
@@ -313,16 +315,23 @@ func (e *edgeNode) Health(ctx context.Context) error {
 	}
 }
 
-// publishBirth publishes the NBIRTH message. It holds the lock through the publish,
-// so that no NDATA message can overtake the birth that starts its sequence.
+// publishBirth publishes the NBIRTH message that starts a new sequence.
 func (e *edgeNode) publishBirth(ctx context.Context, client paho.Client) error {
+	token, err := e.queueBirth(client)
+	if err != nil {
+		return err
+	}
+	return wait(ctx, token)
+}
+
+func (e *edgeNode) queueBirth(client paho.Client) (paho.Token, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	payload, err := e.mu.edge.Birth(e.mu.latest, telem.Now())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return wait(ctx, client.Publish(e.topic(sparkplug.NBirth), 0, false, payload))
+	return client.Publish(e.topic(sparkplug.NBirth), 0, false, payload), nil
 }
 
 func (e *edgeNode) publishDeath(ctx context.Context, client paho.Client) {
@@ -445,23 +454,32 @@ func (e *edgeNode) Write(ctx context.Context, fr framer.Frame) error {
 	if len(metrics) == 0 {
 		return nil
 	}
+	token, err := e.queueData(metrics)
+	if err != nil {
+		return err
+	}
+	if err := wait(ctx, token); err != nil {
+		return errors.Wrap(driver.ErrTemporary, err.Error())
+	}
+	return nil
+}
+
+// queueData records metrics as the latest values and hands an NDATA message to the
+// client.
+func (e *edgeNode) queueData(metrics []sparkplug.Metric) (paho.Token, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	for _, m := range metrics {
 		e.mu.latest[m.Name] = m
 	}
 	if e.mu.client == nil {
-		return errNotConnected
+		return nil, errNotConnected
 	}
 	payload, err := e.mu.edge.Data(metrics, telem.Now())
 	if err != nil {
-		return errors.Wrap(driver.ErrTemporary, err.Error())
+		return nil, errors.Wrap(driver.ErrTemporary, err.Error())
 	}
-	err = wait(ctx, e.mu.client.Publish(e.topic(sparkplug.NData), 0, false, payload))
-	if err != nil {
-		return errors.Wrap(driver.ErrTemporary, err.Error())
-	}
-	return nil
+	return e.mu.client.Publish(e.topic(sparkplug.NData), 0, false, payload), nil
 }
 
 // indexOf returns the series of index in fr that lines up with series, or nil.

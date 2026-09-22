@@ -9,11 +9,11 @@
 
 import { mqtt, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker } from "@/feature/mqtt/testutil";
+import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import {
   clickDeploy,
   deployAndAwaitTask,
@@ -182,6 +182,102 @@ describe("MQTT Read form", () => {
     fireEvent.contextMenu(screen.getAllByText(/plant\/oven/)[0]);
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() => expect(screen.getAllByText(/plant\/oven/)).toHaveLength(1));
+  });
+
+  describe("dropping browsed items on the entries", () => {
+    const TOPIC = "plant/line1/temperature";
+
+    const scoped = (container: ParentNode, selector: string) => {
+      const el = container.querySelector<HTMLElement>(selector);
+      if (el == null) throw new Error(`${selector} is not rendered`);
+      return within(el);
+    };
+
+    const renderPanes = async () => {
+      const { container, dev, draft } = await renderRead();
+      // The browser mounts once the form leaves its loading preview.
+      await screen.findByRole("button", { name: "Browse" });
+      return {
+        dev,
+        draft,
+        browser: scoped(container, ".console-mqtt-browser"),
+        entries: scoped(container, ".console-topic-list"),
+      };
+    };
+
+    it("should build an entry from a dropped topic once", async () => {
+      const { dev, draft, browser, entries } = await renderPanes();
+      const scanner = await openScanner(client, dev.rack);
+      fireEvent.click(browser.getByRole("button", { name: "Browse" }));
+      const topics = [
+        {
+          topic: TOPIC,
+          payload: '{"temperature": 21.5, "label": "ok"}',
+          retained: true,
+        },
+      ];
+      await scanner.answer({ data: { topics, truncated: false } });
+      scanner.close();
+      fireEvent.dragStart(await browser.findByText(TOPIC));
+      fireEvent.drop(entries.getByText("No entries"));
+      await screen.findByText("Timestamp source");
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toMatchObject([
+          {
+            type: "plain",
+            topic: TOPIC,
+            fields: [
+              { pointer: "/temperature", dataType: "float64", disabled: false },
+              { pointer: "/label", dataType: "string", disabled: true },
+            ],
+          },
+        ]),
+      );
+      fireEvent.dragStart(browser.getByText(TOPIC));
+      fireEvent.drop(entries.getByText("2 fields"));
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toHaveLength(1),
+      );
+    });
+
+    it("should build an entry from a dropped Sparkplug B tag once", async () => {
+      const { dev, draft, browser, entries } = await renderPanes();
+      const scanner = await openScanner(client, dev.rack);
+      fireEvent.click(browser.getByRole("button", { name: "Sparkplug B" }));
+      fireEvent.click(await browser.findByRole("button", { name: "Browse" }));
+      await scanner.answer({
+        data: { nodes: [{ group: "plant", edgeNode: "line1", devices: [] }], tags: [] },
+      });
+      fireEvent.click(await browser.findByText("plant/line1"));
+      const tag = {
+        device: "",
+        name: "flow",
+        dataType: "float",
+        value: "1",
+        supported: true,
+      };
+      await scanner.answer({ data: { nodes: [], tags: [tag] } });
+      scanner.close();
+      fireEvent.dragStart(await browser.findByText("flow"));
+      fireEvent.drop(entries.getByText("No entries"));
+      await screen.findByText("Edge node");
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toMatchObject([
+          {
+            type: "sparkplug",
+            group: "plant",
+            edgeNode: "line1",
+            tag: "flow",
+            dataType: "float32",
+          },
+        ]),
+      );
+      fireEvent.dragStart(browser.getByText("flow"));
+      fireEvent.drop(entries.getByText("plant/line1"));
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toHaveLength(1),
+      );
+    });
   });
 
   describe("Sparkplug B entries", () => {
@@ -438,6 +534,38 @@ describe("MQTT Read form", () => {
       if (entry.type !== "plain") throw new Error("expected a plain entry");
       expect(entry.fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
       expect(entry.fields.find((f) => f.key === "tf")?.channel).toBe(topicProps.index);
+    });
+
+    it("should map the payload timestamp typed in the form to the index channel", async () => {
+      const { container, dev, draft } = await renderRead([
+        createReadEntry("e1", "plant/oven", {
+          fields: [createReadField("f1", "/temperature")],
+        }),
+      ]);
+      fireEvent.click(await screen.findByRole("button", { name: "Payload" }));
+      const pointer = await screen.findByPlaceholderText("/timestamp");
+      fireEvent.change(pointer, { target: { value: "/ts" } });
+      fireEvent.blur(pointer);
+      await selectFromDropdown("Unix (s)", "Unix (ms)");
+      await screen.findByText("Unix (ms)");
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const [entry] = created.config.entries;
+      if (entry.type !== "plain") throw new Error("expected a plain entry");
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: MQTT.Device.SCHEMAS,
+      });
+      const { index } = updated.properties.read["plant/oven"];
+      expect(entry.fields).toMatchObject([
+        { key: "f1", pointer: "/temperature" },
+        { key: entry.index, pointer: "/ts", timeFormat: "unix_ms", channel: index },
+      ]);
+      expect(index).toBeGreaterThan(0);
     });
 
     it("should create virtual channels with no index for string fields", async () => {

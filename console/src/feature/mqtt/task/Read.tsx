@@ -33,11 +33,6 @@ import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import {
-  channelExists,
-  createChannel,
-  retrieveChannel,
-} from "@/feature/mqtt/task/channels";
 import { createReadFields } from "@/feature/mqtt/task/createReadFields";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -506,8 +501,7 @@ const configureSparkplugEntry = async (
   const propertiesKey = sparkplugPropertiesKey(entry);
   const storedKey = dev.properties.read[propertiesKey]?.channels[""];
   for (const key of [entry.channel, storedKey]) {
-    if (!primitive.isNonZero(key)) continue;
-    const ch = await retrieveChannel(client, key);
+    const ch = await Task.retrieveChannel(client, key);
     if (ch == null) continue;
     entry.channel = ch.key;
     entry.index = ch.index;
@@ -516,7 +510,7 @@ const configureSparkplugEntry = async (
   const name = primitive.isNonZero(entry.name)
     ? entry.name
     : sparkplugChannelName(dev.name, entry);
-  const ch = await createChannel(client, name, entry.dataType);
+  const ch = await Task.createChannel(client, name, entry.dataType);
   entry.channel = ch.key;
   entry.index = ch.index;
   dev.properties.read[propertiesKey] = { index: ch.index, channels: { "": ch.key } };
@@ -535,68 +529,14 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         continue;
       }
       dev.properties.read[entry.topic] ??= { index: 0, channels: {} };
-      const topicProps = dev.properties.read[entry.topic];
-      const namePrefix = `${safeDevName}_${channel.escapeInvalidName(entry.topic)}`;
-
-      const needsIndex = entry.fields.some((f) => !new DataType(f.dataType).isVariable);
-
-      if (needsIndex) {
-        let shouldCreateIndex = !primitive.isNonZero(topicProps.index);
-        shouldCreateIndex ||= !(await channelExists(client, topicProps.index));
-        if (shouldCreateIndex) {
-          let recoveredIndex = 0;
-          for (const storedKey of Object.values(topicProps.channels)) {
-            if (!primitive.isNonZero(storedKey)) continue;
-            const ch = await retrieveChannel(client, storedKey);
-            if (ch == null || !primitive.isNonZero(ch.index)) continue;
-            if (!(await channelExists(client, ch.index))) continue;
-            recoveredIndex = ch.index;
-            break;
-          }
-          modified = true;
-          if (primitive.isNonZero(recoveredIndex)) topicProps.index = recoveredIndex;
-          else {
-            const indexCh = await client.channels.create({
-              name: `${namePrefix}_time`,
-              dataType: "timestamp",
-              isIndex: true,
-            });
-            topicProps.index = indexCh.key;
-          }
-        }
-      }
-
-      for (const field of entry.fields) {
-        if (field.key === entry.index) {
-          field.channel = topicProps.index;
-          continue;
-        }
-
-        if (field.channel !== 0 && (await channelExists(client, field.channel)))
-          continue;
-
-        const storedKey = topicProps.channels[field.pointer];
-        if (
-          primitive.isNonZero(storedKey) &&
-          (await channelExists(client, storedKey))
-        ) {
-          field.channel = storedKey;
-          continue;
-        }
-
-        const dt = new DataType(field.dataType);
-        const chName = primitive.isNonZero(field.name)
-          ? field.name
-          : `${namePrefix}${channel.escapeInvalidName(field.pointer)}`;
-        const newCh = await client.channels.create({
-          name: chName,
-          dataType: field.dataType,
-          ...(dt.isVariable ? { virtual: true } : { index: topicProps.index }),
-        });
-        modified = true;
-        field.channel = newCh.key;
-        topicProps.channels[field.pointer] = newCh.key;
-      }
+      const changed = await Task.configureReadChannels({
+        client,
+        props: dev.properties.read[entry.topic],
+        fields: entry.fields,
+        namePrefix: `${safeDevName}_${channel.escapeInvalidName(entry.topic)}`,
+        indexKey: entry.index,
+      });
+      modified ||= changed;
     }
   } finally {
     if (modified) await client.devices.create(dev, SCHEMAS);

@@ -9,6 +9,7 @@
 
 export * from "@/platform/task/ChannelList";
 export * from "@/platform/task/ChannelName";
+export * from "@/platform/task/channels";
 export * from "@/platform/task/controls";
 export * from "@/platform/task/createCommand";
 export * from "@/platform/task/CreateMenuItem";

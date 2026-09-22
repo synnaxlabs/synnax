@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"strconv"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -275,6 +276,49 @@ var _ = Describe("Read task", func() {
 	})
 
 	Describe("Connection", func() {
+		It("Should start and stop tasks of two brokers at the same time",
+			func(ctx SpecContext) {
+				other := startBroker(0)
+				otherDev := createBrokerDevice(ctx, rackKey, other.port, nil)
+				ch := createVirtual(ctx, telem.Float64T)
+				tasks := []driver.Task{
+					configure(
+						ctx,
+						factory,
+						newTask(rackKey, mqtt.ReadTaskType, readConfig(
+							dev, plainEntry("plant/a", field("v", ch, "")),
+						)),
+					),
+					configure(
+						ctx,
+						factory,
+						newTask(rackKey, mqtt.ReadTaskType, readConfig(
+							otherDev, plainEntry("plant/b", field("v", ch, "")),
+						)),
+					),
+				}
+				var wg sync.WaitGroup
+				for _, t := range tasks {
+					wg.Go(func() {
+						defer GinkgoRecover()
+						for range 5 {
+							Expect(
+								t.Exec(ctx, task.Command{Type: "start", Key: "start"}),
+							).
+								To(Succeed())
+							Expect(
+								t.Exec(ctx, task.Command{Type: "stop", Key: "stop"}),
+							).
+								To(Succeed())
+						}
+					})
+				}
+				wg.Wait()
+				Eventually(broker.clientCount).Should(BeZero())
+				Eventually(other.clientCount).Should(BeZero())
+			},
+		)
+
 		It("Should share one connection between the tasks of a broker",
 			func(ctx SpecContext) {
 				_, a := createIndexed(ctx, telem.Float64T)

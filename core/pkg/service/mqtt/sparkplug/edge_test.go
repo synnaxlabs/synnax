@@ -27,6 +27,11 @@ func decodePayload(payload []byte) *pb.Payload {
 	return &p
 }
 
+func encode(p *pb.Payload) []byte {
+	GinkgoHelper()
+	return MustSucceed(proto.Marshal(p))
+}
+
 var _ = Describe("Edge", func() {
 	const now = 1700000000123 * telem.MillisecondTS
 	const nowMillis uint64 = 1700000000123

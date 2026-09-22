@@ -34,7 +34,6 @@ import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { channelExists, createChannel } from "@/feature/mqtt/task/channels";
 import { fromSparkplugDataType } from "@/feature/mqtt/task/sparkplug";
 import { SparkplugNodeFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
@@ -86,8 +85,9 @@ const TagListItem = (props: Task.ChannelListItemProps) => {
 
   const handleChannelChange = useCallback(
     (key: channel.Key, { get, set }: PForm.ContextValue) => {
-      if (client == null || get<string>(`${path}.name`).value !== "") return;
+      if (get<string>(`${path}.name`).value !== "") return;
       handleError(async () => {
+        if (client == null) throw new DisconnectedError();
         const ch = await client.channels.retrieve(key);
         set(`${path}.name`, ch.name);
       }, "Failed to name the tag");
@@ -149,7 +149,11 @@ const createCommandChannel = async (
 ): Promise<channel.Channel> => {
   if (tag.name === "") throw new Error("Name the tag before adding a command channel");
   const name = channel.escapeInvalidName(`${tag.name}_cmd`);
-  return await createChannel(client, name, fromSparkplugDataType(tag.sparkplugType));
+  return await Task.createChannel(
+    client,
+    name,
+    fromSparkplugDataType(tag.sparkplugType),
+  );
 };
 
 const ContextMenuItem = ({ channels, keys }: Task.ContextMenuItemProps<EdgeTag>) => {
@@ -233,7 +237,7 @@ const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, conf
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
   for (const tag of config.tags) {
     if (tag.commandChannel === 0) continue;
-    if (!(await channelExists(client, tag.commandChannel))) tag.commandChannel = 0;
+    if (!(await Task.channelExists(client, tag.commandChannel))) tag.commandChannel = 0;
   }
   return [config, dev.rack];
 };

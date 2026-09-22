@@ -37,6 +37,16 @@ const (
 	State  MessageType = "STATE"
 )
 
+// Session reports whether a message of type t is part of the session of an edge node:
+// a birth, a death, or data. Only such messages change the state of a host.
+func (t MessageType) Session() bool {
+	switch t {
+	case NBirth, NDeath, DBirth, DDeath, NData, DData:
+		return true
+	}
+	return false
+}
+
 // hasDevice reports whether a topic of type t ends with a device ID.
 func (t MessageType) hasDevice() (device, ok bool) {
 	switch t {

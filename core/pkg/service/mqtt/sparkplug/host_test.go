@@ -85,42 +85,34 @@ func byName(name string, m *pb.Payload_Metric) *pb.Payload_Metric {
 	return m
 }
 
-func encode(p *pb.Payload) []byte {
-	GinkgoHelper()
-	return MustSucceed(proto.Marshal(p))
-}
-
 func bdSeqMetric(bdSeq uint64) *pb.Payload_Metric {
 	return declared(sparkplug.BdSeqMetric, 0, sparkplug.UInt64, longValue(bdSeq))
 }
 
 // birth returns an NBIRTH payload. Its first metric is bdSeq.
-func birth(seq, bdSeq uint64, metrics ...*pb.Payload_Metric) []byte {
-	GinkgoHelper()
-	return encode(&pb.Payload{
+func birth(seq, bdSeq uint64, metrics ...*pb.Payload_Metric) *pb.Payload {
+	return &pb.Payload{
 		Timestamp: new(payloadMillis),
 		Seq:       new(seq),
 		Metrics:   append([]*pb.Payload_Metric{bdSeqMetric(bdSeq)}, metrics...),
-	})
+	}
 }
 
 // data returns the payload of an NDATA, DBIRTH, DDATA, or DDEATH message.
-func data(seq uint64, metrics ...*pb.Payload_Metric) []byte {
-	GinkgoHelper()
-	return encode(&pb.Payload{
+func data(seq uint64, metrics ...*pb.Payload_Metric) *pb.Payload {
+	return &pb.Payload{
 		Timestamp: new(payloadMillis),
 		Seq:       new(seq),
 		Metrics:   metrics,
-	})
+	}
 }
 
 // death returns an NDEATH payload, which has no sequence number.
-func death(bdSeq uint64) []byte {
-	GinkgoHelper()
-	return encode(&pb.Payload{
+func death(bdSeq uint64) *pb.Payload {
+	return &pb.Payload{
 		Timestamp: new(payloadMillis),
 		Metrics:   []*pb.Payload_Metric{bdSeqMetric(bdSeq)},
-	})
+	}
 }
 
 var _ = Describe("Host", func() {
@@ -156,18 +148,18 @@ var _ = Describe("Host", func() {
 					value *pb.Payload_Metric,
 					expected types.GomegaMatcher,
 				) {
-					born := MustSucceed(h.Handle(
+					born := h.Handle(
 						nodeTopic(sparkplug.NBirth),
 						birth(0, 0, declared("tag", 1, dt, value)),
-					))
+					)
 					Expect(born.Metrics).To(HaveLen(2))
 					Expect(born.Metrics[1].Name).To(Equal("tag"))
 					Expect(born.Metrics[1].DataType).To(Equal(dt))
 					Expect(born.Metrics[1].Value).To(expected)
-					ev := MustSucceed(h.Handle(
+					ev := h.Handle(
 						nodeTopic(sparkplug.NData),
 						data(1, byAlias(1, value)),
-					))
+					)
 					Expect(ev.Rebirth).To(BeFalse())
 					Expect(ev.Metrics).To(HaveLen(1))
 					Expect(ev.Metrics[0].Name).To(Equal("tag"))
@@ -289,13 +281,13 @@ var _ = Describe("Host", func() {
 			)
 
 			It("Should use the data type of a data message that carries one", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0, declared("tag", 1, sparkplug.Int8, intValue(1))),
-				))
+				)
 				m := byAlias(1, intValue(0xFFFF))
 				m.Datatype = new(uint32(sparkplug.UInt16))
-				ev := MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(1, m)))
+				ev := h.Handle(nodeTopic(sparkplug.NData), data(1, m))
 				Expect(ev.Metrics).To(Equal([]sparkplug.Metric{{
 					Name:      "tag",
 					DataType:  sparkplug.UInt16,
@@ -307,46 +299,46 @@ var _ = Describe("Host", func() {
 
 		Describe("Timestamps", func() {
 			BeforeEach(func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0, declared("tag", 1, sparkplug.Double, doubleValue(0))),
-				))
+				)
 			})
 			It("Should use the timestamp of the metric", func() {
 				m := byAlias(1, doubleValue(1))
 				m.Timestamp = new(payloadMillis + 250)
-				ev := MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(1, m)))
+				ev := h.Handle(nodeTopic(sparkplug.NData), data(1, m))
 				Expect(ev.Metrics).To(HaveLen(1))
 				Expect(ev.Metrics[0].Timestamp).To(
 					Equal(payloadTime + 250*telem.MillisecondTS),
 				)
 			})
 			It("Should fall back to the timestamp of the payload", func() {
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, doubleValue(1))),
-				))
+				)
 				Expect(ev.Metrics).To(HaveLen(1))
 				Expect(ev.Metrics[0].Timestamp).To(Equal(payloadTime))
 			})
 			It("Should give zero when the message has no timestamp", func() {
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
-					encode(&pb.Payload{
+					&pb.Payload{
 						Seq:     new(uint64(1)),
 						Metrics: []*pb.Payload_Metric{byAlias(1, doubleValue(1))},
-					}),
-				))
+					},
+				)
 				Expect(ev.Metrics).To(HaveLen(1))
 				Expect(ev.Metrics[0].Timestamp).To(BeZero())
 			})
 			It("Should use the timestamps of a birth the same way", func() {
 				stamped := declared("stamped", 2, sparkplug.Double, doubleValue(1))
 				stamped.Timestamp = new(payloadMillis - 1000)
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0, stamped),
-				))
+				)
 				Expect(ev.Metrics).To(HaveLen(2))
 				Expect(ev.Metrics[0].Timestamp).To(Equal(payloadTime))
 				Expect(ev.Metrics[1].Timestamp).To(
@@ -357,16 +349,16 @@ var _ = Describe("Host", func() {
 
 		Describe("Historical", func() {
 			It("Should carry the historical flag of a data metric", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0, declared("tag", 1, sparkplug.Double, doubleValue(0))),
-				))
+				)
 				old := byAlias(1, doubleValue(1))
 				old.IsHistorical = new(true)
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, old, byAlias(1, doubleValue(2))),
-				))
+				)
 				Expect(ev.Metrics).To(HaveLen(2))
 				Expect(ev.Metrics[0].Historical).To(BeTrue())
 				Expect(ev.Metrics[1].Historical).To(BeFalse())
@@ -374,9 +366,7 @@ var _ = Describe("Host", func() {
 			It("Should carry the historical flag of a birth metric", func() {
 				old := declared("tag", 1, sparkplug.Double, doubleValue(0))
 				old.IsHistorical = new(true)
-				ev := MustSucceed(
-					h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0, old)),
-				)
+				ev := h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0, old))
 				Expect(ev.Metrics).To(HaveLen(2))
 				Expect(ev.Metrics[0].Historical).To(BeFalse())
 				Expect(ev.Metrics[1].Historical).To(BeTrue())
@@ -387,13 +377,13 @@ var _ = Describe("Host", func() {
 			It(
 				"Should return every metric of the birth and mark the node born",
 				func() {
-					ev := MustSucceed(h.Handle(
+					ev := h.Handle(
 						nodeTopic(sparkplug.NBirth),
 						birth(0, 7,
 							declared("temp", 1, sparkplug.Double, doubleValue(21.5)),
 							declared("state", 2, sparkplug.String, stringValue("idle")),
 						),
-					))
+					)
 					Expect(ev).To(Equal(sparkplug.Event{
 						Type: sparkplug.NBirth,
 						Node: node,
@@ -423,18 +413,18 @@ var _ = Describe("Host", func() {
 				},
 			)
 			It("Should replace the tags of the last birth", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-				))
-				MustSucceed(h.Handle(
+				)
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
-				ev := MustSucceed(h.Handle(
+				)
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, intValue(40)), byName("temp", doubleValue(1))),
-				))
+				)
 				Expect(ev.Rebirth).To(BeTrue())
 				Expect(ev.Metrics).To(Equal([]sparkplug.Metric{{
 					Name:      "speed",
@@ -444,12 +434,12 @@ var _ = Describe("Host", func() {
 				}}))
 			})
 			It("Should drop the devices of the last birth", func() {
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0)))
-				MustSucceed(h.Handle(
+				h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0))
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 1)))
+				)
+				h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 1))
 				Expect(h.Handle(
 					deviceTopic(sparkplug.DData, "pump"),
 					data(1, byAlias(1, intValue(40))),
@@ -459,13 +449,13 @@ var _ = Describe("Host", func() {
 
 		Describe("NDATA", func() {
 			BeforeEach(func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0,
 						declared("temp", 1, sparkplug.Double, doubleValue(0)),
 						declared("count", 2, sparkplug.Int16, intValue(0)),
 					),
-				))
+				)
 			})
 			It(
 				"Should resolve an alias to the name and data type of the birth",
@@ -498,10 +488,10 @@ var _ = Describe("Host", func() {
 				},
 			)
 			It("Should resolve a metric by its name", func() {
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byName("count", intValue(9))),
-				))
+				)
 				Expect(ev.Rebirth).To(BeFalse())
 				Expect(ev.Metrics).To(Equal([]sparkplug.Metric{{
 					Name:      "count",
@@ -513,11 +503,11 @@ var _ = Describe("Host", func() {
 			It("Should resolve a tag that the birth declared with no alias", func() {
 				bare := byName("bare", doubleValue(0))
 				bare.Datatype = new(uint32(sparkplug.Double))
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0, bare)))
-				ev := MustSucceed(h.Handle(
+				h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0, bare))
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byName("bare", doubleValue(4))),
-				))
+				)
 				Expect(ev.Rebirth).To(BeFalse())
 				Expect(ev.Metrics).To(HaveLen(1))
 				Expect(ev.Metrics[0].Value).To(Equal(4.0))
@@ -525,14 +515,14 @@ var _ = Describe("Host", func() {
 			It(
 				"Should ask for a rebirth on an unknown alias and keep the rest",
 				func() {
-					ev := MustSucceed(h.Handle(
+					ev := h.Handle(
 						nodeTopic(sparkplug.NData),
 						data(
 							1,
 							byAlias(99, doubleValue(1)),
 							byAlias(1, doubleValue(2)),
 						),
-					))
+					)
 					Expect(ev.Type).To(Equal(sparkplug.NData))
 					Expect(ev.Rebirth).To(BeTrue())
 					Expect(ev.Metrics).To(Equal([]sparkplug.Metric{{
@@ -545,10 +535,10 @@ var _ = Describe("Host", func() {
 				},
 			)
 			It("Should ask for a rebirth on an unknown name", func() {
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byName("missing", doubleValue(1))),
-				))
+				)
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(ev.Rebirth).To(BeTrue())
 				Expect(ev.Metrics).To(BeEmpty())
@@ -556,10 +546,10 @@ var _ = Describe("Host", func() {
 			It(
 				"Should ask for a rebirth on a metric with no name and no alias",
 				func() {
-					ev := MustSucceed(h.Handle(
+					ev := h.Handle(
 						nodeTopic(sparkplug.NData),
 						data(1, doubleValue(1)),
-					))
+					)
 					Expect(ev.Rebirth).To(BeTrue())
 					Expect(ev.Metrics).To(BeEmpty())
 				},
@@ -575,17 +565,17 @@ var _ = Describe("Host", func() {
 
 		Describe("Sequence", func() {
 			BeforeEach(func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-				))
+				)
 			})
 			It("Should accept messages in sequence", func() {
 				for seq := uint64(1); seq <= 3; seq++ {
-					ev := MustSucceed(h.Handle(
+					ev := h.Handle(
 						nodeTopic(sparkplug.NData),
 						data(seq, byAlias(1, doubleValue(1))),
-					))
+					)
 					Expect(ev.Type).To(Equal(sparkplug.NData))
 					Expect(ev.Rebirth).To(BeFalse())
 				}
@@ -598,10 +588,10 @@ var _ = Describe("Host", func() {
 				Expect(h.Born(node)).To(BeFalse())
 			})
 			It("Should drop a message that repeats a sequence number", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, doubleValue(1))),
-				))
+				)
 				Expect(h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, doubleValue(1))),
@@ -609,57 +599,57 @@ var _ = Describe("Host", func() {
 				Expect(h.Born(node)).To(BeFalse())
 			})
 			It("Should drop every message after a gap until a new birth", func() {
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(5)))
+				h.Handle(nodeTopic(sparkplug.NData), data(5))
 				Expect(h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, doubleValue(1))),
 				)).To(Equal(sparkplug.Event{Node: node, Rebirth: true}))
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 1, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-				))
+				)
 				Expect(h.Born(node)).To(BeTrue())
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, doubleValue(1))),
-				))
+				)
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(ev.Rebirth).To(BeFalse())
 			})
 			It("Should wrap from 255 to 0", func() {
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(254, 0)))
+				h.Handle(nodeTopic(sparkplug.NBirth), birth(254, 0))
 				for _, seq := range []uint64{255, 0, 1} {
-					ev := MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(seq)))
+					ev := h.Handle(nodeTopic(sparkplug.NData), data(seq))
 					Expect(ev.Type).To(Equal(sparkplug.NData))
 					Expect(ev.Rebirth).To(BeFalse())
 				}
 				Expect(h.Born(node)).To(BeTrue())
 			})
 			It("Should wrap to 0 after a birth with sequence number 255", func() {
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(255, 0)))
-				ev := MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(0)))
+				h.Handle(nodeTopic(sparkplug.NBirth), birth(255, 0))
+				ev := h.Handle(nodeTopic(sparkplug.NData), data(0))
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(ev.Rebirth).To(BeFalse())
 			})
 			It("Should accept a message with no sequence number", func() {
-				noSeq := encode(&pb.Payload{
+				noSeq := &pb.Payload{
 					Timestamp: new(payloadMillis),
 					Metrics:   []*pb.Payload_Metric{byAlias(1, doubleValue(1))},
-				})
-				ev := MustSucceed(h.Handle(nodeTopic(sparkplug.NData), noSeq))
+				}
+				ev := h.Handle(nodeTopic(sparkplug.NData), noSeq)
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(ev.Rebirth).To(BeFalse())
 				Expect(ev.Metrics).To(HaveLen(1))
 				// The message with no sequence number does not use one up.
-				ev = MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(1)))
+				ev = h.Handle(nodeTopic(sparkplug.NData), data(1))
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(h.Born(node)).To(BeTrue())
 			})
 			It("Should count device messages in the sequence of the node", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
+				)
 				Expect(h.Handle(
 					deviceTopic(sparkplug.DData, "pump"),
 					data(3, byAlias(1, intValue(1))),
@@ -667,15 +657,15 @@ var _ = Describe("Host", func() {
 				Expect(h.Born(node)).To(BeFalse())
 			})
 			It("Should keep one sequence for each edge node", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					sparkplug.Topic{Type: sparkplug.NBirth, Node: other},
 					birth(0, 0),
-				))
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(1)))
-				ev := MustSucceed(h.Handle(
+				)
+				h.Handle(nodeTopic(sparkplug.NData), data(1))
+				ev := h.Handle(
 					sparkplug.Topic{Type: sparkplug.NData, Node: other},
 					data(1),
-				))
+				)
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(ev.Rebirth).To(BeFalse())
 			})
@@ -683,10 +673,10 @@ var _ = Describe("Host", func() {
 
 		Describe("Devices", func() {
 			BeforeEach(func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 0, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-				))
+				)
 			})
 			It("Should return the metrics of a DBIRTH", func() {
 				Expect(h.Handle(
@@ -705,14 +695,14 @@ var _ = Describe("Host", func() {
 				}))
 			})
 			It("Should resolve the aliases of each device on their own", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
-				MustSucceed(h.Handle(
+				)
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "valve"),
 					data(2, declared("open", 1, sparkplug.Boolean, boolValue(false))),
-				))
+				)
 				Expect(h.Handle(
 					deviceTopic(sparkplug.DData, "pump"),
 					data(3, byAlias(1, intValue(900))),
@@ -741,10 +731,10 @@ var _ = Describe("Host", func() {
 						Timestamp: payloadTime,
 					}},
 				}))
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(5, byAlias(1, doubleValue(20))),
-				))
+				)
 				Expect(ev.Metrics).To(HaveLen(1))
 				Expect(ev.Metrics[0].Name).To(Equal("temp"))
 			})
@@ -756,10 +746,10 @@ var _ = Describe("Host", func() {
 				Expect(h.Born(node)).To(BeTrue())
 			})
 			It("Should forget the tags of a device on DDEATH", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
+				)
 				Expect(h.Handle(deviceTopic(sparkplug.DDeath, "pump"), data(2))).To(
 					Equal(sparkplug.Event{
 						Type:   sparkplug.DDeath,
@@ -774,42 +764,42 @@ var _ = Describe("Host", func() {
 				)).To(Equal(sparkplug.Event{Node: node, Device: "pump", Rebirth: true}))
 			})
 			It("Should keep the other devices and the node on DDEATH", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
-				MustSucceed(h.Handle(
+				)
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "valve"),
 					data(2, declared("open", 1, sparkplug.Boolean, boolValue(false))),
-				))
-				MustSucceed(h.Handle(deviceTopic(sparkplug.DDeath, "pump"), data(3)))
-				ev := MustSucceed(h.Handle(
+				)
+				h.Handle(deviceTopic(sparkplug.DDeath, "pump"), data(3))
+				ev := h.Handle(
 					deviceTopic(sparkplug.DData, "valve"),
 					data(4, byAlias(1, boolValue(true))),
-				))
+				)
 				Expect(ev.Type).To(Equal(sparkplug.DData))
 				Expect(ev.Rebirth).To(BeFalse())
-				ev = MustSucceed(h.Handle(
+				ev = h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(5, byAlias(1, doubleValue(1))),
-				))
+				)
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(ev.Rebirth).To(BeFalse())
 			})
 			It("Should accept a new DBIRTH after a DDEATH", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
-				MustSucceed(h.Handle(deviceTopic(sparkplug.DDeath, "pump"), data(2)))
-				MustSucceed(h.Handle(
+				)
+				h.Handle(deviceTopic(sparkplug.DDeath, "pump"), data(2))
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(3, declared("flow", 1, sparkplug.Double, doubleValue(0))),
-				))
-				ev := MustSucceed(h.Handle(
+				)
+				ev := h.Handle(
 					deviceTopic(sparkplug.DData, "pump"),
 					data(4, byAlias(1, doubleValue(2.5))),
-				))
+				)
 				Expect(ev.Metrics).To(HaveLen(1))
 				Expect(ev.Metrics[0].Name).To(Equal("flow"))
 			})
@@ -838,10 +828,10 @@ var _ = Describe("Host", func() {
 
 		Describe("NDEATH", func() {
 			It("Should clear the birth on a matching bdSeq", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 4, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-				))
+				)
 				Expect(h.Handle(nodeTopic(sparkplug.NDeath), death(4))).To(
 					Equal(sparkplug.Event{Type: sparkplug.NDeath, Node: node}),
 				)
@@ -852,23 +842,23 @@ var _ = Describe("Host", func() {
 				)).To(Equal(sparkplug.Event{Node: node, Rebirth: true}))
 			})
 			It("Should drop a death with another bdSeq", func() {
-				MustSucceed(h.Handle(
+				h.Handle(
 					nodeTopic(sparkplug.NBirth),
 					birth(0, 4, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-				))
+				)
 				Expect(h.Handle(nodeTopic(sparkplug.NDeath), death(3))).To(
 					Equal(sparkplug.Event{Node: node}),
 				)
 				Expect(h.Born(node)).To(BeTrue())
-				ev := MustSucceed(h.Handle(
+				ev := h.Handle(
 					nodeTopic(sparkplug.NData),
 					data(1, byAlias(1, doubleValue(1))),
-				))
+				)
 				Expect(ev.Type).To(Equal(sparkplug.NData))
 				Expect(ev.Rebirth).To(BeFalse())
 			})
 			It("Should accept a death when the birth gave no bdSeq", func() {
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), data(0)))
+				h.Handle(nodeTopic(sparkplug.NBirth), data(0))
 				Expect(h.Born(node)).To(BeTrue())
 				Expect(h.Handle(nodeTopic(sparkplug.NDeath), death(9))).To(
 					Equal(sparkplug.Event{Type: sparkplug.NDeath, Node: node}),
@@ -876,10 +866,10 @@ var _ = Describe("Host", func() {
 				Expect(h.Born(node)).To(BeFalse())
 			})
 			It("Should accept a death that carries no bdSeq", func() {
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 4)))
+				h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 4))
 				Expect(h.Handle(
 					nodeTopic(sparkplug.NDeath),
-					encode(&pb.Payload{Timestamp: new(payloadMillis)}),
+					&pb.Payload{Timestamp: new(payloadMillis)},
 				)).To(Equal(sparkplug.Event{Type: sparkplug.NDeath, Node: node}))
 				Expect(h.Born(node)).To(BeFalse())
 			})
@@ -896,19 +886,19 @@ var _ = Describe("Host", func() {
 					sparkplug.UInt64,
 					intValue(4),
 				)
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), data(0, bdSeq)))
+				h.Handle(nodeTopic(sparkplug.NBirth), data(0, bdSeq))
 				Expect(h.Handle(nodeTopic(sparkplug.NDeath), death(3))).To(
 					Equal(sparkplug.Event{Node: node}),
 				)
 				Expect(h.Born(node)).To(BeTrue())
 			})
 			It("Should take the devices of the node offline", func() {
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 4)))
-				MustSucceed(h.Handle(
+				h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 4))
+				h.Handle(
 					deviceTopic(sparkplug.DBirth, "pump"),
 					data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-				))
-				MustSucceed(h.Handle(nodeTopic(sparkplug.NDeath), death(4)))
+				)
+				h.Handle(nodeTopic(sparkplug.NDeath), death(4))
 				Expect(h.Handle(
 					deviceTopic(sparkplug.DData, "pump"),
 					data(2, byAlias(1, intValue(1))),
@@ -918,11 +908,9 @@ var _ = Describe("Host", func() {
 
 		Describe("Other topics", func() {
 			DescribeTable(
-				"Should give an empty event and no error",
+				"Should give an empty event",
 				func(topic sparkplug.Topic) {
-					Expect(h.Handle(topic, []byte("not a payload"))).To(
-						Equal(sparkplug.Event{}),
-					)
+					Expect(h.Handle(topic, data(0))).To(Equal(sparkplug.Event{}))
 					Expect(h.Born(node)).To(BeFalse())
 				},
 				Entry("NCMD", sparkplug.CommandTopic(node, "")),
@@ -934,11 +922,21 @@ var _ = Describe("Host", func() {
 				Entry("a topic with no type", sparkplug.Topic{Node: node}),
 			)
 		})
+	})
 
+	Describe("DecodePayload", func() {
+		It("Should decode a payload", func() {
+			p := MustSucceed(sparkplug.DecodePayload(
+				nodeTopic(sparkplug.NData),
+				encode(data(7)),
+			))
+			Expect(p.GetSeq()).To(Equal(uint64(7)))
+		})
 		Describe("Invalid payloads", func() {
 			DescribeTable("Should return an error that names the topic",
 				func(topic sparkplug.Topic, text string) {
-					Expect(h.Handle(topic, []byte{0xFF, 0xFF, 0xFF})).Error().To(
+					Expect(sparkplug.DecodePayload(topic, []byte{0xFF, 0xFF, 0xFF})).
+						Error().To(
 						MatchError(ContainSubstring("invalid payload on " + text)),
 					)
 				},
@@ -967,22 +965,6 @@ var _ = Describe("Host", func() {
 					"spBv1.0/plant/DDEATH/line1/pump",
 				),
 			)
-			It("Should keep the session state of the node", func() {
-				MustSucceed(h.Handle(
-					nodeTopic(sparkplug.NBirth),
-					birth(0, 0, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-				))
-				Expect(h.Handle(nodeTopic(sparkplug.NData), []byte{0xFF})).Error().To(
-					MatchError(ContainSubstring("invalid payload on")),
-				)
-				Expect(h.Born(node)).To(BeTrue())
-				ev := MustSucceed(h.Handle(
-					nodeTopic(sparkplug.NData),
-					data(1, byAlias(1, doubleValue(1))),
-				))
-				Expect(ev.Type).To(Equal(sparkplug.NData))
-				Expect(ev.Rebirth).To(BeFalse())
-			})
 		})
 	})
 
@@ -991,30 +973,30 @@ var _ = Describe("Host", func() {
 			Expect(h.Born(node)).To(BeFalse())
 		})
 		It("Should be true after an NBIRTH, for that node only", func() {
-			MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0)))
+			h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0))
 			Expect(h.Born(node)).To(BeTrue())
 			Expect(h.Born(other)).To(BeFalse())
 		})
 		It("Should stay false after data with no birth", func() {
-			MustSucceed(h.Handle(nodeTopic(sparkplug.NData), data(1)))
+			h.Handle(nodeTopic(sparkplug.NData), data(1))
 			Expect(h.Born(node)).To(BeFalse())
 		})
 	})
 
 	Describe("Reset", func() {
 		It("Should clear the birth of every edge node", func() {
-			MustSucceed(h.Handle(
+			h.Handle(
 				nodeTopic(sparkplug.NBirth),
 				birth(0, 0, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-			))
-			MustSucceed(h.Handle(
+			)
+			h.Handle(
 				deviceTopic(sparkplug.DBirth, "pump"),
 				data(1, declared("speed", 1, sparkplug.Int32, intValue(0))),
-			))
-			MustSucceed(h.Handle(
+			)
+			h.Handle(
 				sparkplug.Topic{Type: sparkplug.NBirth, Node: other},
 				birth(0, 0),
-			))
+			)
 			h.Reset()
 			Expect(h.Born(node)).To(BeFalse())
 			Expect(h.Born(other)).To(BeFalse())
@@ -1032,17 +1014,17 @@ var _ = Describe("Host", func() {
 			)).To(Equal(sparkplug.Event{Node: other, Rebirth: true}))
 		})
 		It("Should accept a new birth after the reset", func() {
-			MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0)))
+			h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 0))
 			h.Reset()
-			MustSucceed(h.Handle(
+			h.Handle(
 				nodeTopic(sparkplug.NBirth),
 				birth(0, 1, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-			))
+			)
 			Expect(h.Born(node)).To(BeTrue())
-			ev := MustSucceed(h.Handle(
+			ev := h.Handle(
 				nodeTopic(sparkplug.NData),
 				data(1, byAlias(1, doubleValue(1))),
-			))
+			)
 			Expect(ev.Type).To(Equal(sparkplug.NData))
 			Expect(ev.Metrics).To(HaveLen(1))
 		})
@@ -1054,14 +1036,14 @@ var _ = Describe("Host", func() {
 
 	Describe("Forget", func() {
 		It("Should drop the state of the node and keep the others", func() {
-			MustSucceed(h.Handle(
+			h.Handle(
 				nodeTopic(sparkplug.NBirth),
 				birth(0, 0, declared("temp", 1, sparkplug.Double, doubleValue(0))),
-			))
-			MustSucceed(h.Handle(
+			)
+			h.Handle(
 				sparkplug.Topic{Type: sparkplug.NBirth, Node: other},
 				birth(0, 0),
-			))
+			)
 			h.Forget(node)
 			Expect(h.Born(node)).To(BeFalse())
 			Expect(h.Born(other)).To(BeTrue())
@@ -1071,7 +1053,7 @@ var _ = Describe("Host", func() {
 			)).To(Equal(sparkplug.Event{Node: node, Rebirth: true}))
 		})
 		It("Should drop the bdSeq of the node", func() {
-			MustSucceed(h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 4)))
+			h.Handle(nodeTopic(sparkplug.NBirth), birth(0, 4))
 			h.Forget(node)
 			Expect(h.Handle(nodeTopic(sparkplug.NDeath), death(3))).To(
 				Equal(sparkplug.Event{Type: sparkplug.NDeath, Node: node}),

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, status, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -208,12 +208,12 @@ export const SparkplugBrowser = ({ device }: SparkplugBrowserProps) => {
   const handleError = Status.useErrorHandler();
 
   const browseNodes = useCallback(() => {
-    if (client == null) return;
     setNodes([]);
     setStat(status.create({ variant: "loading", message: "Browsing edge nodes" }));
     handleError(async () => {
       let browsed: BrowsedSparkplugNode[];
       try {
+        if (client == null) throw new DisconnectedError();
         ({ nodes: browsed } = await browse(client, device, { group, edgeNode: "" }));
       } catch (e) {
         setStat(status.fromException(e, "Failed to browse edge nodes"));
@@ -230,10 +230,11 @@ export const SparkplugBrowser = ({ device }: SparkplugBrowserProps) => {
   const handleExpand = useCallback(
     ({ clicked, action }: Tree.HandleExpandProps) => {
       const node = store.getItem(clicked);
-      if (client == null || action === "contract" || node?.kind !== "node") return;
+      if (action === "contract" || node?.kind !== "node") return;
       store.setItem({ ...node, loading: true });
       handleError(async () => {
         try {
+          if (client == null) throw new DisconnectedError();
           const { tags } = await browse(client, device, node);
           const items: Item[] = [];
           const children: Tree.Node[] = [];

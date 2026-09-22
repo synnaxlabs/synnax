@@ -86,16 +86,14 @@ func (f *factory) ConfigureTask(
 		)
 		return nil, err
 	}
-	pdTask := &alertTask{
-		factoryCfg: f.cfg,
-		task:       t,
-		cfg:        cfg,
-		status:     driver.NewStatusHandler(f.cfg.Status, t),
+	pdTask, err := newAlertTask(f.cfg, t, cfg)
+	if err != nil {
+		return nil, err
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
 	if cfg.AutoStart {
-		if err := pdTask.start(ctx, driver.NoCommand); err != nil {
+		if err := pdTask.Start(ctx, driver.NoCommand); err != nil {
 			return nil, err
 		}
 	}

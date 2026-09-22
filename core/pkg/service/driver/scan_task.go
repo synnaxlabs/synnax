@@ -122,8 +122,8 @@ func (c ScanTaskConfig) Validate() error {
 // such a device changes. It also answers the commands of its Scanner, whether or not
 // it runs. Safe for concurrent use.
 type ScanTask struct {
-	runner runner
-	cfg    ScanTaskConfig
+	*Runner
+	cfg ScanTaskConfig
 }
 
 var _ Task = (*ScanTask)(nil)
@@ -135,17 +135,21 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 		return nil, err
 	}
 	t := &ScanTask{cfg: cfg}
-	t.runner.status = NewStatusHandler(cfg.Status, cfg.Task)
-	t.runner.ins = cfg.Instrumentation
-	t.runner.open = func(context.Context) error { return nil }
-	t.runner.run = t.run
-	return t, nil
+	t.Runner, err = NewRunner(RunnerConfig{
+		Status:          cfg.Status,
+		Instrumentation: cfg.Instrumentation,
+		Task:            cfg.Task,
+		Open:            func(context.Context) error { return nil },
+		Run:             t.run,
+	})
+	return t, err
 }
 
-// Exec implements Task.
+// Exec implements Task. A command other than start and stop goes to the Scanner, and
+// its result answers the command.
 func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 	if cmd.Type == startCommandType || cmd.Type == stopCommandType {
-		return t.runner.exec(ctx, cmd)
+		return t.Runner.Exec(ctx, cmd)
 	}
 	data, err := t.cfg.Scanner.Exec(ctx, cmd)
 	if errors.Is(err, ErrUnsupportedCommand) {
@@ -156,19 +160,8 @@ func (t *ScanTask) Exec(ctx context.Context, cmd task.Command) error {
 		variant, message = status.VariantError, err.Error()
 	}
 	return errors.Combine(
-		err, t.runner.status.Reply(ctx, cmd.Key, variant, message, data),
+		err, t.status.Reply(ctx, cmd.Key, variant, message, data),
 	)
-}
-
-// Start starts the device checks and answers cmdKey. A factory calls it with
-// NoCommand, because a scan task starts automatically.
-func (t *ScanTask) Start(ctx context.Context, cmdKey string) error {
-	return t.runner.start(ctx, cmdKey)
-}
-
-// Stop implements Task.
-func (t *ScanTask) Stop(sendStatus bool) error {
-	return t.runner.stop(context.TODO(), NoCommand, sendStatus)
 }
 
 // health is the part of a device status that a check decides.
@@ -201,9 +194,9 @@ func (t *ScanTask) run(ctx context.Context) error {
 	reported := make(map[device.Key]health)
 	for {
 		if err := t.scan(ctx, reported); err != nil && ctx.Err() == nil {
-			t.runner.report(ctx, errors.Wrap(ErrTemporary, err.Error()))
+			t.Report(ctx, errors.Wrap(ErrTemporary, err.Error()))
 		} else {
-			t.runner.report(ctx, nil)
+			t.Report(ctx, nil)
 		}
 		select {
 		case <-ctx.Done():

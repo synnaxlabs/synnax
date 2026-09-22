@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, mqtt, type Synnax as Client } from "@synnaxlabs/client";
+import { channel, mqtt } from "@synnaxlabs/client";
 import {
   Button,
   Channel as PChannel,
@@ -34,7 +34,6 @@ import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
-import { channelExists, createChannel } from "@/feature/mqtt/task/channels";
 import { ContextMenu } from "@/feature/mqtt/task/ContextMenu";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -560,33 +559,6 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   return { name: "MQTT write task", type: WRITE_TYPE, config: cfg };
 };
 
-interface CommandChannelSpec {
-  propertiesKey: string;
-  channel: channel.Key;
-  name: string;
-  dataType: string;
-}
-
-/** @returns the command channel, and true when the device properties changed. */
-const configureCommandChannel = async (
-  client: Client,
-  dev: Device,
-  { propertiesKey, channel: current, name, dataType }: CommandChannelSpec,
-): Promise<[channel.Key, boolean]> => {
-  const { write } = dev.properties;
-  if (current !== 0 && (await channelExists(client, current))) {
-    const changed = write[propertiesKey] !== current;
-    write[propertiesKey] = current;
-    return [current, changed];
-  }
-  const stored = write[propertiesKey];
-  if (primitive.isNonZero(stored) && (await channelExists(client, stored)))
-    return [stored, false];
-  const cmdCh = await createChannel(client, name, dataType);
-  write[propertiesKey] = cmdCh.key;
-  return [cmdCh.key, true];
-};
-
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -600,7 +572,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       let changed: boolean;
       if (target.type === "plain") {
         const { channel: field, topic } = target;
-        [field.channel, changed] = await configureCommandChannel(client, dev, {
+        [field.channel, changed] = await Task.configureCommandChannel(client, dev.properties.write, {
           propertiesKey: topic,
           channel: field.channel,
           name: primitive.isNonZero(field.name)
@@ -609,7 +581,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
           dataType: field.dataType,
         });
       } else
-        [target.channel, changed] = await configureCommandChannel(client, dev, {
+        [target.channel, changed] = await Task.configureCommandChannel(client, dev.properties.write, {
           propertiesKey: sparkplugPropertiesKey(target),
           channel: target.channel,
           name: primitive.isNonZero(target.name)

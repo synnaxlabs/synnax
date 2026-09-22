@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug/pb"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -80,13 +81,20 @@ type rebirthRequest struct {
 
 // connection is the one MQTT client that the tasks of a broker device share. It
 // connects again after a loss, subscribes again after each connect, and gives each
-// attachment its own bounded queue. Safe for concurrent use, except that the caller
-// serializes configure and close.
+// attachment its own bounded queue. Safe for concurrent use.
 type connection struct {
 	// rebirths holds the rebirth requests that the connect loop sends.
 	rebirths chan rebirthRequest
 	ins      alamos.Instrumentation
-	mu       struct {
+	// lifecycle serializes configure, attach, and close, which wait on the broker.
+	// The pool lock never waits on a broker.
+	lifecycle struct {
+		sync.Mutex
+		// closed is true once the last attachment left. A closed connection never
+		// takes a new attachment.
+		closed bool
+	}
+	mu struct {
 		// host is the Sparkplug B session state of the edge nodes in nodes.
 		host *sparkplug.Host
 		// nodes holds the attachments that follow each edge node.
@@ -383,13 +391,21 @@ func (c *connection) setClient(ctx context.Context, client paho.Client) {
 }
 
 // onMessage runs on the ordered delivery goroutine of the client, so it only puts
-// the message on queues and never blocks.
+// the message on queues and never blocks. It decodes a Sparkplug B message before it
+// takes the lock, which the lock then holds only for the session state.
 func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 	msg := message{
 		topic:    m.Topic(),
 		payload:  m.Payload(),
 		received: telem.Now(),
 		retained: m.Retained(),
+	}
+	var (
+		topic   sparkplug.Topic
+		payload *pb.Payload
+	)
+	if strings.HasPrefix(msg.topic, sparkplug.Namespace+"/") {
+		topic, payload = c.decodeSparkplug(msg)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -398,34 +414,45 @@ func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 			a.enqueue(msg)
 		}
 	}
-	if len(c.mu.nodes) > 0 && strings.HasPrefix(msg.topic, sparkplug.Namespace+"/") {
-		c.onSparkplugMessage(msg)
+	if payload != nil {
+		c.onSparkplugMessage(topic, payload, msg.received)
 	}
 }
 
-// onSparkplugMessage runs msg through the host session and gives the result to the
-// attachments that follow its edge node. The caller holds c.mu.
-func (c *connection) onSparkplugMessage(msg message) {
+// decodeSparkplug parses a message of the Sparkplug B namespace. It returns a nil
+// payload for a message that no host session applies.
+func (c *connection) decodeSparkplug(msg message) (sparkplug.Topic, *pb.Payload) {
 	topic, err := sparkplug.ParseTopic(msg.topic)
-	if err != nil {
-		return
+	if err != nil || !topic.Type.Session() {
+		return topic, nil
 	}
+	payload, err := sparkplug.DecodePayload(topic, msg.payload)
+	if err != nil {
+		c.ins.L.Debug("dropped a Sparkplug B message", zap.Error(err))
+		return topic, nil
+	}
+	return topic, payload
+}
+
+// onSparkplugMessage runs a decoded message through the host session and gives the
+// result to the attachments that follow its edge node. The caller holds c.mu.
+func (c *connection) onSparkplugMessage(
+	topic sparkplug.Topic,
+	payload *pb.Payload,
+	received telem.TimeStamp,
+) {
 	attachments, followed := c.mu.nodes[topic.Node]
 	if !followed {
 		return
 	}
-	ev, err := c.mu.host.Handle(topic, msg.payload)
-	if err != nil {
-		c.ins.L.Debug("dropped a Sparkplug B message", zap.Error(err))
-		return
-	}
+	ev := c.mu.host.Handle(topic, payload)
 	if ev.Rebirth {
 		c.queueRebirth(rebirthRequest{node: topic.Node})
 	}
 	if ev.Type == "" {
 		return
 	}
-	decoded := message{sparkplug: &ev, received: msg.received}
+	decoded := message{sparkplug: &ev, received: received}
 	for a := range attachments {
 		a.enqueue(decoded)
 	}
@@ -712,29 +739,51 @@ func (p *pool) attach(dev device.Device, queueSize int) (*attachment, error) {
 	if err != nil {
 		return nil, err
 	}
+	for {
+		conn := p.connection(dev.Key)
+		conn.lifecycle.Lock()
+		if conn.lifecycle.closed {
+			// The last attachment left between the lookup and the lock.
+			conn.lifecycle.Unlock()
+			continue
+		}
+		conn.configure(cfg)
+		a := conn.attach(queueSize)
+		conn.lifecycle.Unlock()
+		return a, nil
+	}
+}
+
+// connection returns the connection of the broker device key, and opens one when
+// the pool holds none.
+func (p *pool) connection(key device.Key) *connection {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	conn, ok := p.conns[dev.Key]
+	conn, ok := p.conns[key]
 	if !ok {
-		conn = newConnection(p.ins.Child(dev.Key), p.rebirthInterval)
-		p.conns[dev.Key] = conn
+		conn = newConnection(p.ins.Child(key), p.rebirthInterval)
+		p.conns[key] = conn
 	}
-	conn.configure(cfg)
-	return conn.attach(queueSize), nil
+	return conn
 }
 
 // state reports whether dev has an open connection and whether it is connected. It
 // first points an open connection at the current properties of dev.
 func (p *pool) state(dev device.Device) (open, connected bool, err error) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	conn, ok := p.conns[dev.Key]
+	p.mu.Unlock()
 	if !ok {
 		return false, false, nil
 	}
 	cfg, err := newClientConfig(dev)
 	if err != nil {
 		return true, false, err
+	}
+	conn.lifecycle.Lock()
+	defer conn.lifecycle.Unlock()
+	if conn.lifecycle.closed {
+		return false, false, nil
 	}
 	conn.configure(cfg)
 	return true, conn.connected(), nil
@@ -845,13 +894,17 @@ func dial(
 
 // release closes a, and closes its connection when a was the last attachment.
 func (p *pool) release(key device.Key, a *attachment) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	conn := a.conn
+	conn.lifecycle.Lock()
+	defer conn.lifecycle.Unlock()
 	if !a.close() {
 		return
 	}
-	a.conn.close()
-	if p.conns[key] == a.conn {
+	conn.close()
+	conn.lifecycle.closed = true
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.conns[key] == conn {
 		delete(p.conns, key)
 	}
 }

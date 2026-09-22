@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, type Synnax as Client } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import {
   Button,
   Channel as PChannel,
@@ -608,20 +608,6 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   return { name: "HTTP write task", type: WRITE_TYPE, config: cfg };
 };
 
-const retrieveChannel = async (
-  client: Client,
-  key: number,
-): Promise<channel.Channel | null> => {
-  try {
-    return await client.channels.retrieve(key);
-  } catch {
-    return null;
-  }
-};
-
-const channelExists = async (client: Client, key: number): Promise<boolean> =>
-  (await retrieveChannel(client, key)) != null;
-
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -634,55 +620,20 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   let modified = false;
   try {
     for (const ep of config.endpoints) {
-      if (
-        ep.channel.channel !== 0 &&
-        (await channelExists(client, ep.channel.channel))
-      ) {
-        if (dev.properties.write[ep.path] === ep.channel.channel) continue;
-        dev.properties.write[ep.path] = ep.channel.channel;
-        modified = true;
-        continue;
-      }
-
-      const escapedPath = channel.escapeInvalidName(ep.path);
-
-      // Ensure the index channel exists for this endpoint.
-      const storedCmdChannel = dev.properties.write[ep.path];
-      if (
-        primitive.isNonZero(storedCmdChannel) &&
-        (await channelExists(client, storedCmdChannel))
-      ) {
-        ep.channel.channel = storedCmdChannel;
-        continue;
-      }
-
-      // no channel in either device or config, create a new one
-      const dt = new DataType(ep.channel.dataType);
-      const cmdName = primitive.isNonZero(ep.channel.name)
-        ? ep.channel.name
-        : `${safeDevName}${escapedPath}_cmd`;
-      let newCmdCh: channel.Channel;
-      if (dt.isVariable)
-        newCmdCh = await client.channels.create({
-          name: cmdName,
+      let changed: boolean;
+      [ep.channel.channel, changed] = await Task.configureCommandChannel(
+        client,
+        dev.properties.write,
+        {
+          propertiesKey: ep.path,
+          channel: ep.channel.channel,
+          name: primitive.isNonZero(ep.channel.name)
+            ? ep.channel.name
+            : `${safeDevName}${channel.escapeInvalidName(ep.path)}_cmd`,
           dataType: ep.channel.dataType,
-          virtual: true,
-        });
-      else {
-        const newIndexCh = await client.channels.create({
-          name: `${cmdName}_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        });
-        newCmdCh = await client.channels.create({
-          name: cmdName,
-          dataType: ep.channel.dataType,
-          index: newIndexCh.key,
-        });
-      }
-      ep.channel.channel = newCmdCh.key;
-      dev.properties.write[ep.path] = newCmdCh.key;
-      modified = true;
+        },
+      );
+      modified ||= changed;
     }
   } finally {
     if (modified) await client.devices.create(dev, Device.SCHEMAS);

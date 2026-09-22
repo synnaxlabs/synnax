@@ -99,9 +99,9 @@ func (c WriteTaskConfig) Validate() error {
 // handles the start and stop commands and reports the health of the sink through the
 // task status. Safe for concurrent use.
 type WriteTask struct {
+	*Runner
 	// streamer is opened by a start and consumed by the run that follows it.
 	streamer framer.Streamer
-	runner   runner
 	cfg      WriteTaskConfig
 }
 
@@ -114,27 +114,14 @@ func NewWriteTask(cfgs ...WriteTaskConfig) (*WriteTask, error) {
 		return nil, err
 	}
 	t := &WriteTask{cfg: cfg}
-	t.runner.status = NewStatusHandler(cfg.Status, cfg.Task)
-	t.runner.ins = cfg.Instrumentation
-	t.runner.open = t.open
-	t.runner.run = t.run
-	return t, nil
-}
-
-// Exec implements Task.
-func (t *WriteTask) Exec(ctx context.Context, cmd task.Command) error {
-	return t.runner.exec(ctx, cmd)
-}
-
-// Start starts the sink and the stream of frames to it, and answers cmdKey. A factory
-// calls it with NoCommand for a task that starts automatically.
-func (t *WriteTask) Start(ctx context.Context, cmdKey string) error {
-	return t.runner.start(ctx, cmdKey)
-}
-
-// Stop implements Task.
-func (t *WriteTask) Stop(sendStatus bool) error {
-	return t.runner.stop(context.TODO(), NoCommand, sendStatus)
+	t.Runner, err = NewRunner(RunnerConfig{
+		Status:          cfg.Status,
+		Instrumentation: cfg.Instrumentation,
+		Task:            cfg.Task,
+		Open:            t.open,
+		Run:             t.run,
+	})
+	return t, err
 }
 
 func (t *WriteTask) open(ctx context.Context) (err error) {
@@ -211,12 +198,12 @@ func (t *WriteTask) run(ctx context.Context) (err error) {
 			if wErr != nil && !errors.Is(wErr, ErrTemporary) {
 				return wErr
 			}
-			t.runner.report(ctx, wErr)
+			t.Report(ctx, wErr)
 		case hErr := <-health:
 			if hErr != nil && !errors.Is(hErr, ErrTemporary) {
 				return hErr
 			}
-			t.runner.report(ctx, hErr)
+			t.Report(ctx, hErr)
 		}
 	}
 }

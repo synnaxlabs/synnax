@@ -57,17 +57,14 @@ const useForm = PDevice.createForm(SCHEMAS);
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
-const SPARKPLUG_PATH = "properties.sparkplug";
-
 // The form schema holds the properties as an open record, so it does not check them.
 const beforeValidate = ({
   get,
   setStatus,
 }: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
-  const { sparkplug } = SCHEMAS.properties.shape;
-  const result = sparkplug.safeParse(get(SPARKPLUG_PATH).value);
+  const result = SCHEMAS.properties.safeParse(get("properties").value);
   result.error?.issues.forEach(({ path, message }) =>
-    setStatus(`${SPARKPLUG_PATH}.${path.join(".")}`, { variant: "error", message }),
+    setStatus(`properties.${path.join(".")}`, { variant: "error", message }),
   );
   return result.success;
 };

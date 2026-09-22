@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/device/Browser.css";
 
-import { status, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, status, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -142,10 +142,10 @@ const TopicBrowser = ({ device }: BrowserProps) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const browse = useCallback(() => {
-    if (client == null) return;
     setStat(status.create({ variant: "loading", message: "Browsing MQTT topics" }));
     handleError(async () => {
       try {
+        if (client == null) throw new DisconnectedError();
         setResult(await browseTopics(client, device, filter));
       } catch (e) {
         setStat(status.fromException(e, "Failed to browse MQTT topics"));

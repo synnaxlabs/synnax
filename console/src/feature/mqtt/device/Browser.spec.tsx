@@ -145,12 +145,17 @@ describe("mqtt device Sparkplug B haul utilities", () => {
   });
 });
 
-const renderBrowser = async (client: Synnax = createTestClient()) => {
+const renderBrowser = async (
+  client: Synnax = createTestClient(),
+  { connected = true }: { connected?: boolean } = {},
+) => {
   const dev = await client.devices.retrieve({
     key: (await createBroker(client)).key,
     schemas: MQTT.Device.SCHEMAS,
   });
-  const { wrapper } = await createConsoleWrapper({ client });
+  const { wrapper } = await createConsoleWrapper({
+    client: connected ? client : null,
+  });
   const captured: { statuses: Status.NotificationSpec[] } = { statuses: [] };
   render(
     <>
@@ -182,6 +187,16 @@ describe("Browser", () => {
     expect(captured.statuses).toHaveLength(0);
   });
 
+  it("should show a disconnected error in place for both browse modes", async () => {
+    const { captured } = await renderBrowser(createTestClient(), { connected: false });
+    fireEvent.click(await screen.findByRole("button", { name: "Browse" }));
+    await screen.findByText("Operation failed because no Core is connected.");
+    fireEvent.click(screen.getByRole("button", { name: "Sparkplug B" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Browse" }));
+    await screen.findByText("Operation failed because no Core is connected.");
+    expect(captured.statuses).toHaveLength(0);
+  });
+
   it("should open on the topics and switch to the Sparkplug B edge nodes", async () => {
     await renderBrowser();
     expect(await screen.findByPlaceholderText("#")).toBeTruthy();
@@ -191,6 +206,38 @@ describe("Browser", () => {
     expect(screen.queryByPlaceholderText("#")).toBeNull();
     expect(screen.getByText(/No edge nodes/)).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Browse" })).toHaveLength(1);
+  });
+
+  describe("with a scan task that answers a topic browse", () => {
+    const browseTopics = async (truncated: boolean) => {
+      const client = createTestClient();
+      const { dev } = await renderBrowser(client);
+      const scanner = await openScanner(client, dev.rack);
+      const filter = await screen.findByPlaceholderText("#");
+      fireEvent.change(filter, { target: { value: "plant/#" } });
+      fireEvent.click(screen.getByRole("button", { name: "Browse" }));
+      const topics = [TOPIC, { ...TOPIC, topic: "plant/line1/mode", retained: false }];
+      const cmd = await scanner.answer({ data: { topics, truncated } });
+      scanner.close();
+      return { dev, cmd };
+    };
+
+    it("should list the topics and mark the retained ones", async () => {
+      const { dev, cmd } = await browseTopics(false);
+      expect(cmd.type).toBe("browse");
+      expect(cmd.args).toMatchObject({ device: dev.key, filter: "plant/#" });
+      const item = await screen.findByText(TOPIC.topic);
+      expect(item.closest("[draggable='true']")).not.toBeNull();
+      expect(screen.getAllByText(TOPIC.payload)).toHaveLength(2);
+      expect(screen.getAllByText("Retained")).toHaveLength(1);
+      expect(screen.queryByText(/more topics than the list holds/)).toBeNull();
+    });
+
+    it("should tell the user when the broker delivered more topics than listed", async () => {
+      await browseTopics(true);
+      await screen.findByText(TOPIC.topic);
+      expect(screen.getByText(/more topics than the list holds/)).toBeTruthy();
+    });
   });
 
   describe("with a scan task that answers", () => {

@@ -209,7 +209,10 @@ describe("HTTP Write form", () => {
       const cmdKey = updated.properties.write["/cmd"];
       const cmdCh = await client.channels.retrieve(cmdKey);
       expect(cmdCh.dataType.toString()).toBe("uint8");
+      expect(cmdCh.name).toBe(`${dev.name}_cmd_cmd`);
       expect(cmdCh.index).toBeGreaterThan(0);
+      const indexCh = await client.channels.retrieve(cmdCh.index);
+      expect(indexCh.name).toBe(`${dev.name}_cmd_cmd_time`);
       expect(created.config.endpoints[0].channel.channel).toBe(cmdKey);
 
       const virtualKey = updated.properties.write["/msg"];

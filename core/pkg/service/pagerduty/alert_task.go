@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
@@ -44,89 +45,56 @@ func validateConfig(c TaskConfig) error {
 	return v.Error()
 }
 
+// alertTask sends a PagerDuty event for each change of a watched status.
 type alertTask struct {
+	*driver.Runner
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        TaskConfig
-	// status is the authority on this instance's current status.
-	status     *driver.StatusHandler
+	// disconnect ends the status observation of the current run.
 	disconnect observe.Disconnect
-	// alertsByStatus maps status keys to their enabled Alert for O(1) lookup.
+	// alertsByStatus holds the enabled alerts by the status they watch.
 	alertsByStatus map[status.Key]Alert
 }
 
 var _ driver.Task = (*alertTask)(nil)
 
-// Exec implements driver.Task. Every command it handles ends in a status carrying
-// the command key, so a caller waiting on the command always resolves.
-func (t *alertTask) Exec(ctx context.Context, cmd task.Command) error {
-	switch cmd.Type {
-	case "start":
-		return t.start(ctx, cmd.Key)
-	case "stop":
-		return t.stop(ctx, cmd.Key, true)
-	default:
-		return driver.ErrUnsupportedCommand
+func newAlertTask(
+	factoryCfg FactoryConfig,
+	t task.Task,
+	cfg TaskConfig,
+) (*alertTask, error) {
+	at := &alertTask{
+		factoryCfg:     factoryCfg,
+		task:           t,
+		cfg:            cfg,
+		alertsByStatus: make(map[status.Key]Alert, len(cfg.Alerts)),
 	}
-}
-
-func (t *alertTask) start(ctx context.Context, cmdKey string) error {
-	if t.disconnect != nil {
-		t.ackCurrent(ctx, cmdKey, true)
-		return nil
-	}
-	t.alertsByStatus = make(map[status.Key]Alert, len(t.cfg.Alerts))
-	for _, a := range t.cfg.Alerts {
+	for _, a := range cfg.Alerts {
 		if !a.Disabled {
-			t.alertsByStatus[a.Status] = a
+			at.alertsByStatus[a.Status] = a
 		}
 	}
+	var err error
+	at.Runner, err = driver.NewRunner(driver.RunnerConfig{
+		Status:          factoryCfg.Status,
+		Instrumentation: factoryCfg.Instrumentation,
+		Task:            t,
+		Open:            at.open,
+		Run:             at.run,
+	})
+	return at, err
+}
+
+func (t *alertTask) open(context.Context) error {
 	t.disconnect = t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
-	t.updateStatus(
-		ctx,
-		cmdKey,
-		status.VariantSuccess,
-		true,
-		"Task started successfully",
-	)
 	return nil
 }
 
-func (t *alertTask) Stop(sendStatus bool) error {
-	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
-}
-
-func (t *alertTask) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
-	if t.disconnect == nil {
-		if sendStatus {
-			t.ackCurrent(ctx, cmdKey, false)
-		}
-		return nil
-	}
+func (t *alertTask) run(ctx context.Context) error {
+	<-ctx.Done()
 	t.disconnect()
-	t.disconnect = nil
-	if sendStatus {
-		t.updateStatus(
-			ctx,
-			cmdKey,
-			status.VariantSuccess,
-			false,
-			"Task stopped successfully",
-		)
-	}
 	return nil
-}
-
-// ackCurrent answers cmdKey with the task's current status, for a command that
-// needs no work.
-func (t *alertTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
-	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
-		t.factoryCfg.L.Error("failed to acknowledge command",
-			zap.Stringer("task", t.task),
-			zap.String("cmd", cmdKey),
-			zap.Error(err),
-		)
-	}
 }
 
 func (t *alertTask) handleStatusChange(
@@ -205,6 +173,8 @@ func mapSeverity(variant status.Variant, errorsCritical bool) string {
 	}
 }
 
+// sendEvent sends event and reports the result as the health of the task: a failed
+// send warns until the next send succeeds.
 func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 	resp, err := t.factoryCfg.Sender.SendEvent(ctx, event)
 	if err != nil {
@@ -214,26 +184,16 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Any("event", event),
 			zap.Error(err),
 		)
-		t.updateStatus(ctx, driver.NoCommand, status.VariantError, true,
-			fmt.Sprintf("Failed to send PagerDuty event: %s", err.Error()))
+		t.Report(ctx, errors.Wrapf(
+			driver.ErrTemporary, "failed to send PagerDuty event: %s", err.Error(),
+		))
 		return
 	}
+	t.Report(ctx, nil)
 	t.factoryCfg.L.Debug(
 		"PagerDuty event sent successfully",
 		zap.Any("event", event),
 		zap.Any("response", resp),
 		zap.Stringer("task", t.task),
 	)
-}
-
-func (t *alertTask) updateStatus(
-	ctx context.Context,
-	cmdKey string,
-	variant status.Variant,
-	running bool,
-	message string,
-) {
-	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
-		t.factoryCfg.L.Error("failed to set task status", zap.Error(err))
-	}
 }

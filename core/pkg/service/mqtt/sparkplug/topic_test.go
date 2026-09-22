@@ -41,6 +41,21 @@ var _ = Describe("Topic", func() {
 			Entry("DCmd", sparkplug.DCmd, "DCMD"),
 			Entry("State", sparkplug.State, "STATE"),
 		)
+		DescribeTable("Session should be true for births, deaths, and data",
+			func(t sparkplug.MessageType, expected bool) {
+				Expect(t.Session()).To(Equal(expected))
+			},
+			Entry("NBirth", sparkplug.NBirth, true),
+			Entry("NDeath", sparkplug.NDeath, true),
+			Entry("DBirth", sparkplug.DBirth, true),
+			Entry("DDeath", sparkplug.DDeath, true),
+			Entry("NData", sparkplug.NData, true),
+			Entry("DData", sparkplug.DData, true),
+			Entry("NCmd", sparkplug.NCmd, false),
+			Entry("DCmd", sparkplug.DCmd, false),
+			Entry("State", sparkplug.State, false),
+			Entry("no type", sparkplug.MessageType(""), false),
+		)
 	})
 
 	Describe("ParseTopic", func() {

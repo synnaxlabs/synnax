@@ -214,12 +214,16 @@ func browseTags(
 	opts := newClientOptions(cfg).SetOrderMatters(true)
 	opts.SetDefaultPublishHandler(func(_ paho.Client, m paho.Message) {
 		topic, err := sparkplug.ParseTopic(m.Topic())
+		if err != nil || !topic.Type.Session() {
+			return
+		}
+		payload, err := sparkplug.DecodePayload(topic, m.Payload())
 		if err != nil {
 			return
 		}
 		// Only the delivery goroutine of the client uses host.
-		ev, err := host.Handle(topic, m.Payload())
-		if err != nil || (ev.Type != sparkplug.NBirth && ev.Type != sparkplug.DBirth) {
+		ev := host.Handle(topic, payload)
+		if ev.Type != sparkplug.NBirth && ev.Type != sparkplug.DBirth {
 			return
 		}
 		select {

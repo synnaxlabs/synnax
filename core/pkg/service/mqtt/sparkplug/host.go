@@ -117,17 +117,21 @@ func (h *Host) node(id NodeID) *nodeState {
 	return n
 }
 
-// Handle applies one message to the session state. It returns an error for a payload
-// that does not decode. Command and STATE messages give an empty event.
-func (h *Host) Handle(topic Topic, payload []byte) (Event, error) {
-	switch topic.Type {
-	case NBirth, NDeath, DBirth, DDeath, NData, DData:
-	default:
-		return Event{}, nil
+// DecodePayload parses the payload of a message on topic. It needs no session state,
+// so a host can decode outside the lock that guards it.
+func DecodePayload(topic Topic, payload []byte) (*pb.Payload, error) {
+	p := new(pb.Payload)
+	if err := proto.Unmarshal(payload, p); err != nil {
+		return nil, errors.Wrapf(err, "invalid payload on %s", topic)
 	}
-	var p pb.Payload
-	if err := proto.Unmarshal(payload, &p); err != nil {
-		return Event{}, errors.Wrapf(err, "invalid payload on %s", topic)
+	return p, nil
+}
+
+// Handle applies one decoded message to the session state. A message whose type is
+// not part of a session gives an empty event.
+func (h *Host) Handle(topic Topic, p *pb.Payload) Event {
+	if !topic.Type.Session() {
+		return Event{}
 	}
 	var (
 		n       = h.node(topic.Node)
@@ -140,43 +144,43 @@ func (h *Host) Handle(topic Topic, payload []byte) (Event, error) {
 		n.nextSeq = uint8(p.GetSeq()) + 1
 		n.tables = map[string]tagTable{"": newTagTable(p.Metrics)}
 		n.bdSeq, n.bdSeqKnown = findBdSeq(p.Metrics)
-		ev.Metrics = birthMetrics(&p)
-		return ev, nil
+		ev.Metrics = birthMetrics(p)
+		return ev
 	case NDeath:
 		// A death with another bdSeq belongs to an older session of the edge node.
 		if bdSeq, ok := findBdSeq(p.Metrics); ok && n.bdSeqKnown && bdSeq != n.bdSeq {
-			return dropped, nil
+			return dropped
 		}
 		n.born, n.tables = false, nil
-		return ev, nil
+		return ev
 	}
 	if !n.born {
 		dropped.Rebirth = true
-		return dropped, nil
+		return dropped
 	}
 	if p.Seq != nil {
 		if uint8(p.GetSeq()) != n.nextSeq {
 			n.born, n.tables = false, nil
 			dropped.Rebirth = true
-			return dropped, nil
+			return dropped
 		}
 		n.nextSeq++
 	}
 	switch topic.Type {
 	case DBirth:
 		n.tables[topic.Device] = newTagTable(p.Metrics)
-		ev.Metrics = birthMetrics(&p)
+		ev.Metrics = birthMetrics(p)
 	case DDeath:
 		delete(n.tables, topic.Device)
 	default:
 		table, ok := n.tables[topic.Device]
 		if !ok {
 			dropped.Rebirth = true
-			return dropped, nil
+			return dropped
 		}
-		ev.Metrics, ev.Rebirth = dataMetrics(&p, table)
+		ev.Metrics, ev.Rebirth = dataMetrics(p, table)
 	}
-	return ev, nil
+	return ev
 }
 
 func newTagTable(metrics []*pb.Payload_Metric) tagTable {

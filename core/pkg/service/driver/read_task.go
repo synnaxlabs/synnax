@@ -128,8 +128,8 @@ func (c ReadTaskConfig) Validate() error {
 // stop commands, opens its writer on the first frame, and reports the health of the
 // source through the task status. Safe for concurrent use.
 type ReadTask struct {
-	runner runner
-	cfg    ReadTaskConfig
+	*Runner
+	cfg ReadTaskConfig
 }
 
 var _ Task = (*ReadTask)(nil)
@@ -141,27 +141,14 @@ func NewReadTask(cfgs ...ReadTaskConfig) (*ReadTask, error) {
 		return nil, err
 	}
 	t := &ReadTask{cfg: cfg}
-	t.runner.status = NewStatusHandler(cfg.Status, cfg.Task)
-	t.runner.ins = cfg.Instrumentation
-	t.runner.open = cfg.Source.Start
-	t.runner.run = t.run
-	return t, nil
-}
-
-// Exec implements Task.
-func (t *ReadTask) Exec(ctx context.Context, cmd task.Command) error {
-	return t.runner.exec(ctx, cmd)
-}
-
-// Start starts the source and the read loop, and answers cmdKey. A factory calls it
-// with NoCommand for a task that starts automatically.
-func (t *ReadTask) Start(ctx context.Context, cmdKey string) error {
-	return t.runner.start(ctx, cmdKey)
-}
-
-// Stop implements Task.
-func (t *ReadTask) Stop(sendStatus bool) error {
-	return t.runner.stop(context.TODO(), NoCommand, sendStatus)
+	t.Runner, err = NewRunner(RunnerConfig{
+		Status:          cfg.Status,
+		Instrumentation: cfg.Instrumentation,
+		Task:            cfg.Task,
+		Open:            cfg.Source.Start,
+		Run:             t.run,
+	})
+	return t, err
 }
 
 func (t *ReadTask) run(ctx context.Context) (err error) {
@@ -182,7 +169,7 @@ func (t *ReadTask) run(ctx context.Context) (err error) {
 			return nil
 		}
 		if errors.Is(err, ErrTemporary) {
-			t.runner.report(ctx, err)
+			t.Report(ctx, err)
 			if !brk.Wait() {
 				if ctx.Err() != nil {
 					return nil
@@ -195,7 +182,7 @@ func (t *ReadTask) run(ctx context.Context) (err error) {
 			return err
 		}
 		brk.Reset()
-		t.runner.report(ctx, err)
+		t.Report(ctx, err)
 		if fr.Empty() {
 			continue
 		}
