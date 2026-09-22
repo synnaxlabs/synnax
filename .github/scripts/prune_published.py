@@ -67,12 +67,12 @@ def published_files(name: str, version: str) -> frozenset[str]:
     return frozenset(f["filename"] for f in release["urls"])
 
 
+# The deploy workflow builds every package into dist/ at the repo root.
+DEFAULT_DIST_DIR = Path(__file__).resolve().parents[2] / "dist"
+
+
 def main() -> None:
-    dist_dir = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else Path(__file__).resolve().parent.parent / "dist"
-    )
+    dist_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DIST_DIR
     if not dist_dir.is_dir():
         sys.exit(f"❌ distribution directory not found: {dist_dir}")
     dists = [p for p in dist_dir.iterdir() if p.name.endswith((".whl", ".tar.gz"))]
