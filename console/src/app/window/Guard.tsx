@@ -11,21 +11,26 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Auth } from "@/feature/auth";
 import { Embedded } from "@/feature/embedded";
+import { License } from "@/feature/license";
 import { Project } from "@/feature/project";
 
 const ConsoleGuard = ({ children }: PropsWithChildren): ReactElement => (
   <Auth.Guard>
-    <Auth.ConnectionGuard>
-      <Project.Guard>{children}</Project.Guard>
-    </Auth.ConnectionGuard>
+    <License.Guard>
+      <Auth.ConnectionGuard>
+        <Project.Guard>{children}</Project.Guard>
+      </Auth.ConnectionGuard>
+    </License.Guard>
   </Auth.Guard>
 );
 
 const DesktopGuard = ({ children }: PropsWithChildren): ReactElement => (
-  <Embedded.Guard>
-    <Project.Guard standalone>{children}</Project.Guard>
-  </Embedded.Guard>
+  <License.Guard standalone>
+    <Embedded.Guard>
+      <Project.Guard standalone>{children}</Project.Guard>
+    </Embedded.Guard>
+  </License.Guard>
 );
 
-/** Holds the workspace back until the session has a Core and a project. */
+/** Holds the workspace back until the session has a licensed Core and a project. */
 export const Guard = DESKTOP ? DesktopGuard : ConsoleGuard;
