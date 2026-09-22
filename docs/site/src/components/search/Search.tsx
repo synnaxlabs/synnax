@@ -184,7 +184,7 @@ const search = async (term: string) => {
 const DEFAULT_ITEMS: SearchResult[] = [
   {
     key: "default-get-started",
-    title: "Get Started",
+    title: "Get started",
     description: "Get started with Synnax",
     content: "Learn how to set up and start using Synnax",
     href: "/reference",
@@ -205,14 +205,14 @@ const DEFAULT_ITEMS: SearchResult[] = [
   },
   {
     key: "default-client",
-    title: "Client Libraries",
+    title: "Client libraries",
     description: "Quick start with client libraries",
     content: "Connect to Synnax using Python or TypeScript",
     href: "/reference/client/quick-start",
   },
   {
     key: "default-driver",
-    title: "Device Drivers",
+    title: "Device drivers",
     description: "Get started with device drivers",
     content: "Connect hardware devices to Synnax",
     href: "/reference/driver/get-started",
@@ -274,7 +274,7 @@ const SearchDialogContent = () => {
         borderColor={6}
         emptyContent={
           <Text.Text center status="disabled">
-            No Results
+            No results
           </Text.Text>
         }
       >

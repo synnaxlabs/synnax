@@ -5,5 +5,5 @@
   "name": "Console Typed",
   "rows": [{ "size": 25, "cells": ["c1"] }],
   "columns": [{ "size": 90 }],
-  "cells": { "c1": { "key": "c1", "variant": "text", "props": { "fooBar": 1 } } }
+  "cells": { "c1": { "key": "c1", "variant": "text", "props": { "weight": 700 } } }
 }

@@ -1,5 +1,5 @@
 ---
-title: "Version 0.51 Release Notes"
+title: "Version 0.51 release notes"
 ---
 
 import { Image } from "@/components/media/Media";
@@ -15,7 +15,7 @@ export const components = mdxOverrides;
     version="0.51.0"
     npmVersion={null}
     date="Feb 10, 2026"
-    title="EtherCAT Support and Arc Improvements"
+    title="EtherCAT support and Arc improvements"
 >
 
 <EtherCAT />
@@ -41,7 +41,7 @@ The [read task](/reference/driver/ethercat/read-task) can be used to acquire dat
 output, while the [write task](/reference/driver/ethercat/write-task) can be used to
 send commands to outputs.
 
-#### Real-Time Support
+#### Real-time support
 
 When deployed on Linux-based operating systems with the real-time kernel enabled (such
 as [Ubuntu 24.04 Pro](https://ubuntu.com/pro)), the Synnax Driver will automatically
@@ -51,7 +51,7 @@ cycle times.
 This is our recommended deployment configuration when using Synnax for real-time control
 of EtherCAT devices.
 
-#### Non-Real-Time Support
+#### Non-real-time support
 
 The Synnax Driver also supports EtherCAT on non real-time operating systems, such as
 macOS and Windows. In these environments, Synnax will leverage the tools available on
@@ -60,7 +60,7 @@ guaranteed.
 
 <Divider.Divider x />
 
-### Arc Control Authority
+### Arc control authority
 
 Arc is now fully compatible with Synnax's
 [control authority](/reference/control/arc/concepts/control-authority) system. When
@@ -106,7 +106,7 @@ coordination, see the
 
 <Divider.Divider x />
 
-### Other Minor Improvements and Bug Fixes
+### Other minor improvements and bug fixes
 
 #### Console
 
@@ -124,7 +124,7 @@ coordination, see the
 - Fixed an issue where Arc programs would take progressively longer to compile as more
   channels were created in the Core.
 
-#### TypeScript Client
+#### TypeScript client
 
 - Fixed an issue where the TypeScript client would incorrectly block the creation of
   channels with invalid names even when the Core was started with
