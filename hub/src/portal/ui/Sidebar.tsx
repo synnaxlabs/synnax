@@ -37,7 +37,12 @@ const LICENSE_PAGES = ["/portal/licenses"];
 const links = (enterprise: boolean): Link[] => [
   enterprise
     ? { href: "/portal", label: "Licenses", icon: <Icon.Access />, owns: LICENSE_PAGES }
-    : { href: "/portal", label: "Desktop", icon: <Icon.Device />, owns: LICENSE_PAGES },
+    : {
+        href: "/portal",
+        label: "Desktop",
+        icon: <Icon.Computer />,
+        owns: LICENSE_PAGES,
+      },
   { href: "/portal/account", label: "Account", icon: <Icon.User /> },
 ];
 
