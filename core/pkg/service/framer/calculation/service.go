@@ -63,8 +63,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// ChannelGraph reconciles calculated channel definitions. The service subscribes
-	// to it for channel changes and reports calculation statuses through it.
+	// ChannelGraph reconciles calculated channel definitions. The service subscribes to
+	// it for channel changes and reports calculation statuses through it.
 	//
 	// [REQUIRED]
 	ChannelGraph *channelgraph.Graph

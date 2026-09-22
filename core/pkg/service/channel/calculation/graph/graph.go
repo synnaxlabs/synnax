@@ -168,9 +168,9 @@ func (g *Graph) SetRuntimeStatus(
 	})
 }
 
-// ClearRuntimeStatus removes the status record for the channel with the given key
-// after the calculation runtime recovers. A node the Graph holds as invalid keeps its
-// status: that record describes the channel definition, not the runtime.
+// ClearRuntimeStatus removes the status record for the channel with the given key after
+// the calculation runtime recovers. A node the Graph holds as invalid keeps its status:
+// that record describes the channel definition, not the runtime.
 func (g *Graph) ClearRuntimeStatus(ctx context.Context, key channel.Key) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -313,7 +313,8 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 			batch = append(batch, chg)
 			ch := chg.Value
 			if chg.Variant == change.VariantDelete {
-				g.L.Debug("channel deleted, removing node and re-inspecting dependents",
+				g.L.Debug(
+					"channel deleted, removing node and re-inspecting dependents",
 					zap.Stringer("channel", chg.Key),
 				)
 				if _, tracked := g.mu.nodes[chg.Key]; tracked {
