@@ -36,6 +36,10 @@
         { "case": "console/task/modbus_read_task" },
         { "case": "console/task/modbus_write_task" },
         { "case": "console/task/modbus_invalid" },
+        { "case": "console/task/mqtt_read_task" },
+        { "case": "console/task/mqtt_write_task" },
+        { "case": "console/task/mqtt_edge_task" },
+        { "case": "console/task/mqtt_invalid" },
         { "case": "console/device/http_legacy_device" }
       ]
     },

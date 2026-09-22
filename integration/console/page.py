@@ -37,6 +37,9 @@ PageType = Literal[
     "Modbus write task",
     "OPC UA read task",
     "OPC UA write task",
+    "MQTT read task",
+    "MQTT write task",
+    "MQTT Sparkplug B edge node",
 ]
 
 

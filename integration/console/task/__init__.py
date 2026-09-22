@@ -41,6 +41,7 @@ from console.task.channels.counter_input import (
 )
 from console.task.counter_read import CounterRead
 from console.task.modbus import ModbusRead, ModbusTask, ModbusWrite
+from console.task.mqtt import MQTTEdge, MQTTRead, MQTTTask, MQTTWrite
 from console.task.ni import NITask
 from console.task.opcua import OPCUARead, OPCUATask, OPCUAWrite
 
@@ -52,6 +53,10 @@ __all__ = [
     "ModbusTask",
     "ModbusRead",
     "ModbusWrite",
+    "MQTTTask",
+    "MQTTRead",
+    "MQTTWrite",
+    "MQTTEdge",
     "OPCUATask",
     "OPCUARead",
     "OPCUAWrite",
