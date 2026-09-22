@@ -49,11 +49,9 @@ type node struct {
 // reports through SetRuntimeStatus instead of writing the record itself.
 type Graph struct {
 	alamos.Instrumentation
-	db     *gorp.DB
-	svc    *channel.Service
-	status *status.Service
-	// obs fires with the change batch the Graph just reconciled, after the batch
-	// commits.
+	db         *gorp.DB
+	svc        *channel.Service
+	status     *status.Service
 	obs        observe.Observer[Changes]
 	disconnect observe.Disconnect
 	mu         struct {
@@ -110,10 +108,7 @@ func (c Config) Override(other Config) Config {
 
 // Open creates a Graph, hydrates it from all existing calculated channels, and
 // subscribes to the channel observable for reactive updates.
-func Open(
-	ctx context.Context,
-	cfgs ...Config,
-) (*Graph, error) {
+func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -142,18 +137,16 @@ func Open(
 // that act on calculated channels must use this instead of the channel observable, so
 // that their work runs against a reconciled graph and their status reports land after
 // the Graph's own.
-func (g *Graph) Observe() observe.Observable[Changes] {
-	return g.obs
-}
+func (g *Graph) Observe() observe.Observable[Changes] { return g.obs }
 
 // SetRuntimeStatus persists a status reported by the calculation runtime for a
 // calculated channel. Routing runtime reports through the Graph keeps a single writer
 // on the status record, so a report and a validity clear apply in submission order.
-func (g *Graph) SetRuntimeStatus(ctx context.Context, st *calculation.Status) error {
+func (g *Graph) SetRuntimeStatus(ctx context.Context, stat *calculation.Status) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return g.status.NewWriter(tx).Set(ctx, st)
+		return g.status.NewWriter(tx).Set(ctx, stat)
 	})
 }
 
@@ -199,7 +192,8 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 					err,
 				)
 				invalidCount++
-				g.L.Debug("channel expression invalid",
+				g.L.Debug(
+					"channel expression invalid",
 					zap.Stringer("channel", ch.Key()),
 					zap.String("name", ch.Name),
 					zap.Error(err),
@@ -209,7 +203,8 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 			}
 			upsertNode(nextNodes, nextDependents, nextUnresolved, nd)
 			if !nd.invalid && ch.DataType != nd.DataType {
-				g.L.Info("repairing channel DataType",
+				g.L.Info(
+					"repairing channel DataType",
 					zap.Stringer("channel", ch.Key()),
 					zap.String("name", ch.Name),
 					zap.String("old", string(ch.DataType)),
@@ -225,13 +220,15 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 			break
 		}
 		if pass > len(channels)+1 {
-			g.L.Warn("hydration fixpoint did not converge, breaking",
+			g.L.Warn(
+				"hydration fixpoint did not converge, breaking",
 				zap.Int("pass", pass),
 				zap.Int("channels", len(channels)),
 			)
 			break
 		}
-		g.L.Debug("hydration fixpoint pass required another iteration",
+		g.L.Debug(
+			"hydration fixpoint pass required another iteration",
 			zap.Int("pass", pass),
 			zap.Int("repairs", len(repairs)),
 		)
@@ -260,7 +257,8 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 			}
 		}
 	}
-	g.L.Info("hydration complete",
+	g.L.Info(
+		"hydration complete",
 		zap.Int("channels", len(channels)),
 		zap.Int("invalid", invalidCount),
 		zap.Int("repairs", len(repairs)),
@@ -274,11 +272,7 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 		updates []channel.Channel
 		batch   []change.Change[channel.Key, channel.Channel]
 	)
-	// The lock spans the commit, not just the transaction body, so a runtime status
-	// report cannot land between this batch's mutations and its commit.
 	g.mu.Lock()
-	// One change batch commits its statuses together: a status and its ontology
-	// resource must not land in separate transactions.
 	err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
@@ -324,18 +318,14 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 						zap.String("name", ch.Name),
 						zap.Stringers("deps", nd.deps),
 					)
-					// Only an invalid -> valid transition or an expression edit
-					// clears. The calculation framer writes runtime statuses to
-					// this same key, so an unconditional clear deletes a live
-					// report, but a report made against the old expression no
-					// longer describes the channel.
 					prev, ok := g.mu.nodes[ch.Key()]
 					if ok && (prev.invalid || prev.Expression != ch.Expression) {
 						g.clearNodeStatus(ctx, tx, ch.Key())
 					}
 				}
 				if !nd.invalid && nd.DataType != ch.DataType {
-					g.L.Debug("calculated channel DataType changed",
+					g.L.Debug(
+						"calculated channel DataType changed",
 						zap.Stringer("channel", ch.Key()),
 						zap.String("old", string(ch.DataType)),
 						zap.String("new", string(nd.DataType)),
@@ -379,11 +369,12 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 func (g *Graph) setNodeStatus(
 	ctx context.Context,
 	tx gorp.Tx,
-	st *calculation.Status,
+	stat *calculation.Status,
 ) {
-	if err := g.status.NewWriter(tx).Set(ctx, st); err != nil {
-		g.L.Warn("failed to set error status for channel",
-			zap.String("key", st.Key),
+	if err := g.status.NewWriter(tx).Set(ctx, stat); err != nil {
+		g.L.Warn(
+			"failed to set error status for channel",
+			zap.String("key", stat.Key),
 			zap.Error(err),
 		)
 	}
@@ -392,7 +383,8 @@ func (g *Graph) setNodeStatus(
 func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
 	if err := g.status.NewWriter(tx).
 		Delete(ctx, calculation.StatusKey(key)); err != nil {
-		g.L.Warn("failed to clear status for channel",
+		g.L.Warn(
+			"failed to clear status for channel",
 			zap.Stringer("channel", key),
 			zap.Error(err),
 		)
@@ -453,7 +445,8 @@ func (g *Graph) reconcileQueued(
 				Where(channel.MatchKeys(key)).
 				Entry(&refetched).
 				Exec(ctx, tx); err != nil {
-				g.L.Warn("failed to refetch channel during reconciliation",
+				g.L.Warn(
+					"failed to refetch channel during reconciliation",
 					zap.Stringer("channel", key),
 					zap.Error(err),
 				)
@@ -464,7 +457,8 @@ func (g *Graph) reconcileQueued(
 			oldType := nd.DataType
 			g.upsertNode(newNode)
 			if err != nil {
-				g.L.Info("dependent channel became invalid after reconciliation",
+				g.L.Info(
+					"dependent channel became invalid after reconciliation",
 					zap.Stringer("channel", key),
 					zap.String("name", refetched.Name),
 					zap.Error(err),
