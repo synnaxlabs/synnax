@@ -23,7 +23,7 @@ var Migrations = []migrate.Migration{v0.Migration, v1.Migration}
 var CompositionMigrations = v0.CompositionMigrations
 
 // Latest is the portable schema version stamped on a panel bundle member and the
-// highest version an import accepts. It tracks the stored schema version, which the
-// bundle body mirrors: the same tree, with each resource reference rewritten to a
-// bundle path.
+// highest version an import accepts. It moves with the bundle body shape: the stored
+// tree with each resource reference rewritten to a bundle path. A stored version that
+// only widens what a tab may name leaves it alone, since non-member tabs never export.
 const Latest = v0.Version

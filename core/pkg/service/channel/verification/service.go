@@ -193,7 +193,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	if cfg.Verifier != "" {
-		if _, err = s.Activate(ctx, cfg.Verifier); err != nil {
+		if _, err = s.Apply(ctx, cfg.Verifier); err != nil {
 			return nil, err
 		}
 	}
@@ -241,10 +241,10 @@ func (i Info) err() error {
 	return nil
 }
 
-// Activate verifies token, checks that it fits this host and still applies, stores
+// Apply verifies token, checks that it fits this host and still covers it, stores
 // it, and moves the service to StateOK. The stored token loads on the next open.
 // Returns ErrInvalid, ErrHost, or ErrExpired when the token is refused.
-func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
+func (s *Service) Apply(ctx context.Context, token string) (Info, error) {
 	grant, err := Verify(s.cfg.Anchors, token)
 	if err != nil {
 		return Info{}, err

@@ -76,7 +76,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// VERIFICATION
 	t.VerificationRetrieve = noop.UnaryServer[verification.RetrieveRequest, verification.RetrieveResponse]{}
-	t.VerificationActivate = noop.UnaryServer[verification.ActivateRequest, verification.ActivateResponse]{}
+	t.VerificationApply = noop.UnaryServer[verification.ApplyRequest, verification.ApplyResponse]{}
 
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, types.Nil]{}

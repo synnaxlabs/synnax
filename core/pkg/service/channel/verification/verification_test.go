@@ -200,9 +200,9 @@ var _ = Describe("Verification", func() {
 			expired := grant()
 			expired.Exp = seconds(now.Add(-100 * day))
 			svc := open(ctx)
-			Expect(svc.Activate(ctx, sign(grant()))).Error().To(Succeed())
+			Expect(svc.Apply(ctx, sign(grant()))).Error().To(Succeed())
 			Expect(svc.Close()).To(Succeed())
-			// Store the expired entry directly: Activate refuses it.
+			// Store the expired entry directly: Apply refuses it.
 			key := append([]byte("bGljZW5zZUtleQ==/"), expired.Jti.String()...)
 			Expect(db.Set(ctx, key, []byte(sign(expired)))).To(Succeed())
 			svc = open(ctx)
@@ -244,19 +244,19 @@ var _ = Describe("Verification", func() {
 		})
 	})
 
-	Describe("Activate", func() {
+	Describe("Apply", func() {
 		var svc *verification.Service
 		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
 
 		It("should accept a subscription before expiry", func(ctx SpecContext) {
-			info := MustSucceed(svc.Activate(ctx, sign(grant())))
+			info := MustSucceed(svc.Apply(ctx, sign(grant())))
 			Expect(info.State).To(Equal(verification.StateOK))
 			Expect(info.Warning).To(BeEmpty())
 		})
 		It("should warn when expiry is near", func(ctx SpecContext) {
 			g := grant()
 			g.Exp = seconds(now.Add(2 * day))
-			info := MustSucceed(svc.Activate(ctx, sign(g)))
+			info := MustSucceed(svc.Apply(ctx, sign(g)))
 			Expect(info.State).To(Equal(verification.StateOK))
 			Expect(info.Warning).To(ContainSubstring("expires in"))
 		})
@@ -265,7 +265,7 @@ var _ = Describe("Verification", func() {
 			func(ctx SpecContext) {
 				g := grant()
 				g.Exp = seconds(now.Add(-2 * day))
-				info := MustSucceed(svc.Activate(ctx, sign(g)))
+				info := MustSucceed(svc.Apply(ctx, sign(g)))
 				Expect(info.State).To(Equal(verification.StateOK))
 				Expect(info.Warning).To(ContainSubstring("grace"))
 			},
@@ -273,7 +273,7 @@ var _ = Describe("Verification", func() {
 		It("should refuse a subscription past the grace window", func(ctx SpecContext) {
 			g := grant()
 			g.Exp = seconds(now.Add(-20 * day))
-			Expect(svc.Activate(ctx, sign(g))).Error().
+			Expect(svc.Apply(ctx, sign(g))).Error().
 				To(MatchError(verification.ErrExpired))
 			Expect(svc.Retrieve().State).To(Equal(verification.StateMissing))
 		})
@@ -282,7 +282,7 @@ var _ = Describe("Verification", func() {
 				g := grant()
 				g.Exp = nil
 				g.Mv = new(ceiling)
-				info, err := svc.Activate(ctx, sign(g))
+				info, err := svc.Apply(ctx, sign(g))
 				if expected != nil {
 					Expect(err).To(MatchError(expected))
 					return
@@ -300,21 +300,21 @@ var _ = Describe("Verification", func() {
 			func(ctx SpecContext) {
 				g := grant()
 				g.Exp = nil
-				Expect(svc.Activate(ctx, sign(g))).Error().
+				Expect(svc.Apply(ctx, sign(g))).Error().
 					To(MatchError(verification.ErrInvalid))
 			},
 		)
 		It("should refuse a ceiling that does not parse", func(ctx SpecContext) {
 			g := grant()
 			g.Mv = new("latest")
-			Expect(svc.Activate(ctx, sign(g))).Error().
+			Expect(svc.Apply(ctx, sign(g))).Error().
 				To(MatchError(verification.ErrInvalid))
 		})
 		It("should fall back to the ceiling past expiry", func(ctx SpecContext) {
 			g := grant()
 			g.Exp = seconds(now.Add(-100 * day))
 			g.Mv = new("0.62")
-			info := MustSucceed(svc.Activate(ctx, sign(g)))
+			info := MustSucceed(svc.Apply(ctx, sign(g)))
 			Expect(info.State).To(Equal(verification.StateOK))
 			Expect(info.Warning).To(ContainSubstring("subscription ended"))
 		})
@@ -324,14 +324,14 @@ var _ = Describe("Verification", func() {
 				g := grant()
 				g.Exp = seconds(now.Add(-100 * day))
 				g.Mv = new("0.59")
-				Expect(svc.Activate(ctx, sign(g))).Error().
+				Expect(svc.Apply(ctx, sign(g))).Error().
 					To(MatchError(verification.ErrExpired))
 			},
 		)
 		It("should refuse a grant bound to other hosts", func(ctx SpecContext) {
 			g := grant()
 			g.Fp = []string{"0000"}
-			Expect(svc.Activate(ctx, sign(g))).Error().
+			Expect(svc.Apply(ctx, sign(g))).Error().
 				To(MatchError(verification.ErrHost))
 		})
 		It("should accept a grant bound to this host", func(ctx SpecContext) {
@@ -341,7 +341,7 @@ var _ = Describe("Verification", func() {
 			}
 			g := grant()
 			g.Fp = []string{"0000", host[len(host)-1]}
-			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
+			Expect(svc.Apply(ctx, sign(g))).Error().To(Succeed())
 		})
 		It("should refuse hashes from a scheme this Core does not implement", func(
 			ctx SpecContext,
@@ -353,22 +353,22 @@ var _ = Describe("Verification", func() {
 			g := grant()
 			g.Fs = 2
 			g.Fp = []string{host[0]}
-			Expect(svc.Activate(ctx, sign(g))).Error().
+			Expect(svc.Apply(ctx, sign(g))).Error().
 				To(MatchError(verification.ErrHost))
 		})
 		It("should reject an invalid token", func(ctx SpecContext) {
-			Expect(svc.Activate(ctx, "nope")).Error().
+			Expect(svc.Apply(ctx, "nope")).Error().
 				To(MatchError(verification.ErrInvalid))
 		})
 		It("should enforce the channel cap", func(ctx SpecContext) {
 			g := grant()
 			g.Ch = 10
-			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
+			Expect(svc.Apply(ctx, sign(g))).Error().To(Succeed())
 			Expect(svc.CheckOverflow(10)).To(Succeed())
 			Expect(svc.CheckOverflow(11)).To(MatchError(verification.ErrTooMany))
 		})
 		It("should not cap a grant with a zero cap", func(ctx SpecContext) {
-			Expect(svc.Activate(ctx, sign(grant()))).Error().To(Succeed())
+			Expect(svc.Apply(ctx, sign(grant()))).Error().To(Succeed())
 			Expect(svc.CheckOverflow(1 << 19)).To(Succeed())
 		})
 	})

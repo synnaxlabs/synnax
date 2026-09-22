@@ -49,7 +49,7 @@ import (
 
 var (
 	verificationRetrievePath = base64.MustDecode("L2FwaS92MS9saWNlbnNlL3JldHJpZXZl")
-	verificationActivatePath = base64.MustDecode("L2FwaS92MS9saWNlbnNlL2FjdGl2YXRl")
+	verificationApplyPath    = base64.MustDecode("L2FwaS92MS9saWNlbnNlL2FjdGl2YXRl")
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
@@ -109,8 +109,8 @@ func Bind(layer *api.Layer, router *http.Router) {
 		VerificationRetrieve: router.NewUnaryServer[verification.RetrieveRequest, verification.RetrieveResponse](
 			verificationRetrievePath,
 		),
-		VerificationActivate: router.NewUnaryServer[verification.ActivateRequest, verification.ActivateResponse](
-			verificationActivatePath,
+		VerificationApply: router.NewUnaryServer[verification.ApplyRequest, verification.ApplyResponse](
+			verificationApplyPath,
 		),
 
 		// FRAME

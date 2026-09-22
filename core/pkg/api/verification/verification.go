@@ -43,10 +43,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	RetrieveRequest  = types.Nil
 	RetrieveResponse = svcverification.Info
-	ActivateRequest  struct {
+	ApplyRequest     struct {
 		Token string `json:"token" msgpack:"token"`
 	}
-	ActivateResponse = svcverification.Info
+	ApplyResponse = svcverification.Info
 )
 
 var objectID = ontology.ID{Type: ontology.ResourceTypeVerification}
@@ -67,17 +67,17 @@ func (s *Service) Retrieve(
 	return s.internal.Retrieve(), nil
 }
 
-// Activate accepts a token for this Core and returns the resulting state.
-func (s *Service) Activate(
+// Apply accepts a token for this Core and returns the resulting state.
+func (s *Service) Apply(
 	ctx context.Context,
-	req ActivateRequest,
-) (ActivateResponse, error) {
+	req ApplyRequest,
+) (ApplyResponse, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{objectID},
 	}); err != nil {
-		return ActivateResponse{}, err
+		return ApplyResponse{}, err
 	}
-	return s.internal.Activate(ctx, req.Token)
+	return s.internal.Apply(ctx, req.Token)
 }

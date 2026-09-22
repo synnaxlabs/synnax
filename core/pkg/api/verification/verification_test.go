@@ -62,7 +62,7 @@ var _ = Describe("Service", Ordered, func() {
 		Expect(called).To(BeFalse())
 	})
 
-	It("Should refuse activation without an update grant", func(ctx SpecContext) {
+	It("Should refuse a token without an update grant", func(ctx SpecContext) {
 		reader := freshUser(ctx)
 		grantOn(
 			ctx,
@@ -70,19 +70,19 @@ var _ = Describe("Service", Ordered, func() {
 			[]access.Action{access.ActionRetrieve},
 			object,
 		)
-		Expect(apiSvc.Activate(
+		Expect(apiSvc.Apply(
 			AuthedCtx(ctx, reader),
-			apiverification.ActivateRequest{Token: keys.Sign(svcmock.NewGrant())},
+			apiverification.ApplyRequest{Token: keys.Sign(svcmock.NewGrant())},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 
-	It("Should activate a token for an owner", func(ctx SpecContext) {
+	It("Should apply a token for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
 		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
 		grant := svcmock.NewGrant()
-		info := MustSucceed(apiSvc.Activate(
+		info := MustSucceed(apiSvc.Apply(
 			AuthedCtx(ctx, owner),
-			apiverification.ActivateRequest{Token: keys.Sign(grant)},
+			apiverification.ApplyRequest{Token: keys.Sign(grant)},
 		))
 		Expect(info.State).To(Equal(svcverification.StateOK))
 		Expect(info.Grant).ToNot(BeNil())
