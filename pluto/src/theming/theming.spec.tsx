@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -31,6 +32,19 @@ describe("Theming", () => {
     expect(result.current.theme.name).toBe("Synnax Dark");
     act(() => result.current.toggleTheme());
     expect(result.current.theme.name).toBe("Synnax Light");
+  });
+
+  it("should apply an override under the caller's key to the selected variant", () => {
+    const { result } = renderTheming({
+      key: "my-theme",
+      colors: { primary: "#be9223" },
+    });
+    expect(result.current.theme.key).toBe("my-theme");
+    expect(result.current.theme.name).toBe("Synnax Dark");
+    expect(result.current.theme.colors.primary.z).toEqual(color.construct("#be9223"));
+    act(() => result.current.toggleTheme());
+    expect(result.current.theme.name).toBe("Synnax Light");
+    expect(result.current.theme.colors.primary.z).toEqual(color.construct("#be9223"));
   });
 
   describe("OS color-scheme sync", () => {
