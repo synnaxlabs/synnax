@@ -7,19 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1_test
+package v2
 
-import (
-	"testing"
+import "github.com/synnaxlabs/x/gorp"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-)
-
-func TestOntologyV1(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Ontology v1 Suite")
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
+// Migration lifts stored policies from v1 to v2. The stored bytes are unchanged: v2
+// only widens the resource types an object may name.
+var Migration = gorp.NewEntryMigration("v60_verification_policy", autoMigratePolicy)

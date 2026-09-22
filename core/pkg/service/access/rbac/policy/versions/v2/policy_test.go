@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v2"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 

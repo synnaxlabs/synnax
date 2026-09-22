@@ -12,8 +12,14 @@ package versions
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v2"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored policies.
-var Migrations = []migrate.Migration{v0.NormalizeKeys, v0.Migration, v1.Migration}
+var Migrations = []migrate.Migration{
+	v0.NormalizeKeys,
+	v0.Migration,
+	v1.Migration,
+	v2.Migration,
+}

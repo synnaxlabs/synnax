@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -54,15 +55,17 @@ var _ = Describe("Verification", func() {
 		cfg     verification.ServiceConfig
 	)
 	sign := func(g verification.Grant) string {
+		GinkgoHelper()
 		return MustSucceed(verification.Sign(private, keyID, g))
 	}
 	open := func(ctx SpecContext, cfgs ...verification.ServiceConfig) *verification.Service {
-		return MustSucceed(verification.OpenService(ctx, append(
+		GinkgoHelper()
+		return MustOpen(verification.OpenService(ctx, append(
 			[]verification.ServiceConfig{cfg}, cfgs...,
 		)...))
 	}
 	BeforeEach(func() {
-		db = memkv.New()
+		db = DeferClose(memkv.New())
 		public, priv := MustSucceed2(ed25519.GenerateKey(rand.Reader))
 		private = priv
 		anchors = verification.Anchors{keyID: public}
@@ -73,12 +76,32 @@ var _ = Describe("Verification", func() {
 			Now:     func() time.Time { return now },
 		}
 	})
-	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 
 	Describe("ServiceConfig", func() {
-		It("should reject a missing DB", func() {
-			Expect(verification.DefaultServiceConfig.Validate()).To(HaveOccurred())
-		})
+		DescribeTable(
+			"should reject a missing field",
+			func(field string, clear func(c *verification.ServiceConfig)) {
+				c := verification.DefaultServiceConfig.Override(cfg)
+				clear(&c)
+				Expect(c.Validate()).To(MatchError(ContainSubstring(field)))
+			},
+			Entry("db", "db", func(c *verification.ServiceConfig) { c.DB = nil }),
+			Entry("anchors", "anchors", func(c *verification.ServiceConfig) {
+				c.Anchors = nil
+			}),
+			Entry("now", "now", func(c *verification.ServiceConfig) { c.Now = nil }),
+			Entry("check interval", "check_interval",
+				func(c *verification.ServiceConfig) { c.CheckInterval = 0 }),
+			Entry("warning time", "warning_time",
+				func(c *verification.ServiceConfig) { c.WarningTime = 0 }),
+			Entry(
+				"grace",
+				"grace",
+				func(c *verification.ServiceConfig) { c.Grace = 0 },
+			),
+			Entry("rollback", "rollback",
+				func(c *verification.ServiceConfig) { c.Rollback = 0 }),
+		)
 		It("should keep defaults the override leaves zero", func() {
 			c := verification.DefaultServiceConfig.Override(cfg)
 			Expect(c.Grace).To(Equal(verification.DefaultServiceConfig.Grace))
@@ -122,15 +145,27 @@ var _ = Describe("Verification", func() {
 		})
 	})
 
+	Describe("Host", func() {
+		host := verification.Host{"aaaa", "bbbb"}
+		DescribeTable("Covers",
+			func(scheme uint8, hashes []string, expected bool) {
+				Expect(host.Covers(scheme, hashes)).To(Equal(expected))
+			},
+			Entry("unbound", uint8(1), nil, true),
+			Entry("one hash of this host", uint8(1), []string{"0000", "bbbb"}, true),
+			Entry("other hosts only", uint8(1), []string{"0000"}, false),
+			Entry("another scheme", uint8(2), []string{"aaaa"}, false),
+		)
+	})
+
 	Describe("Open", func() {
 		It("should open missing when nothing is stored", func(ctx SpecContext) {
 			svc := open(ctx)
-			defer func() { Expect(svc.Close()).To(Succeed()) }()
 			info := svc.Retrieve()
 			Expect(info.State).To(Equal(verification.StateMissing))
 			Expect(info.Grant).To(BeNil())
 			Expect(svc.Check()).To(MatchError(verification.ErrMissing))
-			Expect(svc.IsOverflowed(1000)).To(Succeed())
+			Expect(svc.CheckOverflow(1000)).To(Succeed())
 		})
 		It(
 			"should accept a verifier on open and load it on the next",
@@ -140,7 +175,6 @@ var _ = Describe("Verification", func() {
 				Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
 				Expect(svc.Close()).To(Succeed())
 				svc = open(ctx)
-				defer func() { Expect(svc.Close()).To(Succeed()) }()
 				info := svc.Retrieve()
 				Expect(info.State).To(Equal(verification.StateOK))
 				Expect(*info.Grant).To(Equal(g))
@@ -160,7 +194,7 @@ var _ = Describe("Verification", func() {
 			Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
 			svc := open(ctx)
 			Expect(svc.Close()).To(Succeed())
-			Expect(db.Get(ctx, legacy)).Error().To(HaveOccurred())
+			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
 		})
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := grant()
@@ -172,7 +206,6 @@ var _ = Describe("Verification", func() {
 			key := append([]byte("bGljZW5zZUtleQ==/"), expired.Jti.String()...)
 			Expect(db.Set(ctx, key, []byte(sign(expired)))).To(Succeed())
 			svc = open(ctx)
-			defer func() { Expect(svc.Close()).To(Succeed()) }()
 			Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
 		})
 		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
@@ -183,7 +216,6 @@ var _ = Describe("Verification", func() {
 			svc = open(ctx, verification.ServiceConfig{
 				Now: func() time.Time { return later },
 			})
-			defer func() { Expect(svc.Close()).To(Succeed()) }()
 			Expect(svc.Retrieve().State).To(Equal(verification.StateExpired))
 			Expect(svc.Check()).To(MatchError(verification.ErrExpired))
 		})
@@ -196,7 +228,6 @@ var _ = Describe("Verification", func() {
 				svc = open(ctx, verification.ServiceConfig{
 					Now: func() time.Time { return earlier },
 				})
-				defer func() { Expect(svc.Close()).To(Succeed()) }()
 				info := svc.Retrieve()
 				Expect(info.State).To(Equal(verification.StateExpired))
 				Expect(info.Warning).To(ContainSubstring("clock"))
@@ -209,7 +240,6 @@ var _ = Describe("Verification", func() {
 			svc = open(ctx, verification.ServiceConfig{
 				Now: func() time.Time { return earlier },
 			})
-			defer func() { Expect(svc.Close()).To(Succeed()) }()
 			Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
 		})
 	})
@@ -217,7 +247,6 @@ var _ = Describe("Verification", func() {
 	Describe("Activate", func() {
 		var svc *verification.Service
 		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
-		AfterEach(func() { Expect(svc.Close()).To(Succeed()) })
 
 		It("should accept a subscription before expiry", func(ctx SpecContext) {
 			info := MustSucceed(svc.Activate(ctx, sign(grant())))
@@ -248,27 +277,24 @@ var _ = Describe("Verification", func() {
 				To(MatchError(verification.ErrExpired))
 			Expect(svc.Retrieve().State).To(Equal(verification.StateMissing))
 		})
-		It("should accept a perpetual grant under its ceiling", func(ctx SpecContext) {
-			g := grant()
-			g.Exp = nil
-			g.Mv = new("0.62")
-			info := MustSucceed(svc.Activate(ctx, sign(g)))
-			Expect(info.State).To(Equal(verification.StateOK))
-			Expect(info.Warning).To(BeEmpty())
-		})
-		It("should accept a perpetual grant at its ceiling", func(ctx SpecContext) {
-			g := grant()
-			g.Exp = nil
-			g.Mv = new("0.60")
-			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
-		})
-		It("should refuse a perpetual grant over its ceiling", func(ctx SpecContext) {
-			g := grant()
-			g.Exp = nil
-			g.Mv = new("0.59")
-			Expect(svc.Activate(ctx, sign(g))).Error().
-				To(MatchError(verification.ErrExpired))
-		})
+		DescribeTable("should hold a perpetual grant to its ceiling",
+			func(ctx SpecContext, ceiling string, expected error) {
+				g := grant()
+				g.Exp = nil
+				g.Mv = new(ceiling)
+				info, err := svc.Activate(ctx, sign(g))
+				if expected != nil {
+					Expect(err).To(MatchError(expected))
+					return
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(info.State).To(Equal(verification.StateOK))
+				Expect(info.Warning).To(BeEmpty())
+			},
+			Entry("under", "0.62", nil),
+			Entry("at", "0.60", nil),
+			Entry("over", "0.59", verification.ErrExpired),
+		)
 		It(
 			"should refuse a grant with neither expiry nor ceiling",
 			func(ctx SpecContext) {
@@ -338,12 +364,12 @@ var _ = Describe("Verification", func() {
 			g := grant()
 			g.Ch = 10
 			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
-			Expect(svc.IsOverflowed(10)).To(Succeed())
-			Expect(svc.IsOverflowed(11)).To(MatchError(verification.ErrTooMany))
+			Expect(svc.CheckOverflow(10)).To(Succeed())
+			Expect(svc.CheckOverflow(11)).To(MatchError(verification.ErrTooMany))
 		})
 		It("should not cap a grant with a zero cap", func(ctx SpecContext) {
 			Expect(svc.Activate(ctx, sign(grant()))).Error().To(Succeed())
-			Expect(svc.IsOverflowed(1 << 19)).To(Succeed())
+			Expect(svc.CheckOverflow(1 << 19)).To(Succeed())
 		})
 	})
 })

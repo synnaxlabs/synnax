@@ -25,7 +25,7 @@ Restart = always
 RestartSec = 5s
 StandardOutput = /home/synnax/synnax.log
 StandardError = /home/synnax/errors.log
-ExecStart = /home/synnax/synnax --listen="localhost:9090" --license-file="/home/synnax/synnax.license"
+ExecStart = /home/synnax/synnax start --listen="localhost:9090" --license-file="/home/synnax/synnax.license"
 
 [Install]
 WantedBy = multi-user.target

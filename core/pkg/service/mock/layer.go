@@ -30,7 +30,9 @@ const KeyID = "test"
 
 // Keys is a throwaway signing key and the anchor set that verifies it.
 type Keys struct {
+	// Private signs grants.
 	Private ed25519.PrivateKey
+	// Anchors holds the matching public key under KeyID.
 	Anchors verification.Anchors
 }
 

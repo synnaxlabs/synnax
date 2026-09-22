@@ -22,7 +22,7 @@ bool Rack::should_exit(
 ) {
     this->run_err = err;
     if (!err) return false;
-    const auto breaker_ok = driver::errors::core_unavailable(err) && breaker.wait(err);
+    const auto breaker_ok = errors::core_unavailable(err) && breaker.wait(err);
     if (!breaker_ok && on_shutdown) on_shutdown();
     return !breaker_ok;
 }

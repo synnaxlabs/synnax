@@ -13,6 +13,17 @@ import (
 	"context"
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	"github.com/synnaxlabs/x/gorp"
+)
+
+// ResourceMigration lifts stored resources from v0 to v1.
+var ResourceMigration = gorp.NewEntryMigration(
+	"v60_verification_resource", autoMigrateResource,
+)
+
+// RelationshipMigration lifts stored relationships from v0 to v1.
+var RelationshipMigration = gorp.NewEntryMigration(
+	"v60_verification_relationship", autoMigrateRelationship,
 )
 
 // MigrateID lifts a v0 identifier to v1. The stored bytes are unchanged: v1 only widens

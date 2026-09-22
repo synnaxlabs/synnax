@@ -26,11 +26,10 @@ var object = ontology.ID{Type: ontology.ResourceTypeVerification}
 
 var _ = Describe("Service", Ordered, func() {
 	It("Should refuse retrieval without a retrieve grant", func(ctx SpecContext) {
-		_, err := apiSvc.Retrieve(
+		Expect(apiSvc.Retrieve(
 			AuthedCtx(ctx, freshUser(ctx)),
 			apiverification.RetrieveRequest{},
-		)
-		Expect(err).To(MatchError(access.ErrDenied))
+		)).Error().To(MatchError(access.ErrDenied))
 	})
 
 	It("Should report a missing grant to a reader", func(ctx SpecContext) {
@@ -51,6 +50,7 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("Should gate requests while the grant is missing", func(ctx SpecContext) {
 		called := false
+		// Exec hands the context back beside the error, so .Error() cannot apply.
 		_, err := apiverification.Middleware(verSvc).Exec(
 			freighter.Context{Context: ctx},
 			func(fctx freighter.Context) (freighter.Context, error) {
@@ -70,11 +70,10 @@ var _ = Describe("Service", Ordered, func() {
 			[]access.Action{access.ActionRetrieve},
 			object,
 		)
-		_, err := apiSvc.Activate(
+		Expect(apiSvc.Activate(
 			AuthedCtx(ctx, reader),
 			apiverification.ActivateRequest{Token: keys.Sign(svcmock.NewGrant())},
-		)
-		Expect(err).To(MatchError(access.ErrDenied))
+		)).Error().To(MatchError(access.ErrDenied))
 	})
 
 	It("Should activate a token for an owner", func(ctx SpecContext) {

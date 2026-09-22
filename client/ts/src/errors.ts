@@ -126,13 +126,13 @@ export class MissingLicenseError extends LicenseError.sub("missing") {}
 /** Raised when the license on the Core no longer applies. */
 export class ExpiredLicenseError extends LicenseError.sub("expired") {}
 
-/** Raised when a token cannot be verified or does not fit this Core. */
+/** Raised when a token cannot be verified or is malformed. */
 export class InvalidLicenseError extends LicenseError.sub("invalid") {}
 
 /** Raised when a license is bound to a different host. */
 export class LicenseHostError extends LicenseError.sub("host") {}
 
-/** Raised when an operation would exceed a limit the license sets. */
+/** Raised when a channel would exceed the license's channel cap. */
 export class LicenseLimitError extends LicenseError.sub("too_many") {}
 
 const decode = (payload: errors.Payload): Error | null => {

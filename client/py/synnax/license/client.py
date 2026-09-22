@@ -22,11 +22,10 @@ State = Literal["ok", "missing", "expired"]
 class Info(BaseModel):
     """The Core's license state, its host fingerprint, and the license that applies.
 
-    Attributes:
-        state: Whether a license applies to the Core.
-        warning: Set while the state is ok but a change is near or past.
-        fingerprint: The hashes that identify the Core's host.
-        license: The license that applies, if any.
+    :param state: Whether a license applies to the Core.
+    :param warning: Set while the state is ok but a change is near or past.
+    :param fingerprint: The hashes that identify the Core's host.
+    :param license: The license that applies, if any.
     """
 
     state: State
@@ -69,8 +68,7 @@ class Client:
     def retrieve(self) -> Info:
         """Retrieves the Core's license state.
 
-        Returns:
-            The license state, the host fingerprint, and the license that applies.
+        :returns: The license state, the host fingerprint, and the license that applies.
         """
         return send_required(
             self._client, _RETRIEVE_ENDPOINT, Empty(), _InfoResponse
@@ -79,16 +77,11 @@ class Client:
     def activate(self, token: str) -> Info:
         """Activates a license token on the Core.
 
-        Args:
-            token: The signed license token.
-
-        Returns:
-            The resulting license state.
-
-        Raises:
-            InvalidLicense: If the token cannot be verified or does not fit this Core.
-            LicenseHostError: If the token is bound to a different host.
-            ExpiredLicense: If the token no longer applies.
+        :param token: The signed license token.
+        :returns: The resulting license state.
+        :raises InvalidLicense: If the token cannot be verified or is malformed.
+        :raises LicenseHostMismatch: If the token is bound to a different host.
+        :raises ExpiredLicense: If the token no longer applies.
         """
         return send_required(
             self._client,
