@@ -57,6 +57,6 @@ ts-client:
           - freighter/ts/**
           - x/ts/**
 
-user docs:
+documentation:
   - changed-files:
       - any-glob-to-any-file: docs/site/**
