@@ -71,7 +71,7 @@ def main() -> None:
     dist_dir = (
         Path(sys.argv[1])
         if len(sys.argv) > 1
-        else Path(__file__).resolve().parent.parent / "dist"
+        else Path(__file__).resolve().parents[2] / "dist"
     )
     if not dist_dir.is_dir():
         sys.exit(f"❌ distribution directory not found: {dist_dir}")
