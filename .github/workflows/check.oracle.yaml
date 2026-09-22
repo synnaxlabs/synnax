@@ -9,46 +9,56 @@
 
 name: Check - Oracle
 
-# Runs `oracle check`: schemas are canonically formatted and pass analysis, generated
-# outputs on disk match `oracle sync`, no generated file is orphaned, and the sync cache
-# is consistent. Triggers on every path that can produce drift.
-
 on:
   pull_request:
     paths:
       - .github/workflows/check.oracle.yaml
+      - alamos/go/**
       - oracle/**
       - schemas/**
+      - x/go/**
       - "**/*.gen.*"
       - "**/*.proto"
+      - "**/pyproject.toml"
       - licenses/headers/**
       - .clang-format
+      - .clang-format-ignore
+      - .prettierignore
+      - .prettierrc
       - scripts/install_clang_format.sh
       - buf.gen.yaml
       - buf.yaml
+      - configs/eslint/**
       - eslint.config.ts
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - pyproject.toml
+      - uv.lock
   push:
     branches:
       - main
       - release/**
     paths:
       - .github/workflows/check.oracle.yaml
+      - alamos/go/**
       - oracle/**
       - schemas/**
+      - x/go/**
       - "**/*.gen.*"
       - "**/*.proto"
+      - "**/pyproject.toml"
       - licenses/headers/**
       - .clang-format
+      - .clang-format-ignore
+      - .prettierignore
+      - .prettierrc
       - scripts/install_clang_format.sh
       - buf.gen.yaml
       - buf.yaml
+      - configs/eslint/**
       - eslint.config.ts
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - pyproject.toml
+      - uv.lock
   workflow_dispatch:
 
 permissions:
@@ -66,8 +76,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      # The generated gate runs every formatter the sync chain dispatches: gofmt,
-      # clang-format, Prettier and ESLint, ruff, and buf.
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
