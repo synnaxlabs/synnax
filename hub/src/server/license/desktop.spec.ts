@@ -9,8 +9,22 @@
 
 import { describe, expect, it } from "vitest";
 
-import { expiryFrom, hashSecret, mintSecret, TERM_MS } from "@/server/license/desktop";
-import { NOW } from "@/server/license/testutil";
+import {
+  expiryFrom,
+  hashSecret,
+  type Machine,
+  mintSecret,
+  superseded,
+  TERM_MS,
+} from "@/server/license/desktop";
+import {
+  activationOf,
+  HASH_A,
+  HASH_B,
+  HASH_C,
+  LICENSE,
+  NOW,
+} from "@/server/license/testutil";
 
 describe("desktop", () => {
   describe("mintSecret", () => {
@@ -31,6 +45,20 @@ describe("desktop", () => {
   describe("expiryFrom", () => {
     it("should put the expiry one term after now", () => {
       expect(expiryFrom(NOW).getTime() - NOW.getTime()).toBe(TERM_MS);
+    });
+  });
+  describe("superseded", () => {
+    const machineOf = (fingerprint: string[]): Machine => ({
+      activation: activationOf(fingerprint),
+      license: LICENSE,
+    });
+    it("should pick the machines that share any hash", () => {
+      const same = machineOf([HASH_A, HASH_B]);
+      const other = machineOf([HASH_C]);
+      expect(superseded([same, other], [HASH_B])).toEqual([same]);
+    });
+    it("should pick nothing for a new machine", () => {
+      expect(superseded([machineOf([HASH_A])], [HASH_C])).toEqual([]);
     });
   });
 });

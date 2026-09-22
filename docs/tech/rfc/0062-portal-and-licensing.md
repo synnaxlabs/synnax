@@ -440,16 +440,18 @@ captured link licenses nothing else, and the portal session never leaves the bro
 
 Each machine holds its own desktop license: `edition: desktop`, `term: subscription`,
 `nodes: 1`, `channels: 0`, and an expiry one term out. The activation row stores the
-hash of the renewal secret and the machine name. On launch and every six hours, while
-online, the app renews when the license is within the renewal threshold of expiry:
-`POST /api/portal/desktop/renew` with the secret as a bearer token slides the license's
-expiry, touches the activation, and answers a fresh token that the app activates. The
-route answers any origin, since the app calls it from its own; the secret is the guard.
-Unlinking the machine in the portal releases the activation, clears the secret hash, and
-revokes the license, so the next renewal is refused and the license lapses at expiry
-plus the grace window. The app clears its account slice on a refused renewal. A machine
-that never reaches the portal runs until the lapse. The expiry notices (§5.7) skip the
-desktop edition.
+hash of the renewal secret and the machine name. A machine that signs in again
+supersedes its earlier link: any unreleased activation in the organization that shares a
+host hash is released and its license revoked, so one machine is one entry. On launch
+and every six hours, while online, the app renews when the license is within the renewal
+threshold of expiry: `POST /api/portal/desktop/renew` with the secret as a bearer token
+slides the license's expiry, touches the activation, and answers a fresh token that the
+app activates. The route answers any origin, since the app calls it from its own; the
+secret is the guard. Unlinking the machine in the portal releases the activation, clears
+the secret hash, and revokes the license, so the next renewal is refused and the license
+lapses at expiry plus the grace window. The app clears its account slice on a refused
+renewal. A machine that never reaches the portal runs until the lapse. The expiry
+notices (§5.7) skip the desktop edition.
 
 In Desktop the license gate shows a sign-in screen in place of the enterprise activation
 screen: one line and a Sign in button, a waiting state while the browser is open, an

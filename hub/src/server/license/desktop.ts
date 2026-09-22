@@ -9,7 +9,7 @@
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import {
@@ -55,9 +55,21 @@ export interface Linked {
   license: License;
 }
 
+export interface Machine {
+  activation: Activation;
+  license: License;
+}
+
+/** superseded picks the linked machines that share a hash with the one signing in. */
+export const superseded = (machines: Machine[], fingerprint: string[]): Machine[] =>
+  machines.filter(({ activation: a }) =>
+    a.fingerprint.some((h) => fingerprint.includes(h)),
+  );
+
 /**
  * link issues a desktop license for the user's personal organization, bound to one
- * machine, and returns its token beside the secret that renews it.
+ * machine, and returns its token beside the secret that renews it. A machine that
+ * signs in again replaces its earlier link, so it stays one entry.
  */
 export const link = async (
   store: Store,
@@ -67,6 +79,35 @@ export const link = async (
   const org = await ensurePersonal(store, { userID, name: userName });
   const secret = mintSecret();
   const linked = await store.transact(async (tx) => {
+    const machines = await tx
+      .select({ activation, license })
+      .from(activation)
+      .innerJoin(license, eq(activation.license, license.key))
+      .where(
+        and(
+          eq(license.organization, org.key),
+          eq(license.edition, "desktop"),
+          isNull(activation.releasedAt),
+        ),
+      );
+    for (const old of superseded(machines, fingerprint)) {
+      await tx
+        .update(activation)
+        .set({ releasedAt: now, renewalSecretHash: null })
+        .where(eq(activation.key, old.activation.key));
+      await tx
+        .update(license)
+        .set({ revokedAt: old.license.revokedAt ?? now })
+        .where(eq(license.key, old.license.key));
+      await tx.insert(event).values({
+        kind: "unlink",
+        actor: userID,
+        organization: org.key,
+        license: old.license.key,
+        activation: old.activation.key,
+        detail: { reason: "superseded" },
+      });
+    }
     const [lic] = await tx
       .insert(license)
       .values({
@@ -108,11 +149,6 @@ export const link = async (
   );
   return { token, secret, ...linked };
 };
-
-export interface Machine {
-  activation: Activation;
-  license: License;
-}
 
 /**
  * resolve finds the machine a renewal secret belongs to. Throws a 403 when the secret
