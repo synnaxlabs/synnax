@@ -9,16 +9,9 @@
 
 name: Check - Oracle
 
-# Runs `oracle check` against the repository to gate every PR on:
-#   - schemas being canonically formatted
-#   - schemas passing semantic analysis
-#   - on-disk generated outputs matching what `oracle sync` would produce
-#   - no orphaned generated files
-#   - sync cache being internally consistent
-#
-# The job triggers on any change that could legitimately produce drift:
-#   schemas, oracle source, plugin source, formatter configs, the workflow
-#   itself. Pure docs/code changes outside these paths skip the job.
+# Runs `oracle check`: schemas are canonically formatted and pass analysis, generated
+# outputs on disk match `oracle sync`, no generated file is orphaned, and the sync cache
+# is consistent. Triggers on every path that can produce drift.
 
 on:
   pull_request:
@@ -62,29 +55,19 @@ permissions:
   contents: read
 
 concurrency:
-  group: check-oracle-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   check:
-    name: oracle check
+    name: Check
     runs-on: ubuntu-latest
-    # Advisory until the existing drift on `main` is resolved. The check
-    # gate is correct - it surfaces real on-disk vs. canonical-output
-    # divergence - but the divergence predates this workflow, so blocking
-    # PRs on it would punish unrelated changes. Once `main` is clean (a
-    # one-off `oracle sync` PR), drop continue-on-error and add this
-    # job to the required-checks list in branch protection.
-    continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout Repository
+        uses: actions/checkout@v7
 
-      # The full formatter chain runs during the `generated` gate, so we
-      # need every formatter the chain dispatches: gofmt (Go),
-      # clang-format (C++), prettier + eslint (TS), ruff (Python),
-      # buf (Proto). Each setup step lives in the same shape across other
-      # workflows so this is the canonical superset.
-
+      # The generated gate runs every formatter the sync chain dispatches: gofmt,
+      # clang-format, Prettier and ESLint, ruff, and buf.
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
@@ -112,35 +95,29 @@ jobs:
         uses: bufbuild/buf-action@v1
         with:
           setup_only: true
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ github.token }}
 
       - name: Install clang-format
-        # Uses the team-standard install script (pins clang-format-22)
-        # so this workflow stays in lockstep with test.arc /
-        # test.freighter.cpp / test.client / etc.
         run: scripts/install_clang_format.sh
 
       - name: Install Python dependencies
         run: uv sync
 
-      - name: Build oracle
+      - name: Build Oracle
         working-directory: oracle
         run: go build -o ../oracle-bin .
 
-      - name: Run oracle check
+      # The exit code names the gate that failed: 10 format, 11 analyze, 12 generated,
+      # 13 orphans, 14 cache.
+      - name: Run Oracle Check
         id: check
-        # The exit code carries the specific gate that failed (10 format,
-        # 11 analyze, 12 generated, 13 orphans, 14 cache; contract in
-        # oracle/check/check.go). The text findings in the log point at
-        # the exact files; we also archive a JSON report on failure so
-        # consumers can post-process it.
         run: ./oracle-bin check --diff
 
-      - name: Generate JSON report on failure
+      - name: Generate JSON Report
         if: failure() && steps.check.conclusion == 'failure'
         run: ./oracle-bin check --format=json > oracle-check.json || true
 
-      - name: Archive JSON report
+      - name: Archive JSON Report
         if: failure() && steps.check.conclusion == 'failure'
         uses: actions/upload-artifact@v7
         with:
