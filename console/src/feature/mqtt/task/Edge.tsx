@@ -229,7 +229,7 @@ const getInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
 }) => {
   const cfg = EDGE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "Sparkplug B edge node", type: EDGE_TYPE, config: cfg };
+  return { name: "Sparkplug edge node", type: EDGE_TYPE, config: cfg };
 };
 
 // A deleted command channel drops to zero so the deploy does not reference it.
@@ -258,7 +258,7 @@ export const useCreateEdge = Task.createUseCreate({
 
 export const EdgeSelectable = Selector.createSelectable({
   type: EDGE_TYPE,
-  title: "MQTT Sparkplug B edge node",
+  title: "Sparkplug edge node",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateEdge,
 });

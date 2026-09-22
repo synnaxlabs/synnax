@@ -232,10 +232,10 @@ class MQTTWrite(MQTTTask):
 
 
 class MQTTEdge(TaskPage):
-    """MQTT Sparkplug B edge node page. Each tag is a row of channel, name, and
+    """Sparkplug edge node page. Each tag is a row of channel, name, and
     Sparkplug B type."""
 
-    page_type = "MQTT Sparkplug B edge node"
+    page_type = "Sparkplug edge node"
     pluto_label: str = ".console-task-configure--mqtt_sparkplug_edge"
 
     def _rows(self) -> Locator:

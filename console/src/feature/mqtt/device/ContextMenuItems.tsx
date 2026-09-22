@@ -28,7 +28,7 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[]
   },
   {
     itemKey: "mqtt.sparkplugEdgeTask",
-    label: "Create Sparkplug B edge node",
+    label: "Create Sparkplug edge node",
     useCreate: Task.useCreateEdge,
   },
 ];

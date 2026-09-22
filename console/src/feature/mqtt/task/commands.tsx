@@ -30,7 +30,7 @@ const CreateWriteCommand = Task.createCommand({
 
 const CreateEdgeCommand = Task.createCommand({
   key: "mqtt_create_sparkplug_edge_task",
-  name: "Create MQTT Sparkplug B edge node",
+  name: "Create Sparkplug edge node",
   icon: <Icon.Logo.MQTT />,
   useOnSelect: useCreateEdge,
 });

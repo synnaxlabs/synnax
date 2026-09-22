@@ -68,12 +68,12 @@ describe("MQTT.Task Commands", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create MQTT Sparkplug");
-    await selectCommand("Create MQTT Sparkplug B edge node");
+    await selectCommand("Create Sparkplug edge node");
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(MQTT.Task.EDGE_TYPE);
-    expect(created.name).toBe("Sparkplug B edge node");
+    expect(created.name).toBe("Sparkplug edge node");
   });
 });

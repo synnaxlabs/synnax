@@ -93,7 +93,7 @@ describe("MQTT device ContextMenuItems", () => {
 
   it("should create an edge node draft bound to the device", async () => {
     const { store, deviceKey } = await renderContextMenuItems(true);
-    fireEvent.click(await screen.findByText("Create Sparkplug B edge node"));
+    fireEvent.click(await screen.findByText("Create Sparkplug edge node"));
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     const edge = await client.tasks.retrieve({ key: tab.resource.key });

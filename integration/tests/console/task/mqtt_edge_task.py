@@ -53,7 +53,7 @@ class MQTTEdgeTask(MQTTCase):
 
     def test_create_task(self) -> MQTTEdge:
         """A new edge node is not deployed; select the broker and name the node."""
-        self.log("Testing: Create MQTT Sparkplug B edge node")
+        self.log("Testing: Create Sparkplug edge node")
         page = self.create_page(MQTTEdge, "MQTT Console Edge")
         self.assert_not_deployed(page, "new task")
         page.select_broker(self.device_name)

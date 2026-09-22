@@ -35,7 +35,7 @@ const client = createTestClient();
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<MQTT.Task.EdgeSchemas> = {
-  name: "Sparkplug B edge node",
+  name: "Sparkplug edge node",
   type: MQTT.Task.EDGE_TYPE,
   config: MQTT.Task.EDGE_SCHEMAS.config.parse({}),
 };
