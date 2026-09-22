@@ -66,7 +66,7 @@ for (const n of SIZES) {
   );
 }
 
-const suite = (title: string, keysOf: Map<number, channel.Key[]>): void =>
+const suite = (title: string, keysOf: Map<number, channel.Key[]>): void => {
   describe(title, () => {
     for (const n of SIZES) {
       const keys = keysOf.get(n) ?? [];
@@ -78,6 +78,7 @@ const suite = (title: string, keysOf: Map<number, channel.Key[]>): void =>
       });
     }
   });
+};
 
 suite("readLatest stored", stored);
 suite("readLatest calculated", calculated);
