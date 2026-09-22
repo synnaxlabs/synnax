@@ -21,6 +21,7 @@ import {
   term,
 } from "@/portal/ui/format";
 import { ActivateDialog } from "@/portal/ui/licenses/ActivateDialog";
+import { EditDialog } from "@/portal/ui/licenses/EditDialog";
 import { StatusTag } from "@/portal/ui/licenses/StatusTag";
 import * as Modal from "@/portal/ui/Modal";
 import { Empty, Page, Section } from "@/portal/ui/Page";
@@ -170,6 +171,7 @@ const Fact = ({
 
 const EVENT_LABELS: Record<Event["kind"], string> = {
   issue: "License issued",
+  amend: "License changed",
   activate: "Machine activated",
   activate_denied: "Activation denied",
   token: "Token downloaded",
@@ -287,6 +289,7 @@ const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement
   );
   return (
     <>
+      {status !== "revoked" && <EditDialog license={lic} />}
       {status === "active" && (
         <Button.Button
           variant="outlined"

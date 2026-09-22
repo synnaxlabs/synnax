@@ -556,11 +556,13 @@ keeps only what binds it to the session: the factory and the stack.
   by name, with first seen and last renewal, an Unlink action per machine, and an empty
   state. The Enterprise panel sits beneath the list.
 - **License** (`/portal/licenses/<key>`): The label, status tag, and actions on top:
-  Activate a machine, and for staff Floating token and Revoke, the latter a hold to
-  confirm. A facts grid for edition, term, seats, channels, issued, and key. The
-  machines table with first seen, last token, and a per-machine menu of Download token
-  and Release, the latter confirmed. The license's activity from the event table
-  beneath, newest first.
+  Activate a machine, and for staff Edit, Floating token, and Revoke, the last a hold to
+  confirm. Edit changes the terms of the license in place, keeping its key so seats and
+  history survive a renewal; it refuses a seat count below the machines holding one, and
+  the machines take the new terms on their next token. A facts grid for edition, term,
+  seats, channels, issued, and key. The machines table with first seen, last token, and
+  a per-machine menu of Download token and Release, the latter confirmed. The license's
+  activity from the event table beneath, newest first.
 - **Account** (`/portal/account`): Profile with name, email, avatar, and password change
   through Clerk's user API. For a personal user, the Enterprise panel in place of a
   teams section. For each team the user belongs to, its members with their roles, and

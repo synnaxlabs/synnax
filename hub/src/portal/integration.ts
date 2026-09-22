@@ -27,6 +27,7 @@ const ROUTES: Record<string, string> = {
   "/api/webhooks/clerk": "routes/webhooks/clerk.ts",
   "/api/cron/expiry": "routes/cron/expiry.ts",
   "/api/portal/licenses": "routes/licenses/issue.ts",
+  "/api/portal/licenses/[key]": "routes/licenses/amend.ts",
   "/api/portal/licenses/[key]/activate": "routes/licenses/activate.ts",
   "/api/portal/licenses/[key]/revoke": "routes/licenses/revoke.ts",
   "/api/portal/licenses/[key]/floating": "routes/licenses/floating.ts",

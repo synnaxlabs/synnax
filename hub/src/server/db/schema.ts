@@ -29,6 +29,7 @@ export type Term = (typeof TERMS)[number];
 
 export const EVENT_KINDS = [
   "issue",
+  "amend",
   "activate",
   "activate_denied",
   "token",
