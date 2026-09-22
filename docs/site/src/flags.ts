@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FLAG_PLUTO, VERCEL_ENV } from "astro:env/client";
+import { VERCEL_ENV } from "astro:env/client";
 
 // Preview deploys show every flagged surface, so reviewers see dark work.
 const PREVIEW = VERCEL_ENV === "preview";
+
+/** Turns a `FLAG_<NAME>` value from `astro:env/client` into a registry entry. */
+export const flag = (value: boolean): boolean => value || PREVIEW;
 
 /**
  * Static build-time flags that hide unfinished docs in production. Each entry names its
  * owner and what removes it. `FLAG_<NAME>=true` at build time turns one on; set it in
  * Vercel for the site and as a repository variable for the search index job.
  */
-export const FLAGS = {
-  // Owner: Patrick Dotson. Removed when the Pluto section returns to the nav.
-  pluto: FLAG_PLUTO || PREVIEW,
-} satisfies Record<string, boolean>;
+export const FLAGS = {} satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
 
