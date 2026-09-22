@@ -48,8 +48,10 @@ type Config struct {
 	Loopback bool
 }
 
-// loopbackHosts are the address hosts a Loopback listener accepts.
-var loopbackHosts = set.New("localhost", "127.0.0.1")
+// isLoopbackHost reports whether a Loopback listener accepts the host.
+func isLoopbackHost(host string) bool {
+	return host == "localhost" || host == "127.0.0.1"
+}
 
 // Validate implements config.Config with the per-listener rules: a non-empty address,
 // a loopback host on a loopback listener, and PEM paths only on the file source.
@@ -60,7 +62,7 @@ func (c Config) Validate() error {
 	v.NotEmptyString("address", c.Address)
 	v.Ternaryf(
 		"loopback",
-		c.Loopback && !loopbackHosts.Contains(c.Address.Host()),
+		c.Loopback && !isLoopbackHost(c.Address.Host()),
 		"a loopback listener must use the host localhost or 127.0.0.1, not %q",
 		c.Address.Host(),
 	)
