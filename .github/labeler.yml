@@ -21,7 +21,11 @@ console:
 
 driver:
   - changed-files:
-      - any-glob-to-any-file: driver/**
+      - any-glob-to-any-file:
+          - client/cpp/**
+          - driver/**
+          - freighter/cpp/**
+          - x/cpp/**
 
 core:
   - changed-files:
