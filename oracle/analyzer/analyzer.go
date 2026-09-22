@@ -12,7 +12,6 @@ package analyzer
 import (
 	"context"
 	"maps"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -529,6 +528,7 @@ func finalizeEnumExtensions(c *analysisCtx) {
 		if !ok {
 			continue
 		}
+		form.Declared = form.Values
 		form.Values = merged
 		form.IsIntEnum = isInt
 		typ.Form = form
@@ -673,6 +673,7 @@ func finalizeUnionExtensions(c *analysisCtx) {
 		if !ok {
 			continue
 		}
+		form.Declared = form.Variants
 		form.Variants = merged
 		form.Included, form.Extends = form.Extends, nil
 		typ.Form = form
@@ -1320,7 +1321,6 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 			}
 		}
 	}
-	form.Declared = slices.Clone(form.Variants)
 
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
@@ -1508,7 +1508,6 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			}
 		}
 	}
-	form.Declared = slices.Clone(form.Values)
 
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,

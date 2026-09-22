@@ -215,16 +215,14 @@ AxisKey enum extends XAxisKey, YAxisKey {}
 				}
 				return ns
 			},
-			Resolve: func(name string) (resolution.Type, bool) {
-				if t, ok := table.Get(name); ok {
-					return t, true
-				}
-				return table.Get("test." + name)
-			},
+			// Table.Get, matching the live merge, so an unresolved payload
+			// reference in a declared variant fails the inline lookup here too.
+			Resolve: table.Get,
 		})
 		Expect(rendered).To(ContainSubstring(
 			"ElementConfig union on variant extends NodeConfig, EdgeConfig {",
 		))
+		Expect(rendered).To(ContainSubstring("count uint8"))
 		Expect(
 			rendered,
 		).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {"))
