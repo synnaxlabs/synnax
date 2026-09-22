@@ -42,7 +42,9 @@ runs:
     - name: Resolve Version
       id: resolve
       shell: bash
-      run: |
-        scripts/resolve_version.sh \
-          "${{ inputs.product }}" "${{ inputs.bump }}" "${{ inputs.prerelease }}" \
-          >> "$GITHUB_OUTPUT"
+      env:
+        PRODUCT: ${{ inputs.product }}
+        BUMP: ${{ inputs.bump }}
+        PRERELEASE: ${{ inputs.prerelease }}
+      run:
+        scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" >> "$GITHUB_OUTPUT"

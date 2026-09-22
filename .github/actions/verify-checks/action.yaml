@@ -22,6 +22,5 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
-      run: |
-        scripts/verify_checks.sh "${{ inputs.sha }}" "${{ github.run_id }}" \
-          "${{ github.ref_name }}"
+        SHA: ${{ inputs.sha }}
+      run: scripts/verify_checks.sh "$SHA" "$GITHUB_RUN_ID" "$GITHUB_REF_NAME"
