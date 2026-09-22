@@ -79,7 +79,7 @@ type Transport struct {
 	ConnectivityCheck freighter.UnaryServer[types.Nil, connectivity.CheckResponse]
 	// VERIFICATION
 	VerificationRetrieve freighter.UnaryServer[verification.RetrieveRequest, verification.RetrieveResponse]
-	VerificationActivate freighter.UnaryServer[verification.ActivateRequest, verification.ActivateResponse]
+	VerificationApply    freighter.UnaryServer[verification.ApplyRequest, verification.ApplyResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[framer.WriterRequest, framer.WriterResponse]
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
@@ -264,7 +264,7 @@ func (l *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		secureMiddleware,
 		t.VerificationRetrieve,
-		t.VerificationActivate,
+		t.VerificationApply,
 	)
 
 	freighter.UseOnAll(
@@ -440,7 +440,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// VERIFICATION
 	t.VerificationRetrieve.BindHandler(l.Verification.Retrieve)
-	t.VerificationActivate.BindHandler(l.Verification.Activate)
+	t.VerificationApply.BindHandler(l.Verification.Apply)
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)
