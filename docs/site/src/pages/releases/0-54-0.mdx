@@ -1,5 +1,5 @@
 ---
-title: "Version 0.54 Release Notes"
+title: "Version 0.54 release notes"
 ---
 
 import { Image } from "@/components/media/Media";
@@ -13,7 +13,7 @@ export const components = mdxOverrides;
 <Release
     version="0.54.0"
     date="Apr 6, 2026"
-    title="PagerDuty Integration"
+    title="PagerDuty integration"
 >
 
 <Diagram preview style="padding: 0rem 5rem">
@@ -27,7 +27,7 @@ platform.
 
 <Divider.Divider x />
 
-### PagerDuty Integration
+### PagerDuty integration
 
 Synnax can now automatically send alerts to PagerDuty when system statuses change. The
 integration watches configured status keys and maps Synnax status variants to PagerDuty
@@ -41,7 +41,7 @@ v2 and can be configured from both the Console and the Python client.
 
 <Divider.Divider x />
 
-### Delete All Channel Data
+### Delete all channel data
 
 Users can now permanently delete time-series data from selected channels over a
 specified time range directly from the Console. A two-step flow guides the process:
@@ -51,7 +51,7 @@ for convenience.
 
 <Divider.Divider x />
 
-### Press and Hold for Schematic Valves
+### Press and hold for schematic valves
 
 Valve toggle buttons in schematics now support a configurable press-and-hold delay. When
 enabled, users must hold the mouse button for a specified duration before the valve
@@ -60,15 +60,15 @@ indicates the hold progress.
 
 <Divider.Divider x />
 
-### Status Explorer Variant Filtering
+### Status explorer variant filtering
 
-The Status Explorer now supports filtering by status variant (error, warning, info, and
+The status explorer now supports filtering by status variant (error, warning, info, and
 success). Filter chips display active selections and can be removed individually, making
 it easier to focus on specific status types across the system.
 
 <Divider.Divider x />
 
-### Device-Chassis Hierarchy
+### Device-chassis hierarchy
 
 NI CompactDAQ modules now appear nested under their parent chassis in the Console
 resource tree. The NI scanner automatically discovers chassis-module relationships using
@@ -78,7 +78,7 @@ navigate large NI installations.
 
 <Divider.Divider x />
 
-### Arc Improvements
+### Arc improvements
 
 - The Arc C++ runtime now supports `select`, `stable.for`, and `status.set` node types,
   enabling conditional routing, timed output holds, and status reporting from within Arc
@@ -86,11 +86,11 @@ navigate large NI installations.
 - A telemetry bypass mode allows high-priority control operations to execute without
   telemetry collection overhead.
 - The "Open Arc" option is now available in the context menu for Arc programs, and the
-  Arc Explorer can be launched from the Arc toolbar.
+  Arc explorer can be launched from the Arc toolbar.
 
 <Divider.Divider x />
 
-### Minor Improvements and Bug Fixes
+### Minor improvements and bug fixes
 
 #### Core
 
@@ -114,7 +114,7 @@ navigate large NI installations.
 - Fixed RT config being applied to the wrong thread on NI cRIO targets.
 - The Driver now preserves `config.yaml` when reinstalling the Windows service.
 
-#### Arc Editor
+#### Arc editor
 
 - The calculated channel engine is now more resilient to compilation errors, preventing
   cascading failures when an Arc program contains syntax issues.

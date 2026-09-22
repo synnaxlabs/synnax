@@ -1,9 +1,9 @@
-# Contributing to the Synnax Python Client
+# Contributing to the Synnax Python client
 
 If you haven't already, read the [Synnax Contribution Guide](../../docs/CONTRIBUTING.md)
 before continuing.
 
-## Development Environment Setup
+## Development environment setup
 
 To get started contributing to the Synnax Python client, read the development
 environment setup guide for [macOS](../../docs/tech/setup-macos.md) or
@@ -13,12 +13,12 @@ As an additional step, read the
 **[Python Build System Guide](../../docs/tech/python/python.md)** for instructions on
 how we work with Python in the Synnax monorepo.
 
-## Essential Commands
+## Essential commands
 
 These are also covered in the
 [Python Build System Guide](../../docs/tech/python/python.md).
 
-### Installing Dependencies
+### Installing dependencies
 
 To install the dependencies, run the following command from the `client/py` directory:
 
@@ -26,7 +26,7 @@ To install the dependencies, run the following command from the `client/py` dire
 uv sync
 ```
 
-### Running the Tests
+### Running the tests
 
 To run the entire test suite, you need to have a development Synnax cluster running and
 listening on `localhost:9090`. For instructions on how to do this, read the

@@ -16,7 +16,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-## Function Declaration
+## Function declaration
 
 ```arc
 func name{inputs} (trigger) output {
@@ -35,7 +35,7 @@ func name{inputs} (trigger) output {
 
 <Divider.Divider x />
 
-## Basic Functions
+## Basic functions
 
 A function with inputs and an output:
 
@@ -95,7 +95,7 @@ enable_cmd -> controller{setpoint=100.0, input=temp, output=cmd}
 enable_cmd -> controller{setpoint=setpoint_input, input=temp, output=cmd}
 ```
 
-### Optional Inputs
+### Optional inputs
 
 Optional inputs have default values and must be trailing:
 
@@ -113,9 +113,9 @@ func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
 
 <Divider.Divider x />
 
-## Output Types
+## Output types
 
-### Single Unnamed Output
+### Single unnamed output
 
 ```arc
 func double(value f64) f64 {
@@ -123,7 +123,7 @@ func double(value f64) f64 {
 }
 ```
 
-### Single Named Output
+### Single named output
 
 ```arc
 func compute(x f64) result f64 {
@@ -132,7 +132,7 @@ func compute(x f64) result f64 {
 }
 ```
 
-### Multiple Named Outputs
+### Multiple named outputs
 
 A function may declare more than one named output. Each output keys a branch at the call
 site: setting an output runs its
@@ -155,7 +155,7 @@ sensor -> split{} -> {
 
 <Divider.Divider x />
 
-## Calling Functions
+## Calling functions
 
 Arc has two calling conventions depending on context: parentheses inside function
 bodies, and braces to instantiate a function in a flow statement.
@@ -188,7 +188,7 @@ func outer(x f64) f64 {
 
 <Divider.Divider x />
 
-## Stateful Variables in Functions
+## Stateful variables in functions
 
 Functions can declare stateful variables that persist across invocations:
 
@@ -210,7 +210,7 @@ time.interval{200ms} -> counter{} -> count2
 
 <Divider.Divider x />
 
-## Channel Operations in Functions
+## Channel operations in functions
 
 Functions can read from and write to channels:
 
@@ -240,7 +240,7 @@ func monitor() {
 
 <Divider.Divider x />
 
-## Multi-Input Functions
+## Multi-input functions
 
 Use [routing tables](/reference/control/arc/reference/flow#input-routing) to map
 multiple sources to input parameters:
@@ -291,7 +291,7 @@ func factorial(n i64) i64 {
 
 <Divider.Divider x />
 
-## Built-in Functions
+## Built-in functions
 
 Built-in functions require no `import` or module prefix.
 

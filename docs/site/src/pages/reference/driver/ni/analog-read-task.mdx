@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI Analog Read Task"
+title: "NI analog read task"
 description: "Learn how to acquire analog data from NI devices with Synnax."
-next: "Analog Write Task"
+next: "Analog write task"
 nextURL: "/reference/driver/ni/analog-write-task"
-prev: "Configure a Device"
+prev: "Configure a device"
 prevURL: "/reference/driver/ni/configure-device"
 ---
 
@@ -18,11 +18,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter     | Type   | Required | Default | Description                                                   |
 | ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
@@ -32,7 +33,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel types reference
 
 <DetailsGroup>
 <ChannelType>
@@ -627,7 +628,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **One task per module** -> Only one running task can claim a module at a time.
 - **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
@@ -635,7 +636,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
