@@ -170,6 +170,12 @@ export const buildSwitchField = fieldBuilder<boolean, boolean, Input.SwitchProps
 );
 export const SwitchField = buildSwitchField({ inputProps: {} });
 
+export type DateTimeFieldProps = BuiltFieldProps<number, number, Input.DateTimeProps>;
+export const buildDateTimeField = fieldBuilder<number, number, Input.DateTimeProps>(
+  Input.DateTime,
+);
+export const DateTimeField = buildDateTimeField({ inputProps: {} });
+
 export type SelectFieldProps<
   K extends record.Key,
   E extends record.KeyedNamed<K>,

@@ -6,7 +6,7 @@ Schema-driven code generator. `.oracle` schemas in `/schemas/{synnax,arc,x}/` de
 types once; plugins (`oracle/plugin/`: go, ts, py, cpp, pb, enum, domain, primitives,
 framework) generate bindings for every language.
 
-## Sync Workflow
+## Sync workflow
 
 Claude runs `oracle sync` itself. Before every sync, install the latest CLI first:
 
@@ -25,7 +25,7 @@ or generator logic and schemas disagree.
 - Confirm with the user before `oracle migrate` (version-affecting: scaffolds the next
   version file).
 
-## Versioning Rules (RFC 0053)
+## Versioning rules (RFC 0053)
 
 - **Version files are hand-owned and hold the version story.**
   `schemas/<domain>/versions/<resource>/vN.oracle` enumerates the resource's complete
@@ -95,7 +95,7 @@ or generator logic and schemas disagree.
   `versions/imex.go` files route `> legacy.LastVersion` envelopes to the ladder and keep
   only frozen Console-era decoding.
 
-## Field Optionality
+## Field optionality
 
 Four states. Pick by asking whether the field always means something, and when it does
 not, whether the schema itself can tell.
@@ -119,7 +119,7 @@ the "did you forget" check impossible to write.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
-## Default Groups
+## Default groups
 
 `@default group "<name>"` on two or more fields makes their defaults fill as a unit: the
 generated fill runs only when every member holds its zero value. Use it when a field's
@@ -130,7 +130,7 @@ bound the fill must not overwrite.
 Grouping only changes Go. TypeScript, Python, and C++ fill from key presence at decode
 and never overwrite a value the caller sent.
 
-## Contextual Validation
+## Contextual validation
 
 A rule that needs facts outside the config, such as the data type of a referenced
 channel, belongs in the Core service, on the write path only.
@@ -142,13 +142,13 @@ channel, belongs in the Core service, on the write path only.
   time and deploy.
 - The Console duplicates a rule only for better messages, never as the guarantee.
 
-## Tag Minimization
+## Tag minimization
 
 Prefer the tagging that minimizes total tag count. When only a few types in a file need
 a domain (@pb on control.Subject), tag those types and omit the file-level declaration;
 when most types need it, declare it file-level and omit the exceptions.
 
-## Omit vs Hand
+## Omit vs hand
 
 - `@<lang> omit`: the type does not exist in that language. References to it from
   generating types are analyzer errors; a language output whose types are all omitted is

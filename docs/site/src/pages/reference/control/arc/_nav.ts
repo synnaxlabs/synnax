@@ -24,7 +24,7 @@ export const ARC_NAV: PageNavNode = {
     {
       key: "/reference/control/arc/get-started",
       href: "/reference/control/arc/get-started",
-      name: "Get Started",
+      name: "Get started",
     },
     CONCEPTS_NAV,
     HOW_TO_NAV,

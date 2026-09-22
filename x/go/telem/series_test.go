@@ -643,8 +643,6 @@ var _ = Describe("Series", func() {
 				Expect(downsampled).To(Equal(original))
 				downsampled = original.Downsample(1)
 				Expect(downsampled).To(Equal(original))
-				downsampled = original.Downsample(-1)
-				Expect(downsampled).To(Equal(original))
 			})
 
 			It(

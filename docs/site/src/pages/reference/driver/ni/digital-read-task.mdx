@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI Digital Read Task"
+title: "NI digital read task"
 description: "Learn how to acquire digital data from NI devices with Synnax."
-prev: "Counter Read Task"
+prev: "Counter read task"
 prevURL: "/reference/driver/ni/counter-read-task"
-next: "Digital Write Task"
+next: "Digital write task"
 nextURL: "/reference/driver/ni/digital-write-task"
 ---
 
@@ -16,11 +16,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter     | Type   | Required | Default | Description                                                   |
 | ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
@@ -31,7 +32,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Configuration Reference
+## Channel configuration reference
 
 [DI Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__digital__input__channels_1ga3325b4a3660e51e9d6631460bab3ed94.html)
 
@@ -43,7 +44,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **One task per module** -> Only one running task can claim a module at a time.
 - **Stream rate** -> For sample rates under 50 Hz, set the stream rate equal to the
@@ -51,7 +52,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

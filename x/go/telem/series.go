@@ -287,22 +287,23 @@ func (s Series) String() string {
 
 // Downsample returns a copy of the Series with the data down sampled by the given
 // factor, i.e., 1 out of every factor samples is kept.
-func (s Series) Downsample(factor int) Series {
+func (s Series) Downsample(factor uint32) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
 	}
+	f := int(factor)
 	var oData []byte
 	if s.DataType.IsVariable() {
 		samples := unmarshalVariable[[]byte](s.Data)
-		downsampled := make([][]byte, 0, len(samples)/factor+1)
-		for i := 0; i < len(samples); i += factor {
+		downsampled := make([][]byte, 0, len(samples)/f+1)
+		for i := 0; i < len(samples); i += f {
 			downsampled = append(downsampled, samples[i])
 		}
 		oData = marshalVariable(downsampled)
 	} else {
-		seriesLength := len(s.Data) / factor
+		seriesLength := len(s.Data) / f
 		oData = make([]byte, 0, seriesLength)
-		for i := int64(0); i < s.Len(); i += int64(factor) {
+		for i := int64(0); i < s.Len(); i += int64(f) {
 			start := i * int64(s.DataType.Density())
 			end := start + int64(s.DataType.Density())
 			oData = append(oData, s.Data[start:end]...)

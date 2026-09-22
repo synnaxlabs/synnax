@@ -1,5 +1,5 @@
 ---
-title: "Version 0.47 Release Notes"
+title: "Version 0.47 release notes"
 ---
 
 import { Image } from "@/components/media/Media";
@@ -11,7 +11,7 @@ import Diagram from "@/components/diagram/Diagram.astro";
     version="0.47.0"
     breakingChanges
     date="Oct 24, 2025"
-    title="Arc-Based Calculated Channels"
+    title="Arc-based calculated channels"
 >
 
 <Diagram preview style="height: 425px; padding: 0rem 9rem">
@@ -35,7 +35,7 @@ calculation over a time- or trigger-based window.
 
 <Divider.Divider x />
 
-### Deprecation of Lua-Based Calculations
+### Deprecation of Lua-based calculations
 
 With the introduction of Arc-based calculated channels, Lua-based calculations are
 deprecated and will be removed in a future release. We'll automatically attempt to
@@ -47,9 +47,9 @@ new Lua-based calculations will not be allowed.
 
 <Divider.Divider x />
 
-### Breaking Changes
+### Breaking changes
 
-#### Auto-Commit is now Enabled by Default with All Writers
+#### Auto-commit is now enabled by default with all writers
 
 [Auto-Commit](/reference/concepts/writes#auto-commit) is used to immediately persist
 written data to Synnax, as opposed to calling `commit` manually.
@@ -62,7 +62,7 @@ As a result, we've made the decision to enable auto-commit by default with write
 all of our client libraries. Any code that implicitly disables auto-commit will now need
 to explicitly disable it.
 
-#### Changes to Writer Behavior Under Mixed Control Authority
+#### Changes to writer behavior under mixed control authority
 
 Synnax v0.47 fixes a critical issue that caused schematics to become unresponsive across
 all channels when a higher authority process acquired control of a channel on the
@@ -86,7 +86,7 @@ system simultaneously.
 
 <Divider.Divider x />
 
-### Minor Improvements and Bug Fixes
+### Minor improvements and bug fixes
 
 #### Core
 
