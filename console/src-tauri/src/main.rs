@@ -91,6 +91,7 @@ fn main() {
     #[cfg(feature = "desktop")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         supervisor::commands::supervisor_status,
+        supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
         supervisor::commands::supervisor_stop,
         supervisor::commands::supervisor_reset,

@@ -117,16 +117,45 @@ pub enum Status {
     Stopped,
 }
 
+/// Why a Core exited without a stop request.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Reason {
+    /// The process never spawned.
+    FailedToStart,
+    /// The process exited on its own.
+    Crashed,
+    /// The process never passed the readiness probe.
+    NotReady,
+    /// A ready process stopped answering the probe.
+    Unresponsive,
+}
+
+/// How the last Core that was not asked to stop ended.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Exit {
+    pub reason: Reason,
+    /// What went wrong, for a person to read.
+    pub message: String,
+    /// How long the Core had run.
+    pub uptime_seconds: u64,
+}
+
 /// What the Cores of one launch have done so far.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct History {
     /// The number of Cores started in this launch.
     pub starts: u32,
+    /// The number of Cores that exited without a stop request.
+    pub exits: u32,
     /// When the current Core became ready, in milliseconds since the Unix epoch.
     pub ready_at: Option<u64>,
-    /// Why the last Core exited without a stop request.
-    pub last_exit: Option<String>,
+    /// How long the current Core took to become ready.
+    pub time_to_ready_ms: Option<u64>,
+    /// How the last Core exited without a stop request.
+    pub last_exit: Option<Exit>,
 }
 
 enum Request {
@@ -220,7 +249,11 @@ impl Supervisor {
 /// How one run of the Core ended.
 enum Outcome {
     /// The Core exited without a stop request.
-    Exited { uptime: Duration, message: String },
+    Exited {
+        uptime: Duration,
+        reason: Reason,
+        message: String,
+    },
     /// The Core exited after a stop request.
     Stopped(Option<oneshot::Sender<()>>),
     /// The Core exited after a restart request.
@@ -257,7 +290,9 @@ impl Task {
                     continue;
                 }
                 Outcome::Reset(ack) => self.erase(ack).await,
-                Outcome::Exited { uptime, message } => match policy.decide(uptime) {
+                Outcome::Exited {
+                    uptime, message, ..
+                } => match policy.decide(uptime) {
                     restart::Decision::Restart(backoff) => {
                         self.status.send_replace(Status::Restarting);
                         if self.backoff(backoff).await {
@@ -327,17 +362,33 @@ impl Task {
     async fn run_once(&mut self) -> Outcome {
         let started = Instant::now();
         let outcome = self.supervise(started).await;
-        if let Outcome::Exited { message, .. } = &outcome {
-            self.history
-                .send_modify(|h| h.last_exit = Some(message.clone()));
+        if let Outcome::Exited {
+            uptime,
+            reason,
+            message,
+        } = &outcome
+        {
+            let exit = Exit {
+                reason: *reason,
+                message: message.clone(),
+                uptime_seconds: uptime.as_secs(),
+            };
+            self.history.send_modify(move |h| {
+                h.exits += 1;
+                h.last_exit = Some(exit);
+            });
         }
-        self.history.send_modify(|h| h.ready_at = None);
+        self.history.send_modify(|h| {
+            h.ready_at = None;
+            h.time_to_ready_ms = None;
+        });
         outcome
     }
 
     async fn supervise(&mut self, started: Instant) -> Outcome {
-        let exited = |message: String| Outcome::Exited {
+        let exited = |reason: Reason, message: String| Outcome::Exited {
             uptime: started.elapsed(),
+            reason,
             message,
         };
         let cfg = self.cfg.clone();
@@ -351,12 +402,22 @@ impl Task {
         };
         match tokio::task::spawn_blocking(prepare).await {
             Ok(Ok(())) => {}
-            Ok(Err(err)) => return exited(format!("failed to back up the data: {err}")),
-            Err(err) => return exited(format!("failed to back up the data: {err}")),
+            Ok(Err(err)) => {
+                return exited(
+                    Reason::FailedToStart,
+                    format!("failed to back up the data: {err}"),
+                );
+            }
+            Err(err) => {
+                return exited(
+                    Reason::FailedToStart,
+                    format!("failed to back up the data: {err}"),
+                );
+            }
         }
         let (mut child, port) = match self.spawn() {
             Ok(v) => v,
-            Err(err) => return exited(format!("failed to start: {err}")),
+            Err(err) => return exited(Reason::FailedToStart, format!("failed to start: {err}")),
         };
         self.history.send_modify(|h| h.starts += 1);
         // Child::wait closes the stdin it still holds, and a closed stdin stops the
@@ -371,7 +432,7 @@ impl Task {
         loop {
             tokio::select! {
                 status = child.wait() => {
-                    return exited(match status {
+                    return exited(Reason::Crashed, match status {
                         Ok(status) => format!("exited with {status}"),
                         Err(err) => format!("failed to wait for exit: {err}"),
                     });
@@ -400,7 +461,10 @@ impl Task {
                 },
                 _ = &mut deadline, if !ready => {
                     kill(&mut child).await;
-                    return exited(format!("not ready after {:?}", self.cfg.start_timeout));
+                    return exited(
+                        Reason::NotReady,
+                        format!("not ready after {:?}", self.cfg.start_timeout),
+                    );
                 }
                 Some(ok) = probes.results.recv() => {
                     if ok && !ready {
@@ -411,7 +475,11 @@ impl Task {
                             addr,
                             self.cfg.liveness_interval,
                         );
-                        self.history.send_modify(|h| h.ready_at = Some(now_millis()));
+                        let elapsed = started.elapsed().as_millis() as u64;
+                        self.history.send_modify(|h| {
+                            h.ready_at = Some(now_millis());
+                            h.time_to_ready_ms = Some(elapsed);
+                        });
                         self.status.send_replace(Status::Running {
                             connection: Connection {
                                 host: launch::HOST.to_string(),
@@ -427,7 +495,10 @@ impl Task {
                     missed = if ok { 0 } else { missed + 1 };
                     if missed >= self.cfg.liveness_failures {
                         kill(&mut child).await;
-                        return exited(format!("stopped answering after {missed} probes"));
+                        return exited(
+                            Reason::Unresponsive,
+                            format!("stopped answering after {missed} probes"),
+                        );
                     }
                 }
             }
@@ -647,7 +718,9 @@ while true; do sleep 1; done
         assert_eq!(connection.username, "synnax");
         assert_eq!(connection.password.len(), 64);
         assert_ne!(connection.port, 0);
+        assert!(sup.history().time_to_ready_ms.is_some());
         sup.stop().await;
+        assert_eq!(sup.history().time_to_ready_ms, None);
     }
 
     #[tokio::test]
@@ -727,10 +800,11 @@ while true; do sleep 1; done
         f.wait_for_runs(1).await;
         ok.store(false, Ordering::SeqCst);
         wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
-        assert_eq!(
-            sup.history().last_exit,
-            Some("stopped answering after 3 probes".to_string())
-        );
+        let history = sup.history();
+        assert_eq!(history.exits, 1);
+        let exit = history.last_exit.unwrap();
+        assert_eq!(exit.reason, Reason::Unresponsive);
+        assert_eq!(exit.message, "stopped answering after 3 probes");
         ok.store(true, Ordering::SeqCst);
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         f.wait_for_runs(2).await;
@@ -803,7 +877,9 @@ while true; do sleep 1; done
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         let second = sup.history();
         assert_eq!(second.starts, 2);
-        assert!(second.last_exit.unwrap().contains("signal"));
+        let exit = second.last_exit.unwrap();
+        assert_eq!(exit.reason, Reason::Crashed);
+        assert!(exit.message.contains("signal"));
         sup.stop().await;
         assert_eq!(sup.history().ready_at, None);
     }

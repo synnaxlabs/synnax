@@ -17,7 +17,7 @@ use std::path::Path;
 use serde::Serialize;
 use zip::write::SimpleFileOptions;
 
-use super::{History, Status};
+use super::{Exit, History, Reason, Status};
 
 /// The name of the Core log inside the log directory.
 const LOG: &str = "core.log";
@@ -177,8 +177,14 @@ mod tests {
         };
         let history = History {
             starts: 2,
+            exits: 1,
             ready_at: Some(5),
-            last_exit: Some("exited with 3".to_string()),
+            time_to_ready_ms: Some(400),
+            last_exit: Some(Exit {
+                reason: Reason::Crashed,
+                message: "exited with 3".to_string(),
+                uptime_seconds: 12,
+            }),
         };
         let dest = dir.path().join("out.zip");
         export(
@@ -210,6 +216,7 @@ mod tests {
         assert_eq!(summary["version"], "0.58.0");
         assert_eq!(summary["installId"], "5f3c");
         assert_eq!(summary["history"]["starts"], 2);
-        assert_eq!(summary["history"]["lastExit"], "exited with 3");
+        assert_eq!(summary["history"]["lastExit"]["reason"], "crashed");
+        assert_eq!(summary["history"]["lastExit"]["message"], "exited with 3");
     }
 }

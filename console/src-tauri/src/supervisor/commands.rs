@@ -105,6 +105,11 @@ pub fn supervisor_status(supervisor: State<'_, Supervisor>) -> Status {
 }
 
 #[tauri::command]
+pub fn supervisor_history(supervisor: State<'_, Supervisor>) -> History {
+    supervisor.history()
+}
+
+#[tauri::command]
 pub async fn supervisor_restart(supervisor: State<'_, Supervisor>) -> Result<(), ()> {
     supervisor.restart().await;
     Ok(())

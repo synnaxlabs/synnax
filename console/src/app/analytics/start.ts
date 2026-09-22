@@ -12,6 +12,7 @@ import { getVersion } from "@tauri-apps/api/app";
 
 import { type Install, retrieveInstall } from "@/app/analytics/install";
 import { create, type Params } from "@/app/analytics/posthog";
+import { Embedded } from "@/feature/embedded";
 import { Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
@@ -28,8 +29,11 @@ export const start = (): Analytics.Sink => {
   const install = retrieveInstall();
   const sink = Analytics.createSink(create(identify(install)));
   // Every window reports its own screens and interactions, but a launch opens the app
-  // once.
-  if (Session.Runtime.isMainWindow()) void open(sink, install);
+  // once, and runs one embedded Core.
+  if (Session.Runtime.isMainWindow()) {
+    void open(sink, install);
+    void follow(sink);
+  }
   beat(sink);
   return sink;
 };
@@ -52,6 +56,56 @@ const open = async (sink: Analytics.Sink, install: Promise<Install>): Promise<vo
     });
   } catch (err) {
     console.error("failed to report the launch", err);
+  }
+};
+
+/**
+ * Reports what the embedded Core does. The counts in the history decide what is new, so
+ * the first read reports a Core that was already up before this window loaded, and a
+ * second read of the same history reports nothing.
+ */
+const follow = async (sink: Analytics.Sink): Promise<void> => {
+  let readyStarts = 0;
+  let exits = 0;
+  let exhaustedStarts = 0;
+  const report = async (status: Embedded.Status): Promise<void> => {
+    try {
+      const history = await Embedded.retrieveHistory();
+      const { lastExit } = history;
+      if (history.exits > exits) {
+        exits = history.exits;
+        if (lastExit != null)
+          sink.capture("core_exited", {
+            reason: lastExit.reason,
+            uptime_seconds: lastExit.uptimeSeconds,
+          });
+      }
+      if (
+        status.state === "running" &&
+        history.starts > readyStarts &&
+        history.timeToReadyMs != null
+      ) {
+        readyStarts = history.starts;
+        sink.capture("core_ready", {
+          time_to_ready_ms: history.timeToReadyMs,
+          starts: history.starts,
+        });
+      }
+      if (status.state === "failed" && history.starts > exhaustedStarts) {
+        exhaustedStarts = history.starts;
+        sink.capture("core_restart_exhausted", { attempts: history.starts });
+      }
+    } catch (err) {
+      console.error("failed to report the state of the Core", err);
+    }
+  };
+  try {
+    await Embedded.onStatusChange((status) => void report(status));
+    // The Core can pass its probe before this window finishes loading, so the state it
+    // is in now counts as much as the changes that follow.
+    await report(await Embedded.retrieveStatus());
+  } catch (err) {
+    console.error("failed to follow the Core", err);
   }
 };
 

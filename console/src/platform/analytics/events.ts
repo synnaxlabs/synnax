@@ -34,8 +34,8 @@ export const schemas = {
     starts: z.number(),
   }),
   core_exited: z.strictObject({
-    reason: z.enum(["crashed", "not_ready", "unresponsive", "stopped"]),
-    uptime_s: z.number(),
+    reason: z.enum(["failed_to_start", "crashed", "not_ready", "unresponsive"]),
+    uptime_seconds: z.number(),
   }),
   core_restart_exhausted: z.strictObject({ attempts: z.number() }),
   core_reset: z.strictObject({ data_size_bytes: z.number() }),

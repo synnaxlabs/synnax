@@ -172,7 +172,7 @@ export const useDiagnosticsModal = Modals.create(() => {
               )}
               <Field label="Starts">{history.starts} in this session</Field>
               {history.lastExit != null && (
-                <Field label="Last problem">{history.lastExit}</Field>
+                <Field label="Last problem">{history.lastExit.message}</Field>
               )}
               {status.state === "failed" && (
                 <Field label="Reason">{status.message}</Field>
