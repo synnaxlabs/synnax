@@ -323,8 +323,6 @@ var _ = Describe("Task sync", func() {
 				svc.Dispatch(ctx, a.Key, "dk", toDeleteActions(client.Delete(0, 1))),
 			).
 				To(Succeed())
-			// The debouncer can fire between the two dispatches, so the task can hold
-			// the edited hash until the undo syncs.
 			Eventually(taskConfigHash(ctx, tsk.Key)).Should(Equal(before.ConfigHash))
 			Consistently(
 				taskConfigHash(ctx, tsk.Key),
