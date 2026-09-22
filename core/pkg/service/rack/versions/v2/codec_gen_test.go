@@ -14,12 +14,11 @@ package v2_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -44,7 +43,7 @@ var _ = Describe("Codec", func() {
 				Key:          v2.Key(0),
 				Name:         "",
 				Embedded:     false,
-				Integrations: nil,
+				Integrations: []string{},
 			}),
 			Entry("empty collections", v2.Rack{
 				Key:          v2.Key(2),
@@ -97,7 +96,7 @@ func FuzzDecodeRack(f *testing.F) {
 			Key:          v2.Key(0),
 			Name:         "",
 			Embedded:     false,
-			Integrations: nil,
+			Integrations: []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -134,7 +133,7 @@ func FuzzDecodeRack(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

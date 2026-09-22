@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { direction } from "@synnaxlabs/x";
+import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -20,7 +20,6 @@ import {
   PAGE_ICONS,
   type PageType,
 } from "@/schematic/node/general/offPageReference/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
@@ -61,9 +60,10 @@ export const OffPageReference = ({
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
-    [colorVal],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
 
   return (

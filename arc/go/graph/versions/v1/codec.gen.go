@@ -12,7 +12,7 @@
 package v1
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	ir "github.com/synnaxlabs/arc/ir/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"

@@ -26,7 +26,7 @@ on:
   push:
     branches:
       - main
-      - rc
+      - release/**
     paths:
       - .github/actions/test-typescript/**
       - .github/workflows/test.media.yaml
@@ -47,8 +47,6 @@ concurrency:
 
 jobs:
   test:
-    # Pushes to rc already run these tests, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Lint
     runs-on: ubuntu-latest
     env:

@@ -19,49 +19,50 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // VersionsGate verifies the explicitly managed version chains: the live file's
 // version-owned content matches chain resolution (the merged projection), and every
 // redeclaration differs structurally from its resolved predecessor.
-type VersionsGate struct{}
+type versionsGate struct{}
 
-// Name implements Checker.
-func (VersionsGate) Name() string { return "versions" }
+// NewVersionsGate returns a Checker that asserts the version chain is well formed.
+func NewVersionsGate() Checker { return versionsGate{} }
 
-// Run implements Checker.
-func (g VersionsGate) Run(
-	ctx context.Context, p *pipeline.Result, env Env,
+func (versionsGate) Name() string { return "versions" }
+
+func (g versionsGate) Run(
+	ctx context.Context, res *pipeline.Result, env Env,
 ) GateReport {
-	start := time.Now()
+	start := telem.Now()
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
-	defer func() { r.Elapsed = time.Since(start) }()
-	if p.Resolutions == nil {
+	defer func() { r.Elapsed = telem.Since(start) }()
+	if res.Resolutions == nil {
 		return r
 	}
-	chains, resolver := p.Chains, p.Versions
+	chains, resolver := res.Chains, res.Versions
 	if len(chains) == 0 || resolver == nil {
 		return r
 	}
 	for _, livePath := range slices.Sorted(maps.Keys(chains)) {
-		g.checkChain(ctx, &r, p, env, resolver, chains[livePath])
+		checkChain(ctx, &r, res, env, resolver, chains[livePath])
 	}
 	return r
 }
 
 // checkChain runs the drift and minimality checks for one chain.
-func (g VersionsGate) checkChain(
+func checkChain(
 	ctx context.Context,
 	r *GateReport,
-	p *pipeline.Result,
+	res *pipeline.Result,
 	env Env,
 	resolver *versions.Resolver,
 	chain versions.Chain,
@@ -73,7 +74,7 @@ func (g VersionsGate) checkChain(
 	// the merged projection is the canonical live file. The version files are the
 	// authority; a live edit to version-owned content is overwritten by sync, and a
 	// chain edit lands in the live file the same way.
-	if merged, ok := p.MergedSources[livePath+".oracle"]; ok {
+	if merged, ok := res.MergedSources[livePath+".oracle"]; ok {
 		filePath := livePath + ".oracle"
 		onDisk, err := os.ReadFile(filepath.Join(env.RepoRoot, filePath))
 		if err != nil && !os.IsNotExist(err) {
@@ -113,12 +114,12 @@ func (g VersionsGate) checkChain(
 			})
 			return
 		}
-		g.checkImportPlacement(r, resolver, chain, fk)
+		checkImportPlacement(r, resolver, chain, fk)
 	}
 
 	// Pin currency: every pin the current surface's stored reference graph crosses must
 	// target its dependency chain's current version.
-	g.checkPinCurrency(ctx, r, resolver, chain)
+	checkPinCurrency(ctx, r, resolver, chain)
 
 	// Minimality: every redeclaration must differ structurally from its resolved
 	// predecessor.
@@ -167,7 +168,7 @@ func (g VersionsGate) checkChain(
 				})
 				return
 			}
-			if gotypes.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
+			if types.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
 				r.fail(Finding{
 					Path:     chain.FilePath(k) + ".oracle",
 					Severity: SeverityError,
@@ -194,7 +195,7 @@ func (r *GateReport) fail(f Finding) {
 // checkImportPlacement verifies one version file's imports against the persistence
 // boundary: a dependency reached by any stored reference must be pinned; a dependency
 // reached only by resolved references must float on its live schema.
-func (g VersionsGate) checkImportPlacement(
+func checkImportPlacement(
 	r *GateReport,
 	resolver *versions.Resolver,
 	chain versions.Chain,
@@ -405,7 +406,7 @@ var versionNSRe = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
 // lagging pin survives when every member referenced through it resolves to the same
 // defining version at both the pin and the dependency's current version — the two
 // shapes are one declaration, so the lag is nominal.
-func (g VersionsGate) checkPinCurrency(
+func checkPinCurrency(
 	ctx context.Context,
 	r *GateReport,
 	resolver *versions.Resolver,
@@ -565,11 +566,10 @@ func localRefNames(f *versions.File, ref resolution.TypeRef) []string {
 }
 
 // membersOf lists the member names a file's declarations reference in the given foreign
-// namespace.
-// pinAliasCurrent reports whether every referenced member of a lagging pin resolves to
-// the same defining version at both the pinned and current versions of the dependency
-// chain. When it does, the pinned and current shapes are one declaration and the lag
-// is nominal.
+// namespace. pinAliasCurrent reports whether every referenced member of a lagging pin
+// resolves to the same defining version at both the pinned and current versions of the
+// dependency chain. When it does, the pinned and current shapes are one declaration and
+// the lag is nominal.
 func pinAliasCurrent(
 	ctx context.Context,
 	resolver *versions.Resolver,
