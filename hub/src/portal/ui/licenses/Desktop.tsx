@@ -13,6 +13,7 @@ import { type ReactElement, useCallback } from "react";
 import { post, reload } from "@/portal/ui/api";
 import { Enterprise } from "@/portal/ui/Enterprise";
 import { date, machineName, statusOf } from "@/portal/ui/format";
+import { RenameDialog } from "@/portal/ui/licenses/RenameDialog";
 import { StatusTag } from "@/portal/ui/licenses/StatusTag";
 import * as Modal from "@/portal/ui/Modal";
 import { Empty, Page } from "@/portal/ui/Page";
@@ -27,7 +28,7 @@ export interface DesktopProps {
   now: Date | string;
 }
 
-const COLUMNS = "minmax(0, 2fr) 10rem 12rem 12rem 12rem";
+const COLUMNS = "minmax(0, 2fr) 10rem 12rem 12rem 16rem";
 
 /** validity says how much longer a machine keeps working. */
 const validity = (lic: License, at: Date): string =>
@@ -69,7 +70,15 @@ export const Desktop = ({ machines, now }: DesktopProps): ReactElement => {
               <Text.Text level="p" color={10}>
                 {date(a.lastSeen)}
               </Text.Text>
-              <Flex.Box justify="end">
+              <Flex.Box x justify="end" gap="small">
+                <RenameDialog
+                  activation={a}
+                  trigger={
+                    <Dialog.Trigger variant="text" size="small" hideCaret>
+                      Rename
+                    </Dialog.Trigger>
+                  }
+                />
                 <UnlinkDialog activation={a} />
               </Flex.Box>
             </Row>

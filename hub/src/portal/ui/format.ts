@@ -64,6 +64,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   activate_denied: "Activation denied",
   token: "Token downloaded",
   release: "Seat released",
+  rename: "Machine renamed",
   revoke: "License revoked",
   expiry_notice: "Expiry notice sent",
   link: "Machine linked",

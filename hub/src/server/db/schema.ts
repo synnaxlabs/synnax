@@ -34,6 +34,7 @@ export const EVENT_KINDS = [
   "activate_denied",
   "token",
   "release",
+  "rename",
   "revoke",
   "expiry_notice",
   "link",

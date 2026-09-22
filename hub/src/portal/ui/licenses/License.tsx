@@ -25,6 +25,7 @@ import {
 } from "@/portal/ui/format";
 import { ActivateDialog } from "@/portal/ui/licenses/ActivateDialog";
 import { EditDialog } from "@/portal/ui/licenses/EditDialog";
+import { RenameDialog } from "@/portal/ui/licenses/RenameDialog";
 import { StatusTag } from "@/portal/ui/licenses/StatusTag";
 import * as Modal from "@/portal/ui/Modal";
 import { Empty, Page, Section } from "@/portal/ui/Page";
@@ -181,6 +182,7 @@ interface MachineMenuProps {
 
 const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
   const [releasing, setReleasing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const download = useAction(
     useCallback(async () => {
       const blob = await postFile(`/api/portal/activations/${activation.key}/token`);
@@ -188,6 +190,7 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
     }, [activation.key, label]),
   );
   const release = useCallback(() => setReleasing(true), []);
+  const rename = useCallback(() => setRenaming(true), []);
   return (
     <>
       <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
@@ -200,10 +203,17 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
           <Icon.KebabMenu />
         </Dialog.Trigger>
         <Dialog.Dialog bordered rounded background={1} style={{ padding: "1rem" }}>
-          <Menu.Menu level="small" onChange={{ download: download.run, release }}>
+          <Menu.Menu
+            level="small"
+            onChange={{ download: download.run, rename, release }}
+          >
             <Menu.Item itemKey="download">
               <Icon.Download />
               Download token
+            </Menu.Item>
+            <Menu.Item itemKey="rename">
+              <Icon.Rename />
+              Rename
             </Menu.Item>
             <Menu.Item itemKey="release" status="error">
               <Icon.Release />
@@ -220,6 +230,11 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
       >
         <ReleaseContent activation={activation} />
       </Modal.Frame>
+      <RenameDialog
+        activation={activation}
+        visible={renaming}
+        onVisibleChange={setRenaming}
+      />
     </>
   );
 };

@@ -407,12 +407,15 @@ a hardware change.
 Issuing a token is one endpoint, `POST /api/portal/licenses/:key/activate`, taking a
 fingerprint and the name the machine goes by. The name is required, because the only
 moment anyone knows which box a set of hashes belongs to is the moment they activate it.
-It checks that the caller is a member of the owning organization, that the license is
-not revoked or expired, and that active activations are below `nodes` (or that this
-fingerprint already holds a seat), then inserts or touches the activation row, writes
-the event, and returns the signed token. It is rate limited per caller and per
-organization. Enterprise users reach it through the offline page (paste the fingerprint
-the Core printed, download the token) and Desktop's renewal (§5.8).
+A machine is renamed later through `POST /api/portal/activations/:key/name`, which
+writes a rename event. Renewal never touches the name, so a name chosen in the portal
+outlives the hostname the app first reported. It checks that the caller is a member of
+the owning organization, that the license is not revoked or expired, and that active
+activations are below `nodes` (or that this fingerprint already holds a seat), then
+inserts or touches the activation row, writes the event, and returns the signed token.
+It is rate limited per caller and per organization. Enterprise users reach it through
+the offline page (paste the fingerprint the Core printed, download the token) and
+Desktop's renewal (§5.8).
 
 Staff issue every enterprise license, trials included, from the staff area: pick the
 organization, set node count, channel cap, a label, and the term. A subscription takes
@@ -560,19 +563,19 @@ keeps only what binds it to the session: the factory and the stack.
   `?license=`. An organization with no licenses sees why.
 - **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
   by name, each with the status of its license, how long that license still runs, first
-  seen, last renewal, and an Unlink action. A machine whose license lapsed reads Expired
-  and is told to open the app there, since only the app renews it. The Enterprise panel
-  sits beneath the list.
+  seen, last renewal, and Rename and Unlink actions. A machine whose license lapsed
+  reads Expired and is told to open the app there, since only the app renews it. The
+  Enterprise panel sits beneath the list.
 - **License** (`/portal/licenses/<key>`): The label, status tag, and actions on top:
   Activate a machine, and for staff Edit, Floating token, and Revoke, the last a hold to
   confirm. Edit changes the terms of the license in place, keeping its key so seats and
   history survive a renewal; it refuses a seat count below the machines holding one, and
   the machines take the new terms on their next token. A facts grid for edition, term,
   seats, channels, issued, and key. The machines table with first seen, last token, and
-  a per-machine menu of Download token and Release, the latter confirmed. The license's
-  activity from the event table beneath, newest first. Each line names the machine the
-  event concerned and the person who acted, resolved through Clerk. A machine renewing
-  itself is named once.
+  a per-machine menu of Download token, Rename, and Release, the last confirmed. The
+  license's activity from the event table beneath, newest first. Each line names the
+  machine the event concerned and the person who acted, resolved through Clerk. A
+  machine renewing itself is named once.
 - **Account** (`/portal/account`): Profile with name, email, avatar, and password change
   through Clerk's user API. For a personal user, the Enterprise panel in place of a
   teams section. For each team the user belongs to, its members with their roles, and

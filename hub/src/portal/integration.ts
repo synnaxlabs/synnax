@@ -34,6 +34,7 @@ const ROUTES: Record<string, string> = {
   "/api/portal/activations/[key]/token": "routes/activations/token.ts",
   "/api/portal/activations/[key]/release": "routes/activations/release.ts",
   "/api/portal/activations/[key]/unlink": "routes/activations/unlink.ts",
+  "/api/portal/activations/[key]/name": "routes/activations/name.ts",
   "/api/portal/desktop/link": "routes/desktop/link.ts",
   "/api/portal/desktop/renew": "routes/desktop/renew.ts",
 };
