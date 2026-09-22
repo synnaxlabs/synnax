@@ -1,4 +1,4 @@
-# C++ Development
+# C++ development
 
 ## Components
 

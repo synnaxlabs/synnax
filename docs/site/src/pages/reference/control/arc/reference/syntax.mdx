@@ -4,7 +4,7 @@ title: "Syntax"
 description:
   "Arc language syntax reference for comments, identifiers, literals, and statement
   structure"
-prev: "Language Reference"
+prev: "Language reference"
 prevURL: "/reference/control/arc/reference"
 next: "Types"
 nextURL: "/reference/control/arc/reference/types"
@@ -64,7 +64,7 @@ ox_pt_1
 
 ## Literals
 
-### Numeric Literals
+### Numeric literals
 
 Integer literals default to `i64`. Float literals default to `f64`.
 
@@ -75,7 +75,7 @@ Integer literals default to `i64`. Float literals default to `f64`.
 .25 // f64 (leading dot allowed)
 ```
 
-### Numeric Literals with Units
+### Numeric literals with units
 
 Unit suffixes attach directly to numbers (no whitespace):
 
@@ -93,7 +93,7 @@ compiler tracks dimensions (time, frequency, length, pressure, etc.) but does no
 implicitly convert between them. A `10hz` value is a frequency and will not satisfy a
 parameter that expects a time span.
 
-| Temporal Units | Meaning      |
+| Temporal units | Meaning      |
 | -------------- | ------------ |
 | `ns`           | nanoseconds  |
 | `us`           | microseconds |
@@ -102,17 +102,17 @@ parameter that expects a time span.
 | `min`          | minutes      |
 | `h`            | hours        |
 
-| Frequency Units | Meaning   |
+| Frequency units | Meaning   |
 | --------------- | --------- |
 | `hz`            | hertz     |
 | `khz`           | kilohertz |
 | `mhz`           | megahertz |
 
-### Boolean Literals
+### Boolean literals
 
 `true` and `false`.
 
-### String Literals
+### String literals
 
 Two forms, distinguished by delimiter:
 
@@ -144,7 +144,7 @@ The delimiter escape is asymmetric: `\"` is interpreted only inside `"..."`, and
 the delimiter, so no escape is needed. Any other backslash sequence (e.g., `\z`) is
 preserved as the two literal characters.
 
-### Raw Strings
+### Raw strings
 
 Prefix with `r` to disable escape processing. Every character in the body is verbatim —
 `\n` is the two characters `\` and `n`, not a newline:
@@ -159,7 +159,7 @@ In a raw string, the delimiter escape is still accepted by the lexer so the deli
 character can appear in the body, but the backslash is preserved in the value (`r"a\"b"`
 yields `a\"b`, four characters; `` r`a\`b` `` yields ``a\`b``).
 
-### Format Strings
+### Format strings
 
 Prefix with `f` to enable `{expr}` placeholders, with an optional format spec after `:`.
 Combine with `r` (as `rf` or `fr`) for raw + format.
@@ -290,7 +290,7 @@ The `{{` / `}}` escape mechanism is independent of the `r` prefix, so backslashe
 interfere with placeholder parsing. `rf"C:\logs\{name}.txt"` interpolates `{name}` and
 keeps every backslash literal.
 
-### Series Literals
+### Series literals
 
 Series (arrays) use square brackets:
 
@@ -314,7 +314,7 @@ Modules must be imported before their qualified members (`time.now`,
 `control.set_authority`, `status.set`, …) can be used. A single import uses the bare
 form; multiple imports go in an `import ( … )` block.
 
-### Single Module
+### Single module
 
 ```arc channels="trig, ts_out"
 import time
@@ -332,7 +332,7 @@ import time as t
 trig -> t.now{} -> ts_out
 ```
 
-### Multiple Modules
+### Multiple modules
 
 List several modules in one block, separated by whitespace:
 
@@ -346,14 +346,14 @@ import (
 
 <Divider.Divider x />
 
-## Authority Declarations
+## Authority declarations
 
 Authority declarations set the
 [control authority](/reference/control/arc/reference/standard-library/control#authority)
 for channels written by the program. They must appear before any `func`, `sequence`, or
 flow declarations.
 
-### Default Authority
+### Default authority
 
 Set a default authority for all channels:
 
@@ -363,7 +363,7 @@ authority 200
 
 When omitted, the system default is 255 (maximum).
 
-### Per-Channel Authority
+### Per-channel authority
 
 Set authority for specific channels using a grouped form:
 
