@@ -8,18 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/nav/Page";
+import { FLAGS } from "@/flags";
 import { CLIENT_NAV } from "@/pages/reference/client/_nav";
 import { CONCEPTS_NAV } from "@/pages/reference/concepts/_nav";
 import { CONSOLE_NAV } from "@/pages/reference/console/_nav";
 import { CONTROL_NAV } from "@/pages/reference/control/_nav";
 import { CORE_NAV } from "@/pages/reference/core/_nav";
 import { DRIVER_NAV } from "@/pages/reference/driver/_nav";
+import { PLUTO_NAV } from "@/pages/reference/pluto/_nav";
 
-// Pluto Components nav is temporarily hidden; content remains in docs/ for future fixup.
-// - Is this overall section helpful? To whom?
-// - pluto/line-plot.mdx example is broken.
+const visible = (nodes: PageNavNode[]): PageNavNode[] =>
+  nodes
+    .filter(({ flag }) => flag == null || FLAGS[flag])
+    .map((node) =>
+      node.children == null ? node : { ...node, children: visible(node.children) },
+    );
 
-export const REFERENCE_PAGES: PageNavNode[] = [
+export const REFERENCE_PAGES: PageNavNode[] = visible([
   { name: "Get started", key: "/reference/", href: "/reference/" },
   {
     name: "Installation",
@@ -32,4 +37,5 @@ export const REFERENCE_PAGES: PageNavNode[] = [
   CONSOLE_NAV,
   CLIENT_NAV,
   DRIVER_NAV,
-];
+  PLUTO_NAV,
+]);
