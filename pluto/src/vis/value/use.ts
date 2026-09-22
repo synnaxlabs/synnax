@@ -28,14 +28,11 @@ export const use = ({
   box,
   telem,
   color,
-  level = "small",
+  level,
   backgroundTelem,
   location,
   stalenessColor,
   stalenessTimeout,
-  valueBackgroundOverScan,
-  valueBackgroundShift,
-  clip,
   borderRadius,
 }: UseProps): void => {
   const memoProps = useMemoDeepEqual({
@@ -47,9 +44,6 @@ export const use = ({
     stalenessColor,
     stalenessTimeout,
     location,
-    valueBackgroundOverScan,
-    valueBackgroundShift,
-    clip,
     borderRadius,
   });
   const [, , setState] = Aether.use({

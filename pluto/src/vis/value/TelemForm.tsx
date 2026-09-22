@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type color, type notation, primitive, zod } from "@synnaxlabs/x";
+import { type color, type notation, zod } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -17,13 +17,10 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
 import { Staleness } from "@/vis/staleness";
 
 interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
-  tooltip: string[];
   stalenessTimeout?: number;
   stalenessColor?: color.Color;
 }
@@ -38,7 +35,6 @@ export interface TelemFormProps {
 }
 
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
-  const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
   const sourceP = zod.parse(telem.sourcePipelinePropsZ, value.telem?.props, {
     label: "source pipeline",
@@ -78,16 +74,8 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const handleSourceChange = (key: channel.Key | null): void => {
-    if (primitive.isNonZero(key) && client != null)
-      handleError(async () => {
-        const { name } = await client.channels.retrieve({ key });
-        set(`${path}.tooltip`, [name]);
-      }, "Failed to retrieve channel");
+  const handleSourceChange = (key: channel.Key | null): void =>
     handleChange({ valueStream: telem.streamChannelValue({ channel: key ?? 0 }) });
-  };
 
   const handleNotationChange = (notation: notation.Notation): void =>
     handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, notation }) });

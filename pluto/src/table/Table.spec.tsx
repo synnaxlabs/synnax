@@ -114,7 +114,7 @@ describe("Table", () => {
           variant: "value",
           props: {
             telem: telemTest.stringSourceSpec(source),
-            redline: Value.ZERO_READLINE,
+            redline: Value.ZERO_REDLINE,
             level: "h5",
             color: "#000000",
             units: "",
@@ -398,7 +398,7 @@ describe("Table", () => {
             variant: "value",
             props: {
               telem: telemTest.stringSourceSpec(source),
-              redline: Value.ZERO_READLINE,
+              redline: Value.ZERO_REDLINE,
               level: "h5",
               color: "#000000",
               units: "",

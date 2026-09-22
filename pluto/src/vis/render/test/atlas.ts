@@ -70,6 +70,12 @@ class StubOffscreenCanvas {
   }
 }
 
+// The production draw path clips through a Path2D, which node does not define.
+class StubPath2D {
+  rect(): void {}
+  roundRect(): void {}
+}
+
 export interface AtlasSurface {
   /** Canvas that draws text through a real atlas onto the recording surface. */
   canvas: SugaredOffscreenCanvasRenderingContext2D;
@@ -85,11 +91,12 @@ export interface AtlasSurface {
  * Construct a surface that runs the production text path: a real Sugared context over a
  * real atlas, recording where every glyph lands. Use it to assert where text was drawn,
  * which the {@link Recorder} cannot show, since it stands in for the atlas instead of
- * feeding it. Stubs `OffscreenCanvas`, so the caller must call `vi.unstubAllGlobals`
- * after the test.
+ * feeding it. Stubs `OffscreenCanvas` and `Path2D`, so the caller must call
+ * `vi.unstubAllGlobals` after the test.
  */
 export const atlasSurface = (): AtlasSurface => {
   vi.stubGlobal("OffscreenCanvas", StubOffscreenCanvas);
+  vi.stubGlobal("Path2D", StubPath2D);
   const glyphs: xy.XY[] = [];
   const target: Record<string, unknown> = {
     font: "",

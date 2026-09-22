@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, location, text, xy } from "@synnaxlabs/x";
+import { bounds, color, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
@@ -18,13 +18,11 @@ export const VARIANT = "gauge" as const;
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
-  position: xy.xyZ.optional(),
   color: color.crudeZ.optional(),
   bounds: bounds.boundsZ().optional(),
   barWidth: z.number().optional(),
   telem: telem.stringSourceSpecZ.optional(),
   ...Staleness.configZ.shape,
-  location: location.xy.optional(),
   units: z.string().optional(),
   level: text.levelZ.optional(),
 });

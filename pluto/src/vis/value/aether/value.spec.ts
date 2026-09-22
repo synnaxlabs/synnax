@@ -102,18 +102,15 @@ describe("value/aether/Value", () => {
       expect(parsed.stalenessTimeout).toBe(5);
       expect(parsed.level).toBe("p");
       expect(parsed.location).toEqual({ x: "left", y: "center" });
-      expect(parsed.clip).toBe(false);
     });
 
     it("should accept explicit overrides", () => {
       const parsed = value.Value.z.parse({
         box: BOX,
         level: "h2",
-        clip: true,
         location: { x: "center", y: "top" },
       });
       expect(parsed.level).toBe("h2");
-      expect(parsed.clip).toBe(true);
       expect(parsed.location).toEqual({ x: "center", y: "top" });
     });
   });
@@ -242,13 +239,13 @@ describe("value/aether/Value", () => {
       expect(sign?.x ?? 0).toBeLessThan(digit?.x ?? 0);
     });
 
-    // A clipped box drops the sign before any digit, so the cell would read as a
-    // positive number with nothing to show it had been cut.
-    it("should keep the negative sign inside a clipped box when the value overflows", () => {
+    // Trimming the sign before any digit would leave a negative reading drawn as a
+    // positive one, with nothing to show it had been cut.
+    it("should keep the negative sign inside the box when the value overflows", () => {
       const digits = "1".repeat(Math.ceil(box.width(BOX) / CHAR_WIDTH));
       const { component, recorder } = setup({
         value: `-${digits}`,
-        state: { location: { x: "center", y: "center" }, clip: true },
+        state: { location: { x: "center", y: "center" } },
       });
       recorder.clear();
       component.render({});
@@ -261,11 +258,8 @@ describe("value/aether/Value", () => {
     const firstFillTextX = (recorder: canvasTest.Recorder): number =>
       drawCalls(recorder, "fillText")[0].args[1] as number;
 
-    it("should trim a clipped value to an ellipsis rather than cut it at the edge", () => {
-      const { component, recorder } = setup({
-        value: "1234567890".repeat(4),
-        state: { clip: true },
-      });
+    it("should trim an overflowing value to an ellipsis rather than cut it at the edge", () => {
+      const { component, recorder } = setup({ value: "1234567890".repeat(4) });
       recorder.clear();
       component.render({});
       const [drawn] = fillTexts(recorder);
@@ -274,39 +268,43 @@ describe("value/aether/Value", () => {
       expect(drawn.length * CHAR_WIDTH).toBeLessThanOrEqual(box.width(BOX) - INSET);
     });
 
-    it("should keep the leading digits of a clipped centered value inside the box", () => {
+    it("should keep the leading digits of a centered value inside the box", () => {
       const { component, recorder } = setup({
         value: "1".repeat(40),
-        state: { location: { x: "center", y: "center" }, clip: true },
+        state: { location: { x: "center", y: "center" } },
       });
       recorder.clear();
       component.render({});
       expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
     });
 
-    it("should keep the leading digits of a clipped right-located value inside the box", () => {
+    it("should keep the leading digits of a right-located value inside the box", () => {
       const { component, recorder } = setup({
         value: "1".repeat(40),
-        state: { location: { x: "right", y: "center" }, clip: true },
+        state: { location: { x: "right", y: "center" } },
       });
       recorder.clear();
       component.render({});
       expect(firstFillTextX(recorder)).toBeGreaterThanOrEqual(box.left(BOX));
+    });
+
+    // Nothing legible fits, so a bare ellipsis is the only honest thing to draw: a
+    // lone leading digit would read as the whole value.
+    it("should fall back to a bare ellipsis when not one digit fits", () => {
+      const { component, recorder } = setup({
+        value: "123456",
+        state: { box: box.construct({ x: 0, y: 0 }, { width: 12, height: 50 }) },
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillTexts(recorder)).toEqual(["\u2026"]);
     });
 
     it("should leave a value that fits untouched", () => {
-      const { component, recorder } = setup({ value: "12.50", state: { clip: true } });
+      const { component, recorder } = setup({ value: "12.50" });
       recorder.clear();
       component.render({});
       expect(fillTexts(recorder)).toContain("12.50");
-    });
-
-    it("should not trim an unclipped value", () => {
-      const long = "1234567890".repeat(4);
-      const { component, recorder } = setup({ value: long });
-      recorder.clear();
-      component.render({});
-      expect(fillTexts(recorder)).toContain(long);
     });
   });
 
@@ -421,6 +419,32 @@ describe("value/aether/Value", () => {
       const styles = fillStyles(recorder);
       expect(styles).toContain(color.hex(THEME.colors.gray.l11));
       expect(styles).not.toContain(color.hex(illegible));
+    });
+
+    // A redline paints over the host's surface, so the fallback has to read against
+    // the fill rather than against the surface it hides.
+    it("should pick the legible gray against a filled background", () => {
+      const { component, recorder } = setup({
+        value: "1",
+        background: THEME.colors.gray.l11,
+      });
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).toContain(color.hex(THEME.colors.gray.l0));
+    });
+
+    it("should swap a custom color illegible against the fill", () => {
+      const nearWhite = color.construct("#fefefe");
+      const { component, recorder } = setup({
+        value: "1",
+        background: color.construct("#ffffff"),
+        state: { color: nearWhite },
+      });
+      recorder.clear();
+      component.render({});
+      const styles = fillStyles(recorder);
+      expect(styles).toContain(color.hex(THEME.colors.gray.l0));
+      expect(styles).not.toContain(color.hex(nearWhite));
     });
   });
 
@@ -557,51 +581,19 @@ describe("value/aether/Value", () => {
       const [, , w] = fillRectArgs(recorder);
       expect(w).toBe(box.width(BOX));
     });
-
-    it("should shift the background by valueBackgroundShift", () => {
-      const { component, recorder } = setup({
-        value: "1",
-        background: color.construct("#00ff00"),
-        state: { valueBackgroundShift: { x: 5, y: 3 } },
-      });
-      recorder.clear();
-      component.render({});
-      const [x, y] = fillRectArgs(recorder);
-      expect(x).toBe(5);
-      expect(y).toBe(3);
-    });
-
-    it("should expand the background by valueBackgroundOverScan", () => {
-      const { component, recorder } = setup({
-        value: "1",
-        background: color.construct("#00ff00"),
-        state: { valueBackgroundOverScan: { x: 10, y: 20 } },
-      });
-      recorder.clear();
-      component.render({});
-      const [, , w, h] = fillRectArgs(recorder);
-      expect(w).toBe(box.width(BOX) + 10);
-      expect(h).toBe(box.height(BOX) + 20);
-    });
   });
 
   describe("clip", () => {
-    it("should restrict drawing to the box when clip is set", () => {
-      const { component, recorder } = setup({ value: "1", state: { clip: true } });
-      recorder.clear();
-      component.render({});
-      expect(drawCalls(recorder, "scissor")).toHaveLength(1);
-    });
-
-    it("should not clip by default", () => {
+    it("should restrict drawing to the box", () => {
       const { component, recorder } = setup({ value: "1" });
       recorder.clear();
       component.render({});
-      expect(drawCalls(recorder, "scissor")).toHaveLength(0);
+      expect(drawCalls(recorder, "scissor")).toHaveLength(1);
+      expect(drawCalls(recorder, "scissor")[0].args[0]).toEqual(BOX);
     });
 
     it("should leave the clip region square by default", () => {
-      const { component, recorder } = setup({ value: "1", state: { clip: true } });
+      const { component, recorder } = setup({ value: "1" });
       recorder.clear();
       component.render({});
       expect(drawCalls(recorder, "scissor")[0].args[2]).toBeUndefined();
@@ -611,7 +603,7 @@ describe("value/aether/Value", () => {
       const radius = { topLeft: 0, topRight: 0, bottomRight: 6, bottomLeft: 0 };
       const { component, recorder } = setup({
         value: "1",
-        state: { clip: true, borderRadius: radius },
+        state: { borderRadius: radius },
       });
       recorder.clear();
       component.render({});

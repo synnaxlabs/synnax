@@ -56,7 +56,7 @@ const value: Spec<typeof valuePropsZ> = {
       },
       outlet: "stringifier",
     }),
-    redline: BaseValue.ZERO_READLINE,
+    redline: BaseValue.ZERO_REDLINE,
     color: color.hex(t.colors.gray.l10),
     level: "h5",
     units: "",

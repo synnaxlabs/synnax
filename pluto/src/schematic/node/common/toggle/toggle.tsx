@@ -32,7 +32,7 @@ export const toggleConfigZ = Label.labeledConfigZ.extend({
 });
 export type ToggleConfig = z.infer<typeof toggleConfigZ>;
 
-export const ZERO_BOOLEAN_SOURCE = telem.sourcePipeline("boolean", {
+const ZERO_BOOLEAN_SOURCE = telem.sourcePipeline("boolean", {
   connections: [{ from: "valueStream", to: "threshold" }],
   segments: {
     valueStream: telem.streamChannelValue({ channel: 0 }),
@@ -41,7 +41,7 @@ export const ZERO_BOOLEAN_SOURCE = telem.sourcePipeline("boolean", {
   outlet: "threshold",
 });
 
-export const ZERO_BOOLEAN_SINK = telem.sinkPipeline("boolean", {
+const ZERO_BOOLEAN_SINK = telem.sinkPipeline("boolean", {
   connections: [{ from: "setpoint", to: "setter" }],
   segments: {
     setter: control.setChannelValue({ channel: 0 }),

@@ -24,6 +24,12 @@ import { type Config } from "@/schematic/node/general/value/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
+/**
+ * Width of the border the symbol draws around the value. The canvas box the value
+ * renders into sits inside of it, so the two must agree.
+ */
+export const BORDER_WIDTH = 2;
+
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
   className?: string;
   height?: number;
@@ -38,12 +44,13 @@ export const Value = ({
   units = "psi",
   unitsLevel = "small",
   children,
-  inlineSize = 80,
+  inlineSize,
 }: RenderProps): ReactElement => {
   const symbolColor = symbolColorVar(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.variable("symbol-color")]: symbolColor,
+      [CSS.variable("value-border-width")]: `${BORDER_WIDTH}px`,
       height,
     }),
     [symbolColor, height],

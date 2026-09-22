@@ -17,7 +17,6 @@ import {
   text,
   xy,
 } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
@@ -51,22 +50,12 @@ const valueState = staleness.configZ.extend({
   color: color.colorZ.default(color.ZERO),
   stalenessColor: color.colorZ.default(color.ZERO),
   location: location.xy.default({ x: "left", y: "center" }),
-  valueBackgroundShift: xy.xyZ.default(xy.ZERO),
-  valueBackgroundOverScan: xy.xyZ.default(xy.ZERO),
-  // clip restricts canvas drawing to the configured box. Use when the
-  // host can't grow to fit the natural text width (e.g. a table cell);
-  // overflow gets truncated at the cell edge instead of bleeding past.
-  clip: z.boolean().default(false),
   // borderRadius rounds the clip region, in px. Set it when the host has rounded
   // corners, so the background fill does not square them off.
   borderRadius: border.crudeRadiusZ.optional(),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
-
-export interface ValueProps {
-  scale?: scale.XY;
-}
 
 interface InternalState {
   theme: theming.Theme;
@@ -148,8 +137,10 @@ export class Value
   }
 
   // Longest head of the value that fits in available, with an ellipsis standing in for
-  // what was cut. Returns the value unchanged when it already fits. The value font is
-  // monospaced, so one advance estimates the fit and a single remeasure confirms it.
+  // what was cut. Returns the value unchanged when it already fits, and the bare
+  // ellipsis when not even one digit does, so a cut reading is never mistaken for a
+  // whole one. The value font is monospaced, so one advance estimates the fit and a
+  // single remeasure confirms it.
   private ellipsize(
     canvas: SugaredOffscreenCanvasRenderingContext2D,
     value: string,
@@ -158,10 +149,10 @@ export class Value
   ): string {
     if (dims.width <= available || value.length < 2) return value;
     const advance = dims.width / value.length;
-    let head = Math.max(1, Math.floor(available / advance) - 1);
+    let head = Math.max(0, Math.floor(available / advance) - 1);
     let fitted = `${value.slice(0, head)}${ELLIPSIS}`;
     while (
-      head > 1 &&
+      head > 0 &&
       canvas.textDimensions(fitted, FILL_TEXT_OPTIONS).width > available
     ) {
       head -= 1;
@@ -170,18 +161,21 @@ export class Value
     return fitted;
   }
 
-  private getTextColor(): color.Color {
+  // Color the value draws in, given the color it draws on top of. Pass ZERO when no
+  // background is filled, which leaves the value on the host's own surface.
+  private getTextColor(background: color.Color): color.Color {
     const { theme } = this.internal;
     if (this.internal.stale)
       return staleness.resolveColor(this.state.stalenessColor, theme);
 
-    // gray.l0 is the background the text renders on; gray.l11 is the
-    // high-contrast end of the scale, legible against it in both themes.
-    const background = theme.colors.gray.l0;
-    const legible = theme.colors.gray.l11;
-    // Honor an explicit color unless it's illegible against the background.
+    // A redline paints any color under the value, so the legible fallback is whichever
+    // end of the gray scale stands out against what is actually there.
+    const { l0, l11 } = theme.colors.gray;
+    const surface = color.isZero(background) ? l0 : background;
+    const legible = color.pickByContrast(surface, l11, l0);
+    // Honor an explicit color unless it's illegible against the surface.
     if (color.isZero(this.state.color)) return legible;
-    if (color.contrast(background, this.state.color) < MIN_LEGIBLE_CONTRAST)
+    if (color.contrast(surface, this.state.color) < MIN_LEGIBLE_CONTRAST)
       return legible;
     return this.state.color;
   }
@@ -211,12 +205,10 @@ export class Value
     const start =
       location.x === "left" ? inset : isNegative ? fontHeight * SIGN_OFFSET : 0;
     let dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
-    if (this.state.clip) {
-      const fitted = this.ellipsize(canvas, value, bWidth - start, dims);
-      if (fitted !== value) {
-        value = fitted;
-        dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
-      }
+    const fitted = this.ellipsize(canvas, value, bWidth - start, dims);
+    if (fitted !== value) {
+      value = fitted;
+      dims = canvas.textDimensions(value, FILL_TEXT_OPTIONS);
     }
 
     const labelOffset = { ...xy.ZERO };
@@ -232,25 +224,19 @@ export class Value
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
-    const undoClip = this.state.clip
-      ? canvas.scissor(b, xy.ZERO, this.state.borderRadius)
-      : null;
+    const background =
+      this.state.backgroundTelem.type != noopColorSourceSpec.type
+        ? backgroundTelem.value()
+        : color.ZERO;
+
+    const undoClip = canvas.scissor(b, xy.ZERO, this.state.borderRadius);
     try {
-      if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-        const colorValue = backgroundTelem.value();
-        const isZero = color.isZero(colorValue);
-        if (!isZero) {
-          canvas.fillStyle = color.hex(colorValue);
-          canvas.fillRect(
-            ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
-            bWidth + this.state.valueBackgroundOverScan.x,
-            bHeight + this.state.valueBackgroundOverScan.y,
-          );
-        }
+      if (!color.isZero(background)) {
+        canvas.fillStyle = color.hex(background);
+        canvas.fillRect(...xy.couple(bTopLeft), bWidth, bHeight);
       }
 
-      const textColor = this.getTextColor();
-      canvas.fillStyle = color.hex(textColor);
+      canvas.fillStyle = color.hex(this.getTextColor(background));
 
       // If the value is negative, chop of the negative sign and draw it separately so
       // that the first digit always stays in the same position, regardless of the sign.
@@ -263,7 +249,7 @@ export class Value
         );
       canvas.fillText(value, ...xy.couple(labelPosition), undefined, FILL_TEXT_OPTIONS);
     } finally {
-      undoClip?.();
+      undoClip();
     }
   }
 }

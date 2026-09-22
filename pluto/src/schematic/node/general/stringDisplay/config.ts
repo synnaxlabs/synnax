@@ -20,7 +20,6 @@ export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
   color: color.crudeZ.optional(),
   textColor: color.crudeZ.optional(),
-  tooltip: z.array(z.string()).optional(),
   inlineSize: z.number().optional(),
   telem: telem.stringSourceSpecZ.optional(),
   level: text.levelZ.optional(),

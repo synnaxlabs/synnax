@@ -15,12 +15,14 @@
     border: var(--pluto-border);
     border-color: var(--pluto-symbol-display);
     border-radius: var(--pluto-border-radius);
-    border-width: 2px;
+    border-width: var(--pluto-value-border-width);
     padding: 0;
     flex-grow: 0;
     align-items: center;
     justify-content: center;
 
+    /* Only the picker preview puts a child in here. A placed symbol draws its value
+       on the canvas, which insets itself. */
     & .pluto-value__content {
         padding-left: 1.5rem;
         flex-grow: 1;
@@ -32,7 +34,7 @@
         height: 100%;
         padding: 0 1rem;
         background: transparent;
-        border-left: 2px solid var(--pluto-symbol-display);
+        border-left: var(--pluto-value-border-width) solid var(--pluto-symbol-display);
         text-align: center;
 
         &.pluto--h4 {

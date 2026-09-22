@@ -9,15 +9,7 @@
 
 import "@/table/cells/Cells.css";
 
-import {
-  type border,
-  box,
-  color,
-  location,
-  type record,
-  scale,
-  text,
-} from "@synnaxlabs/x";
+import { type border, box, color, location, type record, text } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 import { z } from "zod";
 
@@ -136,22 +128,8 @@ export const Value = ({
     color,
     stalenessTimeout,
     stalenessColor,
-    backgroundTelem: telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    }),
+    backgroundTelem: BaseValue.backgroundTelem(t, { bounds, gradient }),
     location: { x: "center", y: "center" },
-    clip: true,
     borderRadius,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);

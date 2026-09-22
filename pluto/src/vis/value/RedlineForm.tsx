@@ -16,7 +16,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
-import { type Redline, ZERO_READLINE } from "@/vis/value/redline";
+import { type Redline, ZERO_REDLINE } from "@/vis/value/redline";
 
 const boundsInputProps = { size: "small", showDragHandle: false } as const;
 
@@ -30,8 +30,8 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
   const { set, get } = Form.useContext();
   const { bounds } = Form.useFieldValue<Redline>(`${path}`, {
     defaultValue: {
-      bounds: { ...ZERO_READLINE.bounds },
-      gradient: [...ZERO_READLINE.gradient],
+      bounds: { ...ZERO_REDLINE.bounds },
+      gradient: [...ZERO_REDLINE.gradient],
     },
   });
   const scale = baseScale.scale(bounds);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, dimensions, type direction, type location, xy } from "@synnaxlabs/x";
+import { color, dimensions, type direction, type location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
@@ -20,7 +20,6 @@ export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 34, height: 16
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
-  position: xy.xyZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
   // The fill is what the symbol reads as, so its color is the symbol's own rather than
   // one of the indicator's. The toolbar recolors a selection through this key.

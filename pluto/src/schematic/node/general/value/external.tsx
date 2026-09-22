@@ -44,20 +44,22 @@ export const defaultConfig = (): Config => ({
     },
     outlet: "stringifier",
   }),
-  redline: BaseValue.ZERO_READLINE,
+  redline: BaseValue.ZERO_REDLINE,
 });
 
 const PREVIEW_HEIGHT = 25;
 const PREVIEW_INLINE_SIZE = 60;
 
-const Preview = ({ color }: Config): ReactElement => (
+// The picker draws its own text rather than the canvas the placed symbol uses, so it
+// takes the code typeface to read as the same symbol.
+const Preview = ({ color, units }: Config): ReactElement => (
   <Value
     color={color}
     height={PREVIEW_HEIGHT}
     inlineSize={PREVIEW_INLINE_SIZE}
-    units="psi"
+    units={units}
   >
-    <Text.Text>50.00</Text.Text>
+    <Text.Text variant="code">50.00</Text.Text>
   </Value>
 );
 

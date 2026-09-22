@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, color, location, scale, text, xy } from "@synnaxlabs/x";
+import { bounds, box, color, scale, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -18,27 +18,15 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
-export const GAUGE_SIZES = {
-  small: 80,
-  medium: 120,
-  large: 160,
-  huge: 200,
-} as const;
-
-export type GaugeSize = keyof typeof GAUGE_SIZES;
-export const gaugeSizeZ = z.enum(["small", "medium", "large", "huge"]);
-
 const gaugeState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   stalenessColor: color.colorZ.default(color.ZERO),
-  location: location.xy.default({ x: "left", y: "center" }),
   units: z.string().default("RPM"),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
-  // New gauge configuration properties
-  barWidth: z.number().default(12), // Width of the gauge bar in pixels
+  barWidth: z.number().default(12),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
