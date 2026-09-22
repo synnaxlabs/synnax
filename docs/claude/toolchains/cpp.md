@@ -23,11 +23,11 @@ Windows), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`).
 
 clang-format (repo-root `.clang-format`: LLVM base, 88-char lines, 4-space indent).
 Format with `scripts/clang_format.sh <path>`, check with
-`scripts/check_clang_format.sh <path>` (see `docs/claude/scripts.md`); install the
-pinned version via `scripts/install_clang_format.sh`, never a plain package-manager
-install. Include order: system `<...>`, then vendor, then internal `"..."`. Naming:
-`PascalCase` types, `camelCase`/`snake_case` functions (consistent within a component),
-`snake_case` variables, `UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
+`scripts/check_clang_format.sh <path>` (see `scripts/CLAUDE.md`); install the pinned
+version via `scripts/install_clang_format.sh`, never a plain package-manager install.
+Include order: system `<...>`, then vendor, then internal `"..."`. Naming: `PascalCase`
+types, `camelCase`/`snake_case` functions (consistent within a component), `snake_case`
+variables, `UPPER_CASE`/`kPascalCase` constants, lowercase namespaces.
 
 🚨 **NO NAMESPACE TERMINATION COMMENTS.** Never `} // namespace foo` — bare closing
 brace only. Claude sessions add these constantly. Delete on sight when editing a file

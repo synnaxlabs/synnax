@@ -18,7 +18,6 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { SIZE_LEVELS } from "@/schematic/node/common/size";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -56,14 +55,15 @@ export const StateIndicator = ({
           )
         : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
       backgroundColor,
       minWidth: inlineSize,
       height: HEIGHTS[size],
     }),
-    [colorVal, backgroundColor, inlineSize, size],
+    [symbolColor, backgroundColor, inlineSize, size],
   );
   return (
     <Primitive.Div

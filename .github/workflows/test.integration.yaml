@@ -17,7 +17,7 @@ on:
   pull_request:
     branches:
       - main
-      - rc
+      - release/**
     paths:
       - .bazeliskrc
       - .bazelrc
@@ -41,6 +41,7 @@ on:
       - freighter/ts/**
       - freighter/py/**
       - integration/**
+      - .github/scripts/check_artifact_cache.sh
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json
@@ -55,6 +56,8 @@ on:
       - x/go/**
       - x/media/**
       - x/ts/**
+
+  workflow_call:
 
   workflow_dispatch:
     inputs:
@@ -113,8 +116,6 @@ jobs:
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
-            echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
           else
             echo "VERSION=$(cat pkg/version/VERSION)-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
@@ -137,7 +138,7 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
-        run: integration/scripts/check_artifact_cache.sh all
+        run: .github/scripts/check_artifact_cache.sh all
 
       - name: Validate Test Coverage
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}

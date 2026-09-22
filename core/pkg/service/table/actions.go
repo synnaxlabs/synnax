@@ -19,12 +19,19 @@ import (
 // minCellDim is the floor enforced on row and column sizes.
 const minCellDim = 32
 
-// baseRowDim and baseColDim are the defaults used when an action bootstraps
-// the opposing axis on an empty table.
-const (
-	baseRowDim = 36
-	baseColDim = 72
-)
+// baseRow and baseCol are the entries an action gives the opposing axis when it
+// bootstraps that axis on an empty table. Both take their size from the schema.
+func baseRow() Row {
+	var r Row
+	r.ApplyDefaults()
+	return r
+}
+
+func baseCol() Column {
+	var c Column
+	c.ApplyDefaults()
+	return c
+}
 
 // deriveCellKey returns the key for the index-th replica of template. Both
 // reducers run the same scheme so optimistic client state agrees with the
@@ -42,9 +49,8 @@ func expandTemplate(template Cell, count int) []Cell {
 	cells := make([]Cell, count)
 	for i := range cells {
 		cells[i] = Cell{
-			Key:     deriveCellKey(template.Key, i),
-			Variant: template.Variant,
-			Props:   template.Props,
+			Key:    deriveCellKey(template.Key, i),
+			Config: template.Config,
 		}
 	}
 	return cells
@@ -76,7 +82,7 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 		cells = expandTemplate(*p.CellTemplate, n)
 	}
 	if len(state.Columns) == 0 && len(cells) > 0 {
-		state.Columns = slices.Repeat([]Column{{Size: baseColDim}}, len(cells))
+		state.Columns = slices.Repeat([]Column{baseCol()}, len(cells))
 	}
 	keys := make([]string, len(cells))
 	for i, c := range cells {
@@ -86,10 +92,10 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 	idx := min(int(p.Index), len(state.Rows))
 	state.Rows = slices.Insert(state.Rows, idx, row)
 	if state.Cells == nil {
-		state.Cells = make(map[string]Cell, len(cells))
+		state.Cells = make(map[string]CellConfig, len(cells))
 	}
 	for _, c := range cells {
-		state.Cells[c.Key] = c
+		state.Cells[c.Key] = c.Config
 	}
 	return state, nil
 }
@@ -121,7 +127,7 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		cells = expandTemplate(*p.CellTemplate, n)
 	}
 	if len(state.Rows) == 0 && len(cells) > 0 {
-		state.Rows = slices.Repeat([]Row{{Size: baseRowDim}}, len(cells))
+		state.Rows = slices.Repeat([]Row{baseRow()}, len(cells))
 	}
 	idx := min(int(p.Index), len(state.Columns))
 	state.Columns = slices.Insert(
@@ -130,7 +136,7 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		Column{Size: max(p.Size, minCellDim)},
 	)
 	if state.Cells == nil {
-		state.Cells = make(map[string]Cell, len(cells))
+		state.Cells = make(map[string]CellConfig, len(cells))
 	}
 	for i := range state.Rows {
 		if i >= len(cells) {
@@ -140,7 +146,7 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		state.Rows[i].Cells = slices.Insert(state.Rows[i].Cells, rowIdx, cells[i].Key)
 	}
 	for _, c := range cells {
-		state.Cells[c.Key] = c
+		state.Cells[c.Key] = c.Config
 	}
 	return state, nil
 }
@@ -186,13 +192,13 @@ func (p ResizeColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle replaces the cell stored under p.Cell.Key. No-op if no entry with
-// that key exists.
+// Handle replaces the cell config stored under p.Cell.Key. No-op if no entry
+// with that key exists.
 func (p SetCellPayload) Handle(state Table) (Table, error) {
 	if _, ok := state.Cells[p.Cell.Key]; !ok {
 		return state, nil
 	}
-	state.Cells[p.Cell.Key] = p.Cell
+	state.Cells[p.Cell.Key] = p.Cell.Config
 	return state, nil
 }
 
@@ -256,11 +262,7 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		if _, ok := state.Cells[k]; !ok {
 			continue
 		}
-		state.Cells[k] = Cell{
-			Key:     k,
-			Variant: p.Template.Variant,
-			Props:   p.Template.Props,
-		}
+		state.Cells[k] = p.Template
 	}
 	return state, nil
 }

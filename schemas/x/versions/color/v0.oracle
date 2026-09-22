@@ -24,3 +24,21 @@ Color struct {
     @doc value  "is an RGBA color with RGB as 0-255 and alpha as 0-1."
     @go marshal
 }
+
+Stop struct {
+    key      string  {
+        @doc value "is the unique identifier for the stop."
+    }
+    color    Color   {
+        @doc value "is the color at this stop."
+    }
+    position float64 {
+        @doc value "is the normalized position of the stop along the gradient [0, 1]."
+    }
+    switched bool?   {
+        @doc value "indicates whether the stop's color has been switched by the user."
+    }
+
+    @doc value  "is a single color stop in a gradient."
+    @go marshal
+}
