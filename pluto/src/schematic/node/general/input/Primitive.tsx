@@ -10,6 +10,7 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/input/input.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
@@ -18,7 +19,6 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface PrimitiveProps extends Omit<Config, "variant"> {
   initialValue?: string;
@@ -30,15 +30,17 @@ export const Input = ({
   className,
   initialValue = "",
   orientation = "left",
-  color,
+  color: colorVal,
   size,
   onSend,
   disabled,
+  onClickDelay,
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
-    [color],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
   return (
     <Primitive.Div
@@ -65,6 +67,7 @@ export const Input = ({
           variant="filled"
           className={CSS.B("symbol-button")}
           onClick={() => onSend?.(value)}
+          onClickDelay={onClickDelay}
         >
           Send
         </BaseButton.Button>

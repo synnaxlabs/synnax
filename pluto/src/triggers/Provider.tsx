@@ -31,6 +31,7 @@ import {
   type MouseKey,
   type Trigger,
 } from "@/triggers/triggers";
+import { isInputOrContentEditable } from "@/util/event";
 
 /** Subscribes to every trigger event, returning the unsubscribe. */
 export interface Listen {
@@ -75,18 +76,6 @@ export interface ProviderProps extends PropsWithChildren {
   preventDefaultOn?: Trigger[];
   preventDefaultOptions?: MatchOptions;
 }
-
-const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
-    return true;
-  const isHTMLElement = e.target instanceof HTMLElement;
-  if (
-    isHTMLElement &&
-    (e.target.getAttribute("contenteditable") === "true" || e.target.role === "textbox")
-  )
-    return true;
-  return false;
-};
 
 const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
   if (EXCLUDE_TRIGGERS.includes(key)) return false;

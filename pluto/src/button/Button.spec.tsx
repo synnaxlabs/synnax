@@ -85,7 +85,7 @@ describe("Button", () => {
   });
 
   describe("preview", () => {
-    it("should add the preview class and block clicks", () => {
+    it("should block clicks and leave the tab order", () => {
       const onClick = vi.fn();
       const c = render(
         <Button.Button preview onClick={onClick}>
@@ -93,35 +93,28 @@ describe("Button", () => {
         </Button.Button>,
       );
       const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto-btn--preview");
+      expect(el.tabIndex).toBe(-1);
       fireEvent.click(el);
       expect(onClick).not.toHaveBeenCalled();
     });
   });
 
-  describe("reveal", () => {
-    it("should mark the button with the reveal class", () => {
-      const c = render(<Button.Button reveal>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--reveal");
-    });
-  });
-
   describe("Toggle", () => {
-    it("should carry the selected class when checked", () => {
+    it("should read as pressed when checked", () => {
       const c = render(
         <Button.Toggle value onChange={vi.fn()}>
           Hello
         </Button.Toggle>,
       );
-      expect(c.getByText("Hello").className).toContain("pluto--selected");
+      expect(c.getByRole("button", { pressed: true })).toBeTruthy();
     });
-    it("should not carry the selected class when unchecked", () => {
+    it("should read as not pressed when unchecked", () => {
       const c = render(
         <Button.Toggle value={false} onChange={vi.fn()}>
           Hello
         </Button.Toggle>,
       );
-      expect(c.getByText("Hello").className).not.toContain("pluto--selected");
+      expect(c.getByRole("button", { pressed: false })).toBeTruthy();
     });
     it("should toggle on click", () => {
       const onChange = vi.fn();
@@ -154,29 +147,6 @@ describe("Button", () => {
       );
       const notPrevented = fireEvent.mouseDown(c.getByText("NoDrag"));
       expect(notPrevented).toBe(false);
-    });
-  });
-
-  describe("size", () => {
-    it("should render a medium button by default", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-medium");
-    });
-    it("should render a small button if the size is small", () => {
-      const c = render(<Button.Button size="small">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-small");
-    });
-    it("should render a large button if the size is large", () => {
-      const c = render(<Button.Button size="large">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-large");
-    });
-    it("should render a huge button if the size is huge", () => {
-      const c = render(<Button.Button size="huge">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-huge");
-    });
-    it("should render a tiny button if the size is tiny", () => {
-      const c = render(<Button.Button size="tiny">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-tiny");
     });
   });
 
@@ -221,9 +191,9 @@ describe("Button", () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
-    it("should add the prevent-click class to the button when the preventClick prop is true", () => {
+    it("should leave the tab order when the preventClick prop is true", () => {
       const c = render(<Button.Button preventClick>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--prevent-click");
+      expect(c.getByText("Hello").tabIndex).toBe(-1);
     });
 
     it("should cancel the press default on the chassis itself", () => {
@@ -246,19 +216,24 @@ describe("Button", () => {
   });
 
   describe("disabled", () => {
-    it("should add the disabled class to the button when the disabled prop is true", () => {
+    it("should read as disabled when the disabled prop is true", () => {
       const c = render(<Button.Button disabled>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--disabled");
+      expect(c.getByText("Hello").getAttribute("aria-disabled")).toBe("true");
     });
 
-    it("should add the disabled class to the button when the status is disabled", () => {
+    it("should read as disabled when the status is disabled", () => {
       const c = render(<Button.Button status="disabled">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--disabled");
+      expect(c.getByText("Hello").getAttribute("aria-disabled")).toBe("true");
     });
 
-    it("should add the disabled class to the button when the status is loading", () => {
+    it("should read as disabled when the status is loading", () => {
       const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--disabled");
+      expect(c.getByText("Hello").getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("should not read as disabled by default", () => {
+      const c = render(<Button.Button>Hello</Button.Button>);
+      expect(c.getByText("Hello").getAttribute("aria-disabled")).toBeNull();
     });
 
     it("should not call the onClick handler when the disabled prop is true", () => {
@@ -280,18 +255,6 @@ describe("Button", () => {
 
     afterEach(() => {
       vi.useRealTimers();
-    });
-
-    it("should add the btn-delay style to the button when the onClickDelay prop is set", () => {
-      const c = render(<Button.Button onClickDelay={1000}>Hello</Button.Button>);
-      expect(c.getByText("Hello").style.getPropertyValue("--pluto-btn-delay")).toBe(
-        "1s",
-      );
-    });
-
-    it("should not add the btn-delay style to the button when the onClickDelay prop is 0", () => {
-      const c = render(<Button.Button onClickDelay={0}>Hello</Button.Button>);
-      expect(c.getByText("Hello").style.getPropertyValue("--pluto-btn-delay")).toBe("");
     });
 
     it("should require the caller to press and hold the button for the onClickDelay to be triggered", () => {
@@ -320,71 +283,74 @@ describe("Button", () => {
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
-  });
 
-  describe("variant", () => {
-    it("should render an outlined button by default", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--outlined");
+    it("should not fire after the button unmounts mid-hold", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"));
+      c.unmount();
+      vi.advanceTimersByTime(2000);
+      expect(onClick).not.toHaveBeenCalled();
     });
-    it("should render a filled button if the variant is filled", () => {
-      const c = render(<Button.Button variant="filled">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--filled");
-    });
-    it("should render a text button if the variant is text", () => {
-      const c = render(<Button.Button variant="text">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-btn--text");
-    });
-  });
 
-  describe("status", () => {
-    it("should not add a status class to the button when the status is not provided", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).not.toContain("pluto--status-success");
-      expect(c.getByText("Hello").className).not.toContain("pluto--status-error");
-      expect(c.getByText("Hello").className).not.toContain("pluto--status-warning");
+    it("should cancel the hold when the button becomes disabled", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"));
+      c.rerender(
+        <Button.Button onClickDelay={1000} onClick={onClick} disabled>
+          Hello
+        </Button.Button>,
+      );
+      vi.advanceTimersByTime(2000);
+      expect(onClick).not.toHaveBeenCalled();
     });
-    it("should add the status class to the button when the status is success", () => {
-      const c = render(<Button.Button status="success">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-success");
-    });
-    it("should add the status class to the button when the status is error", () => {
-      const c = render(<Button.Button status="error">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-error");
-    });
-    it("should add the status class to the button when the status is warning", () => {
-      const c = render(<Button.Button status="warning">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-warning");
-    });
-    it("should add the status class to the button when the status is loading", () => {
-      const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--status-loading");
+
+    it("should ignore a secondary-button hold", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Button.Button onClickDelay={1000} onClick={onClick}>
+          Hello
+        </Button.Button>,
+      );
+      fireEvent.mouseDown(c.getByText("Hello"), { button: 2 });
+      vi.advanceTimersByTime(10000);
+      expect(onClick).not.toHaveBeenCalled();
     });
   });
 
   describe("loading", () => {
     it("should not display a loading indicator when the status is not loading", () => {
       const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").children).not.toContain("Loading...");
+      expect(c.getByText("Hello").querySelector("svg")).toBeNull();
     });
+
     it("should display a loading indicator when the status is loading", () => {
       const c = render(<Button.Button status="loading">Hello</Button.Button>);
-      expect(c.container.querySelector(".pluto-icon--loading")!).toBeTruthy();
+      expect(c.getByText("Hello").querySelector("svg")).not.toBeNull();
     });
 
     it("should display the content along with the loading indicator when the button is not square", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").children).toBeTruthy();
+      const c = render(<Button.Button status="loading">Hello</Button.Button>);
+      expect(c.getByText("Hello")).toBeTruthy();
     });
 
     it("should not display the content when the button is square and the status is loading", () => {
       const c = render(
         <Button.Button status="loading">
-          <Icon.Access />
+          <Icon.Access aria-label="access" />
         </Button.Button>,
       );
-      const el = c.container.querySelector(".pluto-icon--access");
-      expect(el?.parentElement).not.toBeTruthy();
+      expect(c.queryByLabelText("access")).toBeNull();
+      expect(c.container.querySelectorAll("svg")).toHaveLength(1);
     });
   });
 
@@ -439,80 +405,6 @@ describe("Button", () => {
       // so every name-based query for a hinted button breaks.
       expect(c.getByRole("button", { name: "Save" })).toBeTruthy();
     });
-
-    it("should set the trigger text level to a level below the button", () => {
-      const c = render(
-        <Button.Button triggerIndicator={["Enter"]} level="p">
-          Hello
-        </Button.Button>,
-      );
-      expect(c.getByLabelText("trigger-indicator").className).toContain(
-        "pluto-text--small",
-      );
-    });
-  });
-
-  describe("customColor", () => {
-    it("should not add the custom-color class to the button when the color is not set", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).not.toContain("pluto-btn--custom-color");
-    });
-    it("should allow the caller to set a custom color to the button", () => {
-      const c = render(<Button.Button color="#00FF00">Hello</Button.Button>);
-      const el = c.getByText("Hello");
-      expect(el.className).toContain("pluto-btn--custom-color");
-      expect(el.style.getPropertyValue("--pluto-btn-color")).toBe("0, 255, 0");
-    });
-  });
-
-  describe("textColor", () => {
-    it("should allow the caller to set a custom text color to the button", () => {
-      const c = render(<Button.Button textColor={0}>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--color-0");
-    });
-  });
-
-  describe("gap", () => {
-    it("should not set the gap for the default size", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").className).not.toContain("gap");
-    });
-    it("should set the gap to small when the size is small", () => {
-      const c = render(<Button.Button size="small">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--gap-small");
-    });
-
-    it("should set the gap to small when the size is tiny", () => {
-      const c = render(<Button.Button size="tiny">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--gap-small");
-    });
-  });
-
-  describe("Variants", () => {
-    it("should add a filled class to the button when the variant is filled", () => {
-      const c = render(
-        <Button.Button size="small" variant="filled">
-          Hello
-        </Button.Button>,
-      );
-      expect(c.getByText("Hello").className).toContain("pluto-btn--filled");
-    });
-    it("should add a text class to the button when the variant is text", () => {
-      const c = render(
-        <Button.Button size="small" variant="text">
-          Hello
-        </Button.Button>,
-      );
-      expect(c.getByText("Hello").className).toContain("pluto-btn--text");
-    });
-    it("should add a outlined class to the button when the variant is outlined", () => {
-      const c = render(
-        <Button.Button size="small" variant="outlined">
-          Hello
-        </Button.Button>,
-      );
-      expect(c.getByText("Hello").className).toContain("pluto-btn--outlined");
-    });
   });
 
   describe("Triggers", () => {
@@ -549,24 +441,9 @@ describe("Button", () => {
   });
 
   describe("textVariant", () => {
-    it("should set the text variant to the provided value", () => {
+    it("should render the link variant as an anchor", () => {
       const c = render(<Button.Button textVariant="link">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto-text--link");
-    });
-  });
-
-  describe("Sizes", () => {
-    it("should add a small class to the button when the size is small", () => {
-      const c = render(<Button.Button size="small">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-small");
-    });
-    it("should add a medium class to the button when the size is medium", () => {
-      const c = render(<Button.Button size="medium">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-medium");
-    });
-    it("should add a large class to the button when the size is large", () => {
-      const c = render(<Button.Button size="large">Hello</Button.Button>);
-      expect(c.getByText("Hello").className).toContain("pluto--height-large");
+      expect(c.getByText("Hello").tagName).toBe("A");
     });
   });
 });

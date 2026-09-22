@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement } from "react";
 import { z } from "zod";
 
@@ -85,7 +85,7 @@ export const createToggle = <C extends ToggleConfig>(
       sink,
       label,
       orientation = "left",
-      onClickDelay,
+      onClickDelay = 0,
       stalenessTimeout,
       stalenessColor,
       color: symbolColor,
@@ -113,7 +113,7 @@ export const createToggle = <C extends ToggleConfig>(
         <Sym
           enabled={enabled}
           onClick={toggle}
-          onClickDelay={onClickDelay}
+          onClickDelay={TimeSpan.milliseconds(onClickDelay)}
           orientation={orientation}
           color={stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor}
           {...rest}

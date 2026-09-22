@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensions, direction } from "@synnaxlabs/x";
+import { color, dimensions, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
+  createContext,
   type CSSProperties,
   type ReactElement,
+  use,
   useMemo,
 } from "react";
 
 import { CSS } from "@/css";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface SVGProps
   extends
@@ -31,6 +33,13 @@ export interface SVGProps
 
 export const BASE_SCALE = 0.8;
 
+/** True inside a delayed toggle, so the SVG draws the hold fill within its shapes. */
+export const HoldFill = createContext(false);
+HoldFill.displayName = "Primitive.HoldFill";
+
+// Strokes overflow the view box, so the fill reaches past it by a stroke width.
+const HOLD_FILL_MARGIN = 2;
+
 export const SVG = ({
   dimensions: dimsProp,
   orientation = "left",
@@ -41,19 +50,28 @@ export const SVG = ({
   scale = 1,
   ...rest
 }: SVGProps): ReactElement => {
+  const holdFill = use(HoldFill);
+  const id = useUniqueKey();
+  const holdBox = {
+    x: -HOLD_FILL_MARGIN,
+    y: -HOLD_FILL_MARGIN,
+    width: dimsProp.width + 2 * HOLD_FILL_MARGIN,
+    height: dimsProp.height + 2 * HOLD_FILL_MARGIN,
+  };
   const dir = direction.construct(orientation);
   const dims = useMemo(
     () => (dir === "y" ? dimensions.swap(dimsProp) : dimsProp),
     [dir, dimsProp],
   );
+  const symbolColor = color.rgbaString(colorVal);
   const pStyle = useMemo<CSSProperties>(
     () => ({
       ...style,
       aspectRatio: `${dims.width} / ${dims.height}`,
       width: dimensions.scale(dims, scale * BASE_SCALE).width,
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
     }),
-    [style, dims, scale, colorVal],
+    [style, dims, scale, symbolColor],
   );
 
   return (
@@ -64,7 +82,28 @@ export const SVG = ({
       {...rest}
       style={pStyle}
     >
-      <g>{children}</g>
+      <g>
+        {holdFill ? (
+          <>
+            <g id={id}>{children}</g>
+            <mask
+              id={`${id}-mask`}
+              className={CSS.BE("symbol-hold", "mask")}
+              maskUnits="userSpaceOnUse"
+              {...holdBox}
+            >
+              <use href={`#${id}`} />
+            </mask>
+            <rect
+              className={CSS.BE("symbol-hold", "fill")}
+              mask={`url(#${id}-mask)`}
+              {...holdBox}
+            />
+          </>
+        ) : (
+          children
+        )}
+      </g>
     </svg>
   );
 };
