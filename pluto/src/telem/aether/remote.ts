@@ -47,11 +47,27 @@ import {
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
-  feed: Pick<framer.Feed, "read" | "stream">;
+  feed: Pick<framer.Feed, "read" | "stream" | "readLatest">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
 }
+
+const readLatestSeries = async (
+  client: Client,
+  ch: channel.Channel,
+  onStatusChange?: status.Adder,
+): Promise<Series | null> => {
+  if (ch.virtual && !channel.isCalculated(ch)) return null;
+  try {
+    const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
+    if (latest == null || latest.length === 0) return null;
+    return latest;
+  } catch (e) {
+    onStatusChange?.(cstatus.fromException(e, "Failed to read latest value"));
+    return null;
+  }
+};
 
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
@@ -148,7 +164,16 @@ export class StreamChannelValue
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
-      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
+      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
+        this.notify();
+        return;
+      }
+      const latest = await readLatestSeries(client, ch, this.onStatusChange);
+      if (latest == null) return;
+      if (generation !== this.generation || this.leadingBuffer != null) return;
+      latest.acquire();
+      this.leadingBuffer = latest;
+      this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
@@ -564,7 +589,17 @@ export class StreamChannelStringValue
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
-      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
+      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
+        this.notify();
+        return;
+      }
+      const latest = await readLatestSeries(client, ch, this.onStatusChange);
+      if (latest == null) return;
+      if (generation !== this.generation || this.leadingBuffer != null) return;
+      latest.acquire();
+      this.leadingBuffer = latest;
+      this.decodedAt = -1;
+      this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(
