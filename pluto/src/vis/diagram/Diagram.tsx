@@ -33,7 +33,7 @@ import {
   type ComponentPropsWithRef,
   type FC,
   Fragment,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type KeyboardEvent,
   memo,
   type MouseEvent as ReactMouseEvent,
   type PropsWithChildren,
@@ -560,7 +560,7 @@ export const create = ({
     // Flow ignore defaultPrevented, so shortcuts and selection still fire. A dialog
     // opened from a node portals out of this element, hence the contains check.
     const handleActivationKey = useCallback(
-      (e: ReactKeyboardEvent<HTMLDivElement>): void => {
+      (e: KeyboardEvent<HTMLDivElement>): void => {
         if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
         if (isInputOrContentEditable(e)) return;
         blockActivation(e);
