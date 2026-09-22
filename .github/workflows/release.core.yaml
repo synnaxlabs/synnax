@@ -248,9 +248,8 @@ jobs:
           Installer" .\scripts\synnax-setup-v${{ env.VERSION }}.exe
 
       - name: Upload Windows Installer
-        run:
-          gh release upload --clobber "$env:TAG"
-          .\scripts\synnax-setup-v$env:VERSION.exe
+        run: |
+          gh release upload --clobber "${{ env.TAG }}" .\scripts\synnax-setup-v${{ env.VERSION }}.exe
 
   publish:
     name: Publish
