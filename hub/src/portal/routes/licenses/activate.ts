@@ -15,6 +15,7 @@ import { filename, form, handle } from "@/portal/respond";
 import { badRequest } from "@/server/errors";
 import { activate, DENIAL_MESSAGES } from "@/server/license/activate";
 import { parse } from "@/server/license/fingerprint";
+import { readName } from "@/server/license/machine";
 import { check } from "@/server/ratelimit";
 
 /**
@@ -34,6 +35,7 @@ export const POST: APIRoute = async (context) =>
     } catch (err) {
       throw badRequest((err as Error).message);
     }
+    const name = readName(body.name);
     const now = portal.now();
     await check(portal.store, {
       actor: session.userID,
@@ -43,6 +45,7 @@ export const POST: APIRoute = async (context) =>
     const result = await activate(portal.store, portal.signer, {
       licenseKey: license.key,
       fingerprint,
+      name,
       actor: session.userID,
       now,
     });

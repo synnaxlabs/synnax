@@ -16,7 +16,7 @@ import {
   date,
   dateTime,
   edition,
-  shortHash,
+  machineName,
   statusOf,
   term,
 } from "@/portal/ui/format";
@@ -87,12 +87,12 @@ export const License = ({
         ) : (
           <Table
             columns={MACHINE_COLUMNS}
-            head={["Host", "First seen", "Last seen", ""]}
+            head={["Machine", "First seen", "Last seen", ""]}
           >
             {held.map((a) => (
               <Row key={a.key} columns={MACHINE_COLUMNS}>
-                <Text.Text level="p" variant="code" overflow="ellipsis">
-                  {shortHash(a.fingerprint)}
+                <Text.Text level="p" overflow="ellipsis">
+                  {machineName(a)}
                 </Text.Text>
                 <Text.Text level="p" color={10}>
                   {date(a.firstSeen)}
@@ -253,7 +253,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
     <>
       <Modal.Body gap="small">
         <Text.Text level="h4" weight={450}>
-          Release the seat held by {shortHash(activation.fingerprint)}?
+          Release the seat held by {machineName(activation)}?
         </Text.Text>
         <Text.Text level="p" color={10}>
           The Core on that machine loses its license at its next check. Activate it

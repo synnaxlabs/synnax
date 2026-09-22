@@ -20,6 +20,12 @@ export const shortHash = (hashes: string[]): string =>
     ? "Floating"
     : `${hashes[0].slice(0, 12)}${hashes.length > 1 ? ` +${hashes.length - 1}` : ""}`;
 
+/** machineName is what a machine reads as: its name, or its hashes before one. */
+export const machineName = (a: {
+  name: string | null;
+  fingerprint: string[];
+}): string => a.name ?? shortHash(a.fingerprint);
+
 export type LicenseStatus = "active" | "expired" | "revoked";
 
 /** statusOf derives a license's state from its dates at `now`. */

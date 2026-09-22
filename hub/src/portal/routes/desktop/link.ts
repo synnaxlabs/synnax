@@ -14,11 +14,9 @@ import { form, handle } from "@/portal/respond";
 import { badRequest } from "@/server/errors";
 import { link } from "@/server/license/desktop";
 import { parse } from "@/server/license/fingerprint";
+import { readName } from "@/server/license/machine";
 import { ensurePersonal } from "@/server/organization";
 import { check } from "@/server/ratelimit";
-
-/** MAX_NAME_LENGTH bounds the machine name a Desktop app reports. */
-export const MAX_NAME_LENGTH = 64;
 
 /**
  * POST links the signed-in user's machine: issues a desktop license bound to the
@@ -36,8 +34,7 @@ export const POST: APIRoute = async (context) =>
     } catch (err) {
       throw badRequest((err as Error).message);
     }
-    const machineName = (body.name ?? "").trim().slice(0, MAX_NAME_LENGTH);
-    if (machineName === "") throw badRequest("The machine needs a name");
+    const machineName = readName(body.name);
     const now = portal.now();
     const org = await ensurePersonal(portal.store, {
       userID: session.userID,

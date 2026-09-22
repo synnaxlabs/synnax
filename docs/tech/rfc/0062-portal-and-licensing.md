@@ -399,15 +399,18 @@ can later provision integration test runners without sharing state with the sign
 ### 5.7 Portal licenses and the activation ledger
 
 An organization's licenses page lists its licenses with edition, term, node count, and
-activations. Each license opens to its activation ledger: machines that hold seats, when
-they were last issued a token, and a release action that frees the seat. A released
-machine can reactivate, which is the Ignition shape for a hardware change.
+activations. Each license opens to its activation ledger: machines that hold seats by
+the name given at activation, when they were last issued a token, and a release action
+that frees the seat. A released machine can reactivate, which is the Ignition shape for
+a hardware change.
 
 Issuing a token is one endpoint, `POST /api/portal/licenses/:key/activate`, taking a
-fingerprint. It checks that the caller is a member of the owning organization, that the
-license is not revoked or expired, and that active activations are below `nodes` (or
-that this fingerprint already holds a seat), then inserts or touches the activation row,
-writes the event, and returns the signed token. It is rate limited per caller and per
+fingerprint and the name the machine goes by. The name is required, because the only
+moment anyone knows which box a set of hashes belongs to is the moment they activate it.
+It checks that the caller is a member of the owning organization, that the license is
+not revoked or expired, and that active activations are below `nodes` (or that this
+fingerprint already holds a seat), then inserts or touches the activation row, writes
+the event, and returns the signed token. It is rate limited per caller and per
 organization. Enterprise users reach it through the offline page (paste the fingerprint
 the Core printed, download the token) and Desktop's renewal (§5.8).
 
@@ -547,11 +550,11 @@ keeps only what binds it to the session: the factory and the stack.
   map to field help text; nothing else surfaces raw vendor copy.
 - **Licenses** (`/portal`, team members): The organization's licenses as a table of
   label, edition, term, seats in use, and a status tag. Activate a machine opens a
-  dialog: the license to activate, if the page did not name one, a field for the
-  fingerprint the Console copied, and an Activate action that downloads the token and
-  leaves the dialog in a done state with Download again. `/portal/licenses/activate`,
-  the page the Console links, is the licenses page with that dialog open, taking
-  `?license=`. An organization with no licenses sees why.
+  dialog: the license to activate, if the page did not name one, a name for the machine,
+  a field for the fingerprint the Console copied, and an Activate action that downloads
+  the token and leaves the dialog in a done state with Download again.
+  `/portal/licenses/activate`, the page the Console links, is the licenses page with
+  that dialog open, taking `?license=`. An organization with no licenses sees why.
 - **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
   by name, with first seen and last renewal, an Unlink action per machine, and an empty
   state. The Enterprise panel sits beneath the list.

@@ -12,7 +12,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { post, reload } from "@/portal/ui/api";
 import { Enterprise } from "@/portal/ui/Enterprise";
-import { date, shortHash } from "@/portal/ui/format";
+import { date, machineName } from "@/portal/ui/format";
 import * as Modal from "@/portal/ui/Modal";
 import { Empty, Page } from "@/portal/ui/Page";
 import { Row, Table } from "@/portal/ui/Table";
@@ -25,9 +25,6 @@ export interface DesktopProps {
 }
 
 const COLUMNS = "minmax(0, 2fr) 12rem 12rem 12rem";
-
-/** machineName is what a device row shows: its hostname, or its hashes before one. */
-const machineName = (d: Activation): string => d.name ?? shortHash(d.fingerprint);
 
 /** Desktop is a personal user's portal home: their Desktop devices. */
 export const Desktop = ({ devices }: DesktopProps): ReactElement => (
