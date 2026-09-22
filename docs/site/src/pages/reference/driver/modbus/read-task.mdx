@@ -39,7 +39,7 @@ This task follows the standard
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Input ([`holding_register`](https://www.modbustools.com/modbus.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding register input ([`holding_register`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Reads from 16-bit read/write registers (Function Code 03). Typically used for
 configuration parameters and analog outputs that can also be read back.
@@ -53,7 +53,7 @@ configuration parameters and analog outputs that can also be read back.
 | `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                                  |
 | `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number                                                              |
 
-**Data Type Sizes:**
+**Data type sizes:**
 
 - `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
@@ -62,7 +62,7 @@ configuration parameters and analog outputs that can also be read back.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input Register ([`input_register`](https://www.modbustools.com/modbus.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Input register ([`input_register`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Reads from 16-bit read-only registers (Function Code 04). Typically used for analog
 sensor values like temperature, pressure, or flow.
@@ -76,7 +76,7 @@ sensor values like temperature, pressure, or flow.
 | `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                                  |
 | `string_length` | number  | No       | `0`     | Register count to read as a string. `0` reads a number                                                              |
 
-**Data Type Sizes:**
+**Data type sizes:**
 
 - `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
@@ -85,7 +85,7 @@ sensor values like temperature, pressure, or flow.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Input ([`coil`](https://www.modbustools.com/modbus.html#Function01))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil input ([`coil`](https://www.modbustools.com/modbus.html#Function01))</Text.Text>
 
 Reads from 1-bit read/write coils (Function Code 01). Typically used for discrete output
 states that can be read back (e.g., relay states, valve positions).
@@ -95,12 +95,12 @@ states that can be read back (e.g., relay states, valve positions).
 | `channel` | number | Yes      | -       | Synnax channel key            |
 | `address` | number | Yes      | -       | Modbus coil address (0-65535) |
 
-**Data Type:** Always boolean (0/1)
+**Data type:** Always boolean (0/1)
 
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete Input ([`discrete_input`](https://www.modbustools.com/modbus.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Discrete input ([`discrete_input`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Reads from 1-bit read-only discrete inputs (Function Code 02). Typically used for binary
 sensor inputs (e.g., limit switches, proximity sensors).
@@ -110,7 +110,7 @@ sensor inputs (e.g., limit switches, proximity sensors).
 | `channel` | number | Yes      | -       | Synnax channel key                      |
 | `address` | number | Yes      | -       | Modbus discrete input address (0-65535) |
 
-**Data Type:** Always boolean (0/1)
+**Data type:** Always boolean (0/1)
 
 </ChannelType>
 

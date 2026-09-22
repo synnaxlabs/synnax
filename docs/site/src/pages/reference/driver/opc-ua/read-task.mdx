@@ -43,7 +43,7 @@ This task follows the standard
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Value /> Standard Mode (`array_mode=false`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Value /> Standard mode (`array_mode=false`)</Text.Text>
 
 Reads scalar values from an OPC UA node at the specified sample rate. Suitable for most
 applications with standard data rates.
@@ -63,7 +63,7 @@ applications with standard data rates.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Array /> Array Mode (`array_mode=true`)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Array /> Array mode (`array_mode=true`)</Text.Text>
 
 Reads array data from an OPC UA node in bulk. Designed for high-frequency data (&gt;500
 Hz) where the server writes samples into arrays.
@@ -79,7 +79,7 @@ Hz) where the server writes samples into arrays.
 | `channel` | number | Yes      | -       | Synnax channel key                          |
 | `node_id` | string | Yes      | -       | OPC UA NodeId pointing to an array variable |
 
-**Array Sampling Guidelines:**
+**Array sampling guidelines:**
 
 - Set `sample_rate` to match the OPC UA server's sample rate
 - Set `array_size` to an integer factor of the sample rate
@@ -90,7 +90,7 @@ Hz) where the server writes samples into arrays.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Time /> Server Timestamp Read</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Time /> Server timestamp read</Text.Text>
 
 Reads timestamps directly from the OPC UA server for high-precision timing instead of
 using Synnax-generated timestamps.

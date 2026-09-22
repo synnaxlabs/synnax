@@ -53,7 +53,7 @@ The request body is constructed from three types of fields, each placed at a JSO
 Pointer location in the body.
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Channel Field (required)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Channel field (required)</Text.Text>
 
 The channel field is the primary field on each endpoint. Its value comes from a Synnax
 command channel — when a value is written to the channel, the Driver places it in the
@@ -79,7 +79,7 @@ http.ChannelField(
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Enum Values</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Enum values</Text.Text>
 
 When the HTTP request body should contain string values that represent discrete states,
 use `enum_values` to map them to numbers. The Driver converts matching strings to their
@@ -97,7 +97,7 @@ http.ChannelField(
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Static Fields</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Static fields</Text.Text>
 
 Static fields place a fixed value in every request.
 
@@ -118,7 +118,7 @@ http.StaticWriteField(
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Details /> Generated Fields</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Details /> Generated fields</Text.Text>
 
 Generated fields produce a new value for each request. Two generator types are
 supported:
