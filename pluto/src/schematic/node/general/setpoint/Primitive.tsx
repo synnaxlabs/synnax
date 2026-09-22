@@ -11,7 +11,13 @@ import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/setpoint/setpoint.css";
 
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -38,6 +44,7 @@ export const Setpoint = ({
   onClickDelay,
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const symbolColor = color.rgbaString(colorVal);
   const mergedStyle = useMemo(
     () => ({ ...style, [CSS.variable("symbol-color")]: symbolColor }),
@@ -80,6 +87,7 @@ export const Setpoint = ({
         />
       </Handle.Boundary>
       <BaseInput.Numeric
+        ref={inputRef}
         size={size}
         value={currValue}
         onChange={setCurrValue}
@@ -95,6 +103,9 @@ export const Setpoint = ({
           className={CSS.B("symbol-button")}
           onClick={() => onChange(currValue)}
           onClickDelay={onClickDelay}
+          // WebKit leaves the input focused on a button press, so the typed value
+          // would never commit. Blurring commits it before the click or hold sends.
+          onMouseDown={() => inputRef.current?.blur()}
         >
           Set
         </BaseButton.Button>

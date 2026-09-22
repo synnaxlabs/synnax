@@ -40,6 +40,33 @@ describe("setpoint symbol", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
+    it("should send the value typed before a plain click", () => {
+      const onChange = vi.fn();
+      const { container, getByText } = render(<Setpoint onChange={onChange} />);
+      const input = container.querySelector("input");
+      if (input == null) throw new Error("expected an input");
+      input.focus();
+      fireEvent.change(input, { target: { value: "5" } });
+      const btn = getByText("Set");
+      fireEvent.mouseDown(btn);
+      fireEvent.click(btn);
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(5);
+    });
+
+    it("should send the value typed before the hold", () => {
+      const onChange = vi.fn();
+      const { container, getByText } = render(
+        <Setpoint onChange={onChange} onClickDelay={500} />,
+      );
+      const input = container.querySelector("input");
+      if (input == null) throw new Error("expected an input");
+      input.focus();
+      fireEvent.change(input, { target: { value: "5" } });
+      fireEvent.mouseDown(getByText("Set"));
+      vi.advanceTimersByTime(500);
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(5);
+    });
+
     it("should set after the delay while the button stays held", () => {
       const onChange = vi.fn();
       const { getByText } = render(<Setpoint onChange={onChange} onClickDelay={500} />);

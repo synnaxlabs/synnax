@@ -131,6 +131,17 @@ describe("useHold", () => {
       expect(pressed(button)).toBe(false);
     });
 
+    it("should fire the onClick current when the delay elapses", () => {
+      const stale = vi.fn();
+      const fresh = vi.fn();
+      const { button, rerender } = renderHold({ onClick: stale, onClickDelay: 500 });
+      fireEvent.mouseDown(button);
+      rerender(<Host onClick={fresh} onClickDelay={500} />);
+      advance(500);
+      expect(stale).not.toHaveBeenCalled();
+      expect(fresh).toHaveBeenCalledOnce();
+    });
+
     it("should restart the hold on a second press", () => {
       const onClick = vi.fn();
       const { button } = renderHold({ onClick, onClickDelay: 500 });

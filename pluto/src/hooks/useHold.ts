@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 
+import { useSyncedRef } from "@/hooks/ref";
 import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoCompare } from "@/memo";
 import { ACTIVATION_KEYS } from "@/util/event";
@@ -64,6 +65,8 @@ export const useHold = <E extends Element>({
     [onClickDelay],
   );
   const destructors = useDestructors();
+  // The hold outlives the press's render, so it fires whatever onClick is current.
+  const onClickRef = useSyncedRef(onClick);
   // WebKit sets :active on a secondary press, so pressed styling follows this flag.
   const [pressed, setPressed] = useState(false);
 
@@ -80,7 +83,7 @@ export const useHold = <E extends Element>({
     setPressed(true);
     const timeout = delay.isZero
       ? null
-      : setTimeout(() => onClick?.(e), delay.milliseconds);
+      : setTimeout(() => onClickRef.current?.(e), delay.milliseconds);
     const targets = releaseTargets();
     const release = (): void => {
       setPressed(false);
