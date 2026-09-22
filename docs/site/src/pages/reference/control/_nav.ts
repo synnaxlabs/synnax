@@ -19,7 +19,7 @@ export const CONTROL_NAV: PageNavNode = {
     {
       key: "/reference/control/get-started",
       href: "/reference/control/get-started",
-      name: "Get Started",
+      name: "Get started",
     },
     ARC_NAV,
     PYTHON_SEQUENCES_NAV,

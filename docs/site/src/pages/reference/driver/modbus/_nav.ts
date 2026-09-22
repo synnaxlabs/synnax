@@ -16,17 +16,17 @@ export const MODBUS_NAV: PageNavNode = {
     {
       key: "/reference/driver/modbus/connect-server",
       href: "/reference/driver/modbus/connect-server",
-      name: "Connect to a Server",
+      name: "Connect to a server",
     },
     {
       key: "/reference/driver/modbus/read-task",
       href: "/reference/driver/modbus/read-task",
-      name: "Read Task",
+      name: "Read task",
     },
     {
       key: "/reference/driver/modbus/write-task",
       href: "/reference/driver/modbus/write-task",
-      name: "Write Task",
+      name: "Write task",
     },
   ],
 };

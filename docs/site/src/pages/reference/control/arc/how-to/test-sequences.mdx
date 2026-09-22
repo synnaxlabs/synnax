@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Test Sequences"
+title: "Test sequences"
 description: "Build automated test sequences with stages, timing, and abort handling"
-prev: "Bang-Bang Control"
+prev: "Bang-bang control"
 prevURL: "/reference/control/arc/how-to/bang-bang-control"
 next: "Effective Arc"
 nextURL: "/reference/control/arc/effective-arc"
@@ -19,7 +19,7 @@ monitoring for abort conditions.
 
 <Divider.Divider x />
 
-## Basic Sequence
+## Basic sequence
 
 A minimal sequence with active and complete states:
 
@@ -50,7 +50,7 @@ virtual channel in Synnax, then wire it to a button in your Console schematic.
 
 <Divider.Divider x />
 
-## Timed Stages
+## Timed stages
 
 Use `time.wait` to add delays between stages:
 
@@ -86,7 +86,7 @@ The sequence pressurizes to 500 psi, holds for 30 seconds, then depressurizes.
 
 <Divider.Divider x />
 
-## Abort Handling
+## Abort handling
 
 Real test sequences need abort capability. List abort conditions first in each stage
 (line order determines priority):
@@ -146,7 +146,7 @@ first one listed wins.
 
 <Divider.Divider x />
 
-## Conditional Progression
+## Conditional progression
 
 Advance based on multiple conditions being satisfied:
 
@@ -184,7 +184,7 @@ the required values within 10 seconds, the sequence moves to a timeout stage ins
 
 <Divider.Divider x />
 
-## Inline Gates for Linear Procedures
+## Inline gates for linear procedures
 
 When a test is mostly ordered writes and waits but has one step that needs to watch
 multiple conditions, an inline stage keeps the procedure readable without forcing every
@@ -238,7 +238,7 @@ a multi-exit gate.
 
 <Divider.Divider x />
 
-## Rate-Limited Pressurization
+## Rate-limited pressurization
 
 Control the pressurization rate to avoid thermal shock or mechanical stress:
 
@@ -268,7 +268,7 @@ computes the rise rate in psi per second. The valve stays open while the rate is
 
 <Divider.Divider x />
 
-## Complete Test Stand Sequence
+## Complete test stand sequence
 
 A realistic rocket engine test sequence with all the patterns combined:
 
@@ -387,7 +387,7 @@ emergency_stop => abort
 
 <Divider.Divider x />
 
-## Sequence Design Tips
+## Sequence design tips
 
 **List abort conditions first.** Line order determines priority, and safety conditions
 should always win.

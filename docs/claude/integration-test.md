@@ -1,17 +1,17 @@
-# Writing Integration Tests
+# Writing integration tests
 
 How to write integration tests well, focused on Arc, where reactive-runtime semantics
 make naive tests flaky or silently wrong. For running tests and reading debug bundles,
 see `docs/claude/testing.md`.
 
-## Where Tests Live
+## Where tests live
 
 - Cases are Python files under `integration/tests/<area>/`, registered in
   `integration/tests/<area>_tests.json` as `"<area>/<file_stem>"`.
 - The conductor maps case name → file by stem and auto-discovers the single concrete
   `TestCase` subclass (class name need not match the file).
 
-## Structure Conventions
+## Structure conventions
 
 Model new Arc tests on the existing ones — they are the source of truth for API and
 style: `inline_bodies.py` (inline `stage {}`/`sequence {}` bodies, nesting),
@@ -30,7 +30,7 @@ Headless Arc tests extend `ArcCase` (`tests.arc.arc`) and must define `arc_sourc
 - `@dataclass` case list + loop when the same assertion repeats over varying inputs (as
   in the stl tests).
 
-## Triggers: Shared Start by Default
+## Triggers: Shared start by default
 
 The base class fires `start_cmd_channel` once on program load. Point every sequence's
 entry at it (`vars_start => a_main`, `=> b_main`, ...) so all sequences activate
@@ -39,7 +39,7 @@ trigger channels only when a section genuinely needs independent activation (one
 would fan out into conflicting transitions, or a flow must stay gated until a later
 step).
 
-## Arc Runtime Semantics (the traps)
+## Arc runtime semantics (the traps)
 
 - **Stage flows run concurrently.** Every flow executes asynchronously each cycle —
   never rely on line order within a stage for a value to be ready.
@@ -57,7 +57,7 @@ step).
   persists. Top-level variables are immutable; declare mutable variables in a sequence
   or stage.
 
-## No Timing Hacks
+## No timing hacks
 
 - No `time.now()` in the Arc program unless timing is what's being verified.
 - Never `sy.sleep` / `time.sleep` — use bounded polling helpers (`wait_for_eq`,
@@ -65,7 +65,7 @@ step).
 - Don't assert a value written on the same tick as a transition leaving the stage (race)
   — assert the definite downstream effect instead.
 
-## Test Vectoring
+## Test vectoring
 
 - Derive the case matrix from proven behavior (the feature's own unit tests), not
   assumptions about the runtime.
