@@ -15,12 +15,11 @@ import {
   type ReactElement,
   type ReactNode,
   useEffect,
-  useState,
 } from "react";
 
-import { useDiagnosticsModal } from "@/feature/embedded/Diagnostics";
 import { useStatus } from "@/feature/embedded/Provider";
 import { NAME } from "@/feature/embedded/useConnParams";
+import { useDiagnosticsModal } from "@/feature/embedded/useDiagnosticsModal";
 import { useRestart } from "@/feature/embedded/useRestart";
 import { Shell } from "@/feature/shell";
 import { Access } from "@/platform/access";
@@ -88,20 +87,19 @@ const SideEffect = (): null => {
   return null;
 };
 
-// Every guarded surface reads a denial from an empty policy set, so the workspace
-// cannot render before the policies land.
 interface BodyProps extends PropsWithChildren {
-  revealed?: boolean;
+  /** Holds the content back for a moment, so a short wait never flashes a spinner. */
+  delayed?: boolean;
 }
 
-const Body = ({ revealed = true, children }: BodyProps): ReactElement => (
+const Body = ({ delayed = false, children }: BodyProps): ReactElement => (
   <Shell.Frame className={CSS.B("embedded")}>
     <Flex.Box
       y
       align="center"
       justify="center"
       gap={8}
-      className={CSS.cls(CSS.BE("embedded", "body"), revealed && CSS.M("revealed"))}
+      className={CSS.cls(CSS.BE("embedded", "body"), delayed && CSS.M("delayed"))}
     >
       <Status.Orbital core={<PlatformShell.Mark />} />
       {children}
@@ -114,23 +112,15 @@ interface StartingProps {
   connected: boolean;
 }
 
-const Starting = ({ connected }: StartingProps): ReactElement => {
-  // A window that opens on a Core that already runs settles before this fires, so
-  // the card never flashes a spinner.
-  const [revealed, setRevealed] = useState(false);
-  useEffect(() => {
-    const timeout = setTimeout(() => setRevealed(true), 300);
-    return () => clearTimeout(timeout);
-  }, []);
-  return (
-    <Body revealed={revealed}>
-      <Status.Summary
-        variant="loading"
-        message={connected ? "Preparing your workspace..." : "Starting Synnax..."}
-      />
-    </Body>
-  );
-};
+// A window that opens on a Core that already runs settles within the delay.
+const Starting = ({ connected }: StartingProps): ReactElement => (
+  <Body delayed>
+    <Status.Summary
+      variant="loading"
+      message={connected ? "Preparing your workspace..." : "Starting Synnax..."}
+    />
+  </Body>
+);
 
 interface FailedProps {
   message: string;

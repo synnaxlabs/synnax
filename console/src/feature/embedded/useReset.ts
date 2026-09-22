@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { reset } from "@/feature/embedded/supervisor";
 import { Modals } from "@/platform/modals";
 
-const HOLD_TO_CONFIRM_MS = 1000;
+const HOLD_TO_CONFIRM = TimeSpan.seconds(1);
 
 /**
  * Returns a callback that erases everything Synnax Desktop has stored and starts the
@@ -29,7 +30,7 @@ export const useReset = (): (() => void) => {
           message: "Are you sure you want to erase all data?",
           description:
             "This permanently deletes every channel, all recorded data, and every project, and then restarts Synnax. It cannot be undone. Hold the button to confirm.",
-          confirm: { label: "Erase all data", delay: HOLD_TO_CONFIRM_MS },
+          confirm: { label: "Erase all data", delay: HOLD_TO_CONFIRM.milliseconds },
         });
         if (confirmed !== true) return;
         await reset();

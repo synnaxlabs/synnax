@@ -25,6 +25,8 @@ export const NAME = "Synnax";
 export const useConnParams = (): SynnaxParams | undefined => {
   const status = useStatus();
   const [connection, setConnection] = useState<Connection | null>(null);
+  // A set during render, behind a guard, makes React retry before it commits, so no
+  // child sees a stale connection. An effect would commit one render late.
   if (status.state === "running" && !deep.equal(connection, status.connection))
     setConnection(status.connection);
   return useMemo(

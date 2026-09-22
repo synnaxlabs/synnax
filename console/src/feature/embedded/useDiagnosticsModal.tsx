@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/embedded/Diagnostics.css";
+import "@/feature/embedded/useDiagnosticsModal.css";
 
 import { type status } from "@synnaxlabs/client";
 import { Button, Flex, Icon, Status, Text, useAsyncEffect } from "@synnaxlabs/pluto";
-import { Size, TimeStamp } from "@synnaxlabs/x";
+import { Size, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "react";
 
@@ -28,10 +28,11 @@ import {
 } from "@/feature/embedded/supervisor";
 import { useReset } from "@/feature/embedded/useReset";
 import { useRestart } from "@/feature/embedded/useRestart";
+import { useReveal } from "@/feature/embedded/useReveal";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
-const LOG_REFRESH_INTERVAL_MS = 2000;
+const LOG_REFRESH_INTERVAL = TimeSpan.seconds(2);
 
 const STATE_MESSAGES: Record<SupervisorStatus["state"], string> = {
   starting: "Starting",
@@ -100,7 +101,7 @@ const useLog = (): string => {
         if (!stopped) setLog(next);
       }, "Failed to read the log");
     refresh();
-    const interval = setInterval(refresh, LOG_REFRESH_INTERVAL_MS);
+    const interval = setInterval(refresh, LOG_REFRESH_INTERVAL.milliseconds);
     return () => {
       stopped = true;
       clearInterval(interval);
@@ -135,6 +136,8 @@ export const useDiagnosticsModal = Modals.create(() => {
   const addStatus = Status.useAdder();
   const restart = useRestart();
   const reset = useReset();
+  const revealData = useReveal(showData, "Failed to show the data folder");
+  const revealLogs = useReveal(showLogs, "Failed to show the logs");
   const handleExport = (): void =>
     handleError(async () => {
       const stamp = TimeStamp.now().toString("ISODate", "local");
@@ -198,17 +201,11 @@ export const useDiagnosticsModal = Modals.create(() => {
             <Icon.Delete />
             Erase all data
           </Button.Button>
-          <Button.Button
-            variant="outlined"
-            onClick={() => handleError(showData, "Failed to show the data folder")}
-          >
+          <Button.Button variant="outlined" onClick={revealData}>
             <Icon.Explore />
             Show data folder
           </Button.Button>
-          <Button.Button
-            variant="outlined"
-            onClick={() => handleError(showLogs, "Failed to show the logs")}
-          >
+          <Button.Button variant="outlined" onClick={revealLogs}>
             <Icon.Log />
             Show logs
           </Button.Button>
