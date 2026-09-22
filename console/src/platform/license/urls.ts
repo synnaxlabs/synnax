@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-const SITE_URL = "https://docs.synnaxlabs.com";
+/**
+ * Where the hub serves the account area. `VITE_SITE_URL` points a development build at
+ * a local hub or a preview deployment; a release build takes the default.
+ */
+const SITE_URL = import.meta.env.VITE_SITE_URL ?? "https://docs.synnaxlabs.com";
 
 /** The page that issues a token for a host fingerprint. */
 export const ACTIVATE_URL = `${SITE_URL}/account/licenses/activate`;
