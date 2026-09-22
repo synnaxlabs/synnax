@@ -123,6 +123,8 @@ while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.
 and that minor is the Core's latest stable minor or the next one, read from the `core/`
 tags instead of the `VERSION` file. A split, with some manifests on each train, fails
 the check, so a package minor bump is one PR that moves every manifest to the new train.
+The C++ client is a package: its manifest is `client/cpp/version/VERSION`, bumped with
+the rest and separate from the Driver's version, so the client can release on its own.
 The catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at
 publish, so any patch mix inside a train resolves; `pluto/package.json` pins
 `@synnaxlabs/freighter` and `@synnaxlabs/media` as `workspace:*`, which publishes exact
@@ -132,9 +134,8 @@ Every binary manifest carries `0.0.0` and the build injects the resolved `versio
 
 - **Core**: The existing `-ldflags -X` (`build.synnax.yaml:621-626`). The `VERSION` file
   and `//go:embed` fallback in `get.go` are deleted; `Get()` returns `0.0.0` when unset.
-- **Driver**: A `SYNNAX_VERSION` Bazel define, `0.0.0` in `.bazelrc`, that the release
-  build overrides; the `//client/cpp/version` genrule reads it instead of the `VERSION`
-  file.
+- **Driver**: A `SYNNAX_DRIVER_VERSION` Bazel define, `0.0.0` in `.bazelrc`, that the
+  release build overrides; the `//driver/version` genrule reads it.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`. A candidate runs as app
   version `X.Y.Z-N`, since the MSI bundler accepts only a numeric pre-release; its tag
   stays `X.Y.Z-rc.N` and its manifest carries the app version.
@@ -143,9 +144,10 @@ Dev binaries therefore run at `0.0.0`. The client compatibility checks (`isCompa
 in `client/ts/src/connection/status.ts`, `_versions_compatible` in
 `client/py/synnax/connection.py`, and `versions_compatible` in
 `client/cpp/connection/checker.cpp`, which the Driver ships) require an equal
-major.minor today and gain one rule: a `0.0` on either side is compatible. A dev Console
-or Driver then connects to any Core, and any client connects to a dev Core, without a
-mismatch warning.
+major.minor today and gain one rule: a `0.0` on either side is compatible. Any client
+then connects to a dev Core without a mismatch warning. The Driver's check carries the
+C++ client's manifest version, not the Driver's, so a dev Driver checks like a dev
+Python or TypeScript client: against the train the checkout is on.
 
 `bump_versions.sh` drops the `VERSION` and `tauri.conf.json` edits and bumps only the
 package manifests.

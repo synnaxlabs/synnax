@@ -262,7 +262,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       BAZEL_BUILD_FLAGS:
         --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt'
-        }} --announce_rc --verbose_failures --define=SYNNAX_VERSION=${{
+        }} --announce_rc --verbose_failures --define=SYNNAX_DRIVER_VERSION=${{
         needs.setup.outputs.VERSION }}
       BAZEL_REMOTE_CACHE_FLAGS:
         --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}

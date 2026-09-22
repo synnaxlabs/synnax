@@ -9,13 +9,13 @@
 
 #include "absl/log/log.h"
 
-#include "client/cpp/version/version.h"
+#include "driver/version/version.h"
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
 
 namespace driver::cmd::sub {
 std::string version() {
-    return "v" + std::string(SYNNAX_VERSION);
+    return "v" + std::string(SYNNAX_DRIVER_VERSION);
 }
 
 int version(x::args::Parser &args) {

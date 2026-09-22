@@ -89,6 +89,11 @@ for d in "${NODE_DIRS[@]}"; do
 done
 
 echo ""
+echo "Updating the C++ client..."
+printf '%s\n' "$VERSION" > "$ROOT_DIR/client/cpp/version/VERSION"
+echo "✅ Updated C++: $ROOT_DIR/client/cpp/version/VERSION"
+
+echo ""
 echo "================================"
 echo "Version bump complete. Running check_versions.sh to verify..."
 echo ""

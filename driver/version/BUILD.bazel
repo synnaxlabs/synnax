@@ -7,14 +7,14 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# The client version is the VERSION manifest, bumped with the other packages.
+# The Driver version is the SYNNAX_DRIVER_VERSION define; .bazelrc defaults it to 0.0.0
+# for dev builds and the release build overrides it.
 genrule(
     name = "version",
-    srcs = ["VERSION"],
     outs = ["version.h"],
     cmd = """
         echo '#pragma once' > $@ &&
-        echo '#define SYNNAX_CLIENT_VERSION \"'$$(cat $(execpath VERSION))'\"' >> $@
+        echo '#define SYNNAX_DRIVER_VERSION \"$(SYNNAX_DRIVER_VERSION)\"' >> $@
     """,
     visibility = ["//visibility:public"],
 )

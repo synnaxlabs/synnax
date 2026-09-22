@@ -25,6 +25,7 @@ NODE_DIRS = [
     "x/media",
     "x/ts",
 ]
+CPP_VERSION = "client/cpp/version/VERSION"
 
 
 class Repo:
@@ -56,6 +57,7 @@ class Repo:
             self.write(
                 f"{d}/package.json", f'{{\n  "name": "x",\n  "version": "{v}"\n}}\n'
             )
+        self.write(CPP_VERSION, overrides.get("cpp", version) + "\n")
 
     def write(self, rel: str, content: str) -> None:
         file = self.path / rel
@@ -64,7 +66,7 @@ class Repo:
 
     def check(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [str(SCRIPT), str(self.path)], capture_output=True, text=True
+            [str(SCRIPT), str(self.path)], capture_output=True, text=True, check=False
         )
 
 
@@ -103,6 +105,12 @@ class TestTrainRule:
         result = repo.check()
         assert result.returncode != 0
         assert "Node (" in result.stderr and "pluto" in result.stderr
+
+    def test_should_reject_a_split_cpp_client(self, repo: Repo) -> None:
+        repo.manifests("0.58.4", cpp="0.59.0")
+        result = repo.check()
+        assert result.returncode != 0
+        assert "C++ (" in result.stderr
 
 
 class TestTags:

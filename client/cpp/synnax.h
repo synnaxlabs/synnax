@@ -190,7 +190,7 @@ public:
             std::make_shared<connection::Checker>(
                 std::move(this->t.connectivity_check),
                 30 * x::telem::SECOND,
-                SYNNAX_VERSION,
+                SYNNAX_CLIENT_VERSION,
                 cfg.host,
                 cfg.clock_skew_threshold
             )
