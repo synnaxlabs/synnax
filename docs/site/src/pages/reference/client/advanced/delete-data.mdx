@@ -1,9 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Delete Data"
+title: "Delete data"
 description:
   "Safe data deletion with idempotency guarantees and rollback considerations."
-next: "Build a Device Driver"
+next: "Build a device driver"
 nextURL: "/reference/client/advanced/build-device-driver"
 prev: "Iterators"
 prevURL: "/reference/client/advanced/iterators"
@@ -29,7 +29,7 @@ entire channel's data is deleted, the channel is still in the database, albeit e
 
 <Divider.Divider x />
 
-## Deleting Data From a Channel
+## Deleting data from a channel
 
 The `delete` method of the client allows deletion of data (not to be confused with the
 `delete` method of the `Channel` class, which deletes channels). To delete a chunk of
@@ -112,7 +112,7 @@ await client.delete(
 
 <Divider.Divider x />
 
-## Limitations of Deletions
+## Limitations of deletions
 
 In some situations, `delete` raises an error. If some channel keys or names do not exist
 in the database, the entirety of the `delete` operation fails, no data is deleted, and a
@@ -146,7 +146,7 @@ deleted and the operation will fail. However, in all other cases, `delete` is **
 atomic: failure in deleting data on one channel halts the entire operation and raises an
 error immediately.
 
-### Index Channel Dependencies
+### Index channel dependencies
 
 If a `delete` call is made to an index channel that other channels depend on in the
 requested time range, an error is raised:
@@ -191,7 +191,7 @@ await client.delete(
   </Fragment>
 </Client.Tabs>
 
-### Active Writer Conflicts
+### Active writer conflicts
 
 `delete` calls on any channel with a writer whose start time is before the deleting time
 range will raise an error. This is to ensure that the writer and the deleter do not

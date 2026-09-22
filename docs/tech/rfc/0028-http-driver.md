@@ -228,7 +228,7 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
 
 **Type conversion for read tasks (JSON → Synnax):**
 
-| JSON Type | → Synnax Numeric                        | → Synnax String          |
+| JSON type | → Synnax numeric                        | → Synnax string          |
 | --------- | --------------------------------------- | ------------------------ |
 | `number`  | ⚠️ Direct (strict: error on truncation) | ✅ String representation |
 | `string`  | ❌ Error                                | ✅ Direct                |
@@ -443,7 +443,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 
 **Type conversion for write tasks (Synnax → JSON):**
 
-| Synnax Type         | → JSON `number` | → JSON `string`          | → JSON `boolean`      |
+| Synnax type         | → JSON `number` | → JSON `string`          | → JSON `boolean`      |
 | ------------------- | --------------- | ------------------------ | --------------------- |
 | Numeric (int/float) | ✅ Direct       | ✅ String representation | ✅ 0→false, else→true |
 | String              | ❌ Error        | ✅ Direct                | ❌ Error              |

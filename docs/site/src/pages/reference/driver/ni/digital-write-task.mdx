@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI Digital Write Task"
+title: "NI digital write task"
 description: "Learn how to send digital commands to NI devices with Synnax."
-prev: "Digital Read Task"
+prev: "Digital read task"
 prevURL: "/reference/driver/ni/digital-read-task"
 next: "OPC UA"
 nextURL: "/reference/driver/opc-ua/connect-server"
@@ -16,11 +16,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter    | Type   | Required | Default | Description                                   |
 | ------------ | ------ | -------- | ------- | --------------------------------------------- |
@@ -30,7 +31,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Configuration Reference
+## Channel configuration reference
 
 [DO Channel NI-DAQmx C API Reference](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__digital__output__channels_1ga4c427c02d6bd600f95455e07da8e41e4.html)
 
@@ -43,13 +44,13 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **One task per module** -> Only one running task can claim a module at a time.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
