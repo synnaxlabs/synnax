@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -66,8 +67,11 @@ type (
 	}
 )
 
-// Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users.
+// Create registers the new users with the provided credentials. A user whose Key
+// already belongs to an existing user is updated in place instead: its username,
+// password, and names are replaced with the request values, and the subject must hold
+// update access on that user. Empty names leave the existing values unchanged, as in
+// [Service.Rename]. If successful, Create returns the created or updated users.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -84,21 +88,89 @@ func (s *Service) Create(
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))
 	for i, nu := range req.Users {
+		existing, found, err := s.retrieveByKey(ctx, tx, nu.Key)
+		if err != nil {
+			return CreateResponse{}, err
+		}
+		if found {
+			if newUsers[i], err = s.update(ctx, tx, existing, nu); err != nil {
+				return CreateResponse{}, err
+			}
+			continue
+		}
 		if err := authW.Register(ctx, nu.Credentials); err != nil {
 			return CreateResponse{}, err
 		}
-		u, err := userW.Create(ctx, user.User{
+		if newUsers[i], err = userW.Create(ctx, user.User{
 			Username:  nu.Username,
 			FirstName: nu.FirstName,
 			LastName:  nu.LastName,
 			Key:       nu.Key,
-		})
-		if err != nil {
+		}); err != nil {
 			return CreateResponse{}, err
 		}
-		newUsers[i] = u
 	}
 	return CreateResponse{Users: newUsers}, nil
+}
+
+// retrieveByKey returns the user with the given key and whether one exists. A nil key
+// never matches.
+func (s *Service) retrieveByKey(
+	ctx context.Context,
+	tx gorp.Tx,
+	key user.Key,
+) (user.User, bool, error) {
+	if key == uuid.Nil {
+		return user.User{}, false, nil
+	}
+	var u user.User
+	err := s.internal.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return user.User{}, false, nil
+	}
+	if err != nil {
+		return user.User{}, false, err
+	}
+	return u, true, nil
+}
+
+// update replaces the username, password, and names of existing with the values in nu,
+// keeping the user record and credentials in sync.
+func (s *Service) update(
+	ctx context.Context,
+	tx gorp.Tx,
+	existing user.User,
+	nu NewUser,
+) (user.User, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{existing.OntologyID()},
+	}); err != nil {
+		return user.User{}, err
+	}
+	authW, userW := s.auth.NewWriter(tx), s.internal.NewWriter(tx)
+	if existing.Username != nu.Username {
+		if err := userW.ChangeUsername(ctx, existing.Key, nu.Username); err != nil {
+			return user.User{}, err
+		}
+		if err := authW.UpdateUsername(
+			ctx, existing.Username, nu.Username,
+		); err != nil {
+			return user.User{}, err
+		}
+	}
+	if err := authW.ChangePassword(ctx, nu.Credentials); err != nil {
+		return user.User{}, err
+	}
+	if err := userW.ChangeName(
+		ctx, existing.Key, nu.FirstName, nu.LastName,
+	); err != nil {
+		return user.User{}, err
+	}
+	var updated user.User
+	return updated, s.internal.NewRetrieve().
+		Where(user.MatchKeys(existing.Key)).Entry(&updated).Exec(ctx, tx)
 }
 
 type ChangeUsernameRequest struct {

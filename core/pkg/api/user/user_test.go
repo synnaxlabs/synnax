@@ -75,40 +75,131 @@ var _ = Describe("Service", func() {
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
-		It(
-			"Should reject a key that already belongs to a user and leave that user's "+
-				"record and credentials untouched",
-			func(ctx SpecContext) {
-				username := "original-" + uuid.NewString()
+		Describe("Existing key", func() {
+			// createUser commits a fresh user with the given password and returns it.
+			createUser := func(ctx SpecContext, password string) user.User {
+				GinkgoHelper()
 				tx := DeferClose(db.OpenTx())
 				res := MustSucceed(
 					apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
-						Users: []apiuser.NewUser{{Username: username, Password: "one"}},
+						Users: []apiuser.NewUser{{
+							Username: "existing-" + uuid.NewString(),
+							Password: password,
+						}},
 					}),
 				)
 				Expect(tx.Commit(ctx)).To(Succeed())
-				key := res.Users[0].Key
-				renamed := "renamed-" + uuid.NewString()
-				tx = DeferClose(db.OpenTx())
-				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
-					Users: []apiuser.NewUser{{
+				return res.Users[0]
+			}
+			// upsert commits a create request for nu and returns the resulting user.
+			upsert := func(ctx SpecContext, nu apiuser.NewUser) user.User {
+				GinkgoHelper()
+				tx := DeferClose(db.OpenTx())
+				res := MustSucceed(
+					apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{nu},
+					}),
+				)
+				Expect(tx.Commit(ctx)).To(Succeed())
+				return res.Users[0]
+			}
+			It(
+				"Should rename the user, rotate the password, and free the old username",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					renamed := "renamed-" + uuid.NewString()
+					res := upsert(ctx, apiuser.NewUser{
+						Username:  renamed,
+						Password:  "two",
+						FirstName: "First",
+						Key:       u.Key,
+					})
+					Expect(res.Key).To(Equal(u.Key))
+					Expect(res.Username).To(Equal(renamed))
+					Expect(res.FirstName).To(Equal("First"))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: renamed, Password: "two",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "one",
+					})).To(MatchError(auth.ErrInvalidCredentials))
+					Expect(userSvc.NewRetrieve().Where(user.MatchUsernames(u.Username)).
+						Exists(ctx, nil)).To(BeFalse())
+					// The original name must be reusable, both by renaming back and by
+					// a brand new user.
+					res = upsert(ctx, apiuser.NewUser{
+						Username: u.Username,
+						Password: "three",
+						Key:      u.Key,
+					})
+					Expect(res.Username).To(Equal(u.Username))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "three",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: renamed, Password: "two",
+					})).To(MatchError(auth.ErrInvalidCredentials))
+					other := upsert(ctx, apiuser.NewUser{
 						Username: renamed,
+						Password: "four",
+					})
+					Expect(other.Key).ToNot(Equal(u.Key))
+				},
+			)
+			It(
+				"Should rotate the password when the username is unchanged",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					res := upsert(ctx, apiuser.NewUser{
+						Username: u.Username,
 						Password: "two",
-						Key:      key,
-					}},
-				})).Error().To(MatchError(query.ErrUniqueViolation))
-				var stored user.User
-				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(key)).
-					Entry(&stored).Exec(ctx, nil)).To(Succeed())
-				Expect(stored.Username).To(Equal(username))
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: username, Password: "one",
-				})).To(Succeed())
-				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: renamed, Password: "two",
-				})).To(MatchError(auth.ErrInvalidCredentials))
-			},
-		)
+						Key:      u.Key,
+					})
+					Expect(res.Username).To(Equal(u.Username))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "two",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "one",
+					})).To(MatchError(auth.ErrInvalidCredentials))
+				},
+			)
+			It(
+				"Should reject a username held by another user and roll back",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					taken := createUser(ctx, "two")
+					tx := DeferClose(db.OpenTx())
+					Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{{
+							Username: taken.Username,
+							Password: "three",
+							Key:      u.Key,
+						}},
+					})).Error().To(MatchError(auth.ErrRepeatedUsername))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "one",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: taken.Username, Password: "two",
+					})).To(Succeed())
+				},
+			)
+			It(
+				"Should deny access when the subject lacks update permission",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					fctx, _ := nonRootCtx(ctx)
+					Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{{
+							Username: u.Username,
+							Password: "two",
+							Key:      u.Key,
+						}},
+					})).Error().To(MatchError(access.ErrDenied))
+				},
+			)
+		})
 		It(
 			"Should roll back the auth row when user creation fails inside the tx",
 			func(ctx SpecContext) {
