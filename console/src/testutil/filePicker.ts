@@ -50,10 +50,15 @@ export interface FilePickerInterceptor {
  */
 export const interceptFilePicker = (): FilePickerInterceptor => {
   const inputs: HTMLInputElement[] = [];
+  // Every other element keeps its native click: a component that actuates itself
+  // through the DOM must still work while a pick is intercepted.
+  const click = HTMLElement.prototype.click;
   vi.spyOn(HTMLElement.prototype, "click").mockImplementation(function (
     this: HTMLElement,
   ) {
-    if (this instanceof HTMLInputElement) inputs.push(this);
+    if (!(this instanceof HTMLInputElement) || this.type !== "file")
+      return click.call(this);
+    inputs.push(this);
   });
   const lastInput = (): HTMLInputElement => inputs[inputs.length - 1];
   return {
