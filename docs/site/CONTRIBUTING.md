@@ -19,23 +19,24 @@ referring to "George Washington" the first time, and then "Washington" thereafte
 
 ### Console components
 
-Console components are written in sentence case. Capitalize the first word of the
-component name, and keep the component type lowercase:
+Console components are common nouns. Write them in lowercase mid-sentence, and
+capitalize only at the start of a sentence or heading. Proper nouns inside a name keep
+their capital ("Core selector", "Arc explorer"):
 
-- Channels toolbar
+- channels toolbar
 - Core selector
-- Devices toolbar
-- Ranges toolbar
-- Search and command palette
-- Tasks toolbar
-- Users toolbar
-- Project selector
-- Projects toolbar
+- devices toolbar
+- ranges toolbar
+- search and command palette
+- tasks toolbar
+- users toolbar
+- project selector
+- projects toolbar
 
-Make sure to use the correct form (plural or singular) when referring to these ("Ranges
-toolbar" not "Range toolbar", and "Visualization toolbar" not "Visualizations toolbar").
-After referring to these once, you should use the lower case of the component type when
-referring to it ("toolbar", "selector", "palette").
+Make sure to use the correct form (plural or singular) when referring to these ("ranges
+toolbar" not "range toolbar", and "visualization toolbar" not "visualizations toolbar").
+After referring to these once, you should use the component type alone when referring to
+it ("toolbar", "selector", "palette").
 
 ### Task names
 
