@@ -118,6 +118,18 @@ describe("Ranger.Timeline", () => {
     expect(onChange).toHaveBeenCalledWith({ start: now + HOUR, end: now + 3 * HOUR });
   });
 
+  it("should name each time cell by the end it holds", () => {
+    const now = TimeStamp.now().nanoseconds;
+    render(
+      <Ranger.Timeline
+        value={{ start: now - HOUR, end: TimeStamp.MAX.nanoseconds }}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Start, Today \d/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "End, not set" })).toBeTruthy();
+  });
+
   it("should not offer an end before a range is scheduled", () => {
     const unset = TimeStamp.MAX.nanoseconds;
     render(

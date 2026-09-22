@@ -271,6 +271,14 @@ export const Timeline = ({
 
   const cell = { variant, level, size, disabled, preview, resolution };
 
+  // A cell's content is its value alone, so its name says which end it holds.
+  const cellName = (bound: string, instant: number): string =>
+    instant >= UNSET
+      ? `${bound}, not set`
+      : `${bound}, ${Input.formatInstant(instant, TimeStamp.now(), resolution)}`;
+  const startName = cellName("Start", start);
+  const endName = cellName("End", end);
+
   const endCell = (
     <>
       {ended && (
@@ -282,6 +290,7 @@ export const Timeline = ({
         value={end}
         onChange={handleEnd}
         anchors={endAnchors}
+        aria-label={endName}
         emptyValue={UNSET}
         placeholder="Set an end time"
         clearLabel="Remove end"
@@ -325,6 +334,7 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
+            aria-label={startName}
             emptyValue={UNSET}
             placeholder="Set a start time"
             clearLabel="Unschedule"
@@ -348,6 +358,7 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
+            aria-label={startName}
             bound="start"
             effect={startEffect}
             {...cell}
@@ -367,6 +378,7 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
+            aria-label={startName}
             bound="start"
             effect={startEffect}
             {...cell}
@@ -376,6 +388,7 @@ export const Timeline = ({
             value={end}
             onChange={handleEnd}
             anchors={endAnchors}
+            aria-label={endName}
             sharedDay={start}
             bound="end"
             effect={endEffect}
