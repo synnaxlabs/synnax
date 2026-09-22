@@ -780,6 +780,13 @@ These simplify implementation while maintaining expressiveness:
 - **Array/String**: Out-of-bounds access, length mismatch in series operations
 - **Channel**: Type mismatches (if not statically verified)
 
+A runtime error traps the node. The runtime reports the error and ends that node's
+cycle: the node emits no samples and marks no output changed, so nodes downstream of it
+do not run. A node processing a series discards the samples before the trap along with
+the rest, so output never depends on where in the series the trap occurred. Stateful
+variables keep what the body wrote before the trap, and the node runs again from that
+state on the next cycle.
+
 ## Compilation target
 
 Arc compiles exclusively to WebAssembly (WASM).
