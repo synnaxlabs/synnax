@@ -12,7 +12,7 @@ import "@/feature/account/SignIn.css";
 import { Button, Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { readName } from "@/feature/account/machine";
+import { readMachineName } from "@/feature/account/machine";
 import { mintState, signInURL } from "@/feature/account/portal";
 import { License } from "@/feature/license";
 import { Shell } from "@/feature/shell";
@@ -47,15 +47,15 @@ export const SignIn = (): ReactElement => {
   const [stage, setStage] = useState<Stage>("idle");
   if (stage === "file")
     return <License.Activate standalone onBack={() => setStage("idle")} />;
-  return <Browser stage={stage} onStage={setStage} />;
+  return <Handoff stage={stage} onStage={setStage} />;
 };
 
-interface BrowserProps {
+interface HandoffProps {
   stage: Exclude<Stage, "file">;
   onStage: (stage: Stage) => void;
 }
 
-const Browser = ({ stage, onStage }: BrowserProps): ReactElement => {
+const Handoff = ({ stage, onStage }: HandoffProps): ReactElement => {
   const { email } = Session.Account.useSelect();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
@@ -71,7 +71,7 @@ const Browser = ({ stage, onStage }: BrowserProps): ReactElement => {
       const url = signInURL({
         state,
         fingerprint: info.fingerprint,
-        name: await readName(),
+        name: await readMachineName(),
         version,
       });
       await Runtime.openExternal(url);

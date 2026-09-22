@@ -112,11 +112,19 @@ describe("Account.Guard", () => {
     const url = new URL(String(open.mock.calls[0][0]));
     expect(url.origin + url.pathname).toBe(License.PORTAL_SIGN_IN_URL);
     expect(url.searchParams.get("fp")).toBe("aa, bb");
-    expect(url.searchParams.get("name")).toBe(Account.DEFAULT_NAME);
+    expect(url.searchParams.get("name")).toBe(Account.DEFAULT_MACHINE_NAME);
     expect(url.searchParams.get("state")).toBe(
       Session.Account.select(store.getState()).pending,
     );
     expect(await screen.findByText("Waiting for your browser...")).toBeTruthy();
+  });
+
+  it("should ask to try again while the machine is offline", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    await renderGuard({ status: UNLICENSED });
+    expect(screen.getByText("You are offline")).toBeTruthy();
+    expect(findButton("Try again")).toBeTruthy();
+    expect(screen.queryByText("Sign in")).toBeNull();
   });
 
   it("should offer the license file screen and a way back", async () => {

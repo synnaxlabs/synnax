@@ -8,15 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { License } from "@/platform/license";
 
 /** The URL scheme the portal hands a sign-in back through. */
 export const SCHEME = "synnax-desktop";
 
-const LINK_PREFIX = `${SCHEME}://activate?`;
+const LINK_HOST = "activate";
 
-const INCORRECT_FORMAT_ERROR_MESSAGE = `Sign-in links must be of the form ${LINK_PREFIX}...`;
+const INCORRECT_FORMAT_ERROR_MESSAGE = `Sign-in links must be of the form ${SCHEME}://${LINK_HOST}?...`;
 
 /** Mints the state a sign-in carries out to the portal and back. */
 export const mintState = (): string => uuid.create();
@@ -53,39 +54,44 @@ export interface Linked {
   email: string;
 }
 
-const LINK_FIELDS: (keyof Linked)[] = [
-  "state",
-  "token",
-  "secret",
-  "activation",
-  "email",
-];
-
 /**
  * Reads the link the portal opens the app with.
  * @throws {Error} if the URL is not a sign-in link or a field is missing.
  */
 export const parseLink = (url: string): Linked => {
-  if (!url.startsWith(LINK_PREFIX)) throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
-  const params = new URL(url).searchParams;
-  const linked: Partial<Linked> = {};
-  for (const field of LINK_FIELDS) {
-    const value = params.get(field);
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch (e) {
+    throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE, { cause: e });
+  }
+  if (parsed.protocol !== `${SCHEME}:` || parsed.host !== LINK_HOST)
+    throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
+  const read = (field: keyof Linked): string => {
+    const value = parsed.searchParams.get(field);
     if (value == null || value === "")
       throw new Error(`The sign-in link is missing its ${field}`);
-    linked[field] = value;
-  }
-  return linked as Linked;
+    return value;
+  };
+  return {
+    state: read("state"),
+    token: read("token"),
+    secret: read("secret"),
+    activation: read("activation"),
+    email: read("email"),
+  };
 };
 
 export type RenewResult =
   { variant: "renewed"; token: string } | { variant: "unlinked"; message: string };
 
+const errorZ = z.object({ error: z.string() });
+const renewedZ = z.object({ token: z.string() });
+
 const readMessage = async (res: Response): Promise<string> => {
   try {
-    const body: unknown = await res.json();
-    if (body != null && typeof body === "object" && "error" in body)
-      return String(body.error);
+    const body = errorZ.safeParse(await res.json());
+    if (body.success) return body.data.error;
   } catch {
     // A body that is not JSON carries no message.
   }
@@ -106,8 +112,6 @@ export const renew = async (secret: string): Promise<RenewResult> => {
     return { variant: "unlinked", message: await readMessage(res) };
   if (!res.ok)
     throw new Error(`The portal refused the renewal: ${await readMessage(res)}`);
-  const body: unknown = await res.json();
-  if (body == null || typeof body !== "object" || !("token" in body))
-    throw new Error("The portal answered without a token");
-  return { variant: "renewed", token: String(body.token) };
+  const { token } = renewedZ.parse(await res.json());
+  return { variant: "renewed", token };
 };

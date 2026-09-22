@@ -16,10 +16,10 @@ import { renew, type RenewResult } from "@/feature/account/portal";
 import { Session } from "@/session";
 
 /** How often a running app checks whether its license needs a renewal. */
-export const CHECK_INTERVAL = TimeSpan.hours(6);
+const CHECK_INTERVAL = TimeSpan.hours(6);
 
 /** How close to its expiry a license is renewed. */
-export const RENEW_WINDOW = TimeSpan.days(7);
+const RENEW_WINDOW = TimeSpan.days(7);
 
 /** Whether the license that applies still covers the machine for the renew window. */
 const covered = (license: license.License | undefined, now: TimeStamp): boolean => {
