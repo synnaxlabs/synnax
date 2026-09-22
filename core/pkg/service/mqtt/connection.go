@@ -58,7 +58,8 @@ type message struct {
 	sparkplug *sparkplug.Event
 	topic     string
 	payload   []byte
-	// received is the time the message handler saw the message.
+	// received is the time the message handler saw the message, after the time of
+	// every earlier message of the connection.
 	received telem.TimeStamp
 	retained bool
 }
@@ -86,6 +87,8 @@ type connection struct {
 	// rebirths holds the rebirth requests that the connect loop sends.
 	rebirths chan rebirthRequest
 	ins      alamos.Instrumentation
+	// clock stamps arrivals in rising order. Only the delivery goroutine uses it.
+	clock telem.MonoClock
 	// lifecycle serializes configure, attach, and close, which wait on the broker.
 	// The pool lock never waits on a broker.
 	lifecycle struct {
@@ -397,7 +400,7 @@ func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 	msg := message{
 		topic:    m.Topic(),
 		payload:  m.Payload(),
-		received: telem.Now(),
+		received: c.clock.Now(),
 		retained: m.Retained(),
 	}
 	var (

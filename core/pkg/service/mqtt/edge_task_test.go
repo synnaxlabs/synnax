@@ -92,6 +92,19 @@ var _ = Describe("Edge task", func() {
 		return configured, t
 	}
 
+	// nextStamp returns the first of samples timestamps one millisecond apart, after
+	// every sample written so far. A coarse platform clock repeats values, and Cesium
+	// takes only data that comes after what it holds.
+	var lastStamp telem.TimeStamp
+	nextStamp := func(samples int64) telem.TimeStamp {
+		stamp := telem.Now()
+		if stamp <= lastStamp {
+			stamp = lastStamp + 1
+		}
+		lastStamp = stamp + telem.TimeStamp(samples-1)*telem.MillisecondTS
+		return stamp
+	}
+
 	// stream writes series on ch, stamped at idx when idx is a channel, until check
 	// passes, because a streamer misses the frames written before it connects. Each
 	// attempt writes at a later time, and check receives the timestamp of the first
@@ -110,12 +123,12 @@ var _ = Describe("Edge task", func() {
 		}
 		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 			Keys:  keys,
-			Start: telem.Now(),
+			Start: nextStamp(1),
 		}))
 		defer func() { Expect(w.Close()).To(Succeed()) }()
 		var written []telem.TimeStamp
 		Eventually(func(g Gomega) {
-			stamp := telem.Now()
+			stamp := nextStamp(series.Len())
 			fr := frame.NewUnary(ch.Key(), series)
 			if idx.Key() != 0 {
 				stamps := make([]telem.TimeStamp, series.Len())

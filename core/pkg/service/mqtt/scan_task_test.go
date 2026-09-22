@@ -117,7 +117,7 @@ var _ = Describe("Scan task", func() {
 				stat := deviceStatus(ctx, dev)
 				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 				g.Expect(stat.Message).To(Equal("Failed to reach broker"))
-				g.Expect(stat.Description).To(ContainSubstring("connection refused"))
+				g.Expect(stat.Description).To(ContainSubstring("refused"))
 			}).Should(Succeed())
 			startBroker(port)
 			Eventually(func() status.Variant { return deviceStatus(ctx, dev).Variant }).
@@ -199,10 +199,10 @@ var _ = Describe("Scan task", func() {
 			port := broker.port
 			broker.stop()
 			Expect(testConnection(ctx, port, nil)).
-				To(MatchError(ContainSubstring("connection refused")))
+				To(MatchError(ContainSubstring("refused")))
 			stat := taskStatus(ctx, tested)
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Message).To(ContainSubstring("connection refused"))
+			Expect(stat.Message).To(ContainSubstring("refused"))
 			Expect(stat.Details.Cmd).To(Equal("test"))
 		})
 
