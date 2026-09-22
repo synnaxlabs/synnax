@@ -273,70 +273,6 @@ describe("Button", () => {
     });
   });
 
-  describe("pressed", () => {
-    it("should drop the pressed state when a drag starts", () => {
-      const c = render(<Button.Button draggable>Hello</Button.Button>);
-      const btn = c.getByText("Hello");
-      fireEvent.mouseDown(btn);
-      expect(btn.className).toContain("pluto--pressed");
-      fireEvent.dragStart(btn);
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-
-    it("should mark a primary press and clear it on mouseup", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      const btn = c.getByText("Hello");
-      fireEvent.mouseDown(btn);
-      expect(btn.className).toContain("pluto--pressed");
-      fireEvent.mouseUp(document);
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-
-    it("should not mark a secondary press", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      const btn = c.getByText("Hello");
-      fireEvent.mouseDown(btn, { button: 2 });
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-
-    it("should not mark a disabled button", () => {
-      const c = render(<Button.Button disabled>Hello</Button.Button>);
-      const btn = c.getByText("Hello");
-      fireEvent.mouseDown(btn);
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-
-    it("should mark a Space press and clear it on keyup", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      const btn = c.getByText("Hello");
-      fireEvent.keyDown(btn, { key: " " });
-      expect(btn.className).toContain("pluto--pressed");
-      fireEvent.keyUp(btn, { key: " " });
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-
-    it("should not mark a Space press that a capture handler prevented", () => {
-      const c = render(
-        <div onKeyDownCapture={(e) => e.preventDefault()}>
-          <Button.Button>Hello</Button.Button>
-        </div>,
-      );
-      const btn = c.getByText("Hello");
-      fireEvent.keyDown(btn, { key: " " });
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-
-    it("should not mark a Space press on a nested input", () => {
-      const c = render(
-        <Button.Button el="div" tabIndex={0}>
-          <input aria-label="nested" />
-        </Button.Button>,
-      );
-      fireEvent.keyDown(c.getByLabelText("nested"), { key: " " });
-      expect(c.container.firstElementChild?.className).not.toContain("pluto--pressed");
-    });
-  });
-
   describe("onClickDelay", () => {
     beforeEach(() => {
       vi.useFakeTimers();
@@ -413,7 +349,6 @@ describe("Button", () => {
       );
       vi.advanceTimersByTime(2000);
       expect(onClick).not.toHaveBeenCalled();
-      expect(c.getByText("Hello").className).not.toContain("pluto--pressed");
     });
 
     it("should ignore a secondary-button hold", () => {

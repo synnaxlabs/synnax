@@ -233,23 +233,20 @@ describe("Primitive.SVG", () => {
         </Primitive.HoldFill>,
       ).container;
 
-    it("should draw nothing outside a delayed toggle", () => {
+    it("should draw only the shapes outside a delayed toggle", () => {
       const container = renderSVG(false);
       expect(container.querySelector("mask")).toBeNull();
-      expect(container.querySelector(".pluto-symbol-hold__fill")).toBeNull();
+      expect(container.querySelectorAll("rect")).toHaveLength(1);
     });
 
     it("should mask a fill rect with the symbol's own shapes", () => {
       const container = renderSVG(true);
-      const shapes = container.querySelector("rect")?.parentElement;
-      const fill = container.querySelector(".pluto-symbol-hold__fill");
+      const shapes = container.querySelector("rect:not([mask])")?.parentElement;
+      const mask = container.querySelector("mask");
+      const fill = container.querySelector("rect[mask]");
       expect(shapes?.id).toBeTruthy();
-      expect(container.querySelector("mask use")?.getAttribute("href")).toBe(
-        `#${shapes?.id}`,
-      );
-      expect(fill?.getAttribute("mask")).toBe(
-        `url(#${container.querySelector("mask")?.id})`,
-      );
+      expect(mask?.querySelector("use")?.getAttribute("href")).toBe(`#${shapes?.id}`);
+      expect(fill?.getAttribute("mask")).toBe(`url(#${mask?.id})`);
       expect(fill?.getAttribute("width")).toBe("14");
       expect(fill?.getAttribute("height")).toBe("24");
     });
@@ -258,7 +255,7 @@ describe("Primitive.SVG", () => {
       const container = renderSVG(true);
       const svg = container.querySelector("svg");
       expect(svg?.children).toHaveLength(1);
-      expect(container.querySelector(".pluto-symbol-hold__fill")?.parentElement).toBe(
+      expect(container.querySelector("rect[mask]")?.parentElement).toBe(
         svg?.children[0],
       );
     });

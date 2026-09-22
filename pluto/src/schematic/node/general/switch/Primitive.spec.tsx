@@ -164,7 +164,6 @@ describe("switch symbol", () => {
       c.rerender(<Switch onClick={onClick} onClickDelay={500} disabled />);
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
-      expect(getRoot(c.container).className).not.toContain("pluto--pressed");
     });
 
     it("should ignore a secondary-button hold", () => {
@@ -173,25 +172,20 @@ describe("switch symbol", () => {
       fireEvent.mouseDown(getInput(container), { button: 2 });
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
-      expect(getRoot(container).className).not.toContain("pluto--pressed");
     });
 
-    it("should mark the delay and the press for the track fill", () => {
+    it("should expose the delay for the track fill", () => {
       const { container } = render(<Switch onClickDelay={1500} />);
-      const root = getRoot(container);
-      expect(root.className).toContain("pluto-switch-symbol--delayed");
-      expect(root.style.getPropertyValue("--pluto-toggle-delay")).toBe("1.5s");
-      fireEvent.mouseDown(getInput(container));
-      expect(root.className).toContain("pluto--pressed");
-      fireEvent.mouseUp(document);
-      expect(root.className).not.toContain("pluto--pressed");
+      expect(getRoot(container).style.getPropertyValue("--pluto-toggle-delay")).toBe(
+        "1.5s",
+      );
     });
 
-    it("should leave an undelayed switch unmarked", () => {
+    it("should expose no delay on an undelayed switch", () => {
       const { container } = render(<Switch />);
-      const root = getRoot(container);
-      expect(root.className).not.toContain("pluto-switch-symbol--delayed");
-      expect(root.style.getPropertyValue("--pluto-toggle-delay")).toBe("");
+      expect(getRoot(container).style.getPropertyValue("--pluto-toggle-delay")).toBe(
+        "",
+      );
     });
   });
 

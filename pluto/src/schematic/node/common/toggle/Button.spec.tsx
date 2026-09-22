@@ -156,24 +156,6 @@ describe("Toggle.Button", () => {
     });
   });
 
-  describe("pressed", () => {
-    it("should mark a primary press and clear it on mouseup", () => {
-      const { container } = render(<Toggle.Button />);
-      const btn = getButton(container);
-      fireEvent.mouseDown(btn);
-      expect(btn.className).toContain("pluto--pressed");
-      fireEvent.mouseUp(document);
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-
-    it("should not mark a secondary press", () => {
-      const { container } = render(<Toggle.Button />);
-      const btn = getButton(container);
-      fireEvent.mouseDown(btn, { button: 2 });
-      expect(btn.className).not.toContain("pluto--pressed");
-    });
-  });
-
   describe("hold fill", () => {
     const renderWithSVG = (delay: number): HTMLElement =>
       render(
@@ -184,14 +166,12 @@ describe("Toggle.Button", () => {
         </Toggle.Button>,
       ).container;
 
-    it("should host the fill inside the SVG when delayed", () => {
-      expect(
-        renderWithSVG(500).querySelector(".pluto-symbol-hold__fill"),
-      ).not.toBeNull();
+    it("should host the masked fill inside the SVG when delayed", () => {
+      expect(renderWithSVG(500).querySelector("svg rect[mask]")).not.toBeNull();
     });
 
     it("should host no fill without a delay", () => {
-      expect(renderWithSVG(0).querySelector(".pluto-symbol-hold__fill")).toBeNull();
+      expect(renderWithSVG(0).querySelector("rect[mask]")).toBeNull();
     });
   });
 
