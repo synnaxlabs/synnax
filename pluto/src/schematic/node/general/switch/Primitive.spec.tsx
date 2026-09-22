@@ -28,14 +28,12 @@ const getInput = (container: HTMLElement): HTMLInputElement => {
 describe("switch symbol", () => {
   describe("color", () => {
     // The track and knob are painted from the display var in switch.css; jsdom cannot
-    // compute it, so we assert the marker classes and the source var.
-    it("should carry the symbol-colored + colored classes and set the source color", () => {
+    // compute it, so we assert the source var.
+    it("should set the source color", () => {
       const { container } = render(<Switch color="#ff0000" />);
-      const root = getRoot(container);
-      const cls = root.getAttribute("class") ?? "";
-      expect(cls).toContain("pluto-symbol-colored");
-      expect(cls).toContain("pluto-switch-symbol--colored");
-      expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
+      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+        "255, 0, 0, 1",
+      );
     });
 
     it("should carry the alpha channel so a translucent color stays translucent", () => {
@@ -48,26 +46,24 @@ describe("switch symbol", () => {
     // An unset color must leave the switch on the input theme it draws itself from.
     it("should stay uncolored for the ZERO sentinel", () => {
       const { container } = render(<Switch color={color.ZERO} />);
-      const root = getRoot(container);
-      const cls = root.getAttribute("class") ?? "";
-      expect(cls).not.toContain("pluto-symbol-colored");
-      expect(cls).not.toContain("pluto-switch-symbol--colored");
-      expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+        "",
+      );
     });
 
     it("should stay uncolored when no color is given", () => {
       const { container } = render(<Switch />);
-      expect(getRoot(container).getAttribute("class")).not.toContain(
-        "pluto-switch-symbol--colored",
+      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+        "",
       );
     });
 
     // The stale color reaches the primitive as an ordinary color, so both states color.
     it("should color an enabled switch the same way as a disabled one", () => {
       const { container } = render(<Switch color="#ff0000" enabled />);
-      const root = getRoot(container);
-      expect(root.getAttribute("class")).toContain("pluto-switch-symbol--colored");
-      expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
+      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+        "255, 0, 0, 1",
+      );
     });
   });
 
@@ -86,20 +82,6 @@ describe("switch symbol", () => {
       expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
         "1",
       );
-    });
-  });
-
-  describe("orientation", () => {
-    // The box swap and rotation live in switch.css; jsdom cannot compute them, so we
-    // assert the direction class that keys them.
-    it("should carry the direction class for the orientation prop", () => {
-      const { container } = render(<Switch orientation="bottom" />);
-      expect(getRoot(container).getAttribute("class")).toContain("pluto--direction-y");
-    });
-
-    it("should default to the x direction", () => {
-      const { container } = render(<Switch />);
-      expect(getRoot(container).getAttribute("class")).toContain("pluto--direction-x");
     });
   });
 

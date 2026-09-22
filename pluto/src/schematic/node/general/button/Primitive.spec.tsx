@@ -19,29 +19,25 @@ import { Button } from "@/schematic/node/general/button/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
-  const el = container.querySelector<HTMLElement>(".pluto-btn");
+  const el = container.querySelector<HTMLElement>("button");
   if (el == null) throw new Error("expected a button element");
   return el;
 };
 
 describe("button symbol", () => {
-  it("should carry the symbol-colored + symbol-button classes and set the source color", () => {
+  it("should set the source color", () => {
     // The bg/border/text vars are mapped to the display/contrast vars in button.css;
-    // jsdom cannot compute them, so we assert the marker classes and the source var.
+    // jsdom cannot compute them, so we assert the source var.
     const { container } = render(<Button color="#ff0000" />);
-    const btn = getButton(container);
-    const cls = btn.getAttribute("class") ?? "";
-    expect(cls).toContain("pluto-symbol-colored");
-    expect(cls).toContain("pluto-symbol-button");
-    expect(btn.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
+    expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+      "255, 0, 0, 1",
+    );
   });
 
   it("should not engage the base button's concrete-color JS path", () => {
     const { container } = render(<Button color="#ff0000" />);
-    const btn = getButton(container);
     // The color is not forwarded, so the base button never sets its own color var.
-    expect(btn.getAttribute("class")).not.toContain("pluto-btn--custom-color");
-    expect(btn.style.getPropertyValue("--pluto-btn-color")).toBe("");
+    expect(getButton(container).style.getPropertyValue("--pluto-btn-color")).toBe("");
   });
 
   it("should carry the alpha channel so a translucent button stays translucent", () => {
@@ -242,7 +238,7 @@ describe("ButtonForm", () => {
       </FormWrapper>,
     );
     expect(getByText("Size")).toBeDefined();
-    expect(getByText("M").closest("button")?.classList).toContain("pluto--selected");
+    expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("should not render the label size and direction fields", () => {

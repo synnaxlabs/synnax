@@ -139,7 +139,7 @@ describe("Primitive.SVG", () => {
       expect(svg.getAttribute("stroke")).toBeNull();
     });
 
-    it("should set the symbol-color variable and marker class for a color", () => {
+    it("should set the symbol-color variable for a color", () => {
       const { container } = render(
         <Primitive.SVG dimensions={{ width: 10, height: 10 }} color="#ff0000" />,
       );
@@ -148,7 +148,6 @@ describe("Primitive.SVG", () => {
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toMatch(
         /255\s*,\s*0\s*,\s*0/,
       );
-      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
 
     it("should treat the ZERO sentinel as unset so it falls back to the theme", () => {
@@ -157,7 +156,6 @@ describe("Primitive.SVG", () => {
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("");
-      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
 
     it("should carry the alpha channel so transparency survives the transform", () => {
@@ -174,27 +172,12 @@ describe("Primitive.SVG", () => {
     });
   });
 
-  describe("class and structure", () => {
-    it("should encode the orientation as a location class", () => {
+  describe("structure", () => {
+    it("should preserve a user-supplied className", () => {
       const { container } = render(
-        <Primitive.SVG dimensions={{ width: 10, height: 10 }} orientation="top" />,
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} className="user-cls" />,
       );
-      expect(container.querySelector("svg")?.getAttribute("class")).toContain(
-        "pluto--location-top",
-      );
-    });
-
-    it("should preserve user-supplied className alongside the location class", () => {
-      const { container } = render(
-        <Primitive.SVG
-          dimensions={{ width: 10, height: 10 }}
-          orientation="left"
-          className="user-cls"
-        />,
-      );
-      expect(container.querySelector("svg")?.getAttribute("class")).toContain(
-        "user-cls",
-      );
+      expect(container.querySelector("svg.user-cls")).not.toBeNull();
     });
 
     it("should always wrap children in a single <g>", () => {

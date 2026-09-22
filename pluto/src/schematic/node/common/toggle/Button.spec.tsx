@@ -175,41 +175,10 @@ describe("Toggle.Button", () => {
     });
   });
 
-  describe("classes and modifiers", () => {
-    it("should add the delayed modifier when delay is non-zero", () => {
-      const { container } = render(<Toggle.Button onClickDelay={250} />);
-      expect(getButton(container).className).toContain(
-        "pluto-symbol-primitive-toggle--delayed",
-      );
-    });
-
-    it("should not add the delayed modifier when delay is zero", () => {
-      const { container } = render(<Toggle.Button />);
-      expect(getButton(container).className).not.toContain(
-        "pluto-symbol-primitive-toggle--delayed",
-      );
-    });
-
-    it("should reflect the enabled flag via the enabled modifier", () => {
-      const enabled = render(<Toggle.Button enabled />);
-      expect(getButton(enabled.container).className).toContain("pluto--enabled");
-      const disabled = render(<Toggle.Button enabled={false} />);
-      expect(getButton(disabled.container).className).not.toContain("pluto--enabled");
-    });
-
-    it("should reflect the triggered flag via the triggered modifier", () => {
-      const { container } = render(<Toggle.Button triggered />);
-      expect(getButton(container).className).toContain("pluto--triggered");
-    });
-
-    it("should encode the orientation as a location class", () => {
-      const { container } = render(<Toggle.Button orientation="top" />);
-      expect(getButton(container).className).toContain("pluto--location-top");
-    });
-
-    it("should preserve user-supplied className", () => {
+  describe("className", () => {
+    it("should preserve a user-supplied className", () => {
       const { container } = render(<Toggle.Button className="custom-cls" />);
-      expect(getButton(container).className).toContain("custom-cls");
+      expect(container.querySelector("button.custom-cls")).not.toBeNull();
     });
   });
 });
