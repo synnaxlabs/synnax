@@ -39,7 +39,8 @@ core:
 
 arc:
   - changed-files:
-      - any-glob-to-any-file: arc/**
+      - any-glob-to-any-file:
+          - arc/**
 
 py-client:
   - changed-files:
@@ -59,4 +60,5 @@ ts-client:
 
 documentation:
   - changed-files:
-      - any-glob-to-any-file: docs/site/**
+      - any-glob-to-any-file:
+          - docs/site/**
