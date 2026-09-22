@@ -144,7 +144,11 @@ const label = version?.split(".").slice(0, -1).join(".");
             text-decoration: none;
         }
 
-        .account-avatar {
+        /* The square chassis sizes both axes from its content, and an image reports
+           its natural pixels, so the avatar states its own box. */
+        .account-button.account-avatar {
+            width: var(--pluto-height-medium);
+            height: var(--pluto-height-medium);
             border-radius: 50%;
             overflow: hidden;
             color: var(--pluto-gray-l0);
