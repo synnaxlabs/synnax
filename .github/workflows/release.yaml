@@ -153,7 +153,7 @@ jobs:
           CONSOLE: ${{ inputs.console_version || steps.console.outputs.version }}
           DRIVER: ${{ inputs.driver_version || steps.driver.outputs.version }}
         run: |
-          latest() { scripts/latest_version.sh "$1" "$MINOR" "$PRERELEASE"; }
+          latest() { .github/scripts/latest_version.sh "$1" "$MINOR" "$PRERELEASE"; }
           CONSOLE=${CONSOLE:-$(latest console)}
           DRIVER=${DRIVER:-$(latest driver)}
           for pair in "console=$CONSOLE" "driver=$DRIVER"; do
@@ -362,13 +362,13 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: synnax-core-windows
-          path: scripts/
+          path: .github/scripts/
 
       - name: Rename Binary for Installer
         shell: powershell
         run:
-          Move-Item -Force scripts/synnax-v${{ env.VERSION }}.exe
-          scripts/synnax-server.exe
+          Move-Item -Force .github/scripts/synnax-v${{ env.VERSION }}.exe
+          .github/scripts/synnax-server.exe
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -382,8 +382,8 @@ jobs:
           choco install nsis -y --no-progress
           $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
           $env:Path = "$nsisDir;$env:Path"
-          Copy-Item -Force .\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
-          makensis /DVERSION=${{ env.VERSION }} .\scripts\windows_installer.nsi
+          Copy-Item -Force .\.github\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
+          makensis /DVERSION=${{ env.VERSION }} .\.github\scripts\windows_installer.nsi
 
       - name: Sign Windows Installer
         env:
@@ -393,11 +393,11 @@ jobs:
         run:
           trusted-signing-cli -e https://wcus.codesigning.azure.net -a
           CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
-          Installer" .\scripts\synnax-setup-v${{ env.VERSION }}.exe
+          Installer" .\.github\scripts\synnax-setup-v${{ env.VERSION }}.exe
 
       - name: Upload Windows Installer
         run: |
-          gh release upload --clobber "${env:TAG}" .\scripts\synnax-setup-v${env:VERSION}.exe
+          gh release upload --clobber "${env:TAG}" .\.github\scripts\synnax-setup-v${env:VERSION}.exe
 
   publish-core:
     name: Publish Core

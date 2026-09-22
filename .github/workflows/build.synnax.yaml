@@ -202,7 +202,7 @@ jobs:
       - name: Generate OS Matrix
         id: set-matrix
         run: |
-          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
+          MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
       - name: Generate Console Tauri Matrix
@@ -224,7 +224,7 @@ jobs:
 
       - name: Verify Build Configuration
         run: |
-          scripts/verify_build_config.sh \
+          .github/scripts/verify_build_config.sh \
             "${{ steps.version.outputs.VERSION }}" \
             "${{ inputs.windows }}" \
             "${{ inputs.macos }}" \
@@ -462,7 +462,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: scripts/import_apple_certificate.sh
+        run: .github/scripts/import_apple_certificate.sh
 
       - name: Sign Driver (macOS)
         if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos')
@@ -960,7 +960,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
-        run: scripts/import_apple_certificate.sh
+        run: .github/scripts/import_apple_certificate.sh
 
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v2

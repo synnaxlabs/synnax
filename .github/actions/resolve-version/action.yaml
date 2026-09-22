@@ -47,4 +47,5 @@ runs:
         BUMP: ${{ inputs.bump }}
         PRERELEASE: ${{ inputs.prerelease }}
       run:
-        scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" >> "$GITHUB_OUTPUT"
+        .github/scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" >>
+        "$GITHUB_OUTPUT"

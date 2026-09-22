@@ -29,7 +29,7 @@ coverage/
 *.exe
 *.exe~
 *.dll
-!scripts/EnVar.dll
+!.github/scripts/EnVar.dll
 *.dylib
 *.so
 *.out

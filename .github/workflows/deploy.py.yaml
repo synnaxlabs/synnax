@@ -42,7 +42,7 @@ jobs:
           python-version-file: client/py/pyproject.toml
 
       - name: Pin internal dependency constraints
-        run: ./scripts/pin_internal_deps.sh
+        run: .github/scripts/pin_internal_deps.sh
 
       - name: Build Alamos
         working-directory: alamos/py
@@ -61,7 +61,7 @@ jobs:
         run: uv build
 
       - name: Prune already-published distributions
-        run: python scripts/prune_published.py
+        run: python .github/scripts/prune_published.py
 
       - name: Publish
         run: |

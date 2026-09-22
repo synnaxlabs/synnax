@@ -23,4 +23,4 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
         SHA: ${{ inputs.sha }}
-      run: scripts/verify_checks.sh "$SHA" "$GITHUB_RUN_ID" "$GITHUB_REF_NAME"
+      run: .github/scripts/verify_checks.sh "$SHA" "$GITHUB_RUN_ID" "$GITHUB_REF_NAME"

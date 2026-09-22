@@ -1,8 +1,8 @@
 # Repo scripts
 
-Scripts used locally and by CI. Prefer them over hand-rolled equivalents: they encode
-repo-wide conventions (file lists, ignore patterns, header formats) that are easy to get
-wrong by hand.
+Scripts developers run, most also used by CI. Prefer them over hand-rolled equivalents:
+they encode repo-wide conventions (file lists, ignore patterns, header formats) that are
+easy to get wrong by hand.
 
 ## Formatting
 
@@ -42,23 +42,14 @@ Neither script touches `.oracle` schema files.
   version-bearing files.
 - `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those same files.
   Release tooling; don't run ad hoc against a dirty tree.
-- `pin_internal_deps.sh` — pins internal workspace dependency ranges in each Python
-  package's `pyproject.toml` before `uv build` in the deploy pipeline. Never commit its
-  output.
-- `resolve_version.sh <product> <bump> [prerelease]` — resolves the next `console`,
-  `core`, or `driver` version from Git tags and prints workflow outputs (`version`,
-  `tag`, `minor`, `previous_tag`). Backs `.github/actions/resolve-version`; tests in
-  `test_resolve_version.py`.
-- `latest_version.sh <product> <major.minor> [candidates]` — prints the highest product
-  version on a train, or nothing; `candidates=true` counts `-rc.N` tags. Backs the Core
-  release's embedded-version defaults.
-- `verify_checks.sh <sha> <run_id> <branch>` — fails unless every check on the commit
-  passed, ignoring the given run, and so did the newest push run of each test, lint, and
-  check workflow on the branch. Backs `.github/actions/verify-checks`; tests in
-  `test_verify_checks.py`.
-- CI-only, called by the workflows and documented in their headers:
-  `verify_build_config.sh`, `generate_os_matrix.sh`, `check_artifact_cache.sh`,
-  `import_apple_certificate.sh`.
+
+## Workflow-only scripts (`.github/scripts/`)
+
+Scripts only GitHub Actions runs live beside the workflows, each documented in its
+header: `resolve_version.sh`, `latest_version.sh`, and `verify_checks.sh` behind the
+release actions (pytest coverage beside them), `check_artifact_cache.sh`,
+`generate_os_matrix.sh`, `verify_build_config.sh`, `import_apple_certificate.sh`,
+`pin_internal_deps.sh`, `prune_published.py`, and the Windows installer inputs.
 
 ## Bazel
 
