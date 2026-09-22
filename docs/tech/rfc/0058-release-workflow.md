@@ -131,8 +131,7 @@ versions, and both move to the catalog.
 Every binary manifest carries `0.0.0` and the build injects the resolved `version`:
 
 - **Core**: The existing `-ldflags -X` (`build.synnax.yaml:621-626`). The `VERSION` file
-  and `//go:embed` fallback in `get.go` are deleted; `Get()` returns `0.0.0` when
-  unset.
+  and `//go:embed` fallback in `get.go` are deleted; `Get()` returns `0.0.0` when unset.
 - **Driver**: A `SYNNAX_VERSION` Bazel define, `0.0.0` in `.bazelrc`, that the release
   build overrides; the `//client/cpp/version` genrule reads it instead of the `VERSION`
   file.
