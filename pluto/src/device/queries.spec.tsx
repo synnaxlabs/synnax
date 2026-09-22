@@ -1377,6 +1377,71 @@ describe("queries", () => {
       });
     });
 
+    // Other consumers write untyped records into the client cache; a typed hook must
+    // parse them, or a form reads a property group the vendor's defaults would fill.
+    describe("untyped records in the cache", () => {
+      const defaultedSchemas = {
+        properties: z.object({
+          sampleRate: z.number().default(100),
+          channels: z.record(z.string(), z.number()).default(() => ({})),
+        }),
+        make: makeSchema,
+        model: modelSchema,
+      };
+      const createUntyped = async () => {
+        const rack = await client.racks.create({ name: "untyped-rack" });
+        const dev = await client.devices.create({
+          key: id.create(),
+          name: "untyped-device",
+          rack: rack.key,
+          location: "test",
+          make: "custom_make",
+          model: "test",
+          properties: {},
+        });
+        await client.devices.retrieve(dev.key);
+        return dev;
+      };
+
+      it("should fill schema defaults on a record cached untyped", async () => {
+        const dev = await createUntyped();
+        const { use } = Device.createRetrieve(defaultedSchemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
+        await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
+        expect(result.current?.properties.channels).toEqual({});
+      });
+
+      it("should keep schema defaults across an untyped streamed update", async () => {
+        const dev = await createUntyped();
+        const { use } = Device.createRetrieve(defaultedSchemas);
+        const { result } = await renderHookSuspended(() => use({ key: dev.key }), {
+          wrapper,
+        });
+        await waitFor(() => expect(result.current?.properties.sampleRate).toBe(100));
+        await act(async () => {
+          await client.devices.create({ ...dev, name: "renamed", properties: {} });
+        });
+        await waitFor(() => expect(result.current?.name).toBe("renamed"));
+        expect(result.current?.properties.sampleRate).toBe(100);
+      });
+
+      it("should fill schema defaults on records cached untyped by keys", async () => {
+        const first = await createUntyped();
+        const second = await createUntyped();
+        const { use } = Device.createRetrieveMultiple(defaultedSchemas);
+        const { result } = await renderHookSuspended(
+          () => use({ keys: [first.key, second.key] }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current).toHaveLength(2));
+        expect(result.current.map(({ properties }) => properties.sampleRate)).toEqual([
+          100, 100,
+        ]);
+      });
+    });
+
     describe("createRetrieveMultiple", () => {
       const createDevice = async (rack: number, sampleRate: number) =>
         await client.devices.create(

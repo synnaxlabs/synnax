@@ -29,14 +29,96 @@ export type RetrieveQuery = device.RetrieveSingleParams;
 
 const BASE_QUERY = { includeStatus: true } as const;
 
+interface CachedParser<
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+> {
+  one: (
+    cached: query.Cached<device.Device> | undefined,
+  ) => query.Cached<device.Device<Properties, Make, Model>> | undefined;
+  many: (
+    cached: query.Cached<device.Device[]> | undefined,
+  ) => query.Cached<device.Device<Properties, Make, Model>[]> | undefined;
+}
+
+/**
+ * Parses cached and streamed records through the vendor's schemas, so a typed hook
+ * never hands on the untyped records other consumers write into the client cache. A
+ * record that fails to parse reads as not cached. Results are memoized per record, as
+ * the cache interns its records and Flux compares snapshots by identity.
+ */
+const createCachedParser = <
+  Properties extends z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string>,
+  Model extends z.ZodType<string>,
+>(
+  schemas: device.DeviceSchemas<Properties, Make, Model>,
+): CachedParser<Properties, Make, Model> => {
+  type Typed = device.Device<Properties, Make, Model>;
+  const schema = device.deviceZ(schemas);
+  const records = new WeakMap<device.Device, Typed | undefined>();
+  const deletedOne = new WeakMap<query.Deleted<device.Device>, query.Deleted<Typed>>();
+  const deletedMany = new WeakMap<
+    query.Deleted<device.Device[]>,
+    query.Deleted<Typed[]>
+  >();
+  const parse = (record: device.Device): Typed | undefined => {
+    if (records.has(record)) return records.get(record);
+    const result = schema.safeParse(record);
+    // deviceZ types each optional schema as a union with its default, so the parsed
+    // record narrows to the vendor's type here.
+    const typed = result.success ? (result.data as Typed) : undefined;
+    records.set(record, typed);
+    return typed;
+  };
+  const parseMany = (devices: device.Device[]): Typed[] | undefined => {
+    const typed: Typed[] = [];
+    for (const record of devices) {
+      const parsed = parse(record);
+      if (parsed === undefined) return undefined;
+      typed.push(parsed);
+    }
+    return typed;
+  };
+  const parseDeleted = <D, T>(
+    memo: WeakMap<query.Deleted<D>, query.Deleted<T>>,
+    cached: query.Deleted<D>,
+    parseCorpse: (corpse: D) => T | undefined,
+  ): query.Deleted<T> | undefined => {
+    const held = memo.get(cached);
+    if (held != null) return held;
+    const corpse = parseCorpse(cached.corpse);
+    if (corpse === undefined) return undefined;
+    const next = new clientQuery.Deleted(corpse, cached.deletedAt);
+    memo.set(cached, next);
+    return next;
+  };
+  return {
+    one: (cached) => {
+      if (cached === undefined) return undefined;
+      if (clientQuery.Deleted.matches(cached))
+        return parseDeleted(deletedOne, cached, parse);
+      return parse(cached);
+    },
+    many: (cached) => {
+      if (cached === undefined) return undefined;
+      if (clientQuery.Deleted.matches(cached))
+        return parseDeleted(deletedMany, cached, parseMany);
+      return parseMany(cached);
+    },
+  };
+};
+
 export const createRetrieve = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 >(
   schemas?: device.DeviceSchemas<Properties, Make, Model>,
-) =>
-  Flux.createRetrieve<RetrieveQuery, device.Device<Properties, Make, Model>>({
+) => {
+  const parser = schemas == null ? null : createCachedParser(schemas);
+  return Flux.createRetrieve<RetrieveQuery, device.Device<Properties, Make, Model>>({
     name: RESOURCE_NAME,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) => {
@@ -45,14 +127,19 @@ export const createRetrieve = <
       return dev as unknown as device.Device<Properties, Make, Model>;
     },
     onChange: ({ client, query }, handler) =>
-      client.devices.onChange(
-        query,
-        handler as unknown as query.ChangeHandler<device.Device>,
-      ),
+      parser == null
+        ? client.devices.onChange(
+            query,
+            handler as unknown as query.ChangeHandler<device.Device>,
+          )
+        : client.devices.onChange(query, (cached) => handler(parser.one(cached))),
     getCached: ({ client, query }) =>
-      client.devices.getCached(query) as
-        query.Cached<device.Device<Properties, Make, Model>> | undefined,
+      parser == null
+        ? (client.devices.getCached(query) as
+            query.Cached<device.Device<Properties, Make, Model>> | undefined)
+        : parser.one(client.devices.getCached(query)),
   });
+};
 
 export const { use, useResult, createResultSelector } = createRetrieve();
 
@@ -66,20 +153,20 @@ export const createRetrieveMultiple = <
   Model extends z.ZodType<string>,
 >(
   schemas: device.DeviceSchemas<Properties, Make, Model>,
-) =>
-  Flux.createRetrieve<RetrieveMultipleQuery, device.Device<Properties, Make, Model>[]>({
+) => {
+  const parser = createCachedParser(schemas);
+  return Flux.createRetrieve<
+    RetrieveMultipleQuery,
+    device.Device<Properties, Make, Model>[]
+  >({
     name: PLURAL_RESOURCE_NAME,
     retrieve: async ({ client, query }) =>
       await client.devices.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
-      client.devices.onChange(
-        query,
-        handler as unknown as query.ChangeHandler<device.Device[]>,
-      ),
-    getCached: ({ client, query }) =>
-      client.devices.getCached(query) as
-        query.Cached<device.Device<Properties, Make, Model>[]> | undefined,
+      client.devices.onChange(query, (cached) => handler(parser.many(cached))),
+    getCached: ({ client, query }) => parser.many(client.devices.getCached(query)),
   });
+};
 
 /** Compared by variant and message: a heartbeat that changes neither is silenced. */
 export const useResultStatus = createResultSelector(

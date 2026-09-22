@@ -8,17 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice } from "@/feature/ni/task/testutil";
 import { renderWithDeviceForm } from "@/platform/device/testutil";
-import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
+import { createAsyncSynnaxWrapper, renderHookSuspended, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
 const DeviceName = () => <span>{NI.Device.useFromConfig()?.name ?? "no device"}</span>;
+
+const MappedPortCount = () => {
+  const dev = NI.Device.useFromConfig();
+  return (
+    <span>
+      {dev == null
+        ? "no device"
+        : `ports:${Object.keys(dev.properties.analogOutput.channels).length}`}
+    </span>
+  );
+};
 
 describe("use", () => {
   it("should retrieve the device with its typed properties", async () => {
@@ -51,6 +63,25 @@ describe("useFromConfig", () => {
     const dev = await createNIDevice(client);
     await renderWithDeviceForm(<DeviceName />, { deviceKey: dev.key, client });
     await screen.findByText(dev.name);
+  });
+
+  // A device stored by another client carries only what that client wrote, and the
+  // device tree caches it untyped before the form reads it.
+  it("should fill the property groups a device was stored without", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ni_rack") });
+    const dev = await client.devices.create({
+      key: id.create(),
+      name: uniqueName("ni_dev"),
+      rack: rack.key,
+      location: "Dev1",
+      make: NI.Device.MAKE,
+      model: "TEST-MODEL",
+      configured: true,
+      properties: { identifier: "dev1" },
+    });
+    await client.devices.retrieve(dev.key);
+    await renderWithDeviceForm(<MappedPortCount />, { deviceKey: dev.key, client });
+    await screen.findByText("ports:0");
   });
 });
 
