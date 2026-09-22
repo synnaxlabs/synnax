@@ -214,7 +214,7 @@ describe("Form", () => {
       expect(result.current.required).toBe(true);
     });
 
-    it("should return the default value without writing it when the field is null", () => {
+    it("should return the default value for a null field without writing it", () => {
       const { result } = renderHook(
         () => {
           const field = Form.useField<string>("optionalField", { defaultValue: "cat" });

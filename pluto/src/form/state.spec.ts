@@ -519,7 +519,7 @@ describe("State", () => {
       expect(fieldState).toBeNull();
     });
 
-    it("should return the default value without writing it when the field is null", () => {
+    it("should return the default value for a null field without writing it", () => {
       const state = new State(
         { ...initialValues, optionalField: undefined },
         basicSchema,

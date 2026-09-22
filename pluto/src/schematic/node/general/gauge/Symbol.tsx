@@ -14,9 +14,9 @@ import { type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { Telem } from "@/schematic/node/common/telem";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
+import { Value } from "@/vis/value";
 
 const GAUGE_SIZE_MULTIPLIER: Record<text.Level, number> = {
   h1: 220,
@@ -53,7 +53,7 @@ export const Symbol = ({
     [level],
   );
   const telem = useMemo(
-    () => Telem.stringSource({ channel, rollingAverage, precision, notation }),
+    () => Value.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
   BaseGauge.use({

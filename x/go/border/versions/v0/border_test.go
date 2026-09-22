@@ -41,7 +41,8 @@ var _ = Describe("Radius", func() {
 		}),
 		Entry(
 			"per-corner pairs",
-			`{"top_left": {"x": 1, "y": 9}, "top_right": {"x": 2, "y": 8}, "bottom_left": {"x": 3, "y": 7}, "bottom_right": {"x": 4, "y": 6}}`,
+			`{"top_left": {"x": 1, "y": 9}, "top_right": {"x": 2, "y": 8}, `+
+				`"bottom_left": {"x": 3, "y": 7}, "bottom_right": {"x": 4, "y": 6}}`,
 			v0.Radius{
 				TopLeft:     spatial.XY{X: 1, Y: 9},
 				TopRight:    spatial.XY{X: 2, Y: 8},

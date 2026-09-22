@@ -568,7 +568,7 @@ describe("schematic queries", () => {
 
     afterEach(() => cleanup());
 
-    it("fills a new edge's color from its source symbol when its config names none", async () => {
+    it("fills a new edge's color from its source symbol", async () => {
       await dispatch(
         schematic.setConfig({
           key: "n1",
@@ -603,7 +603,7 @@ describe("schematic queries", () => {
       );
     });
 
-    it("leaves a new edge's config alone when its source symbol has no color", async () => {
+    it("leaves a new edge alone when its source symbol has no color", async () => {
       await dispatch(
         schematic.addEdge({ edge: EDGE }),
         schematic.setConfig({ key: EDGE.key, config: { variant: "pipe" } }),

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type bounds, type notation } from "@synnaxlabs/x";
+import { type bounds } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
@@ -83,41 +83,10 @@ export const smoothedNumberSource = ({
     outlet: "rollingAverage",
   });
 
-export interface StringSourceArgs {
-  channel?: channel.Key;
-  rollingAverage?: number;
-  precision?: number;
-  notation?: notation.Notation;
-}
-
-/** stringSource builds the formatted display pipeline for a value channel. */
-export const stringSource = ({
-  channel = 0,
-  rollingAverage = 1,
-  precision = 2,
-  notation,
-}: StringSourceArgs): telem.StringSourceSpec =>
-  telem.sourcePipeline("string", {
-    connections: [
-      { from: "valueStream", to: "rollingAverage" },
-      { from: "rollingAverage", to: "stringifier" },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel }),
-      rollingAverage: telem.rollingAverage({ windowSize: rollingAverage }),
-      stringifier: telem.stringifyNumber({ precision, notation }),
-    },
-    outlet: "stringifier",
-  });
-
 export interface ControlChipArgs {
   channel?: channel.Key;
   authority?: number;
 }
-
-/** chipStatusSource builds the authority status source for a command channel. */
-export const chipStatusSource = (channel: channel.Key = 0): telem.StatusSourceSpec =>
-  control.authoritySource({ channel });
 
 /** chipSink builds the control acquisition sink for a command channel. */
 export const chipSink = ({

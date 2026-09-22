@@ -16,6 +16,7 @@ import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
 import { Control } from "@/telem/control";
+import { control } from "@/telem/control/aether";
 
 export const stateConfigZ = schematic.controlStateConfigZ;
 export type StateConfig = schematic.ControlStateConfig;
@@ -48,13 +49,13 @@ const Internal = ({
 }: InternalProps) => {
   const chip = useMemo(
     () => ({
-      source: Telem.chipStatusSource(channel),
+      source: control.authoritySource({ channel }),
       sink: Telem.chipSink({ channel, authority }),
     }),
     [channel, authority],
   );
   const indicator = useMemo(
-    () => ({ statusSource: Telem.chipStatusSource(channel) }),
+    () => ({ statusSource: control.authoritySource({ channel }) }),
     [channel],
   );
   return (
