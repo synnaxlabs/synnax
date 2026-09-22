@@ -13,44 +13,39 @@
 
 #include <utility>
 
-#include "client/cpp/label/json.gen.h"
-#include "client/cpp/label/types.gen.h"
 #include "x/cpp/color/json.gen.h"
-#include "x/cpp/color/proto.gen.h"
+#include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
 
-#include "core/pkg/service/label/pb/label.pb.h"
+#include "x/go/color/pb/color.pb.h"
 
-namespace synnax::label {
+namespace x::color {
 
-inline std::pair<::service::label::pb::Label, x::errors::Error>
-Label::to_proto() const {
-    ::service::label::pb::Label pb;
-    pb.set_key(this->key.to_string());
-    pb.set_name(this->name);
+inline std::pair<::x::color::pb::Stop, x::errors::Error> Stop::to_proto() const {
+    ::x::color::pb::Stop pb;
+    pb.set_key(this->key);
     {
         auto [v, err] = this->color.to_proto();
         if (err) return {{}, err};
         *pb.mutable_color() = v;
     }
+    pb.set_position(this->position);
+    if (this->switched.has_value()) pb.set_switched(*this->switched);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<Label, x::errors::Error>
-Label::from_proto(const ::service::label::pb::Label &pb) {
-    Label cpp;
+inline std::pair<Stop, x::errors::Error>
+Stop::from_proto(const ::x::color::pb::Stop &pb) {
+    Stop cpp;
+    cpp.key = pb.key();
     {
-        auto [v, err] = x::uuid::UUID::parse(pb.key());
-        if (err) return {{}, err};
-        cpp.key = v;
-    }
-    cpp.name = pb.name();
-    {
-        auto [v, err] = ::x::color::Color::from_proto(pb.color());
+        auto [v, err] = Color::from_proto(pb.color());
         if (err) return {{}, err};
         cpp.color = v;
     }
+    cpp.position = pb.position();
+    if (pb.has_switched()) cpp.switched = pb.switched();
     return {cpp, x::errors::NIL};
 }
 

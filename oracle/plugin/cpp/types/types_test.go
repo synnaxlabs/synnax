@@ -1548,6 +1548,53 @@ var _ = Describe("C++ Types Plugin", func() {
 						ToContain(`#include "client/cpp/rack/types.gen.h"`)
 				},
 			)
+
+			It(
+				"Should include the declared header for a same-namespace hand struct",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "x/cpp/color"
+
+					Color struct {
+						r uint8
+
+						@cpp hand
+						@cpp include "x/cpp/color/color.h"
+					}
+
+					Stop struct {
+						color Color
+					}
+				`
+					resp := MustGenerate(ctx, source, "color", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "x/cpp/color/color.h"`)
+				},
+			)
+
+			It(
+				"Should not include a header for a same-namespace generated struct",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "x/cpp/color"
+
+					Color struct {
+						r uint8
+
+						@cpp include "x/cpp/color/color.h"
+					}
+
+					Stop struct {
+						color Color
+					}
+				`
+					resp := MustGenerate(ctx, source, "color", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToNotContain(`#include "x/cpp/color/color.h"`)
+				},
+			)
 		})
 
 		Describe("Array Wrapper Generation", func() {
