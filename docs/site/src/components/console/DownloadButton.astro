@@ -1,0 +1,41 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button, Flex, Icon } from "@synnaxlabs/pluto";
+import { assetURL } from "@/util/releases";
+
+const version = await Astro.locals.releases.latest("console");
+const PLATFORMS = [
+    { name: "macOS", asset: `Synnax_${version}_aarch64.dmg`, agent: /Macintosh/ },
+    { name: "Windows", asset: `Synnax_${version}_x64-setup.exe`, agent: /Windows NT/ },
+];
+// A prerendered page has no request. An unknown agent, or a phone or tablet that can
+// install neither, gets every platform: iPhones say "like Mac OS X" and iPads may pose
+// as a Macintosh, so mobile is checked first.
+const agent = Astro.isPrerendered
+    ? ""
+    : (Astro.request.headers.get("user-agent") ?? "");
+const mobile = /iPhone|iPad|Android|Mobile/.test(agent);
+const detected = mobile
+    ? []
+    : PLATFORMS.filter((platform) => platform.agent.test(agent));
+const shown = detected.length > 0 ? detected : PLATFORMS;
+---
+
+<Flex.Box direction="x" gap="small" wrap>
+    {
+        shown.map(({ name, asset }) => (
+            <Button.Button href={assetURL("console", version, asset)} variant="filled">
+                <Icon.Download />
+                Download v{version} for {name}
+            </Button.Button>
+        ))
+    }
+</Flex.Box>
