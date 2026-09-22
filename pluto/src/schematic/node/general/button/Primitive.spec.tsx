@@ -238,9 +238,7 @@ describe("ButtonForm", () => {
       </FormWrapper>,
     );
     expect(getByText("Size")).toBeDefined();
-    expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe(
-      "true",
-    );
+    expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("should not render the label size and direction fields", () => {
