@@ -213,13 +213,13 @@ integration/tests/results/
 synnax-data/**
 
 # |||||| BAZEL ||||||
-# Ignore all bazel-* symlinks. There is no full list since this can change
-# based on the name of the directory bazel is cloned into.
+# Ignore all bazel-* symlinks. There is no full list since this can change based on the
+# name of the directory bazel is cloned into.
 **/bazel-*
 
-# Directories for the Bazel IntelliJ plugin containing the generated
-# IntelliJ project files and plugin configuration. Seperate directories are
-# for the IntelliJ, Android Studio and CLion versions of the plugin.
+# Directories for the Bazel IntelliJ plugin containing the generated IntelliJ project
+# files and plugin configuration. Seperate directories are for the IntelliJ, Android
+# Studio and CLion versions of the plugin.
 **/.ijwb/
 **/.aswb/
 **/.clwb/
@@ -282,9 +282,9 @@ core/synnax
 *.vsix
 .bazelrc.user
 
-# Ignore .claude/ contents but keep skills/ tracked so the project's Claude Code
-# skills ship with the repo. Excluding directory contents rather than the
-# directory itself is what lets the negation below re-include the subtree.
+# Ignore .claude/ contents but keep skills/ tracked so the project's Claude Code skills
+# ship with the repo. Excluding directory contents rather than the directory itself is
+# what lets the negation below re-include the subtree.
 .claude/*
 !.claude/skills/
 
