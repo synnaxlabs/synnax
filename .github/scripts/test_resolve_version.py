@@ -75,6 +75,7 @@ class TestBumps:
         assert out["tag"] == "console/v0.58.3"
         assert out["minor"] == "0.58"
         assert out["previous_tag"] == "console/v0.58.2"
+        assert out["latest"] == "true"
 
     def test_minor_bump(self, repo: Repo) -> None:
         out = repo.resolve("driver", "minor")
@@ -110,7 +111,14 @@ class TestHotfixes:
         repo.tag("core/v0.59.0", "console/v0.59.0")
         repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
         repo.commit("hotfix")
-        assert repo.resolve("console", "patch")["version"] == "0.58.3"
+        out = repo.resolve("console", "patch")
+        assert out["version"] == "0.58.3"
+        assert out["latest"] == "false"
+
+    def test_should_be_latest_without_a_newer_train(self, repo: Repo) -> None:
+        repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
+        repo.commit("hotfix")
+        assert repo.resolve("console", "patch")["latest"] == "true"
 
 
 class TestCandidates:
