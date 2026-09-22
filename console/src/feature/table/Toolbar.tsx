@@ -22,6 +22,7 @@ import {
   Select,
   Table,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { color, deep, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
@@ -182,12 +183,14 @@ const NotEditableContent = ({ name }: NotEditableContentProps): ReactElement => 
   );
 };
 
-const readCellColor = (cell: Table.Cell.Config): color.Hex | null => {
+// An unset color reads as the fallback the single-cell form shows, so uncolored cells
+// still get a swatch.
+const readCellColor = (cell: Table.Cell.Config, theme: Theming.Theme): color.Hex => {
   switch (cell.variant) {
     case "text":
-      return cell.backgroundColor == null ? null : color.hex(cell.backgroundColor);
+      return color.hex(cell.backgroundColor ?? color.ZERO);
     case "value":
-      return cell.color == null ? null : color.hex(cell.color);
+      return color.hex(cell.color ?? theme.colors.gray.l11);
   }
 };
 
@@ -250,17 +253,17 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     [cellsByKey, dispatch],
   );
 
+  const theme = Theming.use();
   const colorGroups = useMemo(() => {
     const groups = new Map<color.Hex, string[]>();
     cellsByKey.forEach((cell, key) => {
-      const hex = readCellColor(cell);
-      if (hex == null) return;
+      const hex = readCellColor(cell, theme);
       const existing = groups.get(hex);
       if (existing != null) existing.push(key);
       else groups.set(hex, [key]);
     });
     return groups;
-  }, [cellsByKey]);
+  }, [cellsByKey, theme]);
 
   const handleColorChange = useCallback(
     (groupKeys: string[], next: color.Color) =>

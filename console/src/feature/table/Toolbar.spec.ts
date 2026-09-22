@@ -118,6 +118,25 @@ describe("table/Toolbar", () => {
     await waitFor(() => expect(result.container.textContent).toContain("2 cells"));
   });
 
+  it("groups uncolored cells into one selection color", async () => {
+    await renderTable(Table.Toolbar, {
+      table: {
+        name: uniqueName("table"),
+        rows: [{ size: 36, cells: ["a", "b"] }],
+        columns: [{ size: 72 }, { size: 72 }],
+        cells: {
+          a: { variant: "text", value: "Cell A", level: "h5" },
+          b: { variant: "text", value: "Cell B", level: "h5" },
+        },
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    const label = await screen.findByText("Selection colors");
+    const item = label.closest(".pluto-input__item");
+    expect(item?.querySelectorAll(".pluto-color-swatch")).toHaveLength(1);
+  });
+
   it("applies a size change to every selected cell", async () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
