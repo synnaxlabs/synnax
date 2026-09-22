@@ -83,18 +83,23 @@ export const useProvider = ({
 
   const parsedThemes = useMemo(() => {
     if (theme != null) {
+      // The override applies to both variants and each keeps its own key, since
+      // consumers tell light from dark by key. The caller's key pins a variant when it
+      // names one and is otherwise ignored.
+      const { key, ...override } = theme;
       const synnaxLight = zod.parse(
         theming.themeZ,
-        deep.override(deep.copy(theming.SYNNAX_LIGHT), theme),
+        deep.override(deep.copy(theming.SYNNAX_LIGHT), override),
         { label: "theme" },
       );
       const synnaxDark = zod.parse(
         theming.themeZ,
-        deep.override(deep.copy(theming.SYNNAX_DARK), theme),
+        deep.override(deep.copy(theming.SYNNAX_DARK), override),
         { label: "theme" },
       );
-      if (theme.key != null && theme.key.length > 0) setSelected(theme.key);
-      return { synnaxLight, synnaxDark };
+      const overridden: Record<string, theming.Theme> = { synnaxLight, synnaxDark };
+      if (Object.hasOwn(overridden, key)) setSelected(key);
+      return overridden;
     }
     return Object.entries(themes).reduce<Record<string, theming.Theme>>(
       (acc, [key, value]) => ({
