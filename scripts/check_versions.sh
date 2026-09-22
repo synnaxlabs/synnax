@@ -9,13 +9,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Fails unless every package manifest shares one minor that is the Core's latest stable
+# minor or the next one. Usage: check_versions.sh [root], root defaulting to the repo.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(
     cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1
     pwd
 )"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." > /dev/null 2>&1 && pwd)"
+ROOT_DIR="$(cd "${1:-$SCRIPT_DIR/..}" > /dev/null 2>&1 && pwd)"
 
 fail() {
     echo "Error: $*" >&2

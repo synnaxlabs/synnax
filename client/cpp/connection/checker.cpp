@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <optional>
 #include <sstream>
 
 #include "absl/log/log.h"
@@ -18,12 +19,13 @@ namespace synnax::connection {
 const std::string TROUBLESHOOTING_URL =
     "https://docs.synnaxlabs.com/reference/client/resources/troubleshooting";
 
-std::pair<int, int> parse_version(const std::string &v) {
+/// @brief parses major.minor from a version string, or nullopt when it is malformed.
+std::optional<std::pair<int, int>> parse_version(const std::string &v) {
     std::istringstream ss(v);
     int major = 0, minor = 0;
-    char dot;
-    ss >> major >> dot >> minor;
-    return {major, minor};
+    char dot = 0;
+    if (!(ss >> major >> dot >> minor) || dot != '.') return std::nullopt;
+    return std::make_pair(major, minor);
 }
 
 /// @brief a 0.0 major.minor marks a development build, which pairs with anything.
@@ -32,11 +34,13 @@ constexpr std::pair<int, int> DEV_VERSION = {0, 0};
 bool versions_compatible(const std::string &v1, const std::string &v2) {
     const auto a = parse_version(v1);
     const auto b = parse_version(v2);
-    return a == DEV_VERSION || b == DEV_VERSION || a == b;
+    if (!a || !b) return false;
+    return *a == DEV_VERSION || *b == DEV_VERSION || *a == *b;
 }
 
 bool client_is_newer(const std::string &client_ver, const std::string &node_ver) {
-    return parse_version(client_ver) > parse_version(node_ver);
+    return parse_version(client_ver).value_or(DEV_VERSION) >
+           parse_version(node_ver).value_or(DEV_VERSION);
 }
 
 std::string create_version_warning(

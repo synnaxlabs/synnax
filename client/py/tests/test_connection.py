@@ -37,6 +37,12 @@ class TestVersionsCompatible:
         assert _versions_compatible("0.59.2", "0.59.0")
         assert not _versions_compatible("0.59.2", "0.60.0")
 
+    def test_malformed_version(self) -> None:
+        """Should reject a version that does not parse rather than treat it as dev."""
+        assert not _versions_compatible("", "0.59.0")
+        assert not _versions_compatible("0.59.0", "nightly")
+        assert not _versions_compatible("", "")
+
     def test_dev_build(self) -> None:
         """Should accept a 0.0 build on either side."""
         assert _versions_compatible("0.0.0-dev", "0.59.0")

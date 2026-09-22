@@ -47,25 +47,30 @@ class CheckResponse(BaseModel):
     node_time: TimeStamp = TimeStamp(0)
 
 
-def _parse_version(v: str) -> tuple[int, int]:
+def _parse_version(v: str) -> tuple[int, int] | None:
     try:
         parts = v.split(".")
         return int(parts[0]), int(parts[1])
     except (IndexError, ValueError):
-        return 0, 0
+        return None
 
 
 _DEV = (0, 0)
 
 
 def _versions_compatible(v1: str, v2: str) -> bool:
-    """A 0.0 major.minor marks a development build, which pairs with anything."""
+    """A 0.0 major.minor marks a development build, which pairs with anything. A
+    version that does not parse pairs with nothing."""
     a, b = _parse_version(v1), _parse_version(v2)
+    if a is None or b is None:
+        return False
     return a == _DEV or b == _DEV or a == b
 
 
 def _client_is_newer(client_version: str, node_version: str) -> bool:
-    return _parse_version(client_version) > _parse_version(node_version)
+    return (_parse_version(client_version) or (0, 0)) > (
+        _parse_version(node_version) or (0, 0)
+    )
 
 
 _TROUBLESHOOTING_URL = (
