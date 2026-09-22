@@ -102,7 +102,8 @@ channel in a task shares one sample rate, and a channel can be fed by only one r
 task at a time.
 
 For tasks under 50 Hz, set the stream rate equal to the sample rate. For faster tasks,
-keep the stream rate under 50 Hz. See [Timing](#timing) for how samples are timestamped.
+keep the stream rate under 50 Hz. How samples are [timestamped](#timing) depends on
+whether the task is hardware or software timed.
 
 <Divider.Divider x />
 

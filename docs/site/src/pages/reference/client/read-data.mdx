@@ -152,9 +152,8 @@ const frame = await streamer.read();
   </Fragment>
 </Client.Tabs>
 
-This call will block until a new frame is available. Note that a frame may not contain
-data for every channel—see [Handling partial frames](#handling-partial-frames) for
-details.
+This call will block until a new frame is available. A frame may not contain data for
+every channel, so be ready to [handle partial frames](#handling-partial-frames).
 
 For more on working with frames, see
 [Series and Frames](/reference/client/series-and-frames).
