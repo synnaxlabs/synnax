@@ -9,19 +9,23 @@
 
 import "@/table/cells/Forms.css";
 
-import { color, type text } from "@synnaxlabs/x";
+import { type channel } from "@synnaxlabs/client";
+import { color, type notation, type text } from "@synnaxlabs/x";
 import { type PropsWithChildren } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
+import { Notation } from "@/notation";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
 import { Theming } from "@/theming";
+import { Staleness } from "@/vis/staleness";
 import { Value } from "@/vis/value";
 
 export interface FormProps {
@@ -56,6 +60,54 @@ const ColorField = ({ path, label, fallback }: ColorFieldProps) => {
   );
 };
 
+interface TelemFormT {
+  channel: channel.Key;
+  rollingAverage: number;
+  precision?: number;
+  notation: notation.Notation;
+}
+
+const TelemForm = () => {
+  const { value, onChange } = Form.useField<TelemFormT>("");
+  return (
+    <>
+      <Input.Item label="Channel" grow>
+        <Channel.SelectSingle
+          value={value.channel}
+          onChange={(key: channel.Key | null) =>
+            onChange({ ...value, channel: key ?? 0 })
+          }
+        />
+      </Input.Item>
+      <Flex.Box x>
+        <Input.Item label="Notation">
+          <Notation.Select
+            value={value.notation}
+            onChange={(next: notation.Notation) =>
+              onChange({ ...value, notation: next })
+            }
+          />
+        </Input.Item>
+        <Input.Item label="Precision" align="start">
+          <Input.Numeric
+            value={value.precision ?? 2}
+            bounds={{ lower: 0, upper: 10 }}
+            onChange={(precision) => onChange({ ...value, precision })}
+          />
+        </Input.Item>
+        <Input.Item label="Averaging window" align="start">
+          <Input.Numeric
+            value={value.rollingAverage}
+            bounds={{ lower: 1, upper: 100 }}
+            onChange={(rollingAverage) => onChange({ ...value, rollingAverage })}
+          />
+        </Input.Item>
+        <Staleness.Fields />
+      </Flex.Box>
+    </>
+  );
+};
+
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const theme = Theming.use();
   return (
@@ -85,7 +137,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
       </Tabs.Content>
       <Tabs.Content itemKey="telem">
         <ValueFormWrapper>
-          <Value.TelemForm path="" />
+          <TelemForm />
         </ValueFormWrapper>
       </Tabs.Content>
       <Tabs.Content itemKey="redline">
