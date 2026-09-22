@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "MQTT | Read Task"
 heading: "MQTT Read Task"
 description: "Learn how to read topics from an MQTT broker with Synnax."
-prev: "Connect a Broker"
+prev: "Connect to a Broker"
 prevURL: "/reference/driver/mqtt/connect-broker"
 next: "Write Task"
 nextURL: "/reference/driver/mqtt/write-task"
@@ -40,7 +40,7 @@ topic may appear once in a task, and it may not hold the wildcards `+` or `#`.
 
 | Parameter          | Type    | Required | Default          | Description                                                                      |
 | ------------------ | ------- | -------- | ---------------- | -------------------------------------------------------------------------------- |
-| `type`             | string  | Yes      | `"plain"`        | The kind of entry. `"plain"` reads the payload of one topic                      |
+| `type`             | string  | No       | `"plain"`        | The kind of entry. `"plain"` reads the payload of one topic                      |
 | `topic`            | string  | Yes      | -                | The topic to subscribe to (e.g., `plant/line1/sensors`)                          |
 | `qos`              | string  | No       | `"at_most_once"` | `"at_most_once"` (0), `"at_least_once"` (1), or `"exactly_once"` (2)             |
 | `retained_ignored` | boolean | No       | `false`          | Drop the retained message that the broker sends when the task subscribes         |

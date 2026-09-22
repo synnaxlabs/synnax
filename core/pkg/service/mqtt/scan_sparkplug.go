@@ -18,6 +18,7 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -89,31 +90,34 @@ func (s *scanner) browseSparkplug(
 			validate.ErrValidation, "invalid arguments: %s", err.Error(),
 		)
 	}
-	dev, cfg, err := s.browseConfig(ctx, args.Device)
+	_, props, cfg, err := s.browseConfig(ctx, args.Device)
 	if err != nil {
 		return res, err
 	}
 	duration := browseDuration(args.Duration)
 	if args.EdgeNode == "" {
-		res.Nodes, err = browseNodes(ctx, cfg, nodeFilters(dev, args.Group), duration)
+		res.Nodes, err = browseNodes(
+			ctx,
+			s.ins,
+			cfg,
+			nodeFilters(props, args.Group),
+			duration,
+		)
 		return res, err
 	}
 	node := sparkplug.NodeID{Group: args.Group, EdgeNode: args.EdgeNode}
 	if err = node.Validate(); err != nil {
 		return res, err
 	}
-	res.Tags, err = browseTags(ctx, cfg, node, duration)
+	res.Tags, err = browseTags(ctx, s.ins, cfg, node, duration)
 	return res, err
 }
 
 // nodeFilters returns the topic filters of a browse for edge nodes: the group that
-// the user gave, else the groups in the properties of dev, else every group.
-func nodeFilters(dev device.Device, group string) []string {
+// the user gave, else the groups in the broker properties, else every group.
+func nodeFilters(props Properties, group string) []string {
 	groups := []string{group}
 	if group == "" {
-		var props Properties
-		// newClientConfig decoded the properties before, so they decode now.
-		_ = dev.Properties.Unmarshal(&props)
 		groups = props.Sparkplug.Groups
 	}
 	if len(groups) == 0 {
@@ -130,6 +134,7 @@ func nodeFilters(dev device.Device, group string) []string {
 // node reports by exception, so a quiet one does not appear.
 func browseNodes(
 	ctx context.Context,
+	ins alamos.Instrumentation,
 	cfg clientConfig,
 	filters []string,
 	duration time.Duration,
@@ -153,7 +158,7 @@ func browseNodes(
 			nodes[topic.Node].Add(topic.Device)
 		}
 	})
-	client, disconnect, err := open(ctx, opts)
+	client, disconnect, err := open(ctx, ins, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -197,6 +202,7 @@ func browseNodes(
 // browseTags asks node for a rebirth and lists the tags of the births that follow.
 func browseTags(
 	ctx context.Context,
+	ins alamos.Instrumentation,
 	cfg clientConfig,
 	node sparkplug.NodeID,
 	duration time.Duration,
@@ -221,7 +227,7 @@ func browseTags(
 		default:
 		}
 	})
-	client, disconnect, err := open(ctx, opts)
+	client, disconnect, err := open(ctx, ins, opts)
 	if err != nil {
 		return nil, err
 	}

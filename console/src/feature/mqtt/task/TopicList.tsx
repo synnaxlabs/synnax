@@ -181,7 +181,7 @@ export const TopicList = <E extends Item>({
           </Header.Actions>
         )}
       </Header.Header>
-      <Menu.ContextMenu {...menuProps} {...haulProps} menu={menuRenderProp}>
+      <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Select.Frame<string, E>
           multiple
           data={data}

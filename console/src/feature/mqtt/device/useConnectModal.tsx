@@ -78,7 +78,7 @@ const beforeSave = async ({
   set,
 }: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
   const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
-  // Command arguments skip case conversion on the wire, and the driver reads snake case.
+  // Command arguments skip case conversion on the wire; the driver reads snake case.
   const properties = caseconv.camelToSnake(get<Properties>("properties").value, {
     schema: SCHEMAS.properties,
   });

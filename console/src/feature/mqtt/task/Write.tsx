@@ -52,6 +52,7 @@ import {
   type BrowsedTopic,
   deployWriteConfigZ,
   type GeneratorType,
+  HIDDEN_DATA_TYPES,
   type PlainWriteTarget,
   type SparkplugWriteTarget,
   type TimeFormat,
@@ -100,19 +101,21 @@ const TargetListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const path = `${TARGETS_PATH}.${itemKey}`;
   const isPlain = PForm.useFieldValue<WriteTarget["type"]>(`${path}.type`) === "plain";
-  const channelPath = isPlain ? `${path}.channel` : path;
-  const channel = PForm.useFieldValue<number>(`${channelPath}.channel`);
+  // A plain target holds its channel in a field; a Sparkplug target is the field.
+  const channelKeyPath = isPlain ? `${path}.channel.channel` : `${path}.channel`;
+  const namePath = isPlain ? `${path}.channel.name` : `${path}.name`;
+  const channel = PForm.useFieldValue<number>(channelKeyPath);
   const extra = useMemo(
     () => (
       <Task.ChannelName
         channel={channel}
-        namePath={`${channelPath}.name`}
+        namePath={namePath}
         id={getTargetChannelNameID(itemKey)}
         level="small"
         color={9}
       />
     ),
-    [channel, channelPath, itemKey],
+    [channel, namePath, itemKey],
   );
   const Item = isPlain ? TopicListItem : SparkplugListItem;
   return <Item {...props} path={TARGETS_PATH} extra={extra} />;
@@ -218,13 +221,6 @@ const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps)
     location="bottom"
   />
 ));
-
-const HIDDEN_DATA_TYPES = [
-  DataType.TIMESTAMP,
-  DataType.JSON,
-  DataType.BYTES,
-  DataType.UUID,
-];
 
 const generatorDisplayKey = (
   generator: GeneratorType | null | undefined,

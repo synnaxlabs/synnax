@@ -10,7 +10,8 @@
  */
 
 .console-task-configure--mqtt_read,
-.console-task-configure--mqtt_write {
+.console-task-configure--mqtt_write,
+.console-task-configure--mqtt_sparkplug_edge {
     /* Both halves are load-bearing: the list must refuse to shrink, and the detail
        column must be allowed to, or the list absorbs everything it will not give up. */
     .console-topic-list {

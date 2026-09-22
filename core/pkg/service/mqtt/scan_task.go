@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -74,6 +75,7 @@ type browseResult struct {
 
 // scanner is the driver.Scanner of the MQTT scan task.
 type scanner struct {
+	ins    alamos.Instrumentation
 	pool   *pool
 	device *device.Service
 }
@@ -94,7 +96,7 @@ func (s *scanner) Check(ctx context.Context, dev device.Device) error {
 	if err != nil {
 		return err
 	}
-	return probe(ctx, cfg)
+	return probe(ctx, s.ins, cfg)
 }
 
 // Exec implements driver.Scanner.
@@ -138,12 +140,12 @@ func (s *scanner) testConnection(ctx context.Context, cmd task.Command) error {
 	if err != nil {
 		return err
 	}
-	return probe(ctx, cfg)
+	return probe(ctx, s.ins, cfg)
 }
 
 // probe reports whether a client can connect to the broker of cfg.
-func probe(ctx context.Context, cfg clientConfig) error {
-	_, disconnect, err := open(ctx, newClientOptions(cfg))
+func probe(ctx context.Context, ins alamos.Instrumentation, cfg clientConfig) error {
+	_, disconnect, err := open(ctx, ins, newClientOptions(cfg))
 	if err != nil {
 		return err
 	}
@@ -169,7 +171,7 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 		args.Limit = defaultBrowseLimit
 	}
 	args.Limit = min(args.Limit, maxBrowseLimit)
-	_, cfg, err := s.browseConfig(ctx, args.Device)
+	_, _, cfg, err := s.browseConfig(ctx, args.Device)
 	if err != nil {
 		return res, err
 	}
@@ -191,7 +193,7 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 			Retained: m.Retained(),
 		}
 	})
-	client, disconnect, err := open(ctx, opts)
+	client, disconnect, err := open(ctx, s.ins, opts)
 	if err != nil {
 		return res, err
 	}
@@ -227,25 +229,29 @@ func browseDuration(ms int) time.Duration {
 	return min(duration, maxBrowseDuration)
 }
 
-// browseConfig returns the broker device of a browse and the config of its client. A
-// browse has its own client and client ID. A wildcard subscription on the shared
-// connection would overlap the subscriptions of the tasks.
+// browseConfig returns the broker device of a browse, its properties, and the config
+// of its client. A browse has its own client and client ID. A wildcard subscription
+// on the shared connection would overlap the subscriptions of the tasks.
 func (s *scanner) browseConfig(
 	ctx context.Context,
 	key device.Key,
-) (device.Device, clientConfig, error) {
+) (device.Device, Properties, clientConfig, error) {
 	var dev device.Device
 	if err := s.device.NewRetrieve().
 		Where(device.MatchKeys(key)).
 		Entry(&dev).
 		Exec(ctx, nil); err != nil {
-		return dev, clientConfig{}, err
+		return dev, Properties{}, clientConfig{}, err
 	}
-	cfg, err := newClientConfig(dev)
+	props, err := parseProperties(dev)
+	if err != nil {
+		return dev, props, clientConfig{}, err
+	}
+	cfg, err := newClientConfigOf(dev, props)
 	cfg.clientID = deriveClientID(dev.Key + "/browse")
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
-	return dev, cfg, err
+	return dev, props, cfg, err
 }
 
 // payloadSample returns the start of a text payload, cut at a rune boundary.

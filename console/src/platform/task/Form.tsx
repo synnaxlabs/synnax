@@ -161,7 +161,10 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               const variant = issueVariant(issue);
               if (variant !== "warning") blocked = true;
               // Fields in keyed lists sit at the key of their entry, not its index.
-              const path = `config.${deep.resolvePath(issue.path.join("."), config)}`;
+              const path =
+                issue.path.length === 0
+                  ? "config"
+                  : `config.${deep.resolvePath(issue.path.join("."), config)}`;
               form.setStatus(path, { key: path, variant, message: issue.message });
             });
             if (blocked) return;

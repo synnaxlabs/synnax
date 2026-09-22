@@ -126,7 +126,8 @@ type edgeNode struct {
 	stopped  chan struct{}
 	mu       struct {
 		sync.Mutex
-		// edge holds the sequence numbers, so every sequenced publish holds the lock.
+		// edge holds the message sequence, so every sequenced publish holds the
+		// lock. Its birth-death sequence moves only on the reconnect goroutine.
 		edge   *sparkplug.Edge
 		client paho.Client
 		// latest holds the last value of each tag, for the next birth.
@@ -286,6 +287,14 @@ func (e *edgeNode) notify() {
 
 // Health implements driver.Sink. It reports each loss and recovery of the connection,
 // and each command that could not be written.
+// sameHealth reports whether two results of health describe the same state.
+func sameHealth(a, b error) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Error() == b.Error()
+}
+
 func (e *edgeNode) Health(ctx context.Context) error {
 	for {
 		select {
@@ -294,7 +303,7 @@ func (e *edgeNode) Health(ctx context.Context) error {
 		case <-e.mu.changed:
 			e.mu.Lock()
 			err := e.health()
-			same := errors.Is(err, e.mu.reported) && errors.Is(e.mu.reported, err)
+			same := sameHealth(err, e.mu.reported)
 			e.mu.reported = err
 			e.mu.Unlock()
 			if !same {

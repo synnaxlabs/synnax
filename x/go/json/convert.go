@@ -216,6 +216,14 @@ func parseNumber(text string, dt telem.DataType) (number, error) {
 	return number{kind: kindFloat, f: f}, nil
 }
 
+// integer returns the number that holds v.
+func integer(v int64) number {
+	if v < 0 {
+		return number{kind: kindInt, i: v}
+	}
+	return number{kind: kindUint, u: uint64(v)}
+}
+
 func isIntegerText(text string) bool {
 	start := 0
 	if text[0] == '-' || text[0] == '+' {
@@ -241,6 +249,10 @@ func toNumber(value any, dt telem.DataType, enums EnumMap) (number, error) {
 		return number{kind: kindUint}, nil
 	case json.Number:
 		return parseNumber(v.String(), dt)
+	case int64:
+		return integer(v), nil
+	case uint64:
+		return number{kind: kindUint, u: v}, nil
 	case float64:
 		return number{kind: kindFloat, f: v}, nil
 	case string:
@@ -359,6 +371,8 @@ func toTimeStamp(value any, format TimeFormat) (telem.TimeStamp, error) {
 	switch v := value.(type) {
 	case json.Number:
 		text = v.String()
+	case int64:
+		return scaleTimeStamp(integer(v), format)
 	case float64:
 		return scaleTimeStamp(number{kind: kindFloat, f: v}, format)
 	case string:

@@ -130,6 +130,55 @@ var _ = Describe("Convert", func() {
 				To(telem.MatchSeriesData(telem.NewSeriesV[int32](12)))
 		})
 
+		DescribeTable(
+			"Should convert a Go integer",
+			func(value any, dt telem.DataType, expected telem.Series) {
+				data := MustSucceed(
+					xjson.AppendSample(nil, dt, value, xjson.UnixNanosecond, nil),
+				)
+				Expect(telem.Series{DataType: dt, Data: data}).
+					To(telem.MatchSeriesData(expected))
+			},
+			Entry(
+				"int64 to int32",
+				int64(-12),
+				telem.Int32T,
+				telem.NewSeriesV[int32](-12),
+			),
+			Entry(
+				"int64 to uint16",
+				int64(12),
+				telem.Uint16T,
+				telem.NewSeriesV[uint16](12),
+			),
+			Entry(
+				"uint64 to float64",
+				uint64(12),
+				telem.Float64T,
+				telem.NewSeriesV(12.0),
+			),
+			Entry(
+				"uint64 to string",
+				uint64(12),
+				telem.StringT,
+				telem.NewSeriesV("12"),
+			),
+			Entry(
+				"int64 nanoseconds to timestamp",
+				int64(1_000),
+				telem.TimestampT,
+				telem.NewSeriesV(telem.TimeStamp(1_000)),
+			),
+		)
+
+		It("Should reject a negative int64 for an unsigned type", func() {
+			Expect(
+				xjson.AppendSample(nil, telem.Uint8T, int64(-1), xjson.ISO8601, nil),
+			).
+				Error().
+				To(MatchError(ContainSubstring("out of bounds")))
+		})
+
 		It("Should map a string through the enum map", func() {
 			enums := xjson.EnumMap{"ON": 1, "OFF": 0}
 			Expect(convert(`"ON"`, telem.Uint8T, xjson.ISO8601, enums)).

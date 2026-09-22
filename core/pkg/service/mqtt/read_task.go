@@ -247,8 +247,10 @@ type readSource struct {
 	// awaited holds the edge nodes that have until awaitedUntil to publish a birth.
 	awaited      set.Set[sparkplug.NodeID]
 	awaitedUntil time.Time
-	// offline holds the edge nodes and devices with no valid birth.
-	offline set.Set[tagScope]
+	// offline holds the edge nodes and devices with no valid birth, and offlineErr
+	// the warning that names them.
+	offline    set.Set[tagScope]
+	offlineErr error
 	// degraded is the data loss that the task currently warns about.
 	degraded struct {
 		err   error
@@ -370,23 +372,30 @@ func (s *readSource) expire(now time.Time) {
 			s.offline.Add(tagScope{node: node})
 		}
 		clear(s.awaited)
+		s.refreshOffline()
 	}
 }
 
 // health returns the warning of the task, or nil for a task with none.
 func (s *readSource) health() error {
 	if s.degraded.err != nil {
-		return errors.Wrap(driver.ErrDegraded, s.degraded.err.Error())
+		return s.degraded.err
 	}
+	return s.offlineErr
+}
+
+// refreshOffline rebuilds the offline warning after s.offline changes.
+func (s *readSource) refreshOffline() {
 	if len(s.offline) == 0 {
-		return nil
+		s.offlineErr = nil
+		return
 	}
 	scopes := make([]string, 0, len(s.offline))
 	for scope := range s.offline {
 		scopes = append(scopes, scope.String())
 	}
 	slices.Sort(scopes)
-	return errors.Wrapf(
+	s.offlineErr = errors.Wrapf(
 		driver.ErrDegraded, "%s is offline", strings.Join(scopes, ", "),
 	)
 }
@@ -395,7 +404,7 @@ func (s *readSource) health() error {
 // text for as long as it lasts, so that a burst of losses writes one status.
 func (s *readSource) degrade(now time.Time, err error) {
 	if s.degraded.err == nil {
-		s.degraded.err = err
+		s.degraded.err = errors.Wrap(driver.ErrDegraded, err.Error())
 	}
 	s.degraded.until = now.Add(degradedHold)
 }
@@ -437,12 +446,14 @@ func (s *readSource) convertEvent(now time.Time, msg message) framer.Frame {
 	case sparkplug.NDeath, sparkplug.DDeath:
 		if s.reads(scope) {
 			s.offline.Add(scope)
+			s.refreshOffline()
 		}
 		return framer.Frame{}
 	case sparkplug.NBirth, sparkplug.DBirth:
 		birth = true
 		delete(s.awaited, ev.Node)
 		delete(s.offline, scope)
+		s.refreshOffline()
 		s.checkBirth(now, scope, ev.Metrics)
 	}
 	var (

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -334,7 +335,7 @@ var _ = Describe("Scan task", func() {
 			Expect(configured.Exec(ctx, task.Command{
 				Type: "browse", Key: "browse",
 				Args: msgpack.EncodedJSON{"device": "missing"},
-			})).ToNot(Succeed())
+			})).To(MatchError(query.ErrNotFound))
 			Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantError))
 		})
 	})

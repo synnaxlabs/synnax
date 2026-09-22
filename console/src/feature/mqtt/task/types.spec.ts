@@ -143,7 +143,7 @@ describe("MQTT Task Types", () => {
 
     it("should require the group, the edge node, and the tag of a Sparkplug B entry", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig({ type: "sparkplug", key: "s1" }),
+        readConfig({ ...tagEntry, group: "", edgeNode: "", tag: "" }),
       );
       expect(issuesOf(result)).toEqual([
         { message: "Group is required", path: "entries.0.group" },
@@ -473,7 +473,7 @@ describe("MQTT Task Types", () => {
 
     it("should require the group, the edge node, and the tag of a Sparkplug B target", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig({ type: "sparkplug", key: "s1" }),
+        writeConfig({ ...tagTarget, group: "", edgeNode: "", tag: "" }),
       );
       expect(issuesOf(result)).toEqual([
         { message: "Group is required", path: "targets.0.group" },

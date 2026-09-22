@@ -26,6 +26,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -129,19 +131,29 @@ func configure(ctx context.Context, f driver.Factory, t task.Task) driver.Task {
 	return configured
 }
 
+// taskStatus returns the status of t, or the zero status when it has none.
 func taskStatus(ctx context.Context, t task.Task) task.Status {
+	GinkgoHelper()
 	var stat task.Status
-	_ = statusSvc.NewRetrieve[task.StatusDetails]().
+	err := statusSvc.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 		Entry(&stat).Exec(ctx, nil)
+	if !errors.Is(err, query.ErrNotFound) {
+		Expect(err).ToNot(HaveOccurred())
+	}
 	return stat
 }
 
+// deviceStatus returns the status of dev, or the zero status when it has none.
 func deviceStatus(ctx context.Context, dev device.Device) device.Status {
+	GinkgoHelper()
 	var stat device.Status
-	_ = statusSvc.NewRetrieve[device.StatusDetails]().
+	err := statusSvc.NewRetrieve[device.StatusDetails]().
 		Where(status.MatchKeys[device.StatusDetails](dev.OntologyID().String())).
 		Entry(&stat).Exec(ctx, nil)
+	if !errors.Is(err, query.ErrNotFound) {
+		Expect(err).ToNot(HaveOccurred())
+	}
 	return stat
 }
 

@@ -53,6 +53,7 @@ import { SparkplugListItem, TopicListItem } from "@/feature/mqtt/task/TopicListI
 import {
   type BrowsedTopic,
   deployReadConfigZ,
+  HIDDEN_DATA_TYPES,
   type PlainReadEntry,
   READ_SCHEMAS,
   READ_TYPE,
@@ -159,13 +160,6 @@ const FieldListItem = ({ entryKey, ...props }: FieldListItemProps) => {
 };
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
-
-const HIDDEN_DATA_TYPES = [
-  DataType.TIMESTAMP,
-  DataType.UUID,
-  DataType.JSON,
-  DataType.BYTES,
-];
 
 const renderTelemSelectDataType = Component.renderProp(
   (p: Telem.SelectDataTypeProps) => (

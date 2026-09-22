@@ -111,10 +111,10 @@ const deployPlainReadEntryZ = mqtt.plainReadEntryZ
   .check(validateReadEntry);
 
 const DEPLOY_SPARKPLUG_TAG_SHAPE = {
-  group: sparkplugIDZ("Group").min(1, "Group is required").prefault(""),
-  edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required").prefault(""),
-  device: sparkplugIDZ("Device").prefault(""),
-  tag: z.string().min(1, "Tag is required").prefault(""),
+  group: sparkplugIDZ("Group").min(1, "Group is required"),
+  edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
+  device: sparkplugIDZ("Device"),
+  tag: z.string().min(1, "Tag is required"),
 };
 
 const deployReadEntryZ = z.discriminatedUnion("type", [
@@ -325,6 +325,14 @@ export const EDGE_SCHEMAS = {
 export type EdgeSchemas = typeof EDGE_SCHEMAS;
 
 export interface EdgePayload extends task.Payload<EdgeSchemas> {}
+
+/** Data types that no JSON field can carry. */
+export const HIDDEN_DATA_TYPES = [
+  DataType.TIMESTAMP,
+  DataType.UUID,
+  DataType.JSON,
+  DataType.BYTES,
+];
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

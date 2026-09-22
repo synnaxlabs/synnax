@@ -96,6 +96,7 @@ class TestMQTTReadTask:
         entries = task.config.entries
         assert len({e.key for e in entries}) == 2
         assert all(e.key for e in entries)
+        assert isinstance(entries[0], sy.mqtt.PlainReadEntry)
         assert len({f.key for f in entries[0].fields}) == 2
 
     def test_payload_type(self):

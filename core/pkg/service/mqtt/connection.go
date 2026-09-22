@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
@@ -65,7 +66,6 @@ type message struct {
 type subscription struct {
 	attachments set.Set[*attachment]
 	qos         byte
-	wildcard    bool
 	// sparkplug is true for the filter of an edge node. Its messages reach the
 	// attachments decoded, through the host session, and never as they arrived.
 	sparkplug bool
@@ -101,9 +101,6 @@ type connection struct {
 		subs        map[string]*subscription
 		attachments set.Set[*attachment]
 		cfg         clientConfig
-		// wildcards counts the subscriptions whose filter holds a wildcard, so a
-		// connection with none skips the filter match on every message.
-		wildcards int
 		sync.Mutex
 	}
 }
@@ -137,19 +134,21 @@ func (c *connection) configure(cfg clientConfig) {
 		// The old client must leave first: a broker allows one session per client ID.
 		stop()
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	done, settled := make(chan struct{}), make(chan struct{})
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(c.ins))
+	settled := make(chan struct{})
 	c.mu.Lock()
 	c.mu.stop = func() {
 		cancel()
-		<-done
+		if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+			c.ins.L.Error("the connection loop failed", zap.Error(err))
+		}
 	}
 	c.mu.settled = settled
 	c.mu.Unlock()
-	go func() {
-		defer close(done)
+	sCtx.Go(func(ctx context.Context) error {
 		c.run(ctx, cfg, sync.OnceFunc(func() { close(settled) }))
-	}()
+		return nil
+	}, signal.RecoverWithErrOnPanic())
 }
 
 func (cfg clientConfig) equal(other clientConfig) bool {
@@ -236,7 +235,7 @@ func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectH
 	}
 	for {
 		lost := make(chan error, 1)
-		client, disconnect, err := open(ctx, hooks.options(lost))
+		client, disconnect, err := open(ctx, ins, hooks.options(lost))
 		if ctx.Err() != nil {
 			return
 		}
@@ -402,17 +401,6 @@ func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 	if len(c.mu.nodes) > 0 && strings.HasPrefix(msg.topic, sparkplug.Namespace+"/") {
 		c.onSparkplugMessage(msg)
 	}
-	if c.mu.wildcards == 0 {
-		return
-	}
-	for filter, sub := range c.mu.subs {
-		if !sub.wildcard || sub.sparkplug || !topicMatches(filter, msg.topic) {
-			continue
-		}
-		for a := range sub.attachments {
-			a.enqueue(msg)
-		}
-	}
 }
 
 // onSparkplugMessage runs msg through the host session and gives the result to the
@@ -514,6 +502,10 @@ type attachment struct {
 // enqueue puts msg on the queue. A full queue drops its oldest message. Only the
 // delivery goroutine of the client calls enqueue.
 func (a *attachment) enqueue(msg message) {
+	if cap(a.queue) == 0 {
+		a.dropped.Add(1)
+		return
+	}
 	for {
 		select {
 		case a.queue <- msg:
@@ -607,13 +599,9 @@ func (a *attachment) subscribeFilter(
 	if !ok {
 		sub = &subscription{
 			attachments: make(set.Set[*attachment]),
-			wildcard:    strings.ContainsAny(filter, "+#"),
 			sparkplug:   isSparkplug,
 		}
 		c.mu.subs[filter] = sub
-		if sub.wildcard {
-			c.mu.wildcards++
-		}
 	}
 	sub.attachments.Add(a)
 	needed := !ok || qos > sub.qos
@@ -660,9 +648,6 @@ func (a *attachment) close() (unused bool) {
 		delete(sub.attachments, a)
 		if len(sub.attachments) == 0 {
 			delete(c.mu.subs, filter)
-			if sub.wildcard {
-				c.mu.wildcards--
-			}
 			orphaned = append(orphaned, filter)
 		}
 	}
@@ -698,30 +683,6 @@ func wait(ctx context.Context, token paho.Token) error {
 		return ctx.Err()
 	case <-timer.C:
 		return errors.Wrap(driver.ErrTemporary, "timed out waiting for the broker")
-	}
-}
-
-// topicMatches reports whether topic matches an MQTT topic filter. As the MQTT
-// specification requires, a filter that starts with a wildcard does not match a
-// topic that starts with "$".
-func topicMatches(filter, topic string) bool {
-	if strings.HasPrefix(topic, "$") && (filter[0] == '+' || filter[0] == '#') {
-		return false
-	}
-	for {
-		level, rest, more := strings.Cut(filter, "/")
-		if level == "#" {
-			return true
-		}
-		topicLevel, topicRest, topicMore := strings.Cut(topic, "/")
-		if level != "+" && level != topicLevel {
-			return false
-		}
-		if !more || !topicMore {
-			// "a/#" also matches "a", the parent level.
-			return more == topicMore || (more && rest == "#")
-		}
-		filter, topic = rest, topicRest
 	}
 }
 
@@ -801,12 +762,13 @@ func newClientOptions(cfg clientConfig) *paho.ClientOptions {
 // aborts that attempt. The caller calls disconnect when it is done with the client.
 func open(
 	ctx context.Context,
+	ins alamos.Instrumentation,
 	opts *paho.ClientOptions,
 ) (client paho.Client, disconnect func(), err error) {
 	netCtx, closeNet := context.WithCancel(context.Background())
 	opts.SetCustomOpenConnectionFn(
 		func(uri *url.URL, opts paho.ClientOptions) (net.Conn, error) {
-			return dial(netCtx, uri, opts)
+			return dial(netCtx, ins, uri, opts)
 		},
 	)
 	client = paho.NewClient(opts)
@@ -848,6 +810,7 @@ func describeRefusal(err error) error {
 // closes the connection at any later time.
 func dial(
 	ctx context.Context,
+	ins alamos.Instrumentation,
 	uri *url.URL,
 	opts paho.ClientOptions,
 ) (net.Conn, error) {
@@ -871,7 +834,12 @@ func dial(
 		}
 		conn = tlsConn
 	}
-	context.AfterFunc(ctx, func() { _ = conn.Close() })
+	context.AfterFunc(ctx, func() {
+		// Paho closes the connection first on a clean disconnect.
+		if err := conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+			ins.L.Debug("failed to close the broker connection", zap.Error(err))
+		}
+	})
 	return conn, nil
 }
 

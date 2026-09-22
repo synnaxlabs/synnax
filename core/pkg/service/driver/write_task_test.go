@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -193,7 +194,7 @@ var _ = Describe("WriteTask", func() {
 					Channels: channel.Keys{channel.Key(1<<31 - 1)},
 					Task:     t,
 				}))
-				Expect(wt.Start(ctx, "cmd-4")).To(HaveOccurred())
+				Expect(wt.Start(ctx, "cmd-4")).To(MatchError(query.ErrNotFound))
 				Expect(sink.stops.Load()).To(BeEquivalentTo(1))
 				stat := retrieve(ctx)
 				Expect(stat.Variant).To(Equal(status.VariantError))

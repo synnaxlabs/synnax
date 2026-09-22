@@ -312,8 +312,9 @@ it from traffic.
 - **Go tests**: Specs run against a real in-memory Core (`mock.NewNode`) and a real
   in-process broker, `github.com/mochi-mqtt/server/v2`, as a test-only dependency.
 - **Integration tests**: `client/py/examples/mqtt_sim` holds a `DeviceSim` with an
-  embedded broker, a plain publisher, and a Sparkplug edge node built on `pysparkplug`.
-  Driver and Console task cases register in `driver_tests.json`.
+  embedded broker, a plain publisher, and a Sparkplug edge node with a hand-written
+  codec for the metric fields it uses. Driver task cases register in
+  `driver_tests.json`.
 - **Sparkplug compliance**: The Eclipse Sparkplug TCK runs by hand before a release. It
   has no documented headless mode.
 
@@ -434,9 +435,10 @@ channel of that index. A payload that lacks one field therefore writes nothing, 
 task warns. For the same reason, all fields of a topic share one index, and two topics
 may not write to one channel.
 
-## 8 Open questions
+**7.16 Dependency licenses.** `paho.mqtt.golang` is under EPL-2.0 or EDL-1.0, and the
+Tahu proto file is under EPL-2.0. The generated bindings in `sparkplug/pb` are the only
+copy of the proto in the repository.
 
-- **License check**: The Paho modules are under EPL-2.0 or EDL-1.0, and the Tahu proto
-  file is under EPL-2.0 only. Confirm both with counsel before release.
-- **Test broker**: `mochi-mqtt/server` has had no release since 2025-03 and has an open
-  data race in `Close()`. Pin the version, and replace it if the race makes specs fail.
+**7.17 The test broker is pinned.** `mochi-mqtt/server/v2` v2.7.9 is a test-only
+dependency. It has had no release since 2025-03, so the version stays pinned until a
+spec fails on it.

@@ -10,9 +10,6 @@
 package mqtt
 
 import (
-	"encoding/json"
-	"strconv"
-
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
@@ -118,18 +115,11 @@ func (t readTag) keys() channel.Keys {
 // appendSample converts the value of a tag to one sample of the channel of t.
 func (t readTag) appendSample(dst []byte, value any) ([]byte, error) {
 	format := xjson.ISO8601
-	switch v := value.(type) {
-	case int64:
-		value = json.Number(strconv.FormatInt(v, 10))
-	case uint64:
-		value = json.Number(strconv.FormatUint(v, 10))
-	case telem.TimeStamp:
-		value, format = json.Number(
-			strconv.FormatInt(int64(v), 10),
-		), xjson.UnixNanosecond
+	if v, ok := value.(telem.TimeStamp); ok {
+		value, format = int64(v), xjson.UnixNanosecond
 		if t.dataType != telem.TimestampT {
 			// A DateTime counts milliseconds.
-			value = json.Number(strconv.FormatInt(int64(v/telem.MillisecondTS), 10))
+			value = int64(v / telem.MillisecondTS)
 		}
 	}
 	return xjson.AppendSample(dst, t.dataType, value, format, nil)

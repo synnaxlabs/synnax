@@ -349,6 +349,18 @@ func (f *factory) configureRead(
 	return rt, cfg.AutoStart, err
 }
 
+// enabledTarget returns the command channel and the name of a target. ok is false
+// for a disabled target.
+func enabledTarget(v WriteTargetVariant) (key channel.Key, name string, ok bool) {
+	switch t := v.(type) {
+	case PlainWriteTarget:
+		return t.Channel.Channel, t.Topic, !t.Disabled
+	case SparkplugWriteTarget:
+		return t.Channel, t.Tag, !t.Disabled
+	}
+	return 0, "", false
+}
+
 func (f *factory) configureWrite(
 	ctx context.Context,
 	t task.Task,
@@ -363,15 +375,8 @@ func (f *factory) configureWrite(
 	}
 	var keys channel.Keys
 	for _, tg := range cfg.Targets {
-		switch variant := tg.Variant.(type) {
-		case PlainWriteTarget:
-			if !variant.Disabled {
-				keys = append(keys, variant.Channel.Channel)
-			}
-		case SparkplugWriteTarget:
-			if !variant.Disabled {
-				keys = append(keys, variant.Channel)
-			}
+		if key, _, ok := enabledTarget(tg.Variant); ok {
+			keys = append(keys, key)
 		}
 	}
 	if len(keys) == 0 {
@@ -389,21 +394,9 @@ func (f *factory) configureWrite(
 		targets: make(map[channel.Key][]target, len(keys)),
 	}
 	for _, tg := range cfg.Targets {
-		var (
-			key  channel.Key
-			name string
-		)
-		switch variant := tg.Variant.(type) {
-		case PlainWriteTarget:
-			if variant.Disabled {
-				continue
-			}
-			key, name = variant.Channel.Channel, variant.Topic
-		case SparkplugWriteTarget:
-			if variant.Disabled {
-				continue
-			}
-			key, name = variant.Channel, variant.Tag
+		key, name, ok := enabledTarget(tg.Variant)
+		if !ok {
+			continue
 		}
 		ch, ok := channels[key]
 		if !ok {
@@ -530,8 +523,12 @@ func (f *factory) configureScan(t task.Task) (autoStarter, bool, error) {
 		return nil, true, err
 	}
 	scanCfg := driver.ScanTaskConfig{
-		Instrumentation:    f.cfg.Child("scan"),
-		Scanner:            &scanner{pool: f.pool, device: f.cfg.Device},
+		Instrumentation: f.cfg.Child("scan"),
+		Scanner: &scanner{
+			ins:    f.cfg.Instrumentation,
+			pool:   f.pool,
+			device: f.cfg.Device,
+		},
 		Status:             f.cfg.Status,
 		Device:             f.cfg.Device,
 		Make:               Make,

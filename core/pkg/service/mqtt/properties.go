@@ -84,15 +84,31 @@ type clientConfig struct {
 	keepAlive time.Duration
 }
 
-// newClientConfig parses and validates the properties of dev. Errors wrap
-// validate.ErrValidation, except for certificate files that fail to load.
-func newClientConfig(dev device.Device) (clientConfig, error) {
+// parseProperties decodes the properties of dev. The error wraps
+// validate.ErrValidation.
+func parseProperties(dev device.Device) (Properties, error) {
 	var props Properties
 	if err := dev.Properties.Unmarshal(&props); err != nil {
-		return clientConfig{}, errors.Wrapf(
+		return props, errors.Wrapf(
 			validate.ErrValidation, "invalid broker properties: %s", err.Error(),
 		)
 	}
+	return props, nil
+}
+
+// newClientConfig parses and validates the properties of dev. Errors wrap
+// validate.ErrValidation, except for certificate files that fail to load.
+func newClientConfig(dev device.Device) (clientConfig, error) {
+	props, err := parseProperties(dev)
+	if err != nil {
+		return clientConfig{}, err
+	}
+	return newClientConfigOf(dev, props)
+}
+
+// newClientConfigOf validates props, the decoded properties of dev, and returns the
+// config of its client.
+func newClientConfigOf(dev device.Device, props Properties) (clientConfig, error) {
 	v := validate.New("mqtt.properties")
 	v.NotEmptyString("location", dev.Location)
 	v.Ternary("port", props.Port < 0 || props.Port > 65535, "must be 0 to 65535")

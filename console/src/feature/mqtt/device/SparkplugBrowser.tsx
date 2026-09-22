@@ -195,7 +195,11 @@ const EMPTY_CONTENT = (
   </Text.Text>
 );
 
-export const SparkplugBrowser = ({ device }: { device: Device }) => {
+export interface SparkplugBrowserProps {
+  device: Device;
+}
+
+export const SparkplugBrowser = ({ device }: SparkplugBrowserProps) => {
   const [group, setGroup] = useState("");
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Tree.Node[]>([]);
   const store = List.useMapData<string, Item>();

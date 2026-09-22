@@ -40,7 +40,7 @@ disabled. A topic may not hold the wildcards `+` or `#`.
 
 | Parameter  | Type    | Required | Default           | Description                                                                |
 | ---------- | ------- | -------- | ----------------- | -------------------------------------------------------------------------- |
-| `type`     | string  | Yes      | `"plain"`         | The kind of target. `"plain"` publishes a JSON payload to one topic        |
+| `type`     | string  | No       | `"plain"`         | The kind of target. `"plain"` publishes a JSON payload to one topic        |
 | `topic`    | string  | Yes      | -                 | The topic to publish to (e.g., `plant/valve1/set`)                         |
 | `qos`      | string  | No       | `"at_least_once"` | `"at_most_once"` (0), `"at_least_once"` (1), or `"exactly_once"` (2)       |
 | `retained` | boolean | No       | `false`           | Ask the broker to keep the message for clients that subscribe later        |
@@ -77,7 +77,7 @@ the current time.
 | `pointer`     | string | Yes      | -           | JSON Pointer where the value goes               |
 | `json_type`   | string | No       | `"number"`  | Static only. JSON type of `value`               |
 | `value`       | any    | Yes      | -           | Static only. The fixed value                    |
-| `generator`   | string | Yes      | `"uuid"`    | Generated only. `"uuid"` or `"timestamp"`       |
+| `generator`   | string | No       | `"uuid"`    | Generated only. `"uuid"` or `"timestamp"`       |
 | `time_format` | string | No       | `"iso8601"` | Generated only. Format of a generated timestamp |
 
 <Divider.Divider x />

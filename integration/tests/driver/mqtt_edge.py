@@ -78,7 +78,12 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
         )
 
     def _channel_keys(self, task: sy.Task) -> list[int]:
-        return [t.channel for t in task.config.tags]
+        return [
+            k
+            for t in task.config.tags
+            for k in (t.channel, t.command_channel)
+            if k != 0
+        ]
 
     def run(self) -> None:
         super().run()
@@ -166,19 +171,11 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
             ],
         )
         self.client.tasks.configure(writer_task)
-        setpoint = self.client.channels.retrieve("mqtt_edge_node_setpoint")
         setpoint_cmd = self.client.channels.retrieve("mqtt_edge_node_setpoint_cmd")
         try:
             with self.tsk.run(), writer_task.run():
-                # The mirror learns the tag from the birth. A value on the tag proves
-                # that the birth arrived before the command goes out.
-                with self.client.open_writer(
-                    start=sy.TimeStamp.now(),
-                    channels=[setpoint.index, setpoint.key],
-                ) as writer:
-                    writer.write(
-                        {setpoint.index: sy.TimeStamp.now(), setpoint.key: 1.0}
-                    )
+                # The mirror drops a command until the birth declares the tag, so the
+                # loop sends again until the command channel sees the value.
                 with self.client.open_streamer([setpoint_cmd.key]) as streamer:
                     with self.client.open_writer(
                         start=sy.TimeStamp.now(), channels=[set_idx.key, set_ch.key]
@@ -198,3 +195,4 @@ class MQTTEdgeNode(SimulatorCase, WriteTaskCase):
                 raise AssertionError(f"The command channel got {value}, not 42.5")
         finally:
             self.client.tasks.delete(writer_task.key)
+            self.client.channels.delete([set_ch.key, set_idx.key])
