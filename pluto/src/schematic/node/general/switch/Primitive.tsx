@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/switch/switch.css";
 
-import { color, location, TimeSpan } from "@synnaxlabs/x";
+import { color, location } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -28,18 +28,14 @@ export interface Props extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown
 export const Switch = ({
   enabled = false,
   onClick,
-  onClickDelay = 0,
+  onClickDelay,
   orientation = "left",
   color: colorVal,
   scale = 1,
   disabled,
 }: Props): ReactElement => {
   const colorVar = color.rgbaString(colorVal);
-  const hold = useHold<HTMLElement>({
-    onClick,
-    onClickDelay: TimeSpan.fromMilliseconds(onClickDelay),
-    disabled,
-  });
+  const hold = useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
   const style: CSSProperties = {
     [CSS.variable("switch-scale")]: scale,

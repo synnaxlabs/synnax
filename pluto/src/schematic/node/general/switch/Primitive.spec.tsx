@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -49,14 +50,18 @@ describe("switch symbol", () => {
 
     it("should swallow a plain click when a delay is set", () => {
       const onClick = vi.fn();
-      const { container } = render(<Switch onClick={onClick} onClickDelay={500} />);
+      const { container } = render(
+        <Switch onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
+      );
       fireEvent.click(getInput(container));
       expect(onClick).not.toHaveBeenCalled();
     });
 
     it("should actuate after the delay while the switch stays held", () => {
       const onClick = vi.fn();
-      const { container } = render(<Switch onClick={onClick} onClickDelay={500} />);
+      const { container } = render(
+        <Switch onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
+      );
       fireEvent.mouseDown(getInput(container));
       vi.advanceTimersByTime(499);
       expect(onClick).not.toHaveBeenCalled();
@@ -66,7 +71,9 @@ describe("switch symbol", () => {
 
     it("should cancel the hold on an early release", () => {
       const onClick = vi.fn();
-      const { container } = render(<Switch onClick={onClick} onClickDelay={500} />);
+      const { container } = render(
+        <Switch onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
+      );
       fireEvent.mouseDown(getInput(container));
       fireEvent.mouseUp(document);
       vi.advanceTimersByTime(1000);
@@ -75,16 +82,22 @@ describe("switch symbol", () => {
 
     it("should not actuate after the switch is disabled mid-hold", () => {
       const onClick = vi.fn();
-      const c = render(<Switch onClick={onClick} onClickDelay={500} />);
+      const c = render(
+        <Switch onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
+      );
       fireEvent.mouseDown(getInput(c.container));
-      c.rerender(<Switch onClick={onClick} onClickDelay={500} disabled />);
+      c.rerender(
+        <Switch onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} disabled />,
+      );
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
 
     it("should ignore a secondary-button hold", () => {
       const onClick = vi.fn();
-      const { container } = render(<Switch onClick={onClick} onClickDelay={500} />);
+      const { container } = render(
+        <Switch onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
+      );
       fireEvent.mouseDown(getInput(container), { button: 2 });
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();

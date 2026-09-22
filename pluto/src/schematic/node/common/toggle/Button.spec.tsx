@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,7 +60,7 @@ describe("Toggle.Button", () => {
     it("should not call onClick on a plain click event", () => {
       const onClick = vi.fn();
       const { container } = render(
-        <Toggle.Button onClick={onClick} onClickDelay={500} />,
+        <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.click(getButton(container));
       expect(onClick).not.toHaveBeenCalled();
@@ -68,7 +69,7 @@ describe("Toggle.Button", () => {
     it("should defer onClick by the configured delay after mousedown", () => {
       const onClick = vi.fn();
       const { container } = render(
-        <Toggle.Button onClick={onClick} onClickDelay={500} />,
+        <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.mouseDown(getButton(container));
       expect(onClick).not.toHaveBeenCalled();
@@ -81,7 +82,7 @@ describe("Toggle.Button", () => {
     it("should cancel the deferred onClick when mouseup arrives before the delay", () => {
       const onClick = vi.fn();
       const { container } = render(
-        <Toggle.Button onClick={onClick} onClickDelay={500} />,
+        <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.mouseDown(getButton(container));
       vi.advanceTimersByTime(100);
@@ -92,7 +93,9 @@ describe("Toggle.Button", () => {
 
     it("should not fire after the toggle unmounts mid-hold", () => {
       const onClick = vi.fn();
-      const c = render(<Toggle.Button onClick={onClick} onClickDelay={500} />);
+      const c = render(
+        <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
+      );
       fireEvent.mouseDown(getButton(c.container));
       c.unmount();
       vi.advanceTimersByTime(1000);
@@ -101,9 +104,17 @@ describe("Toggle.Button", () => {
 
     it("should not fire after the toggle is disabled mid-hold", () => {
       const onClick = vi.fn();
-      const c = render(<Toggle.Button onClick={onClick} onClickDelay={500} />);
+      const c = render(
+        <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
+      );
       fireEvent.mouseDown(getButton(c.container));
-      c.rerender(<Toggle.Button onClick={onClick} onClickDelay={500} disabled />);
+      c.rerender(
+        <Toggle.Button
+          onClick={onClick}
+          onClickDelay={TimeSpan.milliseconds(500)}
+          disabled
+        />,
+      );
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
     });
@@ -111,7 +122,7 @@ describe("Toggle.Button", () => {
     it("should ignore a secondary-button press", () => {
       const onClick = vi.fn();
       const { container } = render(
-        <Toggle.Button onClick={onClick} onClickDelay={500} />,
+        <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.mouseDown(getButton(container), { button: 2 });
       vi.advanceTimersByTime(1000);
@@ -125,7 +136,7 @@ describe("Toggle.Button", () => {
         <Toggle.Button
           onClick={onClick}
           onMouseDown={onMouseDown}
-          onClickDelay={500}
+          onClickDelay={TimeSpan.milliseconds(500)}
         />,
       );
       fireEvent.mouseDown(getButton(container));
@@ -136,7 +147,7 @@ describe("Toggle.Button", () => {
     it("should fire onClick exactly once even on repeated mousedowns within the same press", () => {
       const onClick = vi.fn();
       const { container } = render(
-        <Toggle.Button onClick={onClick} onClickDelay={500} />,
+        <Toggle.Button onClick={onClick} onClickDelay={TimeSpan.milliseconds(500)} />,
       );
       fireEvent.mouseDown(getButton(container));
       vi.advanceTimersByTime(600);
@@ -149,7 +160,7 @@ describe("Toggle.Button", () => {
   });
 
   describe("hold fill", () => {
-    const renderWithSVG = (delay: number): HTMLElement =>
+    const renderWithSVG = (delay: CrudeTimeSpan): HTMLElement =>
       render(
         <Toggle.Button onClickDelay={delay}>
           <Primitive.SVG dimensions={{ width: 10, height: 10 }}>
@@ -159,7 +170,9 @@ describe("Toggle.Button", () => {
       ).container;
 
     it("should host the masked fill inside the SVG when delayed", () => {
-      expect(renderWithSVG(500).querySelector("svg rect[mask]")).not.toBeNull();
+      expect(
+        renderWithSVG(TimeSpan.milliseconds(500)).querySelector("svg rect[mask]"),
+      ).not.toBeNull();
     });
 
     it("should host no fill without a delay", () => {
