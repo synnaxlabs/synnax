@@ -7,8 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Categories for generated release notes, keyed on the labels labeler.yml applies. A
-# pull request lands in the first category that matches one of its labels.
+# Categories for generated release notes, one per product a user knows, keyed on the
+# labels labeler.yml applies. A pull request lands in the first category that matches.
 changelog:
   categories:
     - title: Console
@@ -20,25 +20,18 @@ changelog:
     - title: Core
       labels:
         - core
-    - title: Clients
-      labels:
-        - py-client
-        - ts-client
-        - cpp-client
     - title: Arc
       labels:
         - arc
-    - title: Pluto and Drift
+    - title: Python client
       labels:
-        - pluto
-        - drift
+        - py-client
+    - title: TypeScript client
+      labels:
+        - ts-client
     - title: Documentation
       labels:
         - user docs
-        - tech docs
-    - title: Ops
-      labels:
-        - ops
     - title: Other changes
       labels:
         - "*"

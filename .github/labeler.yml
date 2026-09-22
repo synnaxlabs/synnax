@@ -7,12 +7,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Area labels applied to a pull request from the paths it touches. Release notes group
-# entries by these labels (see release.yml).
+# Labels applied to a pull request from the paths it touches, one per product a user
+# knows. A package lands under the product that ships it. Release notes group entries by
+# these labels (see release.yml).
 
 console:
   - changed-files:
-      - any-glob-to-any-file: console/**
+      - any-glob-to-any-file:
+          - console/**
+          - drift/**
+          - pluto/**
 
 driver:
   - changed-files:
@@ -26,14 +30,6 @@ core:
           - core/**
           - freighter/**
 
-pluto:
-  - changed-files:
-      - any-glob-to-any-file: pluto/**
-
-drift:
-  - changed-files:
-      - any-glob-to-any-file: drift/**
-
 arc:
   - changed-files:
       - any-glob-to-any-file: arc/**
@@ -46,28 +42,6 @@ ts-client:
   - changed-files:
       - any-glob-to-any-file: client/ts/**
 
-cpp-client:
-  - changed-files:
-      - any-glob-to-any-file:
-          - client/clib/**
-          - client/cpp/**
-
 user docs:
   - changed-files:
       - any-glob-to-any-file: docs/site/**
-
-tech docs:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "**/CLAUDE.md"
-          - docs/CONTRIBUTING.md
-          - docs/claude/**
-          - docs/tech/**
-
-ops:
-  - changed-files:
-      - any-glob-to-any-file:
-          - .github/**
-          - configs/**
-          - integration/**
-          - scripts/**
