@@ -28,15 +28,16 @@ interface Link {
   href: string;
   label: string;
   icon: ReactElement;
-  /** exact matches the path only when equal; a prefix match otherwise. */
-  exact?: boolean;
+  /** owns are the path prefixes this link stays active for, beyond its own href. */
+  owns?: string[];
 }
+
+const LICENSE_PAGES = ["/portal/licenses"];
 
 const links = (enterprise: boolean): Link[] => [
   enterprise
-    ? { href: "/portal", label: "Licenses", icon: <Icon.Access />, exact: true }
-    : { href: "/portal", label: "Desktop", icon: <Icon.Device />, exact: true },
-  { href: "/portal/licenses", label: "Licenses", icon: <Icon.Access /> },
+    ? { href: "/portal", label: "Licenses", icon: <Icon.Access />, owns: LICENSE_PAGES }
+    : { href: "/portal", label: "Desktop", icon: <Icon.Device />, owns: LICENSE_PAGES },
   { href: "/portal/account", label: "Account", icon: <Icon.User /> },
 ];
 
@@ -45,7 +46,7 @@ const STAFF_LINKS: Link[] = [
 ];
 
 const active = (path: string, link: Link): boolean =>
-  link.exact === true ? path === link.href : path.startsWith(link.href);
+  path === link.href || (link.owns ?? []).some((p) => path.startsWith(p));
 
 const withOrg = (href: string, org: string | null): string =>
   org == null ? href : `${href}?org=${org}`;
@@ -62,9 +63,7 @@ export const Sidebar = ({
     url.searchParams.set("org", key);
     window.location.assign(url.toString());
   }, []);
-  const visible = links(teams.length > 0).filter(
-    (l) => l.href !== "/portal/licenses" || active(path, l),
-  );
+
   return (
     <Flex.Box y gap="large" className="portal-sidebar">
       {teams.length > 1 && (
@@ -77,7 +76,7 @@ export const Sidebar = ({
         />
       )}
       <Flex.Box y gap="tiny">
-        {visible.map((link) => (
+        {links(teams.length > 0).map((link) => (
           <NavLink key={link.href} link={link} path={path} org={selected} />
         ))}
       </Flex.Box>
