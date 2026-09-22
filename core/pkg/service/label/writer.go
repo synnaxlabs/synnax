@@ -11,8 +11,8 @@ package label
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,7 +28,7 @@ type Writer struct {
 // Create creates a new label, assigning it a unique key if one is not provided. If
 // a label with the same key already exists, it will be overwritten.
 func (w Writer) Create(ctx context.Context, l *Label) error {
-	if l.Key == uuid.Nil {
+	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
 	}
 	if err := l.Validate(); err != nil {

@@ -12,8 +12,8 @@ package v2_test
 import (
 	"slices"
 	"strconv"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -130,7 +130,7 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Legacy Task")).
 				Entry(&migrated).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(migrated.Key).ToNot(Equal(uuid.Nil))
+			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
 			Expect(migrated.Config).ToNot(HaveKey("data_saving"))

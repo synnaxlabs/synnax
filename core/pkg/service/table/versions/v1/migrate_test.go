@@ -11,12 +11,13 @@ package v1_test
 
 import (
 	"embed"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
@@ -73,7 +74,9 @@ func migrateSeed(ctx SpecContext, seed v0.Table) v1.Table {
 // rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
 // json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v1.Table) {
-	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
+	pretty := MustSucceed(
+		json.Marshal(got, jsontext.WithIndent("  "), json.Deterministic(true)),
+	)
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
 	p := filepath.Join("testdata", stem+".migrated.json")

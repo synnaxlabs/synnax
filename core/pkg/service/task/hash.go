@@ -10,7 +10,7 @@
 package task
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"
@@ -26,16 +26,15 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
-	b, err := json.Marshal(map[string]any(config))
+	b, err := json.Marshal(map[string]any(config), json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrap(err, "failed to hash task config")
 	}
 	return fmt.Sprintf("%016x", xxhash.Sum64(b)), nil
 }
 
-// configContent returns config without the record key, so hashes track config
-// content rather than record identity: equal configs on different tasks hash
-// equally.
+// configContent returns config without the record key, so hashes track config content
+// rather than record identity: equal configs on different tasks hash equally.
 func configContent(config msgpack.EncodedJSON) msgpack.EncodedJSON {
 	content := make(msgpack.EncodedJSON, len(config))
 	for k, v := range config {

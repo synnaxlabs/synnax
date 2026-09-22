@@ -7,11 +7,11 @@
       "channel": 6110,
       "data_type": "float32",
       "disabled": false,
+      "is_index": false,
       "key": "ch-opc-array-0",
       "name": "fixture_opc_array_flow",
       "node_id": "NS=3;S=fixture.array.flow",
-      "node_name": "FixtureFlowNode",
-      "is_index": false
+      "node_name": "FixtureFlowNode"
     }
   ],
   "data_saving_disabled": false,
