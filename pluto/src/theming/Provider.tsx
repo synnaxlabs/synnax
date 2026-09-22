@@ -95,7 +95,7 @@ export const useProvider = ({
       );
       // A key naming a variant pins it; any other key only names the override, since
       // the override applies to both variants and the selection stays light or dark.
-      const overridden = { synnaxLight, synnaxDark };
+      const overridden: Record<string, theming.Theme> = { synnaxLight, synnaxDark };
       if (Object.hasOwn(overridden, theme.key)) setSelected(theme.key);
       return overridden;
     }
