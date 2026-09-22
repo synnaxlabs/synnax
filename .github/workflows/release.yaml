@@ -1,0 +1,410 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Release
+
+run-name:
+  ${{ format('Release{0}{1}{2} {3}{4}', inputs.console && ' Console' || '',
+  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.bump,
+  inputs.prerelease && ' candidate' || '') }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      console:
+        description: Release the Console
+        type: boolean
+        default: true
+      driver:
+        description: Release the Driver
+        type: boolean
+        default: true
+      core:
+        description: Release the Core
+        type: boolean
+        default: true
+      bump:
+        description: Version bump for every selected product
+        type: choice
+        options:
+          - patch
+          - minor
+        default: patch
+      prerelease:
+        description: Tag release candidates (-rc.N)
+        type: boolean
+        default: false
+      console_version:
+        description:
+          "Console release the Core embeds (default: this run's, else the newest on the
+          minor)"
+        type: string
+        default: ""
+      driver_version:
+        description:
+          "Driver release the Core embeds (default: this run's, else the newest on the
+          minor)"
+        type: string
+        default: ""
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+env:
+  GH_REPO: ${{ github.repository }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  verify:
+    name: Verify Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Verify Checks
+        uses: ./.github/actions/verify-checks
+        with:
+          sha: ${{ github.sha }}
+
+  integration:
+    name: Integration
+    uses: ./.github/workflows/test.integration.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    secrets: inherit
+
+  resolve:
+    name: Resolve Versions
+    runs-on: ubuntu-latest
+    outputs:
+      console_version: ${{ steps.console.outputs.version }}
+      console_tag: ${{ steps.console.outputs.tag }}
+      console_previous_tag: ${{ steps.console.outputs.previous_tag }}
+      driver_version: ${{ steps.driver.outputs.version }}
+      driver_tag: ${{ steps.driver.outputs.tag }}
+      driver_previous_tag: ${{ steps.driver.outputs.previous_tag }}
+      core_version: ${{ steps.core.outputs.version }}
+      core_tag: ${{ steps.core.outputs.tag }}
+      core_previous_tag: ${{ steps.core.outputs.previous_tag }}
+      core_console_version: ${{ steps.embed.outputs.console_version }}
+      core_driver_version: ${{ steps.embed.outputs.driver_version }}
+    steps:
+      - name: Require a Product
+        if: ${{ !inputs.console && !inputs.driver && !inputs.core }}
+        run: |
+          echo "no product selected" >&2
+          exit 1
+
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Console Version
+        id: console
+        if: inputs.console
+        uses: ./.github/actions/resolve-version
+        with:
+          product: console
+          bump: ${{ inputs.bump }}
+          prerelease: ${{ inputs.prerelease }}
+
+      - name: Resolve Driver Version
+        id: driver
+        if: inputs.driver
+        uses: ./.github/actions/resolve-version
+        with:
+          product: driver
+          bump: ${{ inputs.bump }}
+          prerelease: ${{ inputs.prerelease }}
+
+      - name: Resolve Core Version
+        id: core
+        if: inputs.core
+        uses: ./.github/actions/resolve-version
+        with:
+          product: core
+          bump: ${{ inputs.bump }}
+          prerelease: ${{ inputs.prerelease }}
+
+      # The train rule: the Core embeds only releases on its own minor. A product
+      # released by this run is the default; otherwise the newest on the minor.
+      - name: Resolve Embedded Versions
+        id: embed
+        if: inputs.core
+        env:
+          MINOR: ${{ steps.core.outputs.minor }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          CONSOLE: ${{ inputs.console_version || steps.console.outputs.version }}
+          DRIVER: ${{ inputs.driver_version || steps.driver.outputs.version }}
+        run: |
+          latest() { scripts/latest_version.sh "$1" "$MINOR" "$PRERELEASE"; }
+          CONSOLE=${CONSOLE:-$(latest console)}
+          DRIVER=${DRIVER:-$(latest driver)}
+          for pair in "console=$CONSOLE" "driver=$DRIVER"; do
+            product=${pair%%=*}
+            version=${pair#*=}
+            if [ -z "$version" ]; then
+              echo "no $product release exists on train $MINOR" >&2
+              exit 1
+            fi
+            case "$version" in
+              "$MINOR".*) ;;
+              *)
+                echo "train rule: $product $version is not on train $MINOR" >&2
+                exit 1
+                ;;
+            esac
+            echo "${product}_version=$version" >> "$GITHUB_OUTPUT"
+          done
+
+  draft-console:
+    name: Draft Console
+    needs: [resolve, verify, integration]
+    if: inputs.console
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Draft Release
+        uses: ./.github/actions/draft-release
+        with:
+          tag: ${{ needs.resolve.outputs.console_tag }}
+          title: Console v${{ needs.resolve.outputs.console_version }}
+          previous_tag: ${{ needs.resolve.outputs.console_previous_tag }}
+          prerelease: ${{ inputs.prerelease }}
+
+  build-console:
+    name: Build Console
+    needs: [resolve, draft-console]
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      ubuntu: true
+      console: true
+      console_tauri: true
+      sign_binaries: true
+      use_simple_artifact_names: true
+      version: ${{ needs.resolve.outputs.console_version }}
+      release_tag: ${{ needs.resolve.outputs.console_tag }}
+      updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
+    secrets: inherit
+
+  publish-console:
+    name: Publish Console
+    needs: [resolve, build-console]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.console_tag }}
+      VERSION: ${{ needs.resolve.outputs.console_version }}
+    steps:
+      # The manifest carries the app version the build stamped (X.Y.Z-N for a
+      # candidate), so the updater compares like with like.
+      - name: Write Updater Manifest
+        run: |
+          APP_VERSION="${VERSION/-rc./-}"
+          BASE="https://github.com/${GH_REPO}/releases/download/${TAG}"
+          gh release download "$TAG" --pattern 'Synnax.app.tar.gz.sig' \
+            --pattern "Synnax_${APP_VERSION}_x64_en-US.msi.sig"
+          jq -n --arg version "v${APP_VERSION}" --arg base "$BASE" \
+            --arg msi "Synnax_${APP_VERSION}_x64_en-US.msi" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --rawfile darwin Synnax.app.tar.gz.sig \
+            --rawfile windows "Synnax_${APP_VERSION}_x64_en-US.msi.sig" \
+            '($base + "/Synnax.app.tar.gz") as $mac | {
+              version: $version,
+              notes: "Synnax Update",
+              pub_date: $date,
+              platforms: {
+                "darwin-x86_64": {signature: $darwin, url: $mac},
+                "darwin-aarch64": {signature: $darwin, url: $mac},
+                "linux-x86_64": {
+                  signature: "not_supported_and_tauri_requires_an_entry",
+                  url: $mac
+                },
+                "windows-x86_64": {signature: $windows, url: ($base + "/" + $msi)}
+              }
+            }' > latest.json
+          gh release upload --clobber "$TAG" latest.json
+
+      - name: Publish Release
+        run: gh release edit "$TAG" --draft=false
+
+  draft-driver:
+    name: Draft Driver
+    needs: [resolve, verify, integration]
+    if: inputs.driver
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Draft Release
+        uses: ./.github/actions/draft-release
+        with:
+          tag: ${{ needs.resolve.outputs.driver_tag }}
+          title: Driver v${{ needs.resolve.outputs.driver_version }}
+          previous_tag: ${{ needs.resolve.outputs.driver_previous_tag }}
+          prerelease: ${{ inputs.prerelease }}
+
+  build-driver:
+    name: Build Driver
+    needs: [resolve, draft-driver]
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      ubuntu: true
+      driver: true
+      nilinuxrt: true
+      sign_binaries: true
+      use_simple_artifact_names: true
+      version: ${{ needs.resolve.outputs.driver_version }}
+      release_tag: ${{ needs.resolve.outputs.driver_tag }}
+    secrets: inherit
+
+  publish-driver:
+    name: Publish Driver
+    needs: [resolve, build-driver]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.driver_tag }}
+    steps:
+      - name: Publish Release
+        run: gh release edit "$TAG" --draft=false
+
+  # The Core closes the train: it embeds the Console and Driver, so it waits for the
+  # ones this run releases and never runs after one of them fails.
+  draft-core:
+    name: Draft Core
+    needs: [resolve, verify, integration, publish-console, publish-driver]
+    if: >-
+      !cancelled() && inputs.core && needs.resolve.result == 'success' &&
+      needs.verify.result == 'success' && needs.integration.result == 'success' &&
+      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
+      || needs.publish-driver.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Draft Release
+        uses: ./.github/actions/draft-release
+        with:
+          tag: ${{ needs.resolve.outputs.core_tag }}
+          title: Core v${{ needs.resolve.outputs.core_version }}
+          previous_tag: ${{ needs.resolve.outputs.core_previous_tag }}
+          notes:
+            Embeds Console v${{ needs.resolve.outputs.core_console_version }} and Driver
+            v${{ needs.resolve.outputs.core_driver_version }}.
+          prerelease: ${{ inputs.prerelease }}
+
+  build-core:
+    name: Build Core
+    needs: [resolve, draft-core]
+    uses: ./.github/workflows/build.synnax.yaml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    with:
+      windows: true
+      macos: true
+      ubuntu: true
+      docker: true
+      core: true
+      sign_binaries: true
+      use_simple_artifact_names: true
+      version: ${{ needs.resolve.outputs.core_version }}
+      release_tag: ${{ needs.resolve.outputs.core_tag }}
+      console_release: console/v${{ needs.resolve.outputs.core_console_version }}
+      driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
+      docker_channel: ${{ inputs.prerelease && 'next' || 'latest' }}
+    secrets: inherit
+
+  windows-installer:
+    name: Build Windows Installer
+    needs: [resolve, build-core]
+    runs-on: windows-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.core_tag }}
+      VERSION: ${{ needs.resolve.outputs.core_version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Download Core Binary
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-core-windows
+          path: scripts/
+
+      - name: Rename Binary for Installer
+        shell: powershell
+        run:
+          Move-Item -Force scripts/synnax-v${{ env.VERSION }}.exe
+          scripts/synnax-server.exe
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install trusted-signing-cli
+        run: cargo install trusted-signing-cli
+
+      - name: Build Windows Installer
+        shell: powershell
+        run: |
+          choco install nsis -y --no-progress
+          $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          $env:Path = "$nsisDir;$env:Path"
+          Copy-Item -Force .\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
+          makensis /DVERSION=${{ env.VERSION }} .\scripts\windows_installer.nsi
+
+      - name: Sign Windows Installer
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
+          Installer" .\scripts\synnax-setup-v${{ env.VERSION }}.exe
+
+      - name: Upload Windows Installer
+        run: |
+          gh release upload --clobber "${env:TAG}" .\scripts\synnax-setup-v${env:VERSION}.exe
+
+  publish-core:
+    name: Publish Core
+    needs: [resolve, build-core, windows-installer]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.core_tag }}
+    steps:
+      - name: Publish Release
+        run: gh release edit "$TAG" --draft=false

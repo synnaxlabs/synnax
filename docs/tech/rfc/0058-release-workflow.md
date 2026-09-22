@@ -10,11 +10,11 @@
 The Core, Console, and Driver release on every push to `main` or `rc`, their versions
 are hand-edited files, and the Console updater polls a JSON file a bot force-pushes to
 `main`. This RFC moves to trunk-based development on `main`, one dispatched release
-workflow per binary product with a train workflow over them, Git tags as the only
-version source for those products, an updater manifest hosted on the GitHub release, and
-static feature flags. Python and TypeScript packages keep their current flow: versioned
-in their manifests, published on merge. It supersedes RFC 0020 §2, §3, §4, §5, and §7,
-and retires the `rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor
+workflow with a checkbox per binary product, Git tags as the only version source for
+those products, an updater manifest hosted on the GitHub release, and static feature
+flags. Python and TypeScript packages keep their current flow: versioned in their
+manifests, published on merge. It supersedes RFC 0020 §2, §3, §4, §5, and §7, and
+retires the `rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor
 survives: every product and package shares one minor, and patches move independently.
 
 ## 1 Motivation
@@ -52,18 +52,20 @@ A hotfix is fixed on `main` first, then cherry-picked by PR onto
 runs from that branch and resolves its minor from the tags reachable from it. The branch
 is deleted afterwards.
 
-### 2.1 Release workflows
+### 2.1 Release workflow
 
-One `workflow_dispatch` workflow per binary product, `release.<product>.yaml`, with
-inputs:
+One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 
-- **`bump`**: `patch` (default) or `minor`.
-- **`prerelease`**: Tag `-rc.N` and mark the release pre-release.
-- **`console_version`, `driver_version`** (Core only): Releases to embed. Default: the
-  newest stable on the resolved minor, or the newest pre-release on it when `prerelease`
-  is set, so a hotfix from `release/core-0.59` never picks up 0.60.
+- **`console`, `driver`, `core`**: The products to release, all on by default. One
+  dispatch ships a whole train; a hotfix ticks one product.
+- **`bump`**: `patch` (default) or `minor`, applied to every selected product.
+- **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
+- **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
+  this run releases, else the newest stable on the resolved minor, or the newest
+  pre-release on it when `prerelease` is set, so a hotfix from `release/core-0.59` never
+  picks up 0.60.
 
-Each runs four stages:
+Each selected product runs four stages:
 
 1. **Resolve**: A composite action `.github/actions/resolve-version` takes the minor
    from the highest stable product tag reachable from `HEAD`, then the patch from the
@@ -74,15 +76,14 @@ Each runs four stages:
    same baseline, so its notes cover every change since the last stable. Reachability
    picks the train; the repo-wide scan keeps a hotfix tag from being reissued.
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
-   as a `workflow_call` job. The train verifies once and passes `verified` to the
-   product workflows.
+   as a `workflow_call` job. One run verifies once for every product.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
    with categories from `.github/release.yml` and `previous_tag_name` set to the
    previous stable product tag, since GitHub's default is the repo's last release of any
    product, then clear the draft. The release creates the tag, so a failed build leaves
-   none. Concurrency group `release-<product>` serializes a product's releases.
+   none. Concurrency group `release` serializes releases.
 
 Assets per product:
 
@@ -97,13 +98,9 @@ Assets per product:
   pre-release). No workflow rebuilds another product. The notes name the embedded
   versions.
 
-A fourth workflow, `release.train.yaml`, is the everyday path. It takes the same `bump`
-and `prerelease` inputs and calls the three product workflows, which also expose
-`workflow_call` and a `version` output: Console and Driver in parallel, then the Core
-with their outputs as `console_version` and `driver_version`. One dispatch releases a
-whole train. A product that fails leaves no tag and the rest stand; rerun that product
-alone, and a Core rerun's defaults pick up the others. The per-product workflows stay
-for hotfix patches.
+Console and Driver release in parallel; the Core waits for both, since it embeds them,
+and never runs after one of them fails. A product that fails leaves no tag and the rest
+stand; rerun with that product alone, and a Core rerun's defaults pick up the others.
 
 `deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
@@ -207,7 +204,7 @@ flag and workflow file.
   bootstrap tag sits on the `synnax-v0.58.2` commit on `main`, so Resolve reaches it
   from `HEAD`. Then `releases.ts`, the updater routes, per-product consumers, and docs
   flags, all deployable before any workflow change.
-- **Phase 2: Cutover.** One PR: the four `release.*.yaml`, `resolve-version`,
+- **Phase 2: Cutover.** One PR: `release.yaml`, `resolve-version`,
   `.github/release.yml`, `deploy.synnax.yaml` deleted, `rc` removed from every trigger,
   the updater endpoint swapped, `CLAUDE.md` rewritten. Version files stay and injection
   overrides them, so no version file changes. Then merge `rc` into `main` (publishes
@@ -217,7 +214,7 @@ flag and workflow file.
   `workspace:*` pins to the catalog; add the Bazel status script, the `0.0`
   compatibility rule in all three clients, and `console/src/flags.ts`.
 - **Phase 4: First releases.** One PR bumps every package manifest to 0.59, then one
-  `release.train.yaml` dispatch with `bump: minor` opens train 0.59. After the Console
+  `release.yaml` dispatch with `bump: minor` opens train 0.59. After the Console
   release, one manual commit copies its `latest.json` into `release-spec.json`, so
   installed 0.58 builds upgrade once and land on the new endpoint. The file stays on
   `main` until 0.58 is out of support.
@@ -249,10 +246,10 @@ flag and workflow file.
     person or Changesets. The manifest version is the release decision, the registry's
     skip of published versions is the change detection, and the published `^X.Y.0`
     ranges lock the minor on 0.x, so any patch mix inside a train resolves.
-11. **One dispatch per train**: `release.train.yaml` composes the three product
-    workflows so a minor ships with one click; separate dispatches were rejected as
-    three clicks in a forced order. The products keep their own tags, releases, and
-    hotfix workflows.
+11. **One workflow, a checkbox per product**: One `release.yaml` ships a minor with one
+    click and a hotfix with one box ticked. A workflow per product plus a train workflow
+    over them was rejected as four files for one job; separate dispatches were rejected
+    as three clicks in a forced order. The products keep their own tags and releases.
 
 ## 5 Open questions
 
