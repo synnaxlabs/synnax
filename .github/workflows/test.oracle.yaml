@@ -24,6 +24,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .github/workflows/test.oracle.yaml
       - .github/workflows/test.go.yaml

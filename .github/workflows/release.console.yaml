@@ -109,21 +109,23 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      PREVIOUS_TAG: ${{ needs.resolve.outputs.previous_tag }}
     steps:
       # A failed earlier run can leave a draft under the same tag; the tag itself only
       # exists once a release is published.
       - name: Delete Stale Draft
         run: |
-          if gh release list --json tagName,isDraft \
-            --jq --arg tag "$TAG" '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
+          if gh release list --json tagName,isDraft --jq --arg tag "$TAG" \
+            '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
             gh release delete "$TAG" --yes
           fi
 
       - name: Create Draft Release
         run: |
-          gh release create "$TAG" --draft --target "${{ github.sha }}" \
-            --title "Console v${{ needs.resolve.outputs.version }}" \
-            --generate-notes --notes-start-tag "${{ needs.resolve.outputs.previous_tag }}" \
+          gh release create "$TAG" --draft --target "$GITHUB_SHA" \
+            --title "Console v$VERSION" \
+            --generate-notes --notes-start-tag "$PREVIOUS_TAG" \
             ${{ inputs.prerelease && '--prerelease' || '' }}
 
   build:
@@ -168,16 +170,16 @@ jobs:
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --rawfile darwin Synnax.app.tar.gz.sig \
             --rawfile windows "Synnax_${APP_VERSION}_x64_en-US.msi.sig" \
-            '{
+            '($base + "/Synnax.app.tar.gz") as $mac | {
               version: $version,
               notes: "Synnax Update",
               pub_date: $date,
               platforms: {
-                "darwin-x86_64": {signature: $darwin, url: ($base + "/Synnax.app.tar.gz")},
-                "darwin-aarch64": {signature: $darwin, url: ($base + "/Synnax.app.tar.gz")},
+                "darwin-x86_64": {signature: $darwin, url: $mac},
+                "darwin-aarch64": {signature: $darwin, url: $mac},
                 "linux-x86_64": {
                   signature: "not_supported_and_tauri_requires_an_entry",
-                  url: ($base + "/Synnax.app.tar.gz")
+                  url: $mac
                 },
                 "windows-x86_64": {signature: $windows, url: ($base + "/" + $msi)}
               }

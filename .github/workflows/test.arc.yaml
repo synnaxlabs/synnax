@@ -34,6 +34,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .bazeliskrc
       - .bazelrc

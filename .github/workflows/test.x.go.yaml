@@ -22,6 +22,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .github/workflows/test.go.yaml
       - .github/workflows/test.x.go.yaml

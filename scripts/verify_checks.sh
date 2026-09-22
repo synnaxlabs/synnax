@@ -15,7 +15,9 @@
 # the commit it runs on. A path filter skips a workflow on a push that leaves its paths
 # alone, so a commit with only passing check runs can still sit on a broken branch. The
 # newest push run of every test, lint, and check workflow on the branch must therefore
-# have passed too. Runs from the checkout root, which supplies the workflow files.
+# have passed too. A workflow with no push run on the branch is skipped: a hotfix
+# branch cut from a tag only runs the workflows a cherry-pick touches. Runs from the
+# checkout root, which supplies the workflow files.
 
 set -euo pipefail
 
@@ -59,12 +61,18 @@ if [ "${#FILES[@]}" -gt 0 ]; then
     WORKFLOWS=$(grep -lE '^  push:' "${FILES[@]}" || true)
 fi
 STALE=""
+CHECKED=0
 for FILE in $WORKFLOWS; do
     NAME=$(basename "$FILE")
     LATEST=$(gh api --method GET "repos/${REPO}/actions/workflows/${NAME}/runs" \
         -f branch="$BRANCH" -f event=push -F per_page=1 \
         --jq '.workflow_runs[0] // {} | "\(.status // "missing") \(.conclusion // "")"')
     read -r STATUS CONCLUSION <<< "$LATEST"
+    if [ "$STATUS" = "missing" ]; then
+        echo "$NAME never ran on $BRANCH, skipped"
+        continue
+    fi
+    CHECKED=$((CHECKED + 1))
     if [ "$STATUS" != "completed" ]; then
         STALE+="  $NAME ($STATUS)"$'\n'
     elif [ "$CONCLUSION" != "success" ] && [ "$CONCLUSION" != "skipped" ] \
@@ -77,4 +85,4 @@ if [ -n "$STALE" ]; then
     exit 1
 fi
 
-echo "$(wc -w <<< "$WORKFLOWS" | tr -d ' ') workflows pass on $BRANCH"
+echo "$CHECKED workflows pass on $BRANCH"

@@ -28,6 +28,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .github/actions/test-typescript/**
       - .github/workflows/test.drift.yaml

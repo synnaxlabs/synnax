@@ -23,6 +23,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .github/workflows/test.cesium.yaml
       - .github/workflows/test.go.yaml

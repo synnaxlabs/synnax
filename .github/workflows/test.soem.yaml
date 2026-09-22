@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .github/workflows/test.soem.yaml
       - vendor/soem/**

@@ -40,6 +40,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .github/workflows/check.oracle.yaml
       - oracle/**

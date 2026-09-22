@@ -25,6 +25,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - "**/BUILD"
       - "**/BUILD.bazel"

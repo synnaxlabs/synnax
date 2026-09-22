@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - "**/*.proto"
       - .github/workflows/test.protobuf.yaml

@@ -101,8 +101,9 @@ jobs:
           CONSOLE: ${{ inputs.console_version }}
           DRIVER: ${{ inputs.driver_version }}
         run: |
-          CONSOLE=${CONSOLE:-$(scripts/latest_version.sh console "$MINOR" "$PRERELEASE")}
-          DRIVER=${DRIVER:-$(scripts/latest_version.sh driver "$MINOR" "$PRERELEASE")}
+          latest() { scripts/latest_version.sh "$1" "$MINOR" "$PRERELEASE"; }
+          CONSOLE=${CONSOLE:-$(latest console)}
+          DRIVER=${DRIVER:-$(latest driver)}
           for pair in "console=$CONSOLE" "driver=$DRIVER"; do
             product=${pair%%=*}
             version=${pair#*=}
@@ -153,22 +154,26 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      PREVIOUS_TAG: ${{ needs.resolve.outputs.previous_tag }}
+      CONSOLE_VERSION: ${{ needs.resolve.outputs.console_version }}
+      DRIVER_VERSION: ${{ needs.resolve.outputs.driver_version }}
     steps:
       # A failed earlier run can leave a draft under the same tag; the tag itself only
       # exists once a release is published.
       - name: Delete Stale Draft
         run: |
-          if gh release list --json tagName,isDraft \
-            --jq --arg tag "$TAG" '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
+          if gh release list --json tagName,isDraft --jq --arg tag "$TAG" \
+            '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
             gh release delete "$TAG" --yes
           fi
 
       - name: Create Draft Release
         run: |
-          gh release create "$TAG" --draft --target "${{ github.sha }}" \
-            --title "Core v${{ needs.resolve.outputs.version }}" \
-            --notes "Embeds Console v${{ needs.resolve.outputs.console_version }} and Driver v${{ needs.resolve.outputs.driver_version }}." \
-            --generate-notes --notes-start-tag "${{ needs.resolve.outputs.previous_tag }}" \
+          gh release create "$TAG" --draft --target "$GITHUB_SHA" \
+            --title "Core v$VERSION" \
+            --notes "Embeds Console v$CONSOLE_VERSION and Driver v$DRIVER_VERSION." \
+            --generate-notes --notes-start-tag "$PREVIOUS_TAG" \
             ${{ inputs.prerelease && '--prerelease' || '' }}
 
   build:
@@ -199,6 +204,7 @@ jobs:
     needs: [resolve, build]
     runs-on: windows-latest
     env:
+      TAG: ${{ needs.resolve.outputs.tag }}
       VERSION: ${{ needs.resolve.outputs.version }}
     steps:
       - name: Checkout Repository
@@ -242,13 +248,16 @@ jobs:
           Installer" .\scripts\synnax-setup-v${{ env.VERSION }}.exe
 
       - name: Upload Windows Installer
-        run: |
-          gh release upload --clobber ${{ needs.resolve.outputs.tag }} .\scripts\synnax-setup-v${{ env.VERSION }}.exe
+        run:
+          gh release upload --clobber "$env:TAG"
+          .\scripts\synnax-setup-v$env:VERSION.exe
 
   publish:
     name: Publish
     needs: [resolve, build, windows-installer]
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
     steps:
       - name: Publish Release
-        run: gh release edit "${{ needs.resolve.outputs.tag }}" --draft=false
+        run: gh release edit "$TAG" --draft=false

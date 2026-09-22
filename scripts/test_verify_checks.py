@@ -179,11 +179,12 @@ class TestBranchRuns:
         assert result.returncode != 0
         assert "lint.integration.yaml (in_progress)" in result.stderr
 
-    def test_fails_when_a_workflow_never_ran(self, harness: Harness) -> None:
+    def test_skips_a_workflow_that_never_ran(self, harness: Harness) -> None:
         harness.workflow("check.oracle.yaml", status=None)
         result = harness.run()
-        assert result.returncode != 0
-        assert "check.oracle.yaml (missing)" in result.stderr
+        assert result.returncode == 0, result.stderr
+        assert "check.oracle.yaml never ran on main, skipped" in result.stdout
+        assert "1 workflows pass on main" in result.stdout
 
     def test_accepts_a_skipped_run(self, harness: Harness) -> None:
         harness.workflow("test.docs.yaml", conclusion="skipped")

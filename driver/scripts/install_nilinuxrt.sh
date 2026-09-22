@@ -9,7 +9,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-VERSION="${VERSION:-0.39.0-rc}"
+VERSION="${VERSION:-0.58.2}"
 DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"
 curl -LO "https://github.com/synnaxlabs/synnax/releases/download/driver/v${VERSION}/${DRIVER_BINARY}"
 chmod +x $DRIVER_BINARY

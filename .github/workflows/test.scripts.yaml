@@ -17,6 +17,7 @@ on:
   push:
     branches:
       - main
+      - release/**
     paths:
       - .github/workflows/test.scripts.yaml
       - scripts/**

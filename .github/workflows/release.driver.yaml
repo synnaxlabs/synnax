@@ -109,21 +109,23 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      PREVIOUS_TAG: ${{ needs.resolve.outputs.previous_tag }}
     steps:
       # A failed earlier run can leave a draft under the same tag; the tag itself only
       # exists once a release is published.
       - name: Delete Stale Draft
         run: |
-          if gh release list --json tagName,isDraft \
-            --jq --arg tag "$TAG" '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
+          if gh release list --json tagName,isDraft --jq --arg tag "$TAG" \
+            '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
             gh release delete "$TAG" --yes
           fi
 
       - name: Create Draft Release
         run: |
-          gh release create "$TAG" --draft --target "${{ github.sha }}" \
-            --title "Driver v${{ needs.resolve.outputs.version }}" \
-            --generate-notes --notes-start-tag "${{ needs.resolve.outputs.previous_tag }}" \
+          gh release create "$TAG" --draft --target "$GITHUB_SHA" \
+            --title "Driver v$VERSION" \
+            --generate-notes --notes-start-tag "$PREVIOUS_TAG" \
             ${{ inputs.prerelease && '--prerelease' || '' }}
 
   build:
@@ -150,6 +152,8 @@ jobs:
     name: Publish
     needs: [resolve, build]
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
     steps:
       - name: Publish Release
-        run: gh release edit "${{ needs.resolve.outputs.tag }}" --draft=false
+        run: gh release edit "$TAG" --draft=false

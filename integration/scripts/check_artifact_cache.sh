@@ -80,7 +80,6 @@ CORE_PATHS=(
 
 UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 
-# Deploy runs build the same artifacts, so both workflows are reuse sources.
 WORKFLOW_FILES=("test.integration.yaml")
 
 CACHE_DIR=$(mktemp -d)
