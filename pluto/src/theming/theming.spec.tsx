@@ -34,15 +34,16 @@ describe("Theming", () => {
     expect(result.current.theme.name).toBe("Synnax Light");
   });
 
-  it("should apply an override under the caller's key to the selected variant", () => {
+  it("should apply an override to both variants and keep their keys", () => {
     const { result } = renderTheming({
       key: "my-theme",
       colors: { primary: "#be9223" },
     });
-    expect(result.current.theme.key).toBe("my-theme");
+    expect(result.current.theme.key).toBe("synnaxDark");
     expect(result.current.theme.name).toBe("Synnax Dark");
     expect(result.current.theme.colors.primary.z).toEqual(color.construct("#be9223"));
     act(() => result.current.toggleTheme());
+    expect(result.current.theme.key).toBe("synnaxLight");
     expect(result.current.theme.name).toBe("Synnax Light");
     expect(result.current.theme.colors.primary.z).toEqual(color.construct("#be9223"));
   });
