@@ -10,10 +10,10 @@
 import { type Analytics } from "@/platform/analytics";
 
 /**
- * The project the docs site already reports to. Desktop shares it so that a later
- * Portal sign-in can join a website visit to an install; two projects never merge.
+ * The Desktop project. The key is public, and every install carries it: it grants
+ * nothing but writing events into that one project.
  */
-const KEY = "phc_NX1V2suy6Rd924qT3hjDCM23miC3SxqoP7r1GHF8Vsq";
+const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
 const API_HOST = "https://us.i.posthog.com";
 
@@ -54,6 +54,9 @@ const init = async (params: Promise<Params>) => {
   posthog.init(KEY, {
     api_host: API_HOST,
     defaults: DEFAULTS,
+    // Logs every event to the console of the window, so a dev run can be read without
+    // waiting for the project to ingest it.
+    debug: IS_DEV,
     disable_external_dependency_loading: true,
     persistence: "localStorage",
     // The bootstrap identifies the install, so the default `identified_only` still
@@ -87,7 +90,9 @@ const init = async (params: Promise<Params>) => {
       return event;
     },
   });
-  posthog.register({ app: "desktop" });
+  // A dev run reports as an ordinary install otherwise, so every count needs this to
+  // separate the two.
+  posthog.register({ environment: IS_DEV ? "development" : "production" });
   return posthog;
 };
 

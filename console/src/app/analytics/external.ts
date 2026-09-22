@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { Provider } from "@/app/analytics/Provider";
-export { Screen } from "@/app/analytics/Screen";
+export { Screen } from "@/app/analytics/screen";
