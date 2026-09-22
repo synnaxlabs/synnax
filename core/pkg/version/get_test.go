@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Get", func() {
 	It("Should return the dev version when not set via ldflags", func() {
-		Expect(version.Prod()).To(Equal("0.0.0"))
+		Expect(version.Get()).To(Equal("0.0.0"))
 	})
 })
 

@@ -16,12 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	unknown = "unknown"
-	// dev marks a build without an injected version. A 0.0 major.minor pairs with
-	// any Core or client in the compatibility checks.
-	dev = "0.0.0"
-)
+const unknown = "unknown"
 
 // These variables can be set at build time using -ldflags:
 // -X github.com/synnaxlabs/synnax/pkg/version.Version=1.0.0
@@ -33,16 +28,13 @@ var (
 	BuildDate string
 )
 
-// Prod returns the version injected at build time, or 0.0.0 when none was.
-func Prod() string {
+// Get returns the version injected at build time, or 0.0.0 when none was.
+func Get() string {
 	if Version != "" {
 		return Version
 	}
-	return dev
+	return "0.0.0"
 }
-
-// Get returns the production version of Synnax.
-func Get() string { return Prod() }
 
 // Commit returns the git commit hash.
 func Commit() string {
