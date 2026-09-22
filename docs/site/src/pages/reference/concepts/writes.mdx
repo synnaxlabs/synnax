@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Writes"
-heading: "Writing Data"
+heading: "Writing data"
 description: "Learn the process for writing data to a Synnax Core."
 next: "Streams"
 nextURL: "/reference/concepts/streams"
@@ -70,7 +70,7 @@ available for reading. Synnax transactions are unique in that they can be commit
 commit. After the final commit, the user closes the writer, at which point the Core
 releases all write-related resources and the transaction is complete.
 
-### Open Phase
+### Open phase
 
 To start a new transaction, we need to provide the following information.
 
@@ -100,7 +100,7 @@ Synnax will use these arguments to validate two things before opening the writer
 1. That all channels exist in the Synnax Core.
 2. That no existing data overlaps with the provided timestamp.
 
-#### Optional Arguments
+#### Optional arguments
 
 There are also a few optional arguments we can provide when opening a writer:
 
@@ -140,7 +140,7 @@ There are also a few optional arguments we can provide when opening a writer:
   </tbody>
 </table>
 
-### Write Phase
+### Write phase
 
 After all opening validation checks pass, the transaction enters the write phase. During
 this period, a user can write continuous frames of data to the transaction. These frames
@@ -178,7 +178,7 @@ Now, our transaction looks like this:
 Throughout the write phase, the caller can continue extending the the transaction's data
 by adding frames. It's common for writers to be open for many hours or even days.
 
-### Commit Phase
+### Commit phase
 
 Once we're ready to persist the transaction and make it available for reads, we call the
 `commit` method on our writer. During this phase, the Core identifies the time range of
@@ -194,7 +194,7 @@ every write is immediately committed and available for reads. This method is use
 real-time data that does not need to be applied atomically. You can disable auto-commit
 if you need to apply writes atomically in batches.
 
-### Close Phase
+### Close phase
 
 Once done writing, the user can close the writer and release all of it's resources. All
 writes that have not been committed will be lost. Closing a writer will also release
@@ -203,7 +203,7 @@ control of the channel to the next highest
 
 <Divider.Divider x />
 
-## Writer Modes
+## Writer modes
 
 Synnax supports three modes for writing data: persist, stream, and stream-and-persist.
 
@@ -222,7 +222,7 @@ and calls to `commit` will have no effect. This is useful when operating in scen
 where data is only needed for real-time consumption, but does not need to be accessed
 historically.
 
-### Stream and Persist
+### Stream and persist
 
 When opened in **stream-and-persist** mode, the writer will both persist the samples and
 stream them to any streamers listening on the channel. This is the default mode for a
@@ -230,7 +230,7 @@ writer.
 
 <Divider.Divider x />
 
-## Rules of Writes
+## Rules of writes
 
 ### Rule 1
 
@@ -238,7 +238,7 @@ writer.
   Index channels must be written to before or when writing to a data channel.
 </Rule>
 
-#### Example 1 - Writing to an Index and Data Channel at the Same Time
+#### Example 1 - Writing to an index and data channel at the same time
 
 We've created two channels: `time` and `temperature`. The `temperature` channel is
 indexed by the `time` channel. Here's pseudocode for the fields of each channel:
@@ -288,7 +288,7 @@ If we try to write to the `temperature` channel without providing timestamps for
 }
 ```
 
-#### Example 2 - Writing to a Data Channel After an Index Channel
+#### Example 2 - Writing to a data channel after an index channel
 
 Imagine we create the same channels as in the first example, but this time we only open
 a writer on the `time` channel. We write the following frame:
@@ -322,7 +322,7 @@ timestamps to the `time` channel.
   data channel indexed by the same timestamps.
 </Note.Note>
 
-#### Example 3 - Writing to a Data Channel Before an Index Channel
+#### Example 3 - Writing to a data channel before an index channel
 
 {/* prettier-ignore-start */}
 
@@ -436,7 +436,7 @@ whenever and however you like!
 
 <Divider.Divider x />
 
-## Rule Implications
+## Rule implications
 
 While these rules are subtle, they have a few important implications.
 
@@ -474,7 +474,7 @@ virtual channel that does not require an index.
 
 <Divider.Divider x />
 
-## Dynamic Control - Write Authorities
+## Dynamic control - Write authorities
 
 Synnax supports multi-writer control transfer over a single channel. This enables
 patterns such as:
@@ -493,7 +493,7 @@ will have control. If a new writer is opened with a strictly higher authority, i
 take control from the previous writer. After a higher authority writer is closed,
 control will be returned to the next highest authority writer.
 
-### Example - Manual Operator & Abort Sequence
+### Example - Manual operator & abort sequence
 
 To illustrate this, consider the following scenario:
 

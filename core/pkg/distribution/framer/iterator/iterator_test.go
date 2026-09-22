@@ -153,6 +153,20 @@ var _ = Describe("Iterator", func() {
 					Expect(iter.Prev(iterator.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
+
+				Specify("Downsample", func(ctx SpecContext) {
+					iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+						Keys:             s.keys,
+						Bounds:           telem.TimeRangeMax,
+						DownsampleFactor: 3,
+					}))
+					Expect(iter.SeekFirst()).To(BeTrue())
+					Expect(iter.Next(20 * telem.Second)).To(BeTrue())
+					Expect(
+						iter.Value().SeriesAt(0),
+					).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 13, 16, 19, 22)))
+					Expect(iter.Close()).To(Succeed())
+				})
 			})
 		}
 	})

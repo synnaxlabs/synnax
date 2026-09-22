@@ -540,6 +540,8 @@ func (p *Plugin) aliasTargetToCpp(
 			ns := cppnaming.Namespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
+	} else {
+		addLocalHandInclude(resolved, data)
 	}
 
 	if len(typeRef.TypeArgs) == 0 {
@@ -1114,6 +1116,8 @@ func (p *Plugin) resolveStructType(
 			ns := cppnaming.Namespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
+	} else {
+		addLocalHandInclude(resolved, data)
 	}
 
 	return p.buildGenericType(name, typeArgs, &resolved, data)
@@ -1159,6 +1163,18 @@ func explicitInclude(resolved resolution.Type) string {
 	return expr.Values[0].StringValue
 }
 
+// addLocalHandInclude adds the `@cpp include` header for a reference to a
+// hand-written type in the same namespace. The generated file carries no declaration
+// for it, so the reference dangles without the hand header.
+func addLocalHandInclude(resolved resolution.Type, data *templateData) {
+	if !omit.IsSkipped(resolved, "cpp") {
+		return
+	}
+	if include := explicitInclude(resolved); include != "" {
+		data.AddInternal(include)
+	}
+}
+
 func (p *Plugin) resolveDistinctType(
 	resolved resolution.Type,
 	data *templateData,
@@ -1177,6 +1193,7 @@ func (p *Plugin) resolveDistinctType(
 		ns := cppnaming.Namespace(targetOutputPath)
 		return fmt.Sprintf("::%s::%s", ns, name)
 	}
+	addLocalHandInclude(resolved, data)
 	return name
 }
 
@@ -1197,6 +1214,8 @@ func (p *Plugin) resolveAliasType(
 			ns := cppnaming.Namespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
+	} else {
+		addLocalHandInclude(resolved, data)
 	}
 	return p.buildGenericType(name, typeArgs, &resolved, data)
 }

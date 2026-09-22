@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Data Processing"
+title: "Data processing"
 description: "Common patterns for processing sensor data in Arc"
-prev: "Channels and Series"
+prev: "Channels and series"
 prevURL: "/reference/control/arc/concepts/channels-and-series"
 next: "Alarms"
 nextURL: "/reference/control/arc/how-to/alarms"
@@ -19,7 +19,7 @@ readings, detecting changes. This guide covers the patterns you'll use for these
 
 <Divider.Divider x />
 
-## Basic Flows
+## Basic flows
 
 A flow connects a source to a destination through a function:
 
@@ -77,7 +77,7 @@ pressure_raw -> linear_scale{gain=100.0, offset=5.0} -> pressure_psi
 
 <Divider.Divider x />
 
-## Expression Flows
+## Expression flows
 
 Simple transformations don't need a separate function. Write the expression directly in
 the flow:
@@ -110,10 +110,10 @@ You can combine channels:
 
 <Divider.Divider x />
 
-## Stateful Variables
+## Stateful variables
 
 Some calculations need to remember values across executions. Use `$=` to declare a
-stateful variable.
+[stateful variable](/reference/control/arc/reference/variables#stateful).
 
 <Arc.Tabs client:load>
 
@@ -150,12 +150,9 @@ trigger -> counter{} -> count_ch
 
 </Arc.Tabs>
 
-The [Variables](/reference/control/arc/reference/variables#stateful) reference page
-explains persistence in more depth.
-
 <Divider.Divider x />
 
-## Tracking Previous Values
+## Tracking previous values
 
 A common pattern is comparing the current value to the previous one. Initialize the
 stateful variable to the input parameter:
@@ -179,7 +176,7 @@ that, `prev` retains whatever was assigned to it.
 
 <Divider.Divider x />
 
-## Running Calculations
+## Running calculations
 
 Track running statistics with
 [`math.avg`](/reference/control/arc/reference/standard-library/math#avg) and
@@ -201,7 +198,7 @@ temperature -> math.avg{count=20} -> temperature_avg
 
 <Divider.Divider x />
 
-## Exponential Moving Average
+## Exponential moving average
 
 An exponential moving average (EMA) smooths noisy data while responding to changes. It
 weights recent values more heavily:
@@ -223,7 +220,7 @@ The `alpha` parameter controls responsiveness:
 
 <Divider.Divider x />
 
-## Multi-Input Functions
+## Multi-input functions
 
 When a function needs multiple sensor values, pass the channels as input parameters:
 
@@ -245,7 +242,7 @@ The function has no flow input, so `time.interval` triggers it on a schedule.
 
 <Divider.Divider x />
 
-## Flow-Driven vs Interval-Driven
+## Flow-driven vs interval-driven
 
 Two ways to trigger execution:
 
@@ -271,7 +268,7 @@ Good when:
 
 <Divider.Divider x />
 
-## Reading Channels in Functions
+## Reading channels in functions
 
 Inside a function body, reading a channel returns its latest value immediately:
 
@@ -290,7 +287,7 @@ If nothing has been written to the channel yet, reading returns zero.
 
 <Divider.Divider x />
 
-## Control Flow
+## Control flow
 
 Use `if`/`else` for conditional logic:
 
@@ -323,7 +320,7 @@ func categorize(value f64) i64 {
 
 <Divider.Divider x />
 
-## Sensor Voting
+## Sensor voting
 
 When you have redundant sensors, use voting to reject outliers. A median of three
 readings ignores a single faulty sensor:
@@ -356,7 +353,7 @@ reading is ignored.
 
 <Divider.Divider x />
 
-## Rate of Change
+## Rate of change
 
 [`math.derivative`](/reference/control/arc/reference/standard-library/math#derivative)
 computes how fast a value is changing from the samples' actual timestamps:
@@ -369,7 +366,7 @@ The output is in units per second (e.g., psi/second if pressure is in psi).
 
 <Divider.Divider x />
 
-## Formatting Status Strings
+## Formatting status strings
 
 [Format strings](/reference/control/arc/reference/syntax#format-strings) build
 human-readable status messages from live channel values. Placeholders inside `{...}`
@@ -403,7 +400,7 @@ pressure -> alert{} -> log
 
 <Divider.Divider x />
 
-## Putting It Together
+## Putting it together
 
 Here's a complete pipeline that reads a pressure sensor, converts units, smooths the
 signal, computes rate of change, and outputs everything:

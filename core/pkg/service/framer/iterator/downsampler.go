@@ -17,7 +17,7 @@ import (
 
 type downsampler struct {
 	confluence.LinearTransform[Response, Response]
-	factor int
+	factor uint32
 }
 
 func newDownsampler(cfg Config) responseSegment {

@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Build a Device Driver"
+title: "Build a device driver"
 description: "Creating custom hardware integrations with device drivers."
-prev: "Delete Data"
+prev: "Delete data"
 prevURL: "/reference/client/advanced/delete-data"
 next: "Examples"
 nextURL: "/reference/client/examples"
@@ -54,13 +54,13 @@ Before starting, ensure you have:
 
 <Divider.Divider x />
 
-## Read-Only Driver
+## Read-only driver
 
 This section sets up the Arduino to continuously read from an analog input and send the
 value over serial. The driver script captures each incoming value and writes it to a
 [channel](/reference/concepts/channels) in Synnax.
 
-### <Step step={1} level="h3">Arduino Code</Step>
+### <Step step={1} level="h3">Arduino code</Step>
 
 Upload this code to your Arduino.
 
@@ -78,7 +78,7 @@ void loop() {
 }
 ```
 
-### <Step step={2} level="h3">Serial Connection</Step>
+### <Step step={2} level="h3">Serial connection</Step>
 
 Create a driver file. Find your Arduino's port in the Arduino IDE (top-right corner when
 connected via USB).
@@ -148,7 +148,7 @@ parser.on("data", (line: string) => {
 
 </Client.Tabs>
 
-### <Step step={4} level="h3">Setting up Synnax Client</Step>
+### <Step step={4} level="h3">Setting up Synnax client</Step>
 
 Create a client and two channels - an **index channel** for timestamps and a **data
 channel** for values.
@@ -384,7 +384,7 @@ process.on("SIGINT", async () => {
 
 </Client.Tabs>
 
-### <Step step={6} level="h3">Console Plot</Step>
+### <Step step={6} level="h3">Console plot</Step>
 
 With the script running, set up a line plot in the Console:
 
@@ -392,12 +392,12 @@ With the script running, set up a line plot in the Console:
 
 <Divider.Divider x />
 
-## Write-Only Driver
+## Write-only driver
 
 This section covers receiving commands from Synnax to control digital outputs on the
 Arduino.
 
-### <Step step={1} level="h3">Arduino Code</Step>
+### <Step step={1} level="h3">Arduino code</Step>
 
 Upload this code (uses the built-in LED on pin 13).
 
@@ -424,7 +424,7 @@ void loop() {
 }
 ```
 
-### <Step step={2} level="h3">Synnax Command Channel</Step>
+### <Step step={2} level="h3">Synnax command channel</Step>
 
 Create a **virtual** command channel. Virtual channels do not store historical values.
 As a consequence, an index channel is not needed.
@@ -459,7 +459,7 @@ const commandChannel = await client.channels.create({
 
 </Client.Tabs>
 
-### <Step step={3} level="h3">Streaming Commands</Step>
+### <Step step={3} level="h3">Streaming commands</Step>
 
 Open a streamer to receive commands and write them to serial.
 
@@ -575,7 +575,7 @@ for await (const frame of streamer) {
 
 </Client.Tabs>
 
-### <Step step={4} level="h3">Console Control</Step>
+### <Step step={4} level="h3">Console control</Step>
 
 Set up a switch on a [schematic](/reference/console/schematics).
 
@@ -583,7 +583,7 @@ Set up a switch on a [schematic](/reference/console/schematics).
 
 <Divider.Divider x />
 
-## Read-Write Driver
+## Read-write driver
 
 You may have noticed the previous section set both "State" and "Command" to the same
 channel. This works, but has a problem: if the driver stops, clicking the switch still
@@ -593,7 +593,7 @@ The solution is to use **separate channels**: a **command channel** for sending
 commands, and a **state channel** that reflects the actual hardware state. The switch
 only updates when the state channel confirms the change.
 
-### <Step step={1} level="h3">Arduino Code</Step>
+### <Step step={1} level="h3">Arduino code</Step>
 
 This code reads commands, controls the output, and sends back both state and analog
 values.
@@ -626,7 +626,7 @@ void loop() {
 }
 ```
 
-### <Step step={2} level="h3">Synnax Channels</Step>
+### <Step step={2} level="h3">Synnax channels</Step>
 
 Create four channels: command, time, state, and value.
 
@@ -702,7 +702,7 @@ const arduinoValue = await client.channels.create({
 
 </Client.Tabs>
 
-### <Step step={3} level="h3">Combined Read-Write Loop</Step>
+### <Step step={3} level="h3">Combined read-write loop</Step>
 
 Stream commands while writing state and values.
 
@@ -944,7 +944,7 @@ process.on("SIGINT", async () => {
 
 </Client.Tabs>
 
-### <Step step={4} level="h3">Console Setup</Step>
+### <Step step={4} level="h3">Console setup</Step>
 
 Now configure the switch with separate channels:
 
@@ -957,7 +957,7 @@ Add a line plot for `arduino_value` to see the analog input.
 
 <Divider.Divider x />
 
-## Production Drivers
+## Production drivers
 
 For production-grade hardware integrations, see the
 [C++ Driver documentation](/reference/driver). The C++ driver offers:
