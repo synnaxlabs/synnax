@@ -253,6 +253,58 @@ describe("Read", () => {
     });
   });
 
+  it("should bind the fields of every endpoint on open, not only the selected one", async () => {
+    const dev = await createHTTPDevice(client);
+    const idxCh = await client.channels.create({
+      name: uniqueName("http_idx"),
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    const [firstCh, secondCh] = await Promise.all(
+      ["http_first", "http_second"].map(
+        async (prefix) =>
+          await client.channels.create({
+            name: uniqueName(prefix),
+            dataType: "float64",
+            index: idxCh.key,
+          }),
+      ),
+    );
+    dev.properties = {
+      ...HTTP.Device.ZERO_PROPERTIES,
+      read: {
+        "/first": { index: idxCh.key, channels: { "/temperature": firstCh.key } },
+        "/second": { index: idxCh.key, channels: { "/temperature": secondCh.key } },
+      },
+    };
+    await client.devices.create(dev);
+    const endpoint = (key: string, path: string) => ({
+      ...http.readEndpointZ.parse({}),
+      key,
+      path,
+      fields: [createReadField(`${key}_f`, "/temperature")],
+    });
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [
+        endpoint("ep1", "/first"),
+        endpoint("ep2", "/second"),
+      ]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(firstCh.name);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: HTTP.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.endpoints.map((ep) => ep.fields[0].channel)).toEqual([
+        firstCh.key,
+        secondCh.key,
+      ]);
+    });
+  });
+
   it("should follow an endpoint path edit to the channel the new path maps", async () => {
     const dev = await createHTTPDevice(client);
     const idxCh = await client.channels.create({

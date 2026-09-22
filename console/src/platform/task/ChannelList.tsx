@@ -127,7 +127,8 @@ export interface ChannelListProps<C extends Channel>
   extends
     Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow" | "style"> {
-  resolve: BindChannelsProps<C>["resolve"];
+  /** Null only for a list whose entries an outer BindChannels binds. */
+  resolve: BindChannelsProps<C>["resolve"] | null;
   emptyContent: ReactElement;
   header: ReactNode;
   isDragging?: boolean;
@@ -156,7 +157,7 @@ export const ChannelList = <C extends Channel>({
   const menuProps = Menu.useContextMenu();
   return (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
-      <BindChannels<C> path={path} resolve={resolve} />
+      {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
       {header}
       <Menu.ContextMenu
         {...menuProps}

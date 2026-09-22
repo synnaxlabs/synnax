@@ -198,17 +198,11 @@ interface FieldListProps {
   epKey: string;
 }
 
-const FieldList = ({ epKey }: FieldListProps) => {
-  const path = `config.endpoints.${epKey}.fields`;
-  const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
-  const [selected, setSelected] = useState<string[]>([]);
-  const ctx = PForm.useContext();
-  const isPreview = Task.useIsPreview();
-
-  const allFields = PForm.useFieldValue<ReadField[]>(path);
-  const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
-  const data = allData.filter((key) => !indexKeys.has(key));
-
+/**
+ * Binds an endpoint's fields to the channels the device stores for its path. Mounted
+ * by the form for every endpoint, as the field list renders only for the selected one.
+ */
+const FieldBinder = ({ epKey }: FieldListProps) => {
   const dev = useFromConfig();
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
   const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
@@ -223,6 +217,24 @@ const FieldList = ({ epKey }: FieldListProps) => {
     },
     [dev, epPath, indexKey],
   );
+  return (
+    <Task.BindChannels<ReadField>
+      path={`config.endpoints.${epKey}.fields`}
+      resolve={resolve}
+    />
+  );
+};
+
+const FieldList = ({ epKey }: FieldListProps) => {
+  const path = `config.endpoints.${epKey}.fields`;
+  const { data: allData, push, remove } = PForm.useFieldList<string, ReadField>(path);
+  const [selected, setSelected] = useState<string[]>([]);
+  const ctx = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+
+  const allFields = PForm.useFieldValue<ReadField[]>(path);
+  const indexKeys = new Set(allFields.filter(isTimingField).map((f) => f.key));
+  const data = allData.filter((key) => !indexKeys.has(key));
 
   const handleAdd = useCallback(() => {
     const fields = ctx.get<ReadField[]>(path).value;
@@ -266,7 +278,7 @@ const FieldList = ({ epKey }: FieldListProps) => {
   return (
     <>
       <Task.ChannelList<ReadField>
-        resolve={resolve}
+        resolve={null}
         data={data}
         remove={remove}
         onDuplicate={handleDuplicate}
@@ -562,6 +574,9 @@ const Form: FC = () => {
           </Flex.Box>
         )}
       </Flex.Box>
+      {data.map((epKey) => (
+        <FieldBinder key={epKey} epKey={epKey} />
+      ))}
     </Flex.Box>
   );
 };
