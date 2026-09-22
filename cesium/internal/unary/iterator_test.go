@@ -10,6 +10,8 @@
 package unary_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
@@ -1914,7 +1916,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 						// openFaulty writes five samples through a fault-injecting file
 						// system and opens an iterator over them with a chunk of two.
-						openFaulty := func(ctx SpecContext) (*FaultyFS, *unary.Iterator) {
+						openFaulty := func(
+							ctx SpecContext,
+						) (*FaultyFS, *unary.DB, *unary.Iterator) {
 							GinkgoHelper()
 							faulty := WrapFaultyFS(openFS())
 							faultyIndexDB := MustOpen(unary.Open(ctx, unary.Config{
@@ -1953,7 +1957,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								10*telem.SecondTS,
 								telem.NewSeriesV[int64](0, 1, 2, 3, 4),
 							)).To(Succeed())
-							return faulty, MustSucceed(
+							return faulty, faultyDB, MustSucceed(
 								faultyDB.OpenIterator(unary.IteratorConfig{
 									Bounds:        telem.TimeRangeMax,
 									AutoChunkSize: 2,
@@ -1967,7 +1971,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						DescribeTable(
 							"should report a file system fault during an auto-span read",
 							func(ctx SpecContext, forward bool) {
-								faulty, iter := openFaulty(ctx)
+								faulty, _, iter := openFaulty(ctx)
 								if forward {
 									Expect(iter.SeekFirst(ctx)).To(BeTrue())
 								} else {
@@ -1994,7 +1998,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						It("should close cleanly once a seek clears the fault", func(
 							ctx SpecContext,
 						) {
-							faulty, iter := openFaulty(ctx)
+							faulty, _, iter := openFaulty(ctx)
 							Expect(iter.SeekFirst(ctx)).To(BeTrue())
 							faulty.SetOptions(WithFailReadAt())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
@@ -2002,6 +2006,25 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.SeekFirst(ctx)).To(BeTrue())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(iter.Close()).To(Succeed())
+						})
+
+						It("should prefix a Read fault with the channel once", func(
+							ctx SpecContext,
+						) {
+							faulty, db, iter := openFaulty(ctx)
+							Expect(iter.Close()).To(Succeed())
+							faulty.SetOptions(WithFailReadAt())
+							prefix := fmt.Sprintf("channel [Wild]<%d>:", data)
+							Expect(
+								db.Read(ctx, telem.TimeRangeMax),
+							).Error().
+								To(SatisfyAll(
+									MatchError(ErrFault),
+									MatchError(HavePrefix(prefix)),
+									MatchError(
+										Not(ContainSubstring(prefix+" "+prefix)),
+									),
+								))
 						})
 					})
 				})
