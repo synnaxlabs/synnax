@@ -1,3 +1,4 @@
 dist
 .vercel
 .astro
+drizzle/meta

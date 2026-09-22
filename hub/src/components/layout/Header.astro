@@ -12,6 +12,7 @@ import { Logo } from "@synnaxlabs/media";
 import { Icon, Button, Flex } from "@synnaxlabs/pluto";
 import Search from "@/components/search/Search.astro";
 import { PageMobile } from "@/components/nav/Page";
+import { Account } from "@/components/account";
 import { fetchVersion } from "@/util/fetchVersion";
 const url = Astro.url.pathname;
 const version = await fetchVersion().catch(() => null);
@@ -52,6 +53,13 @@ const label = version?.split(".").slice(0, -1).join(".");
                     >
                         Releases
                     </Button.Button>
+                    <Button.Button
+                        variant="text"
+                        className={`nav-link ${url.includes("portal") ? "nav-link--active" : ""}`}
+                        href="/portal"
+                    >
+                        Portal
+                    </Button.Button>
                 </Flex.Box>
             </Flex.Box>
             <Flex.Box direction="x" align="center" gap="small">
@@ -71,6 +79,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <p class="version">{label}</p>
                     <Icon.Logo.Github />
                 </Button.Button>
+                <Account.Account client:only="react" />
                 <PageMobile client:only="react" currentPage={Astro.url.pathname} />
             </Flex.Box>
         </Flex.Box>
@@ -129,6 +138,27 @@ const label = version?.split(".").slice(0, -1).join(".");
             text-decoration: none;
             font-size: 2rem;
             font-weight: 500;
+        }
+
+        .account-button {
+            text-decoration: none;
+        }
+
+        .account-avatar {
+            border-radius: 50%;
+            overflow: hidden;
+            color: var(--pluto-gray-l0);
+            font-weight: 500;
+        }
+
+        .account-avatar__image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .account-menu {
+            --pluto-shadow-v1: var(--pluto-shadow-overlay);
         }
 
         .version-button {

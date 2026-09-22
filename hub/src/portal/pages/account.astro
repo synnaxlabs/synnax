@@ -1,0 +1,30 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Portal from "@/portal/layouts/Portal.astro";
+import { load } from "@/portal/page";
+import { Account } from "@/portal/ui/account/Account";
+import { organizationsFor } from "@/server/organization";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session } = loaded;
+
+const organizations = await organizationsFor(portal.store, session);
+---
+
+<Portal title="Account" session={session} organizations={organizations}>
+    <Account
+        client:load
+        name={session.name}
+        email={session.email}
+        organizations={organizations}
+    />
+</Portal>

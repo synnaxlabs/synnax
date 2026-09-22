@@ -10,13 +10,21 @@
 import mdx from "@astrojs/mdx";
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
+import clerk from "@clerk/astro";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
-import { defineConfig } from "astro/config";
+import { type AstroUserConfig } from "astro";
+import { envField } from "astro/config";
 
+import { portal } from "./src/portal/integration";
 import { symbols, theme } from "./src/util/shiki";
 
-// https://astro.build/config
-export default defineConfig({
+const secret = envField.string({ context: "server", access: "secret" });
+
+/**
+ * docs is the site without the portal: what the static site check builds. The portal
+ * integrations need Clerk keys and a database, which the check has no use for.
+ */
+export const docs = {
   integrations: [react(), mdx()],
   output: "server",
   adapter: vercel(),
@@ -88,4 +96,35 @@ export default defineConfig({
     "/reference/typescript-client/troubleshooting": "/reference/client/troubleshooting",
   },
   site: "https://docs.synnaxlabs.com",
-});
+} satisfies AstroUserConfig;
+
+const config: AstroUserConfig = {
+  ...docs,
+  integrations: [
+    ...docs.integrations,
+    clerk({ signInUrl: "/sign-in", signUpUrl: "/sign-up" }),
+    portal(),
+  ],
+  env: {
+    schema: {
+      DATABASE_URL: secret,
+      LICENSE_KMS_KEY_ARN: secret,
+      LICENSE_KID: envField.string({
+        context: "server",
+        access: "public",
+        default: "1",
+      }),
+      STAFF_ORG_ID: secret,
+      CLERK_WEBHOOK_SIGNING_SECRET: secret,
+      RESEND_API_KEY: secret,
+      MAIL_FROM: envField.string({
+        context: "server",
+        access: "public",
+        default: "Synnax Labs <licenses@synnaxlabs.com>",
+      }),
+      CRON_SECRET: secret,
+    },
+  },
+};
+
+export default config;

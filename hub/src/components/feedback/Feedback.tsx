@@ -144,6 +144,7 @@ const FeedbackForm = (): ReactElement => {
               size="small"
               textColor={8}
               onClick={close}
+              aria-label="Close"
             >
               <Icon.Close />
             </Button.Button>

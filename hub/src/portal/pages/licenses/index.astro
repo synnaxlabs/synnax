@@ -1,0 +1,80 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { and, count, desc, eq, isNull } from "drizzle-orm";
+import Portal from "@/portal/layouts/Portal.astro";
+import { load } from "@/portal/page";
+import { Desktop } from "@/portal/ui/licenses/Desktop";
+import { Licenses } from "@/portal/ui/licenses/Licenses";
+import { activation, license } from "@/server/db/schema";
+import { organizationsFor, pick } from "@/server/organization";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session } = loaded;
+
+const organizations = await organizationsFor(portal.store, session);
+const selected = pick(organizations, Astro.url.searchParams.get("org"));
+const enterprise = selected?.kind === "team";
+
+const licenses =
+    selected == null || !enterprise
+        ? []
+        : await portal.store.query
+              .select({ license, seats: count(activation.key) })
+              .from(license)
+              .leftJoin(
+                  activation,
+                  and(
+                      eq(activation.license, license.key),
+                      isNull(activation.releasedAt),
+                  ),
+              )
+              .where(eq(license.organization, selected.key))
+              .groupBy(license.key)
+              .orderBy(desc(license.issuedAt));
+
+const devices =
+    selected == null || enterprise
+        ? []
+        : await portal.store.query
+              .select({ activation })
+              .from(activation)
+              .innerJoin(license, eq(activation.license, license.key))
+              .where(
+                  and(
+                      eq(license.organization, selected.key),
+                      eq(license.edition, "desktop"),
+                      isNull(activation.releasedAt),
+                  ),
+              )
+              .orderBy(desc(activation.lastSeen))
+              .then((rows) => rows.map((r) => r.activation));
+---
+
+<Portal
+    title={enterprise ? "Licenses" : "Desktop"}
+    session={session}
+    organizations={organizations}
+    organization={selected}
+>
+    {
+        enterprise ? (
+            <Licenses
+                client:load
+                organization={selected}
+                licenses={licenses}
+                now={portal.now()}
+            />
+        ) : (
+            <Desktop client:load devices={devices} />
+        )
+    }
+</Portal>
