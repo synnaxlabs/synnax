@@ -18,12 +18,13 @@ driver:
   - changed-files:
       - any-glob-to-any-file: driver/**
 
-server:
+core:
   - changed-files:
       - any-glob-to-any-file:
           - aspen/**
           - cesium/**
           - core/**
+          - freighter/**
 
 pluto:
   - changed-files:
@@ -32,10 +33,6 @@ pluto:
 drift:
   - changed-files:
       - any-glob-to-any-file: drift/**
-
-freighter:
-  - changed-files:
-      - any-glob-to-any-file: freighter/**
 
 arc:
   - changed-files:
