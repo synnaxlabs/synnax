@@ -123,17 +123,23 @@ const pane = (): HTMLElement =>
   document.querySelector(".react-flow__pane") as HTMLElement;
 
 describe("Diagram", () => {
+  // Canvas.useRegion measures against the lower2d canvas and bails without it.
+  const canvas = document.createElement("div");
+
   beforeAll(() => {
     vi.stubGlobal("ResizeObserver", ImmediateResizeObserver);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(RECT);
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(RECT.width);
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(RECT.height);
-    // Canvas.useRegion measures against the lower2d canvas and bails without it.
-    const canvas = document.createElement("div");
     canvas.className = "pluto-canvas--lower2d";
     document.body.appendChild(canvas);
   });
-  afterAll(() => vi.restoreAllMocks());
+
+  afterAll(() => {
+    canvas.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   describe("selection", () => {
     it("replaces the selection on a plain click", async () => {
