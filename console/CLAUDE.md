@@ -1,12 +1,12 @@
 TypeScript development rules: @../docs/claude/toolchains/typescript.md
 
-# Console Application
+# Console application
 
 Cross-platform desktop app: Tauri 2.8+ (Rust) + React 19 + TypeScript, Redux Toolkit for
 state, Drift for multi-window sync, Pluto for visualization, Vite for dev/build.
 Drag-and-drop mosaic dashboards.
 
-## Layered Architecture (`console/src/`)
+## Layered architecture (`console/src/`)
 
 Four strictly-ordered layers; every domain (schematic, range, task, ...) is split across
 them. A layer imports only layers below it — never above:
@@ -34,7 +34,7 @@ Rules:
 - Barrels everywhere: each domain folder in each layer has `index.ts` doing
   `export * as Domain from "@/<layer>/<domain>/external"`.
 
-## Mounting Side Effects
+## Mounting side effects
 
 Hotkey handlers, synchronizers and window catchers render nothing but must be mounted to
 run. Nothing fails loudly when one is dropped, so placement follows three rules.
@@ -56,14 +56,14 @@ outlives what it repairs, `ProjectSideEffect` needs a selected project.
 **A hotkey spec renders the component that owns the mount**, never `renderHook` on the
 effect itself. `app/nav/bar/Top.spec.tsx` is the pattern.
 
-## Dev Modes
+## Dev modes
 
 - `pnpm dev:console` — full Tauri: native windows, Tauri APIs, backend hot reload. Use
   for integration/window-management work.
 - `pnpm dev:console-vite` — frontend only: faster, single window, no Tauri APIs. Use for
   UI work.
 
-## Multi-Window Architecture (Drift)
+## Multi-window architecture (Drift)
 
 Main window holds authoritative Redux state; child windows request initial state on
 startup. Every action is applied locally then emitted to all windows via Tauri IPC
@@ -75,7 +75,7 @@ Windows are managed declaratively via Redux: `Drift.createWindow({key, ...})`,
 mints a fresh one per open. Drift keeps invisible pre-render windows in the background
 and claims one on `createWindow`, so new windows appear instantly.
 
-## State Management
+## State management
 
 Modular slices (`core`, `nav`, `panels`, `lineplot`, `schematic`, `table`, `project`,
 `drift`, ...), each with `SLICE_NAME`, `sliceStateZ`, `SliceState`, `ZERO_SLICE_STATE`,
@@ -136,7 +136,7 @@ The 0.56 store (`persisted-state.json` in the roaming dir; the `persisted-state.
 localStorage prefix) is read once to carry a fresh install over, and never written, so a
 rollback to 0.56 finds its state.
 
-## Windows Are Viewports
+## Windows are viewports
 
 Panels live on the Core and any number of windows may show one at once, so everything
 about _how this window looks at a document_ is keyed by window: `nav`, `panels`, and the
@@ -149,7 +149,7 @@ reducer, `createDocumentInitializer` for its create, `createInjectKeyMiddleware`
 Window keys are minted fresh per open, so add `extraReducers: Window.handleRemoved` or
 the slice keeps an entry for every window ever opened.
 
-## Live-Core Tests
+## Live-Core tests
 
 Live-Core specs (Core, flux query paths, user badges, ...) connect to a real Core at
 `localhost:9090` through the production query path — no store-poking. Check for a

@@ -15,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-## Arithmetic Operators
+## Arithmetic operators
 
 | Operator    | Name           | Example  | Result                              |
 | ----------- | -------------- | -------- | ----------------------------------- |
@@ -27,7 +27,7 @@ export const components = mdxOverrides;
 | `%`         | Modulo         | `10 % 3` | `1`                                 |
 | `^`         | Exponentiation | `2 ^ 8`  | `256`                               |
 
-### Division Behavior
+### Division behavior
 
 Integer division truncates toward zero:
 
@@ -58,7 +58,7 @@ result := 2 ^ 3 ^ 2 // 2 ^ (3 ^ 2) = 2 ^ 9 = 512
 
 <Divider.Divider x />
 
-## Comparison Operators
+## Comparison operators
 
 All comparisons return `bool` (`true` or `false`).
 
@@ -77,7 +77,7 @@ in_range := pressure >= 100 and pressure <= 500
 
 <Divider.Divider x />
 
-## Logical Operators
+## Logical operators
 
 Logical operators require `bool` operands, use short-circuit evaluation, and return
 `bool`.
@@ -88,7 +88,7 @@ Logical operators require `bool` operands, use short-circuit evaluation, and ret
 | `or`     | Logical OR  | `false or true`  | `true`  |
 | `not`    | Logical NOT | `not true`       | `false` |
 
-### Short-Circuit Evaluation
+### Short-circuit evaluation
 
 - `and`: If the left operand is `false`, the right operand is not evaluated
 - `or`: If the left operand is `true`, the right operand is not evaluated
@@ -100,7 +100,7 @@ safe := b != 0 and (a / b) > 10
 
 <Divider.Divider x />
 
-## Assignment Operators
+## Assignment operators
 
 | Operator | Name                | Example  | Equivalent  |
 | -------- | ------------------- | -------- | ----------- |
@@ -111,7 +111,7 @@ safe := b != 0 and (a / b) > 10
 | `/=`     | Divide and assign   | `x /= 2` | `x = x / 2` |
 | `%=`     | Modulo and assign   | `x %= 3` | `x = x % 3` |
 
-### Variable Declaration Operators
+### Variable declaration operators
 
 | Operator | Name                          | Example      |
 | -------- | ----------------------------- | ------------ |
@@ -120,7 +120,7 @@ safe := b != 0 and (a / b) > 10
 
 <Divider.Divider x />
 
-## Precedence Table
+## Precedence table
 
 Operators listed from highest to lowest precedence.
 
@@ -135,7 +135,7 @@ Operators listed from highest to lowest precedence.
 | 7           | `and`                | Left          |
 | 8 (lowest)  | `or`                 | Left          |
 
-### Precedence Examples
+### Precedence examples
 
 ```arc
 // Exponentiation binds tighter than unary minus
@@ -153,7 +153,7 @@ a > 5 and b < 10 // (a > 5) and (b < 10)
 
 <Divider.Divider x />
 
-## Series Operators
+## Series operators
 
 Arithmetic, comparison, and logical operators work element-wise on series.
 
@@ -175,7 +175,7 @@ inverted := not mask // [true, true, false]
 
 <Divider.Divider x />
 
-## String Operators
+## String operators
 
 | Operator | Operation     | Example              |
 | -------- | ------------- | -------------------- |

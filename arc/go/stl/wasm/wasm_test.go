@@ -83,6 +83,7 @@ type testHarness struct {
 	prog         program.Program
 	analyzed     ir.IR
 	graph        arc.Graph
+	errors       []error
 }
 
 func (h *testHarness) ChannelState() *channels.ProgramState { return h.channelState }
@@ -174,12 +175,23 @@ func (h *testHarness) NextChanged(
 ) set.Set[string] {
 	outputs := h.analyzed.Nodes.Get(nodeKey).Outputs
 	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-		if i >= 0 && i < len(outputs) {
-			changed.Add(outputs[i].Name)
-		}
-	}})
+	h.errors = nil
+	n.Next(node.Context{
+		Context: ctx,
+		MarkChanged: func(i int) {
+			if i >= 0 && i < len(outputs) {
+				changed.Add(outputs[i].Name)
+			}
+		},
+		ReportError: func(err error) { h.errors = append(h.errors, err) },
+	})
 	return changed
+}
+
+func (h *testHarness) Errors() []error { return h.errors }
+
+func (h *testHarness) Outputs(nodeKey string) types.Params {
+	return h.analyzed.Nodes.Get(nodeKey).Outputs
 }
 
 func (h *testHarness) Output(nodeKey string, idx int) telem.Series {
@@ -258,6 +270,23 @@ func singleFunctionGraph(key string, outType types.Type, body string) arc.Graph 
 		Nodes:  []graph.Node{{Key: key}},
 		Inputs: map[string]msgpack.EncodedJSON{key: {"type": key}},
 	}
+}
+
+// binaryTwoOutputGraph mirrors binaryOpGraph for a function with two outputs, which
+// never takes the batched path.
+func binaryTwoOutputGraph(
+	opKey string,
+	lhsKey, rhsKey string,
+	inType, outType types.Type,
+	outA, outB string,
+	body string,
+) arc.Graph {
+	g := binaryOpGraph(opKey, lhsKey, rhsKey, inType, outType, body)
+	g.Functions[0].Outputs = types.Params{
+		{Name: outA, Type: outType},
+		{Name: outB, Type: outType},
+	}
+	return g
 }
 
 // binaryOpGraph creates a graph with two input nodes and one binary operation node.

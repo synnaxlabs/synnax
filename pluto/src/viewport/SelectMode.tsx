@@ -33,7 +33,9 @@ export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (
 );
 
 export interface SelectModeProps
-  extends Omit<Select.ButtonsProps<Mode>, "keys">, Omit<Tooltip.WrapProps, "tooltip"> {
+  extends
+    Omit<Select.ButtonsProps<Mode>, "keys">,
+    Omit<Tooltip.ExtensionProps, "tooltip"> {
   triggers: UseTriggers;
   disable?: Mode[];
 }

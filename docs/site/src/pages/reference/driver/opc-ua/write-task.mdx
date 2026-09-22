@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "OPC UA Write Task"
+title: "OPC UA write task"
 description: "Learn how to send commands to OPC UA servers with Synnax."
-prev: "Read Task"
+prev: "Read task"
 prevURL: "/reference/driver/opc-ua/read-task"
 next: "PagerDuty"
 nextURL: "/reference/driver/pagerduty/alert-task"
@@ -18,11 +18,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter  | Type   | Required | Default | Description                           |
 | ---------- | ------ | -------- | ------- | ------------------------------------- |
@@ -31,7 +32,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Configuration Reference
+## Channel configuration reference
 
 [OPC UA Write Service Specification](https://reference.opcfoundation.org/specs/OPC-10000-4/5.11.4)
 
@@ -80,7 +81,7 @@ multi-value setpoints.
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **Node permissions** -> The OPC UA server must allow write access to the specified
   nodes.
@@ -89,7 +90,7 @@ multi-value setpoints.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

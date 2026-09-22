@@ -51,6 +51,16 @@ export interface DialogProps {
   children: [ReactNode, ReactElement<ChildProps>];
 }
 
+/** The props a component adds to take an optional tooltip. */
+export interface ExtensionProps {
+  /** The tooltip content. Nothing shows while this is unset. */
+  tooltip?: DialogProps["children"][0];
+  /** The preferred location relative to the element. Chosen by position when unset. */
+  tooltipLocation?: DialogProps["location"];
+  /** Forces the tooltip to stay hidden. */
+  hideTooltip?: DialogProps["hide"];
+}
+
 const PREFERENCES: position.LocationPreference[] = [
   { targetCorner: location.TOP_CENTER, dialogCorner: location.BOTTOM_CENTER },
   { targetCorner: location.BOTTOM_CENTER, dialogCorner: location.TOP_CENTER },

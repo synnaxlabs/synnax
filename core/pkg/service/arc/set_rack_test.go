@@ -323,6 +323,7 @@ var _ = Describe("Task sync", func() {
 				svc.Dispatch(ctx, a.Key, "dk", toDeleteActions(client.Delete(0, 1))),
 			).
 				To(Succeed())
+			Eventually(taskConfigHash(ctx, tsk.Key)).Should(Equal(before.ConfigHash))
 			Consistently(
 				taskConfigHash(ctx, tsk.Key),
 				time.Millisecond*100,

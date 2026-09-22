@@ -1,11 +1,11 @@
-# Contributing to Synnax Server
+# Contributing to Synnax server
 
-## Development Environment Setup
+## Development environment setup
 
 To get started contributing to Server, read the development environment setup guide for
 [macOS](../docs/tech/setup-macos.md) or [windows](../docs/tech/setup-windows.md).
 
-## Starting a Development Server
+## Starting a development server
 
 The easiest way to develop with synnax is to start an insecure, memory-backed server.
 Run the following command in the `synnax` direction of the repository:
@@ -20,7 +20,7 @@ As a shorthand, you can also run
 go run main.go start -vmi
 ```
 
-## Running the Test Suite
+## Running the test suite
 
 To run the test suite, run the following command from the `synnax` directory of the
 repository:

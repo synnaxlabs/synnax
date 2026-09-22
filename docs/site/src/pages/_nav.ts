@@ -25,7 +25,7 @@ const visible = (nodes: PageNavNode[]): PageNavNode[] =>
     );
 
 export const REFERENCE_PAGES: PageNavNode[] = visible([
-  { name: "Get Started", key: "/reference/", href: "/reference/" },
+  { name: "Get started", key: "/reference/", href: "/reference/" },
   {
     name: "Installation",
     key: "/reference/installation",

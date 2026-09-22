@@ -29,6 +29,7 @@ export const defaultConfig = (): Config => ({
   size: "medium",
   label: Label.defaultConfig("Input"),
   control: { show: true },
+  onClickDelay: 0,
   sink: telem.sinkPipeline("string", {
     connections: [],
     segments: { setter: control.setChannelValue({ channel: 0 }) },
