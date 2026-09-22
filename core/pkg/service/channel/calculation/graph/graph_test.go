@@ -1220,6 +1220,35 @@ var _ = Describe("Graph", func() {
 		)
 
 		It(
+			"Should clear a runtime status when the expression changes",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "st_expr_dep")
+				calc := channel.Channel{
+					Name: "st_expr", DataType: telem.Int64T, Virtual: true,
+					Expression: "return st_expr_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				eventuallyExpectNoStatus(ctx, calc.Key())
+
+				By("Reporting a runtime error the way the calculation framer does")
+				Expect(g.SetRuntimeStatus(ctx, &calculation.Status{
+					Key:     calculation.StatusKey(calc.Key()),
+					Name:    "st_expr",
+					Variant: status.VariantError,
+					Message: "calculation for st_expr failed",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				expectStatus(ctx, calc.Key())
+
+				By("Editing the expression to a different valid one")
+				calc.Expression = "return st_expr_dep * 2"
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				eventuallyExpectNoStatus(ctx, calc.Key())
+			},
+		)
+
+		It(
 			"Should not create any status entry for valid channels",
 			func(ctx SpecContext) {
 				base := channel.Channel{

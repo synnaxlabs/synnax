@@ -324,10 +324,13 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 						zap.String("name", ch.Name),
 						zap.Stringers("deps", nd.deps),
 					)
-					// Only an invalid -> valid transition clears. The calculation
-					// framer writes runtime statuses to this same key, so an
-					// unconditional clear deletes them.
-					if prev, ok := g.mu.nodes[ch.Key()]; ok && prev.invalid {
+					// Only an invalid -> valid transition or an expression edit
+					// clears. The calculation framer writes runtime statuses to
+					// this same key, so an unconditional clear deletes a live
+					// report, but a report made against the old expression no
+					// longer describes the channel.
+					prev, ok := g.mu.nodes[ch.Key()]
+					if ok && (prev.invalid || prev.Expression != ch.Expression) {
 						g.clearNodeStatus(ctx, tx, ch.Key())
 					}
 				}
