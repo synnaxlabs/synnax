@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { color, type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
+import { type telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { Theming } from "@/theming";
 import { staleness } from "@/vis/staleness/aether";
+
+const createSource = (): telem.Source<unknown> => ({
+  value: () => null,
+  onChange: () => () => {},
+});
 
 // A minimal source-backed component. Real leaves drive `received` from a telem
 // subscription; this one exposes it so specs can emit samples directly.
@@ -29,7 +35,7 @@ class Leaf extends aether.Leaf<
   readonly transitions: boolean[] = [];
   // Stands in for the telem source. Specs reassign it to model the user picking a
   // different channel, which builds a new source under the same leaf.
-  source: unknown = { id: "initial" };
+  source: telem.Source<unknown> = createSource();
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -66,6 +72,8 @@ class LeakyLeaf extends aether.Leaf<
   static readonly z = staleness.stateZ;
   schema = LeakyLeaf.z;
 
+  readonly source = createSource();
+
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.registration = staleness.useRegistration(
@@ -76,7 +84,7 @@ class LeakyLeaf extends aether.Leaf<
         stale: () => this.state.stale,
         onChange: () => {},
       },
-      this,
+      this.source,
     );
   }
 }
@@ -113,7 +121,7 @@ const setup = ({
     swapSource: (i: number) => {
       const path = [...stack.basePath, `leaf${i}`];
       const leaf = stack.driver.find<Leaf>(path);
-      leaf.source = { id: `swapped${i}` };
+      leaf.source = createSource();
       stack.driver.update(path, Leaf.TYPE, leaf.state);
     },
     // basePath is the deepest mounted provider, which is staleness while render is off.
@@ -373,6 +381,68 @@ describe("staleness", () => {
       const before = leaf.internal.registration;
       leaf.setState((p) => ({ ...p, stalenessTimeout: 10 }));
       expect(leaf.internal.registration).toBe(before);
+    });
+  });
+
+  describe("sample time", () => {
+    const stamp = (leaf: Leaf, offset: CrudeTimeSpan): void => {
+      leaf.source.sampleTime = () => TimeStamp.now().add(offset);
+    };
+
+    it("should date the sample from its sample time", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      stamp(leaf, TimeSpan.seconds(-3));
+      leaf.received();
+      vi.advanceTimersByTime(1750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should turn stale at once when the sample is older than the timeout", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      stamp(leaf, TimeSpan.seconds(-10));
+      leaf.received();
+      expect(leaf.transitions).toEqual([true]);
+      expect(leaf.state.stale).toBe(true);
+    });
+
+    it("should stay stale on the next sweep after an old sample", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      stamp(leaf, TimeSpan.seconds(-10));
+      leaf.received();
+      vi.advanceTimersByTime(1000);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should read a sample without a time as arriving now", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      leaf.source.sampleTime = () => null;
+      leaf.received();
+      vi.advanceTimersByTime(4750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should not age a sample stamped ahead of the clock", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      stamp(leaf, TimeSpan.seconds(10));
+      leaf.received();
+      vi.advanceTimersByTime(4750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should clear staleness when a live sample follows an old one", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      stamp(leaf, TimeSpan.seconds(-10));
+      leaf.received();
+      leaf.source.sampleTime = () => null;
+      leaf.received();
+      expect(leaf.transitions).toEqual([true, false]);
+      expect(leaf.state.stale).toBe(false);
     });
   });
 
