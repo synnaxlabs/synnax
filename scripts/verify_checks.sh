@@ -9,14 +9,12 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Fails unless the GitHub Actions checks on a commit have passed. Usage:
-# verify_checks.sh <sha> <run_id> <branch>. Every check run on the commit must have
-# passed; runs of the given workflow run are ignored, so a release workflow can verify
-# the commit it runs on. A path filter skips a workflow on a push that leaves its paths
-# alone, so a commit with only passing check runs can still sit on a broken branch. The
-# newest push run of every test, lint, and check workflow on the branch must therefore
-# have passed too. A workflow with no push run on the branch is skipped: a hotfix branch
-# cut from a tag only runs the workflows a cherry-pick touches. Runs from the checkout
+# Fails unless the GitHub Actions checks on a commit passed. Usage:
+# verify_checks.sh <sha> <run_id> <branch>. Runs of the given workflow run are ignored,
+# so a release can verify its own commit. Path filters skip a workflow on a push that
+# leaves its paths alone, so the newest push run of every test, lint, and check workflow
+# on the branch must have passed too. A workflow with no push run on the branch is
+# skipped: a hotfix branch only runs what a cherry-pick touches. Runs from the checkout
 # root, which supplies the workflow files.
 
 set -euo pipefail

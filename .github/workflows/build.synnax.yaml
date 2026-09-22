@@ -160,8 +160,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      # Dispatch inputs reach shell commands, so a tag or version must be well formed
-      # before any job interpolates it.
+      # Dispatch inputs reach shell commands: reject a malformed tag or version before
+      # any job interpolates one.
       - name: Validate Inputs
         env:
           VERSION: ${{ inputs.version }}

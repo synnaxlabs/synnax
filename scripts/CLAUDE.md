@@ -1,8 +1,8 @@
 # Repo scripts
 
-Shell scripts used locally and by CI. Prefer these over hand-rolled equivalents: they
-encode repo-wide conventions (file lists, ignore patterns, per-extension header formats)
-that are easy to get wrong by hand.
+Scripts used locally and by CI. Prefer them over hand-rolled equivalents: they encode
+repo-wide conventions (file lists, ignore patterns, header formats) that are easy to get
+wrong by hand.
 
 ## Formatting
 
@@ -50,12 +50,12 @@ Neither script touches `.oracle` schema files.
   `tag`, `minor`, `previous_tag`). Backs `.github/actions/resolve-version`; tests in
   `test_resolve_version.py`.
 - `latest_version.sh <product> <major.minor> [candidates]` — prints the highest product
-  version on a train from Git tags, or nothing; with `candidates=true`, `-rc.N` tags
-  count. Backs the Core release's embedded-version defaults.
-- `verify_checks.sh <sha> <run_id> <branch>` — fails unless every GitHub Actions check
-  on the commit passed, ignoring the given run, and the newest push run of each test,
-  lint, and check workflow that ran on the branch passed. Backs
-  `.github/actions/verify-checks`; tests in `test_verify_checks.py`.
+  version on a train, or nothing; `candidates=true` counts `-rc.N` tags. Backs the Core
+  release's embedded-version defaults.
+- `verify_checks.sh <sha> <run_id> <branch>` — fails unless every check on the commit
+  passed, ignoring the given run, and so did the newest push run of each test, lint, and
+  check workflow on the branch. Backs `.github/actions/verify-checks`; tests in
+  `test_verify_checks.py`.
 - CI-only, called by the workflows and documented in their headers:
   `verify_build_config.sh`, `generate_os_matrix.sh`, `check_artifact_cache.sh`,
   `import_apple_certificate.sh`.

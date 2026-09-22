@@ -18,8 +18,8 @@ telemetry. Monorepo:
 
 ## Release model
 
-`main` is the only long-lived branch. A person dispatches every release from `main` or
-from a `release/<product>-X.Y` hotfix branch; nothing publishes on push. Candidates
+`main` is the only long-lived branch. Nothing publishes on push: a person dispatches
+every release from `main` or from a `release/<product>-X.Y` hotfix branch. Candidates
 (`-rc.N` tags) never count as shipped. Backward compatibility — file formats, stored
 shapes, wire quirks, migrations — is owed only to what a stable release shipped;
 candidate-era formats may be dropped freely. See RFC 0058.
@@ -34,8 +34,8 @@ needing broader context:
 - `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
-- `scripts/CLAUDE.md` — repo scripts (formatting, copyright headers, codegen checks,
-  release/CI tooling) (also auto-loads)
+- `scripts/CLAUDE.md` — repo scripts: formatting, copyright headers, codegen checks,
+  release and CI tooling (also auto-loads)
 - `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
   and citations (also auto-loads)
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,

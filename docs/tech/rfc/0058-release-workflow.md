@@ -61,9 +61,8 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 - **`bump`**: `patch` (default) or `minor`, applied to every selected product.
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
-  this run releases, else the newest stable on the resolved minor, or the newest
-  pre-release on it when `prerelease` is set, so a hotfix from `release/core-0.59` never
-  picks up 0.60.
+  this run releases, else the newest on the resolved minor (candidates included when
+  `prerelease` is set), so a hotfix from `release/core-0.59` never picks up 0.60.
 
 Each selected product runs four stages:
 
@@ -76,7 +75,7 @@ Each selected product runs four stages:
    same baseline, so its notes cover every change since the last stable. Reachability
    picks the train; the repo-wide scan keeps a hotfix tag from being reissued.
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
-   as a `workflow_call` job. One run verifies once for every product.
+   as a `workflow_call` job, once per run.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
    through, signed.
 4. **Publish**: Draft release under the tag, upload assets, `generate_release_notes`
@@ -98,9 +97,9 @@ Assets per product:
   pre-release). No workflow rebuilds another product. The notes name the embedded
   versions.
 
-Console and Driver release in parallel; the Core waits for both, since it embeds them,
-and never runs after one of them fails. A product that fails leaves no tag and the rest
-stand; rerun with that product alone, and a Core rerun's defaults pick up the others.
+Console and Driver release in parallel. The Core embeds them, so it waits for both and
+never runs after one fails. A failed product leaves no tag and the rest stand; rerun
+with that product alone, and a Core rerun's defaults pick up the others.
 
 `deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
@@ -246,10 +245,10 @@ flag and workflow file.
     person or Changesets. The manifest version is the release decision, the registry's
     skip of published versions is the change detection, and the published `^X.Y.0`
     ranges lock the minor on 0.x, so any patch mix inside a train resolves.
-11. **One workflow, a checkbox per product**: One `release.yaml` ships a minor with one
-    click and a hotfix with one box ticked. A workflow per product plus a train workflow
-    over them was rejected as four files for one job; separate dispatches were rejected
-    as three clicks in a forced order. The products keep their own tags and releases.
+11. **One workflow, a checkbox per product**: `release.yaml` ships a minor with one
+    click and a hotfix with one box ticked. A workflow per product plus a train over
+    them was rejected as four files for one job; separate dispatches as three clicks in
+    a forced order. The products keep their own tags and releases.
 
 ## 5 Open questions
 

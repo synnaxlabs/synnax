@@ -142,8 +142,8 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
-      # The train rule: the Core embeds only releases on its own minor. A product
-      # released by this run is the default; otherwise the newest on the minor.
+      # The train rule: the Core embeds only releases on its own minor. Default to the
+      # product this run releases, else the newest on the minor.
       - name: Resolve Embedded Versions
         id: embed
         if: inputs.core
@@ -298,8 +298,8 @@ jobs:
       - name: Publish Release
         run: gh release edit "$TAG" --draft=false
 
-  # The Core closes the train: it embeds the Console and Driver, so it waits for the
-  # ones this run releases and never runs after one of them fails.
+  # The Core embeds the Console and Driver, so it waits for the ones this run releases
+  # and never runs after one fails.
   draft-core:
     name: Draft Core
     needs: [resolve, verify, integration, publish-console, publish-driver]
