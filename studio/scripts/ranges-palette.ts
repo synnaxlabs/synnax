@@ -15,9 +15,9 @@ import { capture, fixtures } from "@/index";
  * opens.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedRanges(["Hotfire 09", "Coldflow 22", "Burst Test 04"]);
+  await fixtures.createRanges(["Hotfire 09", "Coldflow 22", "Burst Test 04"]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);

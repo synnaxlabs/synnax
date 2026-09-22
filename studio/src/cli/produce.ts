@@ -10,6 +10,7 @@
 import path from "node:path";
 import { parseArgs } from "node:util";
 
+import { run } from "@/cli/common";
 import { loadTimeline, runCapture, runRender } from "@/cli/pipeline";
 import { type Timeline } from "@/timeline";
 
@@ -18,8 +19,8 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --out <dir>       output directory for frames, timeline, and video
   --url <url>       Console URL (default http://localhost:5173)
   --core <mode>     ephemeral | external (default ephemeral): ephemeral starts a
-                    fresh in-memory core on 9090 for the capture; external uses
-                    whatever is already listening there
+                    fresh in-memory core for the capture; external uses whatever
+                    is already listening on --port
   --core-bin <path> synnax binary for --core ephemeral (default: $SYNNAX_CORE_BIN
                     or core/synnax found walking up from the studio)
   --port <n>        core port (default 9095 ephemeral, 9090 external); the dev
@@ -29,7 +30,6 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --height <px>     capture viewport height in CSS px (default 945)
   --dsf <n>         capture device scale factor (default 2)
   --target <t>      output width: 1080p | 1440p | 4k | <pixels> (default 1080p)
-                    (default native capture resolution, width*dsf)
   --draft           fast review render: higher crf + fast encoder preset
   --hide-caret      hide the text caret during capture
   --headed          run the capture browser headed
@@ -111,7 +111,4 @@ const main = async (): Promise<void> => {
   console.log(`\nwrote ${outputLocation}`);
 };
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+run(main);

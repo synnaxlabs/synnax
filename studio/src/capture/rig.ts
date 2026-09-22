@@ -74,7 +74,7 @@ export interface CaptureOptions {
   corePort?: number;
 }
 
-/** Mirrors DEV_PORT_KEY in console/src/cluster/detectConnection.ts. */
+/** Mirrors DEV_PORT_KEY in console/src/platform/core/detectConnection.ts. */
 const DEV_PORT_KEY = "synnax-dev-connection-port";
 
 /**

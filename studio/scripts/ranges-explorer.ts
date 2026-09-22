@@ -14,7 +14,7 @@ import { capture, fixtures } from "@/index";
  * turn on editing, and search it down to the matching ranges.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedRanges([
+  await fixtures.createRanges([
     "Hotfire 09",
     "Coldflow 22",
     "Hotfire 10",
@@ -22,7 +22,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     "Leak Check 03",
   ]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);

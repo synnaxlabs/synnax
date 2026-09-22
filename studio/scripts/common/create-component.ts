@@ -18,7 +18,7 @@ export const createComponentScript =
   (title: string, ready: string) =>
   async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
-    await capture.login(session, { username: "synnax", password: "seldon" });
+    await capture.login(session);
     await capture.clearPanel(session);
     await session.moveTo({ x: 756, y: 500 });
 

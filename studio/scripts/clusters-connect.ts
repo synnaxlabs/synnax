@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax } from "@synnaxlabs/client";
-
 import { capture, fixtures } from "@/index";
 
 const PROJECT = capture.PROJECT;
@@ -22,12 +20,7 @@ const DETACH_KEY = "synnax-dev-connection-detach";
  * Console instead of on the project picker.
  */
 const createProject = async (port: number): Promise<void> => {
-  const client = new Synnax({
-    host: "localhost",
-    port,
-    username: "synnax",
-    password: "seldon",
-  });
+  const client = fixtures.connect({ port });
   try {
     await client.projects.create({ name: PROJECT });
   } finally {

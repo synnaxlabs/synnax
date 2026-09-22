@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax, TimeStamp } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/client";
 
-import { defaultPort } from "@/fixtures/cluster";
+import { connect, type ConnectionOptions } from "@/fixtures/client";
 
-export interface TelemetryOptions {
-  host?: string;
-  port?: number;
-  username?: string;
-  password?: string;
+export interface TelemetryOptions extends ConnectionOptions {
   /** Wall-clock milliseconds between samples. */
   periodMs?: number;
 }
@@ -34,13 +30,10 @@ export interface TelemetryFixture {
  * capture clock steps, so on-screen data progresses faster than video time.
  */
 export const sineTelemetry = async ({
-  host = "localhost",
-  port = defaultPort(),
-  username = "synnax",
-  password = "seldon",
   periodMs = 40,
+  ...opts
 }: TelemetryOptions = {}): Promise<TelemetryFixture> => {
-  const client = new Synnax({ host, port, username, password });
+  const client = connect(opts);
   const time = await client.channels.create(
     { name: "demo_time", isIndex: true, dataType: "timestamp" },
     { retrieveIfNameExists: true },
@@ -72,7 +65,7 @@ export const sineTelemetry = async ({
       });
     }
     await writer.close();
-    client.close();
+    await client.close();
   })();
 
   return {

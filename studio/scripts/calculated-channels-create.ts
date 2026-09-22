@@ -18,7 +18,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
   try {
     const { page } = session;
-    await capture.login(session, { username: "synnax", password: "seldon" });
+    await capture.login(session);
 
     await capture.openToolbar(session, "channel");
     await capture.resizeToolbar(session, 400);

@@ -15,10 +15,10 @@ import { capture, fixtures } from "@/index";
  * switch to the alias.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedStaticTelemetry({ channels: ["digital_input_1"], samples: 200 });
-  await fixtures.seedRanges(["Hotfire 09"]);
+  await fixtures.createStaticTelemetry({ channels: ["digital_input_1"], samples: 200 });
+  await fixtures.createRanges(["Hotfire 09"]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   // Aliases belong to the active range, so activate one before recording.
   await capture.searchPalette(session, "Hotfire 09");

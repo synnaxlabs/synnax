@@ -56,7 +56,7 @@ export const STUDIO_PORT = 9095;
  */
 export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => {
   const port = opts.port ?? (opts.core === "external" ? 9090 : STUDIO_PORT);
-  // Fixture defaults (sineTelemetry, seedRanges, ...) resolve this so scripts
+  // Fixture defaults (sineTelemetry, createRanges, ...) resolve this so scripts
   // need no port plumbing.
   process.env.SYNNAX_STUDIO_PORT = String(port);
   let core: Core | undefined;

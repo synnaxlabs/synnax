@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax, TimeStamp } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/client";
 
-import { defaultPort } from "@/fixtures/cluster";
+import { connect, type ConnectionOptions } from "@/fixtures/client";
 
-export interface ValveOptions {
-  host?: string;
-  port?: number;
-  username?: string;
-  password?: string;
+export interface ValveOptions extends ConnectionOptions {
   /** Prefix of the created channel names. */
   name?: string;
   /** Interval between state samples, so the symbol never goes stale. */
@@ -39,14 +35,11 @@ export interface ValveFixture {
  * every `periodMs` whether or not it changed.
  */
 export const echoValve = async ({
-  host = "localhost",
-  port = defaultPort(),
-  username = "synnax",
-  password = "seldon",
   name = "valve",
   periodMs = 40,
+  ...opts
 }: ValveOptions = {}): Promise<ValveFixture> => {
-  const client = new Synnax({ host, port, username, password });
+  const client = connect(opts);
   const create = async (channel: string, isIndex: boolean, index?: number) =>
     await client.channels.create(
       isIndex

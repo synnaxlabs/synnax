@@ -12,7 +12,8 @@ import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
-import { filter, type Manifest, videoName } from "@/manifest";
+import { OUT_ROOT, ROOT, run, select, THEMES } from "@/cli/common";
+import { videoName } from "@/manifest";
 
 const usage = `usage: pnpm clean [filter] [options]
 Frees disk from produced artifacts for manifest entries whose id contains
@@ -23,10 +24,6 @@ frames clean requires recapturing.
   --all       remove everything under out/ for matching entries
               (with no filter: the entire out/ directory)
   --dry-run   list what would be removed and how much space it frees`;
-
-const ROOT = path.resolve(import.meta.dirname, "../..");
-const OUT_ROOT = path.join(ROOT, "out");
-const THEMES = ["light", "dark"] as const;
 
 const dirSize = async (target: string): Promise<number> => {
   const info = await stat(target).catch(() => null);
@@ -67,14 +64,7 @@ const main = async (): Promise<void> => {
     return;
   }
 
-  const manifest = (await import(path.join(ROOT, "videos.ts"))) as {
-    default: Manifest;
-  };
-  const entries = filter(manifest.default, pattern);
-  if (entries.length === 0) {
-    console.error(`no manifest entries match "${pattern ?? ""}"`);
-    process.exit(1);
-  }
+  const entries = await select(pattern);
 
   const targets: string[] = [];
   for (const entry of entries) {
@@ -108,7 +98,4 @@ const main = async (): Promise<void> => {
   console.log(values["dry-run"] ? `${gb(freed)} would be freed` : `${gb(freed)} freed`);
 };
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+run(main);

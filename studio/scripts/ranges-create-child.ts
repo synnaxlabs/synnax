@@ -15,9 +15,9 @@ import { capture, fixtures } from "@/index";
  * and save; the child appears in the list.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedRanges(["Hotfire 09"]);
+  await fixtures.createRanges(["Hotfire 09"]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   await capture.searchPalette(session, "Hotfire 09");
   const section = page.locator(".pluto-header").filter({ hasText: "Child ranges" });

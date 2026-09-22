@@ -15,11 +15,11 @@ import { capture, fixtures } from "@/index";
  * the user move under it.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedUsers([
+  await fixtures.createUsers([
     { username: "grace", firstName: "Grace", lastName: "Hopper", role: "Viewer" },
   ]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   await capture.openToolbar(session, "user");
   await capture.resizeToolbar(session, 400);

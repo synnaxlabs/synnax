@@ -15,8 +15,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
+import {
+  OUT_ROOT,
+  readStamp,
+  ROOT,
+  run,
+  select,
+  type Stamp,
+  stampFile,
+  THEMES,
+} from "@/cli/common";
 import { runCapture, runRender, STUDIO_PORT } from "@/cli/pipeline";
-import { type Entry, filter, type Manifest, videoName } from "@/manifest";
+import { type Entry, videoName } from "@/manifest";
 
 const usage = `usage: pnpm batch [filter] [options]
 Produces every manifest entry (videos.ts) whose id contains [filter]: for each,
@@ -36,16 +46,6 @@ options are unchanged since their last successful production are skipped.
                     port + i, and its log prints when the entry finishes.
                     Entries pinning a port produce first, one at a time`;
 
-const ROOT = path.resolve(import.meta.dirname, "../..");
-const OUT_ROOT = path.join(ROOT, "out");
-
-interface Stamp {
-  /** Hash of the script contents, entry options, and draft flag. */
-  hash: string;
-  draft: boolean;
-  producedAt: string;
-}
-
 const entryHash = async (entry: Entry, draft: boolean): Promise<string> => {
   const script = await readFile(path.resolve(ROOT, entry.script));
   return createHash("sha256")
@@ -54,23 +54,10 @@ const entryHash = async (entry: Entry, draft: boolean): Promise<string> => {
     .digest("hex");
 };
 
-const paths = (entry: Entry) => {
-  const workDir = path.join(OUT_ROOT, entry.id);
-  return {
-    workDir,
-    stamp: path.join(workDir, "produce.json"),
-    captureDir: (theme: "light" | "dark") => path.join(workDir, theme),
-    video: (theme: "light" | "dark") => path.join(OUT_ROOT, videoName(entry.id, theme)),
-  };
-};
-
-const readStamp = async (file: string): Promise<Stamp | null> => {
-  try {
-    return JSON.parse(await readFile(file, "utf8")) as Stamp;
-  } catch {
-    return null;
-  }
-};
+const paths = (entry: Entry) => ({
+  captureDir: (theme: "light" | "dark") => path.join(OUT_ROOT, entry.id, theme),
+  video: (theme: "light" | "dark") => path.join(OUT_ROOT, videoName(entry.id, theme)),
+});
 
 interface ProduceEntryOptions {
   entry: Entry;
@@ -80,8 +67,6 @@ interface ProduceEntryOptions {
   coreBin?: string;
   port?: number;
 }
-
-const THEMES = ["light", "dark"] as const;
 
 const produceEntry = async ({
   entry,
@@ -128,7 +113,7 @@ const produceEntry = async ({
     draft,
     producedAt: new Date().toISOString(),
   };
-  await writeFile(p.stamp, JSON.stringify(stamp, null, 2));
+  await writeFile(stampFile(entry.id), JSON.stringify(stamp, null, 2));
 };
 
 interface Options {
@@ -221,16 +206,7 @@ const main = async (): Promise<void> => {
     console.log(usage);
     return;
   }
-  const manifest = (await import(path.join(ROOT, "videos.ts"))) as {
-    default: Manifest;
-  };
-  const entries = values.exact
-    ? manifest.default.filter((e) => e.id === positionals[0])
-    : filter(manifest.default, positionals[0]);
-  if (entries.length === 0) {
-    console.error(`no manifest entries match "${positionals[0] ?? ""}"`);
-    process.exit(1);
-  }
+  const entries = await select(positionals[0], values.exact);
   if (values.list) {
     for (const e of entries) console.log(`${e.id}  (${e.script})`);
     return;
@@ -243,7 +219,7 @@ const main = async (): Promise<void> => {
   for (const entry of entries) {
     const p = paths(entry);
     const hash = await entryHash(entry, values.draft);
-    const stamp = await readStamp(p.stamp);
+    const stamp = await readStamp(entry.id);
     const fresh =
       stamp?.hash === hash && THEMES.every((theme) => existsSync(p.video(theme)));
     if (fresh && !values.force) {
@@ -294,7 +270,4 @@ const main = async (): Promise<void> => {
   if (failed.length > 0) process.exit(1);
 };
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+run(main);

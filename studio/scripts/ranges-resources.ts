@@ -18,9 +18,9 @@ const RANGES = ["Hotfire 09", "Coldflow 22", "Burst Test 04"];
 export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
   try {
-    await fixtures.seedRanges(RANGES);
+    await fixtures.createRanges(RANGES);
     const { page } = session;
-    await capture.login(session, { username: "synnax", password: "seldon" });
+    await capture.login(session);
 
     // The plot must exist before any range is favorited: favoriting also makes the
     // range active, and a plot created under an active range inherits its historic

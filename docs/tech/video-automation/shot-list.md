@@ -5,8 +5,8 @@ Complete inventory of every `<Video id="..." />` under `docs/site/src/pages`.
 **Total: 61 unique ids** under `reference/` (the docs-site tutorial set), plus the
 legacy clips under `releases/` (release-notes demos, listed in an addendum at the
 bottom). Shot descriptions marked "(inferred)" come from thin prose; the flow was
-reconstructed from the section heading and neighboring steps. Source paths are
-relative to `docs/site/src/pages/`.
+reconstructed from the section heading and neighboring steps. Source paths are relative
+to `docs/site/src/pages/`.
 
 ## Prerequisites legend
 
@@ -42,10 +42,10 @@ relative to `docs/site/src/pages/`.
 - **Hardware simulators / external services**: OPC UA server sim for
   `device-drivers/opc-ua/*`; Modbus TCP server sim for `device-drivers/modbus/*`; an
   HTTP JSON server for `device-drivers/http/*`; real or simulated NI hardware (NI-DAQmx
-  + NI MAX) for `device-drivers/ni/*`; a LabJack device (Kipling) for
-  `device-drivers/labjack/*`; an EtherCAT network for `device-drivers/ethercat/*`; a
-  PagerDuty account + Events API key for `device-drivers/pagerduty/alert-task/create`;
-  an Arduino on a serial port for `client/resources/build-device-driver/*`.
+  - NI MAX) for `device-drivers/ni/*`; a LabJack device (Kipling) for
+    `device-drivers/labjack/*`; an EtherCAT network for `device-drivers/ethercat/*`; a
+    PagerDuty account + Events API key for `device-drivers/pagerduty/alert-task/create`;
+    an Arduino on a serial port for `client/resources/build-device-driver/*`.
 - **Running driver (rack connected to the core)**: every `device-drivers/*` id and
   `control/arc/get-started/deploy-automation`.
 
@@ -56,17 +56,17 @@ relative to `docs/site/src/pages/`.
 - `console/ui-overview/documentation` (reference/console/ui-overview.mdx) -> click the
   question-mark icon -> the Synnax documentation site opens inside the Console.
 - `console/ui-overview/palette-search` (reference/console/ui-overview.mdx) -> open the
-  palette with Cmd/Ctrl+P (or click the top search bar) -> type the name of an
-  existing test range -> select the result and show it become the active range ->
-  requires a pre-seeded range.
+  palette with Cmd/Ctrl+P (or click the top search bar) -> type the name of an existing
+  test range -> select the result and show it become the active range -> requires a
+  pre-seeded range.
 
 ## console/clusters
 
 - `console/clusters/connect` (reference/console/cores.mdx) -> click the **Connect**
-  button in the Core Selector -> fill host/port/username/password (optionally Secure)
-  in the connection dialog -> submit -> the new core appears in the list, becomes
-  active, and the connection status indicator in the top-right turns connected ->
-  requires a reachable core (localhost or demo.synnaxlabs.com).
+  button in the Core Selector -> fill host/port/username/password (optionally Secure) in
+  the connection dialog -> submit -> the new core appears in the list, becomes active,
+  and the connection status indicator in the top-right turns connected -> requires a
+  reachable core (localhost or demo.synnaxlabs.com).
 
 ## console/workspaces
 
@@ -81,62 +81,60 @@ relative to `docs/site/src/pages/`.
 ## console/users
 
 - `console/users/register` (reference/console/users.mdx) -> open the command palette
-  (Cmd/Ctrl+Shift+P) -> run "Register a User" -> fill username/password and pick a
-  role in the dialog -> submit -> the new user appears in the Users Toolbar.
+  (Cmd/Ctrl+Shift+P) -> run "Register a User" -> fill username/password and pick a role
+  in the dialog -> submit -> the new user appears in the Users Toolbar.
 - `console/users/modal-change-role` (reference/console/users.mdx) -> open the Users
-  Toolbar -> right-click an existing user -> select "Assign to role" -> pick a role
-  from the dropdown in the dialog and click "Assign" -> the user moves under the new
-  role -> requires a pre-seeded non-root user.
+  Toolbar -> right-click an existing user -> select "Assign to role" -> pick a role from
+  the dropdown in the dialog and click "Assign" -> the user moves under the new role ->
+  requires a pre-seeded non-root user.
 
 ## console/channels
 
-- `console/channels/create_new` (reference/console/channels.mdx) -> click the "+"
-  action in the Channels Toolbar -> fill name, data type, and index channel in the
-  dialog -> submit -> the channel appears in the Channels Toolbar.
-- `console/channels/alias` (reference/console/channels.mdx) -> with a range active,
-  open the Channels Toolbar -> right-click a channel -> choose the alias option and
-  type a range-specific name (e.g. rename `digital_input_1` to `pressure_01`) -> show
-  the alias displayed while that range is active -> requires a pre-seeded channel and
-  an active range.
+- `console/channels/create_new` (reference/console/channels.mdx) -> click the "+" action
+  in the Channels Toolbar -> fill name, data type, and index channel in the dialog ->
+  submit -> the channel appears in the Channels Toolbar.
+- `console/channels/alias` (reference/console/channels.mdx) -> with a range active, open
+  the Channels Toolbar -> right-click a channel -> choose the alias option and type a
+  range-specific name (e.g. rename `digital_input_1` to `pressure_01`) -> show the alias
+  displayed while that range is active -> requires a pre-seeded channel and an active
+  range.
 
 ## console/calculated-channels
 
 - `console/calculated-channels/create` (reference/console/calculated-channels.mdx) ->
   open the command palette -> run "Create Calculated Channel" -> name the channel and
-  write an Arc expression referencing existing channels (ending in `return`),
-  optionally pick an operation/window -> submit -> requires pre-seeded source
-  channels, ideally with live data so the calculation visibly produces values.
-- `console/calculated-channels/edit` (reference/console/calculated-channels.mdx) ->
-  open the Channels Toolbar -> right-click an existing calculated channel -> select
-  "Edit Calculation" from the context menu -> modify the expression in the dialog and
-  save -> requires a pre-seeded calculated channel.
+  write an Arc expression referencing existing channels (ending in `return`), optionally
+  pick an operation/window -> submit -> requires pre-seeded source channels, ideally
+  with live data so the calculation visibly produces values.
+- `console/calculated-channels/edit` (reference/console/calculated-channels.mdx) -> open
+  the Channels Toolbar -> right-click an existing calculated channel -> select "Edit
+  Calculation" from the context menu -> modify the expression in the dialog and save ->
+  requires a pre-seeded calculated channel.
 
 ## console/ranges
 
 - `console/ranges/palette-create` (reference/console/ranges.mdx) -> open the command
-  palette (`>` or Cmd/Ctrl+Shift+P) -> run the create-range command -> fill and save
-  the range dialog.
+  palette (`>` or Cmd/Ctrl+Shift+P) -> run the create-range command -> fill and save the
+  range dialog.
 - `console/ranges/plot-create` (reference/console/ranges.mdx) -> on a line plot with
-  data, drag-select a region -> use the selection to create a range -> the dialog
-  opens with From/To pre-populated from the selected region -> save -> requires a plot
-  with plotted (live or historical) data.
+  data, drag-select a region -> use the selection to create a range -> the dialog opens
+  with From/To pre-populated from the selected region -> save -> requires a plot with
+  plotted (live or historical) data.
 - `console/ranges/resources` (reference/console/ranges.mdx) -> open the Ranges Toolbar
   on the left -> browse the core's ranges -> click one to load it into the toolbar as
   active -> requires pre-seeded ranges.
 - `console/ranges/explorer` (reference/console/ranges.mdx) -> open the Range Explorer
-  from the Ranges Toolbar -> the explorer tab lists every range on the Core -> type
-  into its search or pick a label filter to narrow the list -> requires pre-seeded
-  ranges.
+  from the Ranges Toolbar -> the explorer tab lists every range on the Core -> type into
+  its search or pick a label filter to narrow the list -> requires pre-seeded ranges.
 - `console/ranges/palette` (reference/console/ranges.mdx) -> click the Search and
   Command Palette at the top -> type the name of a permanently saved range ->
-  arrow-key/click to select it -> the range loads -> requires a pre-seeded saved
-  range.
+  arrow-key/click to select it -> the range loads -> requires a pre-seeded saved range.
 - `console/ranges/create-child` (reference/console/ranges.mdx) -> open a range's
   overview page -> click **Add Child Range** (or set the parent field in the creation
   dialog) -> fill and save the child range -> requires an existing parent range.
-- `console/ranges/add-meta-data` (reference/console/ranges.mdx) -> on the range
-  overview page, click an empty cell in the metadata section -> type a key and value
-  (e.g. a link) -> the field is saved -> requires an existing range.
+- `console/ranges/add-meta-data` (reference/console/ranges.mdx) -> on the range overview
+  page, click an empty cell in the metadata section -> type a key and value (e.g. a
+  link) -> the field is saved -> requires an existing range.
 - `console/ranges/add-label` (reference/console/ranges.mdx) -> on the range overview
   page, click the **Add Label** button -> pick or create a label -> the label chip
   appears on the range -> requires an existing range.
@@ -149,64 +147,63 @@ All shots require channels with data (live streaming for the rolling-range ones)
   tab open, click the visualize button in the bottom-left corner -> the Visualization
   Toolbar opens showing the plot's tabs.
 - `console/line-plots/slope` (reference/console/line-plots.mdx) -> click the slope
-  button -> click a first point, then press `2` and click a second point -> the
-  overlay shows slope and x/y deltas between the two points.
+  button -> click a first point, then press `2` and click a second point -> the overlay
+  shows slope and x/y deltas between the two points.
 
 ## console/tables
 
-
 ## console/logs
 
-- `console/logs/example` (reference/console/logs.mdx) -> with a log visualization
-  open, select multiple channels in the Visualization Toolbar and adjust formatting ->
-  show log lines streaming in as telemetry arrives -> requires channels with live
-  (low-rate) data.
+- `console/logs/example` (reference/console/logs.mdx) -> with a log visualization open,
+  select multiple channels in the Visualization Toolbar and adjust formatting -> show
+  log lines streaming in as telemetry arrives -> requires channels with live (low-rate)
+  data.
 
 ## console/schematics
 
-- `console/schematics/value` (reference/console/schematics.mdx) -> in edit mode,
-  select a value symbol -> in the Telemetry tab of the Visualization Toolbar, pick an
-  input channel and set precision/averaging -> the symbol starts displaying the
-  channel's live value -> requires a channel with live data.
+- `console/schematics/value` (reference/console/schematics.mdx) -> in edit mode, select
+  a value symbol -> in the Telemetry tab of the Visualization Toolbar, pick an input
+  channel and set precision/averaging -> the symbol starts displaying the channel's live
+  value -> requires a channel with live data.
 - `console/schematics/connections` (reference/console/schematics.mdx) -> in edit mode,
-  hover a symbol so its attachment points appear -> click an attachment point and drag
-  a connection line to another symbol -> release to connect -> requires at least two
+  hover a symbol so its attachment points appear -> click an attachment point and drag a
+  connection line to another symbol -> release to connect -> requires at least two
   symbols on the canvas.
 - `console/schematics/align-items` (reference/console/schematics.mdx) -> drag a
   selection box around several symbols -> click the vertical or horizontal alignment
   button -> the symbols snap into alignment.
 - `console/schematics/change-color` (reference/console/schematics.mdx) -> drag a
-  selection box around multiple symbols -> open the color picker and choose a new
-  color -> all selected symbols recolor together.
-- `console/schematics/valve` (reference/console/schematics.mdx) -> switch the
-  schematic to control mode -> click a valve (or other actuator) to acquire control
-  and toggle it -> show the control indicator circle (blue/green/red) and the colored
-  control legend while the state channel reflects the actuation -> requires
-  state/command channels, ideally with a sim echoing state.
-- `console/schematics/snapshot` (reference/console/schematics.mdx) -> find the
-  schematic in the Workspaces Toolbar -> open its context menu -> snapshot the
-  schematic to a range -> show the snapshot appear under the range -> requires an
-  existing schematic and an existing range.
-- `console/schematics/symbol-create-group` (reference/console/schematics.mdx) -> in
-  the schematic symbols browser at the bottom, create a new custom symbol group -> the
-  empty group appears in the library.
+  selection box around multiple symbols -> open the color picker and choose a new color
+  -> all selected symbols recolor together.
+- `console/schematics/valve` (reference/console/schematics.mdx) -> switch the schematic
+  to control mode -> click a valve (or other actuator) to acquire control and toggle it
+  -> show the control indicator circle (blue/green/red) and the colored control legend
+  while the state channel reflects the actuation -> requires state/command channels,
+  ideally with a sim echoing state.
+- `console/schematics/snapshot` (reference/console/schematics.mdx) -> find the schematic
+  in the Workspaces Toolbar -> open its context menu -> snapshot the schematic to a
+  range -> show the snapshot appear under the range -> requires an existing schematic
+  and an existing range.
+- `console/schematics/symbol-create-group` (reference/console/schematics.mdx) -> in the
+  schematic symbols browser at the bottom, create a new custom symbol group -> the empty
+  group appears in the library.
 - `console/schematics/symbol-import-svg` (reference/console/schematics.mdx) -> with a
   group created, open the create symbol dialog and import an SVG file -> the editor
-  identifies color regions and the new symbol lands in the group -> requires an SVG
-  file on disk.
+  identifies color regions and the new symbol lands in the group -> requires an SVG file
+  on disk.
 
 ## control/arc
 
-- `control/arc/get-started/create-automation` (reference/control/arc/get-started.mdx)
-  -> open the command palette and run "Create an Arc automation" (alternatives: "+"
-  button in the toolbar, or right-click a driver in the resources panel) -> name it
-  and select **Text** editor mode -> the Arc text editor opens.
-- `control/arc/get-started/deploy-automation` (reference/control/arc/get-started.mdx)
-  -> with the tutorial program in the editor (and `tank_pressure`/`pressure_scaled`
-  virtual channels created so no red squiggles remain), select a driver from the
-  editor-toolbar dropdown -> click **Configure** to upload -> click **Play** -> the
-  status indicator shows running; optionally show the Pause button stopping it ->
-  requires a running driver.
+- `control/arc/get-started/create-automation` (reference/control/arc/get-started.mdx) ->
+  open the command palette and run "Create an Arc automation" (alternatives: "+" button
+  in the toolbar, or right-click a driver in the resources panel) -> name it and select
+  **Text** editor mode -> the Arc text editor opens.
+- `control/arc/get-started/deploy-automation` (reference/control/arc/get-started.mdx) ->
+  with the tutorial program in the editor (and `tank_pressure`/`pressure_scaled` virtual
+  channels created so no red squiggles remain), select a driver from the editor-toolbar
+  dropdown -> click **Configure** to upload -> click **Play** -> the status indicator
+  shows running; optionally show the Pause button stopping it -> requires a running
+  driver.
 
 ## client/resources (build-device-driver tutorial)
 
@@ -221,8 +218,8 @@ TypeScript/Python bridge script running against a local core.
 - `client/resources/build-device-driver/schematic`
   (reference/client/advanced/build-device-driver.mdx) -> with the write-only driver
   script listening on `arduino_command`, create a schematic, add a switch symbol, and
-  set its channel(s) to `arduino_command` -> enter control mode and click the switch
-  -> the Arduino LED toggles. (inferred)
+  set its channel(s) to `arduino_command` -> enter control mode and click the switch ->
+  the Arduino LED toggles. (inferred)
 - `client/resources/build-device-driver/console-setup`
   (reference/client/advanced/build-device-driver.mdx) -> for the read-write driver,
   configure the schematic switch with Command = `arduino_command` and State =
@@ -238,15 +235,14 @@ integration-specific hardware or simulator noted per shot.
 
 - `device-drivers/task/toolbar` (reference/driver/task-basics.mdx) -> open the Devices
   Toolbar via the device icon -> right-click a configured device -> select a task type
-  from the context menu -> the task configuration dialog opens -> requires a
-  configured device.
+  from the context menu -> the task configuration dialog opens -> requires a configured
+  device.
 - `device-drivers/task/command-palette` (reference/driver/task-basics.mdx) -> open the
-  Search and Command Palette (Cmd/Ctrl+Shift+P) -> in command mode type "Create" ->
-  pick a task-creation command from the results -> the task configuration dialog
-  opens.
-- `device-drivers/task/layout-selector` (reference/driver/task-basics.mdx) -> click
-  the add icon in the top-right corner of the central mosaic -> select a task type
-  from the layout menu -> the task configuration dialog opens as a tab.
+  Search and Command Palette (Cmd/Ctrl+Shift+P) -> in command mode type "Create" -> pick
+  a task-creation command from the results -> the task configuration dialog opens.
+- `device-drivers/task/layout-selector` (reference/driver/task-basics.mdx) -> click the
+  add icon in the top-right corner of the central mosaic -> select a task type from the
+  layout menu -> the task configuration dialog opens as a tab.
 - `device-drivers/task/task-basic` (reference/driver/task-basics.mdx) -> full task
   lifecycle in the Console: with a task form open, click **Configure**, then the play
   button to start it (show data/status running), then the pause button to stop ->
@@ -301,22 +297,22 @@ All require an EtherCAT network attached to the driver machine.
   show the discovered devices, then configure/enable one. (inferred)
 - `device-drivers/ethercat/read-task/ethercat-read`
   (reference/driver/ethercat/read-task.mdx) -> create an EtherCAT read task, map TxPDO
-  entries to channels, set the sample (cycle) and stream rates -> Configure and start
-  -> show deterministic live data streaming. (inferred)
+  entries to channels, set the sample (cycle) and stream rates -> Configure and start ->
+  show deterministic live data streaming. (inferred)
 - `device-drivers/ethercat/write-task/ethercat-write`
-  (reference/driver/ethercat/write-task.mdx) -> create an EtherCAT write task, map
-  RxPDO outputs with command/state channel pairs, set state and execution rates ->
-  Configure, start, and command an output -> show state feedback. (inferred)
+  (reference/driver/ethercat/write-task.mdx) -> create an EtherCAT write task, map RxPDO
+  outputs with command/state channel pairs, set state and execution rates -> Configure,
+  start, and command an output -> show state feedback. (inferred)
 
 ### opc-ua
 
 All require a reachable OPC UA server (simulator works).
 
 - `device-drivers/opc-ua/connect-server/connect-server`
-  (reference/driver/opc-ua/connect-server.mdx) -> open the connect dialog for an OPC
-  UA server (via palette/toolbar), enter endpoint URL and security/auth settings ->
-  test and save the connection -> the server appears as a connected device in the
-  Devices Toolbar. (inferred)
+  (reference/driver/opc-ua/connect-server.mdx) -> open the connect dialog for an OPC UA
+  server (via palette/toolbar), enter endpoint URL and security/auth settings -> test
+  and save the connection -> the server appears as a connected device in the Devices
+  Toolbar. (inferred)
 - `device-drivers/opc-ua/read-task/read` (reference/driver/opc-ua/read-task.mdx) ->
   create an OPC UA read task, browse the server's node tree and add nodes as channels,
   set sample/stream rates -> Configure and start -> show live node values streaming.
@@ -333,32 +329,31 @@ All require an HTTP server returning JSON (a small local mock server works).
 - `device-drivers/http/connect-server/connect-server`
   (reference/driver/http/connect-server.mdx) -> open the "Connect an HTTP server"
   dialog, enter base URL, authentication, and optionally a health-check (JSON pointer
-  + expected value) -> save -> the server appears as a connected device. (inferred)
+  - expected value) -> save -> the server appears as a connected device. (inferred)
 - `device-drivers/http/read-task/read` (reference/driver/http/read-task.mdx) -> create
-  an HTTP read task, define the request and JSON-pointer field extraction into
-  channels (with optional timestamp_format index) -> Configure and start -> show
-  polled response values streaming into channels. (inferred)
+  an HTTP read task, define the request and JSON-pointer field extraction into channels
+  (with optional timestamp_format index) -> Configure and start -> show polled response
+  values streaming into channels. (inferred)
 - `device-drivers/http/write-task/write` (reference/driver/http/write-task.mdx) ->
-  create an HTTP write task, map command channels into the outgoing request
-  body/params -> Configure, start, and write a command -> show the request firing
-  against the server. (inferred)
+  create an HTTP write task, map command channels into the outgoing request body/params
+  -> Configure, start, and write a command -> show the request firing against the
+  server. (inferred)
 
 ### labjack
 
 All require a LabJack device connected to the driver machine (updated via Kipling).
 
 - `device-drivers/labjack/configure-device/lj-configure`
-  (reference/driver/labjack/configure-device.mdx) -> a newly connected LabJack
-  triggers a Console notification -> find the device in the Devices Toolbar,
-  right-click, select "Configure" -> complete the configuration dialog and save.
-- `device-drivers/labjack/read-task/lj-read` (reference/driver/labjack/read-task.mdx)
-  -> create a LabJack read task, add analog/digital (or thermocouple) input channels,
-  set sample/stream rates -> Configure and start -> show live data streaming.
+  (reference/driver/labjack/configure-device.mdx) -> a newly connected LabJack triggers
+  a Console notification -> find the device in the Devices Toolbar, right-click, select
+  "Configure" -> complete the configuration dialog and save.
+- `device-drivers/labjack/read-task/lj-read` (reference/driver/labjack/read-task.mdx) ->
+  create a LabJack read task, add analog/digital (or thermocouple) input channels, set
+  sample/stream rates -> Configure and start -> show live data streaming. (inferred)
+- `device-drivers/labjack/write-task/lj-write` (reference/driver/labjack/write-task.mdx)
+  -> create a LabJack write task, add output channels with command/state pairs, set the
+  state rate -> Configure, start, and command an output -> show state feedback.
   (inferred)
-- `device-drivers/labjack/write-task/lj-write`
-  (reference/driver/labjack/write-task.mdx) -> create a LabJack write task, add output
-  channels with command/state pairs, set the state rate -> Configure, start, and
-  command an output -> show state feedback. (inferred)
 
 ### modbus
 
@@ -366,17 +361,16 @@ All require a reachable Modbus TCP server (simulator works).
 
 - `device-drivers/modbus/connect-server/modbus-connect`
   (reference/driver/modbus/connect-server.mdx) -> open the connect dialog for a Modbus
-  server, enter name, host, port (502), and byte/word swap settings -> test and save
-  -> the server appears as a connected device. (inferred)
-- `device-drivers/modbus/read-task/modbus-read`
-  (reference/driver/modbus/read-task.mdx) -> create a Modbus read task, add channels
-  for holding/input registers, coils, or discrete inputs with addresses and data
-  types, set sample/stream rates -> Configure and start -> show live register values
-  streaming. (inferred)
+  server, enter name, host, port (502), and byte/word swap settings -> test and save ->
+  the server appears as a connected device. (inferred)
+- `device-drivers/modbus/read-task/modbus-read` (reference/driver/modbus/read-task.mdx)
+  -> create a Modbus read task, add channels for holding/input registers, coils, or
+  discrete inputs with addresses and data types, set sample/stream rates -> Configure
+  and start -> show live register values streaming. (inferred)
 - `device-drivers/modbus/write-task/write` (reference/driver/modbus/write-task.mdx) ->
   create a Modbus write task, map command channels to writable coils/holding registers
-  -> Configure, start, and write a value -> the register updates on the server (no
-  state feedback channels; direct write). (inferred)
+  -> Configure, start, and write a value -> the register updates on the server (no state
+  feedback channels; direct write). (inferred)
 
 ---
 
@@ -390,9 +384,9 @@ These sit outside the `reference/` tutorial set; listed for completeness.
 - `releases/0-36-0/schematic-undo` (releases/0-36-0.mdx) -> while editing a schematic,
   make a change (move/delete a symbol) -> press Ctrl+Z to undo it and Ctrl+Shift+Z to
   redo it.
-- `releases/0-56-0/schematic-collaborative-editing` (releases/0-56-0.mdx) -> two
-  Console sessions editing the same schematic simultaneously, with one user's edits
-  appearing live in the other's view -> requires two clients connected to the same
-  core. (inferred)
+- `releases/0-56-0/schematic-collaborative-editing` (releases/0-56-0.mdx) -> two Console
+  sessions editing the same schematic simultaneously, with one user's edits appearing
+  live in the other's view -> requires two clients connected to the same core.
+  (inferred)
 - `releases/0-57-0/panels` (releases/0-57-0.mdx) -> the release page's hero clip of the
   panels shell; unthemed, so the CDN serves one file.

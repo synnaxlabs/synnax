@@ -8,18 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
-import { filter, type Manifest, videoName } from "@/manifest";
+import { OUT_ROOT, readStamp, run, select } from "@/cli/common";
+import { videoName } from "@/manifest";
 
 const usage = `usage: pnpm gallery [filter]
 Writes out/gallery.html: a review page showing the light/dark pair of every
 produced manifest entry whose id contains [filter]. Open it in a browser.`;
-
-const ROOT = path.resolve(import.meta.dirname, "../..");
-const OUT_ROOT = path.join(ROOT, "out");
 
 const esc = (s: string): string =>
   s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -33,10 +31,7 @@ const main = async (): Promise<void> => {
     console.log(usage);
     return;
   }
-  const manifest = (await import(path.join(ROOT, "videos.ts"))) as {
-    default: Manifest;
-  };
-  const entries = filter(manifest.default, positionals[0]);
+  const entries = await select(positionals[0]);
 
   const sections: string[] = [];
   let shown = 0;
@@ -45,16 +40,9 @@ const main = async (): Promise<void> => {
     const dark = videoName(entry.id, "dark");
     if (!existsSync(path.join(OUT_ROOT, light))) continue;
     shown++;
-    let badge = "";
-    const stampFile = path.join(OUT_ROOT, entry.id, "produce.json");
-    if (existsSync(stampFile)) {
-      const stamp = JSON.parse(await readFile(stampFile, "utf8")) as {
-        draft?: boolean;
-        producedAt?: string;
-      };
-      const when = stamp.producedAt?.slice(0, 16).replace("T", " ") ?? "";
-      badge = `${stamp.draft === true ? '<span class="draft">DRAFT</span> ' : ""}${when}`;
-    }
+    const stamp = await readStamp(entry.id);
+    const when = stamp?.producedAt.slice(0, 16).replace("T", " ") ?? "";
+    const badge = `${stamp?.draft === true ? '<span class="draft">DRAFT</span> ' : ""}${when}`;
     sections.push(`<section>
   <h2>${esc(entry.id)} <small>${badge}</small></h2>
   <div class="pair">
@@ -87,7 +75,4 @@ ${sections.join("\n")}`;
   console.log(`wrote ${out} (${shown} entries)`);
 };
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+run(main);

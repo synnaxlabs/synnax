@@ -7,30 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+import { connect, type ConnectionOptions } from "@/fixtures/client";
 
 /**
- * Seeding helpers for pre-staged cluster state. Shots should start mid-state
- * (existing ranges, users, historical data) rather than recording their own
- * setup; run these before startRecording against the capture's ephemeral core.
+ * Helpers for pre-staged cluster state. Shots should start mid-state (existing
+ * ranges, users, historical data) rather than recording their own setup; run
+ * these before startRecording against the capture's ephemeral core.
  */
-
-export interface ClusterOptions {
-  host?: string;
-  port?: number;
-  username?: string;
-  password?: string;
-}
-
-/** defaultPort resolves the port of the capture's core, set by the pipeline. */
-export const defaultPort = (): number => Number(process.env.SYNNAX_STUDIO_PORT ?? 9090);
-
-const connect = ({
-  host = "localhost",
-  port = defaultPort(),
-  username = "synnax",
-  password = "seldon",
-}: ClusterOptions): Synnax => new Synnax({ host, port, username, password });
 
 export interface RangeSpec {
   name: string;
@@ -41,13 +26,13 @@ export interface RangeSpec {
 }
 
 /**
- * seedRanges creates named ranges in the recent past. Offsets keep them clear
+ * createRanges creates named ranges in the recent past. Offsets keep them clear
  * of a live plot's rolling window, so they only render as annotations when a
  * shot frames their span deliberately.
  */
-export const seedRanges = async (
+export const createRanges = async (
   specs: (string | RangeSpec)[],
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<void> => {
   const client = connect(opts);
   try {
@@ -61,7 +46,7 @@ export const seedRanges = async (
       }),
     );
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
@@ -70,16 +55,16 @@ export interface LabelSpec {
   color: string;
 }
 
-/** seedLabels creates labels on the cluster for label-selection shots. */
-export const seedLabels = async (
+/** createLabels creates labels on the cluster for label-selection shots. */
+export const createLabels = async (
   specs: LabelSpec[],
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<void> => {
   const client = connect(opts);
   try {
     await client.labels.create(specs);
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
@@ -90,12 +75,12 @@ export interface CalculatedSpec {
 }
 
 /**
- * seedCalculatedChannels creates virtual calculated channels, for shots that
+ * createCalculatedChannels creates virtual calculated channels, for shots that
  * start from one that already exists.
  */
-export const seedCalculatedChannels = async (
+export const createCalculatedChannels = async (
   specs: CalculatedSpec[],
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<void> => {
   const client = connect(opts);
   try {
@@ -103,7 +88,7 @@ export const seedCalculatedChannels = async (
       specs.map((spec) => ({ ...spec, virtual: true, dataType: "float32" })),
     );
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
@@ -116,10 +101,10 @@ export interface UserSpec {
   role?: string;
 }
 
-/** seedUsers registers users on the cluster so user-management shots have rows. */
-export const seedUsers = async (
+/** createUsers registers users on the cluster so user-management shots have rows. */
+export const createUsers = async (
   specs: UserSpec[],
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<void> => {
   const client = connect(opts);
   try {
@@ -136,11 +121,11 @@ export const seedUsers = async (
       }),
     );
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
-export interface StaticTelemetryOptions extends ClusterOptions {
+export interface StaticTelemetryOptions extends ConnectionOptions {
   /** Data channel names to create (each gets its own waveform). */
   channels?: string[];
   /** Sample count per channel. */
@@ -150,11 +135,11 @@ export interface StaticTelemetryOptions extends ClusterOptions {
 }
 
 /**
- * seedStaticTelemetry writes a block of historical waveform data ending just
+ * createStaticTelemetry writes a block of historical waveform data ending just
  * before now, for shots that plot over a fixed range instead of streaming.
  * Returns the data channel names for selection in scripts.
  */
-export const seedStaticTelemetry = async ({
+export const createStaticTelemetry = async ({
   channels = ["demo_pressure", "demo_temperature"],
   samples = 3000,
   periodMs = 40,
@@ -191,6 +176,6 @@ export const seedStaticTelemetry = async ({
     await client.write(start, frame);
     return data.map((ch) => ch.name);
   } finally {
-    client.close();
+    await client.close();
   }
 };

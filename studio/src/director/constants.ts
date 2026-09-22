@@ -13,7 +13,7 @@ import { type SpringParams } from "@/director/spring";
  * Tuning constants for the Screen Studio look. Sources: Screen Studio's landing
  * bundle (its literal in-app spring presets), the reverse-engineered Screen Studio
  * project format, and Cap's clean-room implementation of the same behavior. See
- * docs/tech/video-automation/research/screen-studio-anatomy.md for provenance.
+ * docs/tech/video-automation/decisions.md for provenance.
  */
 
 /** Default spring the synthetic cursor uses to chase the raw path. */

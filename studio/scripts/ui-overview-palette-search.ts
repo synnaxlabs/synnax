@@ -11,14 +11,14 @@ import { capture, fixtures } from "@/index";
 
 /**
  * Docs `console/ui-overview/palette-search`: with a live line plot streaming,
- * open the palette, search for a seeded range by name, and select it; its
+ * open the palette, search for a pre-staged range by name, and select it; its
  * overview page opens and the range becomes active.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const fixture = await fixtures.sineTelemetry();
   try {
-    await fixtures.seedRanges(["Tank Fill", "Hotfire"]);
-    await capture.login(session, { username: "synnax", password: "seldon" });
+    await fixtures.createRanges(["Tank Fill", "Hotfire"]);
+    await capture.login(session);
 
     await capture.commandPalette(session, "Create line plot");
     await session.waitFor(session.page.locator(".pluto-line-plot").first());

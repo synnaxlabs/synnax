@@ -21,10 +21,9 @@ const RANGE = "Hotfire 09";
  * overview.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedRanges([RANGE]);
+  await fixtures.createRanges([RANGE]);
   const { page } = session;
-  const project = capture.PROJECT;
-  await capture.login(session, { username: "synnax", password: "seldon" }, project);
+  await capture.login(session);
 
   await capture.createComponent(session, "Schematic");
   await session.waitFor(page.locator(".pluto-diagram").first());
@@ -37,7 +36,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.openToolbar(session, "project");
   await capture.resizeToolbar(session, 380);
-  const projectItem = capture.treeItem(page, "project:", project);
+  const projectItem = capture.treeItem(page, "project:", capture.PROJECT);
   await session.waitFor(projectItem);
   await projectItem.click();
   const created = capture.treeItem(page, "schematic:", "Schematic");

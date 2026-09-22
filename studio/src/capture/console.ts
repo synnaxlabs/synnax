@@ -11,10 +11,8 @@ import { type Locator, type Page } from "playwright";
 
 import { type CaptureSession } from "@/capture/rig";
 
-export interface Credentials {
-  username: string;
-  password: string;
-}
+/** Credentials of the user every capture logs in as. */
+const CREDENTIALS = { username: "synnax", password: "seldon" };
 
 /**
  * PROJECT names the project every capture works in. It is on screen in the
@@ -31,10 +29,10 @@ export const PROJECT = "Test Stand";
  */
 export const login = async (
   session: CaptureSession,
-  { username, password }: Credentials,
   project = PROJECT,
 ): Promise<void> => {
   const { page } = session;
+  const { username, password } = CREDENTIALS;
   await session.waitFor(page.locator(".pluto-field__username input"));
   await page.locator(".pluto-field__username input").first().fill(username);
   await page.locator(".pluto-field__password input").first().fill(password);
@@ -304,19 +302,6 @@ const openPalette = async (session: CaptureSession): Promise<Locator> => {
 export const field = (page: Page, label: string): Locator =>
   page.getByText(label, { exact: true }).locator("..").locator("input").first();
 
-/**
- * fillField clicks the input labeled `label` and types `value` into it, as
- * recorded input.
- */
-export const fillField = async (
-  session: CaptureSession,
-  label: string,
-  value: string,
-): Promise<void> => {
-  await session.click(field(session.page, label));
-  await session.type(value);
-};
-
 /** clickButton clicks the button whose accessible name is exactly `label`. */
 export const clickButton = async (
   session: CaptureSession,
@@ -333,14 +318,6 @@ export const tab = (page: Page, name: string): Locator =>
     .locator(".pluto-tabs__tab")
     .filter({ has: page.getByText(name, { exact: true }) })
     .first();
-
-/** selectTab clicks the mosaic tab with the given title, as recorded input. */
-export const selectTab = async (
-  session: CaptureSession,
-  name: string,
-): Promise<void> => {
-  await session.click(tab(session.page, name));
-};
 
 /** closeTab closes the mosaic tab with the given title via its close button. */
 export const closeTab = async (

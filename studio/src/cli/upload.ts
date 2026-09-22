@@ -12,7 +12,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
-import { cdnKey, filter, type Manifest, videoName } from "@/manifest";
+import { OUT_ROOT, readStamp, ROOT, run, select, THEMES } from "@/cli/common";
+import { cdnKey, videoName } from "@/manifest";
 
 const usage = `usage: pnpm upload [filter] [options]
 Uploads produced videos for manifest entries whose id contains [filter] to the
@@ -25,11 +26,8 @@ Options:
   --dry-run       print what would upload without uploading
   --allow-draft   permit uploading draft-quality renders (normally refused)`;
 
-const ROOT = path.resolve(import.meta.dirname, "../..");
-const OUT_ROOT = path.join(ROOT, "out");
 const ENDPOINT = "https://nyc3.digitaloceanspaces.com";
 const BUCKET = "synnax";
-const THEMES = ["light", "dark"] as const;
 
 interface Upload {
   file: string;
@@ -50,32 +48,17 @@ const main = async (): Promise<void> => {
     console.log(usage);
     return;
   }
-  const manifest = (await import(path.join(ROOT, "videos.ts"))) as {
-    default: Manifest;
-  };
-  const entries = values.exact
-    ? manifest.default.filter((e) => e.id === positionals[0])
-    : filter(manifest.default, positionals[0]);
-  if (entries.length === 0) {
-    console.error(`no manifest entries match "${positionals[0] ?? ""}"`);
-    process.exit(1);
-  }
+  const entries = await select(positionals[0], values.exact);
 
   const uploads: Upload[] = [];
   const missing: string[] = [];
   for (const entry of entries) {
-    const stampFile = path.join(OUT_ROOT, entry.id, "produce.json");
-    if (!values["allow-draft"] && existsSync(stampFile)) {
-      const stamp = JSON.parse(await readFile(stampFile, "utf8")) as {
-        draft?: boolean;
-      };
-      if (stamp.draft === true) {
-        console.error(
-          `${entry.id}: draft render; re-produce without --draft before uploading` +
-            " (or pass --allow-draft)",
-        );
-        process.exit(1);
-      }
+    if (!values["allow-draft"] && (await readStamp(entry.id))?.draft === true) {
+      console.error(
+        `${entry.id}: draft render; re-produce without --draft before uploading` +
+          " (or pass --allow-draft)",
+      );
+      process.exit(1);
     }
     // An unthemed page requests one file, so only the dark render ships.
     const themes = entry.themed === false ? (["dark"] as const) : THEMES;
@@ -127,7 +110,4 @@ const main = async (): Promise<void> => {
   console.log(`${uploads.length} files uploaded`);
 };
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+run(main);

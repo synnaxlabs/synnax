@@ -14,14 +14,14 @@ import { capture, fixtures } from "@/index";
  * selector and pick a label; the chip appears on the range.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedLabels([
+  await fixtures.createLabels([
     { name: "Nominal", color: "#10B061" },
     { name: "Anomaly", color: "#DC1360" },
     { name: "Cryo", color: "#3B7DDB" },
   ]);
-  await fixtures.seedRanges(["Hotfire 09"]);
+  await fixtures.createRanges(["Hotfire 09"]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   await capture.searchPalette(session, "Hotfire 09");
   const trigger = page.getByText("Select labels", { exact: true }).first();

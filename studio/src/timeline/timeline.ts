@@ -72,14 +72,6 @@ export const keyEventZ = z.object({
   key: z.string(),
 });
 
-export const scrollEventZ = z.object({
-  type: z.literal("scroll"),
-  tick: z.int().nonnegative(),
-  x: z.number(),
-  y: z.number(),
-  deltaY: z.number(),
-});
-
 /**
  * Authored camera override: forces the camera to the given focus and amount for
  * [tick, endTick], suppressing auto-zoom segments that overlap it.
@@ -105,7 +97,6 @@ export const eventZ = z.discriminatedUnion("type", [
   pointerDownEventZ,
   pointerUpEventZ,
   keyEventZ,
-  scrollEventZ,
   zoomOverrideEventZ,
 ]);
 export type Event = z.infer<typeof eventZ>;
