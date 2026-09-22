@@ -1,6 +1,6 @@
-# Contributing To Pluto
+# Contributing to Pluto
 
-## Development Environment Setup
+## Development environment setup
 
 To get started contributing to Pluto, read the development environment setup guide for
 [macOS](../docs/tech/setup-macos.md) or [Windows](../docs/tech/setup-windows.md).
@@ -24,12 +24,12 @@ If you make a change to an upstream dependency, you will need to rebuild it in o
 the changes to reflect in the development server. For more information on this process,
 see the [TypeScript Build Guide](../docs/tech/typescript/build.md).
 
-### Important Note
+### Important note
 
 Vite HMR (Hot Module Reload) does not work consistently with the latest Storybook
 version. You may need to (hard) reload the page to see your changes.
 
-## Running the Tests
+## Running the tests
 
 To run the tests, run the following command from the root of the repository:
 
@@ -50,7 +50,7 @@ For example, to test the `Use` components, you would run:
 pnpm test Use
 ```
 
-## Building the Library
+## Building the library
 
 To build the library, run the following command from the root of the repository:
 
@@ -58,12 +58,12 @@ To build the library, run the following command from the root of the repository:
 pnpm build:pluto
 ```
 
-## Codebase Structure
+## Codebase structure
 
 Pluto maintains a flat directory structure that leverages ES modules as isolated units
 of functionality.
 
-### Module Naming Conventions and Imports
+### Module naming conventions and imports
 
 Naming conventions are scoped to a module, meaning that a component's name is only
 unique within the module it is defined in. For example, a `ButtonIcon` component is
@@ -78,7 +78,7 @@ const MyComponent = () => {
 };
 ```
 
-### The Worker Component Tree
+### The worker component tree
 
 **TL;DR - Modules with uppercase names i.e. `Button` are only usable in the main thread,
 and modules with lowercase names i.e. `color` are usable in both the main and worker
@@ -113,9 +113,9 @@ lowercase (worker thread) modules. For example, the `Color` module _re-exports_ 
 `color.Color` class as `Color.Color` along with the `Color.Picker` and `Color.Swatch`
 and other main thread-specific tooling.
 
-### Z-Indexing
+### Z-indexing
 
-| Name                     | Z-Index | Notes                                                                                |
+| Name                     | Z-index | Notes                                                                                |
 | ------------------------ | ------- | ------------------------------------------------------------------------------------ |
 | Lower 2D Canvas          | 0       | Used for items that should render below the upper 2D and GL canvases such as `Axes`. |
 | GL Canvas                | 1       | WebGL rendering for lines.                                                           |

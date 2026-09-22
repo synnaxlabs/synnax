@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Auto-Commit"
+title: "Auto-commit"
 description: "Control when written data becomes visible with auto-commit settings."
-next: "Auto-Index"
+next: "Auto-index"
 nextURL: "/reference/client/advanced/auto-index"
-prev: "Writing Data"
+prev: "Writing data"
 prevURL: "/reference/client/write-data"
 clients: ["python", "typescript"]
 ---
@@ -21,7 +21,7 @@ acquisition where data should be immediately available for monitoring and analys
 
 <Divider.Divider x />
 
-## When to Disable Auto-Commit
+## When to disable auto-commit
 
 Disabling auto-commit may be beneficial in the following scenarios:
 
@@ -36,7 +36,7 @@ Disabling auto-commit may be beneficial in the following scenarios:
 
 <Divider.Divider x />
 
-## Disabling Auto-Commit
+## Disabling auto-commit
 
 To disable auto-commit, set the <Client.Var client:load py="enable_auto_commit"
 ts="enableAutoCommit" /> option to <Client.Var client:load py="False" ts="false" /> when
@@ -89,7 +89,7 @@ try {
 
 <Divider.Divider x />
 
-## Commit Frequency Best Practices
+## Commit frequency best practices
 
 When auto-commit is disabled, call `commit` periodically to persist data. However,
 calling `commit` on every write is inefficient because it requires a round-trip to the
