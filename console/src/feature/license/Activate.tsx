@@ -93,6 +93,8 @@ export interface ActivateProps {
    * island and no log out action.
    */
   standalone?: boolean;
+  /** Offers a way back to the screen that led here. */
+  onBack?: () => void;
 }
 
 /**
@@ -100,7 +102,10 @@ export interface ActivateProps {
  * applies. Shows the host fingerprint the portal needs and takes the token it issues,
  * pasted or from a file.
  */
-export const Activate = ({ standalone = false }: ActivateProps): ReactElement => {
+export const Activate = ({
+  standalone = false,
+  onBack,
+}: ActivateProps): ReactElement => {
   const client = Synnax.use();
   const connection = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
@@ -189,6 +194,12 @@ export const Activate = ({ standalone = false }: ActivateProps): ReactElement =>
             <Button.Button variant="outlined" grow justify="center" onClick={logout}>
               <Icon.Logout />
               Log out
+            </Button.Button>
+          )}
+          {onBack != null && (
+            <Button.Button variant="outlined" grow justify="center" onClick={onBack}>
+              <Icon.Arrow.Left />
+              Back
             </Button.Button>
           )}
         </Flex.Box>

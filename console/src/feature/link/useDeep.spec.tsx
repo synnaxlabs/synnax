@@ -57,11 +57,11 @@ const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
 interface Harness {
   connect: ReturnType<typeof vi.fn>;
   handlers: Record<string, ReturnType<typeof vi.fn>>;
-  deps: Link.Deps;
+  deps: PlatformLink.Deps;
   openURL: (urls: string[]) => void;
 }
 
-const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
+const setup = async (overrides: Partial<PlatformLink.Deps> = {}): Promise<Harness> => {
   const resolved = client();
   const connect = vi.fn(async () => resolved);
   const handlers = {
@@ -75,7 +75,7 @@ const setup = async (overrides: Partial<Link.Deps> = {}): Promise<Harness> => {
       return () => {};
     },
   );
-  const deps: Link.Deps = {
+  const deps: PlatformLink.Deps = {
     engine: "tauri",
     getCurrentURLs: async () => null,
     onOpenURL,
@@ -152,7 +152,7 @@ interface SettledHarness extends Omit<Harness, "connect" | "handlers"> {
 }
 
 interface SetupSettledOptions {
-  deps?: Partial<Link.Deps>;
+  deps?: Partial<PlatformLink.Deps>;
   /** Runs against the store before the hook mounts. */
   preMount?: (store: TestStore) => void;
   /** When false the project is created but left unselected. */
@@ -190,7 +190,7 @@ const setupSettled = async (
       return () => {};
     },
   );
-  const deps: Link.Deps = {
+  const deps: PlatformLink.Deps = {
     engine: "tauri",
     getCurrentURLs: async () => null,
     onOpenURL,

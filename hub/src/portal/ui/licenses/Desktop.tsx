@@ -26,6 +26,9 @@ export interface DesktopProps {
 
 const COLUMNS = "minmax(0, 2fr) 12rem 12rem 12rem";
 
+/** machineName is what a device row shows: its hostname, or its hashes before one. */
+const machineName = (d: Activation): string => d.name ?? shortHash(d.fingerprint);
+
 /** Desktop is a personal user's portal home: their Desktop devices. */
 export const Desktop = ({ devices }: DesktopProps): ReactElement => (
   <Page title="Desktop" subtitle="Machines signed in from the Synnax Desktop app">
@@ -35,11 +38,11 @@ export const Desktop = ({ devices }: DesktopProps): ReactElement => (
         description="Sign in from the Synnax Desktop app and this machine appears here."
       />
     ) : (
-      <Table columns={COLUMNS} head={["Machine", "First seen", "Last seen", ""]}>
+      <Table columns={COLUMNS} head={["Machine", "First seen", "Last renewal", ""]}>
         {devices.map((d) => (
           <Row key={d.key} columns={COLUMNS}>
-            <Text.Text level="p" variant="code" overflow="ellipsis">
-              {shortHash(d.fingerprint)}
+            <Text.Text level="p" overflow="ellipsis">
+              {machineName(d)}
             </Text.Text>
             <Text.Text level="p" color={10}>
               {date(d.firstSeen)}
@@ -76,7 +79,7 @@ const UnlinkContent = ({ device }: { device: Activation }): ReactElement => {
   const { close } = Dialog.useContext();
   const action = useAction(
     useCallback(async () => {
-      await post(`/api/portal/activations/${device.key}/release`);
+      await post(`/api/portal/activations/${device.key}/unlink`);
       close();
       await reload();
     }, [device.key, close]),
@@ -85,7 +88,7 @@ const UnlinkContent = ({ device }: { device: Activation }): ReactElement => {
     <>
       <Modal.Body gap="small">
         <Text.Text level="h4" weight={450}>
-          Unlink {shortHash(device.fingerprint)}?
+          Unlink {machineName(device)}?
         </Text.Text>
         <Text.Text level="p" color={10}>
           The Desktop app on that machine stops renewing its license and asks you to

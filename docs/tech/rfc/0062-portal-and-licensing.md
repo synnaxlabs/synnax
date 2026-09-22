@@ -419,18 +419,45 @@ exist in this version.
 
 ### 5.8 Desktop sign-in
 
-Desktop follows RFC 8252. The app opens `docs.synnaxlabs.com/desktop/sign-in` in the
-system browser with a one-time state value. The user signs in with Clerk. The page calls
-the portal, which issues a desktop license for the user's personal organization against
-the fingerprint carried in the request, then opens `synnax://desktop/activate?code=...`.
-The Console's deep link registry gains a `desktop` handler that exchanges the code for
-the token over the portal API and calls `license.activate` on the embedded Core.
+Desktop follows RFC 8252 with a custom scheme of its own, `synnax-desktop://`,
+registered in `tauri.desktop.conf.json`. The Console keeps `synnax://`, so the two apps
+installed side by side never claim each other's links. The Desktop deep link handler
+replaces the Console's link registry in the Desktop build; no Console link can reach
+Desktop.
 
-While signed in and online, the Console renews the token when it is within the renewal
-threshold of expiry, using the same activation endpoint. Unlinking the device in the
-portal releases the activation, so the next renewal is refused and the license lapses at
-expiry plus the grace window. A laptop that never reaches the portal runs until then,
-and shows the activation screen with the offline instructions on its next start.
+The app reads the fingerprint from its embedded Core, mints a one-time `state` value,
+and opens `docs.synnaxlabs.com/desktop/sign-in?state=&fp=&name=&v=` in the system
+browser, `name` being the machine's hostname and `v` the app version. The user signs in
+with Clerk; the page then calls `POST /api/portal/desktop/link`, which issues a desktop
+license for the user's personal organization, records the activation against the
+fingerprint, mints an opaque renewal secret, and answers the token beside the secret.
+The page opens `synnax-desktop://activate?state=&token=&secret=` and shows an "Open
+Synnax Desktop" button for a browser that blocks the navigation. The app refuses a link
+whose `state` it did not mint, calls `license.activate` on the embedded Core with the
+token, and keeps the secret and the activation key in its account slice, persisted with
+the rest of the session. No code exchange exists: the token is bound to the host, so a
+captured link licenses nothing else, and the portal session never leaves the browser.
+
+Each machine holds its own desktop license: `edition: desktop`, `term: subscription`,
+`nodes: 1`, `channels: 0`, and an expiry one term out. The activation row stores the
+hash of the renewal secret and the machine name. On launch and every six hours, while
+online, the app renews when the license is within the renewal threshold of expiry:
+`POST /api/portal/desktop/renew` with the secret as a bearer token slides the license's
+expiry, touches the activation, and answers a fresh token that the app activates. The
+route answers any origin, since the app calls it from its own; the secret is the guard.
+Unlinking the machine in the portal releases the activation, clears the secret hash, and
+revokes the license, so the next renewal is refused and the license lapses at expiry
+plus the grace window. The app clears its account slice on a refused renewal. A machine
+that never reaches the portal runs until the lapse. The expiry notices (§5.7) skip the
+desktop edition.
+
+In Desktop the license gate shows a sign-in screen in place of the enterprise activation
+screen: one line and a Sign in button, a waiting state while the browser is open, an
+offline state with Try again, and a link, Use a license file, that opens the
+paste-and-file screen standalone. Desktop's unlicensed messages use plain words ("Sign
+in to continue", "Your sign-in has lapsed") per RFC 0063 §5.5. There is no sign-out in
+the app: the version modal shows the signed-in email with a link to the portal, and
+switching accounts is Unlink in the portal or Erase all data.
 
 ### 5.9 Development, CI, and hosted Cores
 
@@ -524,8 +551,8 @@ keeps only what binds it to the session: the factory and the stack.
   the page the Console links, is the licenses page with that dialog open, taking
   `?license=`. An organization with no licenses sees why.
 - **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
-  with first seen and last renewal, an Unlink action per machine, and an empty state
-  until Phase 4 ships. The Enterprise panel sits beneath the list.
+  by name, with first seen and last renewal, an Unlink action per machine, and an empty
+  state. The Enterprise panel sits beneath the list.
 - **License** (`/portal/licenses/<key>`): The label, status tag, and actions on top:
   Activate a machine, and for staff Floating token and Revoke, the latter a hold to
   confirm. A facts grid for edition, term, seats, channels, issued, and key. The
@@ -611,10 +638,12 @@ lands with the Desktop bundle.
   interface. Before it deploys, the production Clerk instance needs the name attribute,
   organizations, and the Microsoft connection enabled, and the Neon database needs the
   Drizzle migration applied; neither the build nor the deploy runs it.
-- **Phase 4: Desktop sign-in.** The browser handoff page, the deep link handler, and the
-  account slice and renewal loop. The Desktop bundle and its build flag exist (RFC
-  0063), and until this phase lands a Desktop install activates through the standalone
-  activation screen.
+- **Phase 4: Desktop sign-in.** One pull request on top of Phase 3: the `synnax-desktop`
+  scheme, the sign-in page and its link route, the renew route with the renewal secret
+  on the activation row, the machine name, the Desktop sign-in screen and deep link
+  handler, the account slice, and the renewal loop. The Desktop bundle and its build
+  flag exist (RFC 0063). Before it deploys, the Neon database needs the Drizzle
+  migration that adds the two activation columns.
 
 ### 7.0 Compatibility
 
@@ -780,10 +809,40 @@ registered error types. New clients decode it.
     reach, left a team invisible to the portal. Session resolve and license issue now
     upsert the rows they need; the webhook remains a fast path. The trade is real: every
     session resolve costs one query per team.
+36. **A custom scheme for the Desktop return path**: A loopback redirect (RFC 8252 §7.3)
+    works in development and cannot be claimed by another app, but needs an HTTP
+    listener in the Rust shell and is blocked by some managed browsers. A scheme of
+    Desktop's own reuses the deep link plugin already in the shell and is the shape of
+    every desktop app that signs in through a browser. The trade is real: a scheme fires
+    only in a bundled app, so `tauri dev` on macOS activates through the file fallback.
+37. **The token rides the deep link; no code exchange**: A first draft exchanged a
+    one-time code for the token at the portal with PKCE. The token is bound to the host
+    and only activates a Core, so a captured link licenses nothing, and the portal
+    session never leaves the browser. The trade is real: a link that another app
+    registered the scheme for lands a working token on that machine, which the `state`
+    check the app performs does not prevent, only a foreign account's token.
+38. **A per-machine renewal secret**: A long term with no renewal would make Unlink do
+    nothing for a year and lose the liveness signal the free-user count rests on. The
+    secret is opaque, hashed on the activation row, and renews one license on one
+    fingerprint. The trade is real: a secret sits on disk in the session store, and a
+    copy of it renews that one license from anywhere until the machine is unlinked.
+39. **One desktop license per machine**: One license per person with a seat per machine
+    needs a per-seat expiry, a new column, and a change to the token builder. One
+    license per machine reuses the issue, activate, revoke, and ledger paths unchanged.
+    The trade is real: a person's machines are a filter on the edition, not a row.
+40. **Desktop is unlimited**: A channel cap would not move anyone to enterprise, whose
+    value is a standalone Core that other people, Drivers, and scripts reach (RFC 0063
+    §8), and it would be the first wall a serious evaluator hits. The trade is real:
+    nothing in the free edition is metered.
+41. **No sign-out in Desktop**: The Core stores every token it accepts and has no
+    operation to drop one, so a sign-out could only stop renewal while the machine ran
+    on under the old account for up to the term plus grace. A Core operation that
+    un-licenses a running Core would be permanent surface for a case Unlink and Erase
+    all data cover. The trade is real: switching accounts on one machine is a portal
+    action, not an app action.
 
 ## 9 Open questions
 
-- Desktop license term and renewal threshold. Proposed: 30 days, renew under 7.
 - Grace window after `exp`. Proposed: 14 days.
 - Clock rollback tolerance. Proposed: 24 hours.
 - Internal engineer license term. Proposed: one year.

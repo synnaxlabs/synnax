@@ -10,12 +10,14 @@
 import "@/platform/license/Details.css";
 
 import { type license } from "@synnaxlabs/client";
-import { Flex, Status, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { PORTAL_LICENSES_URL } from "@/platform/license/portal";
 import { describeChannels, describeTerm, editionLabel } from "@/platform/license/term";
 import { useInfo } from "@/platform/license/useInfo";
+import { Session } from "@/session";
 
 const STATE_MESSAGES: Record<license.State, string> = {
   ok: "Licensed",
@@ -69,8 +71,9 @@ const Row = ({ name, value }: RowProps): ReactElement => (
 /** The license in full for the version info modal. */
 export const Details = (): ReactElement | null => {
   const { info, error } = useInfo();
+  let body: ReactElement | null = null;
   if (error != null)
-    return (
+    body = (
       <Status.Summary
         variant="error"
         level="small"
@@ -78,28 +81,63 @@ export const Details = (): ReactElement | null => {
         description={error.message}
       />
     );
-  if (info == null) return null;
-  const { state, warning, license } = info;
+  else if (info != null) {
+    const { state, warning, license } = info;
+    body = (
+      <>
+        {license == null || state !== "ok" ? (
+          <Status.Summary
+            variant="warning"
+            level="small"
+            message={STATE_MESSAGES[state]}
+          />
+        ) : (
+          <>
+            <Row name="Edition" value={editionLabel(license)} />
+            <Row name="Organization" value={license.org} />
+            <Row name="Term" value={describeTerm(license)} />
+            <Row name="Hosts" value={String(license.n)} />
+            <Row name="Channels" value={describeChannels(license)} />
+          </>
+        )}
+        {warning != null && (
+          <Status.Summary variant="warning" level="small" message={warning} />
+        )}
+      </>
+    );
+  }
   return (
     <Flex.Box y gap="small" className={CSS.B("license")}>
-      {license == null || state !== "ok" ? (
-        <Status.Summary
-          variant="warning"
-          level="small"
-          message={STATE_MESSAGES[state]}
-        />
-      ) : (
-        <>
-          <Row name="Edition" value={editionLabel(license)} />
-          <Row name="Organization" value={license.org} />
-          <Row name="Term" value={describeTerm(license)} />
-          <Row name="Hosts" value={String(license.n)} />
-          <Row name="Channels" value={describeChannels(license)} />
-        </>
-      )}
-      {warning != null && (
-        <Status.Summary variant="warning" level="small" message={warning} />
-      )}
+      <Account />
+      {body}
+    </Flex.Box>
+  );
+};
+
+/** The account a Synnax Desktop machine is linked to, with a way to the portal. */
+const Account = (): ReactElement | null => {
+  const { email } = Session.Account.useSelect();
+  if (email == null) return null;
+  return (
+    <Flex.Box
+      x
+      justify="between"
+      align="center"
+      gap="large"
+      className={CSS.BE("license", "row")}
+    >
+      <Text.Text level="small" color={10} overflow="ellipsis">
+        Signed in as {email}
+      </Text.Text>
+      <Button.Button
+        variant="text"
+        size="small"
+        href={PORTAL_LICENSES_URL}
+        target="_blank"
+      >
+        <Icon.OpenExternal />
+        Manage in the portal
+      </Button.Button>
     </Flex.Box>
   );
 };

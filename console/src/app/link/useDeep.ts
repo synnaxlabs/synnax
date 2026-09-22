@@ -41,4 +41,5 @@ const useLinks = (): void => {
 };
 
 // Desktop registers no URL scheme, so no link can reach it.
+// Synnax Desktop takes one link, its sign-in, and Account.Guard handles that one.
 export const useDeep: () => void = DESKTOP ? () => {} : useLinks;

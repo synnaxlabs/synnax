@@ -176,6 +176,9 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   release: "Seat released",
   revoke: "License revoked",
   expiry_notice: "Expiry notice sent",
+  link: "Machine linked",
+  renew: "License renewed",
+  unlink: "Machine unlinked",
 };
 
 const describe = (e: Event): string => {

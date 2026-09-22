@@ -9,6 +9,7 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
+import { Account } from "@/feature/account";
 import { Auth } from "@/feature/auth";
 import { Embedded } from "@/feature/embedded";
 import { License } from "@/feature/license";
@@ -25,11 +26,11 @@ const ConsoleGuard = ({ children }: PropsWithChildren): ReactElement => (
 );
 
 const DesktopGuard = ({ children }: PropsWithChildren): ReactElement => (
-  <License.Guard standalone>
+  <Account.Guard>
     <Embedded.Guard>
       <Project.Guard standalone>{children}</Project.Guard>
     </Embedded.Guard>
-  </License.Guard>
+  </Account.Guard>
 );
 
 /** Holds the workspace back until the session has a licensed Core and a project. */

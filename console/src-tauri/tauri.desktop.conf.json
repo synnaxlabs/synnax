@@ -20,6 +20,6 @@
         "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.desktop.json"
       ]
     },
-    "deep-link": { "mobile": [], "desktop": { "schemes": [] } }
+    "deep-link": { "mobile": [], "desktop": { "schemes": ["synnax-desktop"] } }
   }
 }
