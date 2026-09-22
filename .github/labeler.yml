@@ -8,8 +8,9 @@
 # included in the file licenses/APL.txt.
 
 # Labels applied to a pull request from the paths it touches, one per product a user
-# knows. A package lands under the product that ships it. Release notes group entries by
-# these labels (see release.yml).
+# knows. A package lands under the product that ships it; a per-language package under
+# the product in that language. Release notes group entries by these labels (see
+# release.yml).
 
 console:
   - changed-files:
@@ -25,10 +26,12 @@ driver:
 core:
   - changed-files:
       - any-glob-to-any-file:
+          - alamos/go/**
           - aspen/**
           - cesium/**
           - core/**
-          - freighter/**
+          - freighter/go/**
+          - x/go/**
 
 arc:
   - changed-files:
@@ -36,11 +39,19 @@ arc:
 
 py-client:
   - changed-files:
-      - any-glob-to-any-file: client/py/**
+      - any-glob-to-any-file:
+          - alamos/py/**
+          - client/py/**
+          - freighter/py/**
+          - x/py/**
 
 ts-client:
   - changed-files:
-      - any-glob-to-any-file: client/ts/**
+      - any-glob-to-any-file:
+          - alamos/ts/**
+          - client/ts/**
+          - freighter/ts/**
+          - x/ts/**
 
 user docs:
   - changed-files:
