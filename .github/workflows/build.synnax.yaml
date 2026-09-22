@@ -408,14 +408,22 @@ jobs:
         run: |
           gh release upload --clobber "$RELEASE_TAG" bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
+      # The docs site tells NI Linux Real-Time users to download and run this script.
       - name: Upload NI Linux Real-Time Install Script to Release
         if:
           inputs.driver && inputs.nilinuxrt && inputs.release_tag != '' && matrix.os ==
           'ubuntu-build-bot'
+        env:
+          BINARY: synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
         run: |
-          # Update the install script with the current version
-          sed "s/VERSION=\"\${VERSION:-.*}\"/VERSION=\"\${VERSION:-${{ needs.setup.outputs.VERSION }}}\"/" \
-            driver/scripts/install_nilinuxrt.sh > install-driver-nilinuxrt.sh
+          cat > install-driver-nilinuxrt.sh <<EOF
+          #!/bin/bash
+          curl -LO "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${BINARY}"
+          chmod +x ${BINARY}
+          ./${BINARY} stop
+          sudo ./${BINARY} install
+          ./${BINARY} start
+          EOF
           gh release upload --clobber "$RELEASE_TAG" install-driver-nilinuxrt.sh
 
       - name: Build Driver (Linux)
