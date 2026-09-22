@@ -15,7 +15,13 @@ import {
   AuthError,
   ContiguityError,
   ControlError,
+  ExpiredLicenseError,
+  InvalidLicenseError,
   InvalidTokenError,
+  LicenseError,
+  LicenseHostError,
+  LicenseLimitError,
+  MissingLicenseError,
   MultipleFoundError,
   NotFoundError,
   PathError,
@@ -47,6 +53,24 @@ describe("error", () => {
       [ControlError.TYPE, new ControlError("message"), ControlError],
       [UnauthorizedError.TYPE, new UnauthorizedError("message"), UnauthorizedError],
       [ContiguityError.TYPE, new ContiguityError("message"), ContiguityError],
+      [LicenseError.TYPE, new LicenseError("message"), LicenseError],
+      [
+        MissingLicenseError.TYPE,
+        new MissingLicenseError("message"),
+        MissingLicenseError,
+      ],
+      [
+        ExpiredLicenseError.TYPE,
+        new ExpiredLicenseError("message"),
+        ExpiredLicenseError,
+      ],
+      [
+        InvalidLicenseError.TYPE,
+        new InvalidLicenseError("message"),
+        InvalidLicenseError,
+      ],
+      [LicenseHostError.TYPE, new LicenseHostError("message"), LicenseHostError],
+      [LicenseLimitError.TYPE, new LicenseLimitError("message"), LicenseLimitError],
     ];
     ERRORS.forEach(([typeName, error, type]) =>
       test(`matches ${typeName}`, () => {

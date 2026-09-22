@@ -47,6 +47,10 @@ type Config struct {
 	Insecure *bool `json:"insecure"`
 	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
+	// Detached launches the Driver without waiting for it to report a successful
+	// start, so StartTimeout does not apply. Set it when the Core cannot register the
+	// Driver's rack yet; the Driver retries on its own.
+	Detached *bool `json:"-"`
 	// Debug sets whether to enable debug logging.
 	Debug *bool `json:"debug"`
 	// Instrumentation is used for logging, tracing, and metrics.
@@ -161,6 +165,7 @@ var (
 	DefaultConfig = Config{
 		Integrations:         []string{},
 		Enabled:              new(true),
+		Detached:             new(false),
 		Debug:                new(false),
 		StartTimeout:         time.Second * 10,
 		StopTimeout:          10 * time.Second,
@@ -177,6 +182,7 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Enabled = override.Nil(c.Enabled, other.Enabled)
+	c.Detached = override.Nil(c.Detached, other.Detached)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Address = override.String(c.Address, other.Address)
 	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
@@ -212,6 +218,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("driver.embedded")
 	v.NotNil("enabled", c.Enabled)
+	v.NotNil("detached", c.Detached)
 	v.NotNil("insecure", c.Insecure)
 	if v.Error() != nil {
 		return v.Error()
@@ -324,6 +331,9 @@ func (d *Driver) start(ctx context.Context) error {
 		d.failed <- err
 		return err
 	})
+	if *d.cfg.Detached {
+		return nil
+	}
 	select {
 	case <-d.started:
 		return nil

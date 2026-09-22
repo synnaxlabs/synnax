@@ -59,6 +59,8 @@ RESOURCE_TYPE_TASK: Literal["task"] = "task"
 
 RESOURCE_TYPE_USER: Literal["user"] = "user"
 
+RESOURCE_TYPE_VERIFICATION: Literal["verification"] = "verification"
+
 RESOURCE_TYPE_VIEW: Literal["view"] = "view"
 
 
@@ -86,5 +88,6 @@ ResourceType = Literal[
     "table",
     "task",
     "user",
+    "verification",
     "view",
 ]

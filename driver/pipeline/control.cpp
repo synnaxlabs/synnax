@@ -50,8 +50,7 @@ void Control::run() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
-        if (open_err.matches(freighter::UNREACHABLE) &&
-            breaker.wait(open_err.message()))
+        if (errors::core_unavailable(open_err) && breaker.wait(open_err.message()))
             return this->run();
         return this->sink->stopped_with_err(open_err);
     }
@@ -69,7 +68,7 @@ void Control::run() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (close_err.matches(freighter::UNREACHABLE) && breaker.wait()) return this->run();
+    if (errors::core_unavailable(close_err) && breaker.wait()) return this->run();
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)

@@ -24,6 +24,7 @@ from synnax import (
     framer,
     group,
     imex,
+    license,
     ontology,
     project,
     rack,
@@ -73,6 +74,7 @@ class Synnax(framer.Client):
     devices: device.Client
     tasks: task.Client
     ontology: ontology.Client
+    license: license.Client
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
@@ -195,6 +197,7 @@ class Synnax(framer.Client):
         self.control = control.Client(self, ch_retriever, self._transport.unary)
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
+        self.license = license.Client(self._transport.unary)
         self.arcs = arc.Client(self._transport.unary)
         self.access = access.Client(self._transport.unary)
 

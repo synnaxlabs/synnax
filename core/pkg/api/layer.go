@@ -15,6 +15,7 @@ package api
 
 import (
 	"go/types"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
@@ -48,6 +49,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/api/verification"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	xconfig "github.com/synnaxlabs/x/config"
 )
@@ -75,6 +77,9 @@ type Transport struct {
 	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[types.Nil, connectivity.CheckResponse]
+	// VERIFICATION
+	VerificationRetrieve freighter.UnaryServer[verification.RetrieveRequest, verification.RetrieveResponse]
+	VerificationActivate freighter.UnaryServer[verification.ActivateRequest, verification.ActivateResponse]
 	// FRAME
 	FrameWriter   freighter.StreamServer[framer.WriterRequest, framer.WriterResponse]
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
@@ -210,6 +215,7 @@ type Layer struct {
 	Channel      *channel.Service
 	Control      *control.Service
 	Connectivity *connectivity.Service
+	Verification *verification.Service
 	Ontology     *ontology.Service
 	Range        *ranger.Service
 	KV           *kv.Service
@@ -241,13 +247,13 @@ func (l *Layer) BindTo(t Transport) {
 			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
 		)
 		rec                = recovery.Middleware(l.config.Instrumentation)
+		gate               = verification.Middleware(l.config.Service.Verification)
 		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
-		secureMiddleware   = make(
-			[]freighter.Middleware, len(insecureMiddleware), len(insecureMiddleware)+1,
-		)
+		secureMiddleware   = append(slices.Clone(insecureMiddleware), tk)
+		// Every endpoint that is neither exempt from the token check nor one of the
+		// verification endpoints is gated on the Core holding a covering grant.
+		gatedMiddleware = append(slices.Clone(secureMiddleware), gate)
 	)
-	copy(secureMiddleware, insecureMiddleware)
-	secureMiddleware = append(secureMiddleware, tk)
 
 	freighter.UseOnAll(
 		insecureMiddleware,
@@ -257,6 +263,12 @@ func (l *Layer) BindTo(t Transport) {
 
 	freighter.UseOnAll(
 		secureMiddleware,
+		t.VerificationRetrieve,
+		t.VerificationActivate,
+	)
+
+	freighter.UseOnAll(
+		gatedMiddleware,
 
 		// AUTH
 		t.AuthChangePassword,
@@ -425,6 +437,10 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
+
+	// VERIFICATION
+	t.VerificationRetrieve.BindHandler(l.Verification.Retrieve)
+	t.VerificationActivate.BindHandler(l.Verification.Activate)
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)
@@ -656,6 +672,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Connectivity, err = connectivity.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Verification, err = verification.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Ontology, err = ontology.NewService(cfg); err != nil {

@@ -10,234 +10,340 @@
 package verification_test
 
 import (
-	"context"
-	"io"
+	"crypto/ed25519"
+	"crypto/rand"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
-	"github.com/synnaxlabs/x/encoding/base64"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var errDBGetCalled = errors.New("DB.Get called too many times")
+const keyID = "test"
 
-type db struct {
-	kv.DB
-	timesGetCalled int
-}
+var (
+	now = time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+	day = 24 * time.Hour
+)
 
-var _ kv.DB = &db{}
+func seconds(t time.Time) *uint32 { return new(uint32(t.Unix())) }
 
-func newDB() *db { return &db{DB: memkv.New()} }
-
-func (d *db) Get(
-	ctx context.Context,
-	key []byte,
-	opts ...any,
-) ([]byte, io.Closer, error) {
-	d.timesGetCalled++
-	if d.timesGetCalled == 2 {
-		return nil, nil, errDBGetCalled
+func grant() verification.Grant {
+	return verification.Grant{
+		Jti: uuid.New(),
+		Iat: uint32(now.Add(-day).Unix()),
+		Exp: seconds(now.Add(30 * day)),
+		V:   1,
+		Org: uuid.New(),
+		Ed:  "e",
+		Fs:  1,
+		N:   1,
 	}
-	return d.DB.Get(ctx, key, opts...)
 }
 
 var _ = Describe("Verification", func() {
-	Describe("DefaultOverflowCheck", func() {
+	var (
+		db      kv.DB
+		private ed25519.PrivateKey
+		anchors verification.Anchors
+		cfg     verification.ServiceConfig
+	)
+	sign := func(g verification.Grant) string {
+		return MustSucceed(verification.Sign(private, keyID, g))
+	}
+	open := func(ctx SpecContext, cfgs ...verification.ServiceConfig) *verification.Service {
+		return MustSucceed(verification.OpenService(ctx, append(
+			[]verification.ServiceConfig{cfg}, cfgs...,
+		)...))
+	}
+	BeforeEach(func() {
+		db = memkv.New()
+		public, priv := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+		private = priv
+		anchors = verification.Anchors{keyID: public}
+		cfg = verification.ServiceConfig{
+			DB:      db,
+			Anchors: anchors,
+			Version: "0.60.1",
+			Now:     func() time.Time { return now },
+		}
+	})
+	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
+
+	Describe("ServiceConfig", func() {
+		It("should reject a missing DB", func() {
+			Expect(verification.DefaultServiceConfig.Validate()).To(HaveOccurred())
+		})
+		It("should keep defaults the override leaves zero", func() {
+			c := verification.DefaultServiceConfig.Override(cfg)
+			Expect(c.Grace).To(Equal(verification.DefaultServiceConfig.Grace))
+			Expect(c.Rollback).To(Equal(verification.DefaultServiceConfig.Rollback))
+			Expect(c.Validate()).To(Succeed())
+		})
+	})
+
+	Describe("Verify", func() {
+		It("should return the grant a valid token carries", func() {
+			g := grant()
+			Expect(verification.Verify(anchors, sign(g))).To(Equal(g))
+		})
+		It("should reject an unknown key", func() {
+			Expect(verification.Verify(
+				verification.Anchors{"other": anchors[keyID]}, sign(grant()),
+			)).Error().To(MatchError(verification.ErrInvalid))
+		})
+		It("should reject a token signed under another algorithm", func() {
+			tk := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"v": 1})
+			tk.Header["kid"] = keyID
+			s := MustSucceed(tk.SignedString([]byte(anchors[keyID])))
+			Expect(verification.Verify(anchors, s)).Error().
+				To(MatchError(verification.ErrInvalid))
+		})
+		It("should reject a token signed by another key", func() {
+			_, other := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+			s := MustSucceed(verification.Sign(other, keyID, grant()))
+			Expect(verification.Verify(anchors, s)).Error().
+				To(MatchError(verification.ErrInvalid))
+		})
+		It("should reject garbage", func() {
+			Expect(verification.Verify(anchors, "not a token")).Error().
+				To(MatchError(verification.ErrInvalid))
+		})
+		It("should reject an unsupported claim set version", func() {
+			g := grant()
+			g.V = 2
+			Expect(verification.Verify(anchors, sign(g))).Error().
+				To(MatchError(verification.ErrInvalid))
+		})
+	})
+
+	Describe("Open", func() {
+		It("should open missing when nothing is stored", func(ctx SpecContext) {
+			svc := open(ctx)
+			defer func() { Expect(svc.Close()).To(Succeed()) }()
+			info := svc.Retrieve()
+			Expect(info.State).To(Equal(verification.StateMissing))
+			Expect(info.Grant).To(BeNil())
+			Expect(svc.Check()).To(MatchError(verification.ErrMissing))
+			Expect(svc.IsOverflowed(1000)).To(Succeed())
+		})
 		It(
-			"should return an error if the count is greater than the free count",
-			func() {
-				Expect(verification.DefaultOverflowCheck(verification.FreeCount + 1)).
-					To(MatchError(verification.ErrFree))
+			"should accept a verifier on open and load it on the next",
+			func(ctx SpecContext) {
+				g := grant()
+				svc := open(ctx, verification.ServiceConfig{Verifier: sign(g)})
+				Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
+				Expect(svc.Close()).To(Succeed())
+				svc = open(ctx)
+				defer func() { Expect(svc.Close()).To(Succeed()) }()
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(verification.StateOK))
+				Expect(*info.Grant).To(Equal(g))
+				Expect(svc.Check()).To(Succeed())
 			},
 		)
-		It("should return nil if the count is less than the free count", func() {
-			Expect(
-				verification.DefaultOverflowCheck(verification.FreeCount),
-			).To(Succeed())
-		})
-	})
-	Describe("ConfigValues", func() {
-		Describe("Validate", func() {
-			It("should return an error if the DB is nil", func() {
-				Expect(verification.DefaultServiceConfig.Validate()).To(HaveOccurred())
-			})
-			It("should return an error if the WarningTime is zero", func() {
-				cfg := verification.DefaultServiceConfig.
-					Override(verification.ServiceConfig{WarningTime: 0})
-				Expect(cfg.Validate()).To(HaveOccurred())
-			})
-			It("should return an error if the CheckInterval is zero", func() {
-				cfg := verification.DefaultServiceConfig.
-					Override(verification.ServiceConfig{CheckInterval: 0})
-				Expect(cfg.Validate()).To(HaveOccurred())
-			})
-			It("should not error if there is a valid DB", func() {
-				db := memkv.New()
-				cfg := verification.DefaultServiceConfig.Override(
-					verification.ServiceConfig{DB: db},
-				)
-				Expect(cfg.Validate()).To(Succeed())
-				Expect(db.Close()).To(Succeed())
-			})
-		})
-		Describe("Override", func() {
-			It("should override the DB", func() {
-				db := memkv.New()
-				cfg := verification.DefaultServiceConfig.Override(
-					verification.ServiceConfig{DB: db},
-				)
-				Expect(cfg.DB).To(BeEquivalentTo(db))
-				Expect(db.Close()).To(Succeed())
-			})
-			It("should override the WarningTime if it is not zero", func() {
-				cfg := verification.DefaultServiceConfig.
-					Override(verification.ServiceConfig{WarningTime: 1 * time.Hour})
-				Expect(cfg.WarningTime).To(BeEquivalentTo(1 * time.Hour))
-			})
-			It("should not override the WarningTime if it is zero", func() {
-				cfg := verification.DefaultServiceConfig.
-					Override(verification.ServiceConfig{WarningTime: 0})
-				Expect(cfg.WarningTime).
-					To(BeEquivalentTo(verification.DefaultServiceConfig.WarningTime))
-			})
-			It("should override the CheckInterval if it is not zero", func() {
-				cfg := verification.DefaultServiceConfig.
-					Override(verification.ServiceConfig{CheckInterval: 1 * time.Hour})
-				Expect(cfg.CheckInterval).To(BeEquivalentTo(1 * time.Hour))
-			})
-			It("should not override the CheckInterval if it is zero", func() {
-				cfg := verification.DefaultServiceConfig.
-					Override(verification.ServiceConfig{CheckInterval: 0})
-				Expect(cfg.CheckInterval).
-					To(BeEquivalentTo(verification.DefaultServiceConfig.CheckInterval))
-			})
-			It("should override the Verifier if it is not empty", func() {
-				cfg := verification.DefaultServiceConfig.
-					Override(verification.ServiceConfig{Verifier: "test"})
-				Expect(cfg.Verifier).To(BeEquivalentTo("test"))
-			})
-		})
-	})
-	Describe("Service", func() {
-		Describe("Normal DB usage", func() {
-			var db kv.DB
-			BeforeEach(func() {
-				db = memkv.New()
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
-			})
-			It("should fail to open with invalid config", func(ctx SpecContext) {
-				Expect(verification.OpenService(ctx)).Error().To(HaveOccurred())
-			})
-			It("should open with no verifier", func(ctx SpecContext) {
-				svc := MustSucceed(
-					verification.OpenService(ctx, verification.ServiceConfig{DB: db}),
-				)
-				Expect(svc).ToNot(BeNil())
-				Expect(svc.IsOverflowed(0)).To(Succeed())
-				Expect(svc.IsOverflowed(verification.FreeCount)).To(Succeed())
-				Expect(svc.IsOverflowed(verification.FreeCount + 1)).
-					To(MatchError(verification.ErrFree))
-				Expect(svc.Close()).To(Succeed())
-			})
-			DescribeTable("Invalid verifier", func(ctx SpecContext, v string) {
-				Expect(verification.OpenService(
-					ctx,
-					verification.ServiceConfig{DB: db, Verifier: v},
-				)).
-					Error().To(MatchError(verification.ErrInvalid))
+		It(
+			"should fail to open on a verifier that does not verify",
+			func(ctx SpecContext) {
+				Expect(verification.OpenService(ctx, cfg, verification.ServiceConfig{
+					Verifier: "garbage",
+				})).Error().To(MatchError(verification.ErrInvalid))
 			},
-				Entry("invalid format", "not a valid format"),
-				Entry(
-					"invalid date",
-					base64.MustDecode("MDAwMDAwLTY0MzE3Mjg0LTA0MDA1MDAwMDU="),
-				),
-				Entry(
-					"invalid checksum",
-					base64.MustDecode("ODk0NDc4LTY0MzE3Mjg0LTAwMDAwMDAwMDA="),
-				),
-			)
-			Describe("Valid verifier", func() {
-				It("should open with a valid verifier", func(ctx SpecContext) {
-					svc := MustSucceed(verification.OpenService(
-						ctx,
-						verification.ServiceConfig{
-							DB: db,
-							Verifier: base64.MustDecode(
-								"ODg1NTA4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
-							),
-						},
-					))
-					Expect(svc).ToNot(BeNil())
-					Expect(svc.IsOverflowed(0)).To(Succeed())
-					Expect(svc.IsOverflowed(100)).To(Succeed())
-					Expect(
-						svc.IsOverflowed(101),
-					).To(MatchError(verification.ErrTooMany))
-					Expect(svc.Close()).To(Succeed())
-				})
-				It("should load a verifier from the DB", func(ctx SpecContext) {
-					svc := MustSucceed(verification.OpenService(
-						ctx,
-						verification.ServiceConfig{
-							DB: db,
-							Verifier: base64.MustDecode(
-								"ODg1NTA4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
-							),
-						},
-					))
-					Expect(svc.Close()).To(Succeed())
-					svc = MustSucceed(verification.OpenService(
-						ctx,
-						verification.ServiceConfig{DB: db},
-					))
-					Expect(svc.IsOverflowed(0)).To(Succeed())
-					Expect(svc.IsOverflowed(100)).To(Succeed())
-					Expect(svc.IsOverflowed(101)).
-						To(MatchError(verification.ErrTooMany))
-					Expect(svc.Close()).To(Succeed())
-				})
-			})
-			Describe("Stale verifier", func() {
-				It("should allow loading a stale verifier", func(ctx SpecContext) {
-					svc := MustSucceed(verification.OpenService(
-						ctx,
-						verification.ServiceConfig{
-							DB: db,
-							Verifier: base64.MustDecode(
-								"ODk0NDc4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
-							),
-						},
-					))
-					Expect(svc).ToNot(BeNil())
-					Expect(svc.IsOverflowed(0)).To(Succeed())
-					Expect(svc.IsOverflowed(50)).To(Succeed())
-					Expect(svc.IsOverflowed(51)).To(MatchError(verification.ErrStale))
-					Expect(svc.Close()).To(Succeed())
-				})
-			})
+		)
+		It("should remove the previous format's entry", func(ctx SpecContext) {
+			legacy := []byte("bGljZW5zZUtleQ==")
+			Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
+			svc := open(ctx)
+			Expect(svc.Close()).To(Succeed())
+			Expect(db.Get(ctx, legacy)).Error().To(HaveOccurred())
 		})
-		Describe("DB errors", func() {
-			It("should propagate DB errors to the service", func(ctx SpecContext) {
-				db := newDB()
-				svc := MustSucceed(verification.OpenService(
-					ctx,
-					verification.ServiceConfig{DB: db},
-				))
-				Expect(svc.Close()).To(Succeed())
-				Expect(verification.OpenService(
-					ctx,
-					verification.ServiceConfig{DB: db},
-				)).Error().To(MatchError(errDBGetCalled))
-				Expect(db.Close()).To(Succeed())
+		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
+			expired := grant()
+			expired.Exp = seconds(now.Add(-100 * day))
+			svc := open(ctx)
+			Expect(svc.Activate(ctx, sign(grant()))).Error().To(Succeed())
+			Expect(svc.Close()).To(Succeed())
+			// Store the expired entry directly: Activate refuses it.
+			key := append([]byte("bGljZW5zZUtleQ==/"), expired.Jti.String()...)
+			Expect(db.Set(ctx, key, []byte(sign(expired)))).To(Succeed())
+			svc = open(ctx)
+			defer func() { Expect(svc.Close()).To(Succeed()) }()
+			Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
+		})
+		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
+			g := grant()
+			svc := open(ctx, verification.ServiceConfig{Verifier: sign(g)})
+			Expect(svc.Close()).To(Succeed())
+			later := now.Add(60 * day)
+			svc = open(ctx, verification.ServiceConfig{
+				Now: func() time.Time { return later },
 			})
+			defer func() { Expect(svc.Close()).To(Succeed()) }()
+			Expect(svc.Retrieve().State).To(Equal(verification.StateExpired))
+			Expect(svc.Check()).To(MatchError(verification.ErrExpired))
+		})
+		It(
+			"should treat every entry as expired after a clock rollback",
+			func(ctx SpecContext) {
+				svc := open(ctx, verification.ServiceConfig{Verifier: sign(grant())})
+				Expect(svc.Close()).To(Succeed())
+				earlier := now.Add(-2 * day)
+				svc = open(ctx, verification.ServiceConfig{
+					Now: func() time.Time { return earlier },
+				})
+				defer func() { Expect(svc.Close()).To(Succeed()) }()
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(verification.StateExpired))
+				Expect(info.Warning).To(ContainSubstring("clock"))
+			},
+		)
+		It("should tolerate a clock inside the rollback window", func(ctx SpecContext) {
+			svc := open(ctx, verification.ServiceConfig{Verifier: sign(grant())})
+			Expect(svc.Close()).To(Succeed())
+			earlier := now.Add(-time.Hour)
+			svc = open(ctx, verification.ServiceConfig{
+				Now: func() time.Time { return earlier },
+			})
+			defer func() { Expect(svc.Close()).To(Succeed()) }()
+			Expect(svc.Retrieve().State).To(Equal(verification.StateOK))
+		})
+	})
+
+	Describe("Activate", func() {
+		var svc *verification.Service
+		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
+		AfterEach(func() { Expect(svc.Close()).To(Succeed()) })
+
+		It("should accept a subscription before expiry", func(ctx SpecContext) {
+			info := MustSucceed(svc.Activate(ctx, sign(grant())))
+			Expect(info.State).To(Equal(verification.StateOK))
+			Expect(info.Warning).To(BeEmpty())
+		})
+		It("should warn when expiry is near", func(ctx SpecContext) {
+			g := grant()
+			g.Exp = seconds(now.Add(2 * day))
+			info := MustSucceed(svc.Activate(ctx, sign(g)))
+			Expect(info.State).To(Equal(verification.StateOK))
+			Expect(info.Warning).To(ContainSubstring("expires in"))
+		})
+		It(
+			"should accept a subscription inside the grace window",
+			func(ctx SpecContext) {
+				g := grant()
+				g.Exp = seconds(now.Add(-2 * day))
+				info := MustSucceed(svc.Activate(ctx, sign(g)))
+				Expect(info.State).To(Equal(verification.StateOK))
+				Expect(info.Warning).To(ContainSubstring("grace"))
+			},
+		)
+		It("should refuse a subscription past the grace window", func(ctx SpecContext) {
+			g := grant()
+			g.Exp = seconds(now.Add(-20 * day))
+			Expect(svc.Activate(ctx, sign(g))).Error().
+				To(MatchError(verification.ErrExpired))
+			Expect(svc.Retrieve().State).To(Equal(verification.StateMissing))
+		})
+		It("should accept a perpetual grant under its ceiling", func(ctx SpecContext) {
+			g := grant()
+			g.Exp = nil
+			g.Mv = new("0.62")
+			info := MustSucceed(svc.Activate(ctx, sign(g)))
+			Expect(info.State).To(Equal(verification.StateOK))
+			Expect(info.Warning).To(BeEmpty())
+		})
+		It("should accept a perpetual grant at its ceiling", func(ctx SpecContext) {
+			g := grant()
+			g.Exp = nil
+			g.Mv = new("0.60")
+			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
+		})
+		It("should refuse a perpetual grant over its ceiling", func(ctx SpecContext) {
+			g := grant()
+			g.Exp = nil
+			g.Mv = new("0.59")
+			Expect(svc.Activate(ctx, sign(g))).Error().
+				To(MatchError(verification.ErrExpired))
+		})
+		It(
+			"should refuse a grant with neither expiry nor ceiling",
+			func(ctx SpecContext) {
+				g := grant()
+				g.Exp = nil
+				Expect(svc.Activate(ctx, sign(g))).Error().
+					To(MatchError(verification.ErrInvalid))
+			},
+		)
+		It("should refuse a ceiling that does not parse", func(ctx SpecContext) {
+			g := grant()
+			g.Mv = new("latest")
+			Expect(svc.Activate(ctx, sign(g))).Error().
+				To(MatchError(verification.ErrInvalid))
+		})
+		It("should fall back to the ceiling past expiry", func(ctx SpecContext) {
+			g := grant()
+			g.Exp = seconds(now.Add(-100 * day))
+			g.Mv = new("0.62")
+			info := MustSucceed(svc.Activate(ctx, sign(g)))
+			Expect(info.State).To(Equal(verification.StateOK))
+			Expect(info.Warning).To(ContainSubstring("subscription ended"))
+		})
+		It(
+			"should refuse a fallback whose ceiling is below this version",
+			func(ctx SpecContext) {
+				g := grant()
+				g.Exp = seconds(now.Add(-100 * day))
+				g.Mv = new("0.59")
+				Expect(svc.Activate(ctx, sign(g))).Error().
+					To(MatchError(verification.ErrExpired))
+			},
+		)
+		It("should refuse a grant bound to other hosts", func(ctx SpecContext) {
+			g := grant()
+			g.Fp = []string{"0000"}
+			Expect(svc.Activate(ctx, sign(g))).Error().
+				To(MatchError(verification.ErrHost))
+		})
+		It("should accept a grant bound to this host", func(ctx SpecContext) {
+			host := svc.Retrieve().Host
+			if len(host) == 0 {
+				Skip("this machine has no hashable network interface")
+			}
+			g := grant()
+			g.Fp = []string{"0000", host[len(host)-1]}
+			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
+		})
+		It("should refuse hashes from a scheme this Core does not implement", func(
+			ctx SpecContext,
+		) {
+			host := svc.Retrieve().Host
+			if len(host) == 0 {
+				Skip("this machine has no hashable network interface")
+			}
+			g := grant()
+			g.Fs = 2
+			g.Fp = []string{host[0]}
+			Expect(svc.Activate(ctx, sign(g))).Error().
+				To(MatchError(verification.ErrHost))
+		})
+		It("should reject an invalid token", func(ctx SpecContext) {
+			Expect(svc.Activate(ctx, "nope")).Error().
+				To(MatchError(verification.ErrInvalid))
+		})
+		It("should enforce the channel cap", func(ctx SpecContext) {
+			g := grant()
+			g.Ch = 10
+			Expect(svc.Activate(ctx, sign(g))).Error().To(Succeed())
+			Expect(svc.IsOverflowed(10)).To(Succeed())
+			Expect(svc.IsOverflowed(11)).To(MatchError(verification.ErrTooMany))
+		})
+		It("should not cap a grant with a zero cap", func(ctx SpecContext) {
+			Expect(svc.Activate(ctx, sign(grant()))).Error().To(Succeed())
+			Expect(svc.IsOverflowed(1 << 19)).To(Succeed())
 		})
 	})
 })

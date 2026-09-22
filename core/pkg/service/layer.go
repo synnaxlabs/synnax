@@ -93,10 +93,20 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
-	// Verifier is for verifying. Magic.
+	// Verifier is a token the verification service accepts on open.
 	//
 	// [OPTIONAL] - Defaults to "".
 	Verifier string
+	// Version is this Core's version, which the verification service checks against
+	// a grant's version ceiling.
+	//
+	// [OPTIONAL] - Defaults to "", which passes every ceiling.
+	Version string
+	// Anchors replaces the key set the verification service verifies tokens against.
+	// Only test fixtures set it.
+	//
+	// [OPTIONAL] - Defaults to the production keys.
+	Anchors verification.Anchors
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -125,6 +135,8 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.Verifier = override.String(c.Verifier, other.Verifier)
+	c.Version = override.String(c.Version, other.Version)
+	c.Anchors = override.Nil(c.Anchors, other.Anchors)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
 	)
@@ -310,6 +322,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation: cfg.Child("verification"),
 		DB:              cfg.Distribution.DB.KV(),
 		Verifier:        cfg.Verifier,
+		Version:         cfg.Version,
+		Anchors:         cfg.Anchors,
 	}); !ok(err, l.Verification) {
 		return nil, err
 	}

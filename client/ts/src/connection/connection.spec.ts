@@ -21,7 +21,13 @@ import {
   materialChange,
   reduce,
 } from "@/connection/status";
-import { AccessDeniedError, AuthError, DisconnectedError } from "@/errors";
+import {
+  AccessDeniedError,
+  AuthError,
+  DisconnectedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+} from "@/errors";
 import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -42,6 +48,7 @@ const mockUnary = (nodeTime: () => TimeStamp): UnaryClient => ({
     clusterKey: "test-cluster",
     nodeVersion: __VERSION__,
     nodeTime: nodeTime(),
+    verification: "ok",
   })),
   use: vi.fn(),
 });
@@ -68,7 +75,12 @@ const createScriptedUnary = ({
   return {
     send: vi.fn().mockImplementation(async () => {
       if (down) throw new Unreachable({ message: "server down" });
-      return { clusterKey: key, nodeVersion: __VERSION__, nodeTime: TimeStamp.now() };
+      return {
+        clusterKey: key,
+        nodeVersion: __VERSION__,
+        nodeTime: TimeStamp.now(),
+        verification: "ok",
+      };
     }),
     use: vi.fn(),
     setFailing: (next) => (down = next),
@@ -93,6 +105,7 @@ const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info =
   clusterKey: "test-cluster",
   nodeVersion: __VERSION__,
   clockSkew: TimeSpan.ZERO,
+  license: "ok",
   ...overrides,
 });
 
@@ -421,6 +434,69 @@ describe("connection", () => {
       expect(reasonOf(status)).toEqual("auth");
     });
 
+    it("should enter error(unlicensed) when the Core reports no license", () => {
+      const config = createConfig();
+      const status = apply(config, {
+        type: "check.success",
+        info: createInfo({ license: "missing" }),
+      });
+      expect(reasonOf(status)).toEqual("unlicensed");
+      expect(status.details.license).toEqual("missing");
+      expect(status.details.authenticated).toBe(true);
+      expect(MissingLicenseError.matches(status.details.error)).toBe(true);
+      expect(modeFor(status)).toEqual("checking");
+    });
+
+    it("should report an expired license with its own error", () => {
+      const status = apply(createConfig(), {
+        type: "check.success",
+        info: createInfo({ license: "expired" }),
+      });
+      expect(reasonOf(status)).toEqual("unlicensed");
+      expect(ExpiredLicenseError.matches(status.details.error)).toBe(true);
+    });
+
+    it("should leave error(unlicensed) once a check reports a license", () => {
+      const config = createConfig();
+      const unlicensed = apply(config, {
+        type: "check.success",
+        info: createInfo({ license: "missing" }),
+      });
+      const licensed = reduce(
+        unlicensed,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(licensed.variant).toEqual("success");
+      expect(licensed.details.license).toEqual("ok");
+      expect(licensed.details.error).toBeUndefined();
+    });
+
+    it("should lift error(unlicensed) to reconnecting with a dark stream", () => {
+      const config = createConfig({ requiresStream: true });
+      const unlicensed = apply(config, {
+        type: "check.success",
+        info: createInfo({ license: "missing" }),
+      });
+      const checked = reduce(
+        unlicensed,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(checked.variant).toEqual("loading");
+      expect(reasonOf(checked)).toBeUndefined();
+    });
+
+    it("should clear error(unlicensed) on retry.requested", () => {
+      const config = createConfig();
+      const unlicensed = apply(config, {
+        type: "check.success",
+        info: createInfo({ license: "missing" }),
+      });
+      const retrying = reduce(unlicensed, { type: "retry.requested" }, config);
+      expect(retrying.variant).toEqual("loading");
+    });
+
     it("should clear error(unreachable) on retry.requested", () => {
       const config = createConfig({ escalateAfter: 1 });
       const failed = apply(config, {
@@ -607,6 +683,7 @@ describe("connection", () => {
         "clockSkewExceeded",
         "retry",
         "checking",
+        "license",
       ];
       expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
       expect(Object.keys(asError("auth").details).sort()).toEqual(

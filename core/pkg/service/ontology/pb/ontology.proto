@@ -40,7 +40,8 @@ enum ResourceType {
   RESOURCE_TYPE_TABLE = 20;
   RESOURCE_TYPE_TASK = 21;
   RESOURCE_TYPE_USER = 22;
-  RESOURCE_TYPE_VIEW = 23;
+  RESOURCE_TYPE_VERIFICATION = 23;
+  RESOURCE_TYPE_VIEW = 24;
 }
 
 // ID is a unique identifier for a Resource. An example:

@@ -446,6 +446,7 @@ func resolvedParentFields(
 		if !ok {
 			continue
 		}
+		parent = resolution.Unalias(parent, c.table)
 		parentForm, ok := parent.Form.(resolution.StructForm)
 		if !ok {
 			continue
@@ -1755,6 +1756,7 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			c.report(d)
 			continue
 		}
+		parent = resolution.Unalias(parent, c.table)
 		parentForm, ok := parent.Form.(resolution.StructForm)
 		if !ok {
 			d := diagnostics.Errorf(nil,
@@ -1847,6 +1849,7 @@ func reportInheritedFieldConflicts(
 		if !ok {
 			continue
 		}
+		parent = resolution.Unalias(parent, c.table)
 		if _, isStruct := parent.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
@@ -1888,6 +1891,7 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 				c.report(d)
 				continue
 			}
+			parent = resolution.Unalias(parent, c.table)
 			parentForm, ok := parent.Form.(resolution.StructForm)
 			if !ok {
 				d := diagnostics.Errorf(nil,
@@ -1962,6 +1966,7 @@ func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Fi
 		if !ok {
 			continue
 		}
+		parent = resolution.Unalias(parent, c.table)
 		parentForm, ok := parent.Form.(resolution.StructForm)
 		if !ok {
 			continue
@@ -2086,6 +2091,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			c.report(d)
 			continue
 		}
+		base = resolution.Unalias(base, c.table)
 		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
 			d := diagnostics.Errorf(nil,
 				"union %s extends non-struct type at position %d: %s",
@@ -2139,6 +2145,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			c.report(d)
 			continue
 		}
+		variantType = resolution.Unalias(variantType, c.table)
 		if _, isStruct := variantType.Form.(resolution.StructForm); !isStruct {
 			d := diagnostics.Errorf(nil,
 				"union %s variant %q must reference a struct type, got: %s",

@@ -31,7 +31,13 @@ export {
   AuthError,
   ContiguityError,
   DisconnectedError,
+  ExpiredLicenseError,
+  InvalidLicenseError,
   isConnectionError,
+  LicenseError,
+  LicenseHostError,
+  LicenseLimitError,
+  MissingLicenseError,
   MultipleFoundError,
   NotFoundError,
   QueryError,
@@ -47,6 +53,7 @@ export { http } from "@/http";
 export { imex } from "@/imex";
 export { label } from "@/label";
 export { labjack } from "@/labjack";
+export { license } from "@/license";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { modbus } from "@/modbus";

@@ -117,6 +117,24 @@ export const isConnectionError = (err: unknown): boolean =>
 /** Raised when time-series data is not contiguous. */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
+/** Raised when the Core refuses a request over its license. */
+export class LicenseError extends SynnaxError.sub("verification") {}
+
+/** Raised when no license is active on the Core. */
+export class MissingLicenseError extends LicenseError.sub("missing") {}
+
+/** Raised when the license on the Core no longer applies. */
+export class ExpiredLicenseError extends LicenseError.sub("expired") {}
+
+/** Raised when a token cannot be verified or does not fit this Core. */
+export class InvalidLicenseError extends LicenseError.sub("invalid") {}
+
+/** Raised when a license is bound to a different host. */
+export class LicenseHostError extends LicenseError.sub("host") {}
+
+/** Raised when an operation would exceed a limit the license sets. */
+export class LicenseLimitError extends LicenseError.sub("too_many") {}
+
 const decode = (payload: errors.Payload): Error | null => {
   if (!payload.type.startsWith(SynnaxError.TYPE)) return null;
   if (payload.type.startsWith(ValidationError.TYPE)) {
@@ -153,6 +171,20 @@ const decode = (payload: errors.Payload): Error | null => {
 
   if (payload.type.startsWith(RouteError.TYPE))
     return new RouteError(payload.data, payload.data);
+
+  if (payload.type.startsWith(LicenseError.TYPE)) {
+    if (payload.type.startsWith(MissingLicenseError.TYPE))
+      return new MissingLicenseError(payload.data);
+    if (payload.type.startsWith(ExpiredLicenseError.TYPE))
+      return new ExpiredLicenseError(payload.data);
+    if (payload.type.startsWith(InvalidLicenseError.TYPE))
+      return new InvalidLicenseError(payload.data);
+    if (payload.type.startsWith(LicenseHostError.TYPE))
+      return new LicenseHostError(payload.data);
+    if (payload.type.startsWith(LicenseLimitError.TYPE))
+      return new LicenseLimitError(payload.data);
+    return new LicenseError(payload.data);
+  }
 
   return new UnexpectedError(payload.data);
 };
