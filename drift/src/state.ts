@@ -385,7 +385,9 @@ const reduceSetWindowError = (
 
 const reduceFocusWindow = assertLabel<FocusWindowPayload>((s, a) => {
   const win = s.windows[a.payload.label];
-  if (win == null) return;
+  // An unreserved pre-render stays hidden, so a focus it dispatched for itself is
+  // dropped the same way its props are.
+  if (win == null || !win.reserved) return;
   if (win.visible !== true) win.visible = true;
   incrementCounter("focusCount")(s, a);
 });

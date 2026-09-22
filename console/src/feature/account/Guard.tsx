@@ -13,6 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { SignIn } from "@/feature/account/SignIn";
 import { useLink } from "@/feature/account/useLink";
 import { useRenew } from "@/feature/account/useRenew";
+import { Session } from "@/session";
 
 /**
  * Renders the sign-in screen instead of its children while the embedded Core refuses
@@ -25,14 +26,16 @@ export const Guard = ({ children }: PropsWithChildren): ReactElement => {
     status.variant === "error" && status.details.reason === "unlicensed";
   return (
     <>
-      <SideEffect />
+      {Session.Runtime.isMainWindow() && <SideEffect />}
       {unlicensed ? <SignIn /> : children}
     </>
   );
 };
 
 // The sign-in link and the renewal both apply tokens to the embedded Core, so they
-// mount with the gate that waits on it.
+// mount with the gate that waits on it. Tauri hands a deep link to every webview, and
+// the license is one per app, so only the main window listens: a pre-render that
+// answered the link would focus itself into view.
 const SideEffect = (): null => {
   useLink();
   useRenew();
