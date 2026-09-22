@@ -59,9 +59,6 @@ jobs:
     name: Console
     needs: [verify, integration]
     uses: ./.github/workflows/release.console.yaml
-    concurrency:
-      group: release-console
-      cancel-in-progress: false
     permissions:
       actions: read
       contents: write
@@ -76,9 +73,6 @@ jobs:
     name: Driver
     needs: [verify, integration]
     uses: ./.github/workflows/release.driver.yaml
-    concurrency:
-      group: release-driver
-      cancel-in-progress: false
     permissions:
       actions: read
       contents: write
@@ -93,9 +87,6 @@ jobs:
     name: Core
     needs: [console, driver]
     uses: ./.github/workflows/release.core.yaml
-    concurrency:
-      group: release-core
-      cancel-in-progress: false
     permissions:
       actions: read
       contents: write

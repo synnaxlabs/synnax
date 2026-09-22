@@ -8,7 +8,7 @@
 # included in the file licenses/APL.txt.
 
 name: Verify Checks
-description: Fails unless every GitHub Actions check on the commit has passed
+description: Fails unless the commit's checks and the branch's newest push runs passed
 
 inputs:
   sha:
@@ -22,4 +22,6 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
-      run: scripts/verify_checks.sh "${{ inputs.sha }}" "${{ github.run_id }}"
+      run: |
+        scripts/verify_checks.sh "${{ inputs.sha }}" "${{ github.run_id }}" \
+          "${{ github.ref_name }}"

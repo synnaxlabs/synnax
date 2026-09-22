@@ -54,8 +54,9 @@ Neither script touches `.oracle` schema files — no header comments there.
   `core`, or `driver` version from Git tags and prints workflow outputs (`version`,
   `tag`, `minor`, `previous_tag`). Backs `.github/actions/resolve-version`; tests in
   `test_resolve_version.py`.
-- `verify_checks.sh <sha> <run_id>` — fails unless every GitHub Actions check on the
-  commit passed, ignoring the given run. Backs `.github/actions/verify-checks`.
+- `verify_checks.sh <sha> <run_id> <branch>` — fails unless every GitHub Actions check
+  on the commit passed, ignoring the given run, and the newest push run of every test,
+  lint, and check workflow on the branch passed. Backs `.github/actions/verify-checks`.
 - `verify_build_config.sh` / `generate_os_matrix.sh` — CI-only, consume positional
   platform/build flags from the GitHub Actions workflow to validate the build matrix and
   emit its OS list. Not useful outside that workflow context.
