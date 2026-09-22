@@ -78,7 +78,7 @@ experience GC latency on the inbound path, scheduler delay during Arc execution,
 network buffering on the outbound path simultaneously. The result is a latency
 distribution with a long tail that makes real-time guarantees impossible.
 
-| Source                   | Typical Latency | Worst Case    |
+| Source                   | Typical latency | Worst case    |
 | ------------------------ | --------------- | ------------- |
 | Network (loopback)       | 50-200 µs       | 1-5 ms        |
 | Go GC pause              | 100-500 µs      | 1-3 ms        |

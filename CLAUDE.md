@@ -18,9 +18,11 @@ telemetry. Monorepo:
 
 ## Release model
 
-Users only ever run builds released from `main`; `rc` is pre-release integration and
-never ships. Backward compatibility — file formats, stored shapes, wire quirks,
-migrations — is owed only to what `main` released. rc-era formats may be dropped freely.
+`main` is the only long-lived branch. Nothing publishes on push: a person dispatches
+every release from `main` or from a `release/<product>-X.Y` hotfix branch. Candidates
+(`-rc.N` tags) never count as shipped. Backward compatibility — file formats, stored
+shapes, wire quirks, migrations — is owed only to what a stable release shipped;
+candidate-era formats may be dropped freely. See RFC 0058.
 
 ## Documentation
 
@@ -32,14 +34,14 @@ needing broader context:
 - `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
-- `docs/claude/scripts.md` — repo scripts in `/scripts/` (formatting, copyright headers,
-  codegen checks, release/CI tooling)
+- `scripts/CLAUDE.md` — repo scripts: formatting, copyright headers, codegen checks,
+  versioning; workflow-only scripts in `.github/scripts/` (also auto-loads)
 - `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
   and citations (also auto-loads)
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
   `arc/CLAUDE.md`, `oracle/CLAUDE.md` — component deep dives (also auto-load)
 
-## Universal Code Style
+## Universal code style
 
 - **88-character lines** in all languages. Formatters: Prettier (TS), Ruff (Python),
   golangci-lint fmt (Go), clang-format (C++).
@@ -72,7 +74,7 @@ needing broader context:
 - **`common/`, never `shared/`**, for directories holding utilities reused by sibling
   modules. All languages.
 
-## Architectural Principles
+## Architectural principles
 
 Dependencies are explicit, injected inputs — never reached for ambiently. All languages.
 
@@ -195,7 +197,7 @@ Red flags. If any of these appear, rewrite immediately:
 - Language-specific form (JSDoc tags, Go identifier-first sentences, Doxygen) lives in
   `docs/claude/toolchains/`.
 
-## Git Workflow Rules
+## Git workflow rules
 
 ### 🚨 Rule 1: NEVER add a Claude co-author to commits or pull requests 🚨
 
@@ -207,13 +209,13 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 
 ### Rule 2: Pull request conventions
 
-1. **Confirm the base branch.** Feature/fix PRs almost always target `rc`; only hotfixes
-   target `main`; stacked PRs target the parent branch. Ask if unclear — never default
-   to `main`.
+1. **Confirm the base branch.** Every PR targets `main`; stacked PRs target the parent
+   branch. A hotfix lands on `main` first, then a cherry-pick PR targets
+   `release/<product>-X.Y`. Ask if unclear.
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
 3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
-   prefixes like `[docs]`/`[rc]` for non-issue work. Check
+   prefixes like `[docs]` for non-issue work. Check
    `gh pr list --state all --limit 20 --json title,baseRefName` and match — don't invent
    a format.
 4. **Fill the template** at `.github/PULL_REQUEST_TEMPLATE/issue.md`: Linear issue
@@ -221,7 +223,7 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
    (lead with user-facing/architectural impact, not a diff restatement), readiness
    checkboxes left unchecked unless actually performed.
 
-## Self-Editing Guidelines
+## Self-editing guidelines
 
 When adding context that would benefit future sessions: minimal, sparing edits; only
 genuinely useful development information; prefer the specific doc file over this one.

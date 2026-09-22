@@ -1,4 +1,4 @@
-# Abort Sequence Example
+# Abort sequence example
 
 This example demonstrates how to implement an abort sequence that monitors for
 overpressure conditions and takes control to safely vent the system.
@@ -12,7 +12,7 @@ This directory contains:
 
 The simulator for this example is located in `examples/simulators/press.py`.
 
-## Running the Example
+## Running the example
 
 To run this example, you'll need three terminals open.
 

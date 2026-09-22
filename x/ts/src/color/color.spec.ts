@@ -628,6 +628,24 @@ describe("color.Color", () => {
     });
   });
 
+  describe("rgbaString", () => {
+    test("carries the rgb channels and an opaque alpha", () => {
+      expect(color.rgbaString("#ff0000")).toEqual("255, 0, 0, 1");
+    });
+
+    test("carries a translucent alpha", () => {
+      expect(color.rgbaString([255, 0, 0, 0.5])).toEqual("255, 0, 0, 0.5");
+    });
+
+    test("is undefined for the ZERO sentinel", () => {
+      expect(color.rgbaString(color.ZERO)).toBeUndefined();
+    });
+
+    test("is undefined for no color", () => {
+      expect(color.rgbaString(undefined)).toBeUndefined();
+    });
+  });
+
   describe("equals", () => {
     test("same RGB values are equal", () => {
       const c1: color.RGB = [255, 0, 0];

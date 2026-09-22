@@ -170,7 +170,7 @@ public:
     /// @brief the channels to stream.
     std::vector<channel::Key> channels;
     /// @brief the downsample factor for the streamer.
-    int downsample_factor = 1;
+    std::uint32_t downsample_factor = 1;
     /// @brief writer group IDs whose frames should be filtered out by the server. Used
     /// for telemetry bypass deduplication.
     std::vector<std::uint32_t> exclude_groups;

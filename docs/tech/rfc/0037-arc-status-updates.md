@@ -375,7 +375,7 @@ mental model: `client.statuses.set(...)` in Python and TS, `status.set(...)` in 
 upsert by identifier with the same handling of omitted fields. The trade study companion
 document evaluates the alternative shapes and syntaxes that were considered.
 
-| Concern           | Python Client                              | TypeScript Client                    | Arc WASM                                                | Arc Flow                                                |
+| Concern           | Python client                              | TypeScript client                    | Arc WASM                                                | Arc flow                                                |
 | ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------- |
 | **Set params**    | `Status(key, name, variant, message, ...)` | `{key, name, variant, message, ...}` | `key_or_name, message? (preserve), variant? (preserve)` | `key_or_name, message? (preserve), variant? (preserve)` |
 | **Set return**    | `Status` object                            | `Status` object                      | key string                                              | none (sink)                                             |
@@ -568,7 +568,7 @@ optional-omission sentinels at the call site.
 
 Host functions are registered via `wazero.HostModuleBuilder("status")`:
 
-| WASM Module | Function | WASM Signature           | Description                                                                                |
+| WASM module | Function | WASM signature           | Description                                                                                |
 | ----------- | -------- | ------------------------ | ------------------------------------------------------------------------------------------ |
 | `status`    | `set`    | `(i32, i32, i32) -> i32` | key_or_name, message, variant handles -> key handle (handle 0 on omitted optional / error) |
 | `status`    | `delete` | `(i32)`                  | key_or_name handle                                                                         |
@@ -1588,7 +1588,7 @@ The two axes are independent decisions, but each Axis 2 syntactic style has one 
 Axis 1 shapes it pairs with cleanly. Forced pairings (e.g., Shape 4 with Option A, or
 Shape 1 with Option G) read awkwardly because they fight each option's premise.
 
-| Option (Axis 2)           | Natural shape (Axis 1)        | Why                                                        |
+| Option (axis 2)           | Natural shape (axis 1)        | Why                                                        |
 | ------------------------- | ----------------------------- | ---------------------------------------------------------- |
 | **A: Polymorphism**       | **1** Shared payload          | Polymorphism on field presence _is_ preserve-on-omit       |
 | **B: Func options**       | **1** Shared payload          | Each option mutates one shared config                      |

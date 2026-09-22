@@ -1,4 +1,4 @@
-# Go Development
+# Go development
 
 ## Modules
 
@@ -25,7 +25,7 @@ check with `golangci-lint fmt --diff`. `golangci-lint run` (CI) also fails on
 unformatted files. CI lints each module for both `GOOS=linux` and `GOOS=windows`, so
 reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint run`.
 
-## Packages & Naming
+## Packages & naming
 
 - Package names: lowercase, one word, singular (`channel`, `framer`, `writer`). When the
   natural name collides with a keyword, extend it (`ranger`, not `range`).
@@ -37,7 +37,7 @@ reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint 
 - `internal/` hides implementation packages consumers must not import
   (`cesium/internal`, `aspen/internal`).
 
-## General Rules
+## General rules
 
 ### Rule 1: Never ignore errors
 
