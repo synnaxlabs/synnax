@@ -1393,6 +1393,8 @@ type InputNodeConfig struct {
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -1568,6 +1570,8 @@ type SelectNodeConfig struct {
 	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -1657,6 +1661,8 @@ type SetpointNodeConfig struct {
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -5352,6 +5358,8 @@ type InputElementConfig struct {
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -5527,6 +5535,8 @@ type SelectElementConfig struct {
 	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
 	// Disabled indicates whether the select rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -5616,6 +5626,8 @@ type SetpointElementConfig struct {
 	Units string `json:"units" msgpack:"units"`
 	// Disabled indicates whether the setpoint rejects interaction.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }

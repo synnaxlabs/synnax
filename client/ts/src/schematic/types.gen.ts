@@ -585,6 +585,8 @@ export const inputNodeConfigZ = labeledConfigZ.extend({
   color: color.colorZ.optional(),
   /** disabled indicates whether the input rejects interaction. */
   disabled: z.boolean().default(false),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -667,6 +669,8 @@ export const selectNodeConfigZ = labeledConfigZ.extend({
   options: stateMappingZ.array().default(() => []),
   /** disabled indicates whether the select rejects interaction. */
   disabled: z.boolean().default(false),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -712,6 +716,8 @@ export const setpointNodeConfigZ = labeledConfigZ.extend({
   units: z.string().default("mV"),
   /** disabled indicates whether the setpoint rejects interaction. */
   disabled: z.boolean().default(false),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -1952,6 +1958,8 @@ export const inputElementConfigZ = labeledConfigZ.extend({
   color: color.colorZ.optional(),
   /** disabled indicates whether the input rejects interaction. */
   disabled: z.boolean().default(false),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -2040,6 +2048,8 @@ export const selectElementConfigZ = labeledConfigZ.extend({
   options: stateMappingZ.array().default(() => []),
   /** disabled indicates whether the select rejects interaction. */
   disabled: z.boolean().default(false),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });
@@ -2085,6 +2095,8 @@ export const setpointElementConfigZ = labeledConfigZ.extend({
   units: z.string().default("mV"),
   /** disabled indicates whether the setpoint rejects interaction. */
   disabled: z.boolean().default(false),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().default(0),
   /** control is the control state display configuration. */
   control: controlStateConfigZ.optional(),
 });

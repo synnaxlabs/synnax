@@ -14,6 +14,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
+import { type Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -22,7 +23,7 @@ import { Select as BaseSelect } from "@/select";
 interface RenderProps extends Partial<
   Pick<
     schematic.SelectNodeConfig,
-    "color" | "orientation" | "size" | "disabled" | "inlineSize"
+    "color" | "orientation" | "size" | "disabled" | "inlineSize" | "onClickDelay"
   >
 > {
   options: schematic.SelectNodeConfig["options"];
@@ -31,6 +32,10 @@ interface RenderProps extends Partial<
   onChange: (key: string | null) => void;
   onSend?: (value: number) => void;
 }
+
+const DIALOG_PROPS: Dialog.DialogProps = {
+  className: CSS.BE("select-symbol", "dialog"),
+};
 
 export const Select = ({
   className,
@@ -43,6 +48,7 @@ export const Select = ({
   size,
   disabled,
   inlineSize,
+  onClickDelay,
 }: RenderProps): ReactElement => {
   const data = useMemo(
     () => options.map((o) => ({ key: o.key, name: o.name || `Option ${o.value}` })),
@@ -93,6 +99,7 @@ export const Select = ({
           disabled={disabled}
           resourceName="option"
           triggerProps={{ color, size }}
+          dialogProps={DIALOG_PROPS}
           style={triggerStyle}
         />
         {onSend != null && (
@@ -102,6 +109,7 @@ export const Select = ({
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
+            onClickDelay={onClickDelay}
             color={color}
             disabled={disabled}
           >

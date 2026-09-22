@@ -10,7 +10,7 @@
 import "@/schematic/node/general/setpoint/setpoint.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { type CSSProperties, type ReactElement, useState } from "react";
+import { type CSSProperties, type ReactElement, useRef, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -20,7 +20,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps
   extends
-    Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">,
+    Partial<Omit<schematic.SetpointNodeConfig, "variant" | "label" | "scale">>,
     Omit<BaseInput.Control<number>, "value"> {
   className?: string;
   style?: CSSProperties;
@@ -35,8 +35,10 @@ export const Setpoint = ({
   onChange,
   size = "small",
   disabled,
+  onClickDelay,
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
     <Primitive.Div
       className={CSS.cls(CSS.B("setpoint"), className)}
@@ -74,6 +76,7 @@ export const Setpoint = ({
         />
       </Handle.Boundary>
       <BaseInput.Numeric
+        ref={inputRef}
         size={size}
         value={currValue}
         onChange={setCurrValue}
@@ -88,7 +91,11 @@ export const Setpoint = ({
           size={size}
           variant="filled"
           onClick={() => onChange(currValue)}
+          onClickDelay={onClickDelay}
           color={color}
+          // WebKit leaves the input focused on a button press, so the typed value would
+          // never commit. Blurring commits it before the click or hold sends.
+          onMouseDown={() => inputRef.current?.blur()}
         >
           Set
         </BaseButton.Button>

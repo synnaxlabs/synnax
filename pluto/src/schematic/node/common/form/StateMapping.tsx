@@ -124,7 +124,7 @@ export const StateMappingForm = ({
           grow
           emptyContent={
             <Flex.Box center grow>
-              <Text.Text center status="disabled" gap="tiny">
+              <Text.Text y center status="disabled" gap="tiny">
                 No options added
                 <Text.Text variant="link" onClick={handleAddOption}>
                   Add an option

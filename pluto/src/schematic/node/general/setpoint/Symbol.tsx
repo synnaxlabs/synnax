@@ -31,6 +31,7 @@ export const Symbol = ({
     color,
     size,
     disabled,
+    onClickDelay,
   },
 }: NodeProps<schematic.SetpointNodeConfig>): ReactElement => {
   const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
@@ -50,6 +51,7 @@ export const Symbol = ({
         orientation={orientation}
         disabled={disabled}
         size={size}
+        onClickDelay={onClickDelay}
       />
     </Grid.Grid>
   );

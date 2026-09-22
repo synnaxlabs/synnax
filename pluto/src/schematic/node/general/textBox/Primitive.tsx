@@ -10,13 +10,12 @@
 import "@/schematic/node/general/textBox/textBox.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { direction } from "@synnaxlabs/x";
+import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 interface RenderProps extends Omit<
@@ -43,7 +42,7 @@ export const TextBox = ({
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
       ...(isVertical ? { height: size } : { width: size }),
     }),
     [align, colorVal, isVertical, size],

@@ -9,6 +9,11 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Finds a recent integration run whose live artifacts were built from an unchanged
+# path set per product, so the build can be skipped or partly reused. Emits SKIP_BUILD,
+# REF_RUN_ID, DRIVER_REF_RUN_ID, and CONSOLE_REF_RUN_ID as workflow outputs.
+# Usage: check_artifact_cache.sh [linux|windows|all]
+
 set -e
 
 PLATFORM=${1:-linux}
@@ -80,8 +85,7 @@ CORE_PATHS=(
 
 UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 
-# Deploy runs build the same artifacts, so both workflows are reuse sources.
-WORKFLOW_FILES=("test.integration.yaml" "deploy.synnax.yaml")
+WORKFLOW_FILES=("test.integration.yaml")
 
 CACHE_DIR=$(mktemp -d)
 trap 'rm -rf "${CACHE_DIR}"' EXIT

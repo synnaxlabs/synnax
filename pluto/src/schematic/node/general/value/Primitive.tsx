@@ -10,7 +10,7 @@
 import "@/schematic/node/general/value/value.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { type dimensions, type text } from "@synnaxlabs/x";
+import { color, type dimensions, type text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type PropsWithChildren,
@@ -21,7 +21,6 @@ import {
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 interface RenderProps extends PropsWithChildren<
@@ -42,7 +41,7 @@ export const Value = ({
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => {
-  const symbolColor = symbolColorVar(colorVal);
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.variable("symbol-color")]: symbolColor,

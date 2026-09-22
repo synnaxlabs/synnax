@@ -9,6 +9,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Fails unless the build inputs name at least one platform and one product, then prints
+# the configuration. Positional arguments mirror the workflow inputs.
+
 VERSION=$1
 PLATFORM_WINDOWS=$2
 PLATFORM_MACOS=$3

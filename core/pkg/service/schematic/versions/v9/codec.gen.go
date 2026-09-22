@@ -507,6 +507,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 			w.Bool(false)
 		}
 		w.Bool(v.Disabled)
+		w.Float64(float64(v.OnClickDelay))
 		if v.Control != nil {
 			w.Bool(true)
 			if err := v.Control.EncodeOrc(w); err != nil {
@@ -641,6 +642,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 		w.Bool(v.Disabled)
+		w.Float64(float64(v.OnClickDelay))
 		if v.Control != nil {
 			w.Bool(true)
 			if err := v.Control.EncodeOrc(w); err != nil {
@@ -706,6 +708,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(v.Units)
 		w.Bool(v.Disabled)
+		w.Float64(float64(v.OnClickDelay))
 		if v.Control != nil {
 			w.Bool(true)
 			if err := v.Control.EncodeOrc(w); err != nil {
@@ -1750,6 +1753,9 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		if v.Disabled, err = r.Bool(); err != nil {
 			return err
 		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
 		{
 			present, err := r.Bool()
 			if err != nil {
@@ -1999,6 +2005,9 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		if v.Disabled, err = r.Bool(); err != nil {
 			return err
 		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
 		{
 			present, err := r.Bool()
 			if err != nil {
@@ -2110,6 +2119,9 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
 			return err
 		}
 		{
@@ -3365,6 +3377,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			w.Bool(false)
 		}
 		w.Bool(v.Disabled)
+		w.Float64(float64(v.OnClickDelay))
 		if v.Control != nil {
 			w.Bool(true)
 			if err := v.Control.EncodeOrc(w); err != nil {
@@ -3499,6 +3512,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 		w.Bool(v.Disabled)
+		w.Float64(float64(v.OnClickDelay))
 		if v.Control != nil {
 			w.Bool(true)
 			if err := v.Control.EncodeOrc(w); err != nil {
@@ -3564,6 +3578,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(v.Units)
 		w.Bool(v.Disabled)
+		w.Float64(float64(v.OnClickDelay))
 		if v.Control != nil {
 			w.Bool(true)
 			if err := v.Control.EncodeOrc(w); err != nil {
@@ -4573,6 +4588,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		if v.Disabled, err = r.Bool(); err != nil {
 			return err
 		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
 		{
 			present, err := r.Bool()
 			if err != nil {
@@ -4822,6 +4840,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		if v.Disabled, err = r.Bool(); err != nil {
 			return err
 		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
+			return err
+		}
 		{
 			present, err := r.Bool()
 			if err != nil {
@@ -4933,6 +4954,9 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if v.Disabled, err = r.Bool(); err != nil {
+			return err
+		}
+		if v.OnClickDelay, err = r.Float64(); err != nil {
 			return err
 		}
 		{

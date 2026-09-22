@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type direction, type xy } from "@synnaxlabs/x";
+import { color, type direction, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -16,7 +16,6 @@ import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
 import { type Spec } from "@/schematic/edge/spec";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 const SYMBOL_INTERVAL = 40;
 const SYMBOL_SIZE = 10;
@@ -47,7 +46,7 @@ export const spec: Spec<"hydraulic", schematic.HydraulicEdgeConfig> =
     "Hydraulic",
     ({ points, crossings, color: colorVal }) => {
       const symbolStyle = useMemo(
-        () => ({ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }),
+        () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
         [colorVal],
       );
       return (

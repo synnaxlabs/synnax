@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
@@ -45,7 +46,7 @@ export const createToggle = <C extends ToggleConfig>(
       commandChannel,
       label,
       orientation = "left",
-      onClickDelay,
+      onClickDelay = 0,
       stalenessTimeout,
       stalenessColor,
       color: symbolColor,
@@ -79,7 +80,7 @@ export const createToggle = <C extends ToggleConfig>(
         <Sym
           enabled={enabled}
           onClick={toggle}
-          onClickDelay={onClickDelay}
+          onClickDelay={TimeSpan.milliseconds(onClickDelay)}
           orientation={orientation}
           color={stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor}
           {...rest}

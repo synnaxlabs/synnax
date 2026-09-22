@@ -17,7 +17,6 @@ import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface RenderProps extends Partial<
   Pick<
@@ -64,7 +63,7 @@ export const Tank = ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
       backgroundColor: backgroundCSS,
       borderWidth: strokeWidth,
     }),

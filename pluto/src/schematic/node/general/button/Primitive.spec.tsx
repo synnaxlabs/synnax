@@ -100,6 +100,26 @@ describe("button symbol", () => {
       expect(onMouseDown).toHaveBeenCalledTimes(1);
     });
 
+    it("should ignore a secondary-button press in momentary mode", () => {
+      const onMouseDown = vi.fn();
+      const onMouseUp = vi.fn();
+      const { container } = render(
+        <Button mode="momentary" onMouseDown={onMouseDown} onMouseUp={onMouseUp} />,
+      );
+      const btn = getButton(container);
+      fireEvent.mouseDown(btn, { button: 2 });
+      fireEvent.mouseUp(btn, { button: 2 });
+      expect(onMouseDown).not.toHaveBeenCalled();
+      expect(onMouseUp).not.toHaveBeenCalled();
+    });
+
+    it("should ignore a secondary-button press for an undelayed pulse", () => {
+      const onMouseDown = vi.fn();
+      const { container } = render(<Button mode="pulse" onMouseDown={onMouseDown} />);
+      fireEvent.mouseDown(getButton(container), { button: 2 });
+      expect(onMouseDown).not.toHaveBeenCalled();
+    });
+
     describe("activation delay", () => {
       beforeEach(() => {
         vi.useFakeTimers();
@@ -158,6 +178,26 @@ describe("button symbol", () => {
         expect(onMouseDown).not.toHaveBeenCalled();
       });
 
+      it("should ignore a secondary-button hold in fire mode", () => {
+        const onClick = vi.fn();
+        const { container } = render(
+          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+        );
+        fireEvent.mouseDown(getButton(container), { button: 2 });
+        vi.advanceTimersByTime(1000);
+        expect(onClick).not.toHaveBeenCalled();
+      });
+
+      it("should ignore a secondary-button hold for a delayed pulse", () => {
+        const onMouseDown = vi.fn();
+        const { container } = render(
+          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+        );
+        fireEvent.mouseDown(getButton(container), { button: 2 });
+        vi.advanceTimersByTime(1000);
+        expect(onMouseDown).not.toHaveBeenCalled();
+      });
+
       it("should ignore the delay for momentary mode", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
@@ -198,7 +238,9 @@ describe("ButtonForm", () => {
       </FormWrapper>,
     );
     expect(getByText("Size")).toBeDefined();
-    expect(getByText("M").closest("button")?.classList).toContain("pluto--selected");
+    expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe(
+      "true",
+    );
   });
 
   it("should not render the label size and direction fields", () => {

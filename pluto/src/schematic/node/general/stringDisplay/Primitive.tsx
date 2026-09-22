@@ -18,7 +18,6 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
@@ -47,7 +46,7 @@ export const StringDisplay = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
       width: inlineSize,
       height: HEIGHTS[LEVEL_SIZES[level]],
     }),

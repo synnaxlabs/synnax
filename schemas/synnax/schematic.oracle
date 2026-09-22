@@ -427,6 +427,9 @@ NodeConfig union on variant {
         disabled        bool = false {
             @doc value "indicates whether the input rejects interaction."
         }
+        on_click_delay  float64 = 0 {
+            @doc value "is the debounce delay applied to clicks, in milliseconds."
+        }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
         }
@@ -523,6 +526,9 @@ NodeConfig union on variant {
         disabled        bool = false {
             @doc value "indicates whether the select rejects interaction."
         }
+        on_click_delay  float64 = 0 {
+            @doc value "is the debounce delay applied to clicks, in milliseconds."
+        }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
         }
@@ -575,6 +581,9 @@ NodeConfig union on variant {
         }
         disabled        bool = false {
             @doc value "indicates whether the setpoint rejects interaction."
+        }
+        on_click_delay  float64 = 0 {
+            @doc value "is the debounce delay applied to clicks, in milliseconds."
         }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
@@ -976,6 +985,9 @@ ElementConfig union on variant {
         disabled        bool = false {
             @doc value "indicates whether the input rejects interaction."
         }
+        on_click_delay  float64 = 0 {
+            @doc value "is the debounce delay applied to clicks, in milliseconds."
+        }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
         }
@@ -1072,6 +1084,9 @@ ElementConfig union on variant {
         disabled        bool = false {
             @doc value "indicates whether the select rejects interaction."
         }
+        on_click_delay  float64 = 0 {
+            @doc value "is the debounce delay applied to clicks, in milliseconds."
+        }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."
         }
@@ -1124,6 +1139,9 @@ ElementConfig union on variant {
         }
         disabled        bool = false {
             @doc value "indicates whether the setpoint rejects interaction."
+        }
+        on_click_delay  float64 = 0 {
+            @doc value "is the debounce delay applied to clicks, in milliseconds."
         }
         control         ControlStateConfig? {
             @doc value "is the control state display configuration."

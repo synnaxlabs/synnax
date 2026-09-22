@@ -41,6 +41,7 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
           onChange={handleSinkChange}
         />
       </Input.Item>
+      <Form.ActivationDelayField />
       <Form.ControlChipField />
     </Form.Wrapper>
   );
