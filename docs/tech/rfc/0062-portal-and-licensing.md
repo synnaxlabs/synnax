@@ -549,12 +549,15 @@ keeps only what binds it to the session: the factory and the stack.
   redirects to `/sso-callback` and completes to the requested page. Clerk's error codes
   map to field help text; nothing else surfaces raw vendor copy.
 - **Licenses** (`/portal`, team members): The organization's licenses as a table of
-  label, edition, term, seats in use, and a status tag. Activate a machine opens a
-  dialog: the license to activate, if the page did not name one, a name for the machine,
-  a field for the fingerprint the Console copied, and an Activate action that downloads
-  the token and leaves the dialog in a done state with Download again.
-  `/portal/licenses/activate`, the page the Console links, is the licenses page with
-  that dialog open, taking `?license=`. An organization with no licenses sees why.
+  label, edition, term, seats in use, and a status tag. A license reads Active,
+  Expiring, Expired, or Revoked. Expiring means within 30 days of its expiry, and a
+  Desktop license never reads it, because a short term it renews itself says nothing. An
+  expiring license still grants seats. Activate a machine opens a dialog: the license to
+  activate, if the page did not name one, a name for the machine, a field for the
+  fingerprint the Console copied, and an Activate action that downloads the token and
+  leaves the dialog in a done state with Download again. `/portal/licenses/activate`,
+  the page the Console links, is the licenses page with that dialog open, taking
+  `?license=`. An organization with no licenses sees why.
 - **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
   by name, with first seen and last renewal, an Unlink action per machine, and an empty
   state. The Enterprise panel sits beneath the list.
@@ -573,9 +576,11 @@ keeps only what binds it to the session: the factory and the stack.
   per-member menu. Membership goes through Clerk's organization API; there is no team
   creation on the site.
 - **Staff licenses** (`/portal/staff/licenses`): Every license with its organization,
-  and Issue license as a dialog: the organization chosen from Clerk's organization list,
-  label, term, nodes, channels, and the expiry or maximum version the term needs,
-  validated before the post. Issuing upserts the organization row (§5.6).
+  narrowed by a search over label, organization, and key, and by a status filter. The
+  Expiring filter sorts soonest first, which is the renewal queue. Issue license is a
+  dialog: the organization chosen from Clerk's organization list, label, term, nodes,
+  channels, and the expiry or maximum version the term needs, validated before the post.
+  Issuing upserts the organization row (§5.6).
 
 ## 6 What this RFC does not cover
 

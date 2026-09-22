@@ -16,9 +16,11 @@ import {
   date,
   dateTime,
   edition,
+  type LicenseStatus,
   machineName,
   statusOf,
   term,
+  usable,
 } from "@/portal/ui/format";
 import { ActivateDialog } from "@/portal/ui/licenses/ActivateDialog";
 import { EditDialog } from "@/portal/ui/licenses/EditDialog";
@@ -71,9 +73,7 @@ export const License = ({
       actions={
         <>
           {staff && <StaffActions license={lic} status={status} />}
-          {status === "active" && (
-            <ActivateDialog licenseKey={lic.key} label={lic.label} />
-          )}
+          {usable(status) && <ActivateDialog licenseKey={lic.key} label={lic.label} />}
         </>
       }
     >
@@ -277,7 +277,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
 
 interface StaffActionsProps {
   license: LicenseRecord;
-  status: ReturnType<typeof statusOf>;
+  status: LicenseStatus;
 }
 
 const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement => {
@@ -290,7 +290,7 @@ const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement
   return (
     <>
       {status !== "revoked" && <EditDialog license={lic} />}
-      {status === "active" && (
+      {usable(status) && (
         <Button.Button
           variant="outlined"
           onClick={floating.run}

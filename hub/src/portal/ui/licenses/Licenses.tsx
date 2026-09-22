@@ -10,7 +10,7 @@
 import { Flex, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { channels, date, edition, statusOf, term } from "@/portal/ui/format";
+import { channels, date, edition, statusOf, term, usable } from "@/portal/ui/format";
 import { ActivateDialog } from "@/portal/ui/licenses/ActivateDialog";
 import { StatusTag } from "@/portal/ui/licenses/StatusTag";
 import { Empty, Page } from "@/portal/ui/Page";
@@ -37,7 +37,7 @@ export const Licenses = ({
   now,
 }: LicensesProps): ReactElement => {
   const at = new Date(now);
-  const activatable = licenses.filter((l) => statusOf(l.license, at) === "active");
+  const activatable = licenses.filter((l) => usable(statusOf(l.license, at)));
   return (
     <Page
       title="Licenses"

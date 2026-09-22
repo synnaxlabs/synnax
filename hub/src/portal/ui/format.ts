@@ -26,14 +26,25 @@ export const machineName = (a: {
   fingerprint: string[];
 }): string => a.name ?? shortHash(a.fingerprint);
 
-export type LicenseStatus = "active" | "expired" | "revoked";
+export type LicenseStatus = "active" | "expiring" | "expired" | "revoked";
+
+/** EXPIRING is how long before its expiry a license starts asking to be renewed. */
+const EXPIRING = 30 * 24 * 60 * 60 * 1000;
 
 /** statusOf derives a license's state from its dates at `now`. */
 export const statusOf = (lic: License, now: Date): LicenseStatus => {
   if (lic.revokedAt != null) return "revoked";
-  if (lic.expiresAt != null && new Date(lic.expiresAt) <= now) return "expired";
-  return "active";
+  if (lic.expiresAt == null) return "active";
+  const left = new Date(lic.expiresAt).getTime() - now.getTime();
+  if (left <= 0) return "expired";
+  // A Desktop license renews itself on a short term, so a near expiry is normal there.
+  if (lic.edition === "desktop" || left > EXPIRING) return "active";
+  return "expiring";
 };
+
+/** usable is true while a license in `status` can still grant a seat. */
+export const usable = (status: LicenseStatus): boolean =>
+  status === "active" || status === "expiring";
 
 export const term = (lic: License): string => {
   if (lic.term === "perpetual") return `Perpetual, up to v${lic.maxVersion}`;
