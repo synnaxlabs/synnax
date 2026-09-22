@@ -34,8 +34,8 @@ needing broader context:
 - `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
-- `docs/claude/scripts.md` — repo scripts in `/scripts/` (formatting, copyright headers,
-  codegen checks, release/CI tooling)
+- `scripts/CLAUDE.md` — repo scripts (formatting, copyright headers, codegen checks,
+  release/CI tooling) (also auto-loads)
 - `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
   and citations (also auto-loads)
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
