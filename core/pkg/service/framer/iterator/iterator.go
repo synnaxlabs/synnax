@@ -44,6 +44,9 @@ const (
 
 type responseSegment = confluence.Segment[Response, Response]
 
+// ErrClosed is returned by Error when the Iterator has been closed.
+var ErrClosed = framer.ErrIteratorClosed
+
 type Iterator struct {
 	requests    confluence.Inlet[Request]
 	responses   confluence.Outlet[Response]
@@ -112,8 +115,9 @@ func (i *Iterator) Error() error {
 
 // Close closes the Iterator, ensuring that all in-progress reads complete before
 // closing the Source outlet. It returns the error that stopped the iterator, unless a
-// seek or SetBounds has cleared it since. Closing a closed iterator returns nil. All
-// iterators must be Closed, or the distribution layer will panic.
+// seek or SetBounds has cleared it since. Closing a closed iterator returns nil, every
+// other method returns false, and Error returns ErrClosed. All iterators must be
+// Closed, or the distribution layer will panic.
 func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
@@ -147,6 +151,9 @@ func (i *Iterator) exec(req Request) bool {
 }
 
 func (i *Iterator) execErr(req Request) (bool, error) {
+	if i.closed {
+		return false, ErrClosed
+	}
 	i.requests.Inlet() <- req
 	for res := range i.responses.Outlet() {
 		if res.Variant == ResponseVariantAck {

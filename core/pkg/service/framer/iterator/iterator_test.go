@@ -1472,6 +1472,29 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	})
 })
 
+var _ = Describe("Close", func() {
+	It("Should reject every call after Close", func(ctx SpecContext) {
+		node := mock.NewNode(ctx)
+		iteratorSvc, channelSvc := openServices(ctx, node)
+		ch := &channel.Channel{
+			Name:     "Scott",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
+		iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+			Keys:   []channel.Key{ch.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.Close()).To(Succeed())
+		Expect(iter.SeekFirst()).To(BeFalse())
+		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+		Expect(iter.Valid()).To(BeFalse())
+		Expect(iter.Error()).To(MatchError(iterator.ErrClosed))
+		Expect(iter.Close()).To(Succeed())
+	})
+})
+
 var _ = Describe("Read failure", func() {
 	It("Should return the read error from Close", func(ctx SpecContext) {
 		var (

@@ -14,11 +14,15 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type StreamIterator = confluence.Segment[Request, Response]
+
+// ErrClosed is returned by Error when the Iterator has been closed.
+var ErrClosed = errors.New("iterator closed")
 
 type Iterator struct {
 	requests  confluence.Inlet[Request]
@@ -88,7 +92,8 @@ func (i *Iterator) Error() error {
 // Close closes the Iterator, ensuring that all in-progress reads complete before
 // closing the Source outlet. It returns the error that stopped the iterator on any
 // node, unless a seek or SetBounds has cleared it since. Closing a closed iterator
-// returns nil. All iterators must be Closed, or the distribution layer will panic.
+// returns nil, every other method returns false, and Error returns ErrClosed. All
+// iterators must be Closed, or the distribution layer will panic.
 func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
@@ -118,6 +123,9 @@ func (i *Iterator) exec(req Request) bool {
 }
 
 func (i *Iterator) execErr(req Request) (bool, error) {
+	if i.closed {
+		return false, ErrClosed
+	}
 	i.requests.Inlet() <- req
 	for res := range i.responses.Outlet() {
 		if res.Variant == ResponseVariantAck {

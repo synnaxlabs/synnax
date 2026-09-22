@@ -186,6 +186,22 @@ func openFaultyCluster(ctx context.Context) (*mock.Cluster, map[node.Key]*Faulty
 	return cluster, faulty
 }
 
+var _ = Describe("Close", func() {
+	It("Should reject every call after Close", func(ctx SpecContext) {
+		s := DeferClose(gatewayOnlyScenario(ctx))
+		iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+			Keys:   s.keys,
+			Bounds: telem.TimeRangeMax,
+		}))
+		Expect(iter.Close()).To(Succeed())
+		Expect(iter.SeekFirst()).To(BeFalse())
+		Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+		Expect(iter.Valid()).To(BeFalse())
+		Expect(iter.Error()).To(MatchError(iterator.ErrClosed))
+		Expect(iter.Close()).To(Succeed())
+	})
+})
+
 var _ = Describe("Read failure", func() {
 	DescribeTable(
 		"Should return the read error from Close",
