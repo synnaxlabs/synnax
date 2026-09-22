@@ -23,6 +23,15 @@ def clear_published_files_cache() -> None:
     prune_published.published_files.cache_clear()
 
 
+class TestDefaultDistDir:
+    """Tests for where the script looks when no directory is given."""
+
+    def test_should_sit_at_the_repo_root(self) -> None:
+        root = prune_published.DEFAULT_DIST_DIR.parent
+        assert (root / "pyproject.toml").is_file()
+        assert (root / ".github" / "scripts" / "prune_published.py").is_file()
+
+
 class TestParseNameVersion:
     """Tests for wheel and sdist file name parsing."""
 
