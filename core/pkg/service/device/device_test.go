@@ -922,6 +922,43 @@ var _ = Describe("Device", func() {
 	})
 	Describe("Observe", func() {
 		It("Should notify when a device is created", func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustOpen(search.OpenIndex())
+			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Search:   searchIdx,
+			}))
+			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    groupSvc,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
+			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        groupSvc,
+				HostProvider: mock.NewStaticHostProvider(1),
+				Status:       stat,
+				Search:       searchIdx,
+			}))
+			svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Status:   stat,
+				Rack:     rackSvc,
+				Search:   searchIdx,
+			}))
 			var created atomic.Value
 			disconnect := svc.Observe().OnChange(
 				func(ctx context.Context, r gorp.TxReader[device.Key, device.Device]) {
