@@ -694,9 +694,9 @@ jobs:
         run: |
           go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} \
             -ldflags="-w -s \
-              -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} \
-              -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
-              -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              -X github.com/synnaxlabs/synnax/pkg/version.version=${{ needs.setup.outputs.VERSION }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.gitCommit=${{ github.sha }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Core Binary

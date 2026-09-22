@@ -29,12 +29,6 @@ var _ = Describe("Commit", func() {
 	})
 })
 
-var _ = Describe("Date", func() {
-	It("Should return unknown when not set via ldflags", func() {
-		Expect(version.Date()).To(Equal("unknown"))
-	})
-})
-
 var _ = Describe("Time", func() {
 	It("Should return zero time when not set via ldflags", func() {
 		Expect(version.Time()).To(Equal(time.Time{}))
