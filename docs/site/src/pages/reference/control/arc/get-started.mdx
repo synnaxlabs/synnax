@@ -121,16 +121,14 @@ func output_reading() {
 }
 ```
 
-The `$=` operator creates a **stateful variable**, a value that persists across
-invocations. Regular variables (`:=`) reset every time the function runs, but stateful
-variables remember their value.
+The `$=` operator creates a
+[**stateful variable**](/reference/control/arc/reference/variables#stateful), a value
+that persists across invocations. Regular variables (`:=`) reset every time the function
+runs, but stateful variables remember their value.
 
 Here, `count` starts at 10 the first time `output_reading` runs. Each subsequent call
 increments it: 11, 12, 13, and so on. The function then writes this value to
 `tank_pressure`.
-
-Learn how [stateful variables](/reference/control/arc/reference/variables#stateful)
-persist and reset.
 
 ### Flow statements
 
