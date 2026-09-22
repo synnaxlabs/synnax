@@ -199,8 +199,8 @@ interface FieldListProps {
 }
 
 /**
- * Binds an endpoint's fields to the channels the device stores for its path. Mounted
- * by the form for every endpoint, as the field list renders only for the selected one.
+ * Binds an endpoint's fields to the channels the device stores for its path. Mounted by
+ * the form for every endpoint, as the field list renders only for the selected one.
  */
 const FieldBinder = ({ epKey }: FieldListProps) => {
   const dev = useFromConfig();
