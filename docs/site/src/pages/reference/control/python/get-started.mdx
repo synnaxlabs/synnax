@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Python Control"
+title: "Python control"
 next: "Examples"
 nextURL: "/reference/control/python/examples"
 ---
@@ -27,7 +27,7 @@ Before you can start writing control sequences, you'll need to have:
 
 <Divider.Divider x />
 
-## Opening a Controller
+## Opening a controller
 
 The `Controller` class is the main entry point for writing control sequences. At the
 start of your script, you'll need to open a controller using the `control.acquire`
@@ -87,7 +87,7 @@ The `acquire` method takes a few arguments:
 
 <Divider.Divider x />
 
-## Commanding a Channel
+## Commanding a channel
 
 The simplest way to command a channel is to access it as a dictionary key on the
 controller and assign a value to it.
@@ -128,13 +128,13 @@ controller.set({
 
 <Divider.Divider x />
 
-## Waiting for a Condition
+## Waiting for a condition
 
 The `wait_until` method allows you to wait for a condition to be met before continuing.
 This method accepts a function that takes in the current sensor values and returns a
 boolean.
 
-### Lambda Expressions
+### Lambda expressions
 
 We recommend relying on `lambda` expressions to keep your code simple. A lambda
 expression is a simple way to define a function in one line. Here's an example of a
@@ -163,7 +163,7 @@ with client.control.acquire(
     controller.wait_until(lambda sv: sv["pressure_1"] > 25)
 ```
 
-### Adding a Timeout
+### Adding a timeout
 
 The `wait_until` method will continuously check the condition on every new value until
 it returns `True`. If you'd like to add a timeout to the wait, you can pass in a
@@ -184,7 +184,7 @@ if timed_out:
 
 <Divider.Divider x />
 
-## Blocking While a Condition is True
+## Blocking while a condition is true
 
 The `wait_while` method allows you to block the control sequence until a condition is no
 longer true. This method is useful for waiting for a sensor value to reach a certain
@@ -205,7 +205,7 @@ In many ways, you can think of the `wait_while` method as the opposite of the
 
 <Divider.Divider x />
 
-## Asserting a Condition Remains True
+## Asserting a condition remains true
 
 The `remains_true_for` method allows you to assert that a condition remains true for a
 certain duration. This method is useful for ensuring that a sensor value remains within
@@ -229,7 +229,7 @@ with client.control.acquire(
   than the provided duration unless the condition is no longer true.
 </Note.Note>
 
-### Remains True for a Certain Percentage of Samples
+### Remains true for a certain percentage of samples
 
 The `remains_true_for` method also accepts a `percentage` argument, which is a decimal
 value that allows you to specify the percentage of samples that must meet the condition.

@@ -4,7 +4,7 @@
     </a>
 </p>
 
-# Synnax Python Client and CLI
+# Synnax Python client and CLI
 
 This directory contains the source code for the Synnax Python client library. For
 practical guides on using it to communicate with a cluster, see the

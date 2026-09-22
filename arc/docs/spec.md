@@ -1,4 +1,4 @@
-# Arc Language Specification
+# Arc language specification
 
 Arc is a reactive automation language for hardware control and telemetry systems.
 Compiles to WebAssembly for embedded execution in the Synnax platform.
@@ -12,9 +12,9 @@ MultiLineComment ::= '/*' .*? '*/'
 
 Comments are allowed anywhere in the source code.
 
-## Type System
+## Type system
 
-### Primitive Types
+### Primitive types
 
 ```
 Type ::= PrimitiveType | ChannelType | SeriesType
@@ -30,7 +30,7 @@ FloatType ::= 'f32' | 'f64'
 
 **NumericType defaults**: Integer literals default to `i64`, float literals to `f64`.
 
-### Boolean Semantics
+### Boolean semantics
 
 Comparisons and logical operators return `bool`. Logical operators (`and`/`or`/`not`)
 take `bool` only. No implicit `bool`/numeric conversion; `if` and `=>` also accept
@@ -42,14 +42,14 @@ in_range := temp > 20.0 and temp < 30.0 // bool
 inverted := not ready // false
 ```
 
-### Channel Types
+### Channel types
 
 ```
 ChannelType ::= 'chan' PrimitiveType UnitSuffix?
               | 'chan' SeriesType
 ```
 
-### Series Types
+### Series types
 
 ```
 SeriesType ::= 'series' PrimitiveType UnitSuffix?
@@ -95,7 +95,7 @@ equal := msg == "Hello" // equality (returns bool)
 `bool` values are supported. A placeholder that reads a channel takes its latest value
 (non-blocking snapshot).
 
-### Numeric Literals
+### Numeric literals
 
 ```
 NumericLiteral ::= IntegerLiteral | FloatLiteral
@@ -105,7 +105,7 @@ FloatLiteral ::= Digit+ '.' Digit* | '.' Digit+  // defaults to f64
 
 Examples: `42`, `3.14`, `u8(255)`, `f32(1.5)`
 
-### Boolean Literals
+### Boolean literals
 
 ```
 BooleanLiteral ::= 'true' | 'false'
@@ -113,12 +113,12 @@ BooleanLiteral ::= 'true' | 'false'
 
 Examples: `armed := true`, `enabled bool := false`
 
-### Zero Values
+### Zero values
 
 All types have default zero values: integers/floats `0`, `bool` `false`, string `""`,
 channels return zero on first read before write.
 
-### Type Casting
+### Type casting
 
 Explicit casting between primitive types:
 
@@ -136,11 +136,11 @@ TypeCast ::= Type '(' Expression ')'
 - Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
 - Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
-## Unit System
+## Unit system
 
 Arc supports dimensional analysis with unit annotations on types and literals.
 
-### Unit Suffixes on Types
+### Unit suffixes on types
 
 Types can have unit suffixes for dimensional tracking:
 
@@ -150,7 +150,7 @@ distance f64 m := 50.0
 duration i64 ns := 1000000000
 ```
 
-### Unit Literals
+### Unit literals
 
 Numeric literals can have unit suffixes (no whitespace between number and unit):
 
@@ -165,7 +165,7 @@ Examples: `100ms`, `5s`, `1min` (minute), `1d` (day), `10hz` (= 100ms period), `
 **Note**: `min` is minutes; `m` alone is the meter (a length unit). Frequency units
 convert to timespan by inverting the period.
 
-### Temporal Values
+### Temporal values
 
 Timestamps and timespans are represented as `i64` with time units (nanoseconds):
 
@@ -175,7 +175,7 @@ interval := 5s // i64 with time units
 timestamp := now() // i64 ns from now() builtin
 ```
 
-### Dimensional Compatibility
+### Dimensional compatibility
 
 - **Addition/Subtraction**: Operands must have compatible dimensions
 - **Multiplication/Division**: Always valid; dimensions combine
@@ -224,7 +224,7 @@ total $= 0 // stateful (persists across invocations)
 count = count + 1 // reassignment
 ```
 
-### Compound Assignment
+### Compound assignment
 
 ```arc
 count += 1 // count = count + 1
@@ -241,7 +241,7 @@ initializer.
 
 ## Operators
 
-### Expression Grammar and Precedence
+### Expression grammar and precedence
 
 ```
 Expression ::= UnaryExpression | BinaryExpression | PrimaryExpression
@@ -276,7 +276,7 @@ func example{}(){
 }
 ```
 
-## Built-in Functions
+## Built-in functions
 
 Arc provides the following built-in functions:
 
@@ -300,7 +300,7 @@ Arc has two execution contexts with different function syntax:
   `func{...}` syntax, with an upstream edge feeding the trigger input
 - **Imperative scope** (function bodies): Functions are called using `func(args)` syntax
 
-### Function Declaration
+### Function declaration
 
 ```
 FunctionDeclaration ::= 'func' Identifier BraceInputs? '(' InputList? ')' OutputType? Block
@@ -380,7 +380,7 @@ which input that edge feeds:
 - A function with no parens-block input is **trigger-only**: the edge activates the node
   without binding a value.
 
-### Calling Functions (Imperative Scope)
+### Calling functions (imperative scope)
 
 Inside function bodies, call other functions using parentheses:
 
@@ -391,7 +391,7 @@ func process(x f64) f64 {
 }
 ```
 
-### Instantiating Functions (Reactive Scope)
+### Instantiating functions (reactive scope)
 
 In flow statements, instantiate functions as nodes using brace block syntax:
 
@@ -402,7 +402,7 @@ sensor -> controller{setpoint=100.0, sensor=temp, actuator=valve}
 The upstream edge feeds the function's trigger input. Mapping multiple upstream sources
 to named inputs requires routing tables (see Flow Layer).
 
-### Multi-Output Functions
+### Multi-output functions
 
 Functions can have multiple named outputs:
 
@@ -416,7 +416,7 @@ func threshold(value f64) (above f64, below f64) {
 }
 ```
 
-### Stateful Variables
+### Stateful variables
 
 Functions can declare **stateful variables** using `$=` that persist across invocations:
 
@@ -431,7 +431,7 @@ func counter() i64 {
 A `$=` initializer must be a literal value; only literal variables can be stateful.
 `true` and `false` are literals.
 
-### Channel Operations in Functions
+### Channel operations in functions
 
 Functions can read from and write to channels:
 
@@ -448,7 +448,7 @@ Functions can also reference global channels directly by name.
 
 **Restrictions**: No closures, no nested functions. Recursion is allowed.
 
-## Control Flow
+## Control flow
 
 ```
 IfStatement ::= 'if' Expression Block ElseIfClause* ElseClause?
@@ -470,7 +470,7 @@ if pressure > 100 {
 }
 ```
 
-### Return Statements
+### Return statements
 
 ```arc
 func example() f64 {
@@ -491,11 +491,11 @@ func sideEffect() {
 Explicit `return` statements are required for functions with return types. No implicit
 returns.
 
-## Flow Layer
+## Flow layer
 
 The flow layer connects functions via channels in the reactive scope.
 
-### Flow Statement Grammar
+### Flow statement grammar
 
 ```
 FlowStatement ::= (RoutingTable | FlowNode) (FlowOperator (RoutingTable | FlowNode))+
@@ -522,13 +522,13 @@ or an inline stage/sequence body. The routed output only decides that the entry 
 feeds no value into it. A trailing `: Identifier` maps the entry's own result to an
 input of the function after the table.
 
-### Simple Pipelines
+### Simple pipelines
 
 ```arc
 sensor -> filter{threshold=50.0} -> controller{} -> actuator
 ```
 
-### Output Routing Tables
+### Output routing tables
 
 Branch on named outputs; the output that fires runs its entry:
 
@@ -539,7 +539,7 @@ sensor -> demux{} -> {
 }
 ```
 
-### Input Routing Tables
+### Input routing tables
 
 Map multiple sources to named input parameters:
 
@@ -550,7 +550,7 @@ Map multiple sources to named input parameters:
 } -> combiner{}
 ```
 
-### Combined Routing
+### Combined routing
 
 ```arc
  {
@@ -562,7 +562,7 @@ Map multiple sources to named input parameters:
 }
 ```
 
-### Expressions in Flows
+### Expressions in flows
 
 Inline expressions act as implicit functions. Expressions can reference identifiers in
 scope (channels, variables), literals, and function calls, but not function-local
@@ -574,7 +574,7 @@ temperature > 100 -> alarm{} // comparison (the edge carries a bool)
 pressure > 100 or emergency -> shutdown{} // logical (emergency is a chan bool)
 ```
 
-### Selecting on a Boolean
+### Selecting on a boolean
 
 `select{}` runs the `true` or `false` entry for each `bool` input. No value flows into
 the entry; each case body is a full flow statement.
@@ -586,7 +586,7 @@ pressure > 500.0 -> select{} -> {
 }
 ```
 
-### Cycle Detection
+### Cycle detection
 
 Flow graphs must be acyclic within each scope:
 
@@ -599,7 +599,7 @@ Flow graphs must be acyclic within each scope:
 Sequences extend Arc's reactive model to support sequential automation workflows like
 test sequences, state machines, and ordered procedures.
 
-### Core Concepts
+### Core concepts
 
 **Sequence**: An ordered list of steps: flow statements, stages, and nested sequences.
 Only one step is active at a time.
@@ -613,7 +613,7 @@ inactive, they don't.
 - `=>` (Conditional): Propagates only when the source output is truthy (a `bool` `true`,
   a non-zero numeric, or a non-empty string)
 
-### Sequence Syntax
+### Sequence syntax
 
 ```
 SequenceDeclaration ::= 'sequence' Identifier? '{' SequenceItem* '}'
@@ -656,7 +656,7 @@ sequence abort {
 }
 ```
 
-### Definition Order and `next`
+### Definition order and `next`
 
 The `next` keyword resolves to the next stage in definition order:
 
@@ -675,13 +675,13 @@ stage step3 {} // terminal (no outgoing transitions)
 - `next` is only valid within a stage (not in top-level flow statements)
 - Using `next` on the last stage in a sequence is a compile-time error
 
-### Transition Targets
+### Transition targets
 
 - `=> next` — Go to the next stage in definition order
 - `=> stage_name` — Jump to any stage in the same sequence
 - `=> sequence_name` — Jump to a different sequence (starts at its first stage)
 
-### Step Completion
+### Step completion
 
 A sequence runs its steps in order. When a step completes, the sequence advances; when
 its last step completes, the sequence exits. A completed gated sequence can be triggered
@@ -694,7 +694,7 @@ completes. The stage leaves only through its own `=>` transition.
 A flow step completes when its final node fires. Stages do not complete; they leave only
 through an explicit `=>` transition.
 
-### Reactive vs One-Shot Semantics
+### Reactive vs one-shot semantics
 
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
 stage is active.
@@ -707,7 +707,7 @@ already-active stage is a no-op, preventing re-entry.
 entry node when nothing flows into it and it reads no channels: a literal, or a call
 taking only `{...}` inputs.
 
-### Scope Entry Semantics
+### Scope entry semantics
 
 When entering a stage or a sequence:
 
@@ -717,7 +717,7 @@ When entering a stage or a sequence:
 
 Aside from stateful variables (`$=`), a scope keeps no memory between entries.
 
-### Cross-Sequence Transitions
+### Cross-sequence transitions
 
 When transitioning to another sequence (e.g., `=> abort`):
 
@@ -728,7 +728,7 @@ When transitioning to another sequence (e.g., `=> abort`):
 
 Activations are independent: several top-level scopes can run at the same time.
 
-### Top-Level Entry Points
+### Top-level entry points
 
 Entry points connect external events to sequences:
 
@@ -739,7 +739,7 @@ emergency_stop => abort // multiple entries allowed
 
 The sequence starts when the source produces a truthy value.
 
-## Naming and Scoping
+## Naming and scoping
 
 **Global namespace**: All functions, sequences, and external channels must have unique
 names.
@@ -748,7 +748,7 @@ names.
 
 **Channel declaration**: Channels are external to Arc, referenced by name.
 
-## Language Restrictions
+## Language restrictions
 
 These simplify implementation while maintaining expressiveness:
 
@@ -762,9 +762,9 @@ These simplify implementation while maintaining expressiveness:
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
 
-## Error Handling
+## Error handling
 
-### Compile-Time Errors
+### Compile-time errors
 
 - **Type errors**: Mismatches, invalid casts, bare `[]` without type
 - **Name resolution**: Undefined identifiers, duplicates, shadowing
@@ -774,17 +774,24 @@ These simplify implementation while maintaining expressiveness:
   dimensioned base
 - **Operands**: Non-`bool` logical operands
 
-### Runtime Errors
+### Runtime errors
 
 - **Arithmetic**: Division/modulo by zero
 - **Array/String**: Out-of-bounds access, length mismatch in series operations
 - **Channel**: Type mismatches (if not statically verified)
 
-## Compilation Target
+A runtime error traps the node. The runtime reports the error and ends that node's
+cycle: the node emits no samples and marks no output changed, so nodes downstream of it
+do not run. A node processing a series discards the samples before the trap along with
+the rest, so output never depends on where in the series the trap occurred. Stateful
+variables keep what the body wrote before the trap, and the node runs again from that
+state on the next cycle.
+
+## Compilation target
 
 Arc compiles exclusively to WebAssembly (WASM).
 
-### Compilation Output
+### Compilation output
 
 The compiler produces a package containing:
 
@@ -799,7 +806,7 @@ The compiler produces a package containing:
 
 3. **Output Maps**: Memory layout information for multi-output functions
 
-### WASM Module Structure
+### WASM module structure
 
 Generated module contains:
 
@@ -821,7 +828,7 @@ Example imports:
 **Type mapping**: `i8`-`i32`, `u8`-`u32`, `bool` → WASM `i32` (`bool` is `0`/`1`);
 `i64`, `u64` → WASM `i64`; `f32` → WASM `f32`; `f64` → WASM `f64`.
 
-### Stratified Execution
+### Stratified execution
 
 The runtime executes nodes in stratified order for deterministic reactive scheduling:
 
@@ -829,7 +836,7 @@ The runtime executes nodes in stratified order for deterministic reactive schedu
 2. **Stage strata**: Active stage nodes execute in topological order
 3. **Convergence**: Stage transitions trigger re-evaluation until stable
 
-### Compilation Pipeline
+### Compilation pipeline
 
 ```
 Source Code
@@ -849,7 +856,7 @@ Compiler: Generate WASM + Build IR
 Output Package (IR + WASM + Maps)
 ```
 
-### Runtime Responsibilities
+### Runtime responsibilities
 
 The Synnax runtime handles:
 

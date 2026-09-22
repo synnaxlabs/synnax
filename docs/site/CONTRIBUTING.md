@@ -1,8 +1,8 @@
-# Contributing to the Synnax Documentation Site
+# Contributing to the Synnax documentation site
 
-## Synnax Product Conventions
+## Synnax product conventions
 
-### Referring to Products
+### Referring to products
 
 Synnax has several products, and each should be referred to by its proper name,
 including capitalization. The following are the proper names:
@@ -17,37 +17,41 @@ When mentioning a product, use the full name the first time referencing it, and 
 the short name thereafter. As an analogy, imagine writing an essay on a topic, and
 referring to "George Washington" the first time, and then "Washington" thereafter.
 
-### Console Components
+### Console components
 
-The following components of the Console should be referenced with capital letters:
+Console components are common nouns. Write them in lowercase mid-sentence, and
+capitalize only at the start of a sentence or heading. Proper nouns inside a name keep
+their capital ("Core selector", "Arc explorer"):
 
-- Channels Toolbar
-- Core Selector
-- Devices Toolbar
-- Ranges Toolbar
-- Search and Command Palette
-- Tasks Toolbar
-- Users Toolbar
-- Workspace Selector
-- Workspaces Toolbar
+- channels toolbar
+- Core selector
+- devices toolbar
+- ranges toolbar
+- search and command palette
+- tasks toolbar
+- users toolbar
+- project selector
+- projects toolbar
 
-Make sure to use the correct form (plural or singular) when referring to these ("Ranges
-Toolbar" not "Range Toolbar", and "Visualization Toolbar" not "Visualizations Toolbar").
-After referring to these once, you should use the lower case of the component type when
-referring to it ("toolbar", "selector", "palette").
+Make sure to use the correct form (plural or singular) when referring to these ("ranges
+toolbar" not "range toolbar", and "visualization toolbar" not "visualizations toolbar").
+After referring to these once, you should use the component type alone when referring to
+it ("toolbar", "selector", "palette").
 
-### Task Names
+### Task names
 
-When referring to the full name of a task, capitalize everything ("NI Digital Read Task"
-not "NI digital read task"). When referring to the general category of a task, use
-lowercase, ("write tasks let the Driver control hardware").
+Task names are written in sentence case. Only proper nouns and acronyms keep their
+capitals ("NI digital read task" not "NI Digital Read Task"). When referring to the
+general category of a task, use lowercase ("write tasks let the Driver control
+hardware").
 
-## Documentation Site Conventions
+## Documentation site conventions
 
-### Title Case
+### Sentence case
 
-In general, `<h1>`, `<h2>`, and `<h3>` tags should be in title case. `<h4>` tags and
-lower level tags should be in sentence case.
+All headings, page titles, and navigation labels are in sentence case. Capitalize only
+the first word, proper nouns, and acronyms ("Task configuration reference", not "Task
+Configuration Reference").
 
 ### Dividers
 
@@ -59,9 +63,9 @@ Before every `<h2>` tag, you should add a `<Divider.Divider x />` tag.
 ## Ranges
 ```
 
-## Writing Conventions
+## Writing conventions
 
-### Linking to Pages
+### Linking to pages
 
 When writing a link to a page, make sure the text the link is on has semantic meaning.
 DO NOT write links on the word "page", "pages", or "here".
@@ -91,7 +95,7 @@ a Synnax Core. You can find more information on ranges on this
 
 This helps with readability and SEO.
 
-### External Product Reference
+### External product reference
 
 When referring to external products, please use proper capitalization:
 

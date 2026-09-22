@@ -99,7 +99,7 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
         ))}
       </Base.Selector>
       {tabs.map(({ tabKey }) => (
-        <Base.Content key={tabKey} itemKey={tabKey}>
+        <Base.Content key={tabKey} itemKey={tabKey} keepMounted>
           {rest[tabKey] ?? rest[slotName(tabKey)]}
         </Base.Content>
       ))}

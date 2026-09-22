@@ -1,4 +1,4 @@
-# Pull Request
+# Pull request
 
 Go to the `Preview` tab and select the appropriate template for your pull request:
 
