@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/button/button.css";
 
+import { color } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type MouseEventHandler,
@@ -21,7 +22,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
+import { Triggers } from "@/triggers";
 
 interface ButtonProps extends Omit<Config, "variant"> {
   className?: string;
@@ -30,21 +31,32 @@ interface ButtonProps extends Omit<Config, "variant"> {
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
 }
 
+// A context menu swallows a secondary press's release, so momentary would stay pressed.
+const primaryOnly = (
+  handler?: MouseEventHandler<HTMLButtonElement>,
+): MouseEventHandler<HTMLButtonElement> | undefined =>
+  handler == null
+    ? undefined
+    : (e) => {
+        if (e.button === Triggers.MOUSE_LEFT_NUMBER) handler(e);
+      };
+
 export const Button = ({
   onClick,
   onMouseDown,
   onMouseUp,
   orientation = "left",
   label,
-  color,
+  color: colorVal,
   size,
   level,
   mode = "fire",
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
-    [color],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
   // The activation delay gates Base.Button's onClick, so single-shot actuation
   // (fire's release write, pulse's press write) routes through it. An undelayed
@@ -52,9 +64,15 @@ export const Button = ({
   // the hold is the actuation, so a hold delay has no meaning there.
   const delayed = (delay ?? 0) > 0;
   let handlers: Pick<ButtonProps, "onClick" | "onMouseDown" | "onMouseUp">;
-  if (mode === "momentary") handlers = { onMouseDown, onMouseUp };
+  if (mode === "momentary")
+    handlers = {
+      onMouseDown: primaryOnly(onMouseDown),
+      onMouseUp: primaryOnly(onMouseUp),
+    };
   else if (mode === "pulse")
-    handlers = delayed ? { onClick: onMouseDown } : { onMouseDown };
+    handlers = delayed
+      ? { onClick: onMouseDown }
+      : { onMouseDown: primaryOnly(onMouseDown) };
   else handlers = { onClick };
   return (
     <Primitive.Div orientation={orientation}>

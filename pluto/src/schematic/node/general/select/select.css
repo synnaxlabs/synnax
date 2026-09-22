@@ -42,3 +42,8 @@
         z-index: 5;
     }
 }
+
+/* A connected dialog matches its trigger, which can be narrower than the search box. */
+.pluto-select-symbol__dialog {
+    min-width: 30rem;
+}
