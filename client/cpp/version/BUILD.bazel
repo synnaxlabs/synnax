@@ -13,10 +13,7 @@ genrule(
     outs = ["version.h"],
     cmd = """
         echo '#pragma once' > $@ &&
-        echo '#define SYNNAX_VERSION \"$(SYNNAX_VERSION)\"' >> $@ &&
-        echo '#define SYNNAX_DRIVER_VERSION SYNNAX_VERSION' >> $@ &&
-        echo '#define SYNNAX_BUILD_TIMESTAMP \"'$$(date "+%Y-%m-%d %H:%M:%S")'\"' >> $@
+        echo '#define SYNNAX_VERSION \"$(SYNNAX_VERSION)\"' >> $@
     """,
-    stamp = 1,
     visibility = ["//visibility:public"],
 )

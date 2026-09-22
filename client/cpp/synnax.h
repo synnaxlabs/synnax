@@ -28,7 +28,7 @@
 #include "x/cpp/log/log.h"
 #include "x/cpp/path/path.h"
 
-#include "core/pkg/version/version.h"
+#include "client/cpp/version/version.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.

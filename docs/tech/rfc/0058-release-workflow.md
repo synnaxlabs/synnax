@@ -134,7 +134,7 @@ Every binary manifest carries `0.0.0` and the build injects the resolved `versio
   and `//go:embed` fallback in `get.go` are deleted; `Prod()` returns `0.0.0-dev` when
   unset.
 - **Driver**: A `SYNNAX_VERSION` Bazel define, `0.0.0` in `.bazelrc`, that the release
-  build overrides; the `//core/pkg/version` genrule reads it instead of the `VERSION`
+  build overrides; the `//client/cpp/version` genrule reads it instead of the `VERSION`
   file.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`. A candidate runs as app
   version `X.Y.Z-N`, since the MSI bundler accepts only a numeric pre-release; its tag
