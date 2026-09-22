@@ -70,15 +70,10 @@ I can successfully:
 
 - **Dropdown**
   - [ ] Disconnect from a core by selecting it.
-  - [ ] View the default local core in the selector.
-  - [ ] View the default demo core in the selector.
   - **Context Menu**
-    - [ ] Connect to a core.
     - [ ] Disconnect the active core.
     - [ ] Copy a link to a core.
     - [ ] Hard reload the console.
-- **Search and Command Palette**
-  - [ ] Use the "Log out" command to log out of the active core.
 - [ ] Open a core from a link.
 
 ### Login Page
@@ -86,12 +81,8 @@ I can successfully:
 I can successfully:
 
 - **Login Screen**
-  - [ ] Select a core from the list and see it highlighted.
   - [ ] Switch between cores and see the login form reset (username/password cleared).
   - [ ] See connection status indicators for each core in the list.
-- **User Badge**
-  - [ ] See the user avatar and username in the top-right corner after logging in.
-  - [ ] Click the user badge to open the logout menu.
 
 ### Layout
 

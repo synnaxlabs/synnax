@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { crdt, id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
 import { AccessDeniedError } from "@/errors";
@@ -42,8 +42,14 @@ describe("arc", () => {
   });
 
   // A dispatch posts its ops to the Core, and the materialized text reaches this
-  // client's cache through the change stream, so reads after one poll.
+  // client's cache through the change stream, so reads after one poll. The stream must
+  // be live before the first dispatch: a missed echo leaves the dispatch outstanding
+  // and the cache pinned to the pre-dispatch document.
   describe("dispatch", () => {
+    beforeAll(async () => {
+      await waitForStreamLive(client.connection);
+    });
+
     it("materializes insert_char ops into the document's raw text", async () => {
       const created = await client.arcs.create(newTextArc(`dispatch-${id.create()}`));
       const gen = new crdt.Text(2);

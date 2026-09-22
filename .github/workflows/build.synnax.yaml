@@ -567,6 +567,11 @@ jobs:
           # only adds time. Linux stores it on the persistent root volume. Windows uses
           # D:\pnpm-store on NVMe (same volume as node_modules, wiped on stop/start).
           cache: ${{ !endsWith(matrix.os, '-build-bot') }}
+          # A build bot hosts several runners out of one home directory, so a shared
+          # dest lets one job's store cleanup delete files another is installing.
+          dest:
+            ${{ endsWith(matrix.os, '-build-bot') && format('~/setup-pnpm-{0}',
+            runner.name) || '~/setup-pnpm' }}
 
       - name: Build Console Web Assets
         if: inputs.console && inputs.console_ref_run_id == ''
@@ -885,8 +890,15 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v2
         with:
-          # The self-hosted mac's label lacks -build-bot, so it still uses the cache.
+          # Signed builds run on macos-latest and windows-latest, which start cold and
+          # want the cache. An unsigned build takes macos-build-bot, which keeps a local
+          # store, so restoring the GitHub cache tarball only adds time.
           cache: ${{ !endsWith(matrix.os, '-build-bot') }}
+          # A build bot hosts several runners out of one home directory, so a shared
+          # dest lets one job's store cleanup delete files another is installing.
+          dest:
+            ${{ endsWith(matrix.os, '-build-bot') && format('~/setup-pnpm-{0}',
+            runner.name) || '~/setup-pnpm' }}
 
       - name: Adjust Auto Updater URL for Release Candidate
         if: inputs.sign_binaries && github.ref == 'refs/heads/rc'

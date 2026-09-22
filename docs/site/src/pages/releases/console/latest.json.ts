@@ -7,22 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package net
+import { type APIRoute } from "astro";
 
-import "net"
+import { manifest } from "@/pages/releases/console/_manifest";
 
-// FindOpenPort finds an open port on the local machine.
-func FindOpenPort() (int, error) {
-	a, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-	l, err := net.ListenTCP("tcp", a)
-	defer func() {
-		_ = l.Close()
-	}()
-	if err != nil {
-		return 0, err
-	}
-	return l.Addr().(*net.TCPAddr).Port, nil
-}
+export const GET: APIRoute = async ({ locals }) =>
+  await manifest(locals.releases, "stable");

@@ -71,6 +71,12 @@ describe("status list context menu", () => {
     expect(await screen.findByText("Unfavorite")).toBeTruthy();
   });
 
+  it("should offer Reload Console", async () => {
+    const s = await createStatus();
+    await renderMenu([s.key]);
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should unfavorite an already-favorited status", async () => {
     const s = await createStatus();
     const store = await renderMenu([s.key], [s.key]);

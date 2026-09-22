@@ -163,6 +163,54 @@ describe("Dialog", () => {
     expect(c.getByRole("dialog").getAttribute(PORTAL_OWNER_ATTR)).toEqual(id);
   });
 
+  describe("trigger accessibility", () => {
+    it("should mark the trigger as the control of a collapsed dialog", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      const trigger = c.getByRole("button", { expanded: false });
+      expect(trigger.getAttribute("aria-haspopup")).toEqual("dialog");
+    });
+
+    it("should expand the trigger while the dialog is visible", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.click(c.getByText("Toggle"));
+      expect(c.getByRole("button", { expanded: true })).toBeTruthy();
+    });
+
+    it("should not announce a popup on a preview trigger", () => {
+      const c = render(
+        <Triggers.Provider>
+          <Dialog.Frame>
+            <Dialog.Trigger preview>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      const trigger = c.getByText("Toggle");
+      expect(trigger.getAttribute("aria-haspopup")).toBeNull();
+      expect(trigger.getAttribute("aria-expanded")).toBeNull();
+    });
+  });
+
   describe("variants", () => {
     const VARIANTS: Dialog.Variant[] = ["connected", "floating", "modal"];
     VARIANTS.forEach((variant) => {

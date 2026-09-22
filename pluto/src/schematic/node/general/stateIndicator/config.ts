@@ -10,6 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { size as componentSize } from "@/component/size";
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
 import { Staleness } from "@/vis/staleness";
@@ -29,6 +30,7 @@ export const configZ = Label.labeledConfigZ.extend({
   source: telem.numberSourceSpecZ.optional(),
   color: color.crudeZ.optional(),
   inlineSize: z.number().optional(),
+  size: componentSize.optional(),
   options: z.array(stateMappingZ),
   ...Staleness.configZ.shape,
 });
