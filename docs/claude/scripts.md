@@ -64,6 +64,10 @@ Neither script touches `.oracle` schema files — no header comments there.
 - `verify_build_config.sh` / `generate_os_matrix.sh` — CI-only, consume positional
   platform/build flags from the GitHub Actions workflow to validate the build matrix and
   emit its OS list. Not useful outside that workflow context.
+- `check_artifact_cache.sh [linux|windows|all]` — CI-only, run by the integration
+  workflow's setup job. Finds a recent run of that workflow whose live artifacts were
+  built from an unchanged path set per product and emits `SKIP_BUILD`, `REF_RUN_ID`,
+  `DRIVER_REF_RUN_ID`, and `CONSOLE_REF_RUN_ID` for `build.synnax.yaml` to reuse.
 - `import_apple_certificate.sh` — CI-only, imports the Apple Developer `.p12` into a
   per-runner keychain for macOS code signing. Requires runner-scoped env vars
   (`APPLE_CERTIFICATE*`, `KEYCHAIN_*`, `GITHUB_ENV`).

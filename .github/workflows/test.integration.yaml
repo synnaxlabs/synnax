@@ -41,6 +41,7 @@ on:
       - freighter/ts/**
       - freighter/py/**
       - integration/**
+      - scripts/check_artifact_cache.sh
       - MODULE.bazel
       - MODULE.bazel.lock
       - package.json
@@ -137,7 +138,7 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
-        run: integration/scripts/check_artifact_cache.sh all
+        run: scripts/check_artifact_cache.sh all
 
       - name: Validate Test Coverage
         if: ${{ steps.set-outputs.outputs.FLAGS == '' }}
