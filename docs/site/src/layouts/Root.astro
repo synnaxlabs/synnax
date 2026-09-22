@@ -15,9 +15,13 @@ import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
 import { SEO } from "astro-seo";
 import Footer from "@/components/layout/Footer.astro";
+import { enabled } from "@/flags";
 const {
-    frontmatter: { title, description, url, image },
+    frontmatter: { title, description, url, image, flag },
 } = Astro.props;
+// A page behind a flag that is off does not exist.
+const hidden = flag != null && !enabled(flag);
+if (hidden) Astro.response.status = 404;
 const DEFAULT_OG_IMAGE =
     "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs/og-default.png";
 const ogImage = image || DEFAULT_OG_IMAGE;
@@ -79,7 +83,15 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
     <body>
         <Header url={url} transition:persist />
         <main>
-            <slot />
+            {
+                hidden ? (
+                    <section class="not-found">
+                        <h1>Page not found</h1>
+                    </section>
+                ) : (
+                    <slot />
+                )
+            }
         </main>
         <Footer />
     </body><script>

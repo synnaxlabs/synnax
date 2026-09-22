@@ -35,15 +35,26 @@ const toPlainText = async (content: string): Promise<string> => {
   return String(result).replace(/\s+/g, " ").trim();
 };
 
+// A page behind a flag is indexed only when the flag is on, read from the same
+// FLAG_<NAME> variables the site build uses.
+const hidden = (flag: unknown): boolean =>
+  typeof flag === "string" && process.env[`FLAG_${flag.toUpperCase()}`] !== "true";
+
 const filenames = fs.readdirSync(path.join("./src/pages"), {
   recursive: true,
-}) as string[];
+  encoding: "utf8",
+});
+const pages = filenames
+  .filter((f) => f.endsWith("mdx"))
+  .map((filename) => ({
+    filename,
+    ...matter(fs.readFileSync(`./src/pages/${filename}`)),
+  }));
+const skipped = pages.filter(({ data }) => hidden(data.flag));
 const data = await Promise.all(
-  filenames
-    .filter((f) => f.endsWith("mdx"))
-    .map(async (filename) => {
-      const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
-      const { data: frontmatter, content } = matter(markdownWithMeta);
+  pages
+    .filter(({ data }) => !hidden(data.flag))
+    .map(async ({ filename, data: frontmatter, content }) => {
       let href = `/${filename.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`;
       if (filename.includes("releases") && !filename.includes("index"))
         href = `/releases/#${filename
@@ -60,6 +71,8 @@ const data = await Promise.all(
       };
     }),
 );
+
+console.log(`Indexing ${data.length} pages, skipping ${skipped.length} behind flags`);
 
 await client.clearObjects({ indexName: "docs_site" });
 
