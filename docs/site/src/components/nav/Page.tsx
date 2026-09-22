@@ -13,6 +13,7 @@ import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { InlineCode } from "@/components/text/InlineCode";
+import { type Flag } from "@/flags";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 
 interface InternalTreeProps {
@@ -33,6 +34,8 @@ export type PageNavNode = Omit<Tree.Node<string>, "children"> & {
   name: string;
   href?: string;
   icon?: string;
+  /** Hides the node and its children while the flag is off. */
+  flag?: Flag;
   children?: PageNavNode[];
 };
 
