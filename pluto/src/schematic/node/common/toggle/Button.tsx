@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type CrudeTimeSpan } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { type ComponentPropsWithRef, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -22,7 +22,8 @@ export interface ButtonBaseProps extends Omit<
   triggered?: boolean;
   enabled?: boolean;
   color?: color.Crude;
-  onClickDelay?: CrudeTimeSpan;
+  /** Holds onClick this long before it fires. Milliseconds when a number. */
+  onClickDelay?: number | TimeSpan;
 }
 
 export interface ButtonProps extends ButtonBaseProps, OrientableProps {}
@@ -44,7 +45,7 @@ export const Button = ({
   const hold = useHold<HTMLButtonElement>({
     onClick,
     onMouseDown,
-    onClickDelay,
+    onClickDelay: TimeSpan.fromMilliseconds(onClickDelay),
     disabled,
   });
   const delayed = !hold.delay.isZero;

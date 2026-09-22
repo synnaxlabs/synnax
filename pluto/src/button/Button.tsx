@@ -9,7 +9,7 @@
 
 import "@/button/Button.css";
 
-import { color, record, text, type TimeSpan } from "@synnaxlabs/x";
+import { color, record, text, TimeSpan } from "@synnaxlabs/x";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type KeyboardEventHandler,
@@ -143,7 +143,7 @@ export const Button = <E extends ElementType = "button">(
   const hold = useHold({
     onClick,
     onMouseDown,
-    onClickDelay,
+    onClickDelay: TimeSpan.fromMilliseconds(onClickDelay),
     disabled: isDisabled || preview === true,
   });
 

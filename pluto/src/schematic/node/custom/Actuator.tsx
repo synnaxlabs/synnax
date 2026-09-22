@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import { type TimeSpan } from "@synnaxlabs/x";
 import { type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -23,7 +23,7 @@ import { Text } from "@/text";
 export interface ActuatorProps extends Omit<Toggle.ButtonProps, "onClick"> {
   specKey: string;
   onClick?: MouseEventHandler<HTMLElement>;
-  onClickDelay?: CrudeTimeSpan;
+  onClickDelay?: number | TimeSpan;
   scale?: number;
   stateOverrides?: schematic.symbol.State[];
 }

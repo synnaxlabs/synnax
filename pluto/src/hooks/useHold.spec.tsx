@@ -42,6 +42,8 @@ const renderHold = (
   return { ...result, button: result.getByRole("button") };
 };
 
+const DELAY = TimeSpan.milliseconds(500);
+
 const pressed = (button: HTMLElement): boolean =>
   button.getAttribute("aria-pressed") === "true";
 
@@ -88,9 +90,11 @@ describe("useHold", () => {
       const first = result.current.delay;
       rerender({ onClickDelay: TimeSpan.milliseconds(500) });
       expect(result.current.delay).toBe(first);
-      rerender({ onClickDelay: 500 });
+      rerender({ onClickDelay: TimeSpan.milliseconds(500) });
       expect(result.current.delay).toBe(first);
-      rerender({ onClickDelay: 501 });
+      rerender({ onClickDelay: DELAY.valueOf() });
+      expect(result.current.delay).toBe(first);
+      rerender({ onClickDelay: TimeSpan.milliseconds(501) });
       expect(result.current.delay).not.toBe(first);
       expect(result.current.delay.milliseconds).toBe(501);
     });
@@ -99,14 +103,14 @@ describe("useHold", () => {
   describe("with a delay", () => {
     it("should swallow a plain click", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.click(button);
       expect(onClick).not.toHaveBeenCalled();
     });
 
     it("should fire with the press once it is held for the delay", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
       advance(499);
       expect(onClick).not.toHaveBeenCalled();
@@ -118,7 +122,7 @@ describe("useHold", () => {
 
     it("should cancel on a release before the delay", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
       fireEvent.mouseUp(document);
       advance(1000);
@@ -128,7 +132,7 @@ describe("useHold", () => {
 
     it("should release itself when the hold fires", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
       advance(500);
       expect(onClick).toHaveBeenCalledOnce();
@@ -141,9 +145,9 @@ describe("useHold", () => {
     it("should fire the onClick current when the delay elapses", () => {
       const stale = vi.fn();
       const fresh = vi.fn();
-      const { button, rerender } = renderHold({ onClick: stale, onClickDelay: 500 });
+      const { button, rerender } = renderHold({ onClick: stale, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
-      rerender(<Host onClick={fresh} onClickDelay={500} />);
+      rerender(<Host onClick={fresh} onClickDelay={DELAY} />);
       advance(500);
       expect(stale).not.toHaveBeenCalled();
       expect(fresh).toHaveBeenCalledOnce();
@@ -151,7 +155,7 @@ describe("useHold", () => {
 
     it("should restart the hold on a second press", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
       advance(400);
       fireEvent.mouseDown(button);
@@ -173,7 +177,7 @@ describe("useHold", () => {
 
   it("should ignore a secondary-button press", () => {
     const onClick = vi.fn();
-    const { button } = renderHold({ onClick, onClickDelay: 500 });
+    const { button } = renderHold({ onClick, onClickDelay: DELAY });
     fireEvent.mouseDown(button, { button: 2 });
     expect(pressed(button)).toBe(false);
     advance(1000);
@@ -183,7 +187,7 @@ describe("useHold", () => {
   describe("cleanup", () => {
     it("should cancel the hold on unmount", () => {
       const onClick = vi.fn();
-      const { button, unmount } = renderHold({ onClick, onClickDelay: 500 });
+      const { button, unmount } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
       unmount();
       advance(1000);
@@ -192,9 +196,9 @@ describe("useHold", () => {
 
     it("should cancel the hold when disabled mid-press", () => {
       const onClick = vi.fn();
-      const { button, rerender } = renderHold({ onClick, onClickDelay: 500 });
+      const { button, rerender } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
-      rerender(<Host onClick={onClick} onClickDelay={500} disabled />);
+      rerender(<Host onClick={onClick} onClickDelay={DELAY} disabled />);
       expect(pressed(button)).toBe(false);
       advance(1000);
       expect(onClick).not.toHaveBeenCalled();
@@ -202,7 +206,7 @@ describe("useHold", () => {
 
     it("should ignore a press while disabled", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500, disabled: true });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY, disabled: true });
       fireEvent.mouseDown(button);
       expect(pressed(button)).toBe(false);
       advance(1000);
@@ -211,7 +215,7 @@ describe("useHold", () => {
 
     it("should release the hold when the window blurs", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
       fireEvent.blur(window);
       expect(pressed(button)).toBe(false);
@@ -221,7 +225,7 @@ describe("useHold", () => {
 
     it("should release the hold when a drag starts", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.mouseDown(button);
       fireEvent.dragStart(document);
       expect(pressed(button)).toBe(false);
@@ -265,7 +269,7 @@ describe("useHold", () => {
 
     it("should not mark a delayed control", () => {
       const onClick = vi.fn();
-      const { button } = renderHold({ onClick, onClickDelay: 500 });
+      const { button } = renderHold({ onClick, onClickDelay: DELAY });
       fireEvent.keyDown(button, { key: " " });
       expect(pressed(button)).toBe(false);
       advance(1000);

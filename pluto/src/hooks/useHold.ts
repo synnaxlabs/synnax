@@ -61,9 +61,8 @@ export const useHold = <E extends Element>({
 }: UseHoldProps<E>): UseHoldReturn<E> => {
   // Keyed on length, not identity, so a caller's fresh TimeSpan keeps the same delay.
   const delay = useMemoCompare(
-    () => TimeSpan.fromMilliseconds(onClickDelay),
-    ([prev], [next]) =>
-      TimeSpan.fromMilliseconds(prev).equals(TimeSpan.fromMilliseconds(next)),
+    () => new TimeSpan(onClickDelay),
+    ([prev], [next]) => new TimeSpan(prev).equals(next),
     [onClickDelay],
   );
   const destructors = useDestructors();
