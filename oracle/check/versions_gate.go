@@ -355,6 +355,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			for _, e := range form.Extends {
 				visit(e)
 			}
+			for _, e := range form.Included {
+				visit(e)
+			}
 		case resolution.DistinctForm:
 			visit(form.Base)
 		case resolution.AliasForm:
