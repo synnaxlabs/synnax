@@ -389,6 +389,36 @@ TEST(MathAvgTest, ResetsWithSignal) {
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 150.0);
 }
 
+TEST(MathAvgTest, StampsFromTheDataInputWhenTheResetBatchIsLonger) {
+    TestSetup setup(types::Kind::F64, "avg", {}, true);
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {10.0}, {10 * sec});
+    auto reset1 = setup.make_reset_node();
+    write_reset(reset1, {0, 0, 0}, {7 * sec, 8 * sec, 9 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    ASSERT_EQ(checker1.output_time(0)->size(), 1);
+    EXPECT_EQ(checker1.output_time(0)->at<int64_t>(0), 10 * sec);
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {20.0}, {11 * sec});
+    auto reset2 = setup.make_reset_node();
+    write_reset(reset2, {0, 0}, {12 * sec, 13 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    ASSERT_EQ(checker2.output_time(0)->size(), 1);
+    EXPECT_EQ(checker2.output_time(0)->at<int64_t>(0), 11 * sec);
+}
+
 TEST(MathMinTest, ComputesRunningMinimum) {
     TestSetup setup(types::Kind::I32, "min");
     Module module;

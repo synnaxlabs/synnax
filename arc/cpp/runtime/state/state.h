@@ -179,16 +179,18 @@ public:
     /// running node for the scheduler to propagate from.
     void mark_fresh(size_t param_index) const;
 
-    /// @brief returns the index of the input carrying the most upstream
-    /// timestamps, or -1 when no input carries any. A node stamps its output
-    /// from that input's time series. Literal and reference inputs are never
-    /// candidates: a configured value has no time, so forwarding one stamps a
-    /// placeholder. Picking the longest matches how nodes broadcast a shorter
-    /// input up to a longer one, keeping one timestamp per output sample.
-    [[nodiscard]] int provenance_idx() const;
+    /// @brief returns the index of the input a node copies its output timestamps from,
+    /// or -1 when no input has time and the node stamps the cycle instead. Among the
+    /// inputs that have time it picks the longest, matching how nodes broadcast a
+    /// shorter input up to a longer one.
+    [[nodiscard]] int time_source_idx() const;
+
+    /// @brief reports whether the input at param_index holds upstream timestamps a node
+    /// can copy. Literal and reference inputs never do: a configured value has no time.
+    [[nodiscard]] bool has_time(size_t param_index) const;
 
     /// @brief overwrites the output's time series with a single sample of the cycle
-    /// stamp, reusing its buffer. Nodes with no provenance to forward use it.
+    /// stamp, reusing its buffer. Nodes with no input time to copy use it.
     void stamp_cycle(x::telem::TimeStamp now, size_t output_idx) const;
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,

@@ -2393,7 +2393,7 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
-	Describe("ProvenanceIdx and StampCycle", func() {
+	Describe("TimeSourceIdx and StampCycle", func() {
 		literalAndEdge := func(literalValue any) ir.IR {
 			return ir.IR{
 				Nodes: ir.Nodes{
@@ -2430,7 +2430,18 @@ var _ = Describe("ProgramState", func() {
 			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(777)
 			src.MarkFresh(0)
 			Expect(sink.RefreshInputs()).To(BeTrue())
-			Expect(sink.ProvenanceIdx()).To(Equal(1))
+			Expect(sink.TimeSourceIdx()).To(Equal(1))
+		})
+
+		It("Should report that only the edge-fed input has time", func() {
+			s := node.New(literalAndEdge(int64(5)))
+			src, sink := s.Node("src"), s.Node("sink")
+			*src.Output(0) = telem.NewSeriesV[int64](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(777)
+			src.MarkFresh(0)
+			Expect(sink.RefreshInputs()).To(BeTrue())
+			Expect(sink.HasTime(0)).To(BeFalse())
+			Expect(sink.HasTime(1)).To(BeTrue())
 		})
 
 		It("Should pick the longest input when several are edge-fed", func() {
@@ -2482,10 +2493,10 @@ var _ = Describe("ProgramState", func() {
 			*long.OutputTime(0) = telem.NewSeriesSecondsTSV(7, 8, 9)
 			long.MarkFresh(0)
 			Expect(sink.RefreshInputs()).To(BeTrue())
-			Expect(sink.ProvenanceIdx()).To(Equal(1))
+			Expect(sink.TimeSourceIdx()).To(Equal(1))
 		})
 
-		It("Should report no provenance when every input is a literal", func() {
+		It("Should report no time source when every input is a literal", func() {
 			inter := ir.IR{Nodes: ir.Nodes{{
 				Key:  "sink",
 				Type: "f",
@@ -2498,7 +2509,7 @@ var _ = Describe("ProgramState", func() {
 			}}}
 			sink := node.New(inter).Node("sink")
 			Expect(sink.RefreshInputs()).To(BeTrue())
-			Expect(sink.ProvenanceIdx()).To(Equal(-1))
+			Expect(sink.TimeSourceIdx()).To(Equal(-1))
 		})
 
 		It("Should overwrite the output time with the cycle stamp", func() {

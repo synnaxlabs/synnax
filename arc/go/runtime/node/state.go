@@ -518,17 +518,14 @@ func (s *State) LastChanged() (telem.Series, bool) {
 	return src.data, true
 }
 
-// ProvenanceIdx returns the index of the input carrying the most upstream
-// timestamps, or -1 when no input carries any. A node stamps its output from
-// that input's time series; on -1 it has no provenance to forward and stamps
-// the cycle instead. Literal and reference inputs are never candidates: a
-// configured value has no time, so forwarding one stamps a placeholder.
-// Picking the longest matches how nodes broadcast a shorter input up to a
-// longer one, keeping one timestamp per output sample.
-func (s *State) ProvenanceIdx() int {
+// TimeSourceIdx returns the index of the input a node copies its output timestamps
+// from, or -1 when no input has time and the node stamps the cycle instead. Among the
+// inputs that have time it picks the longest, matching how nodes broadcast a shorter
+// input up to a longer one.
+func (s *State) TimeSourceIdx() int {
 	best, bestLen := -1, int64(0)
 	for i := range s.ir.inputs {
-		if s.isReference[i] || s.literal[i] || s.aligned.time[i].Len() == 0 {
+		if !s.HasTime(i) {
 			continue
 		}
 		if l := s.aligned.data[i].Len(); l > bestLen {
@@ -538,8 +535,15 @@ func (s *State) ProvenanceIdx() int {
 	return best
 }
 
+// HasTime reports whether the input at paramIndex holds upstream timestamps a node
+// can copy. Literal and reference inputs never do: a configured value has no time.
+func (s *State) HasTime(paramIndex int) bool {
+	return !s.isReference[paramIndex] && !s.literal[paramIndex] &&
+		s.aligned.time[paramIndex].Len() > 0
+}
+
 // StampCycle overwrites the output's time series with a single sample of the
-// cycle stamp, reusing its buffer. Nodes with no provenance to forward use it.
+// cycle stamp, reusing its buffer. Nodes with no input time to copy use it.
 func (s *State) StampCycle(ctx Context, outputIdx int) {
 	t := s.OutputTime(outputIdx)
 	t.Resize(1)

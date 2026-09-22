@@ -72,7 +72,7 @@ func (n *binary) Next(ctx node.Context) {
 	}
 	lhs, rhs := n.Input(n.lhsIdx), n.Input(n.rhsIdx)
 	n.op(lhs, rhs, n.Output(0))
-	if timeIdx := n.ProvenanceIdx(); timeIdx >= 0 {
+	if timeIdx := n.TimeSourceIdx(); timeIdx >= 0 {
 		*n.OutputTime(0) = n.InputTime(timeIdx)
 	} else {
 		n.StampCycle(ctx, 0)
@@ -107,7 +107,7 @@ func (n *unary) Next(ctx node.Context) {
 	}
 	input := n.Input(n.inputIdx)
 	n.op(input, n.Output(0))
-	if timeIdx := n.ProvenanceIdx(); timeIdx >= 0 {
+	if timeIdx := n.TimeSourceIdx(); timeIdx >= 0 {
 		*n.OutputTime(0) = n.InputTime(timeIdx)
 	} else {
 		n.StampCycle(ctx, 0)

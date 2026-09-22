@@ -1456,18 +1456,18 @@ std::shared_ptr<State> new_literal_and_edge_state() {
     return std::make_shared<State>(Config{.ir = prog});
 }
 
-/// @brief provenance_idx should skip a literal input and pick the edge-fed one.
-TEST(ProvenanceIdxTest, SkipsALiteralInputAndPicksTheEdgeFedOne) {
+/// @brief time_source_idx should skip a literal input and pick the edge-fed one.
+TEST(TimeSourceIdxTest, SkipsALiteralInputAndPicksTheEdgeFedOne) {
     const auto s = new_literal_and_edge_state();
     const auto src = ASSERT_NIL_P(s->node("src"));
     auto sink = ASSERT_NIL_P(s->node("sink"));
     emit<int32_t>(src, 1, 777);
     ASSERT_TRUE(sink.refresh_inputs());
-    EXPECT_EQ(sink.provenance_idx(), 1);
+    EXPECT_EQ(sink.time_source_idx(), 1);
 }
 
-/// @brief provenance_idx should pick the longest input when several are edge-fed.
-TEST(ProvenanceIdxTest, PicksTheLongestInputWhenSeveralAreEdgeFed) {
+/// @brief time_source_idx should pick the longest input when several are edge-fed.
+TEST(TimeSourceIdxTest, PicksTheLongestInputWhenSeveralAreEdgeFed) {
     const auto s = new_pair_state();
     const auto a = ASSERT_NIL_P(s->node("a"));
     const auto b = ASSERT_NIL_P(s->node("b"));
@@ -1477,11 +1477,11 @@ TEST(ProvenanceIdxTest, PicksTheLongestInputWhenSeveralAreEdgeFed) {
     *b.output_time(0) = x::telem::Series(std::vector<int64_t>{7000, 8000, 9000});
     b.mark_fresh(0);
     ASSERT_TRUE(target.refresh_inputs());
-    EXPECT_EQ(target.provenance_idx(), 1);
+    EXPECT_EQ(target.time_source_idx(), 1);
 }
 
-/// @brief provenance_idx should report none when every input is a literal.
-TEST(ProvenanceIdxTest, ReportsNoneWhenEveryInputIsALiteral) {
+/// @brief time_source_idx should report none when every input is a literal.
+TEST(TimeSourceIdxTest, ReportsNoneWhenEveryInputIsALiteral) {
     ir::IR prog;
     prog.nodes.push_back(make_node(
         "sink",
@@ -1492,7 +1492,7 @@ TEST(ProvenanceIdxTest, ReportsNoneWhenEveryInputIsALiteral) {
     const auto s = std::make_shared<State>(Config{.ir = prog});
     auto sink = ASSERT_NIL_P(s->node("sink"));
     ASSERT_TRUE(sink.refresh_inputs());
-    EXPECT_EQ(sink.provenance_idx(), -1);
+    EXPECT_EQ(sink.time_source_idx(), -1);
 }
 
 /// @brief stamp_cycle should replace the output time with one cycle stamp.

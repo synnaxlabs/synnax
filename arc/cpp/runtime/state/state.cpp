@@ -334,13 +334,17 @@ void Node::mark_fresh(const size_t param_index) const {
     this->state.values[this->output_idx[param_index]].rev = ++this->state.rev;
 }
 
-int Node::provenance_idx() const {
+bool Node::has_time(const size_t param_index) const {
+    if (this->is_reference[param_index] || this->literal[param_index]) return false;
+    const auto &t = this->aligned_time[param_index];
+    return t != nullptr && t->size() > 0;
+}
+
+int Node::time_source_idx() const {
     int best = -1;
     int64_t best_len = 0;
     for (size_t i = 0; i < this->inputs.size(); i++) {
-        if (this->is_reference[i] || this->literal[i]) continue;
-        const auto &t = this->aligned_time[i];
-        if (t == nullptr || t->size() == 0) continue;
+        if (!this->has_time(i)) continue;
         const auto &d = this->aligned_data[i];
         const auto len = d == nullptr ? int64_t{0} : static_cast<int64_t>(d->size());
         if (len > best_len) {
