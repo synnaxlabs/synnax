@@ -1,224 +1,71 @@
-# |||| INTELLIJ ||||
+# |||| EDITORS ||||
 
 .idea/
 *.iml
 .fleet/
-/shelf/
-/workspace.xml
-/httpRequests/
-/dataSources/
-/dataSources.local.xml
-
-# |||| DARWIN ||||
-
+.vs/
+*.sw?
+*.vsix
+.obsidian
 .DS_Store
 
 # |||| JS/TS ||||
 
 node_modules/
 dist/
-dist-ssr/
 coverage/
-out/
-yarn-error.log
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 *.local
-nyc_output/
-.nyc_output/
 *.tsbuildinfo
 *.ts.timestamp-*
-**/tsdoc-metadata.json
-**/temp/
-logs/
+.turbo/
+.eslintcache
+.vercel
+.astro
 
-# |||| GO ||||
+# |||| GO / COMPILED ||||
+
 *.test
 *.exe
 *.exe~
 *.dll
+!scripts/EnVar.dll
 *.dylib
+*.so
 *.out
 build/
-testdata/**
 go.work
 go.work.sum
 custom-gcl
 
 # |||| RUST ||||
 
-/target/
 target/
 gen/
 
-# |||| TURBO REPO ||||
-
-.turbo/
-.turbo-cache/
-
-# |||| WORK ||||
-
-work
-
-# |||| VERCEL ||||
-
-.vercel
-.astro
-
-# |||| DATA ||||
-
-**/data
-!pluto/src/schematic/edge/data
-!pluto/src/schematic/edge/data/**
-synnax-data
-synnax-data/**
-
 # |||| PYTHON ||||
 
-# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*$py.class
 *_cache/
-python_install/
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-!x/cpp/lib
-!x/cpp/env
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-
-# PEP 582
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.schematic
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
+.venv
 .env
 .env.production
-.venv
-venv/
-ENV/
-env.bak/
-venv.bak/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# |||| BAZEL ||||
 
-# Rope project settings
-.ropeproject
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# |||| TEST RESULTS ||||
-integration/tests/results/
-
-# |||| LANDING SITE ||||
-
-synnax-data/**
-
-# |||||| BAZEL ||||||
 # Ignore all bazel-* symlinks. There is no full list since this can change based on the
 # name of the directory bazel is cloned into.
 **/bazel-*
+.bazelrc.user
 
 # Directories for the Bazel IntelliJ plugin containing the generated IntelliJ project
-# files and plugin configuration. Seperate directories are for the IntelliJ, Android
+# files and plugin configuration. Separate directories are for the IntelliJ, Android
 # Studio and CLion versions of the plugin.
 **/.ijwb/
 **/.aswb/
@@ -227,38 +74,45 @@ synnax-data/**
 # Generated clangd/IntelliSense database (e.g. Hedron compile-commands refresh).
 compile_commands.json
 
+# Lock file for the local boringssl->openssl shim module; only its MODULE.bazel matters
+# as a local_path_override target, never run bazel inside that directory.
+vendor/boringssl/MODULE.bazel.lock
+
+# |||| DATA ||||
+
+**/data
+!pluto/src/schematic/edge/data
+!pluto/src/schematic/edge/data/**
+synnax-data
+integration/tests/results/
+
 # |||| TLS ||||
+
 **/certs*/**
+client/py/examples/opcua/certificates/
 
 # |||| BINARIES ||||
 
 **/bin/**
 **/binaries/**
+freighter/integration/integration
+integration/integration
+core/synnax
+core/pkg/driver/assets/*
+!core/pkg/driver/assets/.gitkeep
+console/release.tauri.conf.json
 
 # |||| PROFILING ||||
+
 **/mem.out
 **/profile**.png
 
 # |||| GENERAL ||||
+
 **/ignore*
 
-# |||| ESLINT ||||
-.eslintcache
-
-# |||| EDITOR ||||
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-./driver/.vs
-
-# |||| EMBEDDED CONSOLE ||||
-
-# |||| EMBEDDED DRIVER ||||
-assets
-
 # |||| LABVIEW ||||
+
 client/lv/**/builds/
 !client/lv/**/Ignore Error.vi
 *.lvlibp
@@ -266,21 +120,7 @@ client/lv/**/builds/
 *.lvlps
 *.UserState/
 
-# |||| GENERATED CERTIFICATES ||||
-client/py/examples/opcua/certificates/
-
-# |||| OTHER ||||
-.obsidian
-src/**.js
-
-# ||| Build Binary |||
-freighter/integration/integration
-integration/integration
-core/synnax
-
-# ||| VSCODE EXTENSIONS |||
-*.vsix
-.bazelrc.user
+# |||| CLAUDE ||||
 
 # Ignore .claude/ contents but keep skills/ tracked so the project's Claude Code skills
 # ship with the repo. Excluding directory contents rather than the directory itself is
@@ -289,12 +129,9 @@ core/synnax
 !.claude/skills/
 
 # |||| ORACLE ||||
+
 .oracle/
 
-# Lock file for the local boringssl->openssl shim module; only its MODULE.bazel matters
-# as a local_path_override target, never run bazel inside that directory.
-vendor/boringssl/MODULE.bazel.lock
+# |||| PLAYWRIGHT ||||
 
-# Playwright MCP session output
 .playwright-mcp/
-console/release.tauri.conf.json
