@@ -16,7 +16,7 @@ export const PYTHON_SEQUENCES_NAV: PageNavNode = {
     {
       key: "/reference/control/python/get-started",
       href: "/reference/control/python/get-started",
-      name: "Get Started",
+      name: "Get started",
     },
     {
       key: "/reference/control/python/examples",

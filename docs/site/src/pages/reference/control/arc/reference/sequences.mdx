@@ -14,7 +14,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-## Sequence Declaration
+## Sequence declaration
 
 ```arc
 sequence name {
@@ -41,7 +41,7 @@ sequence {
 
 <Divider.Divider x />
 
-## Sequence Items
+## Sequence items
 
 A sequence item is one of:
 
@@ -78,7 +78,7 @@ sequence prime {
 
 <Divider.Divider x />
 
-## Sequencing Rules
+## Sequencing rules
 
 1. When an item completes, the sequence advances; when the last item completes, the
    sequence exits.
@@ -91,7 +91,7 @@ sequence prime {
 
 <Divider.Divider x />
 
-## Entry Points
+## Entry points
 
 Entry points trigger sequences from external events:
 
@@ -104,7 +104,7 @@ Entry points use `=>` because they fire while the channel value is truthy. The t
 sequence activates on the first truthy tick; subsequent truthy ticks are no-ops because
 the sequence is already active.
 
-### Triggering Sequences
+### Triggering sequences
 
 Entry point channels are typically `bool` virtual channels:
 
@@ -113,7 +113,7 @@ Entry point channels are typically `bool` virtual channels:
 3. When clicked, the button writes `true` to the channel
 4. Arc sees the truthy value and triggers the sequence
 
-### Anonymous Top-Level Sequences
+### Anonymous top-level sequences
 
 An anonymous top-level sequence has no entry point and starts automatically on program
 load:
@@ -129,7 +129,7 @@ sequence {
 
 <Divider.Divider x />
 
-## Inline Stages in a Sequence
+## Inline stages in a sequence
 
 An anonymous `stage { ... }` used as a sequence item acts as a multi-exit gate.
 `=> next` advances the enclosing sequence; other
@@ -149,7 +149,7 @@ sequence press {
 
 <Divider.Divider x />
 
-## Complete Example
+## Complete example
 
 ```arc channels="press_vlv_cmd, vent_vlv_cmd, start_btn, ox_pt_1, fuel_pt_1, abort_btn, start_cmd, emergency_stop", bodies="pressurize, abort, hold, vent, complete, main"
 authority 200

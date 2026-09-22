@@ -11,8 +11,8 @@ package log_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
@@ -36,7 +36,7 @@ var _ = Describe("Writer", func() {
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-			Expect(l.Key).ToNot(Equal(uuid.Nil))
+			Expect(l.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It(
@@ -62,10 +62,10 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should skip the project ParentOf relationship when proj is uuid.Nil",
+			"Should skip the project ParentOf relationship when proj is uuid.Nil()",
 			func(ctx SpecContext) {
 				l := log.Log{Name: "no-proj"}
-				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 					From: proj.OntologyID(),
 					Type: ontology.RelationshipTypeParentOf,
@@ -75,10 +75,10 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should still register the resource in the ontology when proj is uuid.Nil",
+			"Should still register the resource in the ontology when proj is uuid.Nil()",
 			func(ctx SpecContext) {
 				l := log.Log{Name: "orphan"}
-				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil(), &l)).To(Succeed())
 				var resource ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(l.OntologyID()).

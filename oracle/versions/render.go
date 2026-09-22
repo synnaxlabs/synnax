@@ -11,6 +11,7 @@ package versions
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -198,12 +199,14 @@ func (r *renderer) renderField(typeName, keyPrefix string, f resolution.Field) {
 
 func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 	head := t.Name + " enum"
+	values := f.Values
 	if len(f.Extends) > 0 {
 		head += " extends " + r.refList(f.Extends)
+		values = f.Declared
 	}
 	r.line(head + " {")
 	r.indent++
-	for _, v := range f.Values {
+	for _, v := range values {
 		line := v.Name + " = "
 		if f.IsIntEnum {
 			line += strconv.FormatInt(v.IntValue(), 10)
@@ -232,12 +235,16 @@ func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 
 func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 	head := t.Name + " union on " + f.Discriminator
-	if len(f.Extends) > 0 {
-		head += " extends " + r.refList(f.Extends)
+	variants := f.Variants
+	if bases := append(slices.Clone(f.Extends), f.Included...); len(bases) > 0 {
+		head += " extends " + r.refList(bases)
+		if len(f.Included) > 0 {
+			variants = f.Declared
+		}
 	}
 	r.line(head + " {")
 	r.indent++
-	for _, v := range f.Variants {
+	for _, v := range variants {
 		r.renderVariant(t.Name, v)
 	}
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))

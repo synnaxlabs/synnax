@@ -21,6 +21,15 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
+const mkText = (value?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    value == null ? { variant: "text" } : { variant: "text", value },
+  );
+const mkValue = (units?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    units == null ? { variant: "value" } : { variant: "value", units },
+  );
+
 describe("table queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -155,8 +164,9 @@ describe("table queries", () => {
       expect(Object.keys(retrieved.cells)).toHaveLength(4);
       for (const cell of Object.values(retrieved.cells)) {
         expect(cell.variant).toEqual("text");
-        expect(cell.props.value).toEqual("");
-        expect(cell.props.level).toEqual("h5");
+        if (cell.variant !== "text") continue;
+        expect(cell.value).toEqual("");
+        expect(cell.level).toEqual("h5");
       }
     });
 
@@ -176,7 +186,7 @@ describe("table queries", () => {
           name: "explicit_layout",
           rows: [{ size: 40, cells: ["x"] }],
           columns: [{ size: 80 }],
-          cells: { x: { key: "x", variant: "value", props: { units: "psi" } } },
+          cells: { x: { variant: "value", units: "psi" } },
         });
       });
       expect(result.current.variant).toEqual("success");
@@ -324,8 +334,8 @@ describe("table queries", () => {
         rows: [{ size: 36, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
         cells: {
-          a: { key: "a", variant: "text", props: { value: "A" } },
-          b: { key: "b", variant: "text", props: { value: "B" } },
+          a: { variant: "text", value: "A" },
+          b: { variant: "text", value: "B" },
         },
       });
     };
@@ -367,7 +377,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", variant: "value", props: { units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -377,8 +387,10 @@ describe("table queries", () => {
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a.variant).toEqual("text");
-        expect(result.current.retrieve?.cells.a.props).toEqual({ value: "A" });
+        expect(result.current.retrieve?.cells.a).toMatchObject({
+          variant: "text",
+          value: "A",
+        });
       });
     });
 
@@ -399,7 +411,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", variant: "value", props: { units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -413,8 +425,10 @@ describe("table queries", () => {
       );
       await act(async () => result.current.redo.redo());
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a.variant).toEqual("value");
-        expect(result.current.retrieve?.cells.a.props).toEqual({ units: "psi" });
+        expect(result.current.retrieve?.cells.a).toMatchObject({
+          variant: "value",
+          units: "psi",
+        });
       });
     });
 
@@ -435,17 +449,17 @@ describe("table queries", () => {
             key: created.key,
             actions: [
               table.setCell({
-                cell: { key: "a", variant: "text", props: { value } },
+                cell: { key: "a", config: mkText(value) },
               }),
             ],
           });
         });
       await waitFor(() =>
-        expect(result.current.retrieve?.cells.a.props.value).toEqual("A3"),
+        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A3" }),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve?.cells.a.props.value).toEqual("A"),
+        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A" }),
       );
     });
 
@@ -465,7 +479,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", variant: "text", props: { value: "A1" } },
+              cell: { key: "a", config: mkText("A1") },
             }),
           ],
         });
@@ -475,19 +489,19 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "b", variant: "text", props: { value: "B1" } },
+              cell: { key: "b", config: mkText("B1") },
             }),
           ],
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a.props.value).toEqual("A1");
-        expect(result.current.retrieve?.cells.b.props.value).toEqual("B1");
+        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A1" });
+        expect(result.current.retrieve?.cells.b).toMatchObject({ value: "B1" });
       });
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a.props.value).toEqual("A1");
-        expect(result.current.retrieve?.cells.b.props.value).toEqual("B");
+        expect(result.current.retrieve?.cells.a).toMatchObject({ value: "A1" });
+        expect(result.current.retrieve?.cells.b).toMatchObject({ value: "B" });
       });
     });
 
@@ -549,7 +563,7 @@ describe("table queries", () => {
         name: "ensure_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
-        cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
+        cells: { a: { variant: "text", value: "A" } },
       });
       await loadTable(wrapper, created.key);
       const { result } = renderHook(() => Table.useName({ key: created.key }), {
@@ -567,7 +581,7 @@ describe("table queries", () => {
         name: "fastpath_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
-        cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
+        cells: { a: { variant: "text", value: "A" } },
       });
       await loadTable(wrapper, created.key);
 
@@ -606,10 +620,10 @@ describe("table queries", () => {
         ],
         columns: [{ size: 80 }, { size: 100 }],
         cells: {
-          a: { key: "a", variant: "text", props: { value: "A" } },
-          b: { key: "b", variant: "text", props: { value: "B" } },
-          c: { key: "c", variant: "text", props: { value: "C" } },
-          d: { key: "d", variant: "text", props: { value: "D" } },
+          a: { variant: "text", value: "A" },
+          b: { variant: "text", value: "B" },
+          c: { variant: "text", value: "C" },
+          d: { variant: "text", value: "D" },
         },
       });
     };
@@ -657,8 +671,8 @@ describe("table queries", () => {
               index: 2,
               size: 50,
               cells: [
-                { key: "e", variant: "text", props: { value: "E" } },
-                { key: "f", variant: "text", props: { value: "F" } },
+                { key: "e", config: mkText("E") },
+                { key: "f", config: mkText("F") },
               ],
             }),
           ],
@@ -695,13 +709,13 @@ describe("table queries", () => {
       }));
       const initial = result.current.cell;
       expect(initial?.variant).toEqual("text");
-      if (initial?.variant === "text") expect(initial.props.value).toEqual("A");
+      if (initial?.variant === "text") expect(initial.value).toEqual("A");
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", variant: "value", props: { units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -709,7 +723,7 @@ describe("table queries", () => {
       await waitFor(() => {
         const next = result.current.cell;
         expect(next?.variant).toEqual("value");
-        if (next?.variant === "value") expect(next.props.units).toEqual("psi");
+        if (next?.variant === "value") expect(next.units).toEqual("psi");
       });
     });
 
@@ -729,8 +743,8 @@ describe("table queries", () => {
       expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
       const a = result.current.get("a");
       const c = result.current.get("c");
-      if (a?.variant === "text") expect(a.props.value).toEqual("A");
-      if (c?.variant === "text") expect(c.props.value).toEqual("C");
+      if (a?.variant === "text") expect(a.value).toEqual("A");
+      if (c?.variant === "text") expect(c.value).toEqual("C");
     });
 
     it("useCells omits missing keys without throwing", async () => {
@@ -763,7 +777,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "c", variant: "value", props: { units: "psi" } },
+              cell: { key: "c", config: mkValue("psi") },
             }),
           ],
         });
@@ -783,7 +797,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", variant: "value", props: { units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -821,8 +835,8 @@ describe("table queries", () => {
               index: 0,
               size: 30,
               cells: [
-                { key: "x", variant: "text", props: {} },
-                { key: "y", variant: "text", props: {} },
+                { key: "x", config: mkText() },
+                { key: "y", config: mkText() },
               ],
             }),
           ],

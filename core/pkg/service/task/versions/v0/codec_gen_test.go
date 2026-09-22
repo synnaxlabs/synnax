@@ -12,11 +12,9 @@
 package v0_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
@@ -26,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -58,16 +57,17 @@ var _ = Describe("Codec", func() {
 						Task:    v0.Key(16),
 						Running: false,
 						Cmd:     "test_17",
+						Data:    msgpack.EncodedJSON{"key_18": "value_18"},
 					},
 					Labels: []label.Label{
 						{
-							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
-							Name: "test_20",
+							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
+							Name: "test_21",
 							Color: color.Color{
-								R: 23,
-								G: 24,
-								B: 25,
-								A: 25.5,
+								R: 24,
+								G: 25,
+								B: 26,
+								A: 26.5,
 							},
 						},
 					},
@@ -77,7 +77,7 @@ var _ = Describe("Codec", func() {
 				Key:      v0.Key(0),
 				Name:     "",
 				Type:     "",
-				Config:   nil,
+				Config:   msgpack.EncodedJSON{},
 				Internal: false,
 				Snapshot: false,
 				Status:   nil,
@@ -105,16 +105,17 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 				Task:    v0.Key(16),
 				Running: false,
 				Cmd:     "test_17",
+				Data:    msgpack.EncodedJSON{"key_18": "value_18"},
 			},
 			Labels: []label.Label{
 				{
-					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
-					Name: "test_20",
+					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
+					Name: "test_21",
 					Color: color.Color{
-						R: 23,
-						G: 24,
-						B: 25,
-						A: 25.5,
+						R: 24,
+						G: 25,
+						B: 26,
+						A: 26.5,
 					},
 				},
 			},
@@ -155,16 +156,17 @@ func FuzzDecodeTask(f *testing.F) {
 					Task:    v0.Key(16),
 					Running: false,
 					Cmd:     "test_17",
+					Data:    msgpack.EncodedJSON{"key_18": "value_18"},
 				},
 				Labels: []label.Label{
 					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
-						Name: "test_20",
+						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
+						Name: "test_21",
 						Color: color.Color{
-							R: 23,
-							G: 24,
-							B: 25,
-							A: 25.5,
+							R: 24,
+							G: 25,
+							B: 26,
+							A: 26.5,
 						},
 					},
 				},
@@ -181,7 +183,7 @@ func FuzzDecodeTask(f *testing.F) {
 			Key:      v0.Key(0),
 			Name:     "",
 			Type:     "",
-			Config:   nil,
+			Config:   msgpack.EncodedJSON{},
 			Internal: false,
 			Snapshot: false,
 			Status:   nil,
@@ -208,7 +210,7 @@ func FuzzDecodeTask(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
