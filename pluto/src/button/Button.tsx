@@ -38,7 +38,7 @@ export type Variant = "filled" | "outlined" | "text";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
-  extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
+  extends Omit<Text.ExtensionProps, "variant">, Tooltip.ExtensionProps {
   /** The rest-state emphasis. Defaults to "outlined". */
   variant?: Variant;
   /** A keyboard trigger that clicks the button while it is mounted. */
