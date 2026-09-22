@@ -1671,4 +1671,51 @@ TEST(StateTest, NodeClearNodeDiscardsStatefulVariablesForThatNode) {
     EXPECT_DOUBLE_EQ(vars->load_f64(0, 9.5), 9.5);
 }
 
+/// @brief rearm_inputs re-runs a node over the inputs it already holds.
+TEST(StateTest, RearmInputs_RerunsOverHeldInputs) {
+    arc::types::Param output_param;
+    output_param.name = "output";
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+
+    arc::types::Param input_param;
+    input_param.name = "input";
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+
+    arc::ir::Node producer;
+    producer.key = "producer";
+    producer.type = "producer";
+    producer.outputs.push_back(output_param);
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(input_param);
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(producer);
+    ir.nodes.push_back(consumer);
+    ir.edges.emplace_back(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    auto producer_node = ASSERT_NIL_P(s.node("producer"));
+    auto &o = producer_node.output(0);
+    o->resize(1);
+    o->set(0, 1.0f);
+    auto &o_time = producer_node.output_time(0);
+    o_time->resize(1);
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    ASSERT_FALSE(consumer_node.refresh_inputs());
+    consumer_node.rearm_inputs();
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    EXPECT_EQ(consumer_node.input(0)->at<float>(0), 1.0f);
+    ASSERT_FALSE(consumer_node.refresh_inputs());
+}
 }

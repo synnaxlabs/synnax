@@ -750,6 +750,34 @@ func ResolveInputChannel(
 	}
 }
 
+// BindInputChannel strips paramName's internal accesses from c and returns the
+// directions the function body uses the param in. The param binds to a register at
+// run time, so its candidate channels stream through that register instead of c.
+func BindInputChannel(
+	c *types.Channels,
+	fnSym *Symbol,
+	paramName string,
+) types.ChanDirection {
+	var dir types.ChanDirection
+	if p := fnSym.FindChild(paramName); p != nil {
+		id := uint32(p.ID)
+		if _, ok := c.Read[id]; ok {
+			delete(c.Read, id)
+			dir |= types.ChanDirectionRead
+		}
+		if _, ok := c.Write[id]; ok {
+			delete(c.Write, id)
+			dir |= types.ChanDirectionWrite
+		}
+		return dir
+	}
+	if param, ok := fnSym.Type.Inputs.Get(paramName); ok &&
+		param.Type.ChanDirection.IsSet() {
+		return param.Type.ChanDirection
+	}
+	return types.ChanDirectionRead
+}
+
 // String returns a human-readable string representation of the symbol tree.
 func (s *Symbol) String() string { return s.stringWithIndent("") }
 

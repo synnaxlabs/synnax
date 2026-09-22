@@ -34,4 +34,6 @@ const auto WASM_PANIC = BASE.sub("wasm_panic");
 const auto WARNING = BASE.sub("warning");
 /// @brief Multiple frames arrived for same channel in one cycle, older data discarded.
 const auto DATA_DROPPED = WARNING.sub("data_dropped");
+/// @brief A node read a channel with no value yet; the evaluation was skipped.
+const auto MISSING_READ = WARNING.sub("missing_read");
 }

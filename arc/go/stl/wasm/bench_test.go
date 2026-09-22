@@ -169,10 +169,10 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	}()
 
 	factory := &wasm.Module{
-		Module:        guest,
-		Memory:        guest.Memory(),
-		Strings:       stringsState,
-		NodeKeySetter: statefulMod,
+		Module:   guest,
+		Memory:   guest.Memory(),
+		Strings:  stringsState,
+		Stateful: statefulMod,
 	}
 
 	affineNode := s.Node("affine")
@@ -332,10 +332,10 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	}()
 
 	factory := &wasm.Module{
-		Module:        guest,
-		Memory:        guest.Memory(),
-		Strings:       stringsState,
-		NodeKeySetter: statefulMod,
+		Module:   guest,
+		Memory:   guest.Memory(),
+		Strings:  stringsState,
+		Stateful: statefulMod,
 	}
 
 	affineNode := s.Node("affine")

@@ -25,15 +25,14 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
-// Name is the module name.
-const Name = "channels"
+const name = "channels"
 
-// NewSymbols returns a fresh slice of ambient prelude symbols this package
-// contributes: the channels module plus `on` and `write` as bare globals so
-// flow-mode programs can reference them without an import.
+// NewSymbols returns a fresh slice of ambient prelude symbols this package contributes:
+// the channels module plus `on` and `write` as bare globals so flow-mode programs can
+// reference them without an import.
 func NewSymbols() []*symbol.Symbol {
 	numConstraint := new(types.NumericConstraint())
-	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Internal: true}
 	mod.AddChild(
 		symbol.InternalHostFunc(
 			"read",
@@ -81,40 +80,39 @@ func NewSymbols() []*symbol.Symbol {
 	}
 }
 
-// Host is the runtime host-side support for the channels module: it
-// registers WASM host bindings (read/write per type) and acts as the node
-// factory for `on` (source) and `write` (sink) flow nodes.
+// Host is the runtime host-side support for the channels module: it registers WASM host
+// bindings (read/write per type) and acts as the node factory for `on` (source) and
+// `write` (sink) flow nodes.
 type Host struct {
 	state   *ProgramState
 	strings *strings.ProgramState
 }
 
-// NewHost registers the channels module's WASM host bindings with rt. cs
-// is the channels ProgramState; stringState is the strings ProgramState
-// (used by the read_str / write_str bindings).
+// NewHost registers the channels module's WASM host bindings with rt and returns the
+// node factory for `on` and `write`. String reads and writes go through stringState.
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
-	cs *ProgramState,
+	ps *ProgramState,
 	stringState *strings.ProgramState,
 ) (*Host, error) {
-	h := &Host{state: cs, strings: stringState}
+	h := &Host{state: ps, strings: stringState}
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(Name)
-	builder = bindI32[uint8](builder, cs, "u8")
-	builder = bindI32[uint16](builder, cs, "u16")
-	builder = bindI32[uint32](builder, cs, "u32")
-	builder = bindI32[int8](builder, cs, "i8")
-	builder = bindI32[int16](builder, cs, "i16")
-	builder = bindI32[int32](builder, cs, "i32")
-	builder = bindI64[uint64](builder, cs, "u64")
-	builder = bindI64[int64](builder, cs, "i64")
-	builder = bindBool(builder, cs)
-	builder = bindF32(builder, cs)
-	builder = bindF64(builder, cs)
-	builder = bindStr(builder, cs, stringState)
+	builder := rt.NewHostModuleBuilder(name)
+	builder = bindI32[uint8](builder, ps, "u8")
+	builder = bindI32[uint16](builder, ps, "u16")
+	builder = bindI32[uint32](builder, ps, "u32")
+	builder = bindI32[int8](builder, ps, "i8")
+	builder = bindI32[int16](builder, ps, "i16")
+	builder = bindI32[int32](builder, ps, "i32")
+	builder = bindI64[uint64](builder, ps, "u64")
+	builder = bindI64[int64](builder, ps, "i64")
+	builder = bindBool(builder, ps)
+	builder = bindF32(builder, ps)
+	builder = bindF64(builder, ps)
+	builder = bindStr(builder, ps, stringState)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -175,8 +173,8 @@ type nodeInputs struct {
 	Channel uint32 `json:"channel"`
 }
 
-// boundKey returns the channel a node currently targets: the binding edge's
-// latest key when present, otherwise the configured key.
+// boundKey returns the channel a node currently targets: the binding edge's latest key
+// when present, otherwise the configured key.
 func boundKey(s *node.State, channelIdx int, configured uint32) uint32 {
 	if t := s.RefInput(channelIdx); t.Len() > 0 {
 		return t.ValueAt[uint32](-1)
@@ -195,10 +193,10 @@ type source struct {
 	clock         telem.MonoClock
 }
 
-func (s *source) Init(node.Context) {}
+func (*source) Init(node.Context) {}
 
-// rebindTo re-points the source at key. A rebind is not a value:
-// only values arriving afterward fire
+// rebindTo re-points the source at key. A rebind is not a value: only values arriving
+// afterward fire
 func (s *source) rebindTo(key uint32) {
 	s.currKey = key
 	s.highWaterMark = 0
@@ -216,9 +214,9 @@ func (s *source) raiseWaterMark() {
 	}
 }
 
-// Reset advances the high water mark to the current channel alignment,
-// ensuring that when a stage is (re-)activated it only responds to
-// data that arrives after activation rather than stale pre-existing data.
+// Reset advances the high water mark to the current channel alignment, ensuring that
+// when a stage is (re-)activated it only responds to data that arrives after activation
+// rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
 	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
@@ -288,8 +286,8 @@ func (s *sink) Next(ctx node.Context) {
 	}
 	key := boundKey(s.State, s.channelIdx, s.key)
 	time := s.InputTime(s.inputIdx)
-	// A length disagreement is an upstream aligner bug. Refuse the write instead
-	// of persisting a corrupt index.
+	// A length disagreement is an upstream aligner bug. Refuse the write instead of
+	// persisting a corrupt index.
 	if time.Len() != data.Len() {
 		ctx.ReportError(errors.Newf(
 			"write to channel %d: sample count %d does not match timestamp count %d",
@@ -314,27 +312,33 @@ func (s *sink) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
+// hostRead returns the latest series on key for a host read. ok is false when the
+// channel has no buffered value.
+func hostRead(ps *ProgramState, key uint32) (telem.Series, bool) {
+	series, ok := ps.readValue(key)
+	return series, ok && series.Len() > 0
+}
+
 type i32Compatible interface {
 	uint8 | uint16 | uint32 | int8 | int16 | int32
 }
 
 func bindI32[T i32Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(ps, chID)
+			if !ok {
 				return 0
 			}
 			return uint32(series.ValueAt[T](-1))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
+			writeSample(ps, chID, T(val))
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -345,33 +349,32 @@ type i64Compatible interface {
 
 func bindI64[T i64Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint64 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(ps, chID)
+			if !ok {
 				return 0
 			}
 			return uint64(series.ValueAt[T](-1))
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
-			appendFixedWriteSample(cs, chID, T(val))
-			cs.writeIndexedTimestamp(chID)
+			writeSample(ps, chID, T(val))
 		}).Export("write_" + suffix)
 	return builder
 }
 
 func bindBool(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(ps, chID)
+			if !ok {
 				return 0
 			}
 			if series.ValueAt[bool](-1) {
@@ -381,59 +384,58 @@ func bindBool(
 		}).Export("read_bool")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(cs, chID, val != 0)
-			cs.writeIndexedTimestamp(chID)
+			writeSample(ps, chID, val != 0)
 		}).Export("write_bool")
 	return builder
 }
 
 func bindF32(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(ps, chID)
+			if !ok {
 				return 0
 			}
 			return series.ValueAt[float32](-1)
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
-			cs.WriteChannelF32(chID, val)
+			writeSample(ps, chID, val)
 		}).Export("write_f32")
 	return builder
 }
 
 func bindF64(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float64 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(ps, chID)
+			if !ok {
 				return 0
 			}
 			return series.ValueAt[float64](-1)
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
-			cs.WriteChannelF64(chID, val)
+			writeSample(ps, chID, val)
 		}).Export("write_f64")
 	return builder
 }
 
 func bindStr(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	ss *strings.ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
-			if !ok || series.Len() == 0 {
+			series, ok := hostRead(ps, chID)
+			if !ok {
 				return 0
 			}
 			unmarshaled := series.Unmarshal[string]()
@@ -448,7 +450,7 @@ func bindStr(
 			if !ok {
 				return
 			}
-			cs.writeValue(chID, telem.NewSeriesV(str))
+			ps.writeValue(chID, telem.NewSeriesV(str))
 		}).Export("write_str")
 	return builder
 }

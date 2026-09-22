@@ -10,60 +10,111 @@
 package channels_test
 
 import (
+	"context"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("ProgramState", func() {
-	var s *channels.ProgramState
+// bound is a channel state reached through its WASM host bindings, the only path a
+// program reads or writes it through.
+type bound struct {
+	rt *testutil.Runtime
+	ps *channels.ProgramState
+}
 
-	BeforeEach(func() {
-		s = channels.NewProgramState([]channels.Digest{
-			{Key: 1, DataType: telem.Float32T, Index: 2},
-			{Key: 3, DataType: telem.Int32T},
-			{Key: 5, DataType: telem.Float64T, Index: 6},
-		})
+func newBound(ctx context.Context, digests ...channels.Digest) *bound {
+	GinkgoHelper()
+	rt := testutil.NewRuntime(ctx)
+	ps := channels.NewProgramState(digests)
+	MustSucceed(channels.NewHost(ctx, rt.Underlying(), ps, strings.NewProgramState()))
+	rt.Passthrough(ctx, "channels")
+	DeferCleanup(rt.Close)
+	return &bound{rt: rt, ps: ps}
+}
+
+// readF32 returns the latest f32 on key. ok is false when the read missed.
+func (b *bound) readF32(ctx context.Context, key uint32) (float32, bool) {
+	ok := b.ps.HasValue(key)
+	v := b.rt.Call(ctx, "channels", "read_f32", testutil.U32(key))[0]
+	return testutil.AsF32(v), ok
+}
+
+// readF64 returns the latest f64 on key. ok is false when the read missed.
+func (b *bound) readF64(ctx context.Context, key uint32) (float64, bool) {
+	ok := b.ps.HasValue(key)
+	v := b.rt.Call(ctx, "channels", "read_f64", testutil.U32(key))[0]
+	return testutil.AsF64(v), ok
+}
+
+// readI32 returns the latest i32 on key. ok is false when the read missed.
+func (b *bound) readI32(ctx context.Context, key uint32) (int32, bool) {
+	ok := b.ps.HasValue(key)
+	v := b.rt.Call(ctx, "channels", "read_i32", testutil.U32(key))[0]
+	return int32(testutil.AsU32(v)), ok
+}
+
+func (b *bound) writeF32(ctx context.Context, key uint32, v float32) {
+	b.rt.CallVoid(ctx, "channels", "write_f32", testutil.U32(key), testutil.F32(v))
+}
+
+func (b *bound) writeF64(ctx context.Context, key uint32, v float64) {
+	b.rt.CallVoid(ctx, "channels", "write_f64", testutil.U32(key), testutil.F64(v))
+}
+
+func (b *bound) writeI32(ctx context.Context, key uint32, v int32) {
+	b.rt.CallVoid(ctx, "channels", "write_i32", testutil.U32(key), testutil.I32(v))
+}
+
+func (b *bound) flush() (telem.Frame[uint32], bool) {
+	return b.ps.Flush(telem.Frame[uint32]{})
+}
+
+var _ = Describe("ProgramState", func() {
+	var b *bound
+
+	BeforeEach(func(ctx SpecContext) {
+		b = newBound(ctx,
+			channels.Digest{Key: 1, DataType: telem.Float32T, Index: 2},
+			channels.Digest{Key: 3, DataType: telem.Int32T},
+			channels.Digest{Key: 5, DataType: telem.Float64T, Index: 6},
+		)
 	})
 
 	Describe("NewProgramState", func() {
-		It("Should initialize index mappings from digests", func() {
-			cs := channels.NewProgramState([]channels.Digest{
-				{Key: 10, Index: 11},
-				{Key: 20, Index: 21},
-			})
-			cs.WriteChannel(
-				10,
-				telem.NewSeriesV[float32](1.0),
-				telem.NewSeriesSecondsTSV(100),
-			)
-			fr, changed := cs.Flush(telem.Frame[uint32]{})
-			Expect(changed).To(BeTrue())
-			Expect(fr.Get(11).Series).To(HaveLen(1))
-		})
+		It(
+			"Should stamp writes through the digests' index channels",
+			func(ctx SpecContext) {
+				b2 := newBound(ctx,
+					channels.Digest{Key: 10, Index: 11},
+					channels.Digest{Key: 20, Index: 21},
+				)
+				b2.writeF32(ctx, 10, 1.0)
+				fr, changed := b2.flush()
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(11).Series).To(HaveLen(1))
+			},
+		)
 
-		It("Should handle nil digests", func() {
-			cs := channels.NewProgramState(nil)
-			Expect(cs).ToNot(BeNil())
-			_, ok := cs.ReadValue(1)
-			Expect(ok).To(BeFalse())
-		})
+		It(
+			"Should read every channel as missing with no digests",
+			func(ctx SpecContext) {
+				b2 := newBound(ctx)
+				_, ok := b2.readF32(ctx, 1)
+				Expect(ok).To(BeFalse())
+			},
+		)
 
-		It("Should handle empty digests", func() {
-			cs := channels.NewProgramState([]channels.Digest{})
-			Expect(cs).ToNot(BeNil())
-			_, ok := cs.ReadValue(1)
-			Expect(ok).To(BeFalse())
-		})
-
-		It("Should ignore zero-value index in digests", func() {
-			cs := channels.NewProgramState([]channels.Digest{{Key: 10, Index: 0}})
-			cs.WriteValue(10, telem.NewSeriesV[int32](42))
-			fr, changed := cs.Flush(telem.Frame[uint32]{})
+		It("Should ignore a zero index in the digests", func(ctx SpecContext) {
+			b2 := newBound(ctx, channels.Digest{Key: 10, Index: 0})
+			b2.writeI32(ctx, 10, 42)
+			fr, changed := b2.flush()
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(10).Series).To(HaveLen(1))
 			Expect(fr.Get(0).Series).To(BeEmpty())
@@ -71,386 +122,244 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("Ingest", func() {
-		It("Should buffer ingested frame data for later reads", func() {
-			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.5, 2.5)))
-			ser := MustBeOk(s.ReadValue(1))
-			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV[float32](1.5, 2.5)))
+		It("Should expose the last ingested sample to reads", func(ctx SpecContext) {
+			b.ps.Ingest(
+				telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.5, 2.5)),
+			)
+			Expect(MustBeOk(b.readF32(ctx, 1))).To(Equal(float32(2.5)))
 		})
 
-		It("Should accumulate multiple ingestions into MultiSeries", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](2)))
-			data, _, ok := s.ReadSeries(3)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(2))
-		})
-
-		It("Should handle multiple channels in a single frame", func() {
+		It("Should handle multiple channels in a single frame", func(ctx SpecContext) {
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(1, telem.NewSeriesV[float32](10.0))
 			fr = fr.Append(3, telem.NewSeriesV[int32](42))
-			s.Ingest(fr)
-			Expect(MustBeOk(s.ReadValue(1))).To(
-				telem.MatchSeries(telem.NewSeriesV[float32](10.0)),
-			)
-			Expect(MustBeOk(s.ReadValue(3))).To(
-				telem.MatchSeries(telem.NewSeriesV[int32](42)),
-			)
+			b.ps.Ingest(fr)
+			Expect(MustBeOk(b.readF32(ctx, 1))).To(Equal(float32(10.0)))
+			Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(42)))
 		})
 
-		It("Should handle ingestion of channels not in digests", func() {
-			s.Ingest(telem.UnaryFrame[uint32](999, telem.NewSeriesV(1.0)))
-			ser := MustBeOk(s.ReadValue(999))
-			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV(1.0)))
+		It("Should accept channels not in the digests", func(ctx SpecContext) {
+			b.ps.Ingest(telem.UnaryFrame[uint32](999, telem.NewSeriesV(1.0)))
+			Expect(MustBeOk(b.readF64(ctx, 999))).To(Equal(1.0))
 		})
 
 		It("Should handle an empty frame without panicking", func() {
-			Expect(func() { s.Ingest(telem.Frame[uint32]{}) }).ToNot(Panic())
+			Expect(func() { b.ps.Ingest(telem.Frame[uint32]{}) }).ToNot(Panic())
 		})
 
-		It("Should handle series with boundary float values", func() {
-			s.Ingest(telem.UnaryFrame[uint32](
+		It("Should keep boundary float values", func(ctx SpecContext) {
+			b.ps.Ingest(telem.UnaryFrame[uint32](5, telem.NewSeriesV(math.MaxFloat64)))
+			Expect(MustBeOk(b.readF64(ctx, 5))).To(Equal(math.MaxFloat64))
+			b.ps.Ingest(telem.UnaryFrame[uint32](
 				5,
 				telem.NewSeriesV(
-					math.MaxFloat64,
 					math.SmallestNonzeroFloat64,
 					math.Inf(1),
 					math.Inf(-1),
 				),
 			))
-			ser := MustBeOk(s.ReadValue(5))
-			Expect(ser.Len()).To(Equal(int64(4)))
+			v, ok := b.readF64(ctx, 5)
+			Expect(ok).To(BeTrue())
+			Expect(math.IsInf(v, -1)).To(BeTrue())
 		})
 
-		It("Should handle series with NaN values", func() {
-			s.Ingest(telem.UnaryFrame[uint32](5, telem.NewSeriesV(math.NaN())))
-			ser := MustBeOk(s.ReadValue(5))
-			Expect(ser.Len()).To(Equal(int64(1)))
-			Expect(math.IsNaN(ser.ValueAt[float64](0))).To(BeTrue())
+		It("Should keep NaN values", func(ctx SpecContext) {
+			b.ps.Ingest(telem.UnaryFrame[uint32](5, telem.NewSeriesV(math.NaN())))
+			v, ok := b.readF64(ctx, 5)
+			Expect(ok).To(BeTrue())
+			Expect(math.IsNaN(v)).To(BeTrue())
 		})
 
-		It("Should handle series with max/min integer values", func() {
-			s.Ingest(telem.UnaryFrame[uint32](
-				3, telem.NewSeriesV[int32](math.MaxInt32, math.MinInt32, 0),
-			))
-			ser := MustBeOk(s.ReadValue(3))
-			Expect(ser.ValueAt[int32](0)).To(Equal(int32(math.MaxInt32)))
-			Expect(ser.ValueAt[int32](1)).To(Equal(int32(math.MinInt32)))
-			Expect(ser.ValueAt[int32](2)).To(Equal(int32(0)))
+		It("Should keep max and min integer values", func(ctx SpecContext) {
+			b.ps.Ingest(
+				telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](math.MaxInt32)),
+			)
+			Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(math.MaxInt32)))
+			b.ps.Ingest(
+				telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](math.MinInt32)),
+			)
+			Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(math.MinInt32)))
 		})
 
-		It("Should handle empty series", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32]()))
-			ser := MustBeOk(s.ReadValue(3))
-			Expect(ser.Len()).To(Equal(int64(0)))
+		It("Should treat an empty series as no value", func(ctx SpecContext) {
+			b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32]()))
+			_, ok := b.readI32(ctx, 3)
+			Expect(ok).To(BeFalse())
+		})
+
+		It(
+			"Should read the latest series after many ingestions",
+			func(ctx SpecContext) {
+				for i := range 100 {
+					b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV(int32(i))))
+				}
+				Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(99)))
+			},
+		)
+
+		It("Should read an unknown channel as missing", func(ctx SpecContext) {
+			_, ok := b.readI32(ctx, 999)
+			Expect(ok).To(BeFalse())
+			_, ok = b.readI32(ctx, 0)
+			Expect(ok).To(BeFalse())
 		})
 	})
 
-	Describe("ReadValue", func() {
-		It("Should return the last series from the read buffer", func() {
-			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.0)))
-			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](2.0)))
-			ser := MustBeOk(s.ReadValue(1))
-			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
-		})
-
-		It("Should return false for an unknown channel", func() {
-			_, ok := s.ReadValue(999)
-			Expect(ok).To(BeFalse())
-		})
-
-		It("Should return false for a channel with no data", func() {
-			s = channels.NewProgramState([]channels.Digest{{Key: 10}})
-			_, ok := s.ReadValue(10)
-			Expect(ok).To(BeFalse())
-		})
-
-		It("Should return false for channel key zero", func() {
-			_, ok := s.ReadValue(0)
-			Expect(ok).To(BeFalse())
-		})
-
-		It("Should return the latest series after many ingestions", func() {
-			for i := range 100 {
-				s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV(int32(i))))
-			}
-			ser := MustBeOk(s.ReadValue(3))
-			Expect(ser.ValueAt[int32](0)).To(Equal(int32(99)))
-		})
-	})
-
-	Describe("WriteValue", func() {
-		It("Should buffer the write for later flushing", func() {
-			s.WriteValue(3, telem.NewSeriesV[int32](100))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+	Describe("Writes", func() {
+		It("Should buffer a write until it is flushed", func(ctx SpecContext) {
+			b.writeI32(ctx, 3, 100)
+			fr, changed := b.flush()
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(3).Series[0]).To(
 				telem.MatchSeries(telem.NewSeriesV[int32](100)),
 			)
 		})
 
-		It("Should auto-write index channel for indexed channels", func() {
-			s.WriteValue(1, telem.NewSeriesV[float32](5.0))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+		It("Should stamp the index channel of an indexed write", func(ctx SpecContext) {
+			b.writeF32(ctx, 1, 5.0)
+			fr, changed := b.flush()
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
 			Expect(fr.Get(2).Series).To(HaveLen(1))
 			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
 		})
 
-		It("Should not write to an index for non-indexed channels", func() {
-			s.WriteValue(3, telem.NewSeriesV[int32](50))
-			fr, _ := s.Flush(telem.Frame[uint32]{})
-			Expect(fr.Get(3).Series).To(HaveLen(1))
-			Expect(fr.Get(0).Series).To(BeEmpty())
-		})
+		It(
+			"Should not stamp an index for a channel without one",
+			func(ctx SpecContext) {
+				b.writeI32(ctx, 3, 50)
+				fr, _ := b.flush()
+				Expect(fr.Get(3).Series).To(HaveLen(1))
+				Expect(fr.Get(0).Series).To(BeEmpty())
+			},
+		)
 
-		It("Should accumulate multiple writes in same cycle", func() {
-			s.WriteValue(3, telem.NewSeriesV[int32](1))
-			s.WriteValue(3, telem.NewSeriesV[int32](2))
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+		It("Should accumulate writes within a cycle", func(ctx SpecContext) {
+			b.writeI32(ctx, 3, 1)
+			b.writeI32(ctx, 3, 2)
+			fr, _ := b.flush()
 			Expect(fr.Get(3).Series[0]).To(
 				telem.MatchSeries(telem.NewSeriesV[int32](1, 2)),
 			)
 		})
 
-		It("Should handle writes to channels not in digests", func() {
-			s.WriteValue(888, telem.NewSeriesV(3.14))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
-			Expect(changed).To(BeTrue())
-			Expect(fr.Get(888).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV(3.14)),
-			)
-		})
+		It(
+			"Should accept writes to channels not in the digests",
+			func(ctx SpecContext) {
+				b.writeF64(ctx, 888, 3.14)
+				fr, changed := b.flush()
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(888).Series[0]).To(
+					telem.MatchSeries(telem.NewSeriesV(3.14)),
+				)
+			},
+		)
 	})
 
 	Describe("Flush", func() {
 		It("Should return false when no writes are buffered", func() {
-			_, changed := s.Flush(telem.Frame[uint32]{})
+			_, changed := b.flush()
 			Expect(changed).To(BeFalse())
 		})
 
-		It("Should extract buffered writes and clear the write buffer", func() {
-			s.WriteValue(1, telem.NewSeriesV[float32](9.9))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+		It("Should clear the write buffer", func(ctx SpecContext) {
+			b.writeF32(ctx, 1, 9.9)
+			fr, changed := b.flush()
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
-			_, changed = s.Flush(telem.Frame[uint32]{})
+			_, changed = b.flush()
 			Expect(changed).To(BeFalse())
 		})
 
-		It("Should deep copy data so mutations don't affect flushed frames", func() {
-			original := telem.NewSeriesV[float32](1.0, 2.0, 3.0)
-			s.WriteValue(1, original)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
-			original.Data[0] = 0xFF
-			Expect(fr.Get(1).Series[0].Data[0]).ToNot(Equal(byte(0xFF)))
+		It("Should detach flushed data from later writes", func(ctx SpecContext) {
+			b.writeF32(ctx, 1, 1.0)
+			first, _ := b.flush()
+			b.writeF32(ctx, 1, 9.0)
+			_, _ = b.flush()
+			Expect(first.Get(1).Series[0]).To(
+				telem.MatchSeries(telem.NewSeriesV[float32](1.0)),
+			)
 		})
 
-		It("Should append to an existing frame", func() {
+		It("Should append to an existing frame", func(ctx SpecContext) {
 			existing := telem.UnaryFrame[uint32](100, telem.NewSeriesV[int32](1))
-			s.WriteValue(3, telem.NewSeriesV[int32](2))
-			fr, changed := s.Flush(existing)
+			b.writeI32(ctx, 3, 2)
+			fr, changed := b.ps.Flush(existing)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(100).Series).To(HaveLen(1))
 			Expect(fr.Get(3).Series).To(HaveLen(1))
 		})
 
-		It("Should flush writes for multiple channels", func() {
-			s.WriteValue(1, telem.NewSeriesV[float32](1.0))
-			s.WriteValue(3, telem.NewSeriesV[int32](2))
-			fr, changed := s.Flush(telem.Frame[uint32]{})
+		It("Should flush writes for multiple channels", func(ctx SpecContext) {
+			b.writeF32(ctx, 1, 1.0)
+			b.writeI32(ctx, 3, 2)
+			fr, changed := b.flush()
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(1).Series).To(HaveLen(1))
 			Expect(fr.Get(3).Series).To(HaveLen(1))
-		})
-	})
-
-	Describe("ReadSeries", func() {
-		It("Should return data without time for non-indexed channels", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1, 2)))
-			data, time, ok := s.ReadSeries(3)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(1))
-			Expect(time.Series).To(BeEmpty())
-		})
-
-		It("Should return data with time for indexed channels", func() {
-			fr := telem.Frame[uint32]{}
-			fr = fr.Append(1, telem.NewSeriesV[float32](1.0, 2.0))
-			fr = fr.Append(2, telem.NewSeriesSecondsTSV(10, 20))
-			s.Ingest(fr)
-			data, time, ok := s.ReadSeries(1)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(1))
-			Expect(time.Series).To(HaveLen(1))
-		})
-
-		It("Should return false when index data is missing", func() {
-			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.0)))
-			_, _, ok := s.ReadSeries(1)
-			Expect(ok).To(BeFalse())
-		})
-
-		It("Should return false for unknown channel", func() {
-			_, _, ok := s.ReadSeries(999)
-			Expect(ok).To(BeFalse())
-		})
-
-		It("Should return ok when data series has zero-length content", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.Series{}))
-			data, _, ok := s.ReadSeries(3)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(1))
-		})
-
-		It("Should return accumulated data across multiple ingestions", func() {
-			fr1 := telem.Frame[uint32]{}
-			fr1 = fr1.Append(1, telem.NewSeriesV[float32](1.0))
-			fr1 = fr1.Append(2, telem.NewSeriesSecondsTSV(10))
-			s.Ingest(fr1)
-			fr2 := telem.Frame[uint32]{}
-			fr2 = fr2.Append(1, telem.NewSeriesV[float32](2.0))
-			fr2 = fr2.Append(2, telem.NewSeriesSecondsTSV(20))
-			s.Ingest(fr2)
-			data, time, ok := s.ReadSeries(1)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(2))
-			Expect(time.Series).To(HaveLen(2))
-		})
-	})
-
-	Describe("WriteChannel", func() {
-		It("Should buffer both data and time series", func() {
-			data := telem.NewSeriesV[float32](1.0, 2.0)
-			time := telem.NewSeriesSecondsTSV(100, 200)
-			s.WriteChannel(1, data, time)
-			fr, changed := s.Flush(telem.Frame[uint32]{})
-			Expect(changed).To(BeTrue())
-			Expect(fr.Get(1).Series[0]).To(telem.MatchSeries(data))
-			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(time))
-		})
-
-		It("Should write time to index channel", func() {
-			data := telem.NewSeriesV(9.9)
-			time := telem.NewSeriesSecondsTSV(500)
-			s.WriteChannel(5, data, time)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
-			Expect(fr.Get(6).Series).To(HaveLen(1))
-		})
-
-		It("Should not write time to index for non-indexed channels", func() {
-			data := telem.NewSeriesV[int32](42)
-			time := telem.NewSeriesSecondsTSV(100)
-			s.WriteChannel(3, data, time)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
-			Expect(fr.Get(3).Series).To(HaveLen(1))
-			Expect(fr.Get(0).Series).To(BeEmpty())
 		})
 	})
 
 	Describe("ClearReads", func() {
-		It("Should preserve the latest series for each channel", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](2)))
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](3)))
-			s.ClearReads()
-			data, _, ok := s.ReadSeries(3)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(1))
-			Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
+		It("Should keep the latest value of each channel", func(ctx SpecContext) {
+			for i := range int32(3) {
+				b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV(i+1)))
+			}
+			b.ps.ClearReads()
+			Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(3)))
 		})
 
-		It("Should be a no-op for channels with a single series", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
-			s.ClearReads()
-			data, _, ok := s.ReadSeries(3)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(1))
-		})
+		It(
+			"Should be a no-op for a channel with a single series",
+			func(ctx SpecContext) {
+				b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
+				b.ps.ClearReads()
+				Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(1)))
+			},
+		)
 
 		It("Should be a no-op for empty state", func() {
-			Expect(func() { s.ClearReads() }).ToNot(Panic())
+			Expect(func() { b.ps.ClearReads() }).ToNot(Panic())
 		})
 
-		It("Should handle multiple channels independently", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](2)))
+		It("Should handle multiple channels independently", func(ctx SpecContext) {
+			b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
+			b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](2)))
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(1, telem.NewSeriesV[float32](10.0))
 			fr = fr.Append(2, telem.NewSeriesSecondsTSV(100))
-			s.Ingest(fr)
-			s.ClearReads()
-			d3, _, ok3 := s.ReadSeries(3)
-			Expect(ok3).To(BeTrue())
-			Expect(d3.Series).To(HaveLen(1))
-			Expect(d3.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
-			d1, _, ok1 := s.ReadSeries(1)
-			Expect(ok1).To(BeTrue())
-			Expect(d1.Series).To(HaveLen(1))
+			b.ps.Ingest(fr)
+			b.ps.ClearReads()
+			Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(2)))
+			Expect(MustBeOk(b.readF32(ctx, 1))).To(Equal(float32(10.0)))
 		})
 
-		It("Should allow new ingestions after clear", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](2)))
-			s.ClearReads()
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](3)))
-			data, _, ok := s.ReadSeries(3)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(2))
+		It("Should accept new ingestions after a clear", func(ctx SpecContext) {
+			b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
+			b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](2)))
+			b.ps.ClearReads()
+			b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](3)))
+			Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(3)))
 		})
 
-		It("Should use fresh allocation when capacity exceeds threshold", func() {
-			for range 100 {
-				s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
-			}
-			s.ClearReads()
-			data, _, ok := s.ReadSeries(3)
-			Expect(ok).To(BeTrue())
-			Expect(data.Series).To(HaveLen(1))
-		})
-	})
-
-	Describe("WriteChannelFixed", func() {
-		It("Should write all fixed numeric types and auto-index timestamps", func() {
-			s.WriteChannelI32(1, 42)
-			fr, changed := s.Flush(telem.Frame[uint32]{})
-			Expect(changed).To(BeTrue())
-			Expect(fr.Get(1).Series).To(HaveLen(1))
-			Expect(fr.Get(1).Series[0].ValueAt[int32](0)).To(Equal(int32(42)))
-			Expect(fr.Get(2).Series).To(HaveLen(1))
-			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
-		})
-
-		It("Should not write index for channels without one", func() {
-			s.WriteChannelI32(3, 10)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
-			Expect(fr.Get(3).Series).To(HaveLen(1))
-			Expect(fr.Get(0).Series).To(BeEmpty())
-		})
-	})
-
-	Describe("Write accumulation metadata", func() {
-		It("Should merge time ranges across multiple writes", func() {
-			ser1 := telem.NewSeriesV[int32](1)
-			ser1.TimeRange = telem.TimeRange{Start: 100, End: 200}
-			ser2 := telem.NewSeriesV[int32](2)
-			ser2.TimeRange = telem.TimeRange{Start: 50, End: 300}
-			s.WriteValue(3, ser1)
-			s.WriteValue(3, ser2)
-			fr, _ := s.Flush(telem.Frame[uint32]{})
-			Expect(fr.Get(3).Series[0].TimeRange.Start).To(Equal(telem.TimeStamp(50)))
-			Expect(fr.Get(3).Series[0].TimeRange.End).To(Equal(telem.TimeStamp(300)))
-		})
+		It(
+			"Should keep the latest value past the reallocation threshold",
+			func(ctx SpecContext) {
+				for i := range 100 {
+					b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV(int32(i))))
+				}
+				b.ps.ClearReads()
+				Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(99)))
+			},
+		)
 	})
 
 	Describe("Ingest then Flush roundtrip", func() {
-		It("Should not cross-contaminate reads and writes", func() {
-			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](10)))
-			s.WriteValue(3, telem.NewSeriesV[int32](20))
-			readSer := MustBeOk(s.ReadValue(3))
-			Expect(readSer.ValueAt[int32](0)).To(Equal(int32(10)))
-			fr, _ := s.Flush(telem.Frame[uint32]{})
+		It("Should keep reads and writes apart", func(ctx SpecContext) {
+			b.ps.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](10)))
+			b.writeI32(ctx, 3, 20)
+			Expect(MustBeOk(b.readI32(ctx, 3))).To(Equal(int32(10)))
+			fr, _ := b.flush()
 			Expect(fr.Get(3).Series[0].ValueAt[int32](0)).To(Equal(int32(20)))
 		})
 	})

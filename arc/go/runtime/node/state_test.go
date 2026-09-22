@@ -2535,4 +2535,50 @@ var _ = Describe("Gating and Absorb Edge Cases", func() {
 			Expect(reader.RefInput(0).ValueAt[uint32](-1)).To(Equal(uint32(9)))
 		},
 	)
+
+	Describe("Rearm", func() {
+		It(
+			"Should re-run a node over the inputs it already holds",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Nodes: graph.Nodes{{Key: "first"}, {Key: "second"}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"first":  {"type": "first"},
+						"second": {"type": "second"},
+					},
+					Functions: []ir.Function{
+						{
+							Key: "first",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
+						},
+						{
+							Key: "second",
+							Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.F32()},
+							},
+						},
+					},
+					Edges: graph.Edges{{
+						Source: ir.Handle{Node: "first", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "second", Param: ir.DefaultInputParam},
+					}},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				first := s.Node("first")
+				second := s.Node("second")
+				*first.Output(0) = telem.NewSeriesV[float32](1, 2, 3)
+				*first.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+				Expect(second.RefreshInputs()).To(BeTrue())
+				Expect(second.RefreshInputs()).To(BeFalse())
+				second.Rearm()
+				Expect(second.RefreshInputs()).To(BeTrue())
+				Expect(second.Input(0)).To(telem.MatchSeries(*first.Output(0)))
+				Expect(second.RefreshInputs()).To(BeFalse())
+			},
+		)
+	})
 })

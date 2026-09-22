@@ -1783,9 +1783,14 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				n := findNodeByType(inter.Nodes, "reader")
-				Expect(n.Channels.Read).To(HaveKey(uint32(901)),
+				Expect(n.Channels.Read).To(BeEmpty(),
+					"the body reads the bound key, not a fixed one")
+				param := MustBeOk(n.Inputs.Get("channel"))
+				Expect(param.Type.ChanDirection.IsRead()).To(BeTrue())
+				register := inter.Nodes.Get("bind_a_0")
+				Expect(register.Channels.Read).To(HaveKey(uint32(901)),
 					"declared binding must stay a read candidate")
-				Expect(n.Channels.Read).To(HaveKey(uint32(904)),
+				Expect(register.Channels.Read).To(HaveKey(uint32(904)),
 					"rebound binding must be a read candidate")
 			},
 		)
@@ -1828,9 +1833,15 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				n := findNodeByType(inter.Nodes, "writer")
-				Expect(n.Channels.Write).To(HaveKey(uint32(905)),
+				Expect(n.Channels.Write).To(BeEmpty(),
+					"the body writes the bound key, not a fixed one")
+				param := MustBeOk(n.Inputs.Get("channel"))
+				Expect(param.Type.ChanDirection.IsRead()).To(BeFalse())
+				Expect(param.Type.ChanDirection.IsWrite()).To(BeTrue())
+				register := inter.Nodes.Get("bind_w_0")
+				Expect(register.Channels.Write).To(HaveKey(uint32(905)),
 					"declared binding must stay a write candidate")
-				Expect(n.Channels.Write).To(HaveKey(uint32(906)),
+				Expect(register.Channels.Write).To(HaveKey(uint32(906)),
 					"rebound binding must be a write candidate")
 			},
 		)

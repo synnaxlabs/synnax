@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -78,6 +79,9 @@ public:
     void ingest(const x::telem::Frame &frame);
 
     std::pair<x::telem::MultiSeries, bool> read_value(types::ChannelKey key);
+
+    /// @brief reports whether key holds a buffered value for a host read to return.
+    [[nodiscard]] bool has_value(types::ChannelKey key) const;
 
     void write_value(types::ChannelKey key, const Series &data, const Series &time);
 

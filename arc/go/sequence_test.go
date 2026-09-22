@@ -10,8 +10,11 @@
 package arc_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -7298,6 +7301,191 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(out.Get(416).Series).To(BeEmpty(),
 					"a fired wait must stay quiet")
+			},
+		)
+	})
+
+	// A body read of a channel with no value yet must not evaluate as zero. The node
+	// skips the pass, warns once, and retries when a value arrives.
+	Describe("Channel reads before the first value", func() {
+		const (
+			startCmd = 100
+			tempA    = 101
+			tempB    = 102
+			reached  = 103
+		)
+		newH := func(ctx SpecContext, src string) (*runtimeHarness, *[]error) {
+			GinkgoHelper()
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), startCmd},
+				"temp_a":    {types.F32(), tempA},
+				"temp_b":    {types.F32(), tempB},
+				"reached":   {types.U8(), reached},
+			})
+			h := newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: startCmd, DataType: telem.Uint8T},
+				channels.Digest{Key: tempA, DataType: telem.Float32T},
+				channels.Digest{Key: tempB, DataType: telem.Float32T},
+				channels.Digest{Key: reached, DataType: telem.Uint8T},
+			)
+			reported := &[]error{}
+			h.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(
+				func(_ context.Context, _ string, err error) {
+					*reported = append(*reported, err)
+				},
+			))
+			return h, reported
+		}
+		push := func(
+			h *runtimeHarness,
+			ctx SpecContext,
+			key uint32,
+			v float32,
+			at telem.TimeSpan,
+		) {
+			h.Ingest(key, telem.NewSeriesV(v))
+			advance(h, ctx, at)
+		}
+
+		It(
+			"skips a polled transition until every channel has a value",
+			func(ctx SpecContext) {
+				h, reported := newH(ctx, `import time
+			sequence main {
+			    stage wait_cold {
+			        time.interval{50ms} -> temp_a < 4.0 and temp_b < 5.0 => hold
+			    }
+			    stage hold {
+			        1 -> reached
+			    }
+			}
+			start_cmd => main`)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				advance(h, ctx, 120*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty())
+				Expect(*reported).To(HaveLen(1))
+				Expect((*reported)[0]).To(SatisfyAll(
+					MatchError(ContainSubstring("has no value yet")),
+					MatchError(ContainSubstring("temp_a")),
+				))
+
+				push(h, ctx, tempA, 3.0, 130*telem.Millisecond)
+				advance(h, ctx, 180*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(
+					out.Get(reached).Series,
+				).To(BeEmpty(), "temp_b still has no value")
+
+				push(h, ctx, tempB, 3.0, 190*telem.Millisecond)
+				advance(h, ctx, 240*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
+				Expect(*reported).To(HaveLen(1), "one warning per silent stretch")
+			},
+		)
+
+		It(
+			"retries a one-shot wait transition when the values arrive later",
+			func(ctx SpecContext) {
+				h, _ := newH(ctx, `import time
+			sequence main {
+			    stage wait_cold {
+			        time.wait{50ms} -> temp_a < 4.0 and temp_b < 5.0 => hold
+			    }
+			    stage hold {
+			        1 -> reached
+			    }
+			}
+			start_cmd => main`)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty())
+				push(h, ctx, tempA, 3.0, 70*telem.Millisecond)
+				push(h, ctx, tempB, 3.0, 80*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
+			},
+		)
+
+		It(
+			"runs a body with side effects once the channel has a value",
+			func(ctx SpecContext) {
+				const counted = 105
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), startCmd},
+					"temp_a":    {types.F32(), tempA},
+					"counted":   {types.I64(), counted},
+				})
+				h := newRuntimeHarness(ctx, `import time
+			func cold_count{} (trigger u8) i64 {
+			    n i64 $= 0
+			    n = n + 1
+			    if temp_a < 4.0 {
+			        return n
+			    }
+			    return 0
+			}
+			sequence main {
+			    stage wait_cold {
+			        time.wait{50ms} -> cold_count{} -> counted
+			    }
+			}
+			start_cmd => main`, resolver,
+					channels.Digest{Key: startCmd, DataType: telem.Uint8T},
+					channels.Digest{Key: tempA, DataType: telem.Float32T},
+					channels.Digest{Key: counted, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				advance(h, ctx, 70*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(counted).Series).To(BeEmpty())
+				push(h, ctx, tempA, 3.0, 80*telem.Millisecond)
+				out, _ = h.Flush()
+				last := out.Get(counted).Series
+				Expect(last).To(HaveLen(1))
+				Expect(last[0].Unmarshal[int64]()).To(Equal([]int64{1}))
+			},
+		)
+
+		It(
+			"gates on a silent channel even when a warm operand short-circuits",
+			func(ctx SpecContext) {
+				h, reported := newH(ctx, `import time
+			sequence main {
+			    stage wait_cold {
+			        time.interval{50ms} -> temp_a < 4.0 and temp_b < 5.0 => hold
+			    }
+			    stage hold {
+			        1 -> reached
+			    }
+			}
+			start_cmd => main`)
+				defer h.Close(ctx)
+				h.Ingest(tempA, telem.NewSeriesV[float32](12.0))
+				trigger(h, ctx, startCmd)
+				advance(h, ctx, 60*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty())
+				Expect(*reported).To(HaveLen(1))
+				Expect((*reported)[0]).To(MatchError(ContainSubstring("temp_b")))
+
+				push(h, ctx, tempB, 3.0, 70*telem.Millisecond)
+				advance(h, ctx, 120*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(reached).Series).To(BeEmpty(), "temp_a is still warm")
+				Expect(*reported).To(HaveLen(1))
+
+				push(h, ctx, tempA, 3.0, 130*telem.Millisecond)
+				advance(h, ctx, 180*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(lastU8(out, reached)).To(Equal(uint8(1)))
 			},
 		)
 	})

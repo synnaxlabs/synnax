@@ -187,5 +187,9 @@ class TaskStatus(Recorder):
             return False
         key = status.details.task
         self._latest[key] = status
-        self._messages.setdefault(key, []).append(status.message)
+        # The Core's Arc task puts the cause in the description; the driver puts
+        # it in the message. Match on either.
+        self._messages.setdefault(key, []).append(
+            f"{status.message} {status.description}"
+        )
         return True

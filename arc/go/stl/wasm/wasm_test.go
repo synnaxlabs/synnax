@@ -11,7 +11,6 @@ package wasm_test
 
 import (
 	"context"
-	"math"
 	"slices"
 	"strconv"
 
@@ -43,36 +42,6 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-var _ = Describe("ConvertLiteralValue", func() {
-	DescribeTable("supported numeric and timestamp types",
-		func(v any, expected uint64) {
-			Expect(wasm.ConvertLiteralValue(v)).To(Equal(expected))
-		},
-		Entry("int8", int8(1), uint64(1)),
-		Entry("int16", int16(2), uint64(2)),
-		Entry("int32", int32(3), uint64(3)),
-		Entry("int64", int64(4), uint64(4)),
-		Entry("uint8", uint8(5), uint64(5)),
-		Entry("uint16", uint16(6), uint64(6)),
-		Entry("uint32", uint32(7), uint64(7)),
-		Entry("uint64", uint64(8), uint64(8)),
-		Entry("float32", float32(1.5), uint64(math.Float32bits(1.5))),
-		Entry("float64", float64(2.5), math.Float64bits(2.5)),
-		Entry("telem.TimeStamp", telem.TimeStamp(9), uint64(9)),
-		Entry("telem.TimeSpan", telem.TimeSpan(10), uint64(10)),
-		Entry("bool true", true, uint64(1)),
-		Entry("bool false", false, uint64(0)),
-	)
-
-	DescribeTable("unsupported types return an error instead of panicking",
-		func(v any) {
-			_, err := wasm.ConvertLiteralValue(v)
-			Expect(err).To(HaveOccurred())
-		},
-		Entry("string", "x"),
-	)
-})
-
 // testHarness encapsulates common test setup for wasm module tests.
 type testHarness struct {
 	factory      node.Factory
@@ -83,6 +52,10 @@ type testHarness struct {
 	prog         program.Program
 	analyzed     ir.IR
 	graph        arc.Graph
+	// reported collects every error a node raised through ctx.ReportError.
+	reported []error
+	// selfChanged counts the MarkSelfChanged calls nodes made.
+	selfChanged int
 }
 
 func (h *testHarness) ChannelState() *channels.ProgramState { return h.channelState }
@@ -118,10 +91,11 @@ func newHarness(
 
 	factory := node.CompoundFactory{
 		&wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       stringsState,
-			NodeKeySetter: statefulMod,
+			Module:   guest,
+			Memory:   guest.Memory(),
+			Strings:  stringsState,
+			Stateful: statefulMod,
+			Channels: channelState,
 		},
 		channelMod,
 		mathMod,
@@ -174,11 +148,16 @@ func (h *testHarness) NextChanged(
 ) set.Set[string] {
 	outputs := h.analyzed.Nodes.Get(nodeKey).Outputs
 	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-		if i >= 0 && i < len(outputs) {
-			changed.Add(outputs[i].Name)
-		}
-	}})
+	n.Next(node.Context{
+		Context: ctx,
+		MarkChanged: func(i int) {
+			if i >= 0 && i < len(outputs) {
+				changed.Add(outputs[i].Name)
+			}
+		},
+		MarkSelfChanged: func() { h.selfChanged++ },
+		ReportError:     func(err error) { h.reported = append(h.reported, err) },
+	})
 	return changed
 }
 
@@ -195,6 +174,27 @@ func newTextHarness(
 	ctx context.Context,
 	source string,
 	chans []symbol.Symbol,
+	channelDigests ...channels.Digest,
+) *testHarness {
+	return buildTextHarness(ctx, source, chans, true, channelDigests...)
+}
+
+// newUngatedTextHarness is newTextHarness with no channel state wired into the
+// WASM module, so a read of a silent channel evaluates as zero.
+func newUngatedTextHarness(
+	ctx context.Context,
+	source string,
+	chans []symbol.Symbol,
+	channelDigests ...channels.Digest,
+) *testHarness {
+	return buildTextHarness(ctx, source, chans, false, channelDigests...)
+}
+
+func buildTextHarness(
+	ctx context.Context,
+	source string,
+	chans []symbol.Symbol,
+	gated bool,
 	channelDigests ...channels.Digest,
 ) *testHarness {
 	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -225,16 +225,16 @@ func newTextHarness(
 	stringsMod.SetMemory(guest.Memory())
 	errorsMod.SetMemory(guest.Memory())
 
-	factory := node.CompoundFactory{
-		&wasm.Module{
-			Module:        guest,
-			Memory:        guest.Memory(),
-			Strings:       stringsState,
-			NodeKeySetter: statefulMod,
-		},
-		channelMod,
-		mathMod,
+	mod := &wasm.Module{
+		Module:   guest,
+		Memory:   guest.Memory(),
+		Strings:  stringsState,
+		Stateful: statefulMod,
 	}
+	if gated {
+		mod.Channels = channelState
+	}
+	factory := node.CompoundFactory{mod, channelMod, mathMod}
 	return &testHarness{
 		prog:         prog,
 		analyzed:     analyzed,
@@ -5251,5 +5251,198 @@ var _ = Describe("Graph function variable parity", func() {
 		g := singleFunctionGraph("bad", types.I64(), `{ return k }`)
 		Expect(arc.CompileGraph(ctx, g, NewRoot(nil))).Error().
 			To(MatchError(ContainSubstring("undefined")))
+	})
+})
+
+// A body read of a channel with no value yet must not evaluate as zero. The
+// node skips the pass, warns once, and retries when a value arrives.
+var _ = Describe("Channel reads before the first value", func() {
+	const (
+		goCh   = 100
+		tempCh = 200
+		outCh  = 300
+	)
+	chans := []symbol.Symbol{
+		{
+			Name: "go_ch",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   goCh,
+		},
+		{
+			Name: "temp_ch",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+			ID:   tempCh,
+		},
+		{
+			Name: "out_ch",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.Bool()),
+			ID:   outCh,
+		},
+	}
+	const source = `go_ch -> temp_ch < 4.0 -> out_ch`
+	const exprNode = "expression_0_0"
+	digests := []channels.Digest{
+		{Key: goCh, DataType: telem.Uint8T},
+		{Key: tempCh, DataType: telem.Float32T},
+		{Key: outCh, DataType: telem.BooleanT},
+	}
+	fire := func(h *testHarness) {
+		GinkgoHelper()
+		h.SetInput(
+			"on_go_ch_0",
+			0,
+			telem.NewSeriesV[uint8](1),
+			telem.NewSeriesSecondsTSV(1),
+		)
+	}
+
+	It("skips the pass, re-arms, and names the silent channel", func(ctx SpecContext) {
+		h := newTextHarness(ctx, source, chans, digests...)
+		DeferCleanup(h.Close)
+		fire(h)
+		n := h.CreateNode(ctx, exprNode)
+		Expect(h.NextChanged(ctx, n, exprNode)).To(BeEmpty())
+		Expect(h.Output(exprNode, 0).Len()).To(Equal(int64(0)))
+		Expect(h.selfChanged).To(Equal(1))
+		Expect(h.reported).To(HaveLen(1))
+		Expect(h.reported[0]).To(SatisfyAll(
+			MatchError(ContainSubstring("has no value yet")),
+			MatchError(ContainSubstring("temp_ch")),
+		))
+	})
+
+	It("warns once per silent stretch", func(ctx SpecContext) {
+		h := newTextHarness(ctx, source, chans, digests...)
+		DeferCleanup(h.Close)
+		fire(h)
+		n := h.CreateNode(ctx, exprNode)
+		Expect(h.NextChanged(ctx, n, exprNode)).To(BeEmpty())
+		Expect(h.NextChanged(ctx, n, exprNode)).To(BeEmpty())
+		Expect(h.selfChanged).To(Equal(2))
+		Expect(h.reported).To(HaveLen(1))
+	})
+
+	It(
+		"evaluates the held trigger once the channel has a value",
+		func(ctx SpecContext) {
+			h := newTextHarness(ctx, source, chans, digests...)
+			DeferCleanup(h.Close)
+			fire(h)
+			n := h.CreateNode(ctx, exprNode)
+			Expect(h.NextChanged(ctx, n, exprNode)).To(BeEmpty())
+			h.ChannelState().Ingest(
+				telem.UnaryFrame[uint32](tempCh, telem.NewSeriesV[float32](3.0)),
+			)
+			Expect(h.NextChanged(ctx, n, exprNode)).To(HaveKey(ir.DefaultOutputParam))
+			Expect(n.IsOutputTruthy(0)).To(BeTrue())
+			Expect(
+				h.NextChanged(ctx, n, exprNode),
+			).To(BeEmpty(), "the trigger is spent")
+			Expect(h.reported).To(HaveLen(1))
+		},
+	)
+
+	It(
+		"evaluates a silent channel as zero when no channel state is wired",
+		func(ctx SpecContext) {
+			h := newUngatedTextHarness(ctx, source, chans, digests...)
+			DeferCleanup(h.Close)
+			fire(h)
+			Expect(h.Execute(ctx, exprNode)).To(HaveKey(ir.DefaultOutputParam))
+			Expect(h.reported).To(BeEmpty())
+		},
+	)
+
+	// A skipped pass must leave no trace: the body never runs, so a stateful
+	// update sequenced before the silent read cannot land.
+	Describe("Side effects", func() {
+		counterChans := []symbol.Symbol{
+			{
+				Name: "go_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   goCh,
+			},
+			{
+				Name: "temp_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   tempCh,
+			},
+			{
+				Name: "out_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   outCh,
+			},
+		}
+		const counterSource = `
+func cold_count{} (trigger u8) i64 {
+    n i64 $= 0
+    n = n + 1
+    if temp_ch < 4.0 {
+        return n
+    }
+    return 0
+}
+go_ch -> cold_count{} -> out_ch`
+		const counterNode = "cold_count_0"
+		counterDigests := []channels.Digest{
+			{Key: goCh, DataType: telem.Uint8T},
+			{Key: tempCh, DataType: telem.Float32T},
+			{Key: outCh, DataType: telem.Int64T},
+		}
+
+		It("runs the body once, after the channel has a value", func(ctx SpecContext) {
+			h := newTextHarness(ctx, counterSource, counterChans, counterDigests...)
+			DeferCleanup(h.Close)
+			fire(h)
+			n := h.CreateNode(ctx, counterNode)
+			Expect(h.NextChanged(ctx, n, counterNode)).To(BeEmpty())
+			Expect(h.NextChanged(ctx, n, counterNode)).To(BeEmpty())
+			h.ChannelState().Ingest(
+				telem.UnaryFrame[uint32](tempCh, telem.NewSeriesV[float32](3.0)),
+			)
+			Expect(
+				h.NextChanged(ctx, n, counterNode),
+			).To(HaveKey(ir.DefaultOutputParam))
+			Expect(h.Output(counterNode, 0).Unmarshal[int64]()).To(Equal([]int64{1}))
+		})
+
+		It("counts every pass when no channel state is wired", func(ctx SpecContext) {
+			h := newUngatedTextHarness(
+				ctx,
+				counterSource,
+				counterChans,
+				counterDigests...,
+			)
+			DeferCleanup(h.Close)
+			fire(h)
+			n := h.CreateNode(ctx, counterNode)
+			h.NextChanged(ctx, n, counterNode)
+			h.SetInput(
+				"on_go_ch_0",
+				0,
+				telem.NewSeriesV[uint8](1),
+				telem.NewSeriesSecondsTSV(2),
+			)
+			h.NextChanged(ctx, n, counterNode)
+			h.ChannelState().Ingest(
+				telem.UnaryFrame[uint32](tempCh, telem.NewSeriesV[float32](3.0)),
+			)
+			h.SetInput(
+				"on_go_ch_0",
+				0,
+				telem.NewSeriesV[uint8](1),
+				telem.NewSeriesSecondsTSV(3),
+			)
+			Expect(
+				h.NextChanged(ctx, n, counterNode),
+			).To(HaveKey(ir.DefaultOutputParam))
+			Expect(h.Output(counterNode, 0).Unmarshal[int64]()).To(Equal([]int64{3}))
+		})
 	})
 })
