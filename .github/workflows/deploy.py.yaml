@@ -14,6 +14,8 @@ on:
     branches:
       - main
     paths:
+      - .github/scripts/pin_internal_deps.sh
+      - .github/scripts/prune_published.py
       - .github/workflows/deploy.py.yaml
       - alamos/py/**
       - x/py/**
