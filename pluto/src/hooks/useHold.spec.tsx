@@ -122,13 +122,16 @@ describe("useHold", () => {
       expect(pressed(button)).toBe(false);
     });
 
-    it("should stay pressed after firing until the release", () => {
-      const { button } = renderHold({ onClickDelay: 500 });
+    it("should release itself when the hold fires", () => {
+      const onClick = vi.fn();
+      const { button } = renderHold({ onClick, onClickDelay: 500 });
       fireEvent.mouseDown(button);
       advance(500);
-      expect(pressed(button)).toBe(true);
-      fireEvent.mouseUp(document);
+      expect(onClick).toHaveBeenCalledOnce();
       expect(pressed(button)).toBe(false);
+      fireEvent.mouseUp(document);
+      advance(1000);
+      expect(onClick).toHaveBeenCalledOnce();
     });
 
     it("should fire the onClick current when the delay elapses", () => {

@@ -49,7 +49,9 @@ const releaseTargets = (): [EventTarget, string][] => [
 
 /**
  * Gates onClick behind a press-and-hold of onClickDelay. Only a primary press starts
- * the hold. A release, drag, window blur, unmount, or disable cancels it.
+ * the hold. A release, drag, window blur, unmount, or disable cancels it. The hold
+ * releases itself when it fires, so the control does not read as pressed after the
+ * actuation changes its state.
  */
 export const useHold = <E extends Element>({
   onClick,
@@ -81,15 +83,19 @@ export const useHold = <E extends Element>({
     if (disabled || e.button !== 0) return;
     destructors.cleanup();
     setPressed(true);
-    const timeout = delay.isZero
-      ? null
-      : setTimeout(() => onClickRef.current?.(e), delay.milliseconds);
     const targets = releaseTargets();
+    let timeout: ReturnType<typeof setTimeout> | null = null;
     const release = (): void => {
       setPressed(false);
       if (timeout != null) clearTimeout(timeout);
       for (const [target, ev] of targets) target.removeEventListener(ev, release);
     };
+    if (!delay.isZero)
+      timeout = setTimeout(() => {
+        timeout = null;
+        release();
+        onClickRef.current?.(e);
+      }, delay.milliseconds);
     for (const [target, ev] of targets) target.addEventListener(ev, release);
     destructors.set(release);
   };
