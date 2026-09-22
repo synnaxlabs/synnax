@@ -1,4 +1,4 @@
-# Contributing to the TypeScript Client Library
+# Contributing to the TypeScript client library
 
 First, please read our [contribution guidelines](../../docs/CONTRIBUTING.md) and the
 TypeScript [build document](../../docs/tech/typescript/build.md) for information on

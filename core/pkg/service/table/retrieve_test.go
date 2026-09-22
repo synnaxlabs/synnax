@@ -21,8 +21,8 @@ var _ = Describe("Retrieve", func() {
 			Name:    "test",
 			Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
 			Columns: []table.Column{{Size: 80}},
-			Cells: map[string]table.Cell{
-				"a": {Key: "a", Variant: "text"},
+			Cells: map[string]table.CellConfig{
+				"a": textCfg("hello"),
 			},
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
