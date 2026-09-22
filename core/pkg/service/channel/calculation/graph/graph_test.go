@@ -1192,8 +1192,7 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Reporting a runtime status the way the calculation framer does")
-				Expect(g.SetRuntimeStatus(ctx, &calculation.Status{
-					Key:     calculation.StatusKey(calc.Key()),
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 					Name:    "st_keep",
 					Variant: status.VariantInfo,
 					Message: "calculating",
@@ -1232,8 +1231,7 @@ var _ = Describe("Graph", func() {
 				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Reporting a runtime error the way the calculation framer does")
-				Expect(g.SetRuntimeStatus(ctx, &calculation.Status{
-					Key:     calculation.StatusKey(calc.Key()),
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 					Name:    "st_expr",
 					Variant: status.VariantError,
 					Message: "calculation for st_expr failed",
@@ -1305,8 +1303,7 @@ var _ = Describe("Graph", func() {
 			}
 			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 
-			Expect(g.SetRuntimeStatus(ctx, &calculation.Status{
-				Key:     calculation.StatusKey(calc.Key()),
+			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 				Name:    "rt_set",
 				Variant: status.VariantError,
 				Message: "calculation for rt_set failed",
@@ -1327,8 +1324,7 @@ var _ = Describe("Graph", func() {
 				g.Observe().OnChange(func(ctx context.Context, r graph.Changes) {
 					for range r {
 					}
-					reports <- g.SetRuntimeStatus(ctx, &calculation.Status{
-						Key:     calculation.StatusKey(calc.Key()),
+					reports <- g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 						Name:    "rt_keep",
 						Variant: status.VariantInfo,
 						Message: "calculating",
@@ -1345,6 +1341,68 @@ var _ = Describe("Graph", func() {
 					return ok && st.Variant == status.VariantInfo
 				}, 300*time.Millisecond, 10*time.Millisecond).Should(BeTrue(),
 					"expected the runtime report to survive the clear")
+			},
+		)
+
+		It(
+			"Should drop a report for a channel deleted in the meantime",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_gone_dep")
+				calc := channel.Channel{
+					Name: "rt_gone", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_gone_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(channelWriter.Delete(ctx, calc.Key(), false)).To(Succeed())
+
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_gone",
+					Variant: status.VariantError,
+					Message: "calculation for rt_gone failed",
+					Time:    telem.Now(),
+				})).To(Succeed())
+
+				_, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeFalse())
+			},
+		)
+	})
+
+	Describe("ClearRuntimeStatus", func() {
+		It("Should remove a status the runtime reported", func(ctx SpecContext) {
+			g := openGraph(ctx)
+			createDep(ctx, "rt_clear_dep")
+			calc := channel.Channel{
+				Name: "rt_clear", DataType: telem.Int64T, Virtual: true,
+				Expression: "return rt_clear_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+				Name:    "rt_clear",
+				Variant: status.VariantError,
+				Message: "calculation for rt_clear failed",
+				Time:    telem.Now(),
+			})).To(Succeed())
+			expectStatus(ctx, calc.Key())
+
+			Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+
+			_, ok := fetchStatus(ctx, calc.Key())
+			Expect(ok).To(BeFalse())
+		})
+
+		It(
+			"Should keep the status of a channel with an invalid expression",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				calc := createBrokenCalc(ctx, "rt_hold", "rt_hold_dep")
+				st := expectStatus(ctx, calc.Key())
+
+				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+
+				held := MustBeOk(fetchStatus(ctx, calc.Key()))
+				Expect(held.Description).To(Equal(st.Description))
 			},
 		)
 	})

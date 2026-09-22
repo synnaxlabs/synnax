@@ -160,9 +160,7 @@ func (s *Service) setStatus(
 			continue
 		}
 		s.cfg.L.Warn(st.String())
-		statusKey := calculation.StatusKey(chKey)
-		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, &Status{
-			Key:         statusKey,
+		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, chKey, &Status{
 			Name:        st.Name,
 			Variant:     st.Variant,
 			Message:     st.Message,
@@ -172,9 +170,19 @@ func (s *Service) setStatus(
 			s.cfg.L.Error(
 				"failed to set status",
 				zap.Error(err),
-				zap.String("key", statusKey),
+				zap.Stringer("channel", chKey),
 			)
 		}
+	}
+}
+
+func (s *Service) clearStatus(ctx context.Context, key channel.Key) {
+	if err := s.cfg.ChannelGraph.ClearRuntimeStatus(ctx, key); err != nil {
+		s.cfg.L.Error(
+			"failed to clear status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
 	}
 }
 
@@ -201,6 +209,8 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 				),
 				Description: err.Error(),
 			})
+		} else {
+			s.clearStatus(ctx, ch.Key())
 		}
 		s.mu.Unlock()
 	}
@@ -379,6 +389,8 @@ func (s *Service) updateRequests(
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})
+		} else {
+			s.clearStatus(ctx, ch.Key())
 		}
 		graphChanged = true
 	}

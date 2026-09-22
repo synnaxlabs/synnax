@@ -139,14 +139,46 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 // the Graph's own.
 func (g *Graph) Observe() observe.Observable[Changes] { return g.obs }
 
-// SetRuntimeStatus persists a status reported by the calculation runtime for a
-// calculated channel. Routing runtime reports through the Graph keeps a single writer
-// on the status record, so a report and a validity clear apply in submission order.
-func (g *Graph) SetRuntimeStatus(ctx context.Context, stat *calculation.Status) error {
+// SetRuntimeStatus persists a status reported by the calculation runtime for the
+// channel with the given key. Routing runtime reports through the Graph keeps a single
+// writer on the status record, so a report and a validity clear apply in submission
+// order. A report for a channel deleted in the meantime is dropped.
+func (g *Graph) SetRuntimeStatus(
+	ctx context.Context,
+	key channel.Key,
+	stat *calculation.Status,
+) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		exists, err := g.svc.NewRetrieve().
+			Where(channel.MatchKeys(key)).
+			Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			g.L.Debug("dropping runtime status for a deleted channel",
+				zap.Stringer("channel", key),
+			)
+			return nil
+		}
+		stat.Key = calculation.StatusKey(key)
 		return g.status.NewWriter(tx).Set(ctx, stat)
+	})
+}
+
+// ClearRuntimeStatus removes the status record for the channel with the given key
+// after the calculation runtime recovers. A node the Graph holds as invalid keeps its
+// status: that record describes the channel definition, not the runtime.
+func (g *Graph) ClearRuntimeStatus(ctx context.Context, key channel.Key) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if nd, ok := g.mu.nodes[key]; ok && nd.invalid {
+		return nil
+	}
+	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return g.status.NewWriter(tx).Delete(ctx, calculation.StatusKey(key))
 	})
 }
 
