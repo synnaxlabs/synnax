@@ -38,6 +38,18 @@ Run all commands from the `client/py` directory.
    uv run python examples/mqtt_sim/write_task.py
    ```
 
+5. Read Sparkplug B tags of the edge node `Plant/Line1`.
+
+   ```bash
+   uv run python examples/mqtt_sim/sparkplug_read_task.py
+   ```
+
+6. Send Sparkplug B commands for the tag `setpoint`.
+
+   ```bash
+   uv run python examples/mqtt_sim/sparkplug_write_task.py
+   ```
+
 ## Topics of the mock plant
 
 | Topic                | Payload                                               |
@@ -48,3 +60,16 @@ Run all commands from the `client/py` directory.
 | `plant/info`         | A retained message, published once                    |
 | `plant/<name>/set`   | A command. The plant echoes it, retained, on `/state` |
 | `plant/<name>/state` | The last command of `<name>`                          |
+
+## Sparkplug B tags of the mock plant
+
+The plant has one edge node, `Plant/Line1`. It answers a rebirth request, and a command
+for a tag sets the value of that tag.
+
+| Device  | Tag           | Data type |
+| ------- | ------------- | --------- |
+|         | `temperature` | Double    |
+|         | `count`       | Int64     |
+|         | `running`     | Boolean   |
+| `Pump1` | `speed`       | Float     |
+| `Pump1` | `setpoint`    | Double    |

@@ -53,12 +53,13 @@ class MQTTReadTaskCase(SimulatorCase, ReadTaskCase):
         )
 
     def _channel_keys(self, task: sy.Task) -> list[int]:
-        return [
-            field.channel
-            for entry in task.config.entries
-            for field in entry.fields
-            if field.channel != 0
-        ]
+        keys: list[int] = []
+        for entry in task.config.entries:
+            if isinstance(entry, mqtt.SparkplugReadEntry):
+                keys.append(entry.channel)
+                continue
+            keys.extend(f.channel for f in entry.fields if f.channel != 0)
+        return keys
 
     def run(self) -> None:
         """An MQTT read task has no rate, so the rate step of the lifecycle is left
@@ -132,4 +133,7 @@ class MQTTWriteTaskCase(SimulatorCase, WriteTaskCase):
         )
 
     def _channel_keys(self, task: sy.Task) -> list[int]:
-        return [t.channel.channel for t in task.config.targets]
+        return [
+            t.channel if isinstance(t, mqtt.SparkplugWriteTarget) else t.channel.channel
+            for t in task.config.targets
+        ]

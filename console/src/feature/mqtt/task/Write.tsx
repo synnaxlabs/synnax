@@ -36,17 +36,28 @@ import { type FC, useCallback, useMemo, useState } from "react";
 import { Browser } from "@/feature/mqtt/device/Browser";
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
+import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { ContextMenu } from "@/feature/mqtt/task/ContextMenu";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
+import {
+  fromSparkplugDataType,
+  sparkplugChannelName,
+  sparkplugPropertiesKey,
+  toSparkplugDataType,
+} from "@/feature/mqtt/task/sparkplug";
+import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import { TimeFormatField } from "@/feature/mqtt/task/TimeFormatField";
 import { TopicList } from "@/feature/mqtt/task/TopicList";
-import { TopicListItem } from "@/feature/mqtt/task/TopicListItem";
+import { SparkplugListItem, TopicListItem } from "@/feature/mqtt/task/TopicListItem";
 import {
   type BrowsedTopic,
   deployWriteConfigZ,
   type GeneratorType,
+  type PlainWriteTarget,
+  type SparkplugDataType,
+  type SparkplugWriteTarget,
   type TimeFormat,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -91,22 +102,24 @@ const getTargetChannelNameID = (targetKey: string) => `write-target-ch-${targetK
 
 const TargetListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
-  const channel = PForm.useFieldValue<number>(
-    `${TARGETS_PATH}.${itemKey}.channel.channel`,
-  );
+  const path = `${TARGETS_PATH}.${itemKey}`;
+  const isPlain = PForm.useFieldValue<WriteTarget["type"]>(`${path}.type`) === "plain";
+  const channelPath = isPlain ? `${path}.channel` : path;
+  const channel = PForm.useFieldValue<number>(`${channelPath}.channel`);
   const extra = useMemo(
     () => (
       <Task.ChannelName
         channel={channel}
-        namePath={`${TARGETS_PATH}.${itemKey}.channel.name`}
+        namePath={`${channelPath}.name`}
         id={getTargetChannelNameID(itemKey)}
         level="small"
         color={9}
       />
     ),
-    [channel, itemKey],
+    [channel, channelPath, itemKey],
   );
-  return <TopicListItem {...props} path={TARGETS_PATH} extra={extra} />;
+  const Item = isPlain ? TopicListItem : SparkplugListItem;
+  return <Item {...props} path={TARGETS_PATH} extra={extra} />;
 };
 
 const targetListItem = Component.renderProp(TargetListItem);
@@ -431,8 +444,64 @@ const AdditionalFields: FC<{ targetKey: string }> = ({ targetKey }) => {
 
 const EMPTY_CONTENT = <Empty.Action message="No additional fields" />;
 
+const SPARKPLUG_TYPE_DATA: Select.StaticEntry<SparkplugDataType>[] = [
+  { key: "int8", name: "Int8" },
+  { key: "int16", name: "Int16" },
+  { key: "int32", name: "Int32" },
+  { key: "int64", name: "Int64" },
+  { key: "uint8", name: "UInt8" },
+  { key: "uint16", name: "UInt16" },
+  { key: "uint32", name: "UInt32" },
+  { key: "uint64", name: "UInt64" },
+  { key: "float", name: "Float" },
+  { key: "double", name: "Double" },
+  { key: "boolean", name: "Boolean" },
+  { key: "string", name: "String" },
+  { key: "date_time", name: "DateTime" },
+];
+
+const renderSelectSparkplugType = Component.renderProp(
+  (
+    p: Omit<
+      Select.StaticProps<SparkplugDataType, Select.StaticEntry<SparkplugDataType>>,
+      "data" | "resourceName"
+    >,
+  ) => (
+    <Select.Static<SparkplugDataType, Select.StaticEntry<SparkplugDataType>>
+      {...p}
+      data={SPARKPLUG_TYPE_DATA}
+      resourceName="Sparkplug B type"
+      location="bottom"
+    />
+  ),
+);
+
+const SparkplugTargetDetails: FC<{ path: string }> = ({ path }) => {
+  const channel = PForm.useFieldValue<number>(`${path}.channel`);
+  return (
+    <Flex.Box y grow empty className={CSS.B("topic-details")}>
+      <Flex.Box gap="small" empty className={CSS.B("topic-details-form")}>
+        <SparkplugTagFields path={path} />
+        <Flex.Box x align="center" justify="between">
+          <Task.ChannelName channel={channel} namePath={`${path}.name`} />
+          <PForm.Field<SparkplugDataType>
+            path={`${path}.sparkplugType`}
+            label="Sparkplug B type"
+            showHelpText={false}
+            className={CSS.B("data-type-select")}
+          >
+            {renderSelectSparkplugType}
+          </PForm.Field>
+        </Flex.Box>
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
+
 const TargetDetails: FC<{ targetKey: string }> = ({ targetKey }) => {
   const path = `${TARGETS_PATH}.${targetKey}`;
+  const type = PForm.useFieldValue<WriteTarget["type"]>(`${path}.type`);
+  if (type === "sparkplug") return <SparkplugTargetDetails path={path} />;
   return (
     <Flex.Box y grow empty className={CSS.B("topic-details")}>
       <Flex.Box gap="small" empty className={CSS.B("topic-details-form")}>
@@ -456,17 +525,28 @@ const TargetDetails: FC<{ targetKey: string }> = ({ targetKey }) => {
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
 
-const createTarget = (topic?: BrowsedTopic): WriteTarget => ({
+const createTarget = (topic?: BrowsedTopic): PlainWriteTarget => ({
   ...mqtt.plainWriteTargetZ.parse({ type: "plain" }),
   ...(topic != null && { topic: topic.topic }),
 });
 
-const duplicateTarget = (target: WriteTarget): WriteTarget => ({
-  ...target,
-  key: id.create(),
-  channel: { ...target.channel, channel: 0 },
-  fields: target.fields.map((f) => ({ ...f, key: id.create() })),
-});
+const createSparkplugTarget = (tag?: SparkplugHaulTag): SparkplugWriteTarget => {
+  const target = mqtt.sparkplugWriteTargetZ.parse({ type: "sparkplug" });
+  if (tag == null) return target;
+  const { dataType, ...tagID } = tag;
+  return { ...target, ...tagID, sparkplugType: toSparkplugDataType(dataType) };
+};
+
+const duplicateTarget = (target: WriteTarget): WriteTarget => {
+  if (target.type === "sparkplug")
+    return { ...target, key: id.create(), channel: 0, name: "" };
+  return {
+    ...target,
+    key: id.create(),
+    channel: { ...target.channel, channel: 0 },
+    fields: target.fields.map((f) => ({ ...f, key: id.create() })),
+  };
+};
 
 const renameChannel = (key: string) => Text.edit(getTargetChannelNameID(key));
 
@@ -483,6 +563,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         selected={selected}
         onSelect={setSelected}
         create={createTarget}
+        createSparkplug={createSparkplugTarget}
         duplicate={duplicateTarget}
         onRename={renameChannel}
       >
@@ -531,6 +612,43 @@ const channelExists = async (client: Client, key: channel.Key): Promise<boolean>
   }
 };
 
+interface CommandChannelSpec {
+  propertiesKey: string;
+  channel: channel.Key;
+  name: string;
+  dataType: string;
+}
+
+/** @returns the command channel, and true when the device properties changed. */
+const configureCommandChannel = async (
+  client: Client,
+  dev: Device,
+  { propertiesKey, channel: current, name, dataType }: CommandChannelSpec,
+): Promise<[channel.Key, boolean]> => {
+  const { write } = dev.properties;
+  if (current !== 0 && (await channelExists(client, current))) {
+    const changed = write[propertiesKey] !== current;
+    write[propertiesKey] = current;
+    return [current, changed];
+  }
+  const stored = write[propertiesKey];
+  if (primitive.isNonZero(stored) && (await channelExists(client, stored)))
+    return [stored, false];
+  let cmdCh: channel.Channel;
+  if (new DataType(dataType).isVariable)
+    cmdCh = await client.channels.create({ name, dataType, virtual: true });
+  else {
+    const indexCh = await client.channels.create({
+      name: `${name}_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    cmdCh = await client.channels.create({ name, dataType, index: indexCh.key });
+  }
+  write[propertiesKey] = cmdCh.key;
+  return [cmdCh.key, true];
+};
+
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -540,53 +658,28 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   let modified = false;
   try {
     for (const target of config.targets) {
-      if (target.type !== "plain" || target.disabled) continue;
-      const { topic } = target;
-      if (
-        target.channel.channel !== 0 &&
-        (await channelExists(client, target.channel.channel))
-      ) {
-        if (dev.properties.write[topic] === target.channel.channel) continue;
-        dev.properties.write[topic] = target.channel.channel;
-        modified = true;
-        continue;
-      }
-
-      const storedCmdChannel = dev.properties.write[topic];
-      if (
-        primitive.isNonZero(storedCmdChannel) &&
-        (await channelExists(client, storedCmdChannel))
-      ) {
-        target.channel.channel = storedCmdChannel;
-        continue;
-      }
-
-      const dt = new DataType(target.channel.dataType);
-      const cmdName = primitive.isNonZero(target.channel.name)
-        ? target.channel.name
-        : `${safeDevName}_${channel.escapeInvalidName(topic)}_cmd`;
-      let newCmdCh: channel.Channel;
-      if (dt.isVariable)
-        newCmdCh = await client.channels.create({
-          name: cmdName,
-          dataType: target.channel.dataType,
-          virtual: true,
+      if (target.disabled) continue;
+      let changed: boolean;
+      if (target.type === "plain") {
+        const { channel: field, topic } = target;
+        [field.channel, changed] = await configureCommandChannel(client, dev, {
+          propertiesKey: topic,
+          channel: field.channel,
+          name: primitive.isNonZero(field.name)
+            ? field.name
+            : `${safeDevName}_${channel.escapeInvalidName(topic)}_cmd`,
+          dataType: field.dataType,
         });
-      else {
-        const newIndexCh = await client.channels.create({
-          name: `${cmdName}_time`,
-          dataType: "timestamp",
-          isIndex: true,
+      } else
+        [target.channel, changed] = await configureCommandChannel(client, dev, {
+          propertiesKey: sparkplugPropertiesKey(target),
+          channel: target.channel,
+          name: primitive.isNonZero(target.name)
+            ? target.name
+            : `${sparkplugChannelName(dev.name, target)}_cmd`,
+          dataType: fromSparkplugDataType(target.sparkplugType),
         });
-        newCmdCh = await client.channels.create({
-          name: cmdName,
-          dataType: target.channel.dataType,
-          index: newIndexCh.key,
-        });
-      }
-      target.channel.channel = newCmdCh.key;
-      dev.properties.write[topic] = newCmdCh.key;
-      modified = true;
+      modified ||= changed;
     }
   } finally {
     if (modified) await client.devices.create(dev, SCHEMAS);

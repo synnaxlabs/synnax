@@ -315,6 +315,7 @@ class SparkplugReadEntry(BaseReadEntry):
     tag: str = ""
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    name: str = ""
     data_type: telem.DataType = telem.DataType("float64")
 
 
@@ -347,6 +348,7 @@ class SparkplugWriteTarget(BaseWriteTarget):
     tag: str = ""
     sparkplug_type: SparkplugDataType = "double"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    name: str = ""
 
 
 # Is a single destination of an MQTT write task. The type field selects a plain

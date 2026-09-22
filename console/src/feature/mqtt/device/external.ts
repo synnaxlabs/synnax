@@ -12,5 +12,6 @@ export * from "@/feature/mqtt/device/commands";
 export * from "@/feature/mqtt/device/ContextMenuItems";
 export * from "@/feature/mqtt/device/queries";
 export * from "@/feature/mqtt/device/Select";
+export * from "@/feature/mqtt/device/SparkplugBrowser";
 export * from "@/feature/mqtt/device/types";
 export * from "@/feature/mqtt/device/useConnectModal";

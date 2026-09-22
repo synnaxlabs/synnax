@@ -16,6 +16,10 @@
     flex-shrink: 0;
 }
 
+.console-mqtt-browser__mode {
+    padding: 1.5rem 2rem 0;
+}
+
 .console-mqtt-browser__controls {
     padding: 1.5rem 2rem;
     border-bottom: var(--pluto-border);

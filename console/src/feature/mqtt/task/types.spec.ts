@@ -21,6 +21,13 @@ const issuesOf = (result: z.ZodSafeParseResult<unknown>) =>
 describe("MQTT Task Types", () => {
   const field = { key: "f1", pointer: "/temperature", channel: 1 };
   const entry = { type: "plain", key: "e1", topic: "plant/temp", fields: [field] };
+  const tagID = {
+    group: "plant",
+    edgeNode: "line1",
+    device: "oven",
+    tag: "temperature",
+  };
+  const tagEntry = { type: "sparkplug", key: "s1", ...tagID };
   const readConfig = (...entries: object[]) => ({ device: "dev-001", entries });
 
   describe("READ_SCHEMAS", () => {
@@ -122,14 +129,89 @@ describe("MQTT Task Types", () => {
       ]);
     });
 
-    it("should reject a Sparkplug B entry", () => {
+    it("should accept a Sparkplug B entry beside a plain entry", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(readConfig(entry, tagEntry));
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should accept a Sparkplug B entry with a timestamp data type", () => {
       const result = MQTT.Task.deployReadConfigZ.safeParse(
-        readConfig(entry, { type: "sparkplug", key: "s1" }),
+        readConfig({ ...tagEntry, dataType: "timestamp" }),
       );
-      expect(issuesOf(result)).toContainEqual({
-        message: "Sparkplug B is not supported yet",
-        path: "entries.1.type",
-      });
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should require the group, the edge node, and the tag of a Sparkplug B entry", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ type: "sparkplug", key: "s1" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "Group is required", path: "entries.0.group" },
+        { message: "Edge node is required", path: "entries.0.edgeNode" },
+        { message: "Tag is required", path: "entries.0.tag" },
+      ]);
+    });
+
+    it.each([
+      ["group", "Group"],
+      ["edgeNode", "Edge node"],
+      ["device", "Device"],
+    ])("should reject a %s that holds a topic character", (field, label) => {
+      for (const id of ["a/b", "a+", "#"]) {
+        const result = MQTT.Task.deployReadConfigZ.safeParse(
+          readConfig({ ...tagEntry, [field]: id }),
+        );
+        expect(issuesOf(result)).toEqual([
+          { message: `${label} must not hold /, +, or #`, path: `entries.0.${field}` },
+        ]);
+      }
+    });
+
+    it("should accept a tag name that holds a slash", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...tagEntry, tag: "Node Control/Rebirth" }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should reject a tag that two enabled entries share", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(tagEntry, { ...tagEntry, key: "s2" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: 'Duplicate tag "temperature"', path: "entries.1.tag" },
+      ]);
+    });
+
+    it("should allow a disabled entry to share a tag with an enabled one", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(tagEntry, { ...tagEntry, key: "s2", disabled: true }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should tell a tag of a device from a tag of the edge node", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig(
+          { ...tagEntry, device: "", tag: "oven/temperature" },
+          { ...tagEntry, key: "s2", device: "oven", tag: "temperature" },
+        ),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should allow a plain topic that reads like the name of a tag", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...entry, topic: "temperature" }, tagEntry),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should count a Sparkplug B entry as an enabled entry", () => {
+      const result = MQTT.Task.deployReadConfigZ.safeParse(
+        readConfig({ ...entry, disabled: true }, tagEntry),
+      );
+      expect(issuesOf(result)).toEqual([]);
     });
 
     it("should reject a pointer that two fields of an entry share", () => {
@@ -312,6 +394,7 @@ describe("MQTT Task Types", () => {
     topic: "plant/valve/set",
     channel: { pointer: "/value", channel: 1 },
   };
+  const tagTarget = { type: "sparkplug", key: "s1", ...tagID };
   const writeConfig = (...targets: object[]) => ({ device: "dev-001", targets });
 
   describe("WRITE_SCHEMAS", () => {
@@ -367,14 +450,54 @@ describe("MQTT Task Types", () => {
       ]);
     });
 
-    it("should reject a Sparkplug B target", () => {
+    it("should accept a Sparkplug B target beside a plain target", () => {
       const result = MQTT.Task.deployWriteConfigZ.safeParse(
-        writeConfig(target, { type: "sparkplug", key: "s1" }),
+        writeConfig(target, tagTarget),
       );
-      expect(issuesOf(result)).toContainEqual({
-        message: "Sparkplug B is not supported yet",
-        path: "targets.1.type",
-      });
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should default a Sparkplug B target to the double type", () => {
+      const result = MQTT.Task.deployWriteConfigZ.parse(writeConfig(tagTarget));
+      expect(result.targets[0]).toMatchObject({ sparkplugType: "double", channel: 0 });
+    });
+
+    it("should reject a Sparkplug B type that the driver does not send", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig({ ...tagTarget, sparkplugType: "Text" }),
+      );
+      expect(issuesOf(result).map(({ path }) => path)).toEqual([
+        "targets.0.sparkplugType",
+      ]);
+    });
+
+    it("should require the group, the edge node, and the tag of a Sparkplug B target", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig({ type: "sparkplug", key: "s1" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "Group is required", path: "targets.0.group" },
+        { message: "Edge node is required", path: "targets.0.edgeNode" },
+        { message: "Tag is required", path: "targets.0.tag" },
+      ]);
+    });
+
+    it("should reject a device ID that holds a topic character", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig({ ...tagTarget, device: "oven/1" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "Device must not hold /, +, or #", path: "targets.0.device" },
+      ]);
+    });
+
+    it("should reject a tag that two enabled targets share", () => {
+      const result = MQTT.Task.deployWriteConfigZ.safeParse(
+        writeConfig(tagTarget, { ...tagTarget, key: "s2" }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: 'Duplicate tag "temperature"', path: "targets.1.tag" },
+      ]);
     });
 
     it("should reject additional fields when the channel value is the whole payload", () => {
@@ -534,6 +657,26 @@ describe("MQTT Scan Task", () => {
       topics: [{ topic: "plant/temp", payload: "21.5", retained: true }],
       truncated: false,
     };
+    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
+  });
+
+  it("should parse the edge nodes of a Sparkplug B browse reply", () => {
+    const data = {
+      nodes: [{ group: "plant", edgeNode: "line_1", devices: ["ovenA"] }],
+      tags: [],
+    };
+    expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
+  });
+
+  it("should parse the tags of a Sparkplug B browse reply", () => {
+    const tag = {
+      device: "",
+      name: "Node Control/Rebirth",
+      dataType: "boolean",
+      value: "false",
+      supported: true,
+    };
+    const data = { nodes: [], tags: [tag] };
     expect(MQTT.Task.SCAN_SCHEMAS.statusData.parse(data)).toEqual(data);
   });
 

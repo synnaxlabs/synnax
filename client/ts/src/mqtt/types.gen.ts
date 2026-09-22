@@ -263,6 +263,8 @@ export const sparkplugReadEntryZ = baseReadEntryZ.extend({
   channel: channel.keyZ.default(0),
   /** index is the index channel that takes the tag timestamp. */
   index: channel.keyZ.default(0),
+  /** name is the human-readable name of the channel. */
+  name: z.string().default(""),
   /** dataType is the data type of the channel. */
   dataType: z.string().default("float64"),
 });
@@ -320,6 +322,8 @@ export const sparkplugWriteTargetZ = baseWriteTargetZ.extend({
   sparkplugType: sparkplugDataTypeZ.default("double"),
   /** channel is the Synnax command channel whose writes trigger the command. */
   channel: channel.keyZ.default(0),
+  /** name is the human-readable name of the command channel. */
+  name: z.string().default(""),
 });
 export interface SparkplugWriteTarget extends z.infer<typeof sparkplugWriteTargetZ> {}
 

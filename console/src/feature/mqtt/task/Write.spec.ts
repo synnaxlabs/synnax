@@ -47,12 +47,29 @@ const createWriteTarget = (
   key: string,
   topic: string,
   channel: Partial<MQTT.Task.ChannelField> = {},
-): MQTT.Task.WriteTarget => ({
+): MQTT.Task.PlainWriteTarget => ({
   ...mqtt.plainWriteTargetZ.parse({ type: "plain" }),
   key,
   topic,
   channel: { ...mqtt.channelFieldZ.parse({}), pointer: "/value", ...channel },
 });
+
+const createTagTarget = (
+  key: string,
+  tag: string,
+  overrides: Partial<MQTT.Task.SparkplugWriteTarget> = {},
+): MQTT.Task.SparkplugWriteTarget => ({
+  ...mqtt.sparkplugWriteTargetZ.parse({ type: "sparkplug" }),
+  key,
+  group: "plant",
+  edgeNode: "line1",
+  tag,
+  ...overrides,
+});
+
+const retrieveTargets = async (key: task.Key) =>
+  (await client.tasks.retrieve({ key, schemas: MQTT.Task.WRITE_SCHEMAS })).config
+    .targets;
 
 const createWriteConfig = (
   device: string,
@@ -205,7 +222,155 @@ describe("MQTT Write form", () => {
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
+  describe("Sparkplug B targets", () => {
+    it("should list a tag with its edge node and its command channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("mqtt_cmd"),
+        dataType: "float64",
+        virtual: true,
+      });
+      await renderWrite([
+        createWriteTarget("t1", "plant/valve/set"),
+        createTagTarget("s1", "setpoint", { device: "ovenA", channel: ch.key }),
+      ]);
+      await screen.findByText(/plant\/valve\/set/);
+      expect(screen.getByText(/setpoint/)).toBeTruthy();
+      expect(screen.getByText("plant/line1/ovenA")).toBeTruthy();
+      await screen.findByText(ch.name);
+    });
+
+    it("should add a tag from the header and select its Sparkplug B type", async () => {
+      const { draft } = await renderWrite();
+      await screen.findByText("No targets");
+      fireEvent.click(getHeaderIconButton("Targets", "variable"));
+      await screen.findByText("Edge node");
+      expect(screen.getByPlaceholderText("Optional")).toBeTruthy();
+      expect(screen.queryByText("JSON pointer")).toBeNull();
+      await selectFromDropdown("Double", "DateTime");
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          { type: "sparkplug", sparkplugType: "date_time", channel: 0 },
+        ]),
+      );
+    });
+
+    it("should duplicate a tag with no command channel", async () => {
+      const { draft } = await renderWrite([
+        createTagTarget("s1", "setpoint", { channel: 12, sparkplugType: "float" }),
+      ]);
+      fireEvent.contextMenu(await screen.findByText(/setpoint/));
+      fireEvent.click(await screen.findByText("Duplicate"));
+      await waitFor(async () => {
+        const targets = await retrieveTargets(draft.key);
+        expect(targets).toMatchObject([
+          { key: "s1", channel: 12 },
+          { tag: "setpoint", sparkplugType: "float", channel: 0 },
+        ]);
+        expect(targets[1].key).not.toBe("s1");
+      });
+    });
+  });
+
   describe("deploying against a live Core", () => {
+    it("should put the deploy errors of a tag on its fields", async () => {
+      const { container } = await renderWrite([
+        createTagTarget("s1", "", { device: "oven#1" }),
+      ]);
+      await screen.findByText("Edge node");
+      await clickDeploy(container);
+      await screen.findByText("Device must not hold /, +, or #");
+      expect(screen.getByText("Tag is required")).toBeTruthy();
+    });
+
+    it("should create a command channel of the type of each tag", async () => {
+      const { container, dev, draft } = await renderWrite([
+        createTagTarget("s1", "zone 1/setpoint", {
+          device: "ovenA",
+          sparkplugType: "float",
+        }),
+        createTagTarget("s2", "running", { sparkplugType: "boolean" }),
+        createTagTarget("s3", "mode", { sparkplugType: "string" }),
+        createTagTarget("s4", "started", { sparkplugType: "date_time" }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.WRITE_SCHEMAS,
+      );
+      const keys = created.config.targets.map((t) =>
+        t.type === "sparkplug" ? t.channel : 0,
+      );
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: MQTT.Device.SCHEMAS,
+      });
+      expect(updated.properties.write).toEqual({
+        "spBv1.0/plant/line1/ovenA/zone 1/setpoint": keys[0],
+        "spBv1.0/plant/line1//running": keys[1],
+        "spBv1.0/plant/line1//mode": keys[2],
+        "spBv1.0/plant/line1//started": keys[3],
+      });
+      const channels = await client.channels.retrieve(keys);
+      expect(channels.map((ch) => ch.dataType.toString())).toEqual([
+        "float32",
+        "uint8",
+        "string",
+        "timestamp",
+      ]);
+      const cmdName = `${dev.name}_plant_line1_ovenA_zone_1_setpoint_cmd`;
+      expect(channels[0].name).toBe(cmdName);
+      const indexCh = await client.channels.retrieve(channels[0].index);
+      expect(indexCh.name).toBe(`${cmdName}_time`);
+      expect(channels[2].virtual).toBe(true);
+      expect(channels[3].isIndex).toBe(false);
+    });
+
+    it("should give the command channel the name of the target", async () => {
+      const name = uniqueName("oven_setpoint_cmd");
+      const { container, draft } = await renderWrite([
+        createTagTarget("s1", "setpoint", { name }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.WRITE_SCHEMAS,
+      );
+      const [target] = created.config.targets;
+      if (target.type !== "sparkplug") throw new Error("expected a Sparkplug B target");
+      const cmdCh = await client.channels.retrieve(target.channel);
+      expect(cmdCh.name).toBe(name);
+      expect((await client.channels.retrieve(cmdCh.index)).name).toBe(`${name}_time`);
+    });
+
+    it("should reuse the command channel of a tag that the device stores", async () => {
+      const dev = await createBroker(client);
+      const storedCh = await client.channels.create({
+        name: uniqueName("mqtt_cmd"),
+        dataType: "float64",
+        virtual: true,
+      });
+      dev.properties = {
+        ...MQTT.Device.ZERO_PROPERTIES,
+        write: { "spBv1.0/plant/line1//setpoint": storedCh.key },
+      };
+      await client.devices.create(dev, MQTT.Device.SCHEMAS);
+      const config = createWriteConfig(dev.key, [createTagTarget("s1", "setpoint")]);
+      const draft = await createDraft(client, config);
+      const { container } = await renderTaskFormTab(MQTT.Task.Write, {
+        client,
+        taskKey: draft.key,
+      });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.WRITE_SCHEMAS,
+      );
+      expect(created.config.targets).toMatchObject([{ channel: storedCh.key }]);
+    });
+
     it("should put the deploy errors on the fields they belong to", async () => {
       const { container } = await renderWrite([createWriteTarget("t1", "plant/#")]);
       await screen.findByText("JSON pointer");

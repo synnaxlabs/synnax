@@ -302,7 +302,8 @@ var _ = Describe("Codec", func() {
 				Tag:           "test_4",
 				Channel:       channel.Key(6),
 				Index:         channel.Key(7),
-				DataType:      telem.DataType("test_7"),
+				Name:          "test_7",
+				DataType:      telem.DataType("test_8"),
 			}}),
 		)
 	})
@@ -490,6 +491,7 @@ var _ = Describe("Codec", func() {
 				Tag:             "test_4",
 				SparkplugType:   v1.SparkplugDataType("int8"),
 				Channel:         channel.Key(7),
+				Name:            "test_7",
 			}}),
 		)
 	})
@@ -1356,7 +1358,8 @@ func FuzzDecodeReadEntry(f *testing.F) {
 			Tag:           "test_4",
 			Channel:       channel.Key(6),
 			Index:         channel.Key(7),
-			DataType:      telem.DataType("test_7"),
+			Name:          "test_7",
+			DataType:      telem.DataType("test_8"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1678,6 +1681,7 @@ func FuzzDecodeWriteTarget(f *testing.F) {
 			Tag:             "test_4",
 			SparkplugType:   v1.SparkplugDataType("int8"),
 			Channel:         channel.Key(7),
+			Name:            "test_7",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

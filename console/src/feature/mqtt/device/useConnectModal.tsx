@@ -19,6 +19,7 @@ import {
   type Flux,
   Form,
   Icon,
+  Input,
   Nav,
   Rack,
   Status,
@@ -55,6 +56,21 @@ const INITIAL_VALUES: Device = {
 const useForm = PDevice.createForm(SCHEMAS);
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+
+const SPARKPLUG_PATH = "properties.sparkplug";
+
+// The form schema holds the properties as an open record, so it does not check them.
+const beforeValidate = ({
+  get,
+  setStatus,
+}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+  const { sparkplug } = SCHEMAS.properties.shape;
+  const result = sparkplug.safeParse(get(SPARKPLUG_PATH).value);
+  result.error?.issues.forEach(({ path, message }) =>
+    setStatus(`${SPARKPLUG_PATH}.${path.join(".")}`, { variant: "error", message }),
+  );
+  return result.success;
+};
 
 const beforeSave = async ({
   client,
@@ -94,6 +110,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
       initialValues: INITIAL_VALUES,
+      beforeValidate,
       beforeSave,
       afterSave: useCallback(() => close(), [close]),
     });
@@ -185,6 +202,31 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
                   inputProps={KEEP_ALIVE_INPUT_PROPS}
                 />
               </Flex.Box>
+              <Divider.Divider x />
+            </Flex.Box>
+            <Flex.Box gap="small">
+              <Text.Text level="small" weight={500} color={9}>
+                Sparkplug B
+              </Text.Text>
+              <Text.Text level="small" color={9}>
+                Leave the host ID empty for a passive host. Separate groups with commas,
+                or leave them empty to browse all groups.
+              </Text.Text>
+              <Flex.Box x>
+                <Form.TextField
+                  grow
+                  path="properties.sparkplug.hostId"
+                  label="Host ID"
+                  inputProps={HOST_ID_INPUT_PROPS}
+                />
+                <Form.Field<string[]>
+                  grow
+                  path="properties.sparkplug.groups"
+                  label="Groups"
+                >
+                  {groupsRenderProp}
+                </Form.Field>
+              </Flex.Box>
             </Flex.Box>
           </Form.Form>
         </Flex.Box>
@@ -219,6 +261,26 @@ const selectRackRenderProp = Component.renderProp(
     <Rack.SelectSingle {...props} initialQuery={INITIAL_RACK_QUERY} />
   ),
 );
+
+const groupsRenderProp = Component.renderProp(
+  ({ value, onChange, ...rest }: Input.Control<string[]>) => (
+    <Input.Text
+      {...rest}
+      value={value.join(", ")}
+      onChange={(text) => onChange(parseGroups(text))}
+      onlyChangeOnBlur
+      placeholder="All groups"
+    />
+  ),
+);
+
+const parseGroups = (text: string): string[] =>
+  text
+    .split(",")
+    .map((group) => group.trim())
+    .filter((group) => group !== "");
+
+const HOST_ID_INPUT_PROPS = { placeholder: "Passive host" } as const;
 
 const NAME_INPUT_PROPS = {
   level: "h2",

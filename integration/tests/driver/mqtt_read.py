@@ -7,6 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from examples.mqtt_sim.server import (
+    SPARKPLUG_DEVICE,
+    SPARKPLUG_EDGE_NODE,
+    SPARKPLUG_GROUP,
+)
+
 import synnax as sy
 from synnax import mqtt
 from tests.driver.mqtt_task import MQTTReadTaskCase
@@ -108,5 +114,45 @@ class MQTTReadMultipleTopics(MQTTReadTaskCase):
                         pointer="/value", channel=timed, data_type="float64"
                     ),
                 ],
+            ),
+        ]
+
+
+def _sparkplug_entry(
+    client: sy.Synnax, tag: str, data_type: sy.DataType, device: str = ""
+) -> mqtt.SparkplugReadEntry:
+    """Creates the channel of a tag of the simulator, on an index of its own."""
+    idx = create_index(client, f"mqtt_sparkplug_{tag}_time")
+    ch = create_channel(
+        client,
+        name=f"mqtt_sparkplug_{tag}",
+        data_type=data_type,
+        index=idx.key,
+    )
+    return mqtt.SparkplugReadEntry(
+        group=SPARKPLUG_GROUP,
+        edge_node=SPARKPLUG_EDGE_NODE,
+        device=device,
+        tag=tag,
+        channel=ch,
+        index=idx.key,
+        data_type=data_type,
+    )
+
+
+class MQTTReadSparkplug(MQTTReadTaskCase):
+    """Reads Sparkplug B tags of an edge node and of one of its devices. The task must
+    ask the edge node for a rebirth, because the birth came before the task started."""
+
+    task_name = "MQTT Read Sparkplug"
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[mqtt.ReadEntry]:
+        return [
+            _sparkplug_entry(client, "temperature", sy.DataType.FLOAT64),
+            _sparkplug_entry(client, "count", sy.DataType.INT64),
+            _sparkplug_entry(client, "running", sy.DataType.UINT8),
+            _sparkplug_entry(
+                client, "speed", sy.DataType.FLOAT32, device=SPARKPLUG_DEVICE
             ),
         ]

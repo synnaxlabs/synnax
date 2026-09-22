@@ -111,6 +111,12 @@ func (s *scanner) Exec(
 			return nil, err
 		}
 		return msgpack.NewEncodedJSON(res)
+	case browseSparkplugCommand:
+		res, err := s.browseSparkplug(ctx, cmd)
+		if err != nil {
+			return nil, err
+		}
+		return msgpack.NewEncodedJSON(res)
 	}
 	return nil, driver.ErrUnsupportedCommand
 }
@@ -158,29 +164,15 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 	if args.Filter == "" {
 		args.Filter = defaultBrowseFilter
 	}
-	duration := time.Duration(args.Duration) * time.Millisecond
-	if duration <= 0 {
-		duration = defaultBrowseDuration
-	}
-	duration = min(duration, maxBrowseDuration)
+	duration := browseDuration(args.Duration)
 	if args.Limit <= 0 {
 		args.Limit = defaultBrowseLimit
 	}
 	args.Limit = min(args.Limit, maxBrowseLimit)
-	var dev device.Device
-	if err := s.device.NewRetrieve().
-		Where(device.MatchKeys(args.Device)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
-		return res, err
-	}
-	cfg, err := newClientConfig(dev)
+	_, cfg, err := s.browseConfig(ctx, args.Device)
 	if err != nil {
 		return res, err
 	}
-	// A browse has its own client and client ID. A wildcard subscription on the
-	// shared connection would overlap the subscriptions of the tasks.
-	cfg.clientID = deriveClientID(dev.Key + "/browse")
 	var (
 		mu     sync.Mutex
 		topics = make(map[string]browsedTopic)
@@ -223,6 +215,37 @@ func (s *scanner) browse(ctx context.Context, cmd task.Command) (browseResult, e
 		return res.Topics[i].Topic < res.Topics[j].Topic
 	})
 	return res, nil
+}
+
+// browseDuration returns the time that a browse listens for, from its argument in
+// milliseconds.
+func browseDuration(ms int) time.Duration {
+	duration := time.Duration(ms) * time.Millisecond
+	if duration <= 0 {
+		duration = defaultBrowseDuration
+	}
+	return min(duration, maxBrowseDuration)
+}
+
+// browseConfig returns the broker device of a browse and the config of its client. A
+// browse has its own client and client ID. A wildcard subscription on the shared
+// connection would overlap the subscriptions of the tasks.
+func (s *scanner) browseConfig(
+	ctx context.Context,
+	key device.Key,
+) (device.Device, clientConfig, error) {
+	var dev device.Device
+	if err := s.device.NewRetrieve().
+		Where(device.MatchKeys(key)).
+		Entry(&dev).
+		Exec(ctx, nil); err != nil {
+		return dev, clientConfig{}, err
+	}
+	cfg, err := newClientConfig(dev)
+	cfg.clientID = deriveClientID(dev.Key + "/browse")
+	// A browse is never the host application, so it sets no STATE last will.
+	cfg.hostID = ""
+	return dev, cfg, err
 }
 
 // payloadSample returns the start of a text payload, cut at a rune boundary.

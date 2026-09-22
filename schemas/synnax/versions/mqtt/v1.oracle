@@ -160,6 +160,9 @@ ReadEntry union on type extends BaseReadEntry {
         index     channel.Key = 0 {
             @doc value "is the index channel that takes the tag timestamp."
         }
+        name      string = "" {
+            @doc value "is the human-readable name of the channel."
+        }
         data_type telem.DataType = "float64" {
             @doc value "is the data type of the channel."
         }
@@ -337,6 +340,9 @@ WriteTarget union on type extends BaseWriteTarget {
         }
         channel        channel.Key = 0 {
             @doc value "is the Synnax command channel whose writes trigger the command."
+        }
+        name           string = "" {
+            @doc value "is the human-readable name of the command channel."
         }
 
         @doc value "sends a Sparkplug B command for one tag."

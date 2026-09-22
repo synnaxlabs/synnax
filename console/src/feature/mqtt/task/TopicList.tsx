@@ -19,24 +19,33 @@ import {
   Menu,
   Select,
 } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 import {
   canDropHaulItem,
   filterHaulItems,
   HAUL_TYPE,
 } from "@/feature/mqtt/device/Browser";
+import {
+  canDropSparkplugHaulItem,
+  filterSparkplugHaulItems,
+  type SparkplugHaulTag,
+} from "@/feature/mqtt/device/SparkplugBrowser";
 import { ContextMenu } from "@/feature/mqtt/task/ContextMenu";
-import { type BrowsedTopic } from "@/feature/mqtt/task/types";
+import { type BrowsedTopic, type SparkplugTagID } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Task } from "@/platform/task";
 
-interface Item {
-  key: string;
-  type: string;
-  topic?: string;
-}
+type Item =
+  | { key: string; type: "plain"; topic: string }
+  | ({ key: string; type: "sparkplug" } & SparkplugTagID);
+
+const tagIdentity = ({ group, edgeNode, device, tag }: SparkplugTagID): string =>
+  JSON.stringify([group, edgeNode, device, tag]);
+
+const canDrop: Haul.CanDrop = (state) =>
+  canDropHaulItem(state) || canDropSparkplugHaulItem(state);
 
 export interface TopicListProps<E extends Item> {
   path: string;
@@ -45,6 +54,7 @@ export interface TopicListProps<E extends Item> {
   selected: string[];
   onSelect: (keys: string[]) => void;
   create: (topic?: BrowsedTopic) => E;
+  createSparkplug: (tag?: SparkplugHaulTag) => E;
   duplicate: (item: E) => E;
   onRename?: (key: string) => void;
   children: Component.RenderProp<List.ItemProps<string>>;
@@ -57,26 +67,27 @@ export const TopicList = <E extends Item>({
   selected,
   onSelect,
   create,
+  createSparkplug,
   duplicate,
   onRename,
   children,
 }: TopicListProps<E>) => {
   const { data, push, remove } = PForm.useFieldList<string, E>(path);
-  const items = PForm.useFieldValue<E[]>(path);
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
 
-  // The form edits plain topics only. A Sparkplug B item stays in the config.
-  const plainData = useMemo(() => {
-    const plain = new Set(items.filter((i) => i.type === "plain").map((i) => i.key));
-    return data.filter((key) => plain.has(key));
-  }, [data, items]);
-
-  const handleAdd = useCallback(() => {
-    const item = create();
-    push(item);
-    onSelect([item.key]);
-  }, [create, push, onSelect]);
+  const add = useCallback(
+    (item: E) => {
+      push(item);
+      onSelect([item.key]);
+    },
+    [push, onSelect],
+  );
+  const handleAdd = useCallback(() => add(create()), [add, create]);
+  const handleAddSparkplug = useCallback(
+    () => add(createSparkplug()),
+    [add, createSparkplug],
+  );
 
   const handleRemove = useCallback(
     (keys: string[]) => {
@@ -100,23 +111,31 @@ export const TopicList = <E extends Item>({
 
   const handleDrop = useCallback(
     ({ items: dropped }: Haul.OnDropProps): Haul.Item[] => {
-      const topics = new Set(ctx.get<E[]>(path).value.map(({ topic }) => topic));
-      const haulItems = filterHaulItems(dropped);
-      const added = haulItems
-        .filter(({ data }) => !topics.has(data.topic))
-        .map(({ data }) => create(data));
+      const present = new Set(
+        ctx
+          .get<E[]>(path)
+          .value.map((item) =>
+            item.type === "plain" ? item.topic : tagIdentity(item),
+          ),
+      );
+      const topics = filterHaulItems(dropped);
+      const tags = filterSparkplugHaulItems(dropped);
+      const added = [
+        ...topics
+          .filter(({ data }) => !present.has(data.topic))
+          .map(({ data }) => create(data)),
+        ...tags
+          .filter(({ data }) => !present.has(tagIdentity(data)))
+          .map(({ data }) => createSparkplug(data)),
+      ];
       push(added);
       if (added.length > 0) onSelect([added[0].key]);
-      return haulItems;
+      return [...topics, ...tags];
     },
-    [ctx, path, create, push, onSelect],
+    [ctx, path, create, createSparkplug, push, onSelect],
   );
 
-  const dropProps = Haul.useDrop({
-    type: HAUL_TYPE,
-    canDrop: canDropHaulItem,
-    onDrop: handleDrop,
-  });
+  const dropProps = Haul.useDrop({ type: HAUL_TYPE, canDrop, onDrop: handleDrop });
   // The browser hides in preview, but the browser of a second tab can still source
   // drags, so the drop target goes inert too.
   const haulProps = isPreview ? {} : dropProps;
@@ -151,13 +170,21 @@ export const TopicList = <E extends Item>({
             >
               <Icon.Add />
             </Button.Button>
+            <Button.Button
+              onClick={handleAddSparkplug}
+              variant="filled"
+              tooltip="Add Sparkplug B tag"
+              size="small"
+            >
+              <Icon.Variable />
+            </Button.Button>
           </Header.Actions>
         )}
       </Header.Header>
       <Menu.ContextMenu {...menuProps} {...haulProps} menu={menuRenderProp}>
         <Select.Frame<string, E>
           multiple
-          data={plainData}
+          data={data}
           value={selected}
           onChange={onSelect}
           replaceOnSingle

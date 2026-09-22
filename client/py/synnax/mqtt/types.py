@@ -134,6 +134,9 @@ class Device(device.Device):
     :param password: Optional password.
     :param client_id: MQTT client ID. Empty derives one from the device key.
     :param keep_alive: MQTT keep-alive interval in seconds. Zero selects 30.
+    :param host_id: Sparkplug B host application ID. When set, the Core publishes its
+        STATE message under this ID. Empty makes the Core a passive host.
+    :param groups: Sparkplug B group IDs to browse. Empty browses every group.
     :param name: Human-readable name for the device.
     :param rack: Key of the rack of the driver inside the Core.
     :param key: Unique key. Auto-generated if empty.
@@ -154,6 +157,8 @@ class Device(device.Device):
         password: str = "",
         client_id: str = "",
         keep_alive: int = 0,
+        host_id: str = "",
+        groups: list[str] | None = None,
         name: str = "",
         rack: int = 0,
         key: str = "",
@@ -184,6 +189,10 @@ class Device(device.Device):
                 "password": password,
                 "client_id": client_id,
                 "keep_alive": keep_alive,
+                "sparkplug": {
+                    "host_id": host_id,
+                    "groups": groups if groups is not None else [],
+                },
                 "version": 1,
             },
         )

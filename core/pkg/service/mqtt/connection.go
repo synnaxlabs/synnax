@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -38,6 +39,10 @@ const (
 	maxReconnectInterval = 30 * time.Second
 	// disconnectQuiesce is the time a client gets to finish its work on disconnect.
 	disconnectQuiesce = 250 * time.Millisecond
+	// stateTimeout bounds the offline STATE message of a connection that stops.
+	stateTimeout = time.Second
+	// rebirthBacklog is the count of rebirth requests that can wait to be sent.
+	rebirthBacklog = 64
 )
 
 // errNotConnected is a temporary error: the connection connects again on its own.
@@ -45,8 +50,11 @@ var errNotConnected = errors.Wrap(driver.ErrTemporary, "broker is not connected"
 
 // message is one message received from a broker.
 type message struct {
-	topic   string
-	payload []byte
+	// sparkplug is the decoded form of a Sparkplug B message. Such a message has no
+	// topic and no payload.
+	sparkplug *sparkplug.Event
+	topic     string
+	payload   []byte
 	// received is the time the message handler saw the message.
 	received telem.TimeStamp
 	retained bool
@@ -57,6 +65,16 @@ type subscription struct {
 	attachments map[*attachment]struct{}
 	qos         byte
 	wildcard    bool
+	// sparkplug is true for the filter of an edge node. Its messages reach the
+	// attachments decoded, through the host session, and never as they arrived.
+	sparkplug bool
+}
+
+// rebirthRequest asks for a rebirth request to node.
+type rebirthRequest struct {
+	node sparkplug.NodeID
+	// forced sends the request to a node that the host already holds a birth of.
+	forced bool
 }
 
 // connection is the one MQTT client that the tasks of a broker device share. It
@@ -64,8 +82,14 @@ type subscription struct {
 // attachment its own bounded queue. Safe for concurrent use, except that the caller
 // serializes configure and close.
 type connection struct {
-	ins alamos.Instrumentation
-	mu  struct {
+	// rebirths holds the rebirth requests that the connect loop sends.
+	rebirths chan rebirthRequest
+	ins      alamos.Instrumentation
+	mu       struct {
+		// host is the Sparkplug B session state of the edge nodes in nodes.
+		host *sparkplug.Host
+		// nodes holds the attachments that follow each edge node.
+		nodes map[sparkplug.NodeID]map[*attachment]struct{}
 		// client is nil while the connection is down.
 		client paho.Client
 		// stop ends the connect loop and waits until its client has left the broker.
@@ -83,8 +107,14 @@ type connection struct {
 	}
 }
 
-func newConnection(ins alamos.Instrumentation) *connection {
-	c := &connection{ins: ins}
+func newConnection(
+	ins alamos.Instrumentation,
+	rebirthInterval time.Duration,
+) *connection {
+	c := &connection{ins: ins, rebirths: make(chan rebirthRequest, rebirthBacklog)}
+	c.mu.host = sparkplug.NewHost()
+	c.mu.host.RebirthInterval = rebirthInterval
+	c.mu.nodes = make(map[sparkplug.NodeID]map[*attachment]struct{})
 	c.mu.subs = make(map[string]*subscription)
 	c.mu.attachments = make(map[*attachment]struct{})
 	return c
@@ -127,7 +157,8 @@ func (cfg clientConfig) equal(other clientConfig) bool {
 		cfg.username == other.username &&
 		cfg.password == other.password &&
 		cfg.keepAlive == other.keepAlive &&
-		cfg.tlsID == other.tlsID
+		cfg.tlsID == other.tlsID &&
+		cfg.hostID == other.hostID
 }
 
 // run keeps one client connected to the broker of cfg until ctx is cancelled. Paho
@@ -147,8 +178,13 @@ func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 		return
 	}
 	for {
-		lost := make(chan error, 1)
-		opts := newClientOptions(cfg).
+		var (
+			lost = make(chan error, 1)
+			// The offline STATE in the last will and the online STATE that follows
+			// the connect carry the same timestamp.
+			stateStamp = telem.Now()
+		)
+		opts := withStateWill(newClientOptions(cfg), cfg.hostID, stateStamp).
 			// Ordered delivery keeps the samples of a topic in order. It requires that
 			// the handler never blocks.
 			SetOrderMatters(true).
@@ -174,13 +210,16 @@ func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 		connectedAt := time.Now()
 		c.ins.L.Info("connected to the MQTT broker")
 		c.setClient(ctx, client)
+		c.publishState(ctx, client, cfg.hostID, true, stateStamp)
 		settle()
-		select {
-		case <-ctx.Done():
-		case err := <-lost:
-			c.ins.L.Warn("lost the connection to the MQTT broker", zap.Error(err))
-		}
+		c.serve(ctx, client, lost)
 		c.setClient(ctx, nil)
+		if ctx.Err() != nil {
+			// The broker sends the last will only for a connection that drops.
+			stateCtx, cancel := context.WithTimeout(context.Background(), stateTimeout)
+			c.publishState(stateCtx, client, cfg.hostID, false, telem.Now())
+			cancel()
+		}
 		disconnect()
 		// A connection that held is healthy again. One that did not keeps its backoff,
 		// so a broker that accepts and then drops the client is not hammered.
@@ -193,8 +232,98 @@ func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 	}
 }
 
+// serve sends rebirth requests through client until ctx is cancelled or the
+// connection is lost.
+func (c *connection) serve(ctx context.Context, client paho.Client, lost <-chan error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-lost:
+			c.ins.L.Warn("lost the connection to the MQTT broker", zap.Error(err))
+			return
+		case req := <-c.rebirths:
+			c.requestRebirth(ctx, client, req)
+		}
+	}
+}
+
+// withStateWill sets the offline STATE message of hostID as the last will of opts. An
+// empty hostID leaves opts as it is: the Core is then a passive host.
+func withStateWill(
+	opts *paho.ClientOptions,
+	hostID string,
+	stamp telem.TimeStamp,
+) *paho.ClientOptions {
+	if hostID == "" {
+		return opts
+	}
+	payload := sparkplug.EncodeState(false, stamp)
+	return opts.SetBinaryWill(sparkplug.StateTopic(hostID), payload, 1, true)
+}
+
+func (c *connection) publishState(
+	ctx context.Context,
+	client paho.Client,
+	hostID string,
+	online bool,
+	stamp telem.TimeStamp,
+) {
+	if hostID == "" {
+		return
+	}
+	payload := sparkplug.EncodeState(online, stamp)
+	err := wait(ctx, client.Publish(sparkplug.StateTopic(hostID), 1, true, payload))
+	if err != nil && ctx.Err() == nil {
+		c.ins.L.Warn("failed to publish the Sparkplug B STATE message", zap.Error(err))
+	}
+}
+
+// queueRebirth asks the connect loop for a rebirth request. A full backlog drops the
+// request: the next message of the edge node asks again.
+func (c *connection) queueRebirth(req rebirthRequest) {
+	select {
+	case c.rebirths <- req:
+	default:
+	}
+}
+
+// requestRebirth sends a rebirth request to the edge node of req, no more often than
+// the host session allows. A request that comes too early is queued again for later.
+func (c *connection) requestRebirth(
+	ctx context.Context,
+	client paho.Client,
+	req rebirthRequest,
+) {
+	c.mu.Lock()
+	_, followed := c.mu.nodes[req.node]
+	if !followed || (!req.forced && c.mu.host.Born(req.node)) {
+		c.mu.Unlock()
+		return
+	}
+	left := c.mu.host.TakeRebirth(req.node, time.Now())
+	c.mu.Unlock()
+	if left > 0 {
+		time.AfterFunc(left, func() { c.queueRebirth(req) })
+		return
+	}
+	payload, err := sparkplug.EncodeRebirth(telem.Now())
+	if err == nil {
+		topic := sparkplug.CommandTopic(req.node, "").String()
+		err = wait(ctx, client.Publish(topic, 0, false, payload))
+	}
+	if err != nil && ctx.Err() == nil {
+		c.ins.L.Warn(
+			"failed to request a Sparkplug B rebirth",
+			zap.Stringer("node", req.node),
+			zap.Error(err),
+		)
+	}
+}
+
 // setClient makes client the client in use, where nil means the connection is down.
-// A new client subscribes to every filter.
+// A new client subscribes to every filter and asks every edge node for a birth,
+// because the host session missed the messages of the outage.
 func (c *connection) setClient(ctx context.Context, client paho.Client) {
 	c.mu.Lock()
 	c.mu.client = client
@@ -202,11 +331,21 @@ func (c *connection) setClient(ctx context.Context, client paho.Client) {
 	for filter, sub := range c.mu.subs {
 		filters[filter] = sub.qos
 	}
+	var nodes []sparkplug.NodeID
+	if client != nil {
+		c.mu.host.Reset()
+		for node := range c.mu.nodes {
+			nodes = append(nodes, node)
+		}
+	}
 	c.mu.Unlock()
 	if client != nil && len(filters) > 0 {
 		if err := wait(ctx, client.SubscribeMultiple(filters, nil)); err != nil {
 			c.ins.L.Error("failed to subscribe after connect", zap.Error(err))
 		}
+	}
+	for _, node := range nodes {
+		c.queueRebirth(rebirthRequest{node: node})
 	}
 	c.notify()
 }
@@ -227,16 +366,47 @@ func (c *connection) onMessage(_ paho.Client, m paho.Message) {
 			a.enqueue(msg)
 		}
 	}
+	if len(c.mu.nodes) > 0 && strings.HasPrefix(msg.topic, sparkplug.Namespace+"/") {
+		c.onSparkplugMessage(msg)
+	}
 	if c.mu.wildcards == 0 {
 		return
 	}
 	for filter, sub := range c.mu.subs {
-		if !sub.wildcard || !topicMatches(filter, msg.topic) {
+		if !sub.wildcard || sub.sparkplug || !topicMatches(filter, msg.topic) {
 			continue
 		}
 		for a := range sub.attachments {
 			a.enqueue(msg)
 		}
+	}
+}
+
+// onSparkplugMessage runs msg through the host session and gives the result to the
+// attachments that follow its edge node. The caller holds c.mu.
+func (c *connection) onSparkplugMessage(msg message) {
+	topic, err := sparkplug.ParseTopic(msg.topic)
+	if err != nil {
+		return
+	}
+	attachments, followed := c.mu.nodes[topic.Node]
+	if !followed {
+		return
+	}
+	ev, err := c.mu.host.Handle(topic, msg.payload)
+	if err != nil {
+		c.ins.L.Debug("dropped a Sparkplug B message", zap.Error(err))
+		return
+	}
+	if ev.Rebirth {
+		c.queueRebirth(rebirthRequest{node: topic.Node})
+	}
+	if ev.Type == "" {
+		return
+	}
+	decoded := message{sparkplug: &ev, received: msg.received}
+	for a := range attachments {
+		a.enqueue(decoded)
 	}
 }
 
@@ -265,6 +435,7 @@ func (c *connection) attach(queueSize int) *attachment {
 		queue:        make(chan message, queueSize),
 		stateChanged: make(chan struct{}, 1),
 		filters:      make(map[string]struct{}),
+		nodes:        make(map[sparkplug.NodeID]struct{}),
 		// An attachment assumes a connection until next sees that there is none.
 		reportedConnected: true,
 	}
@@ -298,8 +469,9 @@ type attachment struct {
 	// stateChanged signals that the connection state may differ from
 	// reportedConnected.
 	stateChanged chan struct{}
-	// filters is guarded by conn.mu.
+	// filters and nodes are guarded by conn.mu.
 	filters map[string]struct{}
+	nodes   map[sparkplug.NodeID]struct{}
 	// dropped counts the messages that a full queue pushed out.
 	dropped atomic.Uint64
 	// reportedConnected is the connection state that next last reported.
@@ -364,6 +536,37 @@ func (a *attachment) settle(ctx context.Context) error {
 // subscribe adds filter to the attachment. The connection holds one subscription for
 // each filter, at the highest quality of service that an attachment asked for.
 func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) error {
+	return a.subscribeFilter(ctx, filter, qos, false)
+}
+
+// follow makes the attachment receive the decoded messages of node. It asks the node
+// for a birth, which gives the attachment the current value of every tag.
+func (a *attachment) follow(ctx context.Context, node sparkplug.NodeID) error {
+	c := a.conn
+	c.mu.Lock()
+	a.nodes[node] = struct{}{}
+	attachments, ok := c.mu.nodes[node]
+	if !ok {
+		attachments = make(map[*attachment]struct{})
+		c.mu.nodes[node] = attachments
+	}
+	attachments[a] = struct{}{}
+	c.mu.Unlock()
+	for _, filter := range node.Filters() {
+		if err := a.subscribeFilter(ctx, filter, 0, true); err != nil {
+			return err
+		}
+	}
+	c.queueRebirth(rebirthRequest{node: node, forced: true})
+	return nil
+}
+
+func (a *attachment) subscribeFilter(
+	ctx context.Context,
+	filter string,
+	qos byte,
+	isSparkplug bool,
+) error {
 	c := a.conn
 	c.mu.Lock()
 	a.filters[filter] = struct{}{}
@@ -372,6 +575,7 @@ func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) err
 		sub = &subscription{
 			attachments: make(map[*attachment]struct{}),
 			wildcard:    strings.ContainsAny(filter, "+#"),
+			sparkplug:   isSparkplug,
 		}
 		c.mu.subs[filter] = sub
 		if sub.wildcard {
@@ -429,6 +633,14 @@ func (a *attachment) close() (unused bool) {
 			orphaned = append(orphaned, filter)
 		}
 	}
+	for node := range a.nodes {
+		delete(c.mu.nodes[node], a)
+		if len(c.mu.nodes[node]) == 0 {
+			delete(c.mu.nodes, node)
+			// A host that no longer hears a node holds a stale birth of it.
+			c.mu.host.Forget(node)
+		}
+	}
 	client := c.mu.client
 	unused = len(c.mu.attachments) == 0
 	c.mu.Unlock()
@@ -483,12 +695,19 @@ func topicMatches(filter, topic string) bool {
 // pool holds the shared connection of each broker device. Safe for concurrent use.
 type pool struct {
 	ins   alamos.Instrumentation
-	mu    sync.Mutex
 	conns map[device.Key]*connection
+	// rebirthInterval is the shortest time between two Sparkplug B rebirth requests to
+	// one edge node.
+	rebirthInterval time.Duration
+	mu              sync.Mutex
 }
 
-func newPool(ins alamos.Instrumentation) *pool {
-	return &pool{ins: ins, conns: make(map[device.Key]*connection)}
+func newPool(ins alamos.Instrumentation, rebirthInterval time.Duration) *pool {
+	return &pool{
+		ins:             ins,
+		conns:           make(map[device.Key]*connection),
+		rebirthInterval: rebirthInterval,
+	}
 }
 
 // attach returns an attachment to the connection of dev. It opens the connection for
@@ -503,7 +722,7 @@ func (p *pool) attach(dev device.Device, queueSize int) (*attachment, error) {
 	defer p.mu.Unlock()
 	conn, ok := p.conns[dev.Key]
 	if !ok {
-		conn = newConnection(p.ins.Child(dev.Key))
+		conn = newConnection(p.ins.Child(dev.Key), p.rebirthInterval)
 		p.conns[dev.Key] = conn
 	}
 	conn.configure(cfg)

@@ -9,6 +9,12 @@
 
 import json
 
+from examples.mqtt_sim.server import (
+    SPARKPLUG_DEVICE,
+    SPARKPLUG_EDGE_NODE,
+    SPARKPLUG_GROUP,
+)
+
 import synnax as sy
 from synnax import mqtt
 from tests.driver.mqtt_task import MQTTWriteTaskCase
@@ -103,3 +109,82 @@ class MQTTWriteValve(MQTTWriteTaskCase):
         finally:
             self.client.tasks.delete(reader.key)
             self.client.channels.delete([echo.key])
+
+
+class MQTTWriteSparkplug(MQTTWriteTaskCase):
+    """Sends Sparkplug B commands for a tag of a device, then reads the tag back to
+    prove that the edge node took each command."""
+
+    task_name = "MQTT Write Sparkplug"
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[mqtt.WriteTarget]:
+        idx = create_index(client, "mqtt_sparkplug_setpoint_cmd_time")
+        cmd = create_channel(
+            client,
+            name="mqtt_sparkplug_setpoint_cmd",
+            data_type=sy.DataType.FLOAT64,
+            index=idx.key,
+        )
+        return [
+            mqtt.SparkplugWriteTarget(
+                group=SPARKPLUG_GROUP,
+                edge_node=SPARKPLUG_EDGE_NODE,
+                device=SPARKPLUG_DEVICE,
+                tag="setpoint",
+                channel=cmd,
+                sparkplug_type="double",
+            ),
+        ]
+
+    def run(self) -> None:
+        super().run()
+        self.test_command_reaches_edge_node()
+
+    def test_command_reaches_edge_node(self) -> None:
+        assert self.tsk is not None
+        self.log("Testing: Command reaches the edge node")
+        device = self.client.devices.retrieve(name=self.device_name)
+        state = self.client.channels.create(
+            name="mqtt_sparkplug_setpoint_state",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            retrieve_if_name_exists=True,
+        )
+        reader = mqtt.ReadTask(
+            name=f"{self.task_name} State Reader",
+            device=device.key,
+            entries=[
+                mqtt.SparkplugReadEntry(
+                    group=SPARKPLUG_GROUP,
+                    edge_node=SPARKPLUG_EDGE_NODE,
+                    device=SPARKPLUG_DEVICE,
+                    tag="setpoint",
+                    channel=state.key,
+                    data_type=sy.DataType.FLOAT64,
+                )
+            ],
+        )
+        self.client.tasks.configure(reader)
+        cmd_key = self._channel_keys(self.tsk)[0]
+        cmd = self.client.channels.retrieve(cmd_key)
+        try:
+            with reader.run(), self.tsk.run():
+                with self.client.open_streamer([state.key]) as streamer:
+                    with self.client.open_writer(
+                        start=sy.TimeStamp.now(), channels=[cmd.index, cmd_key]
+                    ) as writer:
+                        value = None
+                        timer = sy.Timer()
+                        while (
+                            value != 42.5 and timer.elapsed() < 20 * sy.TimeSpan.SECOND
+                        ):
+                            writer.write({cmd.index: sy.TimeStamp.now(), cmd_key: 42.5})
+                            frame = streamer.read(timeout=1)
+                            if frame is not None and state.key in frame:
+                                value = float(frame[state.key][-1])
+            if value != 42.5:
+                raise AssertionError(f"The setpoint tag is {value}, not 42.5")
+        finally:
+            self.client.tasks.delete(reader.key)
+            self.client.channels.delete([state.key])

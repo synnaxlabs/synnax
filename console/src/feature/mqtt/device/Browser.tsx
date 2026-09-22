@@ -30,6 +30,7 @@ import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
+import { SparkplugBrowser } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device } from "@/feature/mqtt/device/types";
 import { BROWSE_COMMAND_TYPE, type BrowsedTopic } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
@@ -118,7 +119,7 @@ const browseTopics = async (
   });
   if (variant !== "success") throw new Error(message);
   const data = details?.data;
-  if (data == null) return { topics: [], truncated: false };
+  if (data == null || !("topics" in data)) return { topics: [], truncated: false };
   return {
     topics: data.topics.map((t) => ({ ...t, key: t.topic })),
     truncated: data.truncated,
@@ -133,7 +134,7 @@ const EMPTY_CONTENT = (
   </Text.Text>
 );
 
-export const Browser = ({ device }: BrowserProps) => {
+const TopicBrowser = ({ device }: BrowserProps) => {
   const [filter, setFilter] = useState(DEFAULT_FILTER);
   const [result, setResult] = useState<BrowseResult>({ topics: [], truncated: false });
   const [selected, setSelected] = useState<string[]>([]);
@@ -180,12 +181,7 @@ export const Browser = ({ device }: BrowserProps) => {
       </Select.Frame>
     );
   return (
-    <Flex.Box empty className={CSS.B("mqtt-browser")}>
-      <Header.Header>
-        <Header.Title weight={500} color={10}>
-          Browser
-        </Header.Title>
-      </Header.Header>
+    <>
       <Flex.Box x className={CSS.BE("mqtt-browser", "controls")}>
         <Input.Text value={filter} onChange={setFilter} {...FILTER_INPUT_PROPS} />
         <Button.Button onClick={browse} disabled={loading} variant="filled">
@@ -202,6 +198,41 @@ export const Browser = ({ device }: BrowserProps) => {
         </Text.Text>
       )}
       {content}
+    </>
+  );
+};
+
+type Mode = "topics" | "sparkplug";
+
+const MODE_KEYS: Mode[] = ["topics", "sparkplug"];
+
+export const Browser = ({ device }: BrowserProps) => {
+  const [mode, setMode] = useState<Mode>("topics");
+  return (
+    <Flex.Box empty className={CSS.B("mqtt-browser")}>
+      <Header.Header>
+        <Header.Title weight={500} color={10}>
+          Browser
+        </Header.Title>
+      </Header.Header>
+      <Select.Buttons<Mode>
+        value={mode}
+        onChange={setMode}
+        keys={MODE_KEYS}
+        className={CSS.BE("mqtt-browser", "mode")}
+      >
+        <Select.Button<Mode> itemKey="topics" grow justify="center">
+          Topics
+        </Select.Button>
+        <Select.Button<Mode> itemKey="sparkplug" grow justify="center">
+          Sparkplug B
+        </Select.Button>
+      </Select.Buttons>
+      {mode === "topics" ? (
+        <TopicBrowser device={device} />
+      ) : (
+        <SparkplugBrowser device={device} />
+      )}
     </Flex.Box>
   );
 };

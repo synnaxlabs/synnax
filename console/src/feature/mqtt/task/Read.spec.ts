@@ -38,13 +38,30 @@ const createReadField = (
 const createReadEntry = (
   key: string,
   topic: string,
-  overrides: Partial<MQTT.Task.ReadEntry> = {},
-): MQTT.Task.ReadEntry => ({
+  overrides: Partial<MQTT.Task.PlainReadEntry> = {},
+): MQTT.Task.PlainReadEntry => ({
   ...mqtt.plainReadEntryZ.parse({ type: "plain" }),
   key,
   topic,
   ...overrides,
 });
+
+const createTagEntry = (
+  key: string,
+  tag: string,
+  overrides: Partial<MQTT.Task.SparkplugReadEntry> = {},
+): MQTT.Task.SparkplugReadEntry => ({
+  ...mqtt.sparkplugReadEntryZ.parse({ type: "sparkplug" }),
+  key,
+  group: "plant",
+  edgeNode: "line1",
+  tag,
+  ...overrides,
+});
+
+const retrieveEntries = async (key: task.Key) =>
+  (await client.tasks.retrieve({ key, schemas: MQTT.Task.READ_SCHEMAS })).config
+    .entries;
 
 const createReadConfig = (
   device: string,
@@ -167,18 +184,64 @@ describe("MQTT Read form", () => {
     await waitFor(() => expect(screen.getAllByText(/plant\/oven/)).toHaveLength(1));
   });
 
-  it("should keep a Sparkplug B entry out of the list", async () => {
-    const dev = await createBroker(client);
-    const draft = await createDraft(client, {
-      ...createReadConfig(dev.key, []),
-      entries: [
+  describe("Sparkplug B entries", () => {
+    it("should list a tag with its edge node beside a plain entry", async () => {
+      await renderRead([
         createReadEntry("e1", "plant/oven"),
-        mqtt.sparkplugReadEntryZ.parse({ type: "sparkplug", key: "s1", tag: "flow" }),
-      ],
+        createTagEntry("s1", "flow", { device: "pumpA" }),
+        createTagEntry("s2", "Node Control/Rebirth"),
+      ]);
+      await screen.findByText(/plant\/oven/);
+      expect(screen.getByText(/flow/)).toBeTruthy();
+      expect(screen.getByText("plant/line1/pumpA")).toBeTruthy();
+      expect(screen.getByText("plant/line1")).toBeTruthy();
     });
-    await renderTaskFormTab(MQTT.Task.Read, { client, taskKey: draft.key });
-    await screen.findByText(/plant\/oven/);
-    expect(screen.queryByText("No topic")).toBeNull();
+
+    it("should add a tag from the header and show its fields", async () => {
+      const { draft } = await renderRead();
+      await screen.findByText("No entries");
+      fireEvent.click(getHeaderIconButton("Entries", "variable"));
+      await screen.findByText("Edge node");
+      expect(screen.getByText("Group")).toBeTruthy();
+      expect(screen.getByPlaceholderText("Optional")).toBeTruthy();
+      expect(screen.getByText("No tag")).toBeTruthy();
+      expect(screen.getByText("Data type")).toBeTruthy();
+      expect(screen.queryByText("Timestamp source")).toBeNull();
+      const tag = screen.getByPlaceholderText("oven/temperature");
+      fireEvent.change(tag, { target: { value: "zone 1/temperature" } });
+      await waitFor(async () =>
+        expect(await retrieveEntries(draft.key)).toMatchObject([
+          { type: "sparkplug", tag: "zone 1/temperature", dataType: "float64" },
+        ]),
+      );
+    });
+
+    it("should hide the data type of a tag that has a channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("mqtt_tag"),
+        dataType: "string",
+        virtual: true,
+      });
+      await renderRead([createTagEntry("s1", "mode", { channel: ch.key })]);
+      await screen.findByText(ch.name);
+      expect(screen.queryByText("Data type")).toBeNull();
+    });
+
+    it("should duplicate a tag with no channels", async () => {
+      const { draft } = await renderRead([
+        createTagEntry("s1", "flow", { channel: 12, index: 11 }),
+      ]);
+      fireEvent.contextMenu(await screen.findByText(/flow/));
+      fireEvent.click(await screen.findByText("Duplicate"));
+      await waitFor(async () => {
+        const entries = await retrieveEntries(draft.key);
+        expect(entries).toMatchObject([
+          { key: "s1", channel: 12, index: 11 },
+          { tag: "flow", channel: 0, index: 0 },
+        ]);
+        expect(entries[1].key).not.toBe("s1");
+      });
+    });
   });
 
   describe("deploying against a live Core", () => {
@@ -187,6 +250,154 @@ describe("MQTT Read form", () => {
       await screen.findByText(/plant\/\+\/oven/);
       await clickDeploy(container);
       await screen.findByText("Topic must not hold the wildcards + or #");
+    });
+
+    it("should put the deploy errors of a tag on its fields", async () => {
+      const { container } = await renderRead([
+        createTagEntry("s1", "", { group: "plant/a", edgeNode: "" }),
+      ]);
+      await screen.findByText("Edge node");
+      await clickDeploy(container);
+      await screen.findByText("Group must not hold /, +, or #");
+      expect(screen.getByText("Edge node is required")).toBeTruthy();
+      expect(screen.getByText("Tag is required")).toBeTruthy();
+    });
+
+    it("should create an index and a data channel for each tag", async () => {
+      const { container, dev, draft } = await renderRead([
+        createTagEntry("s1", "zone 1/temperature", { device: "ovenA" }),
+        createTagEntry("s2", "flow", { dataType: "float32" }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: MQTT.Device.SCHEMAS,
+      });
+      const [deviceTag, nodeTag] = created.config.entries;
+      if (deviceTag.type !== "sparkplug" || nodeTag.type !== "sparkplug")
+        throw new Error("expected Sparkplug B entries");
+      expect(nodeTag.index).not.toBe(deviceTag.index);
+      expect(updated.properties.read).toEqual({
+        "spBv1.0/plant/line1/ovenA/zone 1/temperature": {
+          index: deviceTag.index,
+          channels: { "": deviceTag.channel },
+        },
+        "spBv1.0/plant/line1//flow": {
+          index: nodeTag.index,
+          channels: { "": nodeTag.channel },
+        },
+      });
+      const prefix = `${dev.name}_plant_line1_ovenA_zone_1_temperature`;
+      const dataCh = await client.channels.retrieve(deviceTag.channel);
+      expect(dataCh.name).toBe(prefix);
+      expect(dataCh.index).toBe(deviceTag.index);
+      const indexCh = await client.channels.retrieve(deviceTag.index);
+      expect(indexCh.name).toBe(`${prefix}_time`);
+      const flowCh = await client.channels.retrieve(nodeTag.channel);
+      expect(flowCh.name).toBe(`${dev.name}_plant_line1_flow`);
+      expect(flowCh.dataType.toString()).toBe("float32");
+    });
+
+    it("should give the channels the name of the entry", async () => {
+      const name = uniqueName("oven_temperature");
+      const { container, draft } = await renderRead([
+        createTagEntry("s1", "temperature", { name }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const [entry] = created.config.entries;
+      if (entry.type !== "sparkplug") throw new Error("expected a Sparkplug B entry");
+      expect((await client.channels.retrieve(entry.channel)).name).toBe(name);
+      expect((await client.channels.retrieve(entry.index)).name).toBe(`${name}_time`);
+    });
+
+    it("should create a virtual channel with no index for a string tag", async () => {
+      const { container, dev, draft } = await renderRead([
+        createTagEntry("s1", "mode", { dataType: "string", index: 7 }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const [entry] = created.config.entries;
+      if (entry.type !== "sparkplug") throw new Error("expected a Sparkplug B entry");
+      expect(entry.index).toBe(0);
+      expect((await client.channels.retrieve(entry.channel)).virtual).toBe(true);
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: MQTT.Device.SCHEMAS,
+      });
+      expect(updated.properties.read["spBv1.0/plant/line1//mode"].index).toBe(0);
+    });
+
+    it("should reuse the channels of a tag that the device stores", async () => {
+      const { container, draft } = await renderRead([createTagEntry("s1", "flow")]);
+      const first = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      const [stored] = first.config.entries;
+      if (stored.type !== "sparkplug") throw new Error("expected a Sparkplug B entry");
+      const config = createReadConfig(first.config.device, [
+        createTagEntry("s2", "flow"),
+      ]);
+      const second = await createDraft(client, config);
+      const rendered = await renderTaskFormTab(MQTT.Task.Read, {
+        client,
+        taskKey: second.key,
+      });
+      const created = await deployAndAwaitTask(
+        client,
+        rendered.container,
+        second.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      expect(created.config.entries).toMatchObject([
+        { key: "s2", channel: stored.channel, index: stored.index },
+      ]);
+    });
+
+    it("should take the index of a tag from its live channel", async () => {
+      const idxCh = await client.channels.create({
+        name: uniqueName("mqtt_idx"),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const dataCh = await client.channels.create({
+        name: uniqueName("mqtt_data"),
+        dataType: "float64",
+        index: idxCh.key,
+      });
+      const { container, dev, draft } = await renderRead([
+        createTagEntry("s1", "flow", { channel: dataCh.key }),
+      ]);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        MQTT.Task.READ_SCHEMAS,
+      );
+      expect(created.config.entries).toMatchObject([
+        { channel: dataCh.key, index: idxCh.key },
+      ]);
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: MQTT.Device.SCHEMAS,
+      });
+      expect(updated.properties.read).toEqual({});
     });
 
     it("should create index and data channels and persist them to the device", async () => {

@@ -11,6 +11,7 @@ import { mqtt, type task } from "@synnaxlabs/client";
 import { DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { sparkplugIDZ } from "@/feature/mqtt/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "mqtt";
@@ -19,7 +20,13 @@ export type TimeFormat = mqtt.TimeFormat;
 
 export type QoS = mqtt.QoS;
 
-const UNSUPPORTED_SPARKPLUG_MESSAGE = "Sparkplug B is not supported yet";
+export type SparkplugDataType = mqtt.SparkplugDataType;
+
+/** The identity of a Sparkplug B tag. An empty device names a tag of the edge node. */
+export interface SparkplugTagID extends Pick<
+  mqtt.SparkplugReadEntry,
+  "group" | "edgeNode" | "device" | "tag"
+> {}
 
 const deployTopicZ = z
   .string()
@@ -30,7 +37,11 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadField extends mqtt.ReadField {}
 
-export interface ReadEntry extends mqtt.PlainReadEntry {}
+export interface PlainReadEntry extends mqtt.PlainReadEntry {}
+
+export interface SparkplugReadEntry extends mqtt.SparkplugReadEntry {}
+
+export type ReadEntry = PlainReadEntry | SparkplugReadEntry;
 
 const validateEnumLabels = (ctx: z.core.ParsePayload<mqtt.EnumEntry[]>) => {
   const seen = new Set<string>();
@@ -57,7 +68,7 @@ const deployReadFieldZ = mqtt.readFieldZ.extend({
 const isVariable = (field: ReadField): boolean =>
   new DataType(field.dataType).isVariable;
 
-const validateReadEntry = (ctx: z.core.ParsePayload<ReadEntry>) => {
+const validateReadEntry = (ctx: z.core.ParsePayload<PlainReadEntry>) => {
   const { value } = ctx;
   const pointers = new Set<string>();
   const enabled = value.fields.filter(({ disabled }) => !disabled);
@@ -92,21 +103,32 @@ const validateReadEntry = (ctx: z.core.ParsePayload<ReadEntry>) => {
   });
 };
 
-const deployReadEntryZ = mqtt.plainReadEntryZ
+const deployPlainReadEntryZ = mqtt.plainReadEntryZ
   .extend({
-    type: z.literal("plain", UNSUPPORTED_SPARKPLUG_MESSAGE),
     topic: deployTopicZ,
     fields: deployReadFieldZ.array().check(Task.validateReadChannels),
   })
   .check(validateReadEntry);
 
-interface Topic {
-  topic: string;
-  disabled: boolean;
-}
+const DEPLOY_SPARKPLUG_TAG_SHAPE = {
+  group: sparkplugIDZ("Group").min(1, "Group is required").prefault(""),
+  edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required").prefault(""),
+  device: sparkplugIDZ("Device").prefault(""),
+  tag: z.string().min(1, "Tag is required").prefault(""),
+};
 
-// The driver skips disabled entries, so they may share a topic with an enabled one.
-const validateTopics = (label: string) => (ctx: z.core.ParsePayload<Topic[]>) => {
+const deployReadEntryZ = z.discriminatedUnion("type", [
+  deployPlainReadEntryZ,
+  mqtt.sparkplugReadEntryZ.extend(DEPLOY_SPARKPLUG_TAG_SHAPE),
+]);
+
+type Item =
+  | Pick<PlainReadEntry, "type" | "disabled" | "topic">
+  | Pick<SparkplugReadEntry, "type" | "disabled" | keyof SparkplugTagID>;
+
+// The driver skips disabled items, so they may share a topic or a tag with an enabled
+// one.
+const validateItems = (label: string) => (ctx: z.core.ParsePayload<Item[]>) => {
   if (ctx.value.every(({ disabled }) => disabled))
     ctx.issues.push({
       code: "custom",
@@ -115,22 +137,28 @@ const validateTopics = (label: string) => (ctx: z.core.ParsePayload<Topic[]>) =>
       path: [],
     });
   const seen = new Set<string>();
-  ctx.value.forEach(({ topic, disabled }, i) => {
-    if (disabled || topic === "") return;
-    if (seen.has(topic))
+  ctx.value.forEach((item, i) => {
+    if (item.disabled) return;
+    const [field, name, identity] =
+      item.type === "plain"
+        ? ["topic", item.topic, [item.topic]]
+        : ["tag", item.tag, [item.group, item.edgeNode, item.device, item.tag]];
+    if (name === "") return;
+    const key = JSON.stringify(identity);
+    if (seen.has(key))
       ctx.issues.push({
         code: "custom",
         input: ctx.value,
-        message: `Duplicate topic "${topic}"`,
-        path: [i, "topic"],
+        message: `Duplicate ${field} "${name}"`,
+        path: [i, field],
       });
-    else seen.add(topic);
+    else seen.add(key);
   });
 };
 
 export const deployReadConfigZ = mqtt.readConfigZ.extend({
   device: Task.deviceKeyZ,
-  entries: deployReadEntryZ.array().check(validateTopics("entry")),
+  entries: deployReadEntryZ.array().check(validateItems("entry")),
 });
 
 export const READ_SCHEMAS = {
@@ -151,7 +179,11 @@ export interface ChannelField extends mqtt.ChannelField {}
 
 export type WriteField = mqtt.WriteField;
 
-export interface WriteTarget extends mqtt.PlainWriteTarget {}
+export interface PlainWriteTarget extends mqtt.PlainWriteTarget {}
+
+export interface SparkplugWriteTarget extends mqtt.SparkplugWriteTarget {}
+
+export type WriteTarget = PlainWriteTarget | SparkplugWriteTarget;
 
 const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { value } = ctx;
@@ -182,7 +214,7 @@ const validateChannelField = (ctx: z.core.ParsePayload<ChannelField>) => {
   });
 };
 
-const validateWriteTarget = (ctx: z.core.ParsePayload<WriteTarget>) => {
+const validateWriteTarget = (ctx: z.core.ParsePayload<PlainWriteTarget>) => {
   const { value } = ctx;
   const { channel, fields } = value;
   if (channel.pointer === "" && fields.length > 0)
@@ -214,9 +246,8 @@ const deployWriteFieldZ = z.discriminatedUnion("type", [
   mqtt.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
 ]);
 
-const deployWriteTargetZ = mqtt.plainWriteTargetZ
+const deployPlainWriteTargetZ = mqtt.plainWriteTargetZ
   .extend({
-    type: z.literal("plain", UNSUPPORTED_SPARKPLUG_MESSAGE),
     topic: deployTopicZ,
     channel: mqtt.channelFieldZ
       .extend({ pointer: json.pointerZ })
@@ -225,9 +256,14 @@ const deployWriteTargetZ = mqtt.plainWriteTargetZ
   })
   .check(validateWriteTarget);
 
+const deployWriteTargetZ = z.discriminatedUnion("type", [
+  deployPlainWriteTargetZ,
+  mqtt.sparkplugWriteTargetZ.extend(DEPLOY_SPARKPLUG_TAG_SHAPE),
+]);
+
 export const deployWriteConfigZ = mqtt.writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  targets: deployWriteTargetZ.array().check(validateTopics("target")),
+  targets: deployWriteTargetZ.array().check(validateItems("target")),
 });
 
 export const WRITE_SCHEMAS = {
@@ -254,13 +290,38 @@ const browsedTopicZ = z.object({
 
 export interface BrowsedTopic extends z.infer<typeof browsedTopicZ> {}
 
-const browseResultZ = z
-  .object({ topics: browsedTopicZ.array(), truncated: z.boolean() })
-  .nullish()
-  .optional();
+const browseResultZ = z.object({
+  topics: browsedTopicZ.array(),
+  truncated: z.boolean(),
+});
+
+export const BROWSE_SPARKPLUG_COMMAND_TYPE = "browse_sparkplug";
+
+const browsedSparkplugNodeZ = z.object({
+  group: z.string(),
+  edgeNode: z.string(),
+  devices: z.string().array(),
+});
+
+export interface BrowsedSparkplugNode extends z.infer<typeof browsedSparkplugNodeZ> {}
+
+const browsedSparkplugTagZ = z.object({
+  device: z.string(),
+  name: z.string(),
+  dataType: z.string(),
+  value: z.string(),
+  supported: z.boolean(),
+});
+
+export interface BrowsedSparkplugTag extends z.infer<typeof browsedSparkplugTagZ> {}
+
+const browseSparkplugResultZ = z.object({
+  nodes: browsedSparkplugNodeZ.array(),
+  tags: browsedSparkplugTagZ.array(),
+});
 
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: browseResultZ,
+  statusData: z.union([browseResultZ, browseSparkplugResultZ]).nullish(),
 } as const satisfies task.Schemas;

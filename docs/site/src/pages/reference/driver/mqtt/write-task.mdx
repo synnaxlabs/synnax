@@ -5,8 +5,8 @@ heading: "MQTT Write Task"
 description: "Learn how to publish commands to an MQTT broker with Synnax."
 prev: "Read Task"
 prevURL: "/reference/driver/mqtt/read-task"
-next: "National Instruments"
-nextURL: "/reference/driver/ni/configure-device"
+next: "Sparkplug B"
+nextURL: "/reference/driver/mqtt/sparkplug"
 ---
 
 import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
@@ -18,7 +18,8 @@ export const components = mdxOverrides;
 
 The MQTT write task publishes a message each time a value is written to a command
 channel in Synnax. Use it to send setpoints and commands to devices that listen on MQTT
-topics.
+topics. It can also send commands for [Sparkplug B](/reference/driver/mqtt/sparkplug)
+tags.
 
 <Divider.Divider x />
 

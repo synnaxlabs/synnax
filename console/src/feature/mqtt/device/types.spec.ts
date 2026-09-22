@@ -56,6 +56,31 @@ describe("MQTT Device Properties", () => {
       expect(MQTT.Device.propertiesZ.safeParse({ version: 2 }).success).toBe(false);
     });
 
+    it("should accept a Sparkplug B host ID and groups", () => {
+      const sparkplug = { hostId: "synnax_core", groups: ["plant", "utilities"] };
+      expect(MQTT.Device.propertiesZ.parse({ sparkplug }).sparkplug).toEqual(sparkplug);
+    });
+
+    it.each(["a/b", "host+", "#"])("should reject the host ID %s", (hostId) => {
+      const result = MQTT.Device.propertiesZ.safeParse({ sparkplug: { hostId } });
+      expect(result.error?.issues).toMatchObject([
+        { message: "Host ID must not hold /, +, or #", path: ["sparkplug", "hostId"] },
+      ]);
+    });
+
+    it("should put the issue of a bad group on the list of groups", () => {
+      const result = MQTT.Device.propertiesZ.safeParse({
+        sparkplug: { groups: ["plant", "line/1", ""] },
+      });
+      expect(result.error?.issues).toMatchObject([
+        {
+          message: 'Group "line/1" must not hold /, +, or #',
+          path: ["sparkplug", "groups"],
+        },
+        { message: "Group must not be empty", path: ["sparkplug", "groups"] },
+      ]);
+    });
+
     it("should read a stored index that is not a channel key as no index", () => {
       const result = MQTT.Device.propertiesZ.parse({
         read: { "plant/temp": { index: "gone", channels: {} } },
@@ -68,14 +93,25 @@ describe("MQTT Device Properties", () => {
     const properties: MQTT.Device.Properties = {
       ...MQTT.Device.ZERO_PROPERTIES,
       clientId: "console",
-      read: { "plant/line_a/tempC": { index: 1, channels: { "/outletTemp_c": 2 } } },
-      write: { "plant/line_a/setPoint": 3 },
+      sparkplug: { hostId: "synnaxCore_1", groups: ["plant_A"] },
+      read: {
+        "plant/line_a/tempC": { index: 1, channels: { "/outletTemp_c": 2 } },
+        "spBv1.0/plant_A/lineOne/oven_temp": { index: 4, channels: { "": 5 } },
+      },
+      write: { "plant/line_a/setPoint": 3, "spBv1.0/plant_A/lineOne/setPoint": 6 },
     };
     const schema = MQTT.Device.propertiesZ;
 
     it("should send the connection properties in the snake case the driver reads", () => {
       const wire = caseconv.camelToSnake(properties, { schema });
       expect(wire).toMatchObject({ client_id: "console", keep_alive: 0, ca_file: "" });
+    });
+
+    it("should send the Sparkplug B host ID under a snake case key", () => {
+      const wire = caseconv.camelToSnake(properties, { schema });
+      expect(wire).toMatchObject({
+        sparkplug: { host_id: "synnaxCore_1", groups: ["plant_A"] },
+      });
     });
 
     it("should keep the case of topics and pointers through a round trip", () => {

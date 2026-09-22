@@ -384,6 +384,7 @@ func (re ReadEntry) EncodeOrc(w *orc.Writer) error {
 		w.String(v.Tag)
 		w.Uint32(uint32(v.Channel))
 		w.Uint32(uint32(v.Index))
+		w.String(v.Name)
 		w.String(string(v.DataType))
 	default:
 		return errors.Newf("ReadEntry: nil or unknown variant %T", re.Variant)
@@ -468,6 +469,9 @@ func (re *ReadEntry) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Index = channel.Key(rawV)
+		}
+		if v.Name, err = r.String(); err != nil {
+			return err
 		}
 		{
 			rawV, err := r.String()
@@ -786,6 +790,7 @@ func (wt WriteTarget) EncodeOrc(w *orc.Writer) error {
 		w.String(v.Tag)
 		w.String(string(v.SparkplugType))
 		w.Uint32(uint32(v.Channel))
+		w.String(v.Name)
 	default:
 		return errors.Newf("WriteTarget: nil or unknown variant %T", wt.Variant)
 	}
@@ -869,6 +874,9 @@ func (wt *WriteTarget) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.Channel = channel.Key(rawV)
+		}
+		if v.Name, err = r.String(); err != nil {
+			return err
 		}
 		wt.Variant = v
 	default:

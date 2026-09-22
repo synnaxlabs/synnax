@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -73,8 +74,10 @@ type Properties struct {
 type clientConfig struct {
 	tls *tls.Config
 	// tlsID identifies the TLS settings, because a tls.Config does not compare.
-	tlsID     string
-	url       string
+	tlsID string
+	url   string
+	// hostID is the Sparkplug B host application ID. Empty for a passive host.
+	hostID    string
 	clientID  string
 	username  string
 	password  string
@@ -104,7 +107,17 @@ func newClientConfig(dev device.Device) (clientConfig, error) {
 			validate.ErrValidation, "invalid broker properties: %s", err.Error(),
 		)
 	}
+	if props.Sparkplug.HostID != "" {
+		if err := sparkplug.ValidateID(
+			"sparkplug.host_id", props.Sparkplug.HostID,
+		); err != nil {
+			return clientConfig{}, errors.Wrapf(
+				validate.ErrValidation, "invalid broker properties: %s", err.Error(),
+			)
+		}
+	}
 	cfg := clientConfig{
+		hostID:    props.Sparkplug.HostID,
 		clientID:  props.ClientID,
 		username:  props.Username,
 		password:  props.Password,

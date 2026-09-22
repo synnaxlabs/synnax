@@ -35,21 +35,31 @@ import { type FC, useCallback, useState } from "react";
 import { Browser } from "@/feature/mqtt/device/Browser";
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
+import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { createReadFields } from "@/feature/mqtt/task/createReadFields";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
+import {
+  fromSparkplugDataType,
+  sparkplugChannelName,
+  sparkplugPropertiesKey,
+  toSparkplugDataType,
+} from "@/feature/mqtt/task/sparkplug";
+import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
 import { TimeFormatField } from "@/feature/mqtt/task/TimeFormatField";
 import { TopicList } from "@/feature/mqtt/task/TopicList";
-import { TopicListItem } from "@/feature/mqtt/task/TopicListItem";
+import { SparkplugListItem, TopicListItem } from "@/feature/mqtt/task/TopicListItem";
 import {
   type BrowsedTopic,
   deployReadConfigZ,
+  type PlainReadEntry,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadEntry,
   type ReadField,
   type ReadSchemas,
+  type SparkplugReadEntry,
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -70,7 +80,7 @@ const Properties = () => (
 
 const ENTRIES_PATH = "config.entries";
 
-const EntryListItem = (props: List.ItemProps<string>) => {
+const PlainEntryListItem = (props: List.ItemProps<string>) => {
   const fields = PForm.useFieldValue<ReadField[]>(
     `${ENTRIES_PATH}.${props.itemKey}.fields`,
   );
@@ -85,6 +95,14 @@ const EntryListItem = (props: List.ItemProps<string>) => {
       }
     />
   );
+};
+
+const EntryListItem = (props: List.ItemProps<string>) => {
+  const type = PForm.useFieldValue<ReadEntry["type"]>(
+    `${ENTRIES_PATH}.${props.itemKey}.type`,
+  );
+  if (type === "plain") return <PlainEntryListItem {...props} />;
+  return <SparkplugListItem {...props} path={ENTRIES_PATH} />;
 };
 
 const entryListItem = Component.renderProp(EntryListItem);
@@ -176,7 +194,7 @@ const FieldList = ({ entryKey }: FieldListProps) => {
   const data = allData.filter((key) => key !== index);
 
   const handleAdd = useCallback(() => {
-    const { fields, index } = ctx.get<ReadEntry>(entryPath).value;
+    const { fields, index } = ctx.get<PlainReadEntry>(entryPath).value;
     const last = fields.findLast((f) => f.key !== index);
     const field: ReadField = {
       ...(last != null
@@ -284,7 +302,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
 
   const handleChange = useCallback(
     (mode: TimingMode) => {
-      const { fields, index } = get<ReadEntry>(path).value;
+      const { fields, index } = get<PlainReadEntry>(path).value;
       if (mode === "payload" && index === "") {
         const indexField: ReadField = {
           ...mqtt.readFieldZ.parse({}),
@@ -333,8 +351,46 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
+const SPARKPLUG_HIDDEN_DATA_TYPES = [DataType.UUID, DataType.JSON, DataType.BYTES];
+
+const renderSparkplugSelectDataType = Component.renderProp(
+  (p: Telem.SelectDataTypeProps) => (
+    <Telem.SelectDataType
+      {...p}
+      hideDataTypes={SPARKPLUG_HIDDEN_DATA_TYPES}
+      location="bottom"
+    />
+  ),
+);
+
+const SparkplugEntryDetails: FC<{ path: string }> = ({ path }) => {
+  const entryChannel = PForm.useFieldValue<number>(`${path}.channel`);
+  return (
+    <Flex.Box y grow empty className={CSS.B("topic-details")}>
+      <Flex.Box gap="small" empty className={CSS.B("topic-details-form")}>
+        <SparkplugTagFields path={path} />
+        <Flex.Box x align="center" justify="between">
+          <Task.ChannelName channel={entryChannel} namePath={`${path}.name`} />
+          {entryChannel === 0 && (
+            <PForm.Field<string>
+              path={`${path}.dataType`}
+              label="Data type"
+              showHelpText={false}
+              className={CSS.B("data-type-select")}
+            >
+              {renderSparkplugSelectDataType}
+            </PForm.Field>
+          )}
+        </Flex.Box>
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
+
 const EntryDetails: FC<{ entryKey: string }> = ({ entryKey }) => {
   const path = `${ENTRIES_PATH}.${entryKey}`;
+  const type = PForm.useFieldValue<ReadEntry["type"]>(`${path}.type`);
+  if (type === "sparkplug") return <SparkplugEntryDetails path={path} />;
   return (
     <Flex.Box y grow empty className={CSS.B("topic-details")}>
       <Flex.Box gap="small" empty className={CSS.B("topic-details-form")}>
@@ -360,7 +416,7 @@ const EntryDetails: FC<{ entryKey: string }> = ({ entryKey }) => {
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/temperature" } as const;
 
-const createEntry = (topic?: BrowsedTopic): ReadEntry => ({
+const createEntry = (topic?: BrowsedTopic): PlainReadEntry => ({
   ...mqtt.plainReadEntryZ.parse({ type: "plain" }),
   ...(topic != null && {
     topic: topic.topic,
@@ -368,7 +424,20 @@ const createEntry = (topic?: BrowsedTopic): ReadEntry => ({
   }),
 });
 
+const createSparkplugEntry = (tag?: SparkplugHaulTag): SparkplugReadEntry => {
+  const entry = mqtt.sparkplugReadEntryZ.parse({ type: "sparkplug" });
+  if (tag == null) return entry;
+  const { dataType, ...tagID } = tag;
+  return {
+    ...entry,
+    ...tagID,
+    dataType: fromSparkplugDataType(toSparkplugDataType(dataType)),
+  };
+};
+
 const duplicateEntry = (entry: ReadEntry): ReadEntry => {
+  if (entry.type === "sparkplug")
+    return { ...entry, ...Task.READ_CHANNEL_OVERRIDE, key: id.create(), index: 0 };
   const fields = entry.fields.map((f) => ({
     ...f,
     ...Task.READ_CHANNEL_OVERRIDE,
@@ -396,6 +465,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
         selected={selected}
         onSelect={setSelected}
         create={createEntry}
+        createSparkplug={createSparkplugEntry}
         duplicate={duplicateEntry}
       >
         {entryListItem}
@@ -448,13 +518,56 @@ const retrieveChannel = async (
 const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
   (await retrieveChannel(client, key)) != null;
 
+/** @returns true when it stored new channels in the properties of the device. */
+const configureSparkplugEntry = async (
+  client: Client,
+  dev: Device,
+  entry: SparkplugReadEntry,
+): Promise<boolean> => {
+  const propertiesKey = sparkplugPropertiesKey(entry);
+  const storedKey = dev.properties.read[propertiesKey]?.channels[""];
+  for (const key of [entry.channel, storedKey]) {
+    if (!primitive.isNonZero(key)) continue;
+    const ch = await retrieveChannel(client, key);
+    if (ch == null) continue;
+    entry.channel = ch.key;
+    entry.index = ch.index;
+    return false;
+  }
+  const name = primitive.isNonZero(entry.name)
+    ? entry.name
+    : sparkplugChannelName(dev.name, entry);
+  let index = 0;
+  if (!new DataType(entry.dataType).isVariable) {
+    const indexCh = await client.channels.create({
+      name: `${name}_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    });
+    index = indexCh.key;
+  }
+  const ch = await client.channels.create({
+    name,
+    dataType: entry.dataType,
+    ...(index === 0 ? { virtual: true } : { index }),
+  });
+  entry.channel = ch.key;
+  entry.index = index;
+  dev.properties.read[propertiesKey] = { index, channels: { "": ch.key } };
+  return true;
+};
+
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
   try {
     for (const entry of config.entries) {
-      if (entry.type !== "plain" || entry.disabled) continue;
+      if (entry.disabled) continue;
+      if (entry.type === "sparkplug") {
+        if (await configureSparkplugEntry(client, dev, entry)) modified = true;
+        continue;
+      }
       dev.properties.read[entry.topic] ??= { index: 0, channels: {} };
       const topicProps = dev.properties.read[entry.topic];
       const namePrefix = `${safeDevName}_${channel.escapeInvalidName(entry.topic)}`;

@@ -62,6 +62,9 @@ class TestMQTTReadTask:
         entry = cfg.entries[0]
         assert isinstance(entry, sy.mqtt.SparkplugReadEntry)
         assert entry.edge_node == "Line7"
+        assert entry.device == ""
+        assert entry.tag == "Motor/RPM"
+        assert entry.channel == 9
 
     def test_reject_unknown_entry_type(self):
         """Should reject an entry whose type is not a known variant."""
@@ -141,6 +144,35 @@ class TestMQTTWriteTask:
         assert target.channel.json_type == "number"
         assert target.fields == []
 
+    def test_parse_sparkplug_target(self):
+        """Should select the Sparkplug variant from the type field."""
+        cfg = sy.mqtt.WriteConfig.model_validate(
+            {
+                "device": "broker-1",
+                "targets": [
+                    {
+                        "type": "sparkplug",
+                        "group": "Plant",
+                        "edge_node": "Line7",
+                        "device": "Pump1",
+                        "tag": "setpoint",
+                        "channel": 12,
+                        "sparkplug_type": "float",
+                    }
+                ],
+            }
+        )
+        target = cfg.targets[0]
+        assert isinstance(target, sy.mqtt.SparkplugWriteTarget)
+        assert target.device == "Pump1"
+        assert target.channel == 12
+        assert target.sparkplug_type == "float"
+
+    def test_sparkplug_target_defaults_to_double(self):
+        """Should send a command as a double unless the target names a type."""
+        target = sy.mqtt.SparkplugWriteTarget(group="Plant", edge_node="Line7")
+        assert target.sparkplug_type == "double"
+
     def test_parse_static_and_generated_fields(self):
         """Should select the field variant from the type field."""
         target = sy.mqtt.PlainWriteTarget.model_validate(
@@ -215,6 +247,7 @@ class TestMQTTDevice:
             "password": "",
             "client_id": "",
             "keep_alive": 0,
+            "sparkplug": {"host_id": "", "groups": []},
             "version": 1,
         }
 
@@ -238,6 +271,16 @@ class TestMQTTDevice:
         assert dev.properties["username"] == "operator"
         assert dev.properties["client_id"] == "synnax-line-7"
         assert dev.properties["keep_alive"] == 15
+
+    def test_device_sparkplug_config(self):
+        """Should carry the Sparkplug B host ID and groups in its properties."""
+        dev = sy.mqtt.Device(
+            host="broker.local", host_id="synnax-primary", groups=["Plant", "Lab"]
+        )
+        assert dev.properties["sparkplug"] == {
+            "host_id": "synnax-primary",
+            "groups": ["Plant", "Lab"],
+        }
 
     @pytest.mark.parametrize("port", [-1, 65536])
     def test_device_rejects_port_out_of_range(self, port: int):

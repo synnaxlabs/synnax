@@ -204,6 +204,8 @@ type SparkplugReadEntry struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Index is the index channel that takes the tag timestamp.
 	Index channel.Key `json:"index" msgpack:"index"`
+	// Name is the human-readable name of the channel.
+	Name string `json:"name" msgpack:"name"`
 	// DataType is the data type of the channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 }
@@ -650,6 +652,8 @@ type SparkplugWriteTarget struct {
 	SparkplugType SparkplugDataType `json:"sparkplug_type" msgpack:"sparkplug_type"`
 	// Channel is the Synnax command channel whose writes trigger the command.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// Name is the human-readable name of the command channel.
+	Name string `json:"name" msgpack:"name"`
 }
 
 func (SparkplugWriteTarget) isWriteTargetVariant() {}

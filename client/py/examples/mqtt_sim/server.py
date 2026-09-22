@@ -20,6 +20,10 @@ Topics:
 - ``plant/<name>/set``: A command topic. The plant publishes each payload it receives
   again, retained, on ``plant/<name>/state``.
 
+Sparkplug B: the edge node ``Plant/Line1`` has the tags ``temperature``, ``count``, and
+``running``. Its device ``Pump1`` has the tags ``speed`` and ``setpoint``. A command
+for a tag sets its value.
+
 Run it directly for the examples in this directory:
 
     uv run python examples/mqtt_sim/server.py
@@ -31,12 +35,16 @@ import json
 import math
 import time
 
+from examples.mqtt_sim import sparkplug
 from examples.mqtt_sim.broker import Broker
 from examples.simulators.device_sim import DeviceSim
 from synnax import mqtt
 
 COMMAND_PREFIX = "plant/"
 COMMAND_SUFFIX = "/set"
+SPARKPLUG_GROUP = "Plant"
+SPARKPLUG_EDGE_NODE = "Line1"
+SPARKPLUG_DEVICE = "Pump1"
 
 
 async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
@@ -49,7 +57,20 @@ async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
             broker.publish(f"plant/{name}/state", payload, retain=True)
 
     broker.on_message(echo)
+    temperature = sparkplug.Tag("temperature", sparkplug.DOUBLE, 0.0)
+    counter = sparkplug.Tag("count", sparkplug.INT64, 0)
+    running = sparkplug.Tag("running", sparkplug.BOOLEAN, False)
+    speed = sparkplug.Tag("speed", sparkplug.FLOAT, 0.0)
+    setpoint = sparkplug.Tag("setpoint", sparkplug.DOUBLE, 0.0)
+    edge_node = sparkplug.EdgeNode(
+        broker,
+        SPARKPLUG_GROUP,
+        SPARKPLUG_EDGE_NODE,
+        [temperature, counter, running],
+        {SPARKPLUG_DEVICE: [speed, setpoint]},
+    )
     await broker.start()
+    edge_node.birth()
     broker.publish(
         "plant/info", json.dumps({"name": "Mock plant", "version": 1}), retain=True
     )
@@ -75,8 +96,15 @@ async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
                 json.dumps({"value": math.sin(t), "timestamp": time.time_ns()}),
             )
             broker.publish("plant/scalar", repr(round(50 + 10 * math.sin(t), 3)))
+            temperature.value = 23.5 + 5 * math.sin(t)
+            counter.value = count
+            running.value = count % 20 < 10
+            speed.value = 1500 + 100 * math.cos(t)
+            edge_node.data()
+            edge_node.data(SPARKPLUG_DEVICE, {speed.name})
             await asyncio.sleep(1 / rate_hz)
     finally:
+        edge_node.death()
         await broker.stop()
 
 

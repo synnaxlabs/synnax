@@ -492,14 +492,6 @@ var _ = Describe("Read task", func() {
 			)
 		})
 
-		It("Should reject a Sparkplug B entry", func(ctx SpecContext) {
-			expectRejected(
-				ctx,
-				readConfig(dev, map[string]any{"key": "s", "type": "sparkplug"}),
-				"Sparkplug B entries are not supported yet",
-			)
-		})
-
 		It("Should not handle a task type of another integration",
 			func(ctx SpecContext) {
 				t := newTask(rackKey, "opc_read", msgpack.EncodedJSON{})

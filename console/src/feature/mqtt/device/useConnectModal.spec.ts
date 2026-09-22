@@ -73,6 +73,40 @@ describe("useConnectModal", () => {
     expect(getSwitchInput("TLS").checked).toBe(true);
   });
 
+  it("should populate the Sparkplug B host ID and groups of a device", async () => {
+    const dev = await createBroker(client, {
+      properties: {
+        sparkplug: { hostId: "synnax_core", groups: ["plant", "utilities"] },
+      },
+    });
+    await renderModalOpener(MQTT.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    expect(await screen.findByDisplayValue("synnax_core")).toBeTruthy();
+    expect(screen.getByDisplayValue("plant, utilities")).toBeTruthy();
+  });
+
+  it("should reject a host ID that holds a topic character", async () => {
+    await renderConnectModal();
+    const input = screen.getByPlaceholderText("Passive host");
+    fireEvent.change(input, { target: { value: "core/1" } });
+    fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    expect(await screen.findByText("Host ID must not hold /, +, or #")).toBeTruthy();
+  });
+
+  it("should split the groups at the commas and reject a bad group", async () => {
+    await renderConnectModal();
+    const input = screen.getByPlaceholderText<HTMLInputElement>("All groups");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: " plant ,, line#1" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(input.value).toBe("plant, line#1"));
+    fireEvent.click(screen.getByRole("button", { name: /Connect/ }));
+    expect(
+      await screen.findByText('Group "line#1" must not hold /, +, or #'),
+    ).toBeTruthy();
+  });
+
   it("should clamp the port to 65535", async () => {
     await renderConnectModal();
     const input = screen.getByPlaceholderText<HTMLInputElement>("1883");

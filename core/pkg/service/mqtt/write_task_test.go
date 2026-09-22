@@ -433,16 +433,5 @@ var _ = Describe("Write task", func() {
 				)
 			},
 		)
-
-		It("Should reject a Sparkplug target", func(ctx SpecContext) {
-			expectRejected(
-				ctx,
-				writeConfig(dev, map[string]any{
-					"key": "sp", "type": "sparkplug", "group": "g", "edge_node": "n",
-					"tag": "t",
-				}),
-				"Sparkplug B entries are not supported yet",
-			)
-		})
 	})
 })

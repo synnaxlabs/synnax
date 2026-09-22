@@ -16,6 +16,7 @@ import { type Task } from "@/platform/task";
 export * from "@/feature/mqtt/task/commands";
 export * from "@/feature/mqtt/task/createReadFields";
 export * from "@/feature/mqtt/task/Read";
+export * from "@/feature/mqtt/task/sparkplug";
 export * from "@/feature/mqtt/task/types";
 export * from "@/feature/mqtt/task/Write";
 

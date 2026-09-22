@@ -56,6 +56,8 @@ following:
 | `password`             | string  | No       | `""`    | Password for the broker                                                |
 | `client_id`            | string  | No       | `""`    | MQTT client ID. When empty, Synnax derives a stable ID from the device |
 | `keep_alive`           | integer | No       | `0`     | Keep-alive interval in seconds. `0` selects `30`                       |
+| `host_id`              | string  | No       | `""`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) host application ID    |
+| `groups`               | array   | No       | `[]`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) groups to browse       |
 
 <Note.Note variant="warning" className="compact">
   A broker allows one connection for each client ID. If you set `client_id`, make sure

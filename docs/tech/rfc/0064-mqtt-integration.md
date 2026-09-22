@@ -212,13 +212,29 @@ mapping in the device properties, as the HTTP forms do.
   requests. It publishes no STATE message, so it is safe next to an Ignition primary
   host.
 - When the broker device has a host ID, the connection publishes a retained STATE
-  message under that ID and sets the offline STATE as its last will. A site can then
-  make Synnax the primary host.
-- The connection validates the sequence number of each edge node. On a gap, on data
-  before a birth, or on an unknown alias, it sends a rebirth request, limited in rate
-  for each edge node.
-- On a death message, tasks that read tags of that edge node show a warning until the
-  next birth.
+  message under that ID and sets the offline STATE as its last will. The last will and
+  the online message of one connect attempt carry the same timestamp, so an edge node
+  can discard a last will that arrives late. A clean stop publishes an offline message
+  with the current time. A site can then make Synnax the primary host.
+- For each edge node that a task follows, the connection subscribes to two filters of an
+  exact depth, `spBv1.0/{group}/+/{edge_node}` and the same filter with `/+`. It uses no
+  `#`, because some brokers do not match `a/#` against the parent level `a`.
+- The session is strict. The connection validates the sequence number of each edge node
+  and drops data that arrives before a birth. On a gap, on data before a birth, or on a
+  tag that the birth did not declare, it sends a rebirth request. The rate limit is one
+  request every 5 s for each edge node.
+- A task that starts to follow an edge node always sends a rebirth request, even when
+  the connection holds a valid birth. The task then starts from the current value of
+  each tag, and it learns at once whether each tag exists. A reconnect does the same for
+  every followed edge node, because the connection missed messages.
+- A task waits 8 s for the birth. The wait is longer than the rate limit, so a request
+  that waits out the limit gives no false warning. After it, the task warns that the
+  edge node is offline.
+- On a death message, tasks that read tags of that edge node or device show a warning
+  until the next birth. A tag that is not in the birth of its scope gives a warning too.
+- A birth carries the current value of each tag, which the task may have written before.
+  The task skips a value in a birth whose timestamp is not after the last one written,
+  with no warning. The same value in a data message gives a warning (§7.12).
 
 The Go protobuf code is generated from the Eclipse Tahu `sparkplug_b.proto` and
 committed. The host and edge node logic is written in the package. benthos-umh and
@@ -248,19 +264,26 @@ task already do the same.
 The scan task is internal, one for each rack. For a broker with running tasks it reports
 the state of their shared connection. For any other broker it makes a short test
 connection, so an idle broker holds no session. It writes a device status: connected,
-failed to reach the broker, or invalid properties. It handles two commands, and each
+failed to reach the broker, or invalid properties. It handles three commands, and each
 reply is a task status that carries the command key:
 
 - `test_connection`: Connects with the properties in the command arguments. The Console
   connect dialog runs it before it saves the device, as the HTTP dialog does.
-- `browse`: For plain topics, it subscribes to a filter the user gives for a short
-  window and returns the topics it saw with the start of the last payload of each one.
-  The window is 3 s by default and 20 s at most. The list holds 500 topics by default
-  and 5000 at most. A browse uses its own client, because a wildcard subscription on the
-  shared connection would overlap the subscriptions of the tasks. For Sparkplug, it
-  listens on `spBv1.0/#`, returns the groups and edge nodes it saw, and sends a rebirth
-  request to the edge node the user expands, to get its tags. Manual entry stays
-  available, because a topic that publishes once an hour does not appear in the window.
+- `browse`: It subscribes to a filter the user gives for a short window and returns the
+  topics it saw with the start of the last payload of each one. The window is 3 s by
+  default and 20 s at most. The list holds 500 topics by default and 5000 at most. A
+  browse uses its own client, because a wildcard subscription on the shared connection
+  would overlap the subscriptions of the tasks.
+- `browse_sparkplug`: With no edge node, it listens for the same window on the groups of
+  the device, or on `spBv1.0/#`, and returns the edge nodes it saw with their devices.
+  With an edge node, it sends a rebirth request and returns the tags of the births, each
+  with its data type, its current value, and whether Synnax supports the data type. It
+  is a separate command because its arguments and its result share nothing with
+  `browse`. It also uses its own client, with no host ID, so a browse never publishes a
+  STATE message.
+
+Manual entry stays available in both browsers, because a topic or an edge node that
+publishes once an hour does not appear in the window.
 
 Sparkplug B is not a broker capability and not a device property. The browser discovers
 it from traffic.

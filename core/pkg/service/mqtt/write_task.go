@@ -24,6 +24,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// publication is one message to publish.
+type publication struct {
+	topic    string
+	payload  []byte
+	qos      byte
+	retained bool
+}
+
+// target turns the samples of one command channel into messages.
+type target interface {
+	// publication returns the message for sample i of series.
+	publication(series telem.Series, i int) (publication, error)
+	// String names the target in an error.
+	String() string
+}
+
 // extraField is a static or generated field of a payload.
 type extraField struct {
 	// static is the JSON text of a fixed value. It is decoded for each payload, so
@@ -45,6 +61,19 @@ type writeTarget struct {
 	jsonType xjson.Type
 	qos      byte
 	retained bool
+}
+
+var _ target = writeTarget{}
+
+// String implements target.
+func (t writeTarget) String() string { return "target " + t.topic }
+
+// publication implements target.
+func (t writeTarget) publication(series telem.Series, i int) (publication, error) {
+	payload, err := t.payload(series, i)
+	return publication{
+		topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
+	}, err
 }
 
 func parseTimeFormat(format *TimeFormat) (xjson.TimeFormat, error) {
@@ -203,7 +232,7 @@ type writeSink struct {
 	pool       *pool
 	attachment *attachment
 	// targets holds the targets that each command channel triggers.
-	targets map[channel.Key][]writeTarget
+	targets map[channel.Key][]target
 	dev     device.Device
 }
 
@@ -240,16 +269,18 @@ func (s *writeSink) Write(ctx context.Context, fr framer.Frame) error {
 	for key, series := range fr.Entries() {
 		for _, t := range s.targets[key] {
 			for i := range int(series.Len()) {
-				payload, err := t.payload(series, i)
+				pub, err := t.publication(series, i)
 				if err != nil {
-					// A value with no JSON form, such as NaN, drops its command. It
-					// does not stop the task.
+					// A value with no form in the payload, such as NaN in JSON, drops
+					// its command. It does not stop the task.
 					err = errors.Wrap(driver.ErrTemporary, err.Error())
 				} else {
-					err = s.attachment.publish(ctx, t.topic, t.qos, t.retained, payload)
+					err = s.attachment.publish(
+						ctx, pub.topic, pub.qos, pub.retained, pub.payload,
+					)
 				}
 				if err != nil && !errors.Is(err, driver.ErrTemporary) {
-					return errors.Wrapf(err, "target %s", t.topic)
+					return errors.Wrap(err, t.String())
 				}
 				if first == nil {
 					first = err

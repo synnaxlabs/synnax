@@ -15,11 +15,37 @@ export const MAKE = "mqtt";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("MQTT broker");
 
+const SPARKPLUG_ID_PATTERN = /^[^/+#]*$/;
+
+/**
+ * @param label - The name of the ID in the issue message.
+ * @returns a schema for an ID that can be one level of a Sparkplug B topic.
+ */
+export const sparkplugIDZ = (label: string) =>
+  z.string().regex(SPARKPLUG_ID_PATTERN, `${label} must not hold /, +, or #`);
+
+// The issue sits on the list, because one input edits all of the groups.
+const validateGroups = (ctx: z.core.ParsePayload<string[]>) =>
+  ctx.value
+    .filter((group) => group === "" || !SPARKPLUG_ID_PATTERN.test(group))
+    .forEach((group) =>
+      ctx.issues.push({
+        code: "custom",
+        input: ctx.value,
+        message:
+          group === ""
+            ? "Group must not be empty"
+            : `Group "${group}" must not hold /, +, or #`,
+        path: [],
+      }),
+    );
+
 const sparkplugPropertiesZ = z.object({
-  hostId: z.string().default(""),
+  hostId: sparkplugIDZ("Host ID").default(""),
   groups: z
     .string()
     .array()
+    .check(validateGroups)
     .default(() => []),
 });
 

@@ -12,6 +12,7 @@ import "@/feature/mqtt/task/TopicListItem.css";
 import { Flex, Form as PForm, type List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
+import { type SparkplugTagID } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
@@ -20,23 +21,51 @@ export interface TopicListItemProps extends List.ItemProps<string> {
   extra?: ReactNode;
 }
 
-export const TopicListItem = ({ path, extra, ...props }: TopicListItemProps) => {
-  const itemPath = `${path}.${props.itemKey}`;
-  const topic = PForm.useFieldValue<string>(`${itemPath}.topic`);
+interface BaseProps extends TopicListItemProps {
+  title: string;
+  placeholder: string;
+}
+
+const Base = ({ path, title, placeholder, extra, ...props }: BaseProps) => (
+  <Select.ListItem justify="between" align="center" x {...props}>
+    <Flex.Box y gap="tiny" className={CSS.BE("mqtt-topic-list-item", "text")}>
+      <Text.Text
+        level="small"
+        weight={500}
+        status={title === "" ? "disabled" : undefined}
+        className={CSS.BE("mqtt-topic-list-item", "topic")}
+      >
+        {title === "" ? placeholder : `\u2066${title}\u2069`}
+      </Text.Text>
+      {extra}
+    </Flex.Box>
+    <Task.EnableDisableButton path={`${path}.${props.itemKey}.disabled`} />
+  </Select.ListItem>
+);
+
+export const TopicListItem = (props: TopicListItemProps) => {
+  const topic = PForm.useFieldValue<string>(`${props.path}.${props.itemKey}.topic`);
+  return <Base {...props} title={topic} placeholder="No topic" />;
+};
+
+export const SparkplugListItem = ({ extra, ...props }: TopicListItemProps) => {
+  const { group, edgeNode, device, tag } = PForm.useFieldValue<SparkplugTagID>(
+    `${props.path}.${props.itemKey}`,
+  );
+  const node = [group, edgeNode, device].filter((id) => id !== "").join("/");
   return (
-    <Select.ListItem justify="between" align="center" x {...props}>
-      <Flex.Box y gap="tiny" className={CSS.BE("mqtt-topic-list-item", "text")}>
-        <Text.Text
-          level="small"
-          weight={500}
-          status={topic === "" ? "disabled" : undefined}
-          className={CSS.BE("mqtt-topic-list-item", "topic")}
-        >
-          {topic === "" ? "No topic" : `\u2066${topic}\u2069`}
-        </Text.Text>
-        {extra}
-      </Flex.Box>
-      <Task.EnableDisableButton path={`${itemPath}.disabled`} />
-    </Select.ListItem>
+    <Base
+      {...props}
+      title={tag}
+      placeholder="No tag"
+      extra={
+        <>
+          <Text.Text level="small" color={9} overflow="ellipsis">
+            {node === "" ? "No edge node" : node}
+          </Text.Text>
+          {extra}
+        </>
+      }
+    />
   );
 };

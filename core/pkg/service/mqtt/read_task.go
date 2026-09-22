@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/telem"
@@ -237,8 +239,15 @@ type readSource struct {
 	pool       *pool
 	attachment *attachment
 	topics     map[string]readTopic
+	// tags holds the Sparkplug B tags of the task.
+	tags map[tagID]readTag
 	// lastStamp is the last timestamp written to each index channel.
 	lastStamp map[channel.Key]telem.TimeStamp
+	// awaited holds the edge nodes that have until awaitedUntil to publish a birth.
+	awaited      map[sparkplug.NodeID]struct{}
+	awaitedUntil time.Time
+	// offline holds the edge nodes and devices with no valid birth.
+	offline map[tagScope]struct{}
 	// degraded is the data loss that the task currently warns about.
 	degraded struct {
 		err   error
@@ -246,6 +255,9 @@ type readSource struct {
 	}
 	dev       device.Device
 	queueSize int
+	// birthGrace is how long an edge node has to publish a birth before it is
+	// offline.
+	birthGrace time.Duration
 	// dropped is the drop count of the attachment that was last reported.
 	dropped uint64
 }
@@ -268,7 +280,25 @@ func (s *readSource) Start(ctx context.Context) (err error) {
 			return err
 		}
 	}
+	s.offline = make(map[tagScope]struct{})
+	s.await(time.Now())
+	for node := range s.awaited {
+		if err = s.attachment.follow(ctx, node); err != nil {
+			s.pool.release(s.dev.Key, s.attachment)
+			return err
+		}
+	}
 	return nil
+}
+
+// await gives every edge node of the task the time of birthGrace to publish a birth. A
+// task that connects has missed the last birth of each one.
+func (s *readSource) await(now time.Time) {
+	s.awaited = make(map[sparkplug.NodeID]struct{})
+	for id := range s.tags {
+		s.awaited[id.node] = struct{}{}
+	}
+	s.awaitedUntil = now.Add(s.birthGrace)
 }
 
 // Stop implements driver.Source.
@@ -280,18 +310,18 @@ func (s *readSource) Stop() error {
 // Read implements driver.Source.
 func (s *readSource) Read(ctx context.Context) (framer.Frame, error) {
 	waitCtx := ctx
-	if s.degraded.err != nil {
-		// The deadline wakes a quiet task, so that it can clear its warning.
+	if deadline, ok := s.deadline(); ok {
+		// The deadline wakes a quiet task, so that it can change its warning.
 		var cancel context.CancelFunc
-		waitCtx, cancel = context.WithDeadline(ctx, s.degraded.until)
+		waitCtx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
 	}
 	msg, err := s.attachment.next(waitCtx)
 	now := time.Now()
 	if err != nil {
 		if ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded) {
-			s.degraded.err = nil
-			return framer.Frame{}, nil
+			s.expire(now)
+			return framer.Frame{}, s.health()
 		}
 		return framer.Frame{}, err
 	}
@@ -302,14 +332,62 @@ func (s *readSource) Read(ctx context.Context) (framer.Frame, error) {
 				"are dropped",
 		))
 	}
-	fr := s.convert(now, msg)
-	if s.degraded.err != nil && now.After(s.degraded.until) {
+	var fr framer.Frame
+	switch {
+	case msg.sparkplug != nil:
+		fr = s.convertEvent(now, msg)
+	case msg.topic == "":
+		// The connection is back, and the births of the outage are lost.
+		s.await(now)
+	default:
+		fr = s.convert(now, msg)
+	}
+	s.expire(now)
+	return fr, s.health()
+}
+
+// deadline returns the next time at which the warning of the task changes with no
+// message.
+func (s *readSource) deadline() (deadline time.Time, ok bool) {
+	if s.degraded.err != nil {
+		deadline, ok = s.degraded.until, true
+	}
+	if len(s.awaited) > 0 && (!ok || s.awaitedUntil.Before(deadline)) {
+		deadline, ok = s.awaitedUntil, true
+	}
+	return deadline, ok
+}
+
+// expire ends the warning of a data loss that is over, and takes the edge nodes that
+// gave no birth in time as offline.
+func (s *readSource) expire(now time.Time) {
+	if s.degraded.err != nil && !now.Before(s.degraded.until) {
 		s.degraded.err = nil
 	}
-	if s.degraded.err != nil {
-		return fr, errors.Wrap(driver.ErrDegraded, s.degraded.err.Error())
+	if len(s.awaited) > 0 && !now.Before(s.awaitedUntil) {
+		for node := range s.awaited {
+			s.offline[tagScope{node: node}] = struct{}{}
+		}
+		clear(s.awaited)
 	}
-	return fr, nil
+}
+
+// health returns the warning of the task, or nil for a task with none.
+func (s *readSource) health() error {
+	if s.degraded.err != nil {
+		return errors.Wrap(driver.ErrDegraded, s.degraded.err.Error())
+	}
+	if len(s.offline) == 0 {
+		return nil
+	}
+	scopes := make([]string, 0, len(s.offline))
+	for scope := range s.offline {
+		scopes = append(scopes, scope.String())
+	}
+	slices.Sort(scopes)
+	return errors.Wrapf(
+		driver.ErrDegraded, "%s is offline", strings.Join(scopes, ", "),
+	)
 }
 
 // degrade starts or extends the warning of the task. The warning keeps its first
@@ -346,4 +424,108 @@ func (s *readSource) convert(now time.Time, msg message) framer.Frame {
 		s.lastStamp[t.index] = stamp
 	}
 	return fr
+}
+
+// convertEvent applies one Sparkplug B message: a birth or a death changes which edge
+// nodes are offline, and the values of the tags of the task become a frame.
+func (s *readSource) convertEvent(now time.Time, msg message) framer.Frame {
+	ev := msg.sparkplug
+	scope := tagScope{node: ev.Node, device: ev.Device}
+	birth := false
+	switch ev.Type {
+	case sparkplug.NDeath, sparkplug.DDeath:
+		if s.reads(scope) {
+			s.offline[scope] = struct{}{}
+		}
+		return framer.Frame{}
+	case sparkplug.NBirth, sparkplug.DBirth:
+		birth = true
+		delete(s.awaited, ev.Node)
+		delete(s.offline, scope)
+		s.checkBirth(now, scope, ev.Metrics)
+	}
+	var (
+		keys   channel.Keys
+		series []telem.Series
+		// at is the position in series of each channel.
+		at = make(map[channel.Key]int)
+	)
+	add := func(key channel.Key, dt telem.DataType) *telem.Series {
+		i, ok := at[key]
+		if !ok {
+			i, at[key] = len(series), len(series)
+			keys = append(keys, key)
+			series = append(series, telem.Series{DataType: dt})
+		}
+		return &series[i]
+	}
+	for _, m := range ev.Metrics {
+		t, ok := s.tags[tagID{tagScope: scope, name: m.Name}]
+		if !ok || m.Value == nil || m.Historical {
+			continue
+		}
+		data, err := t.appendSample(nil, m.Value)
+		if err != nil {
+			s.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
+			continue
+		}
+		if t.index != 0 {
+			stamp := m.Timestamp
+			if stamp == 0 {
+				stamp = msg.received
+			}
+			// An index takes timestamps in rising order only. A birth repeats values
+			// that the task may have, so a stale one is no loss.
+			if stamp <= s.lastStamp[t.index] {
+				if !birth {
+					s.degrade(now, errors.Newf(
+						"rejected a value of %s: its timestamp is not after the last "+
+							"one written",
+						t,
+					))
+				}
+				continue
+			}
+			s.lastStamp[t.index] = stamp
+			index := add(t.index, telem.TimestampT)
+			index.Data = telem.ByteOrder.AppendUint64(index.Data, uint64(stamp))
+		}
+		values := add(t.channel, t.dataType)
+		values.Data = append(values.Data, data...)
+	}
+	if len(keys) == 0 {
+		return framer.Frame{}
+	}
+	return frame.NewMulti(keys, series)
+}
+
+// reads reports whether the task has a tag in scope, or, for an edge node, in one of
+// its devices.
+func (s *readSource) reads(scope tagScope) bool {
+	for id := range s.tags {
+		if id.node == scope.node && (scope.device == "" || id.device == scope.device) {
+			return true
+		}
+	}
+	return false
+}
+
+// checkBirth warns about the tags of the task that the birth of scope did not declare.
+func (s *readSource) checkBirth(
+	now time.Time,
+	scope tagScope,
+	metrics []sparkplug.Metric,
+) {
+	declared := make(map[string]struct{}, len(metrics))
+	for _, m := range metrics {
+		declared[m.Name] = struct{}{}
+	}
+	for id := range s.tags {
+		if id.tagScope != scope {
+			continue
+		}
+		if _, ok := declared[id.name]; !ok {
+			s.degrade(now, errors.Newf("%s is not in the birth of its %s", id, scope))
+		}
+	}
 }

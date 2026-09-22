@@ -11,12 +11,14 @@ package mqtt
 
 import (
 	"context"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -51,12 +53,27 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 4096.
 	QueueSize int
+	// RebirthInterval is the shortest time between two Sparkplug B rebirth requests to
+	// one edge node.
+	//
+	// [OPTIONAL] - Defaults to 5s.
+	RebirthInterval time.Duration
+	// BirthGrace is how long an edge node has to answer a rebirth request before a
+	// read task reports it as offline. It must be longer than RebirthInterval, or a
+	// request that waits out the interval gives a false warning.
+	//
+	// [OPTIONAL] - Defaults to 8s.
+	BirthGrace time.Duration
 }
 
 var (
 	_ config.Config[FactoryConfig] = FactoryConfig{}
 	// DefaultFactoryConfig is the default configuration for the MQTT task factory.
-	DefaultFactoryConfig = FactoryConfig{QueueSize: 4096}
+	DefaultFactoryConfig = FactoryConfig{
+		QueueSize:       4096,
+		RebirthInterval: sparkplug.DefaultRebirthInterval,
+		BirthGrace:      sparkplug.DefaultRebirthInterval + 3*time.Second,
+	}
 )
 
 // Override implements config.Config.
@@ -67,6 +84,8 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.QueueSize = override.Numeric(c.QueueSize, other.QueueSize)
+	c.RebirthInterval = override.Numeric(c.RebirthInterval, other.RebirthInterval)
+	c.BirthGrace = override.Numeric(c.BirthGrace, other.BirthGrace)
 	return c
 }
 
@@ -78,6 +97,12 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("framer", c.Framer)
 	v.NotNil("status", c.Status)
 	v.Positive("queue_size", c.QueueSize)
+	v.Positive("rebirth_interval", c.RebirthInterval)
+	v.Ternary(
+		"birth_grace",
+		c.BirthGrace <= c.RebirthInterval,
+		"must be longer than rebirth_interval",
+	)
 	return v.Error()
 }
 
@@ -95,7 +120,10 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &factory{cfg: cfg, pool: newPool(cfg.Instrumentation)}, nil
+	return &factory{
+		cfg:  cfg,
+		pool: newPool(cfg.Instrumentation, cfg.RebirthInterval),
+	}, nil
 }
 
 // Name implements driver.Factory.
@@ -199,10 +227,6 @@ func (f *factory) retrieveChannels(
 	return byKey, nil
 }
 
-var errSparkplugUnsupported = errors.Wrap(
-	validate.ErrValidation, "Sparkplug B entries are not supported yet",
-)
-
 func (f *factory) configureRead(
 	ctx context.Context,
 	t task.Task,
@@ -216,7 +240,7 @@ func (f *factory) configureRead(
 		return nil, cfg.AutoStart, err
 	}
 	var (
-		entries []PlainReadEntry
+		enabled []ReadEntryVariant
 		keys    channel.Keys
 	)
 	for _, e := range cfg.Entries {
@@ -225,19 +249,20 @@ func (f *factory) configureRead(
 			if entry.Disabled {
 				continue
 			}
-			entries = append(entries, entry)
 			for _, field := range entry.Fields {
 				if !field.Disabled {
 					keys = append(keys, field.Channel)
 				}
 			}
 		case SparkplugReadEntry:
-			if !entry.Disabled {
-				return nil, cfg.AutoStart, errSparkplugUnsupported
+			if entry.Disabled {
+				continue
 			}
+			keys = append(keys, entry.Channel)
 		}
+		enabled = append(enabled, e.Variant)
 	}
-	if len(entries) == 0 {
+	if len(enabled) == 0 {
 		return nil, cfg.AutoStart, errors.Wrap(
 			validate.ErrValidation, "entries: the task has no enabled entries",
 		)
@@ -247,38 +272,63 @@ func (f *factory) configureRead(
 		return nil, cfg.AutoStart, err
 	}
 	src := &readSource{
-		pool:      f.pool,
-		dev:       dev,
-		queueSize: f.cfg.QueueSize,
-		topics:    make(map[string]readTopic, len(entries)),
-		lastStamp: make(map[channel.Key]telem.TimeStamp),
+		pool:       f.pool,
+		dev:        dev,
+		queueSize:  f.cfg.QueueSize,
+		birthGrace: f.cfg.BirthGrace,
+		topics:     make(map[string]readTopic),
+		tags:       make(map[tagID]readTag),
+		lastStamp:  make(map[channel.Key]telem.TimeStamp),
 	}
-	written := make(map[channel.Key]string)
-	var writerKeys channel.Keys
-	for _, entry := range entries {
-		topic, err := newReadTopic(entry, channels)
-		if err != nil {
-			return nil, cfg.AutoStart, err
+	var (
+		// written names the entry that writes to each channel.
+		written    = make(map[channel.Key]string)
+		writerKeys channel.Keys
+	)
+	for _, variant := range enabled {
+		var (
+			name      string
+			entryKeys channel.Keys
+		)
+		switch entry := variant.(type) {
+		case PlainReadEntry:
+			topic, err := newReadTopic(entry, channels)
+			if err != nil {
+				return nil, cfg.AutoStart, err
+			}
+			if _, ok := src.topics[topic.topic]; ok {
+				return nil, cfg.AutoStart, errors.Wrapf(
+					validate.ErrValidation,
+					"entries: topic %s appears more than once", topic.topic,
+				)
+			}
+			src.topics[topic.topic] = topic
+			name, entryKeys = "topic "+topic.topic, topic.keys
+		case SparkplugReadEntry:
+			tag, err := newReadTag(entry, channels)
+			if err != nil {
+				return nil, cfg.AutoStart, err
+			}
+			if _, ok := src.tags[tag.tagID]; ok {
+				return nil, cfg.AutoStart, errors.Wrapf(
+					validate.ErrValidation, "entries: %s appears more than once", tag,
+				)
+			}
+			src.tags[tag.tagID] = tag
+			name, entryKeys = tag.String(), tag.keys()
 		}
-		if _, ok := src.topics[topic.topic]; ok {
-			return nil, cfg.AutoStart, errors.Wrapf(
-				validate.ErrValidation,
-				"entries: topic %s appears more than once", topic.topic,
-			)
-		}
-		// Two topics on one index would race for the rising order of its timestamps.
-		for _, key := range topic.keys {
+		// Two entries on one index would race for the rising order of its timestamps.
+		for _, key := range entryKeys {
 			if other, ok := written[key]; ok {
 				return nil, cfg.AutoStart, errors.Wrapf(
 					validate.ErrValidation,
-					"entries: topics %s and %s write to the same channel %d",
-					other, topic.topic, key,
+					"entries: %s and %s write to the same channel %d",
+					other, name, key,
 				)
 			}
-			written[key] = topic.topic
+			written[key] = name
 			writerKeys = append(writerKeys, key)
 		}
-		src.topics[topic.topic] = topic
 	}
 	mode := framer.WriterModePersistStream
 	if cfg.DataSavingDisabled {
@@ -308,25 +358,20 @@ func (f *factory) configureWrite(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	var (
-		targets []PlainWriteTarget
-		keys    channel.Keys
-	)
+	var keys channel.Keys
 	for _, tg := range cfg.Targets {
-		switch target := tg.Variant.(type) {
+		switch variant := tg.Variant.(type) {
 		case PlainWriteTarget:
-			if target.Disabled {
-				continue
+			if !variant.Disabled {
+				keys = append(keys, variant.Channel.Channel)
 			}
-			targets = append(targets, target)
-			keys = append(keys, target.Channel.Channel)
 		case SparkplugWriteTarget:
-			if !target.Disabled {
-				return nil, cfg.AutoStart, errSparkplugUnsupported
+			if !variant.Disabled {
+				keys = append(keys, variant.Channel)
 			}
 		}
 	}
-	if len(targets) == 0 {
+	if len(keys) == 0 {
 		return nil, cfg.AutoStart, errors.Wrap(
 			validate.ErrValidation, "targets: the task has no enabled targets",
 		)
@@ -338,22 +383,43 @@ func (f *factory) configureWrite(
 	sink := &writeSink{
 		pool:    f.pool,
 		dev:     dev,
-		targets: make(map[channel.Key][]writeTarget, len(targets)),
+		targets: make(map[channel.Key][]target, len(keys)),
 	}
-	for _, target := range targets {
-		key := target.Channel.Channel
+	for _, tg := range cfg.Targets {
+		var (
+			key  channel.Key
+			name string
+		)
+		switch variant := tg.Variant.(type) {
+		case PlainWriteTarget:
+			if variant.Disabled {
+				continue
+			}
+			key, name = variant.Channel.Channel, variant.Topic
+		case SparkplugWriteTarget:
+			if variant.Disabled {
+				continue
+			}
+			key, name = variant.Channel, variant.Tag
+		}
 		ch, ok := channels[key]
 		if !ok {
 			return nil, cfg.AutoStart, errors.Wrapf(
 				validate.ErrValidation,
-				"target %s: channel %d does not exist", target.Topic, key,
+				"target %s: channel %d does not exist", name, key,
 			)
 		}
-		wt, err := newWriteTarget(target, ch)
+		var built target
+		switch variant := tg.Variant.(type) {
+		case PlainWriteTarget:
+			built, err = newWriteTarget(variant, ch)
+		case SparkplugWriteTarget:
+			built, err = newCommandTarget(variant, ch)
+		}
 		if err != nil {
 			return nil, cfg.AutoStart, err
 		}
-		sink.targets[key] = append(sink.targets[key], wt)
+		sink.targets[key] = append(sink.targets[key], built)
 	}
 	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
 		Instrumentation: f.cfg.Child(t.Key.String()),

@@ -28,5 +28,10 @@ export const MQTT_NAV: PageNavNode = {
       href: "/reference/driver/mqtt/write-task",
       name: "Write Task",
     },
+    {
+      key: "/reference/driver/mqtt/sparkplug",
+      href: "/reference/driver/mqtt/sparkplug",
+      name: "Sparkplug B",
+    },
   ],
 };
