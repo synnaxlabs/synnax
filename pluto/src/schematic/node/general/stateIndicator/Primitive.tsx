@@ -55,14 +55,15 @@ export const StateIndicator = ({
           )
         : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
       backgroundColor,
       minWidth: inlineSize,
       height: HEIGHTS[size],
     }),
-    [colorVal, backgroundColor, inlineSize, size],
+    [symbolColor, backgroundColor, inlineSize, size],
   );
   return (
     <Primitive.Div

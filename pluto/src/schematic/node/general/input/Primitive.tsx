@@ -37,9 +37,10 @@ export const Input = ({
   onClickDelay,
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-    [colorVal],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
   return (
     <Primitive.Div

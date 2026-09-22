@@ -53,16 +53,17 @@ export const Tank = ({
   const bottomOffset = 100 - topOffset;
   const cssBorderRadius = boxBorderRadius ?? Border.cssRadius(detailedRadius);
   const backgroundCSS = color.cssString(backgroundColor);
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
       backgroundColor: backgroundCSS,
       borderWidth: strokeWidth,
     }),
-    [width, height, cssBorderRadius, colorVal, backgroundCSS, strokeWidth],
+    [width, height, cssBorderRadius, symbolColor, backgroundCSS, strokeWidth],
   );
   return (
     <Primitive.Div

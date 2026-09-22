@@ -48,9 +48,10 @@ export const Scale = ({
   indicator: { color: c, axisColor, showFill, showCaret },
   className,
 }: RenderProps): ReactElement => {
+  const symbolColor = color.rgbaString(c);
   const containerStyle = useMemo<CSSProperties>(
-    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: color.rgbaString(c) }),
-    [c],
+    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
   const axis = color.isZero(axisColor) ? AXIS_FALLBACK : color.hex(axisColor);
   return (

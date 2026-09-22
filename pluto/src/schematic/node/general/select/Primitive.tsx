@@ -46,9 +46,10 @@ export const Select = ({
     [options],
   );
   const matched = options.find((o) => o.key === value);
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-    [colorVal],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
   const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (

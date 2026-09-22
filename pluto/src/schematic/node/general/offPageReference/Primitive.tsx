@@ -60,9 +60,10 @@ export const OffPageReference = ({
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-    [colorVal],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
 
   return (

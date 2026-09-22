@@ -53,9 +53,10 @@ export const Button = ({
   mode = "fire",
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-    [colorVal],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
   // The activation delay gates Base.Button's onClick, so single-shot actuation
   // (fire's release write, pulse's press write) routes through it. An undelayed

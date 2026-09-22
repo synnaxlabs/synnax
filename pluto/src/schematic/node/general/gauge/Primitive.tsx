@@ -41,9 +41,10 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
     A ${radius} ${radius} 0 ${valueAngle - 135 > 180 ? 1 : 0} 1 ${centerX + radius * Math.cos(valueEndAngle)} ${centerY + radius * Math.sin(valueEndAngle)}
   `;
 
+  const symbolColor = color.rgbaString(c);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(c) }),
-    [c],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
 
   return (

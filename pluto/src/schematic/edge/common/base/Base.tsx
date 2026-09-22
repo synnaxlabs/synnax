@@ -26,17 +26,21 @@ export const Base = ({
   className,
   ...props
 }: BaseProps): ReactElement => {
+  // A non-color string (e.g. the connection-line preview's CSS variable) is stroked
+  // directly and skips the theme transform.
+  const rawStroke =
+    typeof stroke === "string" && !z.validate(color.colorZ, stroke)
+      ? stroke
+      : undefined;
+  const symbolColor = rawStroke == null ? color.rgbaString(stroke) : undefined;
   const style = useMemo<CSSProperties>(() => {
-    // A non-color string (e.g. the connection-line preview's CSS variable) is stroked
-    // directly and skips the theme transform.
-    if (typeof stroke === "string" && !z.validate(color.colorZ, stroke))
-      return { ...baseStyle, stroke };
+    if (rawStroke != null) return { ...baseStyle, stroke: rawStroke };
     return {
       ...baseStyle,
-      [CSS.variable("symbol-color")]: color.rgbaString(stroke),
+      [CSS.variable("symbol-color")]: symbolColor,
       stroke: "var(--pluto-symbol-display)",
     };
-  }, [stroke, baseStyle]);
+  }, [rawStroke, symbolColor, baseStyle]);
   return (
     <BaseEdge
       {...props}

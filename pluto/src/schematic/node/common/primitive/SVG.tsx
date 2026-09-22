@@ -63,14 +63,15 @@ export const SVG = ({
     () => (dir === "y" ? dimensions.swap(dimsProp) : dimsProp),
     [dir, dimsProp],
   );
+  const symbolColor = color.rgbaString(colorVal);
   const pStyle = useMemo<CSSProperties>(
     () => ({
       ...style,
       aspectRatio: `${dims.width} / ${dims.height}`,
       width: dimensions.scale(dims, scale * BASE_SCALE).width,
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
     }),
-    [style, dims, scale, colorVal],
+    [style, dims, scale, symbolColor],
   );
 
   return (

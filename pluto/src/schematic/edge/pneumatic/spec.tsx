@@ -58,9 +58,10 @@ export const spec = Segmented.createSpec(
   VARIANT,
   NAME,
   ({ points, crossings, color: colorVal }) => {
+    const symbolColor = color.rgbaString(colorVal);
     const symbolStyle = useMemo(
-      () => ({ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }),
-      [colorVal],
+      () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+      [symbolColor],
     );
     return (
       <g className={CSS.B("symbol-colored")} style={symbolStyle}>

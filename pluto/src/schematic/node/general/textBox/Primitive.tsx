@@ -36,13 +36,14 @@ export const TextBox = ({
 }: RenderProps): ReactElement => {
   const isVertical = direction.construct(orientation) === "y";
   const size = autoFit ? "fit-content" : width;
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
       ...(isVertical ? { height: size } : { width: size }),
     }),
-    [align, colorVal, isVertical, size],
+    [align, symbolColor, isVertical, size],
   );
 
   return (

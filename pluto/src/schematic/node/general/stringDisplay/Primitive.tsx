@@ -39,13 +39,14 @@ export const StringDisplay = ({
   value,
   stale = false,
 }: RenderProps): ReactElement => {
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
+      [CSS.variable("symbol-color")]: symbolColor,
       width: inlineSize,
       height: HEIGHTS[LEVEL_SIZES[level]],
     }),
-    [colorVal, inlineSize, level],
+    [symbolColor, inlineSize, level],
   );
   const theme = Theming.use();
   const resolvedTextColor = stale
