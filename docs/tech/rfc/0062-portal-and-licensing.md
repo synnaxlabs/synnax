@@ -570,7 +570,9 @@ keeps only what binds it to the session: the factory and the stack.
   the machines take the new terms on their next token. A facts grid for edition, term,
   seats, channels, issued, and key. The machines table with first seen, last token, and
   a per-machine menu of Download token and Release, the latter confirmed. The license's
-  activity from the event table beneath, newest first.
+  activity from the event table beneath, newest first. Each line names the machine the
+  event concerned and the person who acted, resolved through Clerk. A machine renewing
+  itself is named once.
 - **Account** (`/portal/account`): Profile with name, email, avatar, and password change
   through Clerk's user API. For a personal user, the Enterprise panel in place of a
   teams section. For each team the user belongs to, its members with their roles, and
