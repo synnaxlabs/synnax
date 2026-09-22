@@ -25,24 +25,9 @@ export const CONSOLE_NAV: PageNavNode = {
       name: "UI Overview",
     },
     {
-      key: "/reference/console/channels",
-      href: "/reference/console/channels",
-      name: "Channels",
-    },
-    {
-      key: "/reference/console/calculated-channels",
-      href: "/reference/console/calculated-channels",
-      name: "Calculated Channels",
-    },
-    {
       key: "/reference/console/projects",
       href: "/reference/console/projects",
       name: "Projects",
-    },
-    {
-      key: "/reference/console/ranges",
-      href: "/reference/console/ranges",
-      name: "Ranges",
     },
     {
       key: "/reference/console/line-plots",

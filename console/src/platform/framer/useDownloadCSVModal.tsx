@@ -16,7 +16,6 @@ import {
   Flex,
   Form,
   Icon,
-  Input,
   Nav,
   type Select,
   Status,
@@ -92,36 +91,32 @@ export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalPar
             </Text.Text>
             <Flex.Box y full="x" gap="medium">
               <Flex.Box x gap="medium">
-                <Form.Field<number>
+                <Form.DateTimeField
                   path="timeRange.start"
                   padHelpText={false}
                   label="From"
-                >
-                  {(p) => (
-                    <Input.DateTime
-                      level="h4"
-                      variant="text"
-                      role="start"
-                      anchors={{ end: range.end }}
-                      {...p}
-                    />
-                  )}
-                </Form.Field>
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "start",
+                    anchors: { end: range.end },
+                  }}
+                />
                 <Icon.Arrow.Right
                   className={CSS.BE("download-csv", "arrow")}
                   color={9}
                 />
-                <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-                  {(p) => (
-                    <Input.DateTime
-                      level="h4"
-                      variant="text"
-                      role="end"
-                      anchors={{ start: range.start }}
-                      {...p}
-                    />
-                  )}
-                </Form.Field>
+                <Form.DateTimeField
+                  padHelpText={false}
+                  path="timeRange.end"
+                  label="To"
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "end",
+                    anchors: { start: range.start },
+                  }}
+                />
               </Flex.Box>
               <Form.Field<channel.Key[]> path="channels">
                 {({ value, onChange }) => (

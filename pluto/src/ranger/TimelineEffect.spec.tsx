@@ -20,7 +20,7 @@ const UNSET = TimeStamp.MAX.nanoseconds;
 
 /** Opens the `index`th time cell of a rendered timeline. */
 const openCell = (container: HTMLElement, index: number): void => {
-  const triggers = container.querySelectorAll(".pluto-time-cell__trigger");
+  const triggers = container.querySelectorAll(".pluto-time-editor__trigger");
   fireEvent.click(triggers[index]);
 };
 
@@ -46,7 +46,7 @@ describe("Ranger.TimelineEffect", () => {
       <Ranger.Timeline value={{ start: NOW - HOUR, end: UNSET }} onChange={() => {}} />,
     );
     openCell(container, 0);
-    const slots = document.querySelectorAll(".pluto-datetime__effect");
+    const slots = document.querySelectorAll(".pluto-time-editor__effect");
     expect(slots.length).toBeGreaterThan(0);
     slots.forEach((slot) => expect(slot.textContent).toBe(""));
   });

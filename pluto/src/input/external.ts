@@ -18,6 +18,6 @@ export * from "@/input/Table";
 export * from "@/input/Text";
 export * from "@/input/time/DateTime";
 export { formatInstant } from "@/input/time/grammar";
-export type { Role } from "@/input/time/suggest";
+export type { Bound } from "@/input/time/suggest";
 export * from "@/input/time/TimeSpan";
 export * from "@/input/types";

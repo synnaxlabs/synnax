@@ -9,11 +9,11 @@
 // included in the file licenses/APL.txt.
 
 import Inline from "@/components/code/Inline.astro";
-import { fetchVersion } from "@/util/fetchVersion";
+import { assetURL } from "@/util/releases";
 const { os } = Astro.props;
 
-const version = await fetchVersion();
-const url = `github.com/synnaxlabs/synnax/releases/download/synnax-v${version.trim()}/synnax-v${version.trim()}-${os.toLowerCase()}`;
+const version = await Astro.locals.releases.latest("core");
+const url = assetURL("core", version, `synnax-v${version}-${os.toLowerCase()}`);
 let code = `curl -LO ${url}`;
 let lang: "bash" | "powershell" = "bash";
 if (os === "windows") {

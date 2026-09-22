@@ -1130,6 +1130,18 @@ var _ = Describe("Domain", func() {
 								index.Exactly(5*telem.SecondTS),
 								nil,
 							),
+							Entry("Landing on the first sample of a previous TimeRange",
+								31*telem.SecondTS+500*telem.MillisecondTS,
+								-2,
+								index.Between(20*telem.SecondTS, 30*telem.SecondTS),
+								nil,
+							),
+							Entry("Lower bound before the first sample",
+								31*telem.SecondTS+500*telem.MillisecondTS,
+								-11,
+								index.Between(telem.TimeStampMin, 1*telem.SecondTS),
+								nil,
+							),
 						)
 					})
 				})

@@ -223,6 +223,19 @@ export const Timeline = ({
     [onChange, start],
   );
 
+  const startEffect = useCallback(
+    ({ candidate }: { candidate: number }) => (
+      <TimelineEffect range={value} bound="start" candidate={candidate} />
+    ),
+    [value],
+  );
+  const endEffect = useCallback(
+    ({ candidate }: { candidate: number }) => (
+      <TimelineEffect range={value} bound="end" candidate={candidate} />
+    ),
+    [value],
+  );
+
   const startAnchors = useMemo(
     () => ({ end: end < UNSET ? end : undefined, parent }),
     [end, parent],
@@ -266,11 +279,10 @@ export const Timeline = ({
             emptyValue={UNSET}
             placeholder="Set a start time"
             clearLabel="Unschedule"
-            role="start"
+            bound="start"
+            effect={startEffect}
             {...cell}
-          >
-            <TimelineEffect range={value} role="start" />
-          </Input.DateTime>
+          />
         </>
       )}
       {stage === "in_progress" && (
@@ -286,11 +298,10 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
-            role="start"
+            bound="start"
+            effect={startEffect}
             {...cell}
-          >
-            <TimelineEffect range={value} role="start" />
-          </Input.DateTime>
+          />
           <Input.TimeSpan
             value={0}
             onChange={handleSpan}
@@ -313,11 +324,10 @@ export const Timeline = ({
                 emptyValue={UNSET}
                 clearLabel="Remove end"
                 sharedDay={start}
-                role="end"
+                bound="end"
+                effect={endEffect}
                 {...cell}
-              >
-                <TimelineEffect range={value} role="end" />
-              </Input.DateTime>
+              />
             </>
           )}
         </>
@@ -328,22 +338,20 @@ export const Timeline = ({
             value={start}
             onChange={handleStart}
             anchors={startAnchors}
-            role="start"
+            bound="start"
+            effect={startEffect}
             {...cell}
-          >
-            <TimelineEffect range={value} role="start" />
-          </Input.DateTime>
+          />
           <Arrow level={level} />
           <Input.DateTime
             value={end}
             onChange={handleEnd}
             anchors={endAnchors}
             sharedDay={start}
-            role="end"
+            bound="end"
+            effect={endEffect}
             {...cell}
-          >
-            <TimelineEffect range={value} role="end" />
-          </Input.DateTime>
+          />
           <Input.TimeSpan value={end - start} onChange={handleSpan} {...cell} />
         </>
       )}

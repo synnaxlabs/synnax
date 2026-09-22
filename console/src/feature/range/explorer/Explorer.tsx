@@ -16,6 +16,7 @@ import { useCallback } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
+import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
@@ -59,7 +60,12 @@ const Internal = () => {
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items role="list" aria-label="Ranges" contextMenu={contextMenu}>
+      <View.Items
+        className={CSS.BE("range", "explorer-list")}
+        role="list"
+        aria-label="Ranges"
+        contextMenu={contextMenu}
+      >
         {item}
       </View.Items>
     </View.Form>

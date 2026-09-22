@@ -19,7 +19,7 @@ const HOUR = Number(TimeSpan.HOUR.valueOf());
 const MILLISECOND = Number(TimeSpan.MILLISECOND.valueOf());
 
 const triggers = (container: HTMLElement): NodeListOf<HTMLElement> =>
-  container.querySelectorAll(".pluto-time-cell__trigger");
+  container.querySelectorAll(".pluto-time-editor__trigger");
 
 describe("resolutionFor", () => {
   it("should coarsen with the span", () => {

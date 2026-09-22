@@ -22,18 +22,25 @@ describe("suggestTimeStamps", () => {
     expect(first.reading).toBe("5m before now");
   });
 
-  it("should offer every plausible epoch unit", () => {
-    const ms = Number(NOW.valueOf() / 1000000n);
-    const res = suggestTimeStamps(ms.toString(), { anchors: { now: NOW } });
-    expect(res[0].reading).toBe("Unix milliseconds");
+  it("should name the anchor and the side of it an offset lands on", () => {
+    const anchors = { now: NOW, parent: START };
+    const [after] = suggestTimeStamps("T+3.2s", { anchors });
+    expect(after.reading).toBe("3s 200ms after the parent start");
+    const [bare] = suggestTimeStamps("T", { anchors });
+    expect(bare.reading).toBe("the parent start");
+  });
+
+  it("should read an epoch in its one plausible unit", () => {
+    const us = NOW.valueOf() / 1000n;
+    const res = suggestTimeStamps(us.toString(), { anchors: { now: NOW } });
+    expect(res.map((r) => r.reading)).toEqual(["Unix microseconds"]);
     expect(res[0].value.equals(NOW)).toBe(true);
-    expect(res.map((r) => r.reading)).not.toContain("Unix seconds");
   });
 
   it("should place a bare time on the other end's day for an end cell", () => {
     const res = suggestTimeStamps("11:30", {
       anchors: { now: NOW, start: START },
-      role: "end",
+      bound: "end",
     });
     expect(res[0].reading).toBe("today");
     expect(res[1].reading).toBe("on the day of the start");
@@ -45,7 +52,7 @@ describe("suggestTimeStamps", () => {
   it("should read a bare duration relative to the range", () => {
     const res = suggestTimeStamps("2h", {
       anchors: { now: NOW, start: START },
-      role: "end",
+      bound: "end",
     });
     expect(res[0].reading).toBe("2h after the start");
     expect(res[0].value.equals(START.add(TimeSpan.hours(2)))).toBe(true);
@@ -66,7 +73,7 @@ describe("suggestTimeStamps", () => {
   });
 
   it("should offer the end of a whole day to an end cell", () => {
-    const res = suggestTimeStamps("tomorrow", { anchors: { now: NOW }, role: "end" });
+    const res = suggestTimeStamps("tomorrow", { anchors: { now: NOW }, bound: "end" });
     expect(res[0].reading).toBe("start of tomorrow");
     expect(res[1].reading).toBe("end of tomorrow");
   });

@@ -606,6 +606,70 @@ var _ = Describe("Diagnostics", func() {
 			Entry("hint", protocol.DiagnosticSeverityHint, "hint"),
 			Entry("unknown", protocol.DiagnosticSeverity(99), "severity(99)"),
 		)
+
+		DescribeTable("Should omit the position for a diagnostic without a range",
+			func(sev protocol.DiagnosticSeverity, label string) {
+				var d diagnostics.Diagnostics
+				d.Add(diagnostics.Diagnostic{Severity: sev, Message: "m"})
+				Expect(d.String()).To(Equal(label + ": m"))
+			},
+			Entry("error", protocol.DiagnosticSeverityError, "error"),
+			Entry("warning", protocol.DiagnosticSeverityWarning, "warning"),
+			Entry("info", protocol.DiagnosticSeverityInformation, "info"),
+			Entry("hint", protocol.DiagnosticSeverityHint, "hint"),
+		)
+
+		It("Should omit the position but keep the code without a range", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Severity: protocol.DiagnosticSeverityError,
+				Code:     "TEST002",
+				Message:  "wrong arg count",
+			})
+			Expect(d.String()).To(Equal("error [TEST002]: wrong arg count"))
+		})
+
+		It("Should mix positioned and unpositioned diagnostics", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 1, Character: 0},
+				},
+				Severity: protocol.DiagnosticSeverityError,
+				Message:  "first error",
+			})
+			d.Add(diagnostics.Error(errors.New("edge mismatch"), nil))
+			Expect(d.String()).To(Equal("2:0 error: first error\nerror: edge mismatch"))
+		})
+
+		It("Should keep the position for a token at line 1 column 0", func() {
+			var d diagnostics.Diagnostics
+			ctx := ruleCtxAt(&fakeToken{line: 1, column: 0, text: "x"}, nil)
+			d.Add(diagnostics.Errorf(ctx, "m"))
+			Expect(d.String()).To(Equal("1:0 error: m"))
+		})
+
+		It("Should keep the position set by WithRange", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Error(errors.New("m"), nil).WithRange(
+				protocol.Position{Line: 3, Character: 2},
+				protocol.Position{Line: 3, Character: 5},
+			))
+			Expect(d.String()).To(Equal("4:2 error: m"))
+		})
+
+		It("Should render notes without a position", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Error(hintedError{msg: "m", hint: "use f64(value)"}, nil))
+			Expect(d.String()).To(Equal("error: m\n  note: use f64(value)"))
+		})
+
+		It("Should separate multiple unpositioned diagnostics with newlines", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Error(errors.New("first"), nil))
+			d.Add(diagnostics.Warningf(nil, "second"))
+			Expect(d.String()).To(Equal("error: first\nwarning: second"))
+		})
 	})
 
 	Describe("Add methods with nil context", func() {

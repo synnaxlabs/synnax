@@ -20,20 +20,22 @@ export interface TimelineEffectProps {
   /** The range the cell holds one end of. */
   range: NumericTimeRange;
   /** Which end the cell holds. */
-  role: Input.Role;
+  bound: Input.Bound;
+  /** The instant the cell would commit. */
+  candidate: number;
 }
 
 /**
  * What committing a reading would change about the range besides the cell itself:
  * the other stamp when the edit drags it, and the stage when the edit crosses now.
- * Belongs in the slot of a {@link Input.DateTime} holding one end of `range`.
+ * Belongs in the `effect` of a {@link Input.DateTime} holding one end of `range`.
  */
 export const TimelineEffect = ({
   range,
-  role,
+  bound,
+  candidate,
 }: TimelineEffectProps): ReactElement | null => {
-  const candidate = Input.useDateTimeCandidate();
-  const start = role === "start";
+  const start = bound === "start";
   const next = start ? moveStart(range, candidate) : moveEnd(range, candidate);
   const other = start ? "end" : "start";
   const before = start ? range.end : range.start;
