@@ -11,8 +11,11 @@
  * Turns a `VITE_FLAG_*` value into a flag. Vite replaces `import.meta.env.VITE_*`
  * statically, so dark code tree-shakes out of production. Dev builds turn every flag
  * on.
+ * @param value - The raw environment value; only the exact string "true" enables.
+ * @param dev - Whether this is a dev build. Defaults to the build's `IS_DEV`.
  */
-export const flag = (value: string | undefined): boolean => IS_DEV || value === "true";
+export const flag = (value: string | undefined, dev: boolean = IS_DEV): boolean =>
+  dev || value === "true";
 
 /**
  * Static build-time flags that hide unfinished work in production. Each entry names
