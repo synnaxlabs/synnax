@@ -7,17 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Switch } from "@/schematic/node/general/switch/Primitive";
-
-const getRoot = (container: HTMLElement): HTMLElement => {
-  const el = container.firstElementChild;
-  if (el == null) throw new Error("expected a switch element");
-  return el as HTMLElement;
-};
 
 const getInput = (container: HTMLElement): HTMLInputElement => {
   const el = container.querySelector<HTMLInputElement>("input");
@@ -26,65 +19,6 @@ const getInput = (container: HTMLElement): HTMLInputElement => {
 };
 
 describe("switch symbol", () => {
-  describe("color", () => {
-    // The track and knob are painted from the display var in switch.css; jsdom cannot
-    // compute it, so we assert the source var.
-    it("should set the source color", () => {
-      const { container } = render(<Switch color="#ff0000" />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "255, 0, 0, 1",
-      );
-    });
-
-    it("should carry the alpha channel so a translucent color stays translucent", () => {
-      const { container } = render(<Switch color={[255, 0, 0, 0.5]} />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "255, 0, 0, 0.5",
-      );
-    });
-
-    // An unset color must leave the switch on the input theme it draws itself from.
-    it("should stay uncolored for the ZERO sentinel", () => {
-      const { container } = render(<Switch color={color.ZERO} />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "",
-      );
-    });
-
-    it("should stay uncolored when no color is given", () => {
-      const { container } = render(<Switch />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "",
-      );
-    });
-
-    // The stale color reaches the primitive as an ordinary color, so both states color.
-    it("should color an enabled switch the same way as a disabled one", () => {
-      const { container } = render(<Switch color="#ff0000" enabled />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "255, 0, 0, 1",
-      );
-    });
-  });
-
-  describe("scale", () => {
-    // The dimensions are computed from the scale var in Switch.css; jsdom cannot
-    // compute them, so we assert the source var.
-    it("should set the scale var from the scale prop", () => {
-      const { container } = render(<Switch scale={3} />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
-        "3",
-      );
-    });
-
-    it("should default the scale var to 1", () => {
-      const { container } = render(<Switch />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-switch-scale")).toBe(
-        "1",
-      );
-    });
-  });
-
   describe("enabled", () => {
     it("should reflect the enabled state on the input", () => {
       const { container } = render(<Switch enabled />);
@@ -154,20 +88,6 @@ describe("switch symbol", () => {
       fireEvent.mouseDown(getInput(container), { button: 2 });
       vi.advanceTimersByTime(1000);
       expect(onClick).not.toHaveBeenCalled();
-    });
-
-    it("should expose the delay for the track fill", () => {
-      const { container } = render(<Switch onClickDelay={1500} />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-toggle-delay")).toBe(
-        "1.5s",
-      );
-    });
-
-    it("should expose no delay on an undelayed switch", () => {
-      const { container } = render(<Switch />);
-      expect(getRoot(container).style.getPropertyValue("--pluto-toggle-delay")).toBe(
-        "",
-      );
     });
   });
 

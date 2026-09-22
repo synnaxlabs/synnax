@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, deep } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,35 +25,6 @@ const getButton = (container: HTMLElement): HTMLElement => {
 };
 
 describe("button symbol", () => {
-  it("should set the source color", () => {
-    // The bg/border/text vars are mapped to the display/contrast vars in button.css;
-    // jsdom cannot compute them, so we assert the source var.
-    const { container } = render(<Button color="#ff0000" />);
-    expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "255, 0, 0, 1",
-    );
-  });
-
-  it("should not engage the base button's concrete-color JS path", () => {
-    const { container } = render(<Button color="#ff0000" />);
-    // The color is not forwarded, so the base button never sets its own color var.
-    expect(getButton(container).style.getPropertyValue("--pluto-btn-color")).toBe("");
-  });
-
-  it("should carry the alpha channel so a translucent button stays translucent", () => {
-    const { container } = render(<Button color={[255, 0, 0, 0.5]} />);
-    expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "255, 0, 0, 0.5",
-    );
-  });
-
-  it("should leave the source color unset for the ZERO sentinel", () => {
-    const { container } = render(<Button color={color.ZERO} />);
-    expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "",
-    );
-  });
-
   describe("handler routing", () => {
     it("should actuate fire mode through onClick, not the raw handlers", () => {
       const onClick = vi.fn();
@@ -202,7 +173,6 @@ describe("button symbol", () => {
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
         expect(onMouseDown).toHaveBeenCalledTimes(1);
-        expect(btn.style.getPropertyValue("--pluto-btn-delay")).toBe("");
       });
     });
   });

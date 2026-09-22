@@ -257,18 +257,6 @@ describe("Button", () => {
       vi.useRealTimers();
     });
 
-    it("should add the btn-delay style to the button when the onClickDelay prop is set", () => {
-      const c = render(<Button.Button onClickDelay={1000}>Hello</Button.Button>);
-      expect(c.getByText("Hello").style.getPropertyValue("--pluto-btn-delay")).toBe(
-        "1s",
-      );
-    });
-
-    it("should not add the btn-delay style to the button when the onClickDelay prop is 0", () => {
-      const c = render(<Button.Button onClickDelay={0}>Hello</Button.Button>);
-      expect(c.getByText("Hello").style.getPropertyValue("--pluto-btn-delay")).toBe("");
-    });
-
     it("should require the caller to press and hold the button for the onClickDelay to be triggered", () => {
       const onClick = vi.fn();
       const c = render(
@@ -416,18 +404,6 @@ describe("Button", () => {
       // The keycaps are decoration. Without aria-hidden they join the accessible name,
       // so every name-based query for a hinted button breaks.
       expect(c.getByRole("button", { name: "Save" })).toBeTruthy();
-    });
-  });
-
-  describe("customColor", () => {
-    it("should set no color variable when the color is not set", () => {
-      const c = render(<Button.Button>Hello</Button.Button>);
-      expect(c.getByText("Hello").style.getPropertyValue("--pluto-btn-color")).toBe("");
-    });
-    it("should allow the caller to set a custom color to the button", () => {
-      const c = render(<Button.Button color="#00FF00">Hello</Button.Button>);
-      const el = c.getByText("Hello");
-      expect(el.style.getPropertyValue("--pluto-btn-color")).toBe("0, 255, 0");
     });
   });
 

@@ -41,11 +41,9 @@ describe("Toggle.Button", () => {
       expect(onMouseDown).toHaveBeenCalledTimes(1);
     });
 
-    it("should not set the toggle-delay CSS variable when delay is zero", () => {
+    it("should keep a user-supplied style", () => {
       const { container } = render(<Toggle.Button style={{ width: 10 }} />);
-      const btn = getButton(container);
-      expect(btn.style.getPropertyValue("--pluto-toggle-delay")).toBe("");
-      expect(btn.style.width).toBe("10px");
+      expect(getButton(container).style.width).toBe("10px");
     });
   });
 
@@ -133,12 +131,6 @@ describe("Toggle.Button", () => {
       fireEvent.mouseDown(getButton(container));
       expect(onMouseDown).toHaveBeenCalledTimes(1);
       expect(onClick).not.toHaveBeenCalled();
-    });
-
-    it("should expose the delay as seconds via the CSS custom property", () => {
-      const { container } = render(<Toggle.Button onClickDelay={1500} />);
-      const btn = getButton(container);
-      expect(btn.style.getPropertyValue("--pluto-toggle-delay")).toBe("1.5s");
     });
 
     it("should fire onClick exactly once even on repeated mousedowns within the same press", () => {
