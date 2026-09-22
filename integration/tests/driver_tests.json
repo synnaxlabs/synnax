@@ -23,6 +23,7 @@
         { "case": "driver/http_deploy" },
         { "case": "driver/mqtt_read" },
         { "case": "driver/mqtt_write" },
+        { "case": "driver/mqtt_edge" },
         { "case": "driver/grand_finale" }
       ]
     },

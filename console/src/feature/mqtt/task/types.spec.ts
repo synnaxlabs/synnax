@@ -642,6 +642,146 @@ describe("MQTT Task Types", () => {
   });
 });
 
+describe("MQTT Edge Task", () => {
+  const tag = { key: "t1", name: "oven/temperature", channel: 1 };
+  const edgeConfig = (...tags: object[]) => ({
+    device: "dev-001",
+    group: "plant",
+    edgeNode: "line1",
+    tags,
+  });
+
+  describe("EDGE_SCHEMAS", () => {
+    it("should validate the type literal", () => {
+      expect(MQTT.Task.EDGE_SCHEMAS.type.parse(MQTT.Task.EDGE_TYPE)).toBe(
+        "mqtt_sparkplug_edge",
+      );
+    });
+
+    it("should default a tag to the double type with no command channel", () => {
+      const result = MQTT.Task.EDGE_SCHEMAS.config.parse(edgeConfig({ key: "t1" }));
+      expect(result.authority).toBe(0);
+      expect(result.tags[0]).toMatchObject({
+        name: "",
+        channel: 0,
+        sparkplugType: "double",
+        commandChannel: 0,
+        disabled: false,
+      });
+    });
+  });
+
+  describe("deployEdgeConfigZ", () => {
+    it("should accept a tag bound to a channel", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(edgeConfig(tag));
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should require a device", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse({
+        ...edgeConfig(tag),
+        device: "",
+      });
+      expect(issuesOf(result)).toEqual([
+        { message: "Device is required", path: "device" },
+      ]);
+    });
+
+    it("should require the group and the edge node", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse({
+        ...edgeConfig(tag),
+        group: "",
+        edgeNode: "",
+      });
+      expect(issuesOf(result)).toEqual([
+        { message: "Group is required", path: "group" },
+        { message: "Edge node is required", path: "edgeNode" },
+      ]);
+    });
+
+    it.each([
+      ["group", "Group"],
+      ["edgeNode", "Edge node"],
+    ])("should reject a %s that holds a topic character", (field, label) => {
+      for (const id of ["a/b", "a+", "#"]) {
+        const result = MQTT.Task.deployEdgeConfigZ.safeParse({
+          ...edgeConfig(tag),
+          [field]: id,
+        });
+        expect(issuesOf(result)).toEqual([
+          { message: `${label} must not hold /, +, or #`, path: field },
+        ]);
+      }
+    });
+
+    it.each([-1, 256])("should reject the authority %i", (authority) => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse({
+        ...edgeConfig(tag),
+        authority,
+      });
+      expect(issuesOf(result).map(({ path }) => path)).toEqual(["authority"]);
+    });
+
+    it("should reject a config with no tags", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(edgeConfig());
+      expect(issuesOf(result)).toEqual([
+        { message: "At least one tag must be enabled", path: "tags" },
+      ]);
+    });
+
+    it("should reject a config whose tags are all disabled", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+        edgeConfig({ ...tag, disabled: true }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "At least one tag must be enabled", path: "tags" },
+      ]);
+    });
+
+    it("should require the name and the channel of a tag", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+        edgeConfig({ key: "t1", name: "", channel: 0 }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: "Name is required", path: "tags.0.name" },
+        { message: "A channel is required", path: "tags.0.channel" },
+      ]);
+    });
+
+    it("should reject a name that two enabled tags share", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+        edgeConfig(tag, { ...tag, key: "t2", channel: 2 }),
+      );
+      expect(issuesOf(result)).toEqual([
+        { message: 'Duplicate name "oven/temperature"', path: "tags.1.name" },
+      ]);
+    });
+
+    it("should allow a disabled tag to share a name with an enabled one", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+        edgeConfig(tag, { ...tag, key: "t2", disabled: true }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should allow two enabled tags to publish one channel", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+        edgeConfig(tag, { ...tag, key: "t2", name: "oven/temperature_copy" }),
+      );
+      expect(issuesOf(result)).toEqual([]);
+    });
+
+    it("should reject a Sparkplug B type that the driver does not send", () => {
+      const result = MQTT.Task.deployEdgeConfigZ.safeParse(
+        edgeConfig({ ...tag, sparkplugType: "Text" }),
+      );
+      expect(issuesOf(result).map(({ path }) => path)).toEqual([
+        "tags.0.sparkplugType",
+      ]);
+    });
+  });
+});
+
 describe("MQTT Scan Task", () => {
   it("should accept a null and an absent config", () => {
     expect(z.validate(MQTT.Task.SCAN_SCHEMAS.config, null)).toBe(true);
@@ -696,5 +836,10 @@ describe("draft configs", () => {
   it("should accept the default write config", () => {
     const config = MQTT.Task.WRITE_SCHEMAS.config.parse({});
     expect(z.validate(MQTT.Task.WRITE_SCHEMAS.config, config)).toBe(true);
+  });
+
+  it("should accept the default edge config", () => {
+    const config = MQTT.Task.EDGE_SCHEMAS.config.parse({});
+    expect(z.validate(MQTT.Task.EDGE_SCHEMAS.config, config)).toBe(true);
   });
 });

@@ -14,6 +14,7 @@ import (
 	"crypto/tls"
 	"path/filepath"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,8 +37,8 @@ func createCerts() (*tls.Config, string) {
 	GinkgoHelper()
 	dir := GinkgoT().TempDir()
 	f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-		LoaderConfig: cert.LoaderConfig{CertsDir: dir},
-		Hosts:        []address.Address{"127.0.0.1"},
+		CertsDir: dir,
+		Hosts:    []address.Address{"127.0.0.1"},
 	}))
 	Expect(f.CreateCAPair()).To(Succeed())
 	Expect(f.CreateNodePair()).To(Succeed())
@@ -150,7 +151,7 @@ var _ = Describe("Scan task", func() {
 				Eventually(func() status.Variant {
 					return deviceStatus(ctx, dev).Variant
 				}).Should(Equal(status.VariantSuccess))
-				Consistently(broker.clientCount, "200ms").Should(Equal(1))
+				Consistently(broker.clientCount, 200*time.Millisecond).Should(Equal(1))
 			},
 		)
 	})

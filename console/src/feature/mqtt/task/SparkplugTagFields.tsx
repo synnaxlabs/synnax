@@ -9,26 +9,32 @@
 
 import { Flex, Form as PForm } from "@synnaxlabs/pluto";
 
-export interface SparkplugTagFieldsProps {
+export interface SparkplugNodeFieldsProps {
   path: string;
 }
 
+export const SparkplugNodeFields = ({ path }: SparkplugNodeFieldsProps) => (
+  <Flex.Box x>
+    <PForm.TextField
+      path={`${path}.group`}
+      label="Group"
+      inputProps={GROUP_INPUT_PROPS}
+      grow
+    />
+    <PForm.TextField
+      path={`${path}.edgeNode`}
+      label="Edge node"
+      inputProps={EDGE_NODE_INPUT_PROPS}
+      grow
+    />
+  </Flex.Box>
+);
+
+export interface SparkplugTagFieldsProps extends SparkplugNodeFieldsProps {}
+
 export const SparkplugTagFields = ({ path }: SparkplugTagFieldsProps) => (
   <>
-    <Flex.Box x>
-      <PForm.TextField
-        path={`${path}.group`}
-        label="Group"
-        inputProps={GROUP_INPUT_PROPS}
-        grow
-      />
-      <PForm.TextField
-        path={`${path}.edgeNode`}
-        label="Edge node"
-        inputProps={EDGE_NODE_INPUT_PROPS}
-        grow
-      />
-    </Flex.Box>
+    <SparkplugNodeFields path={path} />
     <Flex.Box x>
       <PForm.TextField
         path={`${path}.device`}

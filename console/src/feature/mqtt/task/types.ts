@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mqtt, type task } from "@synnaxlabs/client";
+import { channel, mqtt, type task } from "@synnaxlabs/client";
 import { DataType, json, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -275,6 +275,56 @@ export const WRITE_SCHEMAS = {
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
+
+export const EDGE_TYPE = `${PREFIX}_sparkplug_edge`;
+
+export interface EdgeTag extends mqtt.EdgeTag {}
+
+const deployEdgeTagZ = mqtt.edgeTagZ.extend({
+  name: z.string().min(1, "Name is required"),
+  channel: channel.keyZ.refine((key) => key !== 0, "A channel is required"),
+});
+
+// Two enabled tags may publish one channel under two names, so only the name is
+// checked for duplicates.
+const validateEdgeTags = (ctx: z.core.ParsePayload<EdgeTag[]>) => {
+  if (ctx.value.every(({ disabled }) => disabled))
+    ctx.issues.push({
+      code: "custom",
+      input: ctx.value,
+      message: "At least one tag must be enabled",
+      path: [],
+    });
+  const seen = new Set<string>();
+  ctx.value.forEach(({ disabled, name }, i) => {
+    if (disabled || name === "") return;
+    if (seen.has(name))
+      ctx.issues.push({
+        code: "custom",
+        input: ctx.value,
+        message: `Duplicate name "${name}"`,
+        path: [i, "name"],
+      });
+    else seen.add(name);
+  });
+};
+
+export const deployEdgeConfigZ = mqtt.edgeConfigZ.extend({
+  device: Task.deviceKeyZ,
+  group: sparkplugIDZ("Group").min(1, "Group is required"),
+  edgeNode: sparkplugIDZ("Edge node").min(1, "Edge node is required"),
+  tags: deployEdgeTagZ.array().check(validateEdgeTags),
+});
+
+export const EDGE_SCHEMAS = {
+  type: z.literal(EDGE_TYPE),
+  config: mqtt.edgeConfigZ,
+  statusData: z.unknown().optional(),
+} as const satisfies task.Schemas;
+
+export type EdgeSchemas = typeof EDGE_SCHEMAS;
+
+export interface EdgePayload extends task.Payload<EdgeSchemas> {}
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

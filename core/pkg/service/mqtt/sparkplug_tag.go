@@ -84,13 +84,9 @@ func newReadTag(
 	channels map[channel.Key]channel.Channel,
 ) (readTag, error) {
 	t := readTag{
-		tagID: tagID{
-			tagScope: tagScope{
-				node:   sparkplug.NodeID{Group: entry.Group, EdgeNode: entry.EdgeNode},
-				device: entry.Device,
-			},
-			name: entry.Tag,
-		},
+		node:    sparkplug.NodeID{Group: entry.Group, EdgeNode: entry.EdgeNode},
+		device:  entry.Device,
+		name:    entry.Tag,
 		channel: entry.Channel,
 	}
 	if err := t.validate(); err != nil {
@@ -173,13 +169,9 @@ func newCommandTarget(
 	ch channel.Channel,
 ) (commandTarget, error) {
 	t := commandTarget{
-		tagID: tagID{
-			tagScope: tagScope{
-				node:   sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
-				device: cfg.Device,
-			},
-			name: cfg.Tag,
-		},
+		node:     sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
+		device:   cfg.Device,
+		name:     cfg.Tag,
 		dataType: ch.DataType,
 	}
 	if err := t.validate(); err != nil {
@@ -208,22 +200,22 @@ func newCommandTarget(
 	return t, nil
 }
 
+// sampleValue returns sample i of series in a form that a Sparkplug B metric takes.
+func sampleValue(dataType telem.DataType, series telem.Series, i int) (any, error) {
+	switch dataType {
+	case telem.TimestampT:
+		return series.ValueAt[telem.TimeStamp](i), nil
+	case telem.StringT:
+		return string(series.At(i)), nil
+	}
+	return xjson.FromSample(dataType, series.At(i), xjson.Number, nil)
+}
+
 // publication implements target.
 func (t commandTarget) publication(series telem.Series, i int) (publication, error) {
-	var (
-		value any
-		err   error
-	)
-	switch t.dataType {
-	case telem.TimestampT:
-		value = series.ValueAt[telem.TimeStamp](i)
-	case telem.StringT:
-		value = string(series.At(i))
-	default:
-		value, err = xjson.FromSample(t.dataType, series.At(i), xjson.Number, nil)
-		if err != nil {
-			return publication{}, err
-		}
+	value, err := sampleValue(t.dataType, series, i)
+	if err != nil {
+		return publication{}, err
 	}
 	payload, err := sparkplug.EncodeCommand(
 		sparkplug.Metric{Name: t.name, DataType: t.sparkplugType, Value: value},

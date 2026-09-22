@@ -247,17 +247,25 @@ Sparkplug B ties the death message to the last will of one connection. The confi
 the device key, a group, an edge node ID, a control authority, and a list of tags.
 
 - A tag publishes the value of one Synnax channel. The birth message lists every tag
-  with its data type, plus `bdSeq` and `Node Control/Rebirth` with no alias, which
-  Ignition expects. Values go out on change in NDATA messages with the channel
-  timestamp.
+  with its data type and alias, plus `bdSeq` and `Node Control/Rebirth` with no alias,
+  which Ignition expects. A tag whose channel has had no sample since the task started
+  is null in the birth; the task keeps the last value of each tag for later births.
+- The task is a `driver.WriteTask` whose sink is the edge node. It streams the tag
+  channels and their index channels. Each frame becomes one NDATA message with one
+  metric for each sample, identified by alias, with the timestamp of the sample from the
+  index series in the frame.
 - A tag accepts writes only when the user also maps a command channel to it. An inbound
   NCMD writes the value to that channel through a writer that holds the task's control
-  authority. The task rejects and logs a command for any other tag. A Synnax operator
-  with a higher authority always wins over the SCADA side.
-- A rebirth request makes the task publish its birth message again.
+  authority, with the arrival time as the timestamp. Each command opens its own writer,
+  because a command names any subset of the tags, and a writer needs every channel of an
+  index in each frame. The task rejects and logs a command for any other tag. A Synnax
+  operator with a higher authority always wins over the SCADA side, and the task status
+  warns until the next command is written.
+- A rebirth request makes the task publish its birth message again. A clean stop
+  publishes the death message before the disconnect. Each connection increments `bdSeq`.
 
-One task holds both a streamer and a writer. The C++ `common::WriteTask` and the Arc
-task already do the same.
+The edge node and the shared host connection use one reconnect loop, parameterized by
+the options of an attempt and the work of one connected client.
 
 ### 4.7 The scan task and the browser
 

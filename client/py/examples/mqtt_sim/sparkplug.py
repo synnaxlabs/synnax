@@ -14,6 +14,7 @@ and timestamp of a payload, and the name, alias, timestamp, data type, and scala
 of a metric.
 """
 
+import json
 import struct
 import time
 from dataclasses import dataclass, field
@@ -318,3 +319,80 @@ class EdgeNode:
                     changed.add(tag.name)
         if changed:
             self.data(device, changed)
+
+
+MIRROR_PREFIX = "plant/sparkplug/"
+MIRROR_SUFFIX = "/set"
+
+
+class HostMirror:
+    """A Sparkplug B host that mirrors the tags of every edge node on plain topics.
+
+    Each tag value is published, retained, as JSON ``{"value": ...}`` on
+    ``plant/sparkplug/<group>/<edge node>/<tag>``. A JSON number or string published on
+    that topic plus ``/set`` becomes an NCMD for the tag. The mirror lets a plain MQTT
+    client see and command the edge nodes of a broker.
+
+    :param broker: The broker to listen on and publish through.
+    """
+
+    def __init__(self, broker: Broker) -> None:
+        self.broker = broker
+        # The tags of each edge node by group and edge node ID, from its last birth.
+        self._tags: dict[tuple[str, str], dict[str, Metric]] = {}
+        self._by_alias: dict[tuple[str, str], dict[int, str]] = {}
+        broker.on_message(self._on_message)
+
+    def _on_message(self, topic: str, payload: bytes) -> None:
+        if topic.startswith(MIRROR_PREFIX) and topic.endswith(MIRROR_SUFFIX):
+            self._command(topic[len(MIRROR_PREFIX) : -len(MIRROR_SUFFIX)], payload)
+            return
+        levels = topic.split("/")
+        if len(levels) != 4 or levels[0] != NAMESPACE:
+            return
+        group, message_type, edge_node = levels[1], levels[2], levels[3]
+        if message_type not in ("NBIRTH", "NDATA"):
+            return
+        try:
+            decoded = Payload.decode(payload)
+        except (ValueError, IndexError, struct.error, UnicodeDecodeError):
+            return
+        node = (group, edge_node)
+        if message_type == "NBIRTH":
+            self._tags[node] = {}
+            self._by_alias[node] = {}
+        tags = self._tags.setdefault(node, {})
+        by_alias = self._by_alias.setdefault(node, {})
+        for m in decoded.metrics:
+            if message_type == "NBIRTH":
+                if m.name in (BD_SEQ, REBIRTH):
+                    continue
+                if m.alias is not None:
+                    by_alias[m.alias] = m.name
+                tags[m.name] = m
+            else:
+                name = m.name or by_alias.get(m.alias or 0, "")
+                if name not in tags:
+                    continue
+                m.name = name
+                tags[name] = m
+            self.broker.publish(
+                f"{MIRROR_PREFIX}{group}/{edge_node}/{m.name}",
+                json.dumps({"value": m.value}),
+                retain=True,
+            )
+
+    def _command(self, path: str, payload: bytes) -> None:
+        group, edge_node, name = path.split("/", 2)
+        tag = self._tags.get((group, edge_node), {}).get(name)
+        if tag is None:
+            return
+        try:
+            value = json.loads(payload)
+        except ValueError:
+            return
+        metric = Metric(name=name, data_type=tag.data_type, value=value)
+        self.broker.publish(
+            f"{NAMESPACE}/{group}/NCMD/{edge_node}",
+            Payload([metric], timestamp=_now_ms()).encode(),
+        )

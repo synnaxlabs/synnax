@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"maps"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -126,7 +127,7 @@ var _ = Describe("Sparkplug B browse", func() {
 				bench.birth()
 				line2.birth()
 				line1.birth()
-				Eventually(result, "5s").Should(Receive(BeNil()))
+				Eventually(result, 5*time.Second).Should(Receive(BeNil()))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Details.Data).To(HaveKeyWithValue("tags", BeEmpty()))
@@ -298,7 +299,7 @@ var _ = Describe("Sparkplug B browse", func() {
 				configured, _ := scan(ctx)
 				Expect(configured.Exec(ctx, browseCommand(dev, args))).To(result)
 				Eventually(broker.clientCount).Should(BeZero())
-				Consistently(broker.clientCount, "100ms").Should(BeZero())
+				Consistently(broker.clientCount, 100*time.Millisecond).Should(BeZero())
 			},
 			Entry("a browse for edge nodes",
 				false, msgpack.EncodedJSON{"duration": 50}, Succeed(),

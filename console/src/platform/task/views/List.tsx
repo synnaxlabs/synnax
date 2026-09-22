@@ -14,7 +14,7 @@ import { ChannelList, type ChannelListProps } from "@/platform/task/views/Channe
 
 export interface ListProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "createChannel" | "listItem" | "contextMenuItems"
+  "createChannel" | "listItem" | "contextMenuItems" | "path"
 > {}
 
 export const List = <C extends Channel>(props: ListProps<C>) => {

@@ -12,6 +12,7 @@ from synnax.mqtt.types import (
     MAKE,
     MODEL,
     Device,
+    EdgeTask,
     ReadTask,
     WriteTask,
 )
@@ -51,6 +52,7 @@ __all__ = [
     "Device",
     "EdgeConfig",
     "EdgeTag",
+    "EdgeTask",
     "EnumEntry",
     "GeneratedWriteField",
     "GeneratorType",

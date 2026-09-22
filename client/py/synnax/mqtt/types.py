@@ -11,6 +11,8 @@ from uuid import uuid4
 
 from synnax import device, task
 from synnax.mqtt.types_gen import (
+    EdgeConfig,
+    EdgeTag,
     ReadConfig,
     ReadEntry,
     WriteConfig,
@@ -107,6 +109,54 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             device=device,
             auto_start=auto_start,
             targets=targets if targets is not None else [],
+        )
+
+    def update_device_properties(self, device_client: device.Client) -> device.Device:
+        return _follow_device_rack(self._internal, device_client, self.config.device)
+
+
+class EdgeTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
+    """A task that is one Sparkplug B edge node. It publishes Synnax channels as the
+    tags of the edge node, and writes inbound tag commands to Synnax channels.
+
+    :param device: The key of the broker device to publish to.
+    :param name: A human-readable name for the task.
+    :param group: The Sparkplug group ID of the edge node.
+    :param edge_node: The Sparkplug edge node ID.
+    :param authority: The control authority, from 0 to 255, of the writes that
+        inbound tag commands make.
+    :param auto_start: Whether to start the task automatically.
+    :param tags: The tags the edge node publishes.
+    """
+
+    TYPE = "mqtt_sparkplug_edge"
+    config: EdgeConfig
+    _internal: task.Task
+
+    def __init__(
+        self,
+        internal: task.Task | None = None,
+        *,
+        device: device.Key = "",
+        name: str = "",
+        group: str = "",
+        edge_node: str = "",
+        authority: int = 0,
+        auto_start: bool = False,
+        tags: list[EdgeTag] | None = None,
+    ) -> None:
+        if internal is not None:
+            self._internal = internal
+            self.config = EdgeConfig.model_validate(internal.config)
+            return
+        self._internal = task.Task(name=name, type=self.TYPE)
+        self.config = EdgeConfig(
+            device=device,
+            group=group,
+            edge_node=edge_node,
+            authority=authority,
+            auto_start=auto_start,
+            tags=tags if tags is not None else [],
         )
 
     def update_device_properties(self, device_client: device.Client) -> device.Device:

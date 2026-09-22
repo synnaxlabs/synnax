@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -158,6 +159,8 @@ func (f *factory) ConfigureTask(
 		configured, autoStart, err = f.configureWrite(ctx, t)
 	case ScanTaskType:
 		configured, autoStart, err = f.configureScan(t)
+	case EdgeTaskType:
+		configured, autoStart, err = f.configureEdge(ctx, t)
 	default:
 		return nil, driver.ErrTaskNotHandled
 	}
@@ -427,6 +430,95 @@ func (f *factory) configureWrite(
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
 		Channels:        keys.Unique(),
+		Task:            t,
+	})
+	return wt, cfg.AutoStart, err
+}
+
+func (f *factory) configureEdge(
+	ctx context.Context,
+	t task.Task,
+) (autoStarter, bool, error) {
+	var cfg EdgeConfig
+	if err := t.Config.Unmarshal(&cfg); err != nil {
+		return nil, false, err
+	}
+	dev, err := f.retrieveDevice(ctx, cfg.Device)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	node := sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode}
+	if err = node.Validate(); err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	var keys channel.Keys
+	for _, tg := range cfg.Tags {
+		if tg.Disabled {
+			continue
+		}
+		keys = append(keys, tg.Channel)
+		if tg.CommandChannel != 0 {
+			keys = append(keys, tg.CommandChannel)
+		}
+	}
+	if len(keys) == 0 {
+		return nil, cfg.AutoStart, errors.Wrap(
+			validate.ErrValidation, "tags: the task has no enabled tags",
+		)
+	}
+	channels, err := f.retrieveChannels(ctx, keys)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	clientCfg, err := newClientConfig(dev)
+	if err != nil {
+		return nil, cfg.AutoStart, err
+	}
+	// The edge node is its own client, so it needs an ID of its own. Sparkplug B ties
+	// the death message to the last will of one connection.
+	clientCfg.clientID = deriveClientID(dev.Key + "/" + t.Key.String())
+	edge := &edgeNode{
+		ins:       f.cfg.Child(t.Key.String()),
+		cfg:       clientCfg,
+		node:      node,
+		tags:      make(map[channel.Key][]edgeTag),
+		byName:    make(map[string]edgeTag),
+		framer:    f.cfg.Framer,
+		task:      t,
+		authority: control.Authority(cfg.Authority),
+	}
+	var (
+		declared   []sparkplug.Tag
+		streamKeys channel.Keys
+	)
+	for _, tg := range cfg.Tags {
+		if tg.Disabled {
+			continue
+		}
+		et, tag, err := newEdgeTag(node, tg, channels)
+		if err != nil {
+			return nil, cfg.AutoStart, err
+		}
+		if _, ok := edge.byName[et.name]; ok {
+			return nil, cfg.AutoStart, errors.Wrapf(
+				validate.ErrValidation, "tags: tag %s appears more than once", et.name,
+			)
+		}
+		edge.byName[et.name] = et
+		edge.tags[et.channel] = append(edge.tags[et.channel], et)
+		declared = append(declared, tag)
+		streamKeys = append(streamKeys, et.channel)
+		if et.index != 0 {
+			streamKeys = append(streamKeys, et.index)
+		}
+	}
+	edge.mu.edge = sparkplug.NewEdge(declared)
+	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
+		Instrumentation: edge.ins,
+		Sink:            edge,
+		Status:          f.cfg.Status,
+		Framer:          f.cfg.Framer,
+		Channels:        streamKeys.Unique(),
 		Task:            t,
 	})
 	return wt, cfg.AutoStart, err

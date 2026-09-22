@@ -80,17 +80,17 @@ func (s *mapScanner) Exec(
 
 var _ = Describe("ScanTask", func() {
 	var (
-		t       task.Task
-		scanner *mapScanner
-		rackKey rack.Key
-		make_   string
+		t          task.Task
+		scanner    *mapScanner
+		rackKey    rack.Key
+		deviceMake string
 	)
 
 	BeforeEach(func(ctx SpecContext) {
 		r := rack.Rack{Name: "scan-task-rack"}
 		Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 		rackKey = r.Key
-		make_ = "make-" + uuid.NewString()
+		deviceMake = "make-" + uuid.NewString()
 		t = task.Task{
 			Key:  uuid.New(),
 			Name: "scan-task-test",
@@ -106,7 +106,7 @@ var _ = Describe("ScanTask", func() {
 			Scanner:            scanner,
 			Status:             statusSvc,
 			Device:             deviceSvc,
-			Make:               make_,
+			Make:               deviceMake,
 			ReachableMessage:   "Broker connected",
 			UnreachableMessage: "Failed to reach broker",
 			Task:               t,
@@ -162,8 +162,8 @@ var _ = Describe("ScanTask", func() {
 	Describe("Device checks", func() {
 		It("Should report each device of its make as reachable or not",
 			func(ctx SpecContext) {
-				up := createDevice(ctx, make_)
-				down := createDevice(ctx, make_)
+				up := createDevice(ctx, deviceMake)
+				down := createDevice(ctx, deviceMake)
 				other := createDevice(ctx, "other-make")
 				scanner.setUnreachable(down.Key, errors.New("dial timeout"))
 				st := open(time.Hour)
@@ -186,7 +186,7 @@ var _ = Describe("ScanTask", func() {
 		It("Should check a device when it is created", func(ctx SpecContext) {
 			st := open(time.Hour)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
-			dev := createDevice(ctx, make_)
+			dev := createDevice(ctx, deviceMake)
 			Eventually(func(g Gomega) {
 				g.Expect(deviceStatus(ctx, dev).Message).To(Equal("Broker connected"))
 			}).Should(Succeed())
@@ -194,7 +194,7 @@ var _ = Describe("ScanTask", func() {
 
 		It("Should report a change of health on the next interval",
 			func(ctx SpecContext) {
-				dev := createDevice(ctx, make_)
+				dev := createDevice(ctx, deviceMake)
 				st := open(5 * time.Millisecond)
 				Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
 				Eventually(func(g Gomega) {
@@ -211,7 +211,7 @@ var _ = Describe("ScanTask", func() {
 		)
 
 		It("Should write a status only when the health changes", func(ctx SpecContext) {
-			dev := createDevice(ctx, make_)
+			dev := createDevice(ctx, deviceMake)
 			st := open(5 * time.Millisecond)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
 			Eventually(func(g Gomega) {
@@ -225,7 +225,7 @@ var _ = Describe("ScanTask", func() {
 		})
 
 		It("Should stop the checks on a stop command", func(ctx SpecContext) {
-			dev := createDevice(ctx, make_)
+			dev := createDevice(ctx, deviceMake)
 			st := open(5 * time.Millisecond)
 			Expect(st.Start(ctx, driver.NoCommand)).To(Succeed())
 			Eventually(func() int { return scanner.checkCount(dev.Key) }).
@@ -233,7 +233,10 @@ var _ = Describe("ScanTask", func() {
 			Expect(st.Exec(ctx, task.Command{Type: "stop", Key: "cmd-1"})).
 				To(Succeed())
 			checks := scanner.checkCount(dev.Key)
-			Consistently(func() int { return scanner.checkCount(dev.Key) }, "50ms").
+			Consistently(
+				func() int { return scanner.checkCount(dev.Key) },
+				50*time.Millisecond,
+			).
 				Should(Equal(checks))
 			stat := taskStatus(ctx)
 			Expect(stat.Details.Running).To(BeFalse())

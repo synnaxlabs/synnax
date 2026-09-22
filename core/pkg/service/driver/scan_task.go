@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -257,11 +258,11 @@ func (t *ScanTask) scan(ctx context.Context, reported map[device.Key]health) err
 	}
 	var (
 		statuses = make([]device.Status, 0, len(devices))
-		present  = make(map[device.Key]struct{}, len(devices))
+		present  = make(set.Set[device.Key], len(devices))
 		now      = telem.Now()
 	)
 	for i, dev := range devices {
-		present[dev.Key] = struct{}{}
+		present.Add(dev.Key)
 		if reported[dev.Key] == results[i] {
 			continue
 		}

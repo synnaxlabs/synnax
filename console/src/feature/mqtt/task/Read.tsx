@@ -9,12 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import {
-  channel,
-  mqtt,
-  NotFoundError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, mqtt, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -29,7 +24,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { DataType, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
 import { Browser } from "@/feature/mqtt/device/Browser";
@@ -38,6 +33,11 @@ import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
+import {
+  channelExists,
+  createChannel,
+  retrieveChannel,
+} from "@/feature/mqtt/task/channels";
 import { createReadFields } from "@/feature/mqtt/task/createReadFields";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -503,21 +503,6 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "MQTT read task", type: READ_TYPE, config: cfg };
 };
 
-const retrieveChannel = async (
-  client: Client,
-  key: channel.Key,
-): Promise<channel.Channel | null> => {
-  try {
-    return await client.channels.retrieve(key);
-  } catch (e) {
-    if (NotFoundError.matches(e)) return null;
-    throw errors.fromUnknown(e);
-  }
-};
-
-const channelExists = async (client: Client, key: channel.Key): Promise<boolean> =>
-  (await retrieveChannel(client, key)) != null;
-
 /** @returns true when it stored new channels in the properties of the device. */
 const configureSparkplugEntry = async (
   client: Client,
@@ -537,23 +522,10 @@ const configureSparkplugEntry = async (
   const name = primitive.isNonZero(entry.name)
     ? entry.name
     : sparkplugChannelName(dev.name, entry);
-  let index = 0;
-  if (!new DataType(entry.dataType).isVariable) {
-    const indexCh = await client.channels.create({
-      name: `${name}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    index = indexCh.key;
-  }
-  const ch = await client.channels.create({
-    name,
-    dataType: entry.dataType,
-    ...(index === 0 ? { virtual: true } : { index }),
-  });
+  const ch = await createChannel(client, name, entry.dataType);
   entry.channel = ch.key;
-  entry.index = index;
-  dev.properties.read[propertiesKey] = { index, channels: { "": ch.key } };
+  entry.index = ch.index;
+  dev.properties.read[propertiesKey] = { index: ch.index, channels: { "": ch.key } };
   return true;
 };
 

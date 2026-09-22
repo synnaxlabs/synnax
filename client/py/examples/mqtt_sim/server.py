@@ -22,7 +22,10 @@ Topics:
 
 Sparkplug B: the edge node ``Plant/Line1`` has the tags ``temperature``, ``count``, and
 ``running``. Its device ``Pump1`` has the tags ``speed`` and ``setpoint``. A command
-for a tag sets its value.
+for a tag sets its value. The plant also mirrors every edge node on the broker: each
+tag appears, retained, on ``plant/sparkplug/<group>/<edge node>/<tag>`` as JSON
+``{"value": ...}``, and a value published on that topic plus ``/set`` becomes a command
+for the tag.
 
 Run it directly for the examples in this directory:
 
@@ -69,6 +72,7 @@ async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
         [temperature, counter, running],
         {SPARKPLUG_DEVICE: [speed, setpoint]},
     )
+    sparkplug.HostMirror(broker)
     await broker.start()
     edge_node.birth()
     broker.publish(

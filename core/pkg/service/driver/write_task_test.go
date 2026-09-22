@@ -11,6 +11,7 @@ package driver_test
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -234,7 +235,11 @@ var _ = Describe("WriteTask", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(sink.received()).To(ContainElement(float32(2)))
 				})
-				Expect(sink.received()).ToNot(ContainElement(float32(1)))
+				// A write of 1 still in flight when the error clears may land, but
+				// the dropped ones are never replayed after the recovery.
+				received := sink.received()
+				Expect(received[slices.Index(received, 2):]).
+					ToNot(ContainElement(float32(1)))
 			},
 		)
 

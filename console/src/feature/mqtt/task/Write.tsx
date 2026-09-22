@@ -9,12 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import {
-  channel,
-  mqtt,
-  NotFoundError,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, mqtt, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
   Channel as PChannel,
@@ -30,7 +25,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { DataType, errors, id, json, primitive } from "@synnaxlabs/x";
+import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useMemo, useState } from "react";
 
 import { Browser } from "@/feature/mqtt/device/Browser";
@@ -39,6 +34,7 @@ import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
 import { type SparkplugHaulTag } from "@/feature/mqtt/device/SparkplugBrowser";
 import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
+import { channelExists, createChannel } from "@/feature/mqtt/task/channels";
 import { ContextMenu } from "@/feature/mqtt/task/ContextMenu";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -48,6 +44,7 @@ import {
   toSparkplugDataType,
 } from "@/feature/mqtt/task/sparkplug";
 import { SparkplugTagFields } from "@/feature/mqtt/task/SparkplugTagFields";
+import { SparkplugTypeField } from "@/feature/mqtt/task/SparkplugTypeField";
 import { TimeFormatField } from "@/feature/mqtt/task/TimeFormatField";
 import { TopicList } from "@/feature/mqtt/task/TopicList";
 import { SparkplugListItem, TopicListItem } from "@/feature/mqtt/task/TopicListItem";
@@ -56,7 +53,6 @@ import {
   deployWriteConfigZ,
   type GeneratorType,
   type PlainWriteTarget,
-  type SparkplugDataType,
   type SparkplugWriteTarget,
   type TimeFormat,
   WRITE_SCHEMAS,
@@ -444,38 +440,6 @@ const AdditionalFields: FC<{ targetKey: string }> = ({ targetKey }) => {
 
 const EMPTY_CONTENT = <Empty.Action message="No additional fields" />;
 
-const SPARKPLUG_TYPE_DATA: Select.StaticEntry<SparkplugDataType>[] = [
-  { key: "int8", name: "Int8" },
-  { key: "int16", name: "Int16" },
-  { key: "int32", name: "Int32" },
-  { key: "int64", name: "Int64" },
-  { key: "uint8", name: "UInt8" },
-  { key: "uint16", name: "UInt16" },
-  { key: "uint32", name: "UInt32" },
-  { key: "uint64", name: "UInt64" },
-  { key: "float", name: "Float" },
-  { key: "double", name: "Double" },
-  { key: "boolean", name: "Boolean" },
-  { key: "string", name: "String" },
-  { key: "date_time", name: "DateTime" },
-];
-
-const renderSelectSparkplugType = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<SparkplugDataType, Select.StaticEntry<SparkplugDataType>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<SparkplugDataType, Select.StaticEntry<SparkplugDataType>>
-      {...p}
-      data={SPARKPLUG_TYPE_DATA}
-      resourceName="Sparkplug B type"
-      location="bottom"
-    />
-  ),
-);
-
 const SparkplugTargetDetails: FC<{ path: string }> = ({ path }) => {
   const channel = PForm.useFieldValue<number>(`${path}.channel`);
   return (
@@ -484,14 +448,12 @@ const SparkplugTargetDetails: FC<{ path: string }> = ({ path }) => {
         <SparkplugTagFields path={path} />
         <Flex.Box x align="center" justify="between">
           <Task.ChannelName channel={channel} namePath={`${path}.name`} />
-          <PForm.Field<SparkplugDataType>
+          <SparkplugTypeField
             path={`${path}.sparkplugType`}
             label="Sparkplug B type"
             showHelpText={false}
             className={CSS.B("data-type-select")}
-          >
-            {renderSelectSparkplugType}
-          </PForm.Field>
+          />
         </Flex.Box>
       </Flex.Box>
     </Flex.Box>
@@ -602,16 +564,6 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   return { name: "MQTT write task", type: WRITE_TYPE, config: cfg };
 };
 
-const channelExists = async (client: Client, key: channel.Key): Promise<boolean> => {
-  try {
-    await client.channels.retrieve(key);
-    return true;
-  } catch (e) {
-    if (NotFoundError.matches(e)) return false;
-    throw errors.fromUnknown(e);
-  }
-};
-
 interface CommandChannelSpec {
   propertiesKey: string;
   channel: channel.Key;
@@ -634,17 +586,7 @@ const configureCommandChannel = async (
   const stored = write[propertiesKey];
   if (primitive.isNonZero(stored) && (await channelExists(client, stored)))
     return [stored, false];
-  let cmdCh: channel.Channel;
-  if (new DataType(dataType).isVariable)
-    cmdCh = await client.channels.create({ name, dataType, virtual: true });
-  else {
-    const indexCh = await client.channels.create({
-      name: `${name}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    cmdCh = await client.channels.create({ name, dataType, index: indexCh.key });
-  }
+  const cmdCh = await createChannel(client, name, dataType);
   write[propertiesKey] = cmdCh.key;
   return [cmdCh.key, true];
 };

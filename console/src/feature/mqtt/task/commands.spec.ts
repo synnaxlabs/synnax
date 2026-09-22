@@ -56,4 +56,24 @@ describe("MQTT.Task Commands", () => {
     const created = await client.tasks.retrieve({ key: tab.resource.key });
     expect(created.type).toBe(MQTT.Task.WRITE_TYPE);
   });
+
+  it("should create an edge node draft and open its resource tab from the command", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
+    const { store, openCommandPalette, selectCommand } = await renderPalette({
+      commands: MQTT.Task.COMMANDS,
+      client,
+    });
+    store.dispatch(Session.Project.select(proj.key));
+    await openCommandPalette("Create MQTT Sparkplug");
+    await selectCommand("Create MQTT Sparkplug B edge node");
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(MQTT.Task.EDGE_TYPE);
+    expect(created.name).toBe("Sparkplug B edge node");
+  });
 });

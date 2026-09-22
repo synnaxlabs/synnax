@@ -26,6 +26,11 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[]
     label: "Create write task",
     useCreate: Task.useCreateWrite,
   },
+  {
+    itemKey: "mqtt.sparkplugEdgeTask",
+    label: "Create Sparkplug B edge node",
+    useCreate: Task.useCreateEdge,
+  },
 ];
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {

@@ -226,6 +226,58 @@ class TestMQTTWriteTask:
 
 
 @pytest.mark.mqtt
+class TestMQTTEdgeTask:
+    """Tests for the Sparkplug B edge node task configuration."""
+
+    def test_tag_defaults(self):
+        """Should default a tag to a double that rejects writes."""
+        tag = sy.mqtt.EdgeTag(name="temperature", channel=7)
+        assert tag.sparkplug_type == "double"
+        assert tag.command_channel == 0
+        assert tag.disabled is False
+        assert tag.key != ""
+
+    def test_payload_type(self):
+        """Should create a task of the Sparkplug B edge node type."""
+        task = sy.mqtt.EdgeTask(device="broker-1", group="Plant", edge_node="Line1")
+        assert task.to_payload().type == "mqtt_sparkplug_edge"
+        assert task.config.group == "Plant"
+        assert task.config.authority == 0
+        assert task.config.tags == []
+
+    def test_reject_authority_out_of_range(self):
+        with pytest.raises(ValueError):
+            sy.mqtt.EdgeTask(device="broker-1", authority=256)
+
+    def test_create_and_retrieve_edge_task(self, client: sy.Synnax):
+        """Should store an edge config that the task class parses again."""
+        task = sy.mqtt.EdgeTask(
+            device="some-broker",
+            group="Plant",
+            edge_node="Line1",
+            authority=150,
+            tags=[
+                sy.mqtt.EdgeTag(
+                    name="setpoint",
+                    channel=4321,
+                    sparkplug_type="float",
+                    command_channel=4322,
+                )
+            ],
+        )
+        created = client.tasks.create(
+            name="test-mqtt-edge-task",
+            type="mqtt_sparkplug_edge",
+            config=task.config.model_dump(exclude_none=True),
+        )
+        cfg = sy.mqtt.EdgeTask(created).config
+        assert cfg.edge_node == "Line1"
+        assert cfg.authority == 150
+        assert cfg.tags[0].sparkplug_type == "float"
+        assert cfg.tags[0].command_channel == 4322
+
+
+@pytest.mark.mqtt
 class TestMQTTDevice:
     """Tests for the MQTT broker device."""
 
@@ -307,7 +359,10 @@ class TestMQTTTaskRack:
             sy.mqtt.Device(host="127.0.0.1", rack=rack.key, name="Rack Test Broker")
         )
         ch = client.channels.create(
-            name="mqtt_rack_test_cmd", data_type="float64", virtual=True
+            name="mqtt_rack_test_cmd",
+            data_type="float64",
+            virtual=True,
+            retrieve_if_name_exists=True,
         )
         task = sy.mqtt.WriteTask(
             device=dev.key,

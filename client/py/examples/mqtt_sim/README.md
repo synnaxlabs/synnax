@@ -50,6 +50,12 @@ Run all commands from the `client/py` directory.
    uv run python examples/mqtt_sim/sparkplug_write_task.py
    ```
 
+7. Run a Sparkplug B edge node on the Core.
+
+   ```bash
+   uv run python examples/mqtt_sim/sparkplug_edge_node.py
+   ```
+
 ## Topics of the mock plant
 
 | Topic                | Payload                                               |
@@ -60,6 +66,13 @@ Run all commands from the `client/py` directory.
 | `plant/info`         | A retained message, published once                    |
 | `plant/<name>/set`   | A command. The plant echoes it, retained, on `/state` |
 | `plant/<name>/state` | The last command of `<name>`                          |
+
+The plant also mirrors every Sparkplug B edge node that connects to it:
+
+| Topic                                      | Payload                                 |
+| ------------------------------------------ | --------------------------------------- |
+| `plant/sparkplug/<group>/<node>/<tag>`     | Retained JSON `{"value": ...}`          |
+| `plant/sparkplug/<group>/<node>/<tag>/set` | A JSON value, sent as a command (NCMD) |
 
 ## Sparkplug B tags of the mock plant
 

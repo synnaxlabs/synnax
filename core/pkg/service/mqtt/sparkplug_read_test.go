@@ -171,7 +171,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 			))
 			Consistently(func() status.Variant {
 				return taskStatus(ctx, t).Variant
-			}, "200ms").Should(Equal(status.VariantSuccess))
+			}, 200*time.Millisecond).Should(Equal(status.VariantSuccess))
 		})
 
 		It("Should skip a birth value that the task already wrote",
@@ -190,7 +190,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 				Expect(node.births()).To(Equal(before + 1))
 				Consistently(func() status.Variant {
 					return taskStatus(ctx, t).Variant
-				}, "200ms").Should(Equal(status.VariantSuccess))
+				}, 200*time.Millisecond).Should(Equal(status.VariantSuccess))
 				Expect(stored(ctx, data[0]).Len()).To(BeEquivalentTo(1))
 			},
 		)

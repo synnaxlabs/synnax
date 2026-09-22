@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -135,7 +136,7 @@ func browseNodes(
 ) ([]browsedNode, error) {
 	var (
 		mu    sync.Mutex
-		nodes = make(map[sparkplug.NodeID]map[string]struct{})
+		nodes = make(map[sparkplug.NodeID]set.Set[string])
 	)
 	opts := newClientOptions(cfg)
 	opts.SetDefaultPublishHandler(func(_ paho.Client, m paho.Message) {
@@ -146,10 +147,10 @@ func browseNodes(
 		mu.Lock()
 		defer mu.Unlock()
 		if nodes[topic.Node] == nil {
-			nodes[topic.Node] = make(map[string]struct{})
+			nodes[topic.Node] = make(set.Set[string])
 		}
 		if topic.Device != "" {
-			nodes[topic.Node][topic.Device] = struct{}{}
+			nodes[topic.Node].Add(topic.Device)
 		}
 	})
 	client, disconnect, err := open(ctx, opts)
@@ -262,9 +263,7 @@ listen:
 				if m.Name == sparkplug.BdSeqMetric {
 					continue
 				}
-				id := tagID{
-					tagScope: tagScope{node: node, device: ev.Device}, name: m.Name,
-				}
+				id := tagID{node: node, device: ev.Device, name: m.Name}
 				tags[id] = newBrowsedTag(ev.Device, m)
 			}
 			if born {

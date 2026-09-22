@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -244,10 +245,10 @@ type readSource struct {
 	// lastStamp is the last timestamp written to each index channel.
 	lastStamp map[channel.Key]telem.TimeStamp
 	// awaited holds the edge nodes that have until awaitedUntil to publish a birth.
-	awaited      map[sparkplug.NodeID]struct{}
+	awaited      set.Set[sparkplug.NodeID]
 	awaitedUntil time.Time
 	// offline holds the edge nodes and devices with no valid birth.
-	offline map[tagScope]struct{}
+	offline set.Set[tagScope]
 	// degraded is the data loss that the task currently warns about.
 	degraded struct {
 		err   error
@@ -280,7 +281,7 @@ func (s *readSource) Start(ctx context.Context) (err error) {
 			return err
 		}
 	}
-	s.offline = make(map[tagScope]struct{})
+	s.offline = make(set.Set[tagScope])
 	s.await(time.Now())
 	for node := range s.awaited {
 		if err = s.attachment.follow(ctx, node); err != nil {
@@ -294,9 +295,9 @@ func (s *readSource) Start(ctx context.Context) (err error) {
 // await gives every edge node of the task the time of birthGrace to publish a birth. A
 // task that connects has missed the last birth of each one.
 func (s *readSource) await(now time.Time) {
-	s.awaited = make(map[sparkplug.NodeID]struct{})
+	s.awaited = make(set.Set[sparkplug.NodeID])
 	for id := range s.tags {
-		s.awaited[id.node] = struct{}{}
+		s.awaited.Add(id.node)
 	}
 	s.awaitedUntil = now.Add(s.birthGrace)
 }
@@ -366,7 +367,7 @@ func (s *readSource) expire(now time.Time) {
 	}
 	if len(s.awaited) > 0 && !now.Before(s.awaitedUntil) {
 		for node := range s.awaited {
-			s.offline[tagScope{node: node}] = struct{}{}
+			s.offline.Add(tagScope{node: node})
 		}
 		clear(s.awaited)
 	}
@@ -435,7 +436,7 @@ func (s *readSource) convertEvent(now time.Time, msg message) framer.Frame {
 	switch ev.Type {
 	case sparkplug.NDeath, sparkplug.DDeath:
 		if s.reads(scope) {
-			s.offline[scope] = struct{}{}
+			s.offline.Add(scope)
 		}
 		return framer.Frame{}
 	case sparkplug.NBirth, sparkplug.DBirth:
@@ -516,15 +517,15 @@ func (s *readSource) checkBirth(
 	scope tagScope,
 	metrics []sparkplug.Metric,
 ) {
-	declared := make(map[string]struct{}, len(metrics))
+	declared := make(set.Set[string], len(metrics))
 	for _, m := range metrics {
-		declared[m.Name] = struct{}{}
+		declared.Add(m.Name)
 	}
 	for id := range s.tags {
 		if id.tagScope != scope {
 			continue
 		}
-		if _, ok := declared[id.name]; !ok {
+		if !declared.Contains(id.name) {
 			s.degrade(now, errors.Newf("%s is not in the birth of its %s", id, scope))
 		}
 	}

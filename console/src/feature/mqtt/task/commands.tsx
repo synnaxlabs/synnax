@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
+import { useCreateEdge } from "@/feature/mqtt/task/Edge";
 import { useCreateRead } from "@/feature/mqtt/task/Read";
 import { useCreateWrite } from "@/feature/mqtt/task/Write";
 import { Task } from "@/platform/task";
@@ -27,4 +28,11 @@ const CreateWriteCommand = Task.createCommand({
   useOnSelect: useCreateWrite,
 });
 
-export const COMMANDS = [CreateReadCommand, CreateWriteCommand];
+const CreateEdgeCommand = Task.createCommand({
+  key: "mqtt_create_sparkplug_edge_task",
+  name: "Create MQTT Sparkplug B edge node",
+  icon: <Icon.Logo.MQTT />,
+  useOnSelect: useCreateEdge,
+});
+
+export const COMMANDS = [CreateReadCommand, CreateWriteCommand, CreateEdgeCommand];

@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"strconv"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -312,16 +313,16 @@ var _ = Describe("Read task", func() {
 					g.Expect(stat.Message).
 						To(ContainSubstring("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
-				}, "5s").Should(Succeed())
+				}, 5*time.Second).Should(Succeed())
 				broker = startBroker(port)
 				Eventually(
 					func() status.Variant { return taskStatus(ctx, t).Variant },
-					"10s",
+					10*time.Second,
 				).
 					Should(Equal(status.VariantSuccess))
 				Eventually(
 					broker.subscriptions,
-					"5s",
+					5*time.Second,
 				).
 					Should(Equal(1))
 				broker.publish("plant/line7", "9", false)
@@ -352,12 +353,12 @@ var _ = Describe("Read task", func() {
 				broker = startBroker(port)
 				Eventually(
 					func() status.Variant { return taskStatus(ctx, t).Variant },
-					"10s",
+					10*time.Second,
 				).
 					Should(Equal(status.VariantSuccess))
 				Eventually(
 					broker.subscriptions,
-					"5s",
+					5*time.Second,
 				).
 					Should(Equal(1))
 				broker.publish("plant/line8", "4", false)

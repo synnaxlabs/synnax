@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
@@ -62,7 +63,7 @@ type message struct {
 
 // subscription is one topic filter on a connection and the attachments that use it.
 type subscription struct {
-	attachments map[*attachment]struct{}
+	attachments set.Set[*attachment]
 	qos         byte
 	wildcard    bool
 	// sparkplug is true for the filter of an edge node. Its messages reach the
@@ -89,7 +90,7 @@ type connection struct {
 		// host is the Sparkplug B session state of the edge nodes in nodes.
 		host *sparkplug.Host
 		// nodes holds the attachments that follow each edge node.
-		nodes map[sparkplug.NodeID]map[*attachment]struct{}
+		nodes map[sparkplug.NodeID]set.Set[*attachment]
 		// client is nil while the connection is down.
 		client paho.Client
 		// stop ends the connect loop and waits until its client has left the broker.
@@ -98,7 +99,7 @@ type connection struct {
 		settled chan struct{}
 		// subs holds every subscription by its topic filter.
 		subs        map[string]*subscription
-		attachments map[*attachment]struct{}
+		attachments set.Set[*attachment]
 		cfg         clientConfig
 		// wildcards counts the subscriptions whose filter holds a wildcard, so a
 		// connection with none skips the filter match on every message.
@@ -114,9 +115,9 @@ func newConnection(
 	c := &connection{ins: ins, rebirths: make(chan rebirthRequest, rebirthBacklog)}
 	c.mu.host = sparkplug.NewHost()
 	c.mu.host.RebirthInterval = rebirthInterval
-	c.mu.nodes = make(map[sparkplug.NodeID]map[*attachment]struct{})
+	c.mu.nodes = make(map[sparkplug.NodeID]set.Set[*attachment])
 	c.mu.subs = make(map[string]*subscription)
-	c.mu.attachments = make(map[*attachment]struct{})
+	c.mu.attachments = make(set.Set[*attachment])
 	return c
 }
 
@@ -167,6 +168,62 @@ func (cfg clientConfig) equal(other clientConfig) bool {
 // calls settle when its first attempt ends.
 func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 	defer settle()
+	// The offline STATE in the last will and the online STATE that follows the
+	// connect carry the same timestamp.
+	var stateStamp telem.TimeStamp
+	reconnect(ctx, c.ins, reconnectHooks{
+		options: func(lost chan<- error) *paho.ClientOptions {
+			stateStamp = telem.Now()
+			return withStateWill(newClientOptions(cfg), cfg.hostID, stateStamp).
+				// Ordered delivery keeps the samples of a topic in order. It requires
+				// that the handler never blocks.
+				SetOrderMatters(true).
+				SetDefaultPublishHandler(c.onMessage).
+				SetConnectionLostHandler(reportLost(lost))
+		},
+		serve: func(ctx context.Context, client paho.Client, lost <-chan error) {
+			c.setClient(ctx, client)
+			c.publishState(ctx, client, cfg.hostID, true, stateStamp)
+			settle()
+			c.serve(ctx, client, lost)
+			c.setClient(ctx, nil)
+			if ctx.Err() != nil {
+				// The broker sends the last will only for a connection that drops.
+				stateCtx, cancel := context.WithTimeout(
+					context.Background(), stateTimeout,
+				)
+				c.publishState(stateCtx, client, cfg.hostID, false, telem.Now())
+				cancel()
+			}
+		},
+		failed: settle,
+	})
+}
+
+// reconnectHooks are the parts of one reconnecting client that differ by use.
+type reconnectHooks struct {
+	// options builds the options of one connection attempt. lost must receive the
+	// error of a connection that drops.
+	options func(lost chan<- error) *paho.ClientOptions
+	// serve uses one connected client until ctx is cancelled or lost fires.
+	serve func(ctx context.Context, client paho.Client, lost <-chan error)
+	// failed runs after an attempt that could not connect. Optional.
+	failed func()
+}
+
+// reportLost returns a connection lost handler that sends the error to lost.
+func reportLost(lost chan<- error) paho.ConnectionLostHandler {
+	return func(_ paho.Client, err error) {
+		select {
+		case lost <- err:
+		default:
+		}
+	}
+}
+
+// reconnect connects with a backoff until ctx is cancelled, and connects again after
+// each connection that drops.
+func reconnect(ctx context.Context, ins alamos.Instrumentation, hooks reconnectHooks) {
 	brk, err := breaker.NewBreaker(ctx, breaker.Config{
 		BaseInterval: time.Second,
 		Scale:        2,
@@ -174,52 +231,28 @@ func (c *connection) run(ctx context.Context, cfg clientConfig, settle func()) {
 		MaxRetries:   breaker.InfiniteRetries,
 	})
 	if err != nil {
-		c.ins.L.DPanic("invalid reconnect breaker", zap.Error(err))
+		ins.L.DPanic("invalid reconnect breaker", zap.Error(err))
 		return
 	}
 	for {
-		var (
-			lost = make(chan error, 1)
-			// The offline STATE in the last will and the online STATE that follows
-			// the connect carry the same timestamp.
-			stateStamp = telem.Now()
-		)
-		opts := withStateWill(newClientOptions(cfg), cfg.hostID, stateStamp).
-			// Ordered delivery keeps the samples of a topic in order. It requires that
-			// the handler never blocks.
-			SetOrderMatters(true).
-			SetDefaultPublishHandler(c.onMessage).
-			SetConnectionLostHandler(func(_ paho.Client, err error) {
-				select {
-				case lost <- err:
-				default:
-				}
-			})
-		client, disconnect, err := open(ctx, opts)
+		lost := make(chan error, 1)
+		client, disconnect, err := open(ctx, hooks.options(lost))
 		if ctx.Err() != nil {
 			return
 		}
 		if err != nil {
-			c.ins.L.Warn("failed to connect to the MQTT broker", zap.Error(err))
-			settle()
+			ins.L.Warn("failed to connect to the MQTT broker", zap.Error(err))
+			if hooks.failed != nil {
+				hooks.failed()
+			}
 			if !brk.Wait() {
 				return
 			}
 			continue
 		}
 		connectedAt := time.Now()
-		c.ins.L.Info("connected to the MQTT broker")
-		c.setClient(ctx, client)
-		c.publishState(ctx, client, cfg.hostID, true, stateStamp)
-		settle()
-		c.serve(ctx, client, lost)
-		c.setClient(ctx, nil)
-		if ctx.Err() != nil {
-			// The broker sends the last will only for a connection that drops.
-			stateCtx, cancel := context.WithTimeout(context.Background(), stateTimeout)
-			c.publishState(stateCtx, client, cfg.hostID, false, telem.Now())
-			cancel()
-		}
+		ins.L.Info("connected to the MQTT broker")
+		hooks.serve(ctx, client, lost)
 		disconnect()
 		// A connection that held is healthy again. One that did not keeps its backoff,
 		// so a broker that accepts and then drops the client is not hammered.
@@ -434,8 +467,8 @@ func (c *connection) attach(queueSize int) *attachment {
 		conn:         c,
 		queue:        make(chan message, queueSize),
 		stateChanged: make(chan struct{}, 1),
-		filters:      make(map[string]struct{}),
-		nodes:        make(map[sparkplug.NodeID]struct{}),
+		filters:      make(set.Set[string]),
+		nodes:        make(set.Set[sparkplug.NodeID]),
 		// An attachment assumes a connection until next sees that there is none.
 		reportedConnected: true,
 	}
@@ -443,7 +476,7 @@ func (c *connection) attach(queueSize int) *attachment {
 	// down.
 	a.stateChanged <- struct{}{}
 	c.mu.Lock()
-	c.mu.attachments[a] = struct{}{}
+	c.mu.attachments.Add(a)
 	c.mu.Unlock()
 	return a
 }
@@ -470,8 +503,8 @@ type attachment struct {
 	// reportedConnected.
 	stateChanged chan struct{}
 	// filters and nodes are guarded by conn.mu.
-	filters map[string]struct{}
-	nodes   map[sparkplug.NodeID]struct{}
+	filters set.Set[string]
+	nodes   set.Set[sparkplug.NodeID]
 	// dropped counts the messages that a full queue pushed out.
 	dropped atomic.Uint64
 	// reportedConnected is the connection state that next last reported.
@@ -544,13 +577,13 @@ func (a *attachment) subscribe(ctx context.Context, filter string, qos byte) err
 func (a *attachment) follow(ctx context.Context, node sparkplug.NodeID) error {
 	c := a.conn
 	c.mu.Lock()
-	a.nodes[node] = struct{}{}
+	a.nodes.Add(node)
 	attachments, ok := c.mu.nodes[node]
 	if !ok {
-		attachments = make(map[*attachment]struct{})
+		attachments = make(set.Set[*attachment])
 		c.mu.nodes[node] = attachments
 	}
-	attachments[a] = struct{}{}
+	attachments.Add(a)
 	c.mu.Unlock()
 	for _, filter := range node.Filters() {
 		if err := a.subscribeFilter(ctx, filter, 0, true); err != nil {
@@ -569,11 +602,11 @@ func (a *attachment) subscribeFilter(
 ) error {
 	c := a.conn
 	c.mu.Lock()
-	a.filters[filter] = struct{}{}
+	a.filters.Add(filter)
 	sub, ok := c.mu.subs[filter]
 	if !ok {
 		sub = &subscription{
-			attachments: make(map[*attachment]struct{}),
+			attachments: make(set.Set[*attachment]),
 			wildcard:    strings.ContainsAny(filter, "+#"),
 			sparkplug:   isSparkplug,
 		}
@@ -582,7 +615,7 @@ func (a *attachment) subscribeFilter(
 			c.mu.wildcards++
 		}
 	}
-	sub.attachments[a] = struct{}{}
+	sub.attachments.Add(a)
 	needed := !ok || qos > sub.qos
 	if qos > sub.qos {
 		sub.qos = qos

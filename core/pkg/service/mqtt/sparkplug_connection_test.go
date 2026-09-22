@@ -177,7 +177,7 @@ var _ = Describe("Sparkplug B host session", func() {
 				))
 				Eventually(states).Should(HaveLen(1))
 				broker.dropClients()
-				Eventually(states, "10s").Should(HaveLen(3))
+				Eventually(states, 10*time.Second).Should(HaveLen(3))
 				got := states()
 				Expect(got[0].Online).To(BeTrue())
 				// The last will carries the timestamp of the online message.
@@ -274,8 +274,12 @@ var _ = Describe("Sparkplug B host session", func() {
 				Eventually(node.births).Should(Equal(1))
 				Expect(second.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 					To(Succeed())
-				Consistently(node.births, "150ms", "10ms").Should(Equal(1))
-				Eventually(node.births, "2s").Should(Equal(2))
+				Consistently(
+					node.births,
+					150*time.Millisecond,
+					10*time.Millisecond,
+				).Should(Equal(1))
+				Eventually(node.births, 2*time.Second).Should(Equal(2))
 				requests := node.rebirthRequests()
 				Expect(requests).To(HaveLen(2))
 				sent := func(c command) uint64 { return c.payload.GetTimestamp() }
@@ -307,14 +311,14 @@ var _ = Describe("Sparkplug B host session", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantWarning))
 					g.Expect(stat.Message).
 						To(ContainSubstring("broker is not connected"))
-				}, "5s").Should(Succeed())
+				}, 5*time.Second).Should(Succeed())
 				broker = startBroker(port)
 				// An edge node belongs to one broker, so a new one takes its place.
 				restarted := startEdgeNode(broker, "plant", "line1")
 				restarted.setTags("", tagValue{
 					name: "temperature", alias: 1, value: 2.0, timestamp: 1700000001000,
 				})
-				Eventually(restarted.births, "10s").Should(Equal(1))
+				Eventually(restarted.births, 10*time.Second).Should(Equal(1))
 				Expect(restarted.rebirthRequests()).To(HaveLen(1))
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(2))

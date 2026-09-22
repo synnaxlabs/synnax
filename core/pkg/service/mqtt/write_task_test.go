@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"math"
+	"time"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -293,7 +294,7 @@ var _ = Describe("Write task", func() {
 					g.Expect(stat.Message).
 						To(ContainSubstring("broker is not connected"))
 					g.Expect(stat.Details.Running).To(BeTrue())
-				}, "5s").Should(Succeed())
+				}, 5*time.Second).Should(Succeed())
 				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Keys:  channel.Keys{ch.Key()},
 					Start: telem.Now(),
@@ -306,7 +307,7 @@ var _ = Describe("Write task", func() {
 				broker.collect("#")
 				Eventually(
 					func() status.Variant { return taskStatus(ctx, t).Variant },
-					"10s",
+					10*time.Second,
 				).
 					Should(Equal(status.VariantSuccess))
 				command(ctx, ch, telem.NewSeriesV(2.0), func(g Gomega) {
