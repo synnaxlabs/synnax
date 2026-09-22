@@ -1,6 +1,6 @@
-# Issue Pull Request
+# Issue pull request
 
-## Linear Issue
+## Linear issue
 
 <!-- Edit the link below with the proper issue number and link -->
 
@@ -10,7 +10,7 @@
 
 <!-- Write a description describing the changes. -->
 
-## Basic Readiness
+## Basic readiness
 
 - [ ] I have performed a self-review of my code.
 - [ ] I have added relevant, automated tests to cover the changes.
