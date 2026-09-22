@@ -29,8 +29,8 @@ export const fakePickedFile = (
 
 /**
  * FilePickerInterceptor drives the browser file-picker boundary from a test: the
- * production <input type="file"> element is real, only its click into the native
- * dialog is captured.
+ * production <input type="file"> element is real, only its click into the native dialog
+ * is captured.
  */
 export interface FilePickerInterceptor {
   /** lastInput returns the most recently opened picker input. */
@@ -42,11 +42,11 @@ export interface FilePickerInterceptor {
 }
 
 /**
- * interceptFilePicker captures <input type="file"> clicks so tests can drive the
- * real browser pickFiles/pickDirectory code paths without a native dialog. The
- * returned interceptor selects files or cancels on the captured input. Installs a
- * spy on HTMLElement.prototype.click; callers restore it via vi.restoreAllMocks()
- * in afterEach.
+ * interceptFilePicker captures <input type="file"> clicks so tests can drive the real
+ * browser pickFiles/pickDirectory code paths without a native dialog. The returned
+ * interceptor selects files or cancels on the captured input. Installs a spy on
+ * HTMLElement.prototype.click; callers restore it via vi.restoreAllMocks() in
+ * afterEach.
  */
 export const interceptFilePicker = (): FilePickerInterceptor => {
   const inputs: HTMLInputElement[] = [];
