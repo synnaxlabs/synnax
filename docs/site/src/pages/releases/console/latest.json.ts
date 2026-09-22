@@ -1,4 +1,3 @@
----
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -8,14 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Inline from "@/components/code/Inline.astro";
-const { os, name, product } = Astro.props;
+import { type APIRoute } from "astro";
 
-const version = await Astro.locals.releases.latest(product);
----
+import { manifest } from "@/pages/releases/console/_manifest";
 
-<Inline
-    lang="bash"
-    code={`sudo mv ${name}-v${version}-${os.toLowerCase()} /usr/local/bin/${name}`}
-    theme="css-variables"
-/>
+export const GET: APIRoute = async ({ locals }) =>
+  await manifest(locals.releases, "stable");
