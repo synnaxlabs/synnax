@@ -12,53 +12,76 @@ import { type ReactElement, useCallback } from "react";
 
 import { post, reload } from "@/portal/ui/api";
 import { Enterprise } from "@/portal/ui/Enterprise";
-import { date, machineName } from "@/portal/ui/format";
+import { date, machineName, statusOf } from "@/portal/ui/format";
+import { StatusTag } from "@/portal/ui/licenses/StatusTag";
 import * as Modal from "@/portal/ui/Modal";
 import { Empty, Page } from "@/portal/ui/Page";
 import { Row, Table } from "@/portal/ui/Table";
 import { useAction } from "@/portal/ui/useAction";
-import { type Activation } from "@/server/db/schema";
+import { type Activation, type License } from "@/server/db/schema";
+import { type Machine } from "@/server/license/desktop";
 
 export interface DesktopProps {
-  /** devices are the machines signed in from the Desktop app that hold a seat. */
-  devices: Activation[];
+  /** machines are the machines signed in from the Desktop app that hold a seat. */
+  machines: Machine[];
+  now: Date | string;
 }
 
-const COLUMNS = "minmax(0, 2fr) 12rem 12rem 12rem";
+const COLUMNS = "minmax(0, 2fr) 10rem 12rem 12rem 12rem";
 
-/** Desktop is a personal user's portal home: their Desktop devices. */
-export const Desktop = ({ devices }: DesktopProps): ReactElement => (
-  <Page title="Desktop" subtitle="Machines signed in from the Synnax Desktop app">
-    {devices.length === 0 ? (
-      <Empty
-        message="No devices yet"
-        description="Sign in from the Synnax Desktop app and this machine appears here."
-      />
-    ) : (
-      <Table columns={COLUMNS} head={["Machine", "First seen", "Last renewal", ""]}>
-        {devices.map((d) => (
-          <Row key={d.key} columns={COLUMNS}>
-            <Text.Text level="p" overflow="ellipsis">
-              {machineName(d)}
-            </Text.Text>
-            <Text.Text level="p" color={10}>
-              {date(d.firstSeen)}
-            </Text.Text>
-            <Text.Text level="p" color={10}>
-              {date(d.lastSeen)}
-            </Text.Text>
-            <Flex.Box justify="end">
-              <UnlinkDialog device={d} />
-            </Flex.Box>
-          </Row>
-        ))}
-      </Table>
-    )}
-    <Enterprise />
-  </Page>
-);
+/** validity says how much longer a machine keeps working. */
+const validity = (lic: License, at: Date): string =>
+  statusOf(lic, at) === "expired"
+    ? `Expired ${date(lic.expiresAt)}. Open the app on that machine to renew.`
+    : `Valid until ${date(lic.expiresAt)}`;
 
-const UnlinkDialog = ({ device }: { device: Activation }): ReactElement => (
+/** Desktop is a personal user's portal home: their Desktop machines. */
+export const Desktop = ({ machines, now }: DesktopProps): ReactElement => {
+  const at = new Date(now);
+  return (
+    <Page title="Desktop" subtitle="Machines signed in from the Synnax Desktop app">
+      {machines.length === 0 ? (
+        <Empty
+          message="No machines yet"
+          description="Sign in from the Synnax Desktop app and this machine appears here."
+        />
+      ) : (
+        <Table
+          columns={COLUMNS}
+          head={["Machine", "Status", "First seen", "Last renewal", ""]}
+        >
+          {machines.map(({ activation: a, license: lic }) => (
+            <Row key={a.key} columns={COLUMNS}>
+              <Flex.Box y gap="tiny" style={{ minWidth: 0 }}>
+                <Text.Text level="p" overflow="ellipsis">
+                  {machineName(a)}
+                </Text.Text>
+                <Text.Text level="small" color={9} overflow="ellipsis">
+                  {validity(lic, at)}
+                </Text.Text>
+              </Flex.Box>
+              <Flex.Box>
+                <StatusTag status={statusOf(lic, at)} />
+              </Flex.Box>
+              <Text.Text level="p" color={10}>
+                {date(a.firstSeen)}
+              </Text.Text>
+              <Text.Text level="p" color={10}>
+                {date(a.lastSeen)}
+              </Text.Text>
+              <Flex.Box justify="end">
+                <UnlinkDialog activation={a} />
+              </Flex.Box>
+            </Row>
+          ))}
+        </Table>
+      )}
+      <Enterprise />
+    </Page>
+  );
+};
+
+const UnlinkDialog = ({ activation }: { activation: Activation }): ReactElement => (
   <Modal.Frame
     name="Unlink this device"
     icon={<Icon.Disconnect />}
@@ -68,24 +91,24 @@ const UnlinkDialog = ({ device }: { device: Activation }): ReactElement => (
       </Dialog.Trigger>
     }
   >
-    <UnlinkContent device={device} />
+    <UnlinkContent activation={activation} />
   </Modal.Frame>
 );
 
-const UnlinkContent = ({ device }: { device: Activation }): ReactElement => {
+const UnlinkContent = ({ activation }: { activation: Activation }): ReactElement => {
   const { close } = Dialog.useContext();
   const action = useAction(
     useCallback(async () => {
-      await post(`/api/portal/activations/${device.key}/unlink`);
+      await post(`/api/portal/activations/${activation.key}/unlink`);
       close();
       await reload();
-    }, [device.key, close]),
+    }, [activation.key, close]),
   );
   return (
     <>
       <Modal.Body gap="small">
         <Text.Text level="h4" weight={450}>
-          Unlink {machineName(device)}?
+          Unlink {machineName(activation)}?
         </Text.Text>
         <Text.Text level="p" color={10}>
           The Desktop app on that machine stops renewing its license and asks you to

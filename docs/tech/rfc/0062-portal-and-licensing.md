@@ -559,8 +559,10 @@ keeps only what binds it to the session: the factory and the stack.
   the page the Console links, is the licenses page with that dialog open, taking
   `?license=`. An organization with no licenses sees why.
 - **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
-  by name, with first seen and last renewal, an Unlink action per machine, and an empty
-  state. The Enterprise panel sits beneath the list.
+  by name, each with the status of its license, how long that license still runs, first
+  seen, last renewal, and an Unlink action. A machine whose license lapsed reads Expired
+  and is told to open the app there, since only the app renews it. The Enterprise panel
+  sits beneath the list.
 - **License** (`/portal/licenses/<key>`): The label, status tag, and actions on top:
   Activate a machine, and for staff Edit, Floating token, and Revoke, the last a hold to
   confirm. Edit changes the terms of the license in place, keeping its key so seats and

@@ -9,9 +9,9 @@
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
+import { type Reader, type Store } from "@/server/db/db";
 import {
   type Activation,
   activation,
@@ -67,6 +67,27 @@ export const superseded = (machines: Machine[], fingerprint: string[]): Machine[
   );
 
 /**
+ * machinesFor returns the Desktop machines of an organization that hold a seat, the
+ * most recently renewed first.
+ */
+export const machinesFor = async (
+  db: Reader,
+  organization: string,
+): Promise<Machine[]> =>
+  await db
+    .select({ activation, license })
+    .from(activation)
+    .innerJoin(license, eq(activation.license, license.key))
+    .where(
+      and(
+        eq(license.organization, organization),
+        eq(license.edition, "desktop"),
+        isNull(activation.releasedAt),
+      ),
+    )
+    .orderBy(desc(activation.lastSeen));
+
+/**
  * link issues a desktop license for the user's personal organization, bound to one
  * machine, and returns its token beside the secret that renews it. A machine that
  * signs in again replaces its earlier link, so it stays one entry.
@@ -79,17 +100,7 @@ export const link = async (
   const org = await ensurePersonal(store, { userID, name: userName });
   const secret = mintSecret();
   const linked = await store.transact(async (tx) => {
-    const machines = await tx
-      .select({ activation, license })
-      .from(activation)
-      .innerJoin(license, eq(activation.license, license.key))
-      .where(
-        and(
-          eq(license.organization, org.key),
-          eq(license.edition, "desktop"),
-          isNull(activation.releasedAt),
-        ),
-      );
+    const machines = await machinesFor(tx, org.key);
     for (const old of superseded(machines, fingerprint)) {
       await tx
         .update(activation)

@@ -8,11 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import Portal from "@/portal/layouts/Portal.astro";
 import { load } from "@/portal/page";
 import { Activate } from "@/portal/ui/licenses/Activate";
-import { license, organization } from "@/server/db/schema";
+import { listActivatable } from "@/server/license/list";
 import { organizationsFor } from "@/server/organization";
 
 const loaded = await load(Astro);
@@ -20,20 +19,10 @@ if (loaded instanceof Response) return loaded;
 const { portal, session } = loaded;
 
 const organizations = await organizationsFor(portal.store, session);
-const choices = await portal.store.query
-    .select({ license, organization })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
-    .where(
-        and(
-            inArray(
-                license.organization,
-                organizations.filter((o) => o.kind === "team").map((o) => o.key),
-            ),
-            isNull(license.revokedAt),
-        ),
-    )
-    .orderBy(desc(license.issuedAt));
+const choices = await listActivatable(
+    portal.store.query,
+    organizations.filter((o) => o.kind === "team").map((o) => o.key),
+);
 const selected = Astro.url.searchParams.get("license");
 ---
 

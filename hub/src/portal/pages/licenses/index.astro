@@ -8,12 +8,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { and, count, desc, eq, isNull } from "drizzle-orm";
 import Portal from "@/portal/layouts/Portal.astro";
 import { load } from "@/portal/page";
 import { Desktop } from "@/portal/ui/licenses/Desktop";
 import { Licenses } from "@/portal/ui/licenses/Licenses";
-import { activation, license } from "@/server/db/schema";
+import { machinesFor } from "@/server/license/desktop";
+import { listForOrganization } from "@/server/license/list";
 import { organizationsFor, pick } from "@/server/organization";
 
 const loaded = await load(Astro);
@@ -27,36 +27,12 @@ const enterprise = selected?.kind === "team";
 const licenses =
     selected == null || !enterprise
         ? []
-        : await portal.store.query
-              .select({ license, seats: count(activation.key) })
-              .from(license)
-              .leftJoin(
-                  activation,
-                  and(
-                      eq(activation.license, license.key),
-                      isNull(activation.releasedAt),
-                  ),
-              )
-              .where(eq(license.organization, selected.key))
-              .groupBy(license.key)
-              .orderBy(desc(license.issuedAt));
+        : await listForOrganization(portal.store.query, selected.key);
 
-const devices =
+const machines =
     selected == null || enterprise
         ? []
-        : await portal.store.query
-              .select({ activation })
-              .from(activation)
-              .innerJoin(license, eq(activation.license, license.key))
-              .where(
-                  and(
-                      eq(license.organization, selected.key),
-                      eq(license.edition, "desktop"),
-                      isNull(activation.releasedAt),
-                  ),
-              )
-              .orderBy(desc(activation.lastSeen))
-              .then((rows) => rows.map((r) => r.activation));
+        : await machinesFor(portal.store.query, selected.key);
 ---
 
 <Portal
@@ -74,7 +50,7 @@ const devices =
                 now={portal.now()}
             />
         ) : (
-            <Desktop client:load devices={devices} />
+            <Desktop client:load machines={machines} now={portal.now()} />
         )
     }
 </Portal>
