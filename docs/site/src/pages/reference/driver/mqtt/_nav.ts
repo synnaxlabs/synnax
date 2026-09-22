@@ -16,17 +16,17 @@ export const MQTT_NAV: PageNavNode = {
     {
       key: "/reference/driver/mqtt/connect-broker",
       href: "/reference/driver/mqtt/connect-broker",
-      name: "Connect to a Broker",
+      name: "Connect to a broker",
     },
     {
       key: "/reference/driver/mqtt/read-task",
       href: "/reference/driver/mqtt/read-task",
-      name: "Read Task",
+      name: "Read task",
     },
     {
       key: "/reference/driver/mqtt/write-task",
       href: "/reference/driver/mqtt/write-task",
-      name: "Write Task",
+      name: "Write task",
     },
     {
       key: "/reference/driver/mqtt/sparkplug",

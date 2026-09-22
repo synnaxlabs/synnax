@@ -19,13 +19,13 @@ import { PAGERDUTY_NAV } from "@/pages/reference/driver/pagerduty/_nav";
 
 export const DRIVER_NAV: PageNavNode = {
   key: "driver",
-  name: "Device Drivers",
+  name: "Device drivers",
   icon: "Device",
   children: [
     {
       key: "/reference/driver/get-started",
       href: "/reference/driver/get-started",
-      name: "Get Started",
+      name: "Get started",
     },
     {
       key: "/reference/driver/installation",
@@ -35,7 +35,7 @@ export const DRIVER_NAV: PageNavNode = {
     {
       key: "/reference/driver/task-basics",
       href: "/reference/driver/task-basics",
-      name: "Task Basics",
+      name: "Task basics",
     },
     ETHERCAT_NAV,
     HTTP_NAV,

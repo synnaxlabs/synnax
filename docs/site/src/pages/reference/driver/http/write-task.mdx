@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "HTTP Write Task"
+title: "HTTP write task"
 description: "Learn how to send commands to HTTP endpoints with Synnax."
-prev: "Read Task"
+prev: "Read task"
 prevURL: "/reference/driver/http/read-task"
 next: "LabJack"
 nextURL: "/reference/driver/labjack/configure-device"
@@ -16,11 +16,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter   | Type   | Required | Default | Description                                                          |
 | ----------- | ------ | -------- | ------- | -------------------------------------------------------------------- |
@@ -29,7 +30,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Endpoint Configuration Reference
+## Endpoint configuration reference
 
 Each endpoint maps a single Synnax command channel to an HTTP request. When the channel
 receives a value, the Driver builds the JSON body and sends the request.
@@ -46,7 +47,7 @@ receives a value, the Driver builds the JSON body and sends the request.
 
 <Divider.Divider x />
 
-## Field Types Reference
+## Field types reference
 
 The request body is constructed from three types of fields, each placed at a JSON
 Pointer location in the body.
@@ -147,7 +148,7 @@ http.GeneratedWriteField(
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">
