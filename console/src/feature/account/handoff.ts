@@ -12,32 +12,32 @@ import { z } from "zod";
 
 import { License } from "@/platform/license";
 
-/** The URL scheme the portal hands a sign-in back through. */
+/** The URL scheme the hub hands a sign-in back through. */
 export const SCHEME = "synnax-desktop";
 
 const LINK_HOST = "activate";
 
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Sign-in links must be of the form ${SCHEME}://${LINK_HOST}?...`;
 
-/** Mints the state a sign-in carries out to the portal and back. */
+/** Mints the state a sign-in carries out to the hub and back. */
 export const mintState = (): string => uuid.create();
 
 export interface SignInParams {
   state: string;
   fingerprint: string[];
-  /** The name this machine shows in the portal. */
+  /** The name this machine shows in the account. */
   name: string;
   version?: string;
 }
 
-/** The portal page that links this machine, with what it needs in the query. */
+/** The hub page that links this machine, with what it needs in the query. */
 export const signInURL = ({
   state,
   fingerprint,
   name,
   version,
 }: SignInParams): string => {
-  const url = new URL(License.PORTAL_SIGN_IN_URL);
+  const url = new URL(License.SIGN_IN_URL);
   url.searchParams.set("state", state);
   url.searchParams.set("fp", License.joinFingerprint(fingerprint));
   url.searchParams.set("name", name);
@@ -45,7 +45,7 @@ export const signInURL = ({
   return url.toString();
 };
 
-/** What the portal hands back once the machine is linked. */
+/** What the hub hands back once the machine is linked. */
 export interface Linked {
   state: string;
   token: string;
@@ -55,7 +55,7 @@ export interface Linked {
 }
 
 /**
- * Reads the link the portal opens the app with.
+ * Reads the link the hub opens the app with.
  * @throws {Error} if the URL is not a sign-in link or a field is missing.
  */
 export const parseLink = (url: string): Linked => {
@@ -99,19 +99,19 @@ const readMessage = async (res: Response): Promise<string> => {
 };
 
 /**
- * Asks the portal for a fresh token for the machine the secret belongs to. Unlinked
- * means the portal no longer knows the machine, so the secret is spent.
- * @throws {Error} if the portal cannot be reached or refuses for another reason.
+ * Asks the hub for a fresh token for the machine the secret belongs to. Unlinked
+ * means the hub no longer knows the machine, so the secret is spent.
+ * @throws {Error} if the hub cannot be reached or refuses for another reason.
  */
 export const renew = async (secret: string): Promise<RenewResult> => {
-  const res = await fetch(License.PORTAL_RENEW_URL, {
+  const res = await fetch(License.RENEW_URL, {
     method: "POST",
     headers: { authorization: `Bearer ${secret}` },
   });
   if (res.status === 401 || res.status === 403)
     return { variant: "unlinked", message: await readMessage(res) };
   if (!res.ok)
-    throw new Error(`The portal refused the renewal: ${await readMessage(res)}`);
+    throw new Error(`Could not renew the license: ${await readMessage(res)}`);
   const { token } = renewedZ.parse(await res.json());
   return { variant: "renewed", token };
 };

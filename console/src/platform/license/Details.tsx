@@ -14,8 +14,8 @@ import { Button, Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { PORTAL_LICENSES_URL } from "@/platform/license/portal";
 import { describeChannels, describeTerm, editionLabel } from "@/platform/license/term";
+import { ACCOUNT_URL } from "@/platform/license/urls";
 import { useInfo } from "@/platform/license/useInfo";
 import { Session } from "@/session";
 
@@ -114,7 +114,7 @@ export const Details = (): ReactElement | null => {
   );
 };
 
-/** The account a Synnax Desktop machine is linked to, with a way to the portal. */
+/** The account a Synnax Desktop machine is linked to, with a way to the hub. */
 const Account = (): ReactElement | null => {
   const { email } = Session.Account.useSelect();
   if (email == null) return null;
@@ -129,14 +129,9 @@ const Account = (): ReactElement | null => {
       <Text.Text level="small" color={10} overflow="ellipsis">
         Signed in as {email}
       </Text.Text>
-      <Button.Button
-        variant="text"
-        size="small"
-        href={PORTAL_LICENSES_URL}
-        target="_blank"
-      >
+      <Button.Button variant="text" size="small" href={ACCOUNT_URL} target="_blank">
         <Icon.OpenExternal />
-        Manage in the portal
+        Manage in your account
       </Button.Button>
     </Flex.Box>
   );

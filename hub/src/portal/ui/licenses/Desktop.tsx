@@ -108,7 +108,7 @@ const UnlinkContent = ({ activation }: { activation: Activation }): ReactElement
   const { close } = Dialog.useContext();
   const action = useAction(
     useCallback(async () => {
-      await post(`/api/portal/activations/${activation.key}/unlink`);
+      await post(`/api/activations/${activation.key}/unlink`);
       close();
       await reload();
     }, [activation.key, close]),

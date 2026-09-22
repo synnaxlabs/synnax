@@ -43,7 +43,7 @@ export const Link = ({
   const [url, setURL] = useState<string | null>(null);
   const action = useAction(
     useCallback(async () => {
-      const res = await post<Linked>("/api/portal/desktop/link", {
+      const res = await post<Linked>("/api/desktop/link", {
         fingerprint,
         name,
       });

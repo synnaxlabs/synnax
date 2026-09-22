@@ -12,7 +12,7 @@ import Root from "@/layouts/Root.astro";
 import { SignIn } from "@/portal/ui/auth/SignIn";
 import "@/portal/portal.css";
 
-if (Astro.locals.auth().userId != null) return Astro.redirect("/portal", 303);
+if (Astro.locals.auth().userId != null) return Astro.redirect("/account", 303);
 ---
 
 <Root frontmatter={{ title: "Sign in" }}>

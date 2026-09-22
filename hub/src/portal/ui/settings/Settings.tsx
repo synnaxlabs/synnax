@@ -37,18 +37,22 @@ import { Row, Table } from "@/portal/ui/Table";
 import { useAction } from "@/portal/ui/useAction";
 import { type Organization } from "@/server/db/schema";
 
-export interface AccountProps {
+export interface SettingsProps {
   name: string;
   email: string;
   organizations: Organization[];
 }
 
-/** Account shows the signed-in user's profile and the teams they belong to. */
-export const Account = ({ name, email, organizations }: AccountProps): ReactElement => {
+/** Settings shows the signed-in user's profile and the teams they belong to. */
+export const Settings = ({
+  name,
+  email,
+  organizations,
+}: SettingsProps): ReactElement => {
   const user = useUser();
   const teams = organizations.filter((o) => o.kind === "team");
   return (
-    <Page title="Account" subtitle={email}>
+    <Page title="Settings" subtitle={email}>
       <Section title="Profile" actions={user != null && <EditProfileDialog />}>
         <Flex.Box bordered rounded background={1} style={{ padding: "3rem 4rem" }}>
           <Flex.Box className="portal-facts" full="x">
@@ -206,7 +210,7 @@ const Team = ({ organization }: { organization: Organization }): ReactElement =>
           </Text.Text>
         </Flex.Box>
         <Flex.Box x gap="small">
-          <Button.Button variant="text" href={`/portal?org=${organization.key}`}>
+          <Button.Button variant="text" href={`/account?org=${organization.key}`}>
             Licenses
           </Button.Button>
           {admin && org != null && <InviteDialog organization={org} onDone={refresh} />}

@@ -12,7 +12,7 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
-import { renew, type RenewResult } from "@/feature/account/portal";
+import { renew, type RenewResult } from "@/feature/account/handoff";
 import { Session } from "@/session";
 
 /** How often a running app checks whether its license needs a renewal. */
@@ -37,8 +37,8 @@ const DEFAULT_DEPS: RenewDeps = { renew, interval: CHECK_INTERVAL };
 
 /**
  * Keeps a linked machine licensed: on launch and on an interval, renews through the
- * portal once the license is within a week of its expiry, or missing. A machine the
- * portal has unlinked forgets its account.
+ * hub once the license is within a week of its expiry, or missing. A machine the
+ * hub has unlinked forgets its account.
  */
 export const useRenew = ({
   renew: renewToken = DEFAULT_DEPS.renew,

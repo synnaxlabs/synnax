@@ -11,14 +11,14 @@ import { Drift } from "@synnaxlabs/drift";
 import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { type Linked, parseLink } from "@/feature/account/portal";
+import { type Linked, parseLink } from "@/feature/account/handoff";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
 const FAILED_MESSAGE = "Failed to sign in";
 
 /**
- * Takes the sign-in link the portal opens Synnax Desktop with: applies its token to
+ * Takes the sign-in link the hub opens Synnax Desktop with: applies its token to
  * the embedded Core and stores the link. A link whose state this app did not mint is
  * refused.
  */

@@ -10,7 +10,7 @@
 
 import Portal from "@/portal/layouts/Portal.astro";
 import { load } from "@/portal/page";
-import { Account } from "@/portal/ui/account/Account";
+import { Settings } from "@/portal/ui/settings/Settings";
 import { organizationsFor } from "@/server/organization";
 
 const loaded = await load(Astro);
@@ -20,8 +20,8 @@ const { portal, session } = loaded;
 const organizations = await organizationsFor(portal.store, session);
 ---
 
-<Portal title="Account" session={session} organizations={organizations}>
-    <Account
+<Portal title="Settings" session={session} organizations={organizations}>
+    <Settings
         client:load
         name={session.name}
         email={session.email}

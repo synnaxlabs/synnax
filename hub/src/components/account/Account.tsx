@@ -63,18 +63,18 @@ export const Account = (): ReactElement | null => {
         <Menu.Menu
           level="small"
           onChange={{
-            portal: () => window.location.assign("/portal"),
-            account: () => window.location.assign("/portal/account"),
+            licenses: () => window.location.assign("/account"),
+            settings: () => window.location.assign("/account/settings"),
             signOut,
           }}
         >
-          <Menu.Item itemKey="portal">
+          <Menu.Item itemKey="licenses">
             <Icon.Access />
             Licenses
           </Menu.Item>
-          <Menu.Item itemKey="account">
-            <Icon.User />
-            Account
+          <Menu.Item itemKey="settings">
+            <Icon.Settings />
+            Settings
           </Menu.Item>
           <Menu.Divider />
           <Menu.Item itemKey="signOut">

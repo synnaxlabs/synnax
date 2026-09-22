@@ -121,7 +121,7 @@ export const StaffLicenses = ({
                 <Row
                   key={lic.key}
                   columns={COLUMNS}
-                  href={`/portal/licenses/${lic.key}`}
+                  href={`/account/licenses/${lic.key}`}
                 >
                   <Text.Text level="p" weight={500} overflow="ellipsis">
                     {lic.label || "Untitled license"}

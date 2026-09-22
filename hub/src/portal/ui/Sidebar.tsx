@@ -32,22 +32,27 @@ interface Link {
   owns?: string[];
 }
 
-const LICENSE_PAGES = ["/portal/licenses"];
+const LICENSE_PAGES = ["/account/licenses"];
 
 const links = (enterprise: boolean): Link[] => [
   enterprise
-    ? { href: "/portal", label: "Licenses", icon: <Icon.Access />, owns: LICENSE_PAGES }
+    ? {
+        href: "/account",
+        label: "Licenses",
+        icon: <Icon.Access />,
+        owns: LICENSE_PAGES,
+      }
     : {
-        href: "/portal",
+        href: "/account",
         label: "Desktop",
         icon: <Icon.Computer />,
         owns: LICENSE_PAGES,
       },
-  { href: "/portal/account", label: "Account", icon: <Icon.User /> },
+  { href: "/account/settings", label: "Settings", icon: <Icon.Settings /> },
 ];
 
 const STAFF_LINKS: Link[] = [
-  { href: "/portal/staff/licenses", label: "All licenses", icon: <Icon.Policy /> },
+  { href: "/account/staff/licenses", label: "All licenses", icon: <Icon.Policy /> },
 ];
 
 const active = (path: string, link: Link): boolean =>

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/link/CopyContextMenuItem";
-export * from "@/platform/link/deps";
 export * from "@/platform/link/createUseOpen";
+export * from "@/platform/link/deps";
 export * from "@/platform/link/Disabled";
 export * from "@/platform/link/markIgnored";
 export * from "@/platform/link/types";

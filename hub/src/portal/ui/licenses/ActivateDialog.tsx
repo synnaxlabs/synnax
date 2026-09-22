@@ -50,7 +50,7 @@ export const useActivate = (
     useCallback(async () => {
       if (!methods.validate()) return;
       const { name, fingerprint } = methods.value();
-      const res = await post<Activated>(`/api/portal/licenses/${licenseKey}/activate`, {
+      const res = await post<Activated>(`/api/licenses/${licenseKey}/activate`, {
         name,
         fingerprint,
       });

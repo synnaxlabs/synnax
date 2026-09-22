@@ -65,11 +65,8 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
   const action = useAction(
     useCallback(async () => {
       if (!methods.validate()) return;
-      const { key } = await post<{ key: string }>(
-        "/api/portal/licenses",
-        methods.value(),
-      );
-      await navigate(`/portal/licenses/${key}`);
+      const { key } = await post<{ key: string }>("/api/licenses", methods.value());
+      await navigate(`/account/licenses/${key}`);
     }, [methods]),
   );
   return (

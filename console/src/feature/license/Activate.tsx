@@ -21,7 +21,7 @@ import { License } from "@/platform/license";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-/** The extension the portal gives a downloaded token file. */
+/** The extension the hub gives a downloaded token file. */
 const TOKEN_FILE_EXTENSION = "license";
 
 const decoder = new TextDecoder();
@@ -76,12 +76,12 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
       <Button.Button
         variant="text"
         size="small"
-        href={License.PORTAL_ACTIVATE_URL}
+        href={License.ACTIVATE_URL}
         target="_blank"
-        className={CSS.BE("license-activate", "portal")}
+        className={CSS.BE("license-activate", "account")}
       >
         <Icon.OpenExternal />
-        Get a token from the portal
+        Get a token from your account
       </Button.Button>
     </Flex.Box>
   );
@@ -99,7 +99,7 @@ export interface ActivateProps {
 
 /**
  * Full-screen activation surface for a Core that refuses requests until a license
- * applies. Shows the host fingerprint the portal needs and takes the token it issues,
+ * applies. Shows the host fingerprint the hub needs and takes the token it issues,
  * pasted or from a file.
  */
 export const Activate = ({

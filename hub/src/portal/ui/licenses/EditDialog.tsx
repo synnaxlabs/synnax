@@ -49,7 +49,7 @@ const Content = ({ license }: EditDialogProps): ReactElement => {
   const action = useAction(
     useCallback(async () => {
       if (!methods.validate()) return;
-      await post(`/api/portal/licenses/${license.key}`, methods.value());
+      await post(`/api/licenses/${license.key}`, methods.value());
       close();
       await reload();
     }, [methods, license.key, close]),

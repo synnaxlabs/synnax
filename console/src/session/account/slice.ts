@@ -17,7 +17,7 @@ export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   /** The state minted for a sign-in the app started and has not finished. */
   pending: z.string().optional(),
-  /** The activation the portal issued for this machine. */
+  /** The activation the hub issued for this machine. */
   activation: z.string().optional(),
   /** The secret that renews this machine's license. */
   secret: z.string().optional(),

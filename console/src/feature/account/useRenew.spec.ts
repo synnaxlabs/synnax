@@ -116,7 +116,7 @@ describe("Account.useRenew", () => {
     expect(h.renew).not.toHaveBeenCalled();
   });
 
-  it("should forget the account once the portal has unlinked the machine", async () => {
+  it("should forget the account once the hub has unlinked the machine", async () => {
     const h = await setup({
       result: { variant: "unlinked", message: "This machine was unlinked." },
     });

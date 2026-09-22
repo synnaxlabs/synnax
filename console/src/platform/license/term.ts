@@ -28,6 +28,6 @@ export const describeTerm = ({ exp, mv }: license.License): string => {
 export const describeChannels = ({ ch }: license.License): string =>
   ch === 0 ? "Unlimited" : `Up to ${ch}`;
 
-/** Joins host hashes the way the portal's activation page reads them. */
+/** Joins host hashes the way the activation page reads them. */
 export const joinFingerprint = (fingerprint: string[]): string =>
   fingerprint.join(", ");

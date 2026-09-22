@@ -211,7 +211,7 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
   const [renaming, setRenaming] = useState(false);
   const download = useAction(
     useCallback(async () => {
-      const blob = await postFile(`/api/portal/activations/${activation.key}/token`);
+      const blob = await postFile(`/api/activations/${activation.key}/token`);
       save(blob, `${label || "synnax"}.license`);
     }, [activation.key, label]),
   );
@@ -269,7 +269,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
   const { close } = Dialog.useContext();
   const action = useAction(
     useCallback(async () => {
-      await post(`/api/portal/activations/${activation.key}/release`);
+      await post(`/api/activations/${activation.key}/release`);
       close();
       await reload();
     }, [activation.key, close]),
@@ -308,7 +308,7 @@ interface StaffActionsProps {
 const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement => {
   const floating = useAction(
     useCallback(async () => {
-      const blob = await postFile(`/api/portal/licenses/${lic.key}/floating`);
+      const blob = await postFile(`/api/licenses/${lic.key}/floating`);
       save(blob, `${lic.label || "synnax"}.license`);
     }, [lic.key, lic.label]),
   );
@@ -348,7 +348,7 @@ const RevokeContent = ({ license: lic }: { license: LicenseRecord }): ReactEleme
   const { close } = Dialog.useContext();
   const action = useAction(
     useCallback(async () => {
-      await post(`/api/portal/licenses/${lic.key}/revoke`);
+      await post(`/api/licenses/${lic.key}/revoke`);
       close();
       await reload();
     }, [lic.key, close]),

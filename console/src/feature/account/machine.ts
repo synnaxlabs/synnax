@@ -14,7 +14,7 @@ import { Session } from "@/session";
 /** The name a machine gets when the platform reports none. */
 export const DEFAULT_MACHINE_NAME = "Synnax Desktop";
 
-/** The name this machine shows in the portal: its hostname when known. */
+/** The name this machine shows in the account: its hostname when known. */
 export const readMachineName = async (): Promise<string> => {
   if (Session.Runtime.ENGINE !== "tauri") return DEFAULT_MACHINE_NAME;
   const name = (await hostname())?.trim();

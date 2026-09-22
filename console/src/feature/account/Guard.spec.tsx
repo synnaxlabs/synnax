@@ -102,7 +102,7 @@ describe("Account.Guard", () => {
     expect(screen.getByText(/someone@example\.com/)).toBeTruthy();
   });
 
-  it("should open the portal with the state it minted", async () => {
+  it("should open the hub with the state it minted", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { store } = await renderGuard({ status: UNLICENSED });
     const signIn = findButton("Sign in");
@@ -110,7 +110,7 @@ describe("Account.Guard", () => {
     fireEvent.click(signIn);
     await waitFor(() => expect(open).toHaveBeenCalled());
     const url = new URL(String(open.mock.calls[0][0]));
-    expect(url.origin + url.pathname).toBe(License.PORTAL_SIGN_IN_URL);
+    expect(url.origin + url.pathname).toBe(License.SIGN_IN_URL);
     expect(url.searchParams.get("fp")).toBe("aa, bb");
     expect(url.searchParams.get("name")).toBe(Account.DEFAULT_MACHINE_NAME);
     expect(url.searchParams.get("state")).toBe(

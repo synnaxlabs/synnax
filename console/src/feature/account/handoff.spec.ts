@@ -23,9 +23,9 @@ const LINKED: Account.Linked = {
 const linkOf = (linked: Partial<Account.Linked>): string =>
   `${Account.SCHEME}://activate?${new URLSearchParams(linked).toString()}`;
 
-describe("account portal", () => {
+describe("account handoff", () => {
   describe("mintState", () => {
-    it("should mint a state the portal accepts that differs each time", () => {
+    it("should mint a state the hub accepts that differs each time", () => {
       const a = Account.mintState();
       expect(a).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
       expect(a).not.toBe(Account.mintState());
@@ -42,7 +42,7 @@ describe("account portal", () => {
           version: "0.58.0",
         }),
       );
-      expect(url.origin + url.pathname).toBe(License.PORTAL_SIGN_IN_URL);
+      expect(url.origin + url.pathname).toBe(License.SIGN_IN_URL);
       expect(url.searchParams.get("state")).toBe("s");
       expect(url.searchParams.get("fp")).toBe("aa, bb");
       expect(url.searchParams.get("name")).toBe("my-mac");
@@ -92,7 +92,7 @@ describe("account portal", () => {
       expect(result).toEqual({ variant: "renewed", token: "x.y.z" });
       const fetchMock = vi.mocked(fetch);
       expect(fetchMock).toHaveBeenCalledWith(
-        License.PORTAL_RENEW_URL,
+        License.RENEW_URL,
         expect.objectContaining({
           method: "POST",
           headers: { authorization: "Bearer shh" },
@@ -100,7 +100,7 @@ describe("account portal", () => {
       );
     });
 
-    it("should report a machine the portal no longer knows as unlinked", async () => {
+    it("should report a machine the hub no longer knows as unlinked", async () => {
       answer(403, { error: "This machine was unlinked. Sign in again." });
       expect(await Account.renew("shh")).toEqual({
         variant: "unlinked",
@@ -111,7 +111,7 @@ describe("account portal", () => {
     it("should throw on any other refusal", async () => {
       answer(429, { error: "Too many requests" });
       await expect(Account.renew("shh")).rejects.toThrow(
-        "The portal refused the renewal: Too many requests",
+        "Could not renew the license: Too many requests",
       );
     });
   });

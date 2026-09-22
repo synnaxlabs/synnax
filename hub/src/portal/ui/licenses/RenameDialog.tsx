@@ -54,7 +54,7 @@ const Content = ({ activation }: { activation: Activation }): ReactElement => {
   const action = useAction(
     useCallback(async () => {
       if (!methods.validate()) return;
-      await post(`/api/portal/activations/${activation.key}/name`, methods.value());
+      await post(`/api/activations/${activation.key}/name`, methods.value());
       close();
       await reload();
     }, [methods, activation.key, close]),

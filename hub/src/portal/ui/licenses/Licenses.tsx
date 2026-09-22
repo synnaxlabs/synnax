@@ -62,7 +62,7 @@ export const Licenses = ({
           head={["Label", "Status", "Machines", "Term", "Issued", ""]}
         >
           {licenses.map(({ license: lic, seats }) => (
-            <Row key={lic.key} columns={COLUMNS} href={`/portal/licenses/${lic.key}`}>
+            <Row key={lic.key} columns={COLUMNS} href={`/account/licenses/${lic.key}`}>
               <Flex.Box y gap="tiny" style={{ minWidth: 0 }}>
                 <Text.Text level="p" weight={500} overflow="ellipsis">
                   {lic.label || "Untitled license"}

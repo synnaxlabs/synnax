@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/account/Guard";
+export * from "@/feature/account/handoff";
 export * from "@/feature/account/machine";
-export * from "@/feature/account/portal";
 export * from "@/feature/account/SignIn";
 export * from "@/feature/account/useLink";
 export * from "@/feature/account/useRenew";

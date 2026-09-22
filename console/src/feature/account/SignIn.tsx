@@ -12,8 +12,8 @@ import "@/feature/account/SignIn.css";
 import { Button, Flex, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
+import { mintState, signInURL } from "@/feature/account/handoff";
 import { readMachineName } from "@/feature/account/machine";
-import { mintState, signInURL } from "@/feature/account/portal";
 import { License } from "@/feature/license";
 import { Shell } from "@/feature/shell";
 import { CSS } from "@/platform/css";
@@ -21,7 +21,7 @@ import { Runtime } from "@/platform/runtime";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
 
-/** Follows whether the machine has a network to reach the portal over. */
+/** Follows whether the machine has a network to reach the hub over. */
 const useOnline = (): boolean => {
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -39,8 +39,8 @@ const useOnline = (): boolean => {
 type Stage = "idle" | "waiting" | "file";
 
 /**
- * Full-screen sign-in surface for Synnax Desktop. Sends the person to the portal in
- * their browser and waits for the link the portal opens the app with; a license file
+ * Full-screen sign-in surface for Synnax Desktop. Sends the person to the hub in
+ * their browser and waits for the link the hub opens the app with; a license file
  * is the fallback.
  */
 export const SignIn = (): ReactElement => {
