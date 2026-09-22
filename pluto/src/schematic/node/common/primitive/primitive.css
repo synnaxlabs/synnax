@@ -9,6 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto--enabled svg {
+    stroke: var(--pluto-symbol-display) !important;
+    fill: var(--pluto-symbol-display) !important;
+}
+
+.pluto--enabled svg .pluto--detail {
+    stroke: oklch(from var(--pluto-symbol-contrast) l c h / 90%) !important;
+}
+
 .pluto-symbol-primitive {
     width: fit-content;
     height: fit-content;
@@ -58,39 +67,18 @@
     }
 }
 
-.pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
-    &:hover {
-        &:not(.pluto--enabled) svg {
-            fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
-            stroke: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
-        }
-
-        &.pluto--enabled svg {
-            stroke: oklch(from var(--pluto-symbol-display) l c h / 80%) !important;
-            fill: oklch(from var(--pluto-symbol-display) l c h / 85%) !important;
-        }
-    }
-
-    &.pluto--pressed {
-        &:not(.pluto--enabled) svg {
-            fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
-            stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
-        }
-
-        &.pluto--enabled svg {
-            stroke: oklch(from var(--pluto-symbol-display) l c h / 70%) !important;
-            fill: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
-        }
-    }
+/* Alpha, so a stroke-only symbol masks along its lines and a closed one masks its
+   interior, whatever color the symbol paints. */
+.pluto-symbol-hold__mask {
+    mask-type: alpha;
+    fill: white;
+    stroke: white;
 }
 
-.pluto--enabled svg {
-    stroke: var(--pluto-symbol-display) !important;
-    fill: var(--pluto-symbol-display) !important;
-}
-
-.pluto--enabled svg .pluto--detail {
-    stroke: oklch(from var(--pluto-symbol-contrast) l c h / 90%) !important;
+.pluto-symbol-hold__fill {
+    display: none;
+    pointer-events: none;
+    fill: oklch(from var(--pluto-symbol-display) l c h / 20%);
 }
 
 .pluto-symbol-primitive-toggle {
@@ -143,18 +131,30 @@
     }
 }
 
-/* Alpha, so a stroke-only symbol masks along its lines and a closed one masks its
-   interior, whatever color the symbol paints. */
-.pluto-symbol-hold__mask {
-    mask-type: alpha;
-    fill: white;
-    stroke: white;
-}
+.pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
+    &:hover {
+        &:not(.pluto--enabled) svg {
+            fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
+        }
 
-.pluto-symbol-hold__fill {
-    display: none;
-    pointer-events: none;
-    fill: oklch(from var(--pluto-symbol-display) l c h / 20%);
+        &.pluto--enabled svg {
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 80%) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 85%) !important;
+        }
+    }
+
+    &.pluto--pressed {
+        &:not(.pluto--enabled) svg {
+            fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
+        }
+
+        &.pluto--enabled svg {
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 70%) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
+        }
+    }
 }
 
 @keyframes symbol-hold {

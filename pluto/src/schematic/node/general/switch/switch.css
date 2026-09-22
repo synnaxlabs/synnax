@@ -63,7 +63,9 @@
     height: var(--pluto-switch-width);
 }
 
-.pluto-symbol-primitive.pluto--direction-y .pluto-input__switch-indicator {
+.pluto-symbol-primitive.pluto--direction-y
+    .pluto-input__switch
+    .pluto-input__switch-indicator {
     rotate: -90deg;
 }
 
