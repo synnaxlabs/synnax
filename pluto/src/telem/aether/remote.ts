@@ -93,6 +93,7 @@ export class StreamChannelValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
+  private sampleTime_: TimeStamp | null = null;
   private generation = 0;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
@@ -100,6 +101,10 @@ export class StreamChannelValue
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+  }
+
+  sampleTime(): TimeStamp | null {
+    return this.sampleTime_;
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -119,6 +124,7 @@ export class StreamChannelValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
+    this.sampleTime_ = null;
     this.removeStreamHandler = null;
   }
 
@@ -152,6 +158,7 @@ export class StreamChannelValue
           first.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = first;
+          this.sampleTime_ = null;
         }
         // Just because we didn't get a new buffer doesn't mean one wasn't allocated: an
         // empty update means the leading buffer was appended to in place. A frame that
@@ -173,6 +180,7 @@ export class StreamChannelValue
       if (generation !== this.generation || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
+      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
       this.notify();
     } catch (e) {
       this.valid = false;
@@ -517,6 +525,7 @@ export class StreamChannelStringValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
+  private sampleTime_: TimeStamp | null = null;
   private latest = "";
   // Buffer length the latest decode was taken at, or -1 to force a re-decode.
   private decodedAt = -1;
@@ -536,9 +545,14 @@ export class StreamChannelStringValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
+    this.sampleTime_ = null;
     this.latest = "";
     this.decodedAt = -1;
     this.removeStreamHandler = null;
+  }
+
+  sampleTime(): TimeStamp | null {
+    return this.sampleTime_;
   }
 
   value(): string {
@@ -577,6 +591,7 @@ export class StreamChannelStringValue
           leading.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = leading;
+          this.sampleTime_ = null;
           this.decodedAt = -1;
         }
         // An empty update means the leading buffer was appended to in place. A frame
@@ -598,6 +613,7 @@ export class StreamChannelStringValue
       if (generation !== this.generation || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
+      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
       this.decodedAt = -1;
       this.notify();
     } catch (e) {
