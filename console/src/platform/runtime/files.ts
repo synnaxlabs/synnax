@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x";
 import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readDir, readFile } from "@tauri-apps/plugin-fs";
@@ -74,7 +75,7 @@ const pickFilesTauri = async ({
     directory: false,
   });
   if (result == null) return null;
-  const paths = Array.isArray(result) ? result : [result];
+  const paths = array.toArray(result);
   if (paths.length === 0) return null;
   const separator = sep();
   return paths.map((path) => ({
