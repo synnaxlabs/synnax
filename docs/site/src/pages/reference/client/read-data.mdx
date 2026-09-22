@@ -1,12 +1,12 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Reading Data"
+title: "Reading data"
 description:
   "Learn how to read data from channels in Synnax, including real-time streaming and
   historical reads."
-next: "Writing Data"
+next: "Writing data"
 nextURL: "/reference/client/write-data"
-prev: "Time Types"
+prev: "Time types"
 prevURL: "/reference/client/time-types"
 clients: ["python", "typescript"]
 ---
@@ -26,13 +26,13 @@ If you'd like a conceptual overview of how reads work in Synnax, check out the
 
 <Divider.Divider x />
 
-## Streaming Data
+## Streaming data
 
 Streaming data is useful for real-time processing, visualization, and monitoring. If
 you'd like a conceptual overview of how streaming works in Synnax, check out the
 [streams](/reference/concepts/streams) page.
 
-### Opening a Streamer
+### Opening a streamer
 
 To start streaming data, call the <Client.Var client:load py="open_streamer"
 ts="openStreamer" /> method on the client and provide a list of channels to stream.
@@ -70,7 +70,7 @@ try {
   </Fragment>
 </Client.Tabs>
 
-### Downsampling Option
+### Downsampling option
 
 To stream data at a lower rate, use the <Client.Var client:load py="downsample_factor"
 ts="downsampleFactor" /> parameter. The streamer will skip the specified number of
@@ -104,7 +104,7 @@ const streamer = await client.openStreamer({
   </Fragment>
 </Client.Tabs>
 
-### Using an Async Streamer
+### Using an async streamer
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -129,7 +129,7 @@ TypeScript streaming is async by default.
   </Fragment>
 </Client.Tabs>
 
-### Reading Frames
+### Reading frames
 
 To read the next incoming frame, call the `read` method on the streamer.
 
@@ -153,13 +153,13 @@ const frame = await streamer.read();
 </Client.Tabs>
 
 This call will block until a new frame is available. Note that a frame may not contain
-data for every channel—see [Handling Partial Frames](#handling-partial-frames) for
+data for every channel—see [Handling partial frames](#handling-partial-frames) for
 details.
 
 For more on working with frames, see
 [Series and Frames](/reference/client/series-and-frames).
 
-### Using a For Loop
+### Using a for loop
 
 The streamer implements an iterator, allowing you to use a for loop to continuously
 process incoming frames.
@@ -189,7 +189,7 @@ for await (const frame of streamer) {
   </Fragment>
 </Client.Tabs>
 
-### Handling Partial Frames
+### Handling partial frames
 
 When reading frames from a streamer, it's important to note that a frame may not contain
 data for every channel specified when opening the streamer. For example, when reading
@@ -247,7 +247,7 @@ if (frame.has("temperature")) console.log(frame.get("temperature"));
   </Fragment>
 </Client.Tabs>
 
-### Specifying a Timeout
+### Specifying a timeout
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -289,7 +289,7 @@ if (frame === null) {
   </Fragment>
 </Client.Tabs>
 
-### Updating the Channel List
+### Updating the channel list
 
 To update the list of channels being streamed, call the <Client.Var client:load
 py="update*channels" ts="update" /> method on the streamer. This will \_replace* the
@@ -314,7 +314,7 @@ await streamer.update(["temperature", "pressure", "humidity"]);
   </Fragment>
 </Client.Tabs>
 
-### Closing the Streamer
+### Closing the streamer
 
 After you're done streaming, it's essential that you call the `close` method on the
 streamer to release the network connection and other related resources.
@@ -374,12 +374,12 @@ try {
 
 <Divider.Divider x />
 
-## Historical Reads
+## Historical reads
 
 Historical reads are useful for analyzing data that has already been recorded. Use these
 patterns when working with past data rather than live streams.
 
-### Reading from a Channel
+### Reading from a channel
 
 The simplest way to read historical data from Synnax is to use the `read` method on a
 `Channel`.
@@ -429,7 +429,7 @@ const data = Array.from(series);
 
 </Client.Tabs>
 
-### Reading from Multiple Channels
+### Reading from multiple channels
 
 The returned data is an instance of the
 [Frame](/reference/client/series-and-frames#frames) class.
@@ -475,7 +475,7 @@ const humidity = frame.get("humidity");
 
 </Client.Tabs>
 
-### Reading the Latest Data
+### Reading the latest data
 
 The `readLatest` method allows you to read the latest N samples from one or more
 channels:

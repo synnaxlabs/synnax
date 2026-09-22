@@ -1,5 +1,5 @@
 ---
-title: "Version 0.55 Release Notes"
+title: "Version 0.55 release notes"
 ---
 
 import { Fragment } from "react";
@@ -16,7 +16,7 @@ export const components = mdxOverrides;
 <Release
     version="0.55.0"
     date="Apr 18, 2026"
-    title="Flexible Arc Sequences and Persisted Variable-Length Channels"
+    title="Flexible Arc sequences and persisted variable-length channels"
 >
 
 <ArcSequence />
@@ -29,7 +29,7 @@ drivers.
 
 <Divider.Divider x />
 
-### Flexible Arc Sequences and Stages
+### Flexible Arc sequences and stages
 
 Arc's sequencing model has been redesigned around two clearly distinct constructs. A
 **sequence** runs its items in order, with each item completing before the next begins.
@@ -88,7 +88,7 @@ multi-line programs.
 
 <Divider.Divider x />
 
-### Other Arc Language Improvements
+### Other Arc language improvements
 
 Arc now supports [`for` loops](/reference/control/arc/reference/loops) inside function
 bodies, with range, series, and conditional forms:
@@ -127,7 +127,7 @@ routine node calls like `wait{duration=2ms}` or `filter{threshold=10}` stay read
 
 <Divider.Divider x />
 
-### Persisted Variable-Length Channels
+### Persisted variable-length channels
 
 Channels with the `string`, `json`, and `bytes` data types can now be created as indexed
 data channels that persist to disk. Before v0.55, these data types were only available
@@ -222,7 +222,7 @@ round-trip through writes and reads correctly.
 
 <Divider.Divider x />
 
-### Multi-Channel Log Visualization
+### Multi-channel log visualization
 
 The Console's Log visualization can now stream from multiple channels in the same view.
 Each channel is selectable from the toolbar, and a new Properties panel controls
@@ -230,7 +230,7 @@ per-view configuration. Existing single-channel logs are migrated automatically.
 
 <Divider.Divider x />
 
-### Clock Skew Detection
+### Clock skew detection
 
 The Python, TypeScript, and C++ clients now measure the time offset between the client
 machine and the Synnax cluster during the connection check, and surface it alongside the
@@ -239,7 +239,7 @@ deployments where machines are not synchronized with the same time source.
 
 <Divider.Divider x />
 
-### Schematic Control Chip
+### Schematic control chip
 
 The control chip on schematic elements now changes shape to signal state. It stays a
 circle when the element is uncontrolled, when the current user holds control, or when
@@ -249,7 +249,7 @@ immediately obvious when someone else is driving.
 
 <Divider.Divider x />
 
-### Minor Improvements and Bug Fixes
+### Minor improvements and bug fixes
 
 #### Console
 
@@ -276,7 +276,7 @@ immediately obvious when someone else is driving.
   branchless path, reducing CPU usage for calculated channels and client-side series
   math.
 
-#### Docs Site
+#### Docs site
 
 - The sidebar now preserves its scroll position across page navigations, so clicking a
   link no longer resets the navigation tree to the top.

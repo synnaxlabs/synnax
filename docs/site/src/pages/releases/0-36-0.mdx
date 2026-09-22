@@ -1,5 +1,5 @@
 ---
-title: "Version 0.36 Release Notes"
+title: "Version 0.36 release notes"
 ---
 
 import { Image, Video } from "@/components/media/Media";
@@ -13,7 +13,7 @@ export const components = mdxOverrides;
 <Release
     version="0.36.0"
     date="Dec 16, 2024"
-    title="Line Plot Annotation Tool"
+    title="Line plot annotation tool"
     breakingChanges
 >
 
@@ -23,11 +23,11 @@ time of the range, and a refactored LabJack write task.
 
 <Divider.Divider x />
 
-### Line Plot Annotation Tool
+### Line plot annotation tool
 
 A new annotation tool has been added to the line plot. This tool allows you to add
 horizontal lines to the plots to mark thresholds or other important values. This tool
-can be accessed by clicking the 'Annotations' tab in the Visualization Toolbar.
+can be accessed by clicking the 'Annotations' tab in the Visualization toolbar.
 
 <Image
   client:only="react"
@@ -40,7 +40,7 @@ can be accessed by clicking the 'Annotations' tab in the Visualization Toolbar.
 
 <Divider.Divider x />
 
-### Schematic Undo/Redo
+### Schematic undo/redo
 
 You can now undo and redo changes to a schematic. This feature is possible by using the
 `Ctrl + Z` and `Ctrl + Shift + Z` keyboard shortcuts on a schematic that you are
@@ -50,7 +50,7 @@ editing.
 
 <Divider.Divider x />
 
-### New Range DateTime Selector
+### New range DateTime selector
 
 Synnax has a refactored way to select dates and times of ranges. This can be opened by
 selecting the calendar icon that appears to the right of the time on the create range
@@ -61,7 +61,7 @@ the appropriate date and time.
 
 <Divider.Divider x />
 
-### Breaking Changes
+### Breaking changes
 
 This release introduces a breaking change in the communication protocol that the Core
 and Console use to communicate. This change means that **Console versions 0.36.0 and
@@ -70,12 +70,12 @@ please ensure that your Core and Console are updated to the same version.
 
 <Divider.Divider x />
 
-### Other Improvements and Bug Fixes
+### Other improvements and bug fixes
 
 Improvements:
 
 - Sort child ranges of a range by start time.
-- Add copy link to Tasks Toolbar context menu.
+- Add copy link to Tasks toolbar context menu.
 - Add more attachment points to cylinder schematic symbol.
 - Add schematic and line plot import commands.
 
@@ -87,7 +87,7 @@ Bug Fixes:
 - Close version update notification when clicking snooze.
 - Remove unneeded label direction selector in off page reference schematic form.
 - Fix NI table scale construction error.
-- Fix issues with dragging groups and creating empty groups in the Resources Toolbar.
+- Fix issues with dragging groups and creating empty groups in the Resources toolbar.
 - Commit changes to Core when clicking on schematic elements.
 - Close windows on empty workspace.
 - Fix error when creating a channel that doesn't exist.

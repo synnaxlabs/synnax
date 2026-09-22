@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "OPC UA Read Task"
+title: "OPC UA read task"
 description: "Learn how to acquire data from OPC UA servers with Synnax."
-next: "Write Task"
+next: "Write task"
 nextURL: "/reference/driver/opc-ua/write-task"
-prev: "Connect to a Server"
+prev: "Connect to a server"
 prevURL: "/reference/driver/opc-ua/connect-server"
 ---
 
@@ -18,11 +18,11 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+For the task lifecycle, see [Task basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter     | Type    | Required | Default | Description                                                                                 |
 | ------------- | ------- | -------- | ------- | ------------------------------------------------------------------------------------------- |
@@ -35,7 +35,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Configuration Reference
+## Channel configuration reference
 
 [OPC UA Read Service Specification](https://reference.opcfoundation.org/specs/OPC-10000-4/5.11.2)
 
@@ -110,7 +110,7 @@ using Synnax-generated timestamps.
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **Software timing** -> Samples are timestamped in software with ~100 µs precision,
   which degrades under heavy load.
@@ -121,7 +121,7 @@ using Synnax-generated timestamps.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

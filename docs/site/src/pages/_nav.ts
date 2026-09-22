@@ -20,7 +20,7 @@ import { DRIVER_NAV } from "@/pages/reference/driver/_nav";
 // - pluto/line-plot.mdx example is broken.
 
 export const REFERENCE_PAGES: PageNavNode[] = [
-  { name: "Get Started", key: "/reference/", href: "/reference/" },
+  { name: "Get started", key: "/reference/", href: "/reference/" },
   {
     name: "Installation",
     key: "/reference/installation",

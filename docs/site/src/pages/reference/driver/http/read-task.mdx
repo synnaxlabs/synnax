@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "HTTP Read Task"
+title: "HTTP read task"
 description: "Learn how to acquire data from HTTP endpoints with Synnax."
-next: "Write Task"
+next: "Write task"
 nextURL: "/reference/driver/http/write-task"
-prev: "Connect to a Server"
+prev: "Connect to a server"
 prevURL: "/reference/driver/http/connect-server"
 ---
 
@@ -16,11 +16,11 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+For the task lifecycle, see [Task basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter   | Type   | Required | Default | Description                                                          |
 | ----------- | ------ | -------- | ------- | -------------------------------------------------------------------- |
@@ -30,7 +30,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Endpoint Configuration Reference
+## Endpoint configuration reference
 
 Each endpoint defines an HTTP request to poll and a set of fields to extract from its
 JSON response.
@@ -47,7 +47,7 @@ JSON response.
 
 <Divider.Divider x />
 
-## Field Extraction Reference
+## Field extraction reference
 
 Fields define how to extract values from a JSON response body using
 [JSON Pointers](https://datatracker.ietf.org/doc/html/rfc6901) (RFC 6901). Each field
@@ -93,7 +93,7 @@ If the response value does not match any key in the map, the Driver reports an e
 
 <Divider.Divider x />
 
-## Timestamp Handling
+## Timestamp handling
 
 By default, the Driver automatically generates timestamps for each poll cycle using
 software timing. If your HTTP response includes a timestamp field, you can extract it
@@ -127,7 +127,7 @@ that index channel will be grouped with the extracted timestamp.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["typescript", "cpp"]}>
   <Fragment slot="console">

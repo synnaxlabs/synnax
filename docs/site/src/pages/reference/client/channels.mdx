@@ -3,7 +3,7 @@ layout: "@/layouts/Reference.astro"
 title: "Channels"
 description:
   "Learn the fundamentals of creating, retrieving, renaming, and deleting channels."
-next: "Calculated Channels"
+next: "Calculated channels"
 nextURL: "/reference/client/calculated-channels"
 prev: "Authentication"
 prevURL: "/reference/client/authentication"
@@ -26,7 +26,7 @@ channels.
 
 <Divider.Divider x />
 
-## Channel Parameters
+## Channel parameters
 
 | Parameter                                                                        | Type       | Default                                          | Description                                                                                                                                                                                                         |
 | -------------------------------------------------------------------------------- | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -39,7 +39,7 @@ channels.
 
 <Divider.Divider x />
 
-## Create Channels
+## Create channels
 
 Use the `create` method to create one channel or many channels. Creating many channels
 in a single call is more efficient than creating them individually. The call is atomic,
@@ -53,9 +53,9 @@ so Synnax creates all of the channels or none of them.
 
   <Fragment slot="console">
 
-Create a channel from the [Channels Toolbar](/reference/console/ui-overview#channels),
+Create a channel from the [Channels toolbar](/reference/console/ui-overview#channels),
 or with the "Create Channel" command in the
-[Command Palette](/reference/console/ui-overview#search-and-command-palette).
+[command palette](/reference/console/ui-overview#search-and-command-palette).
 
 <Video client:only="react" id="client/channels/create" />
 
@@ -147,7 +147,7 @@ const sensors = await client.channels.create(
 
 <Divider.Divider x />
 
-## Retrieve Channels
+## Retrieve channels
 
 To retrieve channel(s), pass the channel name(s) or key(s) to the `retrieve` method.
 Retrieving by key is faster than retrieving by name, and is recommended whenever
@@ -200,7 +200,7 @@ client raises no error and leaves missing channels out of the results.
   [ranges](/reference/client/ranges#read-from-a-range).
 </Note.Note>
 
-### Regular Expressions
+### Regular expressions
 
 Channels can be retrieved using regular expression patterns. The Core treats any name
 starting with `^` or ending with `$` as a regex pattern.
@@ -232,7 +232,7 @@ If you expect multiple channels to match the pattern, you must pass in a list to
 
 <Divider.Divider x />
 
-## Rename Channels
+## Rename channels
 
 <Client.Tabs client:load exclude={["cpp"]}>
 
@@ -280,7 +280,7 @@ await client.channels.rename(
 
 <Divider.Divider x />
 
-## Delete Channels
+## Delete channels
 
 <Note.Note variant="warning" className="compact">
   Deleting a channel will also delete all of the data stored for that channel in a
@@ -343,7 +343,7 @@ await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
 
 <Divider.Divider x />
 
-## Channel Aliases
+## Channel aliases
 
 Ranges allow you to define [aliases](/reference/concepts/ranges#channel-aliases) for
 channels that only apply within that range's context. This is useful when you want to

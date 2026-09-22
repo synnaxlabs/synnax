@@ -1,11 +1,11 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "EtherCAT | Configure Device"
-heading: "Configure an EtherCAT Device"
+title: "EtherCAT | Configure device"
+heading: "Configure an EtherCAT device"
 description: "Learn how to discover and configure EtherCAT devices."
-prev: "Get Started"
+prev: "Get started"
 prevURL: "/reference/driver/ethercat/get-started"
-next: "Read Task"
+next: "Read task"
 nextURL: "/reference/driver/ethercat/read-task"
 ---
 
@@ -38,7 +38,7 @@ Before configuring EtherCAT devices, ensure you have:
 
 <Divider.Divider x />
 
-## How Device Discovery Works
+## How device discovery works
 
 EtherCAT devices are **automatically discovered** when connected to the network. There
 is no need to manually create device configurations.
@@ -46,13 +46,13 @@ is no need to manually create device configurations.
 1. Connect your EtherCAT devices to the network interface.
 2. The Synnax Driver scans the EtherCAT bus and discovers all connected devices.
 3. A notification appears in the Console when new devices are found.
-4. Discovered devices appear in the Devices Toolbar.
+4. Discovered devices appear in the Devices toolbar.
 
 The scan task runs periodically to detect new devices and update device information.
 
 <Divider.Divider x />
 
-## Device Properties Reference
+## Device properties reference
 
 When a device is discovered, Synnax stores the following properties:
 
@@ -75,17 +75,17 @@ When a device is discovered, Synnax stores the following properties:
 **PDOs (Process Data Objects)** define the cyclic data exchanged between the master and
 devices. PDOs are configured in the device's ESI (EtherCAT Slave Information) file.
 
-### TxPDO (Transmit PDO)
+### TxPDO (transmit PDO)
 
 Data transmitted FROM the device TO Synnax. Use TxPDOs in **Read Tasks** to acquire
 sensor data, status information, and feedback values.
 
-### RxPDO (Receive PDO)
+### RxPDO (receive PDO)
 
 Data received BY the device FROM Synnax. Use RxPDOs in **Write Tasks** to send control
 commands, setpoints, and configuration values.
 
-### PDO Entry Properties
+### PDO entry properties
 
 Each PDO entry has the following properties:
 
@@ -99,12 +99,12 @@ Each PDO entry has the following properties:
 
 <Divider.Divider x />
 
-## Enabling and Disabling Devices
+## Enabling and disabling devices
 
 The `enabled` property controls whether a device participates in cyclic PDO exchange. By
 default, all discovered devices are enabled.
 
-### What Happens When a Device is Disabled
+### What happens when a device is disabled
 
 When you disable a device:
 
@@ -116,7 +116,7 @@ When you disable a device:
 - **Tasks cannot read from or write to** PDOs on disabled devices. Channels associated
   with disabled devices will not receive data.
 
-### Common Use Cases
+### Common use cases
 
 - **Troubleshooting**: Isolate a problematic device without physically disconnecting it
   from the bus.
@@ -127,14 +127,14 @@ When you disable a device:
   operational.
 - **Reducing cycle time**: Exclude unused devices to minimize PDO exchange overhead.
 
-### Disabling a Device
+### Disabling a device
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
 
 To disable an EtherCAT device:
 
-1. Open the Devices Toolbar by clicking the device icon (<Icon.Device />) on the left
+1. Open the Devices toolbar by clicking the device icon (<Icon.Device />) on the left
    side of the screen.
 2. Right-click on the device you want to disable.
 3. Select **Disable** from the context menu.
@@ -181,14 +181,14 @@ await client.devices.create(device);
   </Fragment>
 </Client.Tabs>
 
-### Re-enabling a Device
+### Re-enabling a device
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
 
 To re-enable a disabled EtherCAT device:
 
-1. Open the Devices Toolbar by clicking the device icon (<Icon.Device />) on the left
+1. Open the Devices toolbar by clicking the device icon (<Icon.Device />) on the left
    side of the screen.
 2. Right-click on the disabled device.
 3. Select **Enable** from the context menu.
@@ -234,13 +234,13 @@ await client.devices.create(device);
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
 
 Synnax automatically discovers EtherCAT devices when they are connected to the network.
-To view discovered devices, open the Devices Toolbar by clicking the device icon
+To view discovered devices, open the Devices toolbar by clicking the device icon
 (<Icon.Device />) on the left side of the screen.
 
 <Video

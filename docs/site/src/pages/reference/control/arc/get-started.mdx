@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Get Started"
+title: "Get started"
 description: "Create and run your first Arc automation"
 prev: "Introduction"
 prevURL: "/reference/control/arc/introduction"
-next: "Control Authority"
+next: "Control authority"
 nextURL: "/reference/control/arc/concepts/control-authority"
 ---
 
@@ -20,7 +20,7 @@ writes the result to another channel.
 
 <Divider.Divider x />
 
-## Create an Arc Automation
+## Create an Arc automation
 
 Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create an Arc
 automation". You can also click the "+" button in the toolbar or right-click a driver in
@@ -32,7 +32,7 @@ Choose a name and select **Text** for the editor mode.
 
 <Divider.Divider x />
 
-## Your First Program
+## Your first program
 
 Copy this code into the editor:
 
@@ -70,12 +70,12 @@ You'll likely see red squiggly lines under `tank_pressure` and `pressure_scaled`
 indicates the channels don't exist in your cluster yet. To run this program, you'll need
 to create them first.
 
-### Creating the Channels
+### Creating the channels
 
 Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create Channel".
 Create two [virtual channels](/reference/concepts/channels#virtual-channels):
 
-| Name              | Virtual | Data Type |
+| Name              | Virtual | Data type |
 | ----------------- | ------- | --------- |
 | `tank_pressure`   | Yes     | `float64` |
 | `pressure_scaled` | Yes     | `float64` |
@@ -93,11 +93,11 @@ Once created, the red squiggles will disappear and your program is ready to depl
 
 <Divider.Divider x />
 
-## Understanding the Syntax
+## Understanding the syntax
 
 Let's break down the key parts:
 
-### Function with Input and Output
+### Function with input and output
 
 ```arc
 func scale_reading(value f64) f64 {
@@ -111,7 +111,7 @@ func scale_reading(value f64) f64 {
 - The second `f64` after the parentheses is the return type
 - `return value * 2.0` sends the computed result back
 
-### Stateful Variables
+### Stateful variables
 
 ```arc channels="count_chan"
 func output_reading() {
@@ -132,7 +132,7 @@ increments it: 11, 12, 13, and so on. The function then writes this value to
 The [Variables](/reference/control/arc/reference/variables#stateful) reference page
 covers persistence and reset behavior in more depth.
 
-### Flow Statements
+### Flow statements
 
 ```arc channels="tank_pressure, pressure_scaled"
 tank_pressure -> scale_reading{} -> pressure_scaled
@@ -148,7 +148,7 @@ produces a value:
 Whenever something writes to `tank_pressure`, Arc automatically runs `scale_reading` and
 updates `pressure_scaled`.
 
-### Interval Timer
+### Interval timer
 
 ```arc
 time.interval{period=200ms} -> output_reading{}
@@ -178,7 +178,7 @@ You can stop execution at any time with the **Pause** button.
 
 <Divider.Divider x />
 
-## A Threshold Alarm
+## A threshold alarm
 
 Here's a more practical example that triggers a notification when pressure exceeds a
 limit. This builds on our previous example by adding alarm logic:
@@ -224,7 +224,7 @@ New concepts in this example:
 
 <Divider.Divider x />
 
-## What's Next
+## What's next
 
 You've created a basic Arc automation. The real power of Arc comes from **sequences**,
 which let you build multi-step procedures that progress through stages based on
@@ -236,10 +236,10 @@ how to build test procedures, startup routines, and state machines.
 
 Or explore other topics:
 
-- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)** -> how
+- **[Reactive execution](/reference/control/arc/concepts/reactive-execution)** -> how
   Arc schedules computations and the difference between continuous (`->`) and
   conditional (`=>`) edges
 - **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
   with telemetry data and array operations
-- **[Stateful Variables](/reference/control/arc/reference/variables#stateful)**: Persist
+- **[Stateful variables](/reference/control/arc/reference/variables#stateful)**: Persist
   values across executions for counters and rate-of-change detection

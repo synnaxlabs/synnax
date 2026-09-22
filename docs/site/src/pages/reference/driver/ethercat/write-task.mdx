@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "EtherCAT Write Task"
+title: "EtherCAT write task"
 description: "Learn how to send commands to EtherCAT devices with Synnax."
-prev: "Read Task"
+prev: "Read task"
 prevURL: "/reference/driver/ethercat/read-task"
 next: "HTTP"
 nextURL: "/reference/driver/http/connect-server"
@@ -18,7 +18,7 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+For the task lifecycle, see [Task basics](/reference/driver/task-basics#task-lifecycle).
 
 Before creating a write task,
 [configure your EtherCAT devices](/reference/driver/ethercat/configure-device) and
@@ -32,7 +32,7 @@ read back from the device.
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter        | Type   | Required | Default | Description                                      |
 | ---------------- | ------ | -------- | ------- | ------------------------------------------------ |
@@ -42,9 +42,9 @@ read back from the device.
 
 <Divider.Divider x />
 
-## Channel Configuration Modes
+## Channel configuration modes
 
-### Automatic Mode (Recommended)
+### Automatic mode (recommended)
 
 In automatic mode, you select a device and RxPDO name. The system automatically resolves
 the CoE index, subindex, and data type from the device's ESI information.
@@ -74,7 +74,7 @@ Writes data to an RxPDO using the PDO name for automatic configuration.
 - PDO names are visible in the Console device properties
 - Standard device configurations
 
-### Manual Mode
+### Manual mode
 
 In manual mode, you specify the CoE index, subindex, and data type directly. Use this
 mode when the ESI file is incomplete or when working with non-standard PDO mappings.
@@ -115,7 +115,7 @@ Writes data to an RxPDO using explicit CoE addressing.
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **Network constraint** -> All channels must use devices from the same network
   interface.
@@ -126,7 +126,7 @@ Writes data to an RxPDO using explicit CoE addressing.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

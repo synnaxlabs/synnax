@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "LabJack Write Task"
+title: "LabJack write task"
 description: "Learn how to send commands to LabJack devices with Synnax."
-prev: "Read Task"
+prev: "Read task"
 prevURL: "/reference/driver/labjack/read-task"
 next: "Modbus"
 nextURL: "/reference/driver/modbus/connect-server"
@@ -18,11 +18,11 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+For the task lifecycle, see [Task basics](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter    | Type   | Required | Default | Description                                   |
 | ------------ | ------ | -------- | ------- | --------------------------------------------- |
@@ -32,7 +32,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel types reference
 
 <DetailsGroup>
 
@@ -66,7 +66,7 @@ Writes digital state (0 or 1) to a specified digital I/O line.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">
