@@ -11,11 +11,12 @@ package versions
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored panels.
-var Migrations = []migrate.Migration{v0.Migration}
+var Migrations = []migrate.Migration{v0.Migration, v1.Migration}
 
 // CompositionMigrations is the ordered set of migrations the service layer runs after
 // every service table is open, concatenating each version's contribution.

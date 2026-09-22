@@ -12,6 +12,7 @@ import { errors, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
+import { license } from "@/license";
 import { user } from "@/user";
 
 const credentialsZ = z.object({ username: z.string(), password: z.string() });
@@ -22,7 +23,7 @@ const clusterInfoZ = z.object({
   nodeVersion: z.string().optional(),
   nodeKey: z.number().optional(),
   nodeTime: TimeStamp.z,
-  verification: z.string().optional(),
+  verification: license.stateZ.optional(),
 });
 
 const tokenResponseZ = z.object({

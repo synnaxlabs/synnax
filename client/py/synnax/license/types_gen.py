@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 
 class License(BaseModel):
-    """Is the signed set of claims a Core verifies. Clients see it as a license.
+    """Is the signed set of claims a Core verifies.
 
     Attributes:
         jti: Is the unique identifier of the grant.

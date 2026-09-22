@@ -89,19 +89,19 @@ class ExpiredLicense(LicenseError):
 
 
 class InvalidLicense(LicenseError):
-    """Raised when a token cannot be verified or does not fit this Core."""
+    """Raised when a token cannot be verified or is malformed."""
 
     TYPE = LicenseError.TYPE + ".invalid"
 
 
-class LicenseHostError(LicenseError):
+class LicenseHostMismatch(LicenseError):
     """Raised when a license is bound to a different host."""
 
     TYPE = LicenseError.TYPE + ".host"
 
 
-class LicenseLimitError(LicenseError):
-    """Raised when an operation would exceed a limit the license sets."""
+class LicenseLimitExceeded(LicenseError):
+    """Raised when a channel would exceed the license's channel cap."""
 
     TYPE = LicenseError.TYPE + ".too_many"
 
@@ -217,10 +217,10 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
             return ExpiredLicense(encoded.data)
         if encoded.type.startswith(InvalidLicense.TYPE):
             return InvalidLicense(encoded.data)
-        if encoded.type.startswith(LicenseHostError.TYPE):
-            return LicenseHostError(encoded.data)
-        if encoded.type.startswith(LicenseLimitError.TYPE):
-            return LicenseLimitError(encoded.data)
+        if encoded.type.startswith(LicenseHostMismatch.TYPE):
+            return LicenseHostMismatch(encoded.data)
+        if encoded.type.startswith(LicenseLimitExceeded.TYPE):
+            return LicenseLimitExceeded(encoded.data)
         return LicenseError(encoded.data)
 
     return UnexpectedError(encoded.data)

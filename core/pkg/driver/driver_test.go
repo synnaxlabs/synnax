@@ -126,10 +126,11 @@ var _ = Describe("Open", func() {
 				start := time.Now()
 				d := openMockDriver(ctx, logger, driver.Config{
 					Detached:     new(true),
-					StartTimeout: 100 * time.Millisecond,
+					StartTimeout: 10 * time.Second,
 					StopTimeout:  500 * time.Millisecond,
 				})
-				Expect(time.Since(start)).To(BeNumerically("<", 100*time.Millisecond))
+				// An attached open would block for the whole start timeout.
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second))
 				Expect(d.Close()).To(Succeed())
 			},
 		)

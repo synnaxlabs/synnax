@@ -12,14 +12,15 @@ import pytest
 import synnax as sy
 
 
+@pytest.mark.license
 class TestLicenseClient:
     """Tests for the license client."""
 
     def test_retrieve(self, client: sy.Synnax):
         """Should report the Core's license state and host fingerprint."""
         info = client.license.retrieve()
-        assert info.state in ("ok", "missing", "expired")
-        assert isinstance(info.fingerprint, list)
+        assert all(len(hash_) == 64 for hash_ in info.fingerprint)
+        assert (info.license is None) == (info.state == "missing")
 
     def test_activate_invalid_token(self, client: sy.Synnax):
         """Should refuse a token that cannot be verified."""

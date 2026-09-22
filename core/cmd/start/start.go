@@ -352,6 +352,8 @@ func BootupCore(
 		return err
 	}
 
+	verificationInfo := serviceLayer.Verification.Retrieve()
+	covered := verificationInfo.State == verification.StateOK
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
@@ -359,9 +361,7 @@ func BootupCore(
 			Insecure: cfg.insecure,
 			// Without a covering grant the Core refuses the rack registration, so the
 			// Driver must keep retrying in the background instead of failing the start.
-			Detached: new(
-				serviceLayer.Verification.Retrieve().State != verification.StateOK,
-			),
+			Detached: new(!covered),
 			Integrations: parseIntegrations(
 				cfg.enabledIntegrations,
 				cfg.disabledIntegrations,
@@ -389,14 +389,14 @@ func BootupCore(
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listeners.AdvertiseAddress(),
 	)
-	if info := serviceLayer.Verification.Retrieve(); info.State != verification.StateOK {
+	if !covered {
 		scheme := "https"
 		if *cfg.insecure {
 			scheme = "http"
 		}
 		cfg.L.Warn(fmt.Sprintf(
 			noneTemplate,
-			strings.Join(info.Host, ", "),
+			strings.Join(verificationInfo.Host, ", "),
 			scheme+"://"+string(cfg.listeners.AdvertiseAddress()),
 		))
 	}

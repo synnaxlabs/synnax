@@ -56,7 +56,7 @@ Grant struct {
     }
 
     @doc value """
-        is the signed set of claims a Core verifies. Clients see it as a license.
+        is the signed set of claims a Core verifies.
     """
     @py name   "License"
     @ts name   "License"

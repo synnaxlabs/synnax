@@ -126,6 +126,6 @@ var (
 		"UGF0aCB0byBhIGZpbGUgY29udGFpbmluZyB0aGUgbGljZW5zZSB0b2tlbg==",
 	)
 	noneTemplate = base64.MustDecode(
-		"bm8gYWN0aXZlIGxpY2Vuc2Ugb24gdGhpcyBDb3JlLiBIb3N0IGhhc2hlczogJXMuIE9wZW4gdGhlIENvbnNvbGUgYXQgJXMgdG8gYWN0aXZhdGUu",
+		"bm8gYWN0aXZlIGxpY2Vuc2Ugb24gdGhpcyBDb3JlLiBIb3N0IGZpbmdlcnByaW50OiAlcy4gT3BlbiB0aGUgQ29uc29sZSBhdCAlcyB0byBhY3RpdmF0ZS4=",
 	)
 )

@@ -13,7 +13,7 @@ package verification
 
 import "github.com/google/uuid"
 
-// Grant is the signed set of claims a Core verifies. Clients see it as a license.
+// Grant is the signed set of claims a Core verifies.
 type Grant struct {
 	// Jti is the unique identifier of the grant.
 	Jti uuid.UUID `json:"jti" msgpack:"jti"`

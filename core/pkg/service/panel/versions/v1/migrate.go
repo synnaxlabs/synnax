@@ -15,7 +15,11 @@ import (
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 )
+
+// Migration lifts stored panels from v0 to v1.
+var Migration = gorp.NewEntryMigration("v60_verification_panel", autoMigratePanel)
 
 // MigrateNode lifts a v0 node to v1. The stored bytes are unchanged: v1 only widens
 // the resource types a tab may display.

@@ -47,13 +47,13 @@ const (
 // Info is what the service knows about this Core's grant.
 type Info struct {
 	// State is the verdict.
-	State State `json:"state"             msgpack:"state"`
+	State State `json:"state" msgpack:"state"`
 	// Warning is set while the state is ok but a change is near or past.
 	Warning string `json:"warning,omitempty" msgpack:"warning,omitempty"`
 	// Host identifies this machine.
-	Host Host `json:"host"              msgpack:"host"`
+	Host Host `json:"host" msgpack:"host"`
 	// Grant is the grant that applies, if any.
-	Grant *Grant `json:"grant,omitempty"   msgpack:"grant,omitempty"`
+	Grant *Grant `json:"grant,omitempty" msgpack:"grant,omitempty"`
 }
 
 // ServiceConfig is the configuration for a verification service.
@@ -277,10 +277,10 @@ func (s *Service) Activate(ctx context.Context, token string) (Info, error) {
 	return info, nil
 }
 
-// IsOverflowed reports whether inUse external channels exceed the grant's cap. A Core
-// without a covering grant is idle behind the API gate, so the cap does not apply to
-// it.
-func (s *Service) IsOverflowed(inUse types.Uint20) error {
+// CheckOverflow returns ErrTooMany when inUse external channels exceed the grant's
+// cap. A Core without a covering grant is idle behind the API gate, so the cap does
+// not apply to it.
+func (s *Service) CheckOverflow(inUse types.Uint20) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	info := s.mu.info
@@ -302,7 +302,11 @@ func (s *Service) checkClock(ctx context.Context) error {
 		return err
 	}
 	if err == nil {
-		mark := time.Unix(0, int64(binary.LittleEndian.Uint64(raw)))
+		// A mark of another width is treated as absent and overwritten.
+		var mark time.Time
+		if len(raw) == 8 {
+			mark = time.Unix(0, int64(binary.LittleEndian.Uint64(raw)))
+		}
 		if err = closer.Close(); err != nil {
 			return err
 		}
@@ -335,6 +339,10 @@ func (s *Service) load(ctx context.Context) error {
 	for iter.First(); iter.Valid(); iter.Next() {
 		grant, err := Verify(s.cfg.Anchors, string(iter.Value()))
 		if err != nil {
+			s.cfg.L.Warn(
+				"skipping a stored token that no longer verifies",
+				zap.Error(err),
+			)
 			continue
 		}
 		if !s.host.Covers(grant.Fs, grant.Fp) {

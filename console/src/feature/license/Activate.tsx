@@ -22,7 +22,7 @@ import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 /** The extension the portal gives a downloaded token file. */
-export const TOKEN_FILE_EXTENSION = "license";
+const TOKEN_FILE_EXTENSION = "license";
 
 const decoder = new TextDecoder();
 
@@ -87,11 +87,6 @@ const Fingerprint = ({ info: { info, error } }: FingerprintProps): ReactElement 
   );
 };
 
-/**
- * Full-screen activation surface for a Core that refuses requests until a license
- * applies. Shows the host fingerprint the portal needs and takes the token it issues,
- * pasted or from a file.
- */
 export interface ActivateProps {
   /**
    * True when the session has one fixed Core. The screen then shows no connection
@@ -100,6 +95,11 @@ export interface ActivateProps {
   standalone?: boolean;
 }
 
+/**
+ * Full-screen activation surface for a Core that refuses requests until a license
+ * applies. Shows the host fingerprint the portal needs and takes the token it issues,
+ * pasted or from a file.
+ */
 export const Activate = ({ standalone = false }: ActivateProps): ReactElement => {
   const client = Synnax.use();
   const connection = Synnax.useConnectionStatus();

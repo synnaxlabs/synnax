@@ -335,7 +335,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:         l.Ontology,
 		Group:            l.Group,
 		Search:           l.Search,
-		IntOverflowCheck: l.Verification.IsOverflowed,
+		IntOverflowCheck: l.Verification.CheckOverflow,
 		ValidateNames:    cfg.ValidateChannelNames,
 		Status:           l.Status,
 	}); !ok(err, l.Channel) {

@@ -25,7 +25,7 @@ import {
   ExpiredLicenseError,
   MissingLicenseError,
 } from "@/errors";
-import { type license } from "@/license";
+import { license } from "@/license";
 import { status } from "@/status";
 
 export const REASONS = ["unreachable", "auth", "incompatible", "unlicensed"] as const;
@@ -50,7 +50,7 @@ export const statusDetailsZ = z.object({
   clockSkewExceeded: z.boolean(),
   retry: z.object({ attempt: z.number(), nextAt: TimeStamp.z }).nullable(),
   // What the Core last reported about its license. Absent before the first check.
-  license: z.enum(["ok", "missing", "expired"]).optional(),
+  license: license.stateZ.optional(),
   // A check is in flight right now. A process fact, not a judgment: the
   // variant holds its verdict while attempts run beneath it.
   checking: z.boolean(),

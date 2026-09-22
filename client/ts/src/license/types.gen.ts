@@ -12,7 +12,7 @@
 import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-/** License is the signed set of claims a Core verifies. Clients see it as a license. */
+/** License is the signed set of claims a Core verifies. */
 export const licenseZ = z.object({
   /** jti is the unique identifier of the grant. */
   jti: z.uuid(),
