@@ -15,6 +15,7 @@ import {
   channels,
   date,
   dateTime,
+  describeEvent,
   edition,
   type LicenseStatus,
   machineName,
@@ -41,6 +42,8 @@ export interface LicenseProps {
   organization: Organization;
   activations: Activation[];
   events: Event[];
+  /** actors is the name each Clerk user id in `events` reads as. */
+  actors: Record<string, string>;
   staff: boolean;
   now: Date | string;
 }
@@ -53,12 +56,14 @@ export const License = ({
   organization,
   activations,
   events,
+  actors,
   staff,
   now,
 }: LicenseProps): ReactElement => {
   const at = new Date(now);
   const status = statusOf(lic, at);
   const held = activations.filter((a) => a.releasedAt == null);
+  const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
   return (
     <Page
       title={lic.label || "Untitled license"}
@@ -119,7 +124,7 @@ export const License = ({
                   {dateTime(e.at)}
                 </Text.Text>
                 <Text.Text level="small" color={10}>
-                  {describe(e)}
+                  {describeEvent(e, { machines, actors })}
                 </Text.Text>
               </Flex.Box>
             ))}
@@ -168,27 +173,6 @@ const Fact = ({
     </Text.Text>
   </Flex.Box>
 );
-
-const EVENT_LABELS: Record<Event["kind"], string> = {
-  issue: "License issued",
-  amend: "License changed",
-  activate: "Machine activated",
-  activate_denied: "Activation denied",
-  token: "Token downloaded",
-  release: "Seat released",
-  revoke: "License revoked",
-  expiry_notice: "Expiry notice sent",
-  link: "Machine linked",
-  renew: "License renewed",
-  unlink: "Machine unlinked",
-};
-
-const describe = (e: Event): string => {
-  const label = EVENT_LABELS[e.kind];
-  const detail = e.detail as Record<string, unknown>;
-  const reason = typeof detail.reason === "string" ? ` (${detail.reason})` : "";
-  return `${label}${reason}`;
-};
 
 interface MachineMenuProps {
   activation: Activation;

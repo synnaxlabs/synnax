@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type License } from "@/server/db/schema";
+import { type Event, type License } from "@/server/db/schema";
 
 export const date = (d: Date | string | null | undefined): string =>
   d == null ? "" : new Date(d).toISOString().slice(0, 10);
@@ -56,3 +56,36 @@ export const edition = (e: License["edition"]): string =>
   e === "desktop" ? "Desktop" : "Enterprise";
 
 export const channels = (n: number): string => (n === 0 ? "Unlimited" : String(n));
+
+const EVENT_LABELS: Record<Event["kind"], string> = {
+  issue: "License issued",
+  amend: "License changed",
+  activate: "Machine activated",
+  activate_denied: "Activation denied",
+  token: "Token downloaded",
+  release: "Seat released",
+  revoke: "License revoked",
+  expiry_notice: "Expiry notice sent",
+  link: "Machine linked",
+  renew: "License renewed",
+  unlink: "Machine unlinked",
+};
+
+interface Narrator {
+  /** machines is the name each activation key reads as. */
+  machines: Record<string, string>;
+  /** actors is the name each Clerk user id reads as. */
+  actors: Record<string, string>;
+}
+
+/** describeEvent writes one event as a line: what happened, to what, by whom. */
+export const describeEvent = (e: Event, { machines, actors }: Narrator): string => {
+  const on = e.activation == null ? undefined : machines[e.activation];
+  // A machine renewing itself is its own actor, so it is only named once.
+  const by = actors[e.actor] ?? machines[e.actor];
+  const detail = e.detail as Record<string, unknown>;
+  const reason = typeof detail.reason === "string" ? ` (${detail.reason})` : "";
+  const subject = on == null ? "" : `: ${on}`;
+  const actor = by == null || by === on ? "" : ` by ${by}`;
+  return `${EVENT_LABELS[e.kind]}${subject}${actor}${reason}`;
+};

@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { statusOf, usable } from "@/portal/ui/format";
-import { type License } from "@/server/db/schema";
+import { describeEvent, statusOf, usable } from "@/portal/ui/format";
+import { type Event, type License } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
 
 const licenseOf = (overrides: Partial<License>): License => ({
@@ -57,5 +57,56 @@ describe("format.usable", () => {
   it("should refuse a seat once expired or revoked", () => {
     expect(usable("expired")).toBe(false);
     expect(usable("revoked")).toBe(false);
+  });
+});
+
+const MACHINE = "9b0b5f3c-0d3f-4a4e-9f21-6a0b2f1c7a10";
+const USER = "user_2abc";
+
+const eventOf = (overrides: Partial<Event>): Event => ({
+  key: 1,
+  at: NOW,
+  kind: "release",
+  actor: USER,
+  organization: LICENSE.organization,
+  license: LICENSE.key,
+  activation: null,
+  detail: {},
+  ...overrides,
+});
+
+const NAMES = { machines: { [MACHINE]: "Test stand" }, actors: { [USER]: "Ada" } };
+
+describe("format.describeEvent", () => {
+  it("should name the machine an event concerns and the person who acted", () => {
+    const e = eventOf({ kind: "release", activation: MACHINE });
+    expect(describeEvent(e, NAMES)).toBe("Seat released: Test stand by Ada");
+  });
+
+  it("should leave out a machine the event does not name", () => {
+    expect(describeEvent(eventOf({ kind: "issue" }), NAMES)).toBe(
+      "License issued by Ada",
+    );
+  });
+
+  it("should name a machine acting on itself once", () => {
+    const e = eventOf({ kind: "renew", actor: MACHINE, activation: MACHINE });
+    expect(describeEvent(e, NAMES)).toBe("License renewed: Test stand");
+  });
+
+  it("should leave out an actor no name is known for", () => {
+    const e = eventOf({ kind: "expiry_notice", actor: "cron" });
+    expect(describeEvent(e, NAMES)).toBe("Expiry notice sent");
+  });
+
+  it("should carry the reason an event was given", () => {
+    const e = eventOf({
+      kind: "unlink",
+      activation: MACHINE,
+      detail: { reason: "superseded" },
+    });
+    expect(describeEvent(e, NAMES)).toBe(
+      "Machine unlinked: Test stand by Ada (superseded)",
+    );
   });
 });
