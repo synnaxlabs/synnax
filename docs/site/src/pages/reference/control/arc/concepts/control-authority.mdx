@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Control Authority"
+title: "Control authority"
 description: "How Arc resolves conflicts when multiple writers target the same channels"
-prev: "Get Started"
+prev: "Get started"
 prevURL: "/reference/control/arc/get-started"
-next: "Reactive Execution"
+next: "Reactive execution"
 nextURL: "/reference/control/arc/concepts/reactive-execution"
 ---
 
@@ -19,7 +19,7 @@ values take effect. Without it, writers would overwrite each other unpredictably
 
 <Divider.Divider x />
 
-## Declaring Authority
+## Declaring authority
 
 The
 [`authority` declaration](/reference/control/arc/reference/standard-library/control#authority)
@@ -27,7 +27,7 @@ sets the level a program writes at. The reference page lists every form it accep
 
 <Divider.Divider x />
 
-## Default Authority
+## Default authority
 
 Default `authority` for a task when not declared is `255`
 
@@ -37,7 +37,7 @@ keep both options open.
 
 <Divider.Divider x />
 
-## Changing Authority at Runtime
+## Changing authority at runtime
 
 Declare a top-level
 [`authority`](/reference/control/arc/reference/standard-library/control#authority) to
@@ -76,7 +76,7 @@ Authority changes apply before channel writes in the same execution cycle of a s
 
 <Divider.Divider x />
 
-## How Multiple Writers Interact
+## How multiple writers interact
 
 The authority system follows three rules:
 
@@ -95,7 +95,7 @@ schematic controls all participate in the same authority system.
 
 <Divider.Divider x />
 
-## Emergency Escalation
+## Emergency escalation
 
 A common pattern is starting at moderate authority and escalating when an emergency is
 detected:
@@ -127,7 +127,7 @@ Python scripts, and schematic controls.
 
 <Divider.Divider x />
 
-## Releasing Control
+## Releasing control
 
 Setting authority to 0 gives a program the lowest possible priority. Any other writer
 takes precedence:

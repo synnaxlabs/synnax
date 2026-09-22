@@ -1,14 +1,14 @@
-# Release Candidate Pull Request
+# Release candidate pull request
 
-## Key Information
+## Key information
 
 - **Version Number**: <!-- MAJOR.MINOR -->
 
-## QA Template
+## QA template
 
 - [ ] I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
 
-## Version Conflicts
+## Version conflicts
 
 I have verified that, when released, the following packages will not conflict with any previously released packages:
 
@@ -27,7 +27,7 @@ I have verified that, when released, the following packages will not conflict wi
 
 ## Documentation
 
-### Content Changes
+### Content changes
 
 I have verified that user-facing documentation for each of the following services has been updated to match any changes in the release candidate:
 
@@ -58,7 +58,7 @@ I have verified that code examples for each of the following services run correc
 - [ ] `client/ts`
   - [ ] `@synnaxlabs/client` version in `examples/node` is up-to-date
 
-### Release Notes
+### Release notes
 
 - [ ] I have verified that release notes exist for this release.
 
@@ -81,7 +81,7 @@ I can successfully:
   - [ ] Use the "Log out" command to log out of the active core.
 - [ ] Open a core from a link.
 
-### Login Page
+### Login page
 
 I can successfully:
 
@@ -103,7 +103,7 @@ I can successfully:
   - [ ] Open a leaf in a new window.
   - [ ] Move a mosaic leaf to the main window from a secondary window.
 
-### Line Plots
+### Line plots
 
 I can successfully:
 
@@ -142,7 +142,7 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Import a schematic from a file.
 
-### Schematic Symbols
+### Schematic symbols
 
 I can successfully:
 

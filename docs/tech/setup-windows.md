@@ -204,7 +204,7 @@ pnpm dev:pluto
 
 Vite serves the component sandbox at [localhost:5173](http://localhost:5173).
 
-## 6 Install the Visual C++ build tools
+## 6 Install the Visual C++ Build Tools
 
 Rust and the Driver build native code with the Microsoft C++ toolchain. Install it with
 
