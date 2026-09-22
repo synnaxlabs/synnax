@@ -102,7 +102,7 @@
         grid-template-rows 0.15s ease,
         opacity 0.15s ease;
 
-    &.pluto--visible {
+    &.pluto-time-effect--visible {
         grid-template-rows: 1fr;
         opacity: 1;
     }

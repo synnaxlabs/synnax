@@ -9,10 +9,10 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { firePointerDown, mockBoundingClientRect } from "@/testutil/dom";
 
 const NOW = TimeStamp.now().nanoseconds;
 const HOUR = Number(TimeSpan.HOUR.valueOf());
@@ -37,7 +37,9 @@ const STAGE_EFFECT = ".pluto-stage-button__effect";
 const effectText = (selector = EDITOR_EFFECT): string | null => {
   const effect = document.querySelector(selector);
   if (effect == null) throw new Error(`no ${selector}`);
-  return effect.classList.contains("pluto--visible") ? effect.textContent : null;
+  return effect.classList.contains("pluto-time-effect--visible")
+    ? effect.textContent
+    : null;
 };
 
 describe("Ranger.TimelineEffect", () => {
@@ -119,6 +121,29 @@ describe("Ranger.TimelineEffect", () => {
       openCell(container, 0);
       hover("Unschedule");
       expect(effectText()).toMatch(/^Clears endwas /);
+    });
+
+    it("should commit on an outside click while it is visible", () => {
+      // Every element reads as the same box, so the viewport needs one of its own
+      // for a click to land outside the dialog.
+      document.documentElement.getBoundingClientRect = mockBoundingClientRect(
+        0,
+        0,
+        1000,
+        1000,
+      );
+      const onChange = vi.fn();
+      const { container } = render(
+        <Ranger.Timeline
+          value={{ start: NOW - 2 * HOUR, end: NOW - HOUR }}
+          onChange={onChange}
+        />,
+      );
+      const field = openCell(container, 0);
+      fireEvent.change(field, { target: { value: "end + 1h" } });
+      expect(effectText()).not.toBeNull();
+      firePointerDown(document.body, { x: 500, y: 500 });
+      expect(onChange).toHaveBeenCalledOnce();
     });
 
     it("should drop digits below the row's resolution", () => {

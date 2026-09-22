@@ -32,7 +32,13 @@ export const Effect = ({ children, className }: EffectProps): ReactElement => {
   });
   return (
     <div
-      className={CSS.cls(CSS.B("time-effect"), CSS.visible(visible), className)}
+      // Not CSS.visible: Dialog.Frame reads that class as an open child dialog and
+      // ignores outside clicks while one is present.
+      className={CSS.cls(
+        CSS.B("time-effect"),
+        visible && CSS.BM("time-effect", "visible"),
+        className,
+      )}
       aria-hidden={!visible}
     >
       <div className={CSS.BE("time-effect", "clip")}>
