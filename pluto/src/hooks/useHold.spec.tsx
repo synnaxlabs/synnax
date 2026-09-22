@@ -9,6 +9,7 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 import {
+  act,
   fireEvent,
   render,
   renderHook,
@@ -44,8 +45,11 @@ const renderHold = (
 const pressed = (button: HTMLElement): boolean =>
   button.getAttribute("aria-pressed") === "true";
 
+// The hold's own release is a state update outside any event, so act flushes it.
 const advance = (ms: number): void => {
-  vi.advanceTimersByTime(ms);
+  act(() => {
+    vi.advanceTimersByTime(ms);
+  });
 };
 
 describe("useHold", () => {
