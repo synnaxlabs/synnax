@@ -103,8 +103,8 @@ export const Setpoint = ({
           className={CSS.B("symbol-button")}
           onClick={() => onChange(currValue)}
           onClickDelay={onClickDelay}
-          // WebKit leaves the input focused on a button press, so the typed value
-          // would never commit. Blurring commits it before the click or hold sends.
+          // WebKit leaves the input focused on a button press, so the typed value would
+          // never commit. Blurring commits it before the click or hold sends.
           onMouseDown={() => inputRef.current?.blur()}
         >
           Set
