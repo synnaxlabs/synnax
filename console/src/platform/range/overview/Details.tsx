@@ -17,7 +17,6 @@ import {
   Flex,
   Form,
   Icon,
-  Input,
   Ranger,
   Status,
   Text,
@@ -205,32 +204,32 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">
-          <Form.Field<number> path="timeRange.start" padHelpText={false} label="From">
-            {(p) => (
-              <Input.DateTime
-                level="h4"
-                variant="text"
-                bound="start"
-                anchors={{ end: timeRange.end }}
-                {...p}
-              />
-            )}
-          </Form.Field>
+          <Form.DateTimeField
+            path="timeRange.start"
+            padHelpText={false}
+            label="From"
+            inputProps={{
+              level: "h4",
+              variant: "text",
+              bound: "start",
+              anchors: { end: timeRange.end },
+            }}
+          />
           <Icon.Arrow.Right
             className={CSS.BE("range-overview", "arrow-icon")}
             color={9}
           />
-          <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
-            {(p) => (
-              <Input.DateTime
-                level="h4"
-                variant="text"
-                bound="end"
-                anchors={{ start: timeRange.start }}
-                {...p}
-              />
-            )}
-          </Form.Field>
+          <Form.DateTimeField
+            padHelpText={false}
+            path="timeRange.end"
+            label="To"
+            inputProps={{
+              level: "h4",
+              variant: "text",
+              bound: "end",
+              anchors: { start: timeRange.start },
+            }}
+          />
         </Flex.Box>
         <Flex.Box x>
           <Form.Field<NumericTimeRange> path="timeRange" label="Stage">

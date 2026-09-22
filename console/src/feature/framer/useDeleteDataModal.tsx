@@ -131,21 +131,17 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 <Text.Text weight={450}>From beginning of time</Text.Text>
               </Flex.Box>
               {!isFromBeginning && (
-                <Form.Field<number>
+                <Form.DateTimeField
                   path="timeRange.start"
                   padHelpText={false}
                   label="From"
-                >
-                  {(p) => (
-                    <Input.DateTime
-                      level="h4"
-                      variant="text"
-                      bound="start"
-                      anchors={{ end }}
-                      {...p}
-                    />
-                  )}
-                </Form.Field>
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "start",
+                    anchors: { end },
+                  }}
+                />
               )}
             </Flex.Box>
             <Icon.Arrow.Right className={CSS.BE("delete-modal", "arrow")} color={9} />
@@ -167,17 +163,17 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 <Text.Text weight={450}>To end of time</Text.Text>
               </Flex.Box>
               {!isToEnd && (
-                <Form.Field<number> path="timeRange.end" padHelpText={false} label="To">
-                  {(p) => (
-                    <Input.DateTime
-                      level="h4"
-                      variant="text"
-                      bound="end"
-                      anchors={{ start }}
-                      {...p}
-                    />
-                  )}
-                </Form.Field>
+                <Form.DateTimeField
+                  path="timeRange.end"
+                  padHelpText={false}
+                  label="To"
+                  inputProps={{
+                    level: "h4",
+                    variant: "text",
+                    bound: "end",
+                    anchors: { start },
+                  }}
+                />
               )}
             </Flex.Box>
           </Flex.Box>
