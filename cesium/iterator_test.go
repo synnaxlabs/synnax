@@ -1055,6 +1055,47 @@ var _ = Describe("Iterator Behavior", func() {
 					},
 				)
 
+				It("Should close cleanly after a read of a channel with no data", func(
+					ctx SpecContext,
+				) {
+					indexKey, dataKey := GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      indexKey,
+						Name:     "Scott",
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Key:      dataKey,
+						Name:     "Amundsen",
+						DataType: telem.Int64T,
+						Index:    indexKey,
+					})).To(Succeed())
+					Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+						[]cesium.ChannelKey{indexKey},
+						[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+					))).To(Succeed())
+					for _, keys := range [][]cesium.ChannelKey{
+						{dataKey},
+						{indexKey, dataKey},
+					} {
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+							Bounds:   telem.TimeRangeMax,
+							Channels: keys,
+						}))
+						i.SeekFirst()
+						for i.Next(cesium.AutoSpan) {
+						}
+						i.SeekLast()
+						for i.Prev(cesium.AutoSpan) {
+						}
+						i.SeekFirst()
+						for i.Next(telem.Second) {
+						}
+						Expect(i.Close()).To(Succeed())
+					}
+				})
+
 				// openFaulty writes five samples to an index and a data channel through
 				// a fault-injecting file system and returns the keys of both.
 				openFaulty := func(

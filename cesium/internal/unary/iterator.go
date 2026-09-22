@@ -223,7 +223,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 	)
 	for {
 		domainTR := i.internal.TimeRange()
-		if !domainTR.OverlapsWith(i.view) {
+		if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Next() {
 				break
 			}
@@ -293,7 +293,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 	)
 	for {
 		domainTR := i.internal.TimeRange()
-		if !domainTR.OverlapsWith(i.view) {
+		if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
 			if !i.internal.Prev() {
 				break
 			}
@@ -439,7 +439,8 @@ func (i *Iterator) Close() error {
 // accumulate reads the underlying data contained in the view from OS and appends them
 // to the frame. accumulate returns false if iterator must stop moving.
 func (i *Iterator) accumulate(ctx context.Context) bool {
-	if !i.internal.TimeRange().OverlapsWith(i.view) {
+	domainTR := i.internal.TimeRange()
+	if domainTR.IsZero() || !domainTR.OverlapsWith(i.view) {
 		return false
 	}
 	offset, alignment, size, err := i.sliceDomain(ctx)
