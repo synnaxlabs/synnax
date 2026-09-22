@@ -20,7 +20,7 @@ const (
 	unknown = "unknown"
 	// dev marks a build without an injected version. A 0.0 major.minor pairs with
 	// any Core or client in the compatibility checks.
-	dev = "0.0.0-dev"
+	dev = "0.0.0"
 )
 
 // These variables can be set at build time using -ldflags:
@@ -33,7 +33,7 @@ var (
 	BuildDate string
 )
 
-// Prod returns the version injected at build time, or 0.0.0-dev when none was.
+// Prod returns the version injected at build time, or 0.0.0 when none was.
 func Prod() string {
 	if Version != "" {
 		return Version

@@ -20,7 +20,7 @@ import (
 var _ = Describe("Version", func() {
 	Describe("Get", func() {
 		It("Should return the dev version when not set via ldflags", func() {
-			Expect(version.Prod()).To(Equal("0.0.0-dev"))
+			Expect(version.Prod()).To(Equal("0.0.0"))
 		})
 	})
 
@@ -48,7 +48,7 @@ var _ = Describe("Version", func() {
 	Describe("Full", func() {
 		It("Should return just version when commit and date are unknown", func() {
 			full := version.Full()
-			Expect(full).To(Equal("0.0.0-dev"))
+			Expect(full).To(Equal("0.0.0"))
 			Expect(full).NotTo(ContainSubstring("commit:"))
 			Expect(full).NotTo(ContainSubstring("built:"))
 		})

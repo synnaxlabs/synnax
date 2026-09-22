@@ -150,7 +150,7 @@ describe("connection", () => {
       expect(status.details.clientVersion).toBe(__VERSION__);
     });
 
-    // A Core built without an injected version reports 0.0.0-dev, which pairs with
+    // A Core built without an injected version reports 0.0.0, which pairs with
     // anything, so the mismatch cases carry their own node version.
     it("should adjust status if the server is too old", () => {
       const config = createConfig({ clientVersion: "50000.0.0" });
@@ -168,7 +168,7 @@ describe("connection", () => {
     });
 
     it("should treat a 0.0 build on either side as compatible", () => {
-      const config = createConfig({ clientVersion: "0.0.0-dev" });
+      const config = createConfig({ clientVersion: "0.0.0" });
       const info = {
         clusterKey: "k",
         nodeVersion: "50000.0.0",
