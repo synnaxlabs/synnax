@@ -187,6 +187,10 @@ class Scheduler {
     /// cycle. Reset to TimeSpan::max at the start of every next();
     /// exposed via next_deadline().
     x::telem::TimeSpan min_deadline = x::telem::TimeSpan::max();
+    /// @brief the stamp the current cycle began at.
+    x::telem::TimeStamp cycle_now = x::telem::TimeStamp(0);
+    /// @brief the first stamp reserve_stamps has not handed out this cycle.
+    x::telem::TimeStamp next_stamp = x::telem::TimeStamp(0);
     /// @brief index into nodes of the node whose next is currently
     /// executing, cached so mark_changed / mark_self_changed callbacks
     /// know whom they came from. NO_INDEX between cycles.
@@ -230,8 +234,12 @@ public:
     /// until changes settle. Nodes with pending changes execute in stratum
     /// order; sequential scopes advance via their transitions; gated scopes
     /// activate when their handle fires.
-    void next(const node::Cycle &cycle) {
+    /// @returns the highest stamp nodes reserved during the cycle, or zero when they
+    /// reserved none. The caller's clock must resume above it.
+    x::telem::TimeStamp next(const node::Cycle &cycle) {
         this->min_deadline = x::telem::TimeSpan::max();
+        this->cycle_now = cycle.now;
+        this->next_stamp = cycle.now;
         this->ctx.cycle = cycle;
         this->ctx.tolerance = this->tolerance;
 
@@ -246,6 +254,8 @@ public:
 
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
+        if (this->next_stamp == this->cycle_now) return x::telem::TimeStamp(0);
+        return this->next_stamp - int64_t{1};
     }
 
     /// @brief earliest deadline reported by any node during the previous
@@ -425,6 +435,12 @@ private:
         for (auto &m: state.members)
             this->clear_leaf_node_self_changed(m);
         state.active = false;
+    }
+
+    x::telem::TimeStamp reserve_stamps(const size_t n) {
+        const auto first = this->next_stamp;
+        this->next_stamp = this->next_stamp + static_cast<int64_t>(n);
+        return first;
     }
 
     void report_error(const x::errors::Error &e) const {
@@ -776,6 +792,7 @@ inline Scheduler::Scheduler(
         if (d < this->min_deadline) this->min_deadline = d;
     };
     this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
+    this->ctx.reserve_stamps = std::bind_front(&Scheduler::reserve_stamps, this);
     detail::Builder().build(*this, node_impls);
 }
 

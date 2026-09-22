@@ -53,6 +53,10 @@ struct Context {
     std::function<void()> mark_self_changed;
     std::function<void(x::telem::TimeSpan)> set_deadline;
     std::function<void(const x::errors::Error &)> report_error;
+    /// @brief takes n distinct timestamps from the cycle and returns the first; the
+    /// rest follow 1 ns apart. Reservations in one pass never overlap, and the
+    /// runtime's clock resumes above the last stamp reserved.
+    std::function<x::telem::TimeStamp(size_t n)> reserve_stamps;
 };
 
 class Node {

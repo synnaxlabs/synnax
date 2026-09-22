@@ -156,7 +156,7 @@ func (h *runtimeHarness) Tick(ctx context.Context, elapsed telem.TimeSpan) {
 	}
 	h.cycleNow = cycle.Now
 	h.timeMod.SetNow(cycle.Now)
-	h.scheduler.Next(ctx, cycle)
+	h.clock.Advance(h.scheduler.Next(ctx, cycle))
 }
 
 func (h *runtimeHarness) Ingest(channelKey uint32, data telem.Series) {

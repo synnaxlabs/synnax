@@ -178,6 +178,9 @@ public:
         // Dispatcher drivers alternate; no input's time is honest, so stamp the
         // clock.
         const bool clock_stamp = longest_input_idx < 0 || this->sel_idx != NO_SEL;
+        auto clock_first = x::telem::TimeStamp(0);
+        if (clock_stamp)
+            clock_first = ctx.reserve_stamps(static_cast<size_t>(max_length));
 
         this->state.set_current_node_key(this->ir.key);
 
@@ -213,7 +216,7 @@ public:
 
             x::telem::TimeStamp ts;
             if (clock_stamp)
-                ts = ctx.cycle.now;
+                ts = clock_first + static_cast<int64_t>(i);
             else
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
 

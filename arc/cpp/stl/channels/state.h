@@ -60,8 +60,8 @@ class State {
 
     /// @brief fills every empty index buffer whose channels wrote this cycle, and
     /// returns the highest timestamp it wrote. A non-empty buffer already holds the
-    /// provenance a sink forwarded and is left alone. Every member of a group starts
-    /// at now, so one cycle's writes stay aligned across channels.
+    /// upstream stamps a sink forwarded and is left alone. Every member of a group
+    /// starts at now, so one cycle's writes stay aligned across channels.
     x::telem::TimeStamp stamp_indexes(x::telem::TimeStamp now);
 
 public:

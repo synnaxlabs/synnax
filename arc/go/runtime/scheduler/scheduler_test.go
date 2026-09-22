@@ -1656,6 +1656,56 @@ var _ = Describe("Scheduler", func() {
 			Expect(received).To(Equal(node.ReasonChannelInput))
 		})
 
+		It("Should return the highest stamp its nodes reserved", func(ctx SpecContext) {
+			var firstA, firstB telem.TimeStamp
+			nodeA := mock("A")
+			nodeA.OnNext = func(c node.Context) { firstA = c.ReserveStamps(2) }
+			nodeB := mock("B")
+			nodeB.OnNext = func(c node.Context) { firstB = c.ReserveStamps(3) }
+			prog := programOf(
+				[]ir.Node{irNode("A"), irNode("B")},
+				nil,
+				rootScope(ir.NodeMember("A"), ir.NodeMember("B")),
+			)
+			s := build(prog)
+			highest := s.Next(ctx, node.Cycle{Now: 100, Reason: node.ReasonTimerTick})
+			Expect(firstA).To(Equal(telem.TimeStamp(100)))
+			Expect(firstB).To(Equal(telem.TimeStamp(102)))
+			Expect(highest).To(Equal(telem.TimeStamp(104)))
+		})
+
+		It("Should restart reservations at each cycle's stamp", func(ctx SpecContext) {
+			var first telem.TimeStamp
+			nodeA := mock("A")
+			nodeA.OnNext = func(c node.Context) {
+				first = c.ReserveStamps(5)
+				c.MarkSelfChanged()
+			}
+			prog := programOf(
+				[]ir.Node{irNode("A")},
+				nil,
+				rootScope(ir.NodeMember("A")),
+			)
+			s := build(prog)
+			s.Next(ctx, node.Cycle{Now: 100, Reason: node.ReasonTimerTick})
+			highest := s.Next(ctx, node.Cycle{Now: 200, Reason: node.ReasonTimerTick})
+			Expect(first).To(Equal(telem.TimeStamp(200)))
+			Expect(highest).To(Equal(telem.TimeStamp(204)))
+		})
+
+		It("Should return zero when no node reserves a stamp", func(ctx SpecContext) {
+			mock("A")
+			prog := programOf(
+				[]ir.Node{irNode("A")},
+				nil,
+				rootScope(ir.NodeMember("A")),
+			)
+			s := build(prog)
+			Expect(
+				s.Next(ctx, node.Cycle{Now: 100, Reason: node.ReasonTimerTick}),
+			).To(Equal(telem.TimeStamp(0)))
+		})
+
 		It("Should tolerate a self-loop edge in phase 0", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeA.OnNext = markOnNext(0)

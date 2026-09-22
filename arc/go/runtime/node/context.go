@@ -61,6 +61,10 @@ type Context struct {
 	// needs a TimerTick. The scheduler tracks the minimum across all nodes
 	// and uses it to wake the loop at the right time.
 	SetDeadline func(telem.TimeSpan)
+	// ReserveStamps takes n distinct timestamps from the cycle and returns the first;
+	// the rest follow 1 ns apart. Reservations in one pass never overlap, and the
+	// runtime's clock resumes above the last stamp reserved.
+	ReserveStamps func(n int) telem.TimeStamp
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/testutil"
 	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
@@ -175,11 +176,17 @@ func (h *testHarness) NextChanged(
 ) set.Set[string] {
 	outputs := h.analyzed.Nodes.Get(nodeKey).Outputs
 	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-		if i >= 0 && i < len(outputs) {
-			changed.Add(outputs[i].Name)
-		}
-	}})
+	n.Next(
+		node.Context{
+			Context:       ctx,
+			ReserveStamps: testutil.ReserveStamps(0),
+			MarkChanged: func(i int) {
+				if i >= 0 && i < len(outputs) {
+					changed.Add(outputs[i].Name)
+				}
+			},
+		},
+	)
 	return changed
 }
 
@@ -675,7 +682,11 @@ var _ = Describe("WASM", func() {
 
 				n1 := h.CreateNode(ctx, "c1")
 				n2 := h.CreateNode(ctx, "c2")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := node.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) {},
+				}
 
 				n1.Next(nCtx)
 				Expect(
@@ -735,7 +746,11 @@ var _ = Describe("WASM", func() {
 
 				n1 := h.CreateNode(ctx, "counter_a")
 				n2 := h.CreateNode(ctx, "counter_b")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := node.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) {},
+				}
 
 				// First execution of counter_a should return 1
 				n1.Next(nCtx)
@@ -1065,6 +1080,51 @@ trigger_ch -> emit_period{period=1s}
 				).To(Equal([]int64{int64(telem.Second)}))
 			},
 		)
+	})
+
+	Describe("Dispatcher stamps", func() {
+		It("Should stamp each sample of a batch 1 ns apart", func(ctx SpecContext) {
+			chans := []symbol.Symbol{{
+				Name: "count_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   100,
+			}}
+			source := `
+sequence main {
+	r := count_ch + 1
+	r = count_ch + 2
+}`
+			h := newTextHarness(ctx, source, chans,
+				channels.Digest{Key: 100, DataType: telem.Int64T},
+			)
+			DeferCleanup(h.Close)
+
+			h.SetInput(
+				"bind_r_0",
+				0,
+				telem.NewSeriesV[uint32](0),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.SetInput(
+				"on_count_ch_0",
+				0,
+				telem.NewSeriesV[int64](10, 20, 30),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+			n := h.CreateNode(ctx, "disp_r_0")
+			now := 50 * telem.SecondTS
+			n.Next(node.Context{
+				Context:       ctx,
+				Cycle:         node.Cycle{Now: now},
+				ReserveStamps: testutil.ReserveStamps(now),
+				MarkChanged:   func(int) {},
+			})
+			Expect(h.Output("disp_r_0", 0).Len()).To(Equal(int64(3)))
+			Expect(
+				h.OutputTime("disp_r_0", 0).Unmarshal[telem.TimeStamp](),
+			).To(Equal([]telem.TimeStamp{now, now + 1, now + 2}))
+		})
 	})
 
 	Describe("Alignment and TimeRange Propagation", func() {
@@ -2605,7 +2665,11 @@ trigger_ch -> emit_period{period=1s}
 			n := h.CreateNode(ctx, "offset_func")
 			changed := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+				node.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(i int) { changed.Add(i) },
+				},
 			)
 
 			output := h.Output("offset_func", 0)
@@ -2666,7 +2730,11 @@ trigger_ch -> emit_period{period=1s}
 			n := h.CreateNode(ctx, "scale_neg")
 			changed := make(set.Set[int])
 			n.Next(
-				node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }},
+				node.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(i int) { changed.Add(i) },
+				},
 			)
 
 			output := h.Output("scale_neg", 0)
@@ -2858,7 +2926,13 @@ trigger_ch -> emit_period{period=1s}
 
 					for i := range 3 {
 						n.Reset(node.Context{})
-						n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+						n.Next(
+							node.Context{
+								Context:       ctx,
+								ReserveStamps: testutil.ReserveStamps(0),
+								MarkChanged:   func(int) {},
+							},
+						)
 						fr, _, changed := h.ChannelState().
 							Flush(telem.Frame[uint32]{}, flushNow)
 						Expect(changed).To(BeTrue())
@@ -3204,7 +3278,11 @@ trigger_ch -> emit_period{period=1s}
 				)
 
 				n := h.CreateNode(ctx, "void_with_state")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := node.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) {},
+				}
 
 				n.Reset(node.Context{})
 				n.Next(nCtx)
@@ -3240,7 +3318,11 @@ trigger_ch -> emit_period{period=1s}
 				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "expression_0")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := node.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) {},
+				}
 
 				n.Next(nCtx)
 				Expect(
@@ -3273,8 +3355,9 @@ trigger_ch -> emit_period{period=1s}
 				n := h.CreateNode(ctx, "expression_0")
 				var executions int
 				nCtx := node.Context{
-					Context:     ctx,
-					MarkChanged: func(int) { executions++ },
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) { executions++ },
 				}
 
 				n.Next(nCtx)
@@ -5179,7 +5262,11 @@ input_ch -> count_local{} -> sink_ch
 				DeferCleanup(h.Close)
 
 				n := h.CreateNode(ctx, "loop_state")
-				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+				nCtx := node.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) {},
+				}
 
 				n.Next(nCtx)
 				Expect(
