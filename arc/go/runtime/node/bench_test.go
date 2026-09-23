@@ -67,6 +67,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	for i := 0; b.Loop(); i++ {
 		sourceNode.Output(0).SetValueAt(0, float32(i))
 		sourceNode.OutputTime(0).SetValueAt(0, telem.TimeStamp(i+1)*telem.SecondTS)
+		sourceNode.MarkFresh(0)
 		if !targetNode.RefreshInputs() {
 			b.Fatal("Failed to refresh inputs")
 		}
@@ -105,7 +106,7 @@ func BenchmarkWriteChannelU8SameKeyFlush(b *testing.B) {
 		for j := range writesPerCycle {
 			s.WriteChannelU8(1, uint8(j))
 		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
+		_, _, _ = s.Flush(telem.Frame[uint32]{}, 0)
 	}
 }
 
@@ -121,6 +122,6 @@ func BenchmarkFlushManyKeysSingleWrite(b *testing.B) {
 		for k := range keys {
 			s.WriteChannelU8(uint32(k+1), uint8(k))
 		}
-		_, _ = s.Flush(telem.Frame[uint32]{})
+		_, _, _ = s.Flush(telem.Frame[uint32]{}, 0)
 	}
 }

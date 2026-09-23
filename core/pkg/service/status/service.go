@@ -11,8 +11,8 @@ package status
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -168,7 +168,7 @@ func (s *Service) ResolveKeyOrName(
 // new UUID-keyed status named keyOrName when nothing matched, with the new fields
 // applied.
 func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
-	st := Status[any]{Key: uuid.NewString(), Name: keyOrName}
+	st := Status[any]{Key: uuid.New().String(), Name: keyOrName}
 	if len(matches) > 0 {
 		st = matches[0]
 	}

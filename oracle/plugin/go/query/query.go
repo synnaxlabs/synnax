@@ -442,10 +442,12 @@ package {{.Package}}
 {{- if .HasImports}}
 
 import (
-{{- range .ExternalImports}}
+{{- range .StdImports}}
 	"{{.}}"
 {{- end}}
-{{- range .InternalImports}}
+{{- if and .StdImports .NonStdImports}}
+{{end}}
+{{- range .NonStdImports}}
 {{- if .NeedsAlias}}
 	{{.Alias}} "{{.Path}}"
 {{- else}}

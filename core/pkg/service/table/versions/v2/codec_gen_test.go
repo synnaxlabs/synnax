@@ -12,11 +12,9 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -25,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 )
 
@@ -58,30 +57,30 @@ var _ = Describe("Codec", func() {
 				Precision:      new(int32(4)),
 				Notation:       notation.Notation("standard"),
 				Redline: new(v2.Redline{
-					Bounds: spatial.Bounds{},
+					Bounds: spatial.Bounds{Lower: 7.5, Upper: 8.5},
 					Gradient: []color.Stop{
 						{
-							Key:      "test_8",
+							Key:      "test_10",
 							Color:    color.Color{},
-							Position: 10.5,
+							Position: 12.5,
 							Switched: new(bool(true)),
 						},
 					},
 				}),
 				Level: text.Level("h1"),
 				Color: new(color.Color{
-					R: 15,
-					G: 16,
-					B: 17,
-					A: 17.5,
+					R: 17,
+					G: 18,
+					B: 19,
+					A: 19.5,
 				}),
-				Units:            "test_18",
-				StalenessTimeout: 19.5,
+				Units:            "test_20",
+				StalenessTimeout: 21.5,
 				StalenessColor: new(color.Color{
-					R: 22,
-					G: 23,
-					B: 24,
-					A: 24.5,
+					R: 24,
+					G: 25,
+					B: 26,
+					A: 26.5,
 				}),
 			}}),
 		)
@@ -113,23 +112,26 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.Redline{
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
 				Gradient: []color.Stop{
 					{
-						Key: "test_3",
+						Key: "test_5",
 						Color: color.Color{
-							R: 6,
-							G: 7,
-							B: 8,
-							A: 8.5,
+							R: 8,
+							G: 9,
+							B: 10,
+							A: 10.5,
 						},
-						Position: 9.5,
+						Position: 11.5,
 						Switched: new(bool(false)),
 					},
 				},
 			}),
-			Entry("zero values", v2.Redline{Bounds: spatial.Bounds{}, Gradient: nil}),
-			Entry("empty collections", v2.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
+			Entry("zero values", v2.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}),
+			Entry("empty collections", v2.Redline{
+				Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
+				Gradient: []color.Stop{},
+			}),
 		)
 	})
 	Describe("Row", func() {
@@ -144,7 +146,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.Row{Size: 1.5, Cells: []string{"test_2"}}),
-			Entry("zero values", v2.Row{Size: 0, Cells: nil}),
+			Entry("zero values", v2.Row{Size: 0, Cells: []string{}}),
 			Entry("empty collections", v2.Row{Size: 1.5, Cells: []string{}}),
 		)
 	})
@@ -180,11 +182,11 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.Table{
-				Key:     uuid.Nil,
+				Key:     uuid.Nil(),
 				Name:    "",
-				Rows:    nil,
-				Columns: nil,
-				Cells:   nil,
+				Rows:    []v2.Row{},
+				Columns: []v2.Column{},
+				Cells:   map[string]v2.CellConfig{},
 			}),
 			Entry("empty collections", v2.Table{
 				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -244,17 +246,17 @@ func BenchmarkEncodeDecodeColumn(b *testing.B) {
 
 func BenchmarkEncodeDecodeRedline(b *testing.B) {
 	seed := v2.Redline{
-		Bounds: spatial.Bounds{},
+		Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
 		Gradient: []color.Stop{
 			{
-				Key: "test_3",
+				Key: "test_5",
 				Color: color.Color{
-					R: 6,
-					G: 7,
-					B: 8,
-					A: 8.5,
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
 				},
-				Position: 9.5,
+				Position: 11.5,
 				Switched: new(bool(false)),
 			},
 		},
@@ -354,30 +356,30 @@ func FuzzDecodeCellConfig(f *testing.F) {
 			Precision:      new(int32(4)),
 			Notation:       notation.Notation("standard"),
 			Redline: new(v2.Redline{
-				Bounds: spatial.Bounds{},
+				Bounds: spatial.Bounds{Lower: 7.5, Upper: 8.5},
 				Gradient: []color.Stop{
 					{
-						Key:      "test_8",
+						Key:      "test_10",
 						Color:    color.Color{},
-						Position: 10.5,
+						Position: 12.5,
 						Switched: new(bool(true)),
 					},
 				},
 			}),
 			Level: text.Level("h1"),
 			Color: new(color.Color{
-				R: 15,
-				G: 16,
-				B: 17,
-				A: 17.5,
+				R: 17,
+				G: 18,
+				B: 19,
+				A: 19.5,
 			}),
-			Units:            "test_18",
-			StalenessTimeout: 19.5,
+			Units:            "test_20",
+			StalenessTimeout: 21.5,
 			StalenessColor: new(color.Color{
-				R: 22,
-				G: 23,
-				B: 24,
-				A: 24.5,
+				R: 24,
+				G: 25,
+				B: 26,
+				A: 26.5,
 			}),
 		}}
 		w := orc.NewWriter(0)
@@ -402,7 +404,7 @@ func FuzzDecodeCellConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -441,7 +443,7 @@ func FuzzDecodeColumn(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -450,17 +452,17 @@ func FuzzDecodeColumn(f *testing.F) {
 func FuzzDecodeRedline(f *testing.F) {
 	{
 		seed := v2.Redline{
-			Bounds: spatial.Bounds{},
+			Bounds: spatial.Bounds{Lower: 2.5, Upper: 3.5},
 			Gradient: []color.Stop{
 				{
-					Key: "test_3",
+					Key: "test_5",
 					Color: color.Color{
-						R: 6,
-						G: 7,
-						B: 8,
-						A: 8.5,
+						R: 8,
+						G: 9,
+						B: 10,
+						A: 10.5,
 					},
-					Position: 9.5,
+					Position: 11.5,
 					Switched: new(bool(false)),
 				},
 			},
@@ -472,7 +474,7 @@ func FuzzDecodeRedline(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Redline{Bounds: spatial.Bounds{}, Gradient: nil}
+		seed := v2.Redline{Bounds: spatial.Bounds{Lower: 0, Upper: 0}, Gradient: []color.Stop{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -480,7 +482,10 @@ func FuzzDecodeRedline(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}
+		seed := v2.Redline{
+			Bounds:   spatial.Bounds{Lower: 2.5, Upper: 3.5},
+			Gradient: []color.Stop{},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -503,7 +508,7 @@ func FuzzDecodeRedline(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -519,7 +524,7 @@ func FuzzDecodeRow(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Row{Size: 0, Cells: nil}
+		seed := v2.Row{Size: 0, Cells: []string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -550,7 +555,7 @@ func FuzzDecodeRow(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -586,11 +591,11 @@ func FuzzDecodeTable(f *testing.F) {
 	}
 	{
 		seed := v2.Table{
-			Key:     uuid.Nil,
+			Key:     uuid.Nil(),
 			Name:    "",
-			Rows:    nil,
-			Columns: nil,
-			Cells:   nil,
+			Rows:    []v2.Row{},
+			Columns: []v2.Column{},
+			Cells:   map[string]v2.CellConfig{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -628,7 +633,7 @@ func FuzzDecodeTable(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

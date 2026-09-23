@@ -12,8 +12,8 @@ package group
 import (
 	"context"
 	"io"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
@@ -171,7 +171,7 @@ func (w Writer) CreateWithKey(
 	parent ontology.ID,
 ) (Group, error) {
 	g := Group{Key: key, Name: name}
-	if g.Key == uuid.Nil {
+	if g.Key == uuid.Nil() {
 		g.Key = uuid.New()
 	}
 	id := g.OntologyID()

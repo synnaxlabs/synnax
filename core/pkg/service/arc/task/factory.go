@@ -65,12 +65,16 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Ranger *ranger.Service
+	// Now returns the wall clock each task's runtime stamps its cycles from.
+	//
+	// [OPTIONAL] - Defaults to telem.Now.
+	Now func() telem.TimeStamp
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
-	DefaultFactoryConfig                              = FactoryConfig{}
+	DefaultFactoryConfig                              = FactoryConfig{Now: telem.Now}
 )
 
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
@@ -81,6 +85,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 

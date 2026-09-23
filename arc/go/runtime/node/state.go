@@ -20,6 +20,10 @@ import (
 type value struct {
 	data telem.Series
 	time telem.Series
+	// rev is the program-wide revision at which this value was last written.
+	// Zero means never written. Consumers compare it against what they last
+	// consumed; ordering across values is the program's true write order.
+	rev uint64
 }
 
 // ProgramState manages runtime data for an arc program.
@@ -27,6 +31,10 @@ type value struct {
 type ProgramState struct {
 	ir      ir.IR
 	outputs map[ir.Handle]*value
+	// rev counts writes across every output in the program. Every cycle stamps
+	// one timestamp, so the stamp cannot tell a consumer that a value is new;
+	// this counter does.
+	rev uint64
 }
 
 // New creates a state manager for the given program IR.
@@ -58,6 +66,7 @@ func (s *ProgramState) Node(key string) *State {
 		alignedData  = make([]telem.Series, len(n.Inputs))
 		alignedTime  = make([]telem.Series, len(alignedData))
 		accumulated  = make([]inputEntry, len(n.Inputs))
+		literal      = make([]bool, len(n.Inputs))
 		inputSources = make([]*value, len(n.Inputs))
 		isReference  = make([]bool, len(n.Inputs))
 	)
@@ -113,12 +122,8 @@ func (s *ProgramState) Node(key string) *State {
 			time := telem.NewSeriesV[telem.TimeStamp](0)
 			alignedData[i] = data
 			alignedTime[i] = time
-			accumulated[i] = inputEntry{
-				data:          data,
-				time:          time,
-				lastTimestamp: 0,
-				consumed:      false,
-			}
+			accumulated[i] = inputEntry{data: data, time: time}
+			literal[i] = true
 			if _, exists := s.outputs[syntheticSource]; !exists {
 				s.outputs[syntheticSource] = &value{data: data, time: time}
 			}
@@ -144,6 +149,7 @@ func (s *ProgramState) Node(key string) *State {
 			accumulated = append(accumulated, inputEntry{})
 			inputSources = append(inputSources, s.outputs[e.Source])
 			isReference = append(isReference, false)
+			literal = append(literal, false)
 		}
 	}
 
@@ -214,14 +220,23 @@ func (s *ProgramState) Node(key string) *State {
 	nd.inputSources = inputSources
 	nd.outputCache = outputCache
 	nd.isReference = isReference
+	nd.literal = literal
+	for i := range literal {
+		if !literal[i] && !isReference[i] {
+			nd.edgeFed = true
+			break
+		}
+	}
+	nd.progRev = &s.rev
 	return nd
 }
 
 type inputEntry struct {
-	data          telem.Series
-	time          telem.Series
-	lastTimestamp telem.TimeStamp
-	consumed      bool
+	data telem.Series
+	time telem.Series
+	// lastRev is the source value's revision when this entry was taken.
+	lastRev  uint64
+	consumed bool
 }
 
 // rearmRule selects when a consumed input re-arms and fires again.
@@ -252,6 +267,12 @@ type State struct {
 	// isReference marks inputs that are channel references rather than value
 	// streams. Reference inputs carry no data series and never gate execution.
 	isReference []bool
+	// literal marks inputs fed by a configured value rather than an edge. A
+	// configured value has no time of its own.
+	literal []bool
+	// edgeFed is true when an edge feeds at least one data input. Reset leaves the
+	// literals of such a node consumed, so only fresh edge data re-runs it.
+	edgeFed bool
 	// rearm[i] selects when a consumed input i fires again.
 	rearm       []rearmRule
 	accumulated []inputEntry
@@ -262,19 +283,48 @@ type State struct {
 	nodeOutputs  map[ir.Handle]*value
 	inputSources []*value
 	outputCache  []*value
+	// progRev points at the owning ProgramState's write counter.
+	progRev *uint64
 }
 
-// Reset re-arms every input when the node's stage is (re)activated, so a node
-// whose gating inputs are all literal-valued re-runs instead of staying consumed.
-func (s *State) Reset() {
+// Emit publishes the value the node just wrote to the output at paramIndex:
+// downstream readers see it as unconsumed, and the scheduler runs them. Every
+// producer calls it once per write.
+func (s *State) Emit(ctx Context, paramIndex int) {
+	s.MarkFresh(paramIndex)
+	ctx.MarkChanged(paramIndex)
+}
+
+// MarkFresh makes the output at paramIndex unconsumed for downstream readers
+// without waking them. A cycle stamps one timestamp on everything it produces,
+// so a reader cannot tell a new value from the one it already consumed; the
+// revision this records is what tells it. Producers writing during Next call
+// Emit instead; this is for a write on Reset, which has no running node for the
+// scheduler to propagate from.
+func (s *State) MarkFresh(paramIndex int) {
+	*s.progRev++
+	s.outputCache[paramIndex].rev = *s.progRev
+}
+
+// Reset re-arms the node's inputs when its stage is (re)activated, so a node
+// whose inputs are all literal-valued re-runs instead of staying consumed. An
+// edge-fed input keeps what it consumed: re-arming one makes the node re-emit a
+// value it already emitted, which duplicates writes downstream.
+func (s *State) Reset(Context) {
 	for i := range s.accumulated {
 		switch s.rearm[i] {
 		case rearmOnFresh:
 		case rearmOnArrival:
 			s.absorbInput(i)
-		case rearmAlways, rearmOnReset:
+		case rearmAlways:
+			if !s.literal[i] || s.edgeFed {
+				continue
+			}
 			s.accumulated[i].consumed = false
-			s.accumulated[i].lastTimestamp = 0
+			s.accumulated[i].lastRev = 0
+		case rearmOnReset:
+			s.accumulated[i].consumed = false
+			s.accumulated[i].lastRev = 0
 		}
 	}
 }
@@ -289,19 +339,16 @@ func (s *State) RefreshInputs() (recalculate bool) {
 		}
 		hasDataInput = true
 		src := s.inputSources[i]
-		if src != nil && src.time.Len() > 0 {
-			ts := src.time.ValueAt[telem.TimeStamp](-1)
-			if ts > s.accumulated[i].lastTimestamp {
-				consumed := false
-				if s.rearm[i] == rearmOnReset {
-					consumed = s.accumulated[i].consumed
-				}
-				s.accumulated[i] = inputEntry{
-					data:          src.data,
-					time:          src.time,
-					lastTimestamp: ts,
-					consumed:      consumed,
-				}
+		if src != nil && src.rev > s.accumulated[i].lastRev {
+			consumed := false
+			if s.rearm[i] == rearmOnReset {
+				consumed = s.accumulated[i].consumed
+			}
+			s.accumulated[i] = inputEntry{
+				data:     src.data,
+				time:     src.time,
+				lastRev:  src.rev,
+				consumed: consumed,
 			}
 		}
 		if s.accumulated[i].data.Len() == 0 {
@@ -388,7 +435,7 @@ func (s *State) AbsorbInputs() {
 	}
 }
 
-// absorbInput marks input i consumed at its current source timestamp.
+// absorbInput marks input i consumed at its current source revision.
 func (s *State) absorbInput(i int) {
 	if s.isReference[i] {
 		return
@@ -397,15 +444,11 @@ func (s *State) absorbInput(i int) {
 	if src == nil {
 		return
 	}
-	var ts telem.TimeStamp
-	if src.time.Len() > 0 {
-		ts = src.time.ValueAt[telem.TimeStamp](-1)
-	}
 	s.accumulated[i] = inputEntry{
-		data:          src.data,
-		time:          src.time,
-		lastTimestamp: ts,
-		consumed:      true,
+		data:     src.data,
+		time:     src.time,
+		lastRev:  src.rev,
+		consumed: true,
 	}
 }
 
@@ -419,18 +462,14 @@ func (s *State) ConsumeInput(i int) (telem.Series, bool) {
 	if src == nil || src.data.Len() == 0 {
 		return telem.Series{}, false
 	}
-	var ts telem.TimeStamp
-	if src.time.Len() > 0 {
-		ts = src.time.ValueAt[telem.TimeStamp](-1)
-	}
-	if ts <= s.accumulated[i].lastTimestamp && s.accumulated[i].consumed {
+	if src.rev <= s.accumulated[i].lastRev && s.accumulated[i].consumed {
 		return telem.Series{}, false
 	}
 	s.accumulated[i] = inputEntry{
-		data:          src.data,
-		time:          src.time,
-		lastTimestamp: ts,
-		consumed:      true,
+		data:     src.data,
+		time:     src.time,
+		lastRev:  src.rev,
+		consumed: true,
 	}
 	return src.data, true
 }
@@ -444,17 +483,13 @@ func (s *State) InputFresh(i int) bool {
 	if src == nil || src.data.Len() == 0 {
 		return false
 	}
-	var ts telem.TimeStamp
-	if src.time.Len() > 0 {
-		ts = src.time.ValueAt[telem.TimeStamp](-1)
-	}
-	return ts > s.accumulated[i].lastTimestamp || !s.accumulated[i].consumed
+	return src.rev > s.accumulated[i].lastRev || !s.accumulated[i].consumed
 }
 
 // LastChanged returns the series of the most-recently-changed input, marking it
 // consumed for last-write-wins. ok is false when no input has new data.
 func (s *State) LastChanged() (telem.Series, bool) {
-	best, bestTS, found := -1, telem.TimeStamp(0), false
+	best, bestRev, found := -1, uint64(0), false
 	for i := range s.ir.inputs {
 		if s.isReference[i] {
 			continue
@@ -463,15 +498,11 @@ func (s *State) LastChanged() (telem.Series, bool) {
 		if src == nil || src.data.Len() == 0 {
 			continue
 		}
-		var ts telem.TimeStamp
-		if src.time.Len() > 0 {
-			ts = src.time.ValueAt[telem.TimeStamp](-1)
-		}
-		if ts <= s.accumulated[i].lastTimestamp && s.accumulated[i].consumed {
+		if src.rev <= s.accumulated[i].lastRev && s.accumulated[i].consumed {
 			continue
 		}
-		if !found || ts > bestTS {
-			best, bestTS, found = i, ts, true
+		if !found || src.rev > bestRev {
+			best, bestRev, found = i, src.rev, true
 		}
 	}
 	if !found {
@@ -479,12 +510,44 @@ func (s *State) LastChanged() (telem.Series, bool) {
 	}
 	src := s.inputSources[best]
 	s.accumulated[best] = inputEntry{
-		data:          src.data,
-		time:          src.time,
-		lastTimestamp: bestTS,
-		consumed:      true,
+		data:     src.data,
+		time:     src.time,
+		lastRev:  bestRev,
+		consumed: true,
 	}
 	return src.data, true
+}
+
+// TimeSourceIdx returns the index of the input a node copies its output timestamps
+// from, or -1 when no input has time and the node stamps the cycle instead. Among the
+// inputs that have time it picks the longest, matching how nodes broadcast a shorter
+// input up to a longer one.
+func (s *State) TimeSourceIdx() int {
+	best, bestLen := -1, int64(0)
+	for i := range s.ir.inputs {
+		if !s.HasTime(i) {
+			continue
+		}
+		if l := s.aligned.data[i].Len(); l > bestLen {
+			best, bestLen = i, l
+		}
+	}
+	return best
+}
+
+// HasTime reports whether the input at paramIndex holds upstream timestamps a node
+// can copy. Literal and reference inputs never do: a configured value has no time.
+func (s *State) HasTime(paramIndex int) bool {
+	return !s.isReference[paramIndex] && !s.literal[paramIndex] &&
+		s.aligned.time[paramIndex].Len() > 0
+}
+
+// StampCycle overwrites the output's time series with a single sample of the
+// cycle stamp, reusing its buffer. Nodes with no input time to copy use it.
+func (s *State) StampCycle(ctx Context, outputIdx int) {
+	t := s.OutputTime(outputIdx)
+	t.Resize(1)
+	t.SetValueAt(0, ctx.Now)
 }
 
 // InputTime returns the timestamp series for the input at the given parameter
@@ -500,6 +563,8 @@ func (s *State) InitInput(paramIndex int, data, time telem.Series) {
 		if v, ok := s.nodeOutputs[sourceHandle]; ok {
 			v.data = data
 			v.time = time
+			*s.progRev++
+			v.rev = *s.progRev
 		}
 	}
 }

@@ -12,7 +12,6 @@ package calculation_test
 import (
 	"context"
 	"fmt"
-	"go/types"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -793,8 +792,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				).To(Succeed())
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
-				Expect(statusSvc.NewRetrieve[types.Nil]().
-					Where(status.MatchKeys[types.Nil](statusKey)).
+				Expect(statusSvc.NewRetrieve[struct{}]().
+					Where(status.MatchKeys[struct{}](statusKey)).
 					Entry(&st).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(st.Variant).To(Equal(status.VariantError))
@@ -834,8 +833,8 @@ var _ = Describe("Calculation", Ordered, func() {
 				var st calculation.Status
 				statusKey := calc.OntologyID().String()
 				Eventually(func(g Gomega) {
-					g.Expect(statusSvc.NewRetrieve[types.Nil]().
-						Where(status.MatchKeys[types.Nil](statusKey)).
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchKeys[struct{}](statusKey)).
 						Entry(&st).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(st.Variant).To(Equal(status.VariantError))
@@ -864,8 +863,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
 			expectedKey := calc.OntologyID().String()
-			Expect(statusSvc.NewRetrieve[types.Nil]().
-				Where(status.MatchKeys[types.Nil](expectedKey)).
+			Expect(statusSvc.NewRetrieve[struct{}]().
+				Where(status.MatchKeys[struct{}](expectedKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(st.Key).To(Equal(expectedKey))

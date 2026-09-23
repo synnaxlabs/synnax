@@ -11,8 +11,8 @@ package view
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,7 +34,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	if err := w.validate(*view); err != nil {
 		return err
 	}
-	if view.Key == uuid.Nil {
+	if view.Key == uuid.Nil() {
 		view.Key = uuid.New()
 	}
 	if err := w.table.NewCreate().
