@@ -14,10 +14,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(
   (): {
     engine: "web" | "tauri";
+    version: string;
     update: { version: string; downloadAndInstall: ReturnType<typeof vi.fn> } | null;
     relaunch: ReturnType<typeof vi.fn>;
   } => ({
     engine: "web",
+    version: "1.5.0",
     update: null,
     relaunch: vi.fn(async () => {}),
   }),
@@ -28,10 +30,15 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+vi.mock("@tauri-apps/api/app", () => ({
+  getVersion: vi.fn(async () => mocks.version),
+}));
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: vi.fn(async () => mocks.update),
 }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: mocks.relaunch }));
+
+import { check } from "@tauri-apps/plugin-updater";
 
 import { Modals } from "@/platform/modals";
 import { Wrapper } from "@/platform/modals/testutil";
@@ -54,6 +61,7 @@ const openModal = (): void => {
 describe("version useInfoModal", () => {
   beforeEach(() => {
     mocks.engine = "web";
+    mocks.version = "1.5.0";
     mocks.update = null;
     mocks.relaunch.mockClear();
   });
@@ -65,6 +73,14 @@ describe("version useInfoModal", () => {
   it("should report that the console is up to date in the web engine", async () => {
     openModal();
     await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
+  });
+
+  it("should report up to date on a dev build without checking", async () => {
+    mocks.engine = "tauri";
+    mocks.version = "0.0.0";
+    openModal();
+    await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
+    expect(check).not.toHaveBeenCalled();
   });
 
   it("should present an available update and install it on request", async () => {
