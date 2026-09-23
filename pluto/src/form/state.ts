@@ -268,7 +268,10 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     cachedRef.value = value;
     cachedRef.required = false;
     if (this.schema != null) {
-      const fieldSchema = zod.getFieldSchema(this.schema, path, { optional: true });
+      const fieldSchema = zod.getFieldSchema(this.schema, path, {
+        optional: true,
+        values: this.values,
+      });
       if (fieldSchema != null) cachedRef.required = !z.validate(fieldSchema, undefined);
     }
     cachedRef.status = map.getOrSetDefault(this.statuses, path, {
