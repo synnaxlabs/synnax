@@ -93,16 +93,16 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
-	// LicenseToken is a token the verification service accepts on open.
+	// LicenseToken is a token the license service accepts on open.
 	//
 	// [OPTIONAL] - Defaults to "".
 	LicenseToken string
-	// Version is this Core's version, which the verification service checks against
-	// a grant's version ceiling.
+	// Version is this Core's version, which the license service checks against a
+	// license's version ceiling.
 	//
 	// [OPTIONAL] - Defaults to "", which passes every ceiling.
 	Version string
-	// Anchors replaces the key set the verification service verifies tokens against.
+	// Anchors replaces the key set the license service verifies tokens against.
 	// Only test fixtures set it.
 	//
 	// [OPTIONAL] - Defaults to the production keys.
