@@ -79,7 +79,9 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should return ErrUniqueViolation when a user with the key already exists",
 			func(ctx SpecContext) {
-				u := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
+				u := MustSucceed(
+					w.Create(ctx, user.User{Username: uuid.New().String()}),
+				)
 				Expect(w.Create(ctx, user.User{
 					Username: uuid.New().String(),
 					Key:      u.Key,
