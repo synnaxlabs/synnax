@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -32,6 +33,10 @@ import (
 
 // FactoryConfig is the configuration for the MQTT task factory.
 type FactoryConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Device retrieves broker devices.
 	//
 	// [REQUIRED]
@@ -80,6 +85,7 @@ var (
 // Override implements config.Config.
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
@@ -93,6 +99,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate implements config.Config.
 func (c FactoryConfig) Validate() error {
 	v := validate.New("mqtt.factory")
+	v.NotNil("db", c.DB)
 	v.NotNil("device", c.Device)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
@@ -166,7 +173,14 @@ func (f *factory) ConfigureTask(
 	}
 	if err != nil {
 		driver.ReportConfigError(
-			ctx, f.cfg.Instrumentation, f.cfg.Status, t, cmdKey, autoStart, err,
+			ctx,
+			f.cfg.Instrumentation,
+			f.cfg.DB,
+			f.cfg.Status,
+			t,
+			cmdKey,
+			autoStart,
+			err,
 		)
 		return nil, err
 	}
@@ -340,6 +354,7 @@ func (f *factory) configureRead(
 	rt, err := driver.NewReadTask(driver.ReadTaskConfig{
 		Instrumentation: f.cfg.Child(t.Key.String()),
 		Source:          src,
+		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
 		Channels:        writerKeys,
@@ -420,6 +435,7 @@ func (f *factory) configureWrite(
 	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
 		Instrumentation: f.cfg.Child(t.Key.String()),
 		Sink:            sink,
+		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
 		Channels:        keys.Unique(),
@@ -509,6 +525,7 @@ func (f *factory) configureEdge(
 	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
 		Instrumentation: edge.ins,
 		Sink:            edge,
+		DB:              f.cfg.DB,
 		Status:          f.cfg.Status,
 		Framer:          f.cfg.Framer,
 		Channels:        streamKeys.Unique(),
@@ -529,6 +546,7 @@ func (f *factory) configureScan(t task.Task) (autoStarter, bool, error) {
 			pool:   f.pool,
 			device: f.cfg.Device,
 		},
+		DB:                 f.cfg.DB,
 		Status:             f.cfg.Status,
 		Device:             f.cfg.Device,
 		Make:               Make,

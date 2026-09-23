@@ -13,8 +13,8 @@ import (
 	"context"
 	"sync/atomic"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -96,8 +96,8 @@ var _ = Describe("ReadTask", func() {
 	openWithBreaker := func(brk breaker.Config) *driver.ReadTask {
 		GinkgoHelper()
 		rt := MustSucceed(driver.NewReadTask(driver.ReadTaskConfig{
-			Source:   src,
-			Status:   statusSvc,
+			Source: src,
+			DB:     db, Status: statusSvc,
 			Framer:   framerSvc,
 			Channels: channel.Keys{idxCh.Key(), dataCh.Key()},
 			Task:     t,
@@ -140,6 +140,7 @@ var _ = Describe("ReadTask", func() {
 	Describe("NewReadTask", func() {
 		It("Should reject a configuration with no source", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
+				DB:       db,
 				Status:   statusSvc,
 				Framer:   framerSvc,
 				Channels: channel.Keys{idxCh.Key()},
@@ -148,16 +149,16 @@ var _ = Describe("ReadTask", func() {
 		})
 		It("Should reject a task with no key", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
-				Source:   src,
-				Status:   statusSvc,
+				Source: src,
+				DB:     db, Status: statusSvc,
 				Framer:   framerSvc,
 				Channels: channel.Keys{idxCh.Key()},
 			})).Error().To(MatchError(ContainSubstring("task: must have a key")))
 		})
 		It("Should reject a breaker whose base interval exceeds its maximum", func() {
 			Expect(driver.NewReadTask(driver.ReadTaskConfig{
-				Source:   src,
-				Status:   statusSvc,
+				Source: src,
+				DB:     db, Status: statusSvc,
 				Framer:   framerSvc,
 				Channels: channel.Keys{idxCh.Key()},
 				Task:     t,

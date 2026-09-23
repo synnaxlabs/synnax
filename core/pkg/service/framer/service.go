@@ -18,12 +18,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -77,6 +78,10 @@ const (
 // ServiceConfig is the configuration for opening a framer Service. All fields are
 // required except the embedded Instrumentation.
 type ServiceConfig struct {
+	// DB opens the transactions that calculation status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Framer is the distribution-layer framer service this service extends.
 	//
 	// [REQUIRED]
@@ -85,10 +90,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Status is used for persisting calculation status updates.
+	// ChannelGraph reconciles calculated channel definitions and owns their statuses.
+	// The calculation service subscribes to it and reports through it.
 	//
 	// [REQUIRED]
-	Status *status.Service
+	ChannelGraph *channelgraph.Graph
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -100,18 +106,20 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
+	v.NotNil("db", c.DB)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("channel", c.Channel)
-	v.NotNil("status", c.Status)
+	v.NotNil("channel_graph", c.ChannelGraph)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Status = override.Nil(c.Status, other.Status)
+	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	return c
 }
 
@@ -146,10 +154,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	var calcSvc *calculation.Service
 	if calcSvc, err = calculation.OpenService(ctx, calculation.ServiceConfig{
 		Instrumentation: cfg.Child("calculation"),
+		DB:              cfg.DB,
 		Channel:         cfg.Channel,
 		Framer:          cfg.Framer,
 		Writer:          s.writer,
-		Status:          cfg.Status,
+		ChannelGraph:    cfg.ChannelGraph,
 	}); !ok(err, calcSvc) {
 		return nil, err
 	}

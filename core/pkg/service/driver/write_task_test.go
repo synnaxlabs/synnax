@@ -14,8 +14,8 @@ import (
 	"slices"
 	"sync"
 	"sync/atomic"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -102,8 +102,8 @@ var _ = Describe("WriteTask", func() {
 	open := func() *driver.WriteTask {
 		GinkgoHelper()
 		wt := MustSucceed(driver.NewWriteTask(driver.WriteTaskConfig{
-			Sink:     sink,
-			Status:   statusSvc,
+			Sink: sink,
+			DB:   db, Status: statusSvc,
 			Framer:   framerSvc,
 			Channels: channel.Keys{cmdCh.Key()},
 			Task:     t,
@@ -139,6 +139,7 @@ var _ = Describe("WriteTask", func() {
 	Describe("NewWriteTask", func() {
 		It("Should reject a configuration with no sink", func() {
 			Expect(driver.NewWriteTask(driver.WriteTaskConfig{
+				DB:       db,
 				Status:   statusSvc,
 				Framer:   framerSvc,
 				Channels: channel.Keys{cmdCh.Key()},
@@ -188,8 +189,8 @@ var _ = Describe("WriteTask", func() {
 		It("Should stop the sink when the streamer fails to open",
 			func(ctx SpecContext) {
 				wt := MustSucceed(driver.NewWriteTask(driver.WriteTaskConfig{
-					Sink:     sink,
-					Status:   statusSvc,
+					Sink: sink,
+					DB:   db, Status: statusSvc,
 					Framer:   framerSvc,
 					Channels: channel.Keys{channel.Key(1<<31 - 1)},
 					Task:     t,

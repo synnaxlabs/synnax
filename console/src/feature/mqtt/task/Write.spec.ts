@@ -18,7 +18,6 @@ import {
   clickDeploy,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
-  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -26,6 +25,7 @@ import {
 import {
   awaitTextEditingElement,
   commitTextEdit,
+  findDialogTriggerByText,
   getHeaderIconButton,
   getSwitchInput,
   uniqueName,

@@ -12,8 +12,8 @@ package driver
 import (
 	"context"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -23,8 +23,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -57,6 +59,10 @@ type ReadTaskConfig struct {
 	//
 	// [REQUIRED]
 	Source Source
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Status writes the statuses of the task.
 	//
 	// [REQUIRED]
@@ -93,6 +99,7 @@ var (
 			Scale:        2,
 			MaxInterval:  30 * time.Second,
 			MaxRetries:   breaker.InfiniteRetries,
+			Clock:        xtime.Real,
 		},
 	}
 )
@@ -101,10 +108,11 @@ var (
 func (c ReadTaskConfig) Override(other ReadTaskConfig) ReadTaskConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Source = override.Nil(c.Source, other.Source)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channels = override.Slice(c.Channels, other.Channels)
-	if other.Task.Key != uuid.Nil {
+	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
 	}
 	c.Breaker = c.Breaker.Override(other.Breaker)
@@ -116,10 +124,11 @@ func (c ReadTaskConfig) Override(other ReadTaskConfig) ReadTaskConfig {
 func (c ReadTaskConfig) Validate() error {
 	v := validate.New("driver.read_task")
 	v.NotNil("source", c.Source)
+	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("framer", c.Framer)
 	v.NotEmptySlice("channels", c.Channels)
-	v.Ternary("task", c.Task.Key == uuid.Nil, "must have a key")
+	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Exec(c.Breaker.Validate)
 	return v.Error()
 }
@@ -142,6 +151,7 @@ func NewReadTask(cfgs ...ReadTaskConfig) (*ReadTask, error) {
 	}
 	t := &ReadTask{cfg: cfg}
 	t.Runner, err = NewRunner(RunnerConfig{
+		DB:              cfg.DB,
 		Status:          cfg.Status,
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,

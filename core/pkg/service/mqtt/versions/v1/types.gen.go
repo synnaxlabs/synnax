@@ -12,7 +12,8 @@
 package v1
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -121,9 +122,9 @@ type ReadField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the encoding of the JSON value when the target channel holds
 	// timestamps. Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps string labels in the payload to numeric channel values.
-	EnumValues []EnumEntry `json:"enum_values,omitzero" msgpack:"enum_values,omitzero"`
+	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -163,7 +164,7 @@ type PlainReadEntry struct {
 	// sends on subscribe.
 	RetainedIgnored bool `json:"retained_ignored" msgpack:"retained_ignored"`
 	// Fields contains the values to extract from each payload.
-	Fields []ReadField `json:"fields,omitzero" msgpack:"fields,omitzero"`
+	Fields []ReadField `json:"fields" msgpack:"fields"`
 	// Index is the key of the field whose channel indexes the others. Empty when the
 	// task stamps samples on arrival.
 	Index string `json:"index" msgpack:"index"`
@@ -225,58 +226,53 @@ type ReadEntry struct {
 	Variant ReadEntryVariant
 }
 
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u ReadEntry) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t ReadEntryType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ReadEntry) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case PlainReadEntry:
-		t = PlainReadEntryType
+		return json.MarshalEncode(enc, struct {
+			Type ReadEntryType `json:"type"`
+			PlainReadEntry
+		}{Type: PlainReadEntryType, PlainReadEntry: v})
 	case SparkplugReadEntry:
-		t = SparkplugReadEntryType
+		return json.MarshalEncode(enc, struct {
+			Type ReadEntryType `json:"type"`
+			SparkplugReadEntry
+		}{Type: SparkplugReadEntryType, SparkplugReadEntry: v})
 	default:
-		return nil, errors.Newf("ReadEntry: nil or unknown variant %T", u.Variant)
+		return errors.Newf("ReadEntry: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *ReadEntry) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type ReadEntryType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case PlainReadEntryType:
 		var v PlainReadEntry
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SparkplugReadEntryType:
 		var v SparkplugReadEntry
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -316,7 +312,7 @@ type ReadConfig struct {
 	// Device is the key of the broker device to read from.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Entries contains the topics and tags to read.
-	Entries []ReadEntry `json:"entries,omitzero" msgpack:"entries,omitzero"`
+	Entries []ReadEntry `json:"entries" msgpack:"entries"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -391,10 +387,10 @@ type ChannelField struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// TimeFormat is the output encoding when the command channel holds timestamps.
 	// Required for timestamp channels.
-	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 	// EnumValues maps numeric channel values to string labels. Only valid when
 	// json_type is 'string'.
-	EnumValues []EnumEntry `json:"enum_values,omitzero" msgpack:"enum_values,omitzero"`
+	EnumValues []EnumEntry `json:"enum_values" msgpack:"enum_values"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -466,7 +462,7 @@ type GeneratedWriteField struct {
 	// Generator is the generator that produces a fresh value per publish.
 	Generator GeneratorType `json:"generator" msgpack:"generator"`
 	// TimeFormat is the output encoding for timestamp generators. Defaults to iso8601.
-	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
+	TimeFormat *TimeFormat `json:"time_format,omitzero" msgpack:"time_format,omitempty"`
 }
 
 func (GeneratedWriteField) isWriteFieldVariant() {}
@@ -492,58 +488,53 @@ type WriteField struct {
 	Variant WriteFieldVariant
 }
 
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u WriteField) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t WriteFieldType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteField) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case StaticWriteField:
-		t = StaticWriteFieldType
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldType `json:"type"`
+			StaticWriteField
+		}{Type: StaticWriteFieldType, StaticWriteField: v})
 	case GeneratedWriteField:
-		t = GeneratedWriteFieldType
+		return json.MarshalEncode(enc, struct {
+			Type WriteFieldType `json:"type"`
+			GeneratedWriteField
+		}{Type: GeneratedWriteFieldType, GeneratedWriteField: v})
 	default:
-		return nil, errors.Newf("WriteField: nil or unknown variant %T", u.Variant)
+		return errors.Newf("WriteField: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *WriteField) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type WriteFieldType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case StaticWriteFieldType:
 		var v StaticWriteField
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case GeneratedWriteFieldType:
 		var v GeneratedWriteField
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -609,7 +600,7 @@ type PlainWriteTarget struct {
 	// Channel is the command channel whose writes trigger the publish.
 	Channel ChannelField `json:"channel" msgpack:"channel"`
 	// Fields contains additional static or generated payload fields.
-	Fields []WriteField `json:"fields,omitzero" msgpack:"fields,omitzero"`
+	Fields []WriteField `json:"fields" msgpack:"fields"`
 }
 
 func (PlainWriteTarget) isWriteTargetVariant() {}
@@ -679,58 +670,53 @@ type WriteTarget struct {
 	Variant WriteTargetVariant
 }
 
-// MarshalJSON encodes the active variant with its "type" tag injected.
-func (u WriteTarget) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t WriteTargetType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteTarget) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case PlainWriteTarget:
-		t = PlainWriteTargetType
+		return json.MarshalEncode(enc, struct {
+			Type WriteTargetType `json:"type"`
+			PlainWriteTarget
+		}{Type: PlainWriteTargetType, PlainWriteTarget: v})
 	case SparkplugWriteTarget:
-		t = SparkplugWriteTargetType
+		return json.MarshalEncode(enc, struct {
+			Type WriteTargetType `json:"type"`
+			SparkplugWriteTarget
+		}{Type: SparkplugWriteTargetType, SparkplugWriteTarget: v})
 	default:
-		return nil, errors.Newf("WriteTarget: nil or unknown variant %T", u.Variant)
+		return errors.Newf("WriteTarget: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["type"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "type" field.
-func (u *WriteTarget) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type WriteTargetType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case PlainWriteTargetType:
 		var v PlainWriteTarget
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case SparkplugWriteTargetType:
 		var v SparkplugWriteTarget
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -772,7 +758,7 @@ type WriteConfig struct {
 	// Device is the key of the broker device to write to.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Targets contains the topics and tags to write to.
-	Targets []WriteTarget `json:"targets,omitzero" msgpack:"targets,omitzero"`
+	Targets []WriteTarget `json:"targets" msgpack:"targets"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -848,7 +834,7 @@ type EdgeConfig struct {
 	// commands make.
 	Authority uint8 `json:"authority" msgpack:"authority"`
 	// Tags contains the tags the edge node publishes.
-	Tags []EdgeTag `json:"tags,omitzero" msgpack:"tags,omitzero"`
+	Tags []EdgeTag `json:"tags" msgpack:"tags"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

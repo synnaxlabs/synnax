@@ -34,13 +34,13 @@ type Range struct {
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is an optional display color for visual identification of the range in user
 	// interfaces.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Labels contains optional labels attached to this range for categorization and
 	// filtering.
-	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
+	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitempty"`
 	// Parent is an optional parent range for hierarchical organization. Ranges can be
 	// nested within other ranges.
-	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	Parent *Range `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

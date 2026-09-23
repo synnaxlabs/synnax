@@ -13,8 +13,8 @@ import (
 	"context"
 	"sync"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -90,7 +90,7 @@ var _ = Describe("ScanTask", func() {
 		r := rack.Rack{Name: "scan-task-rack"}
 		Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 		rackKey = r.Key
-		deviceMake = "make-" + uuid.NewString()
+		deviceMake = "make-" + uuid.New().String()
 		t = task.Task{
 			Key:  uuid.New(),
 			Name: "scan-task-test",
@@ -103,8 +103,8 @@ var _ = Describe("ScanTask", func() {
 	open := func(interval time.Duration) *driver.ScanTask {
 		GinkgoHelper()
 		st := MustSucceed(driver.NewScanTask(driver.ScanTaskConfig{
-			Scanner:            scanner,
-			Status:             statusSvc,
+			Scanner: scanner,
+			DB:      db, Status: statusSvc,
 			Device:             deviceSvc,
 			Make:               deviceMake,
 			ReachableMessage:   "Broker connected",
@@ -119,7 +119,7 @@ var _ = Describe("ScanTask", func() {
 	createDevice := func(ctx context.Context, deviceMake string) device.Device {
 		GinkgoHelper()
 		dev := device.Device{
-			Key:      uuid.NewString(),
+			Key:      uuid.New().String(),
 			Rack:     rackKey,
 			Location: "localhost:1883",
 			Name:     "Broker",
@@ -149,8 +149,8 @@ var _ = Describe("ScanTask", func() {
 	Describe("NewScanTask", func() {
 		It("Should reject a configuration with no make", func() {
 			Expect(driver.NewScanTask(driver.ScanTaskConfig{
-				Scanner:            scanner,
-				Status:             statusSvc,
+				Scanner: scanner,
+				DB:      db, Status: statusSvc,
 				Device:             deviceSvc,
 				ReachableMessage:   "Broker connected",
 				UnreachableMessage: "Failed to reach broker",

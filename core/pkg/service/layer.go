@@ -330,26 +330,29 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Channel) {
 		return nil, err
 	}
-	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
+	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
 		Instrumentation: cfg.Child("channel.calculation.graph"),
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Status:          l.Status,
-	}); !ok(err, closer) {
+	})
+	if !ok(err, channelGraph) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(
 		ctx,
 		framer.ServiceConfig{
 			Instrumentation: cfg.Child("framer"),
+			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
-			Status:          l.Status,
+			ChannelGraph:    channelGraph,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
 	}
 	if l.Signals, err = signals.New(signals.Config{
+		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Instrumentation: cfg.Child("signals"),
@@ -693,6 +696,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
 		Instrumentation: cfg.Child("arc.task"),
+		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		Framer:          l.Framer,
 		Status:          l.Status,
@@ -704,6 +708,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	pdFactory, err := pdruntime.NewFactory(pdruntime.FactoryConfig{
 		Instrumentation: cfg.Child("pagerduty"),
+		DB:              cfg.Distribution.DB,
 		Status:          l.Status,
 	})
 	if !ok(err, nil) {
@@ -711,6 +716,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	mqttFactory, err := mqtt.NewFactory(mqtt.FactoryConfig{
 		Instrumentation: cfg.Child("mqtt"),
+		DB:              cfg.Distribution.DB,
 		Device:          l.Device,
 		Channel:         l.Channel,
 		Framer:          l.Framer,

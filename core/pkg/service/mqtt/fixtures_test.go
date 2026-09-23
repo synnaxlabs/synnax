@@ -11,8 +11,8 @@ package mqtt_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -35,10 +35,10 @@ import (
 func newFactory(queueSize int) driver.Factory {
 	GinkgoHelper()
 	return MustSucceed(mqtt.NewFactory(mqtt.FactoryConfig{
-		Device:    deviceSvc,
-		Channel:   channelSvc,
-		Framer:    framerSvc,
-		Status:    statusSvc,
+		Device:  deviceSvc,
+		Channel: channelSvc,
+		Framer:  framerSvc,
+		DB:      db, Status: statusSvc,
 		QueueSize: queueSize,
 	}))
 }
@@ -64,7 +64,7 @@ func createBrokerDevice(
 	}
 	properties["port"] = port
 	dev := device.Device{
-		Key:        uuid.NewString(),
+		Key:        uuid.New().String(),
 		Rack:       rackKey,
 		Location:   "127.0.0.1",
 		Name:       "Test Broker",

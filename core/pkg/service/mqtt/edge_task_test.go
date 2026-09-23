@@ -13,8 +13,8 @@ import (
 	"context"
 	"slices"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -737,7 +737,7 @@ var _ = Describe("Edge task", func() {
 			Entry("a device that is not an MQTT broker",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					other := device.Device{
-						Key:        uuid.NewString(),
+						Key:        uuid.New().String(),
 						Rack:       rackKey,
 						Location:   "Dev1",
 						Name:       "DAQ",

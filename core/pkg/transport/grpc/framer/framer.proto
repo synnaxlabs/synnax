@@ -80,7 +80,7 @@ message WriterResponse {
 
 message StreamerRequest {
   repeated uint32 keys = 1;
-  int32 downsample_factor = 2;
+  uint32 downsample_factor = 2;
   double throttle_rate_hz = 4;
   repeated uint32 exclude_groups = 5;
 }

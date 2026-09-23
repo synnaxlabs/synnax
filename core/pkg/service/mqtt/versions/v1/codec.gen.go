@@ -12,7 +12,7 @@
 package v1
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"

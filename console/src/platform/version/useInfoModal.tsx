@@ -27,6 +27,7 @@ import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+import { isDevBuild } from "@/platform/version/build";
 import { Session } from "@/session";
 
 type UpdateCheck =
@@ -39,7 +40,7 @@ const useUpdateCheck = (): UpdateCheck => {
   useAsyncEffect(async (signal) => {
     try {
       let update: Update | null = null;
-      if (Session.Runtime.ENGINE === "tauri") {
+      if (Session.Runtime.ENGINE === "tauri" && !(await isDevBuild())) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         update = await check();
       }
@@ -113,8 +114,8 @@ export const useInfoModal = Modals.create(() => {
   const version = Session.Version.use();
   const available = useUpdateCheck();
   const { download, start } = useDownload();
-  const progressPercent =
-    (download.progress.valueOf() / download.total.valueOf()) * 100;
+  const total = download.total.valueOf();
+  const progressPercent = total === 0 ? 0 : (download.progress.valueOf() / total) * 100;
 
   let updateContent = (
     <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
@@ -138,9 +139,14 @@ export const useInfoModal = Modals.create(() => {
           <Status.Summary variant="loading" level="h4" gap="medium">
             Downloading update
           </Status.Summary>
-          <Flex.Box x gap="medium" align="center" justify="center">
+          <Flex.Box
+            className={CSS.BE("version-info", "download")}
+            x
+            gap="medium"
+            align="center"
+          >
             <Progress.Progress value={progressPercent} />
-            <Text.Text color={10} overflow="ellipsis">
+            <Text.Text color={10} overflow="nowrap">
               {Math.ceil(download.progress.megabytes)} /{" "}
               {Math.ceil(download.total.megabytes)} MB
             </Text.Text>

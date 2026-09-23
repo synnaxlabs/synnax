@@ -711,8 +711,11 @@ export class Client extends query.Retriever<
       cmd.task,
       setTimeout(() => {
         this.commandDeadlines.delete(cmd.task);
-        // Any later write replaced the exact object this deadline was armed for.
-        if (statusStore.get(key) !== optimistic) return;
+        // A newer write answered the command. An older one, such as the creation
+        // placeholder echoing back over the stream, did not.
+        const current = statusStore.get(key);
+        if (current == null) return;
+        if (current !== optimistic && current.time.afterEq(optimistic.time)) return;
         statusStore.set(
           key,
           status.create<StatusDetailsZodObject>({
@@ -750,17 +753,20 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Writes a fetched task and its included status. */
   private writeThrough(task: Task): void {
     this.store.set(task);
     if (task.status != null) this.cfg.statusStore.set(task.status);
   }
 
-  /** Fetches tasks with statuses and writes the statuses through. */
+  private hydrate(task: Task): void {
+    this.store.ingest(task);
+    if (task.status != null) this.cfg.statusStore.ingest(task.status);
+  }
+
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
     const tasks = await this.execRetrieve({ ...req, includeStatus: true });
     tasks.forEach((t) => {
-      if (t.status != null) this.cfg.statusStore.set(t.status);
+      if (t.status != null) this.cfg.statusStore.ingest(t.status);
     });
     return tasks;
   }
@@ -782,7 +788,7 @@ export class Client extends query.Retriever<
     }
     const tasks = await this.execRetrieve({ ...q, includeStatus: true });
     checkForMultipleOrNoResults("Task", q, tasks, true);
-    this.writeThrough(tasks[0]);
+    this.hydrate(tasks[0]);
     return tasks[0];
   }
 

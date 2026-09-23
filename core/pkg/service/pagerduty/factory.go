@@ -17,12 +17,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // FactoryConfig is the configuration for the PagerDuty factory.
 type FactoryConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Status is the status service for observing status changes.
 	//
 	// [REQUIRED]
@@ -39,6 +44,7 @@ var _ config.Config[FactoryConfig] = FactoryConfig{}
 // Override overrides the factory configuration with the given other configuration.
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Sender = override.Nil(c.Sender, other.Sender)
 	return c
@@ -47,6 +53,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 // Validate validates the factory configuration.
 func (c FactoryConfig) Validate() error {
 	v := validate.New("pagerduty.factory")
+	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("sender", c.Sender)
 	return v.Error()
@@ -76,13 +83,20 @@ func (f *factory) ConfigureTask(
 	var cfg TaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		driver.ReportConfigError(
-			ctx, f.cfg.Instrumentation, f.cfg.Status, t, cmdKey, false, err,
+			ctx, f.cfg.Instrumentation, f.cfg.DB, f.cfg.Status, t, cmdKey, false, err,
 		)
 		return nil, err
 	}
 	if err := validateConfig(cfg); err != nil {
 		driver.ReportConfigError(
-			ctx, f.cfg.Instrumentation, f.cfg.Status, t, cmdKey, cfg.AutoStart, err,
+			ctx,
+			f.cfg.Instrumentation,
+			f.cfg.DB,
+			f.cfg.Status,
+			t,
+			cmdKey,
+			cfg.AutoStart,
+			err,
 		)
 		return nil, err
 	}

@@ -26,7 +26,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -38,6 +40,10 @@ type GetProgramFunc func(context.Context, arc.Key) (arc.Arc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Channel is used for retrieving channel information.
 	//
 	// [REQUIRED]
@@ -58,26 +64,33 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Ranger *ranger.Service
+	// Now returns the wall clock each task's runtime stamps its cycles from.
+	//
+	// [OPTIONAL] - Defaults to telem.Now.
+	Now func() telem.TimeStamp
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
-	DefaultFactoryConfig                              = FactoryConfig{}
+	DefaultFactoryConfig                              = FactoryConfig{Now: telem.Now}
 )
 
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
 func (c FactoryConfig) Validate() error {
 	v := validate.New("arc.task.factory")
+	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("framer", c.Framer)
 	v.NotNil("status", c.Status)
@@ -110,14 +123,21 @@ func (f *factory) ConfigureTask(
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		driver.ReportConfigError(
-			ctx, f.cfg.Instrumentation, f.cfg.Status, t, cmdKey, false, err,
+			ctx, f.cfg.Instrumentation, f.cfg.DB, f.cfg.Status, t, cmdKey, false, err,
 		)
 		return nil, err
 	}
 	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
 	if err != nil {
 		driver.ReportConfigError(
-			ctx, f.cfg.Instrumentation, f.cfg.Status, t, cmdKey, cfg.AutoStart, err,
+			ctx,
+			f.cfg.Instrumentation,
+			f.cfg.DB,
+			f.cfg.Status,
+			t,
+			cmdKey,
+			cfg.AutoStart,
+			err,
 		)
 		return nil, err
 	}
@@ -126,7 +146,7 @@ func (f *factory) ConfigureTask(
 		task:       t,
 		cfg:        cfg,
 		prog:       prog,
-		status:     driver.NewStatusHandler(f.cfg.Status, t),
+		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.

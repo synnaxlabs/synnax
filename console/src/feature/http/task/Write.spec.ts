@@ -15,9 +15,9 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
-  findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   selectFromDropdown,
@@ -25,12 +25,21 @@ import {
 import {
   awaitTextEditingElement,
   commitTextEdit,
+  findDialogTriggerByText,
   getHeaderIconButton,
   uniqueName,
 } from "@/testutil";
 
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Write, { task: ZERO_DRAFT, ...options });
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(HTTP.Task.Write, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
+  await awaitEditableForm();
+  return rendered;
+};
 
 // Drafts carry no key; the created row mints its own.
 const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {

@@ -10,7 +10,8 @@
 package driver_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -37,7 +39,7 @@ var _ = Describe("StatusHandler", func() {
 			ConfigHash: "hash-1",
 			Rack:       7,
 		}
-		handler = driver.NewStatusHandler(statusSvc, t)
+		handler = driver.NewStatusHandler(db, statusSvc, t)
 	})
 
 	retrieve := func(ctx SpecContext) task.Status {
@@ -181,15 +183,16 @@ var _ = Describe("StatusHandler", func() {
 		It("should correct facts another writer left stale", func(ctx SpecContext) {
 			// The core blanks these for every task on a rack it thinks is
 			// unreachable, without stopping the live instance.
-			Expect(statusSvc.NewWriter(nil).
-				Set(ctx, &task.Status{
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
 					Key:     t.OntologyID().String(),
 					Name:    t.Name,
 					Time:    telem.Now(),
 					Variant: status.VariantWarning,
 					Message: "Rack unreachable",
 					Details: task.StatusDetails{Task: t.Key, Running: false},
-				})).To(Succeed())
+				})
+			})).To(Succeed())
 			Expect(handler.Ack(ctx, "cmd-4", true)).To(Succeed())
 			stat := retrieve(ctx)
 			Expect(stat.Details.Running).To(BeTrue())
@@ -256,7 +259,14 @@ var _ = Describe("StatusHandler", func() {
 		cfgErr := errors.New("bad config")
 		It("should answer the command with an error status", func(ctx SpecContext) {
 			driver.ReportConfigError(
-				ctx, alamos.Instrumentation{}, statusSvc, t, "cmd-9", false, cfgErr,
+				ctx,
+				alamos.Instrumentation{},
+				db,
+				statusSvc,
+				t,
+				"cmd-9",
+				false,
+				cfgErr,
 			)
 			stat := retrieve(ctx)
 			Expect(stat.Variant).To(Equal(status.VariantError))
@@ -269,6 +279,7 @@ var _ = Describe("StatusHandler", func() {
 				driver.ReportConfigError(
 					ctx,
 					alamos.Instrumentation{},
+					db,
 					statusSvc,
 					t,
 					driver.NoCommand,
@@ -283,6 +294,7 @@ var _ = Describe("StatusHandler", func() {
 				driver.ReportConfigError(
 					ctx,
 					alamos.Instrumentation{},
+					db,
 					statusSvc,
 					t,
 					driver.NoCommand,

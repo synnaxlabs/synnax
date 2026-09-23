@@ -19,7 +19,6 @@ import (
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
-	gotypes "go/types"
 )
 
 // ChannelToPB converts Channel to Channel.
@@ -86,7 +85,7 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 		r.Alias = pb.Alias
 	}
 	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[gotypes.Nil](pb.Status, nil)
+		val, err := statuspb.StatusFromPB[struct{}](pb.Status, nil)
 		if err != nil {
 			return channel.Channel{}, err
 		}

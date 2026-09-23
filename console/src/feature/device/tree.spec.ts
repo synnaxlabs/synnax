@@ -100,6 +100,17 @@ describe("device/ontology", () => {
 });
 
 describe("permission to write the device", () => {
+  it("should offer Reload Console", async () => {
+    const dev = await createTestDevice(client);
+    const Item = Device.TREE_ITEMS.device;
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [createResource(deviceClient.ontologyID(dev.key), dev.name)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should withhold rename, grouping, and delete from a viewer", async () => {
     const dev = await createTestDevice(client);
     const Item = Device.TREE_ITEMS.device;

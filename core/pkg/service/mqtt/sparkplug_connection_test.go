@@ -48,10 +48,10 @@ func parseHostState(payload string) hostState {
 func newTimedFactory(rebirthInterval, birthGrace time.Duration) driver.Factory {
 	GinkgoHelper()
 	return MustSucceed(mqtt.NewFactory(mqtt.FactoryConfig{
-		Device:          deviceSvc,
-		Channel:         channelSvc,
-		Framer:          framerSvc,
-		Status:          statusSvc,
+		Device:  deviceSvc,
+		Channel: channelSvc,
+		Framer:  framerSvc,
+		DB:      db, Status: statusSvc,
 		RebirthInterval: rebirthInterval,
 		BirthGrace:      birthGrace,
 	}))
@@ -407,10 +407,10 @@ var _ = Describe("Sparkplug B host session", func() {
 		DescribeTable("Should reject timing that is not valid",
 			func(rebirthInterval, birthGrace time.Duration, message string) {
 				Expect(mqtt.NewFactory(mqtt.FactoryConfig{
-					Device:          deviceSvc,
-					Channel:         channelSvc,
-					Framer:          framerSvc,
-					Status:          statusSvc,
+					Device:  deviceSvc,
+					Channel: channelSvc,
+					Framer:  framerSvc,
+					DB:      db, Status: statusSvc,
 					RebirthInterval: rebirthInterval,
 					BirthGrace:      birthGrace,
 				})).Error().To(MatchError(ContainSubstring(message)))

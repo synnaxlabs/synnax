@@ -29,9 +29,10 @@ namespace {
 
 ::arc::runtime::node::Context make_context() {
     return ::arc::runtime::node::Context{
-        .elapsed = x::telem::TimeSpan(0),
+        .cycle =
+            {.elapsed = x::telem::TimeSpan(0),
+             .reason = ::arc::runtime::node::RunReason::TimerTick},
         .tolerance = x::telem::TimeSpan(0),
-        .reason = ::arc::runtime::node::RunReason::TimerTick,
         .mark_changed = [](size_t) {},
         .mark_self_changed = [] {},
         .set_deadline = [](x::telem::TimeSpan) {},

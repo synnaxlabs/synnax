@@ -11,8 +11,8 @@ package driver
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
@@ -50,6 +51,10 @@ type WriteTaskConfig struct {
 	//
 	// [REQUIRED]
 	Sink Sink
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Status writes the statuses of the task.
 	//
 	// [REQUIRED]
@@ -75,10 +80,11 @@ var _ config.Config[WriteTaskConfig] = WriteTaskConfig{}
 func (c WriteTaskConfig) Override(other WriteTaskConfig) WriteTaskConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Sink = override.Nil(c.Sink, other.Sink)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channels = override.Slice(c.Channels, other.Channels)
-	if other.Task.Key != uuid.Nil {
+	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
 	}
 	return c
@@ -88,10 +94,11 @@ func (c WriteTaskConfig) Override(other WriteTaskConfig) WriteTaskConfig {
 func (c WriteTaskConfig) Validate() error {
 	v := validate.New("driver.write_task")
 	v.NotNil("sink", c.Sink)
+	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("framer", c.Framer)
 	v.NotEmptySlice("channels", c.Channels)
-	v.Ternary("task", c.Task.Key == uuid.Nil, "must have a key")
+	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	return v.Error()
 }
 
@@ -115,6 +122,7 @@ func NewWriteTask(cfgs ...WriteTaskConfig) (*WriteTask, error) {
 	}
 	t := &WriteTask{cfg: cfg}
 	t.Runner, err = NewRunner(RunnerConfig{
+		DB:              cfg.DB,
 		Status:          cfg.Status,
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,

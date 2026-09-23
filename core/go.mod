@@ -21,8 +21,6 @@ require (
 	github.com/gofiber/contrib/v3/monitor v1.2.0
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/google/go-cmp v0.7.0
-	github.com/google/uuid v1.6.0
 	github.com/mochi-mqtt/server/v2 v2.7.9
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.43.0
@@ -109,8 +107,10 @@ require (
 	github.com/gofiber/utils/v2 v2.4.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20260825171938-4d453200e7d9 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
 	github.com/hdevalence/ed25519consensus v0.2.0 // indirect

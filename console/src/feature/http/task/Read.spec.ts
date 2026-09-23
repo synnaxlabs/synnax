@@ -15,14 +15,23 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
+  awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
-const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Read, { task: ZERO_DRAFT, ...options });
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
+const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
+  const rendered = await renderTaskFormTab(HTTP.Task.Read, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
+  await awaitEditableForm();
+  return rendered;
+};
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add endpoint"));
@@ -129,6 +138,16 @@ describe("HTTP Read form", () => {
     fireEvent.contextMenu(screen.getAllByText(/\/api\/v1/)[0]);
     fireEvent.click(await screen.findByText("Remove"));
     await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
+  });
+
+  it("should offer Reload Console from the endpoint context menu", async () => {
+    await renderRead();
+    await addEndpoint();
+    const path = screen.getByPlaceholderText("/api/data");
+    fireEvent.change(path, { target: { value: "/api/v1" } });
+    fireEvent.blur(path);
+    fireEvent.contextMenu(await screen.findByText(/\/api\/v1/));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
   it("should seed the form from the task row's config", async () => {

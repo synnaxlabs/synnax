@@ -77,6 +77,7 @@ func newAlertTask(
 	}
 	var err error
 	at.Runner, err = driver.NewRunner(driver.RunnerConfig{
+		DB:              factoryCfg.DB,
 		Status:          factoryCfg.Status,
 		Instrumentation: factoryCfg.Instrumentation,
 		Task:            t,

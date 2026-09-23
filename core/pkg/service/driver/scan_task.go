@@ -13,8 +13,8 @@ import (
 	"context"
 	"sync"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -47,6 +47,10 @@ type ScanTaskConfig struct {
 	//
 	// [REQUIRED]
 	Scanner Scanner
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Status writes the statuses of the task and of its devices.
 	//
 	// [REQUIRED]
@@ -89,6 +93,7 @@ var (
 func (c ScanTaskConfig) Override(other ScanTaskConfig) ScanTaskConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Scanner = override.Nil(c.Scanner, other.Scanner)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Make = override.String(c.Make, other.Make)
@@ -96,7 +101,7 @@ func (c ScanTaskConfig) Override(other ScanTaskConfig) ScanTaskConfig {
 	c.UnreachableMessage = override.String(
 		c.UnreachableMessage, other.UnreachableMessage,
 	)
-	if other.Task.Key != uuid.Nil {
+	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
 	}
 	c.Interval = override.Numeric(c.Interval, other.Interval)
@@ -107,12 +112,13 @@ func (c ScanTaskConfig) Override(other ScanTaskConfig) ScanTaskConfig {
 func (c ScanTaskConfig) Validate() error {
 	v := validate.New("driver.scan_task")
 	v.NotNil("scanner", c.Scanner)
+	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("device", c.Device)
 	v.NotEmptyString("make", c.Make)
 	v.NotEmptyString("reachable_message", c.ReachableMessage)
 	v.NotEmptyString("unreachable_message", c.UnreachableMessage)
-	v.Ternary("task", c.Task.Key == uuid.Nil, "must have a key")
+	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	v.Positive("interval", c.Interval)
 	return v.Error()
 }
@@ -136,6 +142,7 @@ func NewScanTask(cfgs ...ScanTaskConfig) (*ScanTask, error) {
 	}
 	t := &ScanTask{cfg: cfg}
 	t.Runner, err = NewRunner(RunnerConfig{
+		DB:              cfg.DB,
 		Status:          cfg.Status,
 		Instrumentation: cfg.Instrumentation,
 		Task:            cfg.Task,
@@ -277,7 +284,9 @@ func (t *ScanTask) scan(ctx context.Context, reported map[device.Key]health) err
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := t.cfg.Status.NewWriter(nil).SetMany(ctx, &statuses); err != nil {
+	if err := t.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return t.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
+	}); err != nil {
 		return err
 	}
 	for i, dev := range devices {

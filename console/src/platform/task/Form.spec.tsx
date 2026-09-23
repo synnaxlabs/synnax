@@ -26,7 +26,7 @@ import {
   renderTaskFormHook,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { getIconButton, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 const schemas = {
   type: z.literal("opc_read"),
@@ -126,10 +126,7 @@ describe("wrapForm", () => {
     const client = createTestClient();
     const tsk = await createTask(client);
     const Renderer = createRenderer();
-    const { container } = await renderTaskFormTab(Renderer, {
-      client,
-      taskKey: tsk.key,
-    });
+    await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
     const input = await waitFor(findNameInput);
     fireEvent.change(input, { target: { value: "Renamed Test Task" } });
     fireEvent.blur(input);
@@ -138,7 +135,9 @@ describe("wrapForm", () => {
       expect(updated.name).toBe("Renamed Test Task");
     });
     expect(screen.queryByText(/updating task|updated task/iu)).toBeNull();
-    expect(getIconButton(container, "play").disabled).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "Start" }).getAttribute("aria-disabled"),
+    ).toBeNull();
   });
 
   describe("rack", () => {

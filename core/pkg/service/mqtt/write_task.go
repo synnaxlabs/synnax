@@ -12,8 +12,8 @@ package mqtt
 import (
 	"context"
 	"encoding/json"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -215,7 +215,7 @@ func (t writeTarget) payload(series telem.Series, i int) ([]byte, error) {
 		case extra.generator == GeneratorTypeTimestamp:
 			extraValue = xjson.FromTimeStamp(telem.Now(), extra.format)
 		default:
-			extraValue = uuid.NewString()
+			extraValue = uuid.New().String()
 		}
 		if doc, err = extra.pointer.Set(doc, extraValue); err != nil {
 			return nil, err

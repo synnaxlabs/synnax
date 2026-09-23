@@ -60,10 +60,10 @@ var _ = Describe("Sparkplug B read entries", func() {
 		rackKey = createRack(ctx)
 		dev = createBrokerDevice(ctx, rackKey, broker.port, nil)
 		factory = MustSucceed(mqtt.NewFactory(mqtt.FactoryConfig{
-			Device:          deviceSvc,
-			Channel:         channelSvc,
-			Framer:          framerSvc,
-			Status:          statusSvc,
+			Device:  deviceSvc,
+			Channel: channelSvc,
+			Framer:  framerSvc,
+			DB:      db, Status: statusSvc,
 			RebirthInterval: testRebirthInterval,
 			BirthGrace:      testBirthGrace,
 		}))

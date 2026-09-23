@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 )
 
 type peerSender struct {
@@ -50,8 +49,7 @@ func (s *peerSender) transform(
 
 func (s *Service) openManyPeers(
 	ctx context.Context,
-	bounds telem.TimeRange,
-	chunkSize int64,
+	cfg Config,
 	targets map[node.Key][]channel.Key,
 	generateSeqNums bool,
 ) (*peerSender, []*freightfluence.Receiver[Response], error) {
@@ -64,11 +62,9 @@ func (s *Service) openManyPeers(
 		if err != nil {
 			return sender, receivers, s.closePeerClients(sender.Senders, err)
 		}
-		client, err := s.openPeerClient(
-			ctx,
-			target,
-			Config{Keys: keys, Bounds: bounds, ChunkSize: chunkSize},
-		)
+		peerCfg := cfg
+		peerCfg.Keys = keys
+		client, err := s.openPeerClient(ctx, target, peerCfg)
 		if err != nil {
 			return sender, receivers, s.closePeerClients(sender.Senders, err)
 		}
@@ -100,7 +96,10 @@ func (s *Service) openPeerClient(
 	if err != nil {
 		return nil, err
 	}
-	return client, client.Send(
-		Request{Keys: cfg.Keys, ChunkSize: cfg.ChunkSize, Bounds: cfg.Bounds},
-	)
+	return client, client.Send(Request{
+		Keys:             cfg.Keys,
+		ChunkSize:        cfg.ChunkSize,
+		Bounds:           cfg.Bounds,
+		DownsampleFactor: cfg.DownsampleFactor,
+	})
 }

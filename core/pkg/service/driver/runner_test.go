@@ -11,16 +11,29 @@ package driver_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var errCommit = errors.New("commit failed")
+
+// uncommittableDB is a kv.DB whose transactions fail to commit.
+type uncommittableDB struct{ kv.DB }
+
+func (d uncommittableDB) OpenTx() kv.Tx { return uncommittableTx{Tx: d.DB.OpenTx()} }
+
+type uncommittableTx struct{ kv.Tx }
+
+func (uncommittableTx) Commit(context.Context, ...any) error { return errCommit }
 
 var _ = Describe("Runner", func() {
 	var (
@@ -38,9 +51,10 @@ var _ = Describe("Runner", func() {
 		opened, runErr = 0, nil
 	})
 
-	open := func(run func(context.Context) error) *driver.Runner {
+	openOn := func(statusDB *gorp.DB, run func(context.Context) error) *driver.Runner {
 		GinkgoHelper()
 		r := MustSucceed(driver.NewRunner(driver.RunnerConfig{
+			DB:     statusDB,
 			Status: statusSvc,
 			Task:   t,
 			Open: func(context.Context) error {
@@ -51,6 +65,10 @@ var _ = Describe("Runner", func() {
 		}))
 		DeferCleanup(func() { Expect(r.Stop(false)).To(Succeed()) })
 		return r
+	}
+	open := func(run func(context.Context) error) *driver.Runner {
+		GinkgoHelper()
+		return openOn(db, run)
 	}
 
 	retrieve := func(ctx context.Context) task.Status {
@@ -64,7 +82,9 @@ var _ = Describe("Runner", func() {
 	Describe("NewRunner", func() {
 		It("Should reject a configuration with no hooks", func() {
 			Expect(driver.NewRunner(driver.RunnerConfig{
-				Status: statusSvc, Task: t,
+				DB:     db,
+				Status: statusSvc,
+				Task:   t,
 			})).Error().To(MatchError(ContainSubstring("open")))
 		})
 	})
@@ -89,15 +109,14 @@ var _ = Describe("Runner", func() {
 			"Should stop the run when the running status cannot be written",
 			func(ctx SpecContext) {
 				ended := make(chan struct{}, 2)
-				r := open(func(ctx context.Context) error {
+				unwritable := gorp.Wrap(uncommittableDB{DB: db.KV()})
+				r := openOn(unwritable, func(ctx context.Context) error {
 					defer func() { ended <- struct{}{} }()
 					return waitRun(ctx)
 				})
-				cancelled, cancel := context.WithCancel(ctx)
-				cancel()
-				Expect(r.Start(cancelled, "cmd-1")).To(MatchError(context.Canceled))
+				Expect(r.Start(ctx, "cmd-1")).To(MatchError(errCommit))
 				Eventually(ended).Should(Receive())
-				Expect(r.Start(ctx, "cmd-2")).To(Succeed())
+				Expect(r.Start(ctx, "cmd-2")).To(MatchError(errCommit))
 				Expect(opened).To(Equal(2))
 			},
 		)

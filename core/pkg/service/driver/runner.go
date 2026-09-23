@@ -12,13 +12,14 @@ package driver
 import (
 	"context"
 	"sync"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
@@ -27,6 +28,10 @@ import (
 
 // RunnerConfig is the configuration for a Runner.
 type RunnerConfig struct {
+	// DB opens the transactions that status writes run in.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Status writes the statuses of the task.
 	//
 	// [REQUIRED]
@@ -52,10 +57,11 @@ var _ config.Config[RunnerConfig] = RunnerConfig{}
 // Override implements config.Config.
 func (c RunnerConfig) Override(other RunnerConfig) RunnerConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Open = override.Nil(c.Open, other.Open)
 	c.Run = override.Nil(c.Run, other.Run)
-	if other.Task.Key != uuid.Nil {
+	if other.Task.Key != uuid.Nil() {
 		c.Task = other.Task
 	}
 	return c
@@ -64,10 +70,11 @@ func (c RunnerConfig) Override(other RunnerConfig) RunnerConfig {
 // Validate implements config.Config.
 func (c RunnerConfig) Validate() error {
 	v := validate.New("driver.runner")
+	v.NotNil("db", c.DB)
 	v.NotNil("status", c.Status)
 	v.NotNil("open", c.Open)
 	v.NotNil("run", c.Run)
-	v.Ternary("task", c.Task.Key == uuid.Nil, "must have a key")
+	v.Ternary("task", c.Task.Key == uuid.Nil(), "must have a key")
 	return v.Error()
 }
 
@@ -101,7 +108,10 @@ func NewRunner(cfgs ...RunnerConfig) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Runner{cfg: cfg, status: NewStatusHandler(cfg.Status, cfg.Task)}, nil
+	return &Runner{
+		cfg:    cfg,
+		status: NewStatusHandler(cfg.DB, cfg.Status, cfg.Task),
+	}, nil
 }
 
 // Exec implements Task.

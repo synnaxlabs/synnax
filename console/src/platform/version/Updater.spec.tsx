@@ -12,20 +12,28 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri"; update: unknown } => ({
-  engine: "web",
-  update: null,
-}));
+const mocks = vi.hoisted(
+  (): { engine: "web" | "tauri"; version: string; update: unknown } => ({
+    engine: "web",
+    version: "1.5.0",
+    update: null,
+  }),
+);
 
 vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+vi.mock("@tauri-apps/api/app", () => ({
+  getVersion: vi.fn(async () => mocks.version),
+}));
+
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: vi.fn(async () => mocks.update),
 }));
 
+import { getVersion } from "@tauri-apps/api/app";
 import { check } from "@tauri-apps/plugin-updater";
 
 import { renderWithModals } from "@/platform/modals/testutil";
@@ -33,6 +41,7 @@ import { Version } from "@/platform/version";
 import { renderHookWithConsole } from "@/testutil";
 
 const checkMock = vi.mocked(check);
+const versionMock = vi.mocked(getVersion);
 
 const spec = (key: string): Status.NotificationSpec => ({
   key,
@@ -47,6 +56,7 @@ const spec = (key: string): Status.NotificationSpec => ({
 describe("version Updater", () => {
   beforeEach(() => {
     mocks.engine = "web";
+    mocks.version = "1.5.0";
     mocks.update = null;
     checkMock.mockImplementation(
       async () => mocks.update as Awaited<ReturnType<typeof check>>,
@@ -85,6 +95,17 @@ describe("version Updater", () => {
       );
       await waitFor(() => expect(result.current).toBe(false));
       expect(checkMock).not.toHaveBeenCalled();
+    });
+
+    it("should not check for updates on a dev build", async () => {
+      mocks.engine = "tauri";
+      mocks.version = "0.0.0";
+      const { result } = await renderHookWithConsole(() =>
+        Version.useCheckForUpdates(),
+      );
+      await waitFor(() => expect(versionMock).toHaveBeenCalled());
+      expect(checkMock).not.toHaveBeenCalled();
+      expect(result.current).toBe(false);
     });
 
     it("should report no update when the check finds none in tauri", async () => {

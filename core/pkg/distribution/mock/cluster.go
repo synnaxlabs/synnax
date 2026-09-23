@@ -78,7 +78,7 @@ func (c *Cluster) Provision(
 		cfg          = distribution.LayerConfig{
 			Storage:          storageLayer,
 			Transport:        c.distNet.New(addr, 1),
-			AspenTransport:   c.aspenNet.NewTransport(),
+			AspenTransport:   c.aspenNet.NewTransport(addr),
 			AdvertiseAddress: addr,
 			PeerAddresses:    peers,
 			AspenOptions: []aspen.Option{

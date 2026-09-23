@@ -10,6 +10,7 @@
 package http_test
 
 import (
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,6 +31,18 @@ func newFiberApp(cfg fiber.Config) *fiber.App {
 	app := fiber.New(cfg)
 	app.Server().MaxIdleWorkerDuration = 100 * time.Millisecond
 	return app
+}
+
+func serveApp(app *fiber.App) address.Address {
+	GinkgoHelper()
+	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+	go func() {
+		defer GinkgoRecover()
+		Expect(app.Listener(lis, fiber.ListenConfig{
+			DisableStartupMessage: true,
+		})).To(Succeed())
+	}()
+	return address.Address(lis.Addr().String())
 }
 
 func TestHTTP(t *testing.T) {
