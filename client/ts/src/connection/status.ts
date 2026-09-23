@@ -263,7 +263,12 @@ const enterError = (
 const isSelfHealing = (reason: Reason): boolean =>
   reason === "unreachable" || reason === "unlicensed";
 
+// A 0.0 major.minor marks a development build, which pairs with anything.
+const isDev = (version: string): boolean => version.startsWith("0.0.");
+
 const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
+  isDev(nodeVersion) ||
+  isDev(clientVersion) ||
   migrate.versionsEqual(clientVersion, nodeVersion, {
     checkMajor: true,
     checkMinor: true,

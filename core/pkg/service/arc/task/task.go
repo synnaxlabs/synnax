@@ -212,6 +212,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		return err
 	}
 	rangesMod, err := ranges.NewModule(ctx, ranges.ModuleConfig{
+		DB:       t.factoryCfg.DB,
 		Ranger:   t.factoryCfg.Ranger,
 		Strings:  drt.state.strings,
 		Runtime:  wasmRT,

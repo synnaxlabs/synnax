@@ -1,6 +1,6 @@
 # Contributing to the TypeScript client library
 
-First, please read our [contribution guidelines](../../docs/CONTRIBUTING.md) and the
+First, please read our [contribution guidelines](../../CONTRIBUTING.md) and the
 TypeScript [build document](../../docs/tech/typescript/build.md) for information on
 developing in the Synnax repository with TypeScript.
 

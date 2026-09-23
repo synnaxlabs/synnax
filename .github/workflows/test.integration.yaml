@@ -112,13 +112,8 @@ jobs:
 
       - name: Get Version
         id: version
-        working-directory: core
         run: |
-          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=$(cat pkg/version/VERSION)-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
-          fi
+          echo "VERSION=0.0.0-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
 
       - name: Set outputs
         id: set-outputs

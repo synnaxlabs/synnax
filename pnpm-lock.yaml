@@ -1085,10 +1085,10 @@ importers:
         specifier: 'catalog:'
         version: link:../client/ts
       '@synnaxlabs/freighter':
-        specifier: workspace:*
+        specifier: 'catalog:'
         version: link:../freighter/ts
       '@synnaxlabs/media':
-        specifier: workspace:*
+        specifier: 'catalog:'
         version: link:../x/media
       '@synnaxlabs/x':
         specifier: 'catalog:'

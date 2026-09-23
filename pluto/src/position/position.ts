@@ -52,6 +52,20 @@ const normalizePreference = (pref: LocationPreference): Preference => {
   return pref as Preference;
 };
 
+interface Option {
+  targetCorner: location.XY;
+  dialogCorner: location.XY;
+}
+
+const OUTER_LOCATIONS = location.XY_LOCATIONS.filter(
+  (l) => !location.xyEquals(l, location.CENTER),
+);
+
+/** Every target and dialog corner pairing, in enumeration order. */
+const ALL_OPTIONS: Option[] = OUTER_LOCATIONS.flatMap((targetCorner) =>
+  OUTER_LOCATIONS.map((dialogCorner) => ({ targetCorner, dialogCorner })),
+);
+
 const buildOptions = ({
   initial,
   prefer = [],
@@ -61,77 +75,41 @@ const buildOptions = ({
   const disabled = array.toArray(disable).map(normalizePreference);
 
   const options: Option[] = [];
-
-  if (initial != null) {
-    const normalizedInitial = normalizePreference(initial);
-    const targetLoc = parseLocationOptions(normalizedInitial.targetCorner);
-    const dialogLoc = parseLocationOptions(normalizedInitial.dialogCorner);
-
-    location.XY_LOCATIONS.forEach((t) => {
-      if (location.xyEquals(t, location.CENTER)) return;
-      if (targetLoc.x != null && t.x !== targetLoc.x) return;
-      if (targetLoc.y != null && t.y !== targetLoc.y) return;
-
-      location.XY_LOCATIONS.forEach((d) => {
-        if (location.xyEquals(d, location.CENTER)) return;
-        if (dialogLoc.x != null && d.x !== dialogLoc.x) return;
-        if (dialogLoc.y != null && d.y !== dialogLoc.y) return;
-
-        const opt = { targetCorner: t, dialogCorner: d };
-        options.push(opt);
-      });
-    });
-    const first = options.filter((o) => !isDisabled(o, disabled));
-    if (first.length == 0) return options.slice(0, 1);
-    return first;
-  }
-
+  const push = (opt: Option) => {
+    if (isDisabled(opt, disabled)) return;
+    if (
+      options.some(
+        (o) =>
+          location.xyEquals(o.targetCorner, opt.targetCorner) &&
+          location.xyEquals(o.dialogCorner, opt.dialogCorner),
+      )
+    )
+      return;
+    options.push(opt);
+  };
   preferences.forEach((pref) => {
     const targetLoc = parseLocationOptions(pref.targetCorner);
     const dialogLoc = parseLocationOptions(pref.dialogCorner);
-
-    location.XY_LOCATIONS.forEach((t) => {
-      if (location.xyEquals(t, location.CENTER)) return;
-      if (!location.xyMatches(t, targetLoc)) return;
-
-      location.XY_LOCATIONS.forEach((d) => {
-        if (location.xyEquals(d, location.CENTER)) return;
-        if (!location.xyMatches(d, dialogLoc)) return;
-
-        const opt = { targetCorner: t, dialogCorner: d };
-        if (
-          !isDisabled(opt, disabled) &&
-          !options.some(
-            (o) =>
-              location.xyEquals(o.targetCorner, t) &&
-              location.xyEquals(o.dialogCorner, d),
-          )
-        )
-          options.push(opt);
-      });
-    });
+    ALL_OPTIONS.filter(
+      (o) =>
+        location.xyMatches(o.targetCorner, targetLoc) &&
+        location.xyMatches(o.dialogCorner, dialogLoc),
+    ).forEach(push);
   });
+  ALL_OPTIONS.forEach(push);
 
-  location.XY_LOCATIONS.forEach((t) => {
-    if (location.xyEquals(t, location.CENTER)) return;
-
-    location.XY_LOCATIONS.forEach((d) => {
-      if (location.xyEquals(d, location.CENTER)) return;
-
-      const opt = { targetCorner: t, dialogCorner: d };
-      if (
-        !isDisabled(opt, disabled) &&
-        !options.some(
-          (o) =>
-            location.xyEquals(o.targetCorner, t) &&
-            location.xyEquals(o.dialogCorner, d),
-        )
-      )
-        options.push(opt);
-    });
-  });
-
-  return options;
+  if (initial == null) return options;
+  const normalizedInitial = normalizePreference(initial);
+  const targetLoc = parseLocationOptions(normalizedInitial.targetCorner);
+  const dialogLoc = parseLocationOptions(normalizedInitial.dialogCorner);
+  const matches = (o: Option) =>
+    (targetLoc.x == null || o.targetCorner.x === targetLoc.x) &&
+    (targetLoc.y == null || o.targetCorner.y === targetLoc.y) &&
+    (dialogLoc.x == null || o.dialogCorner.x === dialogLoc.x) &&
+    (dialogLoc.y == null || o.dialogCorner.y === dialogLoc.y);
+  const narrowed = options.filter(matches);
+  if (narrowed.length > 0) return narrowed;
+  return ALL_OPTIONS.filter(matches).slice(0, 1);
 };
 
 const isDisabled = (opt: Option, disabled: Preference[]): boolean =>
@@ -147,11 +125,6 @@ const isDisabled = (opt: Option, disabled: Preference[]): boolean =>
       location.xyMatches(opt.dialogCorner, dialogLoc)
     );
   });
-
-interface Option {
-  targetCorner: location.XY;
-  dialogCorner: location.XY;
-}
 
 export const position = ({
   container: containerCrude,
