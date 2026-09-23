@@ -145,7 +145,7 @@ export const ensureRange = async (
 ): Promise<string> => {
   const client = connect(opts);
   try {
-    const all = await client.ranges.retrieve({ limit: 1000 }).catch(() => []);
+    const all = await client.ranges.retrieve({ limit: 1000 });
     const range =
       all.find((r) => r.name === spec.name) ??
       (await client.ranges.create({
@@ -173,6 +173,22 @@ export const clearWorkspace = async (opts: ConnectionOptions = {}): Promise<void
     if (ranges.length > 0) await client.ranges.delete(ranges.map((r) => r.key));
     const views = await client.views.retrieve({ limit: 1000 });
     if (views.length > 0) await client.views.delete(views.map((v) => v.key));
+  } finally {
+    await client.close();
+  }
+};
+
+/** removeRanges deletes every range with one of the names, so a shot can recreate it. */
+export const removeRanges = async (
+  names: string[],
+  opts: ConnectionOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    const found = (await client.ranges.retrieve({ limit: 1000 })).filter((r) =>
+      names.includes(r.name),
+    );
+    if (found.length > 0) await client.ranges.delete(found.map((r) => r.key));
   } finally {
     await client.close();
   }

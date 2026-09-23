@@ -21,6 +21,8 @@ const START = new TimeStamp(new Date(2025, 2, 14, 10, 0, 0));
  * appears as a saved row.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
+  // The shot adds metadata to a fresh range, so an earlier run's copy goes first.
+  await fixtures.removeRanges(["My Range"]);
   await fixtures.createRanges([
     {
       name: "My Range",
