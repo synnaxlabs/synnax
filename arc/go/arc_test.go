@@ -1211,3 +1211,35 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 		).To(Equal([]bool{false}))
 	})
 })
+
+var _ = Describe("Cycle stamps end-to-end runtime", func() {
+	It(
+		"Should resume the clock above stamps forwarded into an index",
+		func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"x":   {types.F32(), 100},
+				"out": {types.F32(), 200},
+			})
+			h := newRuntimeHarness(ctx, `x -> out`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 199, DataType: telem.TimestampT},
+				channels.Digest{Key: 200, DataType: telem.Float32T, Index: 199},
+			)
+			defer h.Close(ctx)
+			stepped := 10 * telem.SecondTS
+			h.clock.Source = func() telem.TimeStamp { return stepped }
+
+			h.Ingest(100, telem.NewSeriesV[float32](1, 2, 3))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+			out, changed := h.Flush()
+			Expect(changed).To(BeTrue())
+			Expect(
+				out.Get(199).Series[0].Unmarshal[telem.TimeStamp](),
+			).To(Equal([]telem.TimeStamp{stepped, stepped + 1, stepped + 2}))
+
+			h.Tick(ctx, 2*telem.Millisecond)
+			Expect(h.cycleNow).To(Equal(stepped + 3))
+		},
+	)
+})

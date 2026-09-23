@@ -213,8 +213,8 @@ func (n *createNode) Next(ctx node.Context) {
 	key := dispatchCreate(ctx, n.rng, n.report,
 		n.StringInput("name"), n.StringInput("parent"), n.StringInput("color"))
 	*n.Output(0) = telem.NewSeriesV(key)
-	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
-	ctx.MarkChanged(0)
+	*n.OutputTime(0) = telem.NewSeriesV(ctx.Now)
+	n.Emit(ctx, 0)
 }
 
 // dispatchCreate creates an open range that starts now, parsing the color and parent
@@ -270,8 +270,8 @@ type endNode struct {
 func (n *endNode) Next(ctx node.Context) {
 	key := dispatchEnd(ctx, n.rng, n.report, n.StringInput("key"))
 	*n.Output(0) = telem.NewSeriesV(key)
-	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
-	ctx.MarkChanged(0)
+	*n.OutputTime(0) = telem.NewSeriesV(ctx.Now)
+	n.Emit(ctx, 0)
 }
 
 // dispatchEnd sets the end bound on the range identified by key to now, reporting

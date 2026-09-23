@@ -52,7 +52,6 @@ type nodeImpl struct {
 	stack         []uint64
 	offsets       []int
 	selIdx        int
-	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
 	chanInputs    []bool
@@ -218,11 +217,15 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
 	clockStamp := longestInputIdx < 0 || n.selIdx >= 0
+	var clockStart telem.TimeStamp
+	if clockStamp {
+		clockStart = ctx.ReserveStamps(int(maxLength))
+	}
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
 	batched := n.batch != nil && maxLength > 1 &&
-		n.runBatch(ctx, maxLength, longestInputTime, clockStamp)
+		n.runBatch(ctx, maxLength, longestInputTime, clockStamp, clockStart)
 	for i := int64(0); !batched && i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
@@ -261,7 +264,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		var ts uint64
 		if clockStamp {
-			ts = uint64(n.clock.Now())
+			ts = uint64(clockStart) + uint64(i)
 		} else {
 			ts = valueAt(longestInputTime, int(i))
 		}
@@ -303,13 +306,13 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		n.OutputTime(j).Resize(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
-			ctx.MarkChanged(j)
+			n.Emit(ctx, j)
 		}
 	}
 }
 
-func (n *nodeImpl) Reset() {
-	n.State.Reset()
+func (n *nodeImpl) Reset(ctx node.Context) {
+	n.State.Reset(ctx)
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.ClearNode(n.ir.Key)
 	}

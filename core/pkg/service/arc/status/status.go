@@ -178,8 +178,8 @@ func (s *setNode) Next(ctx node.Context) {
 		s.StringInput("key_or_name"), s.StringInput("message"),
 		s.StringInput("variant"))
 	*s.Output(0) = telem.NewSeriesV(key)
-	*s.OutputTime(0) = telem.NewSeriesV(telem.Now())
-	ctx.MarkChanged(0)
+	*s.OutputTime(0) = telem.NewSeriesV(ctx.Now)
+	s.Emit(ctx, 0)
 }
 
 // dispatchSet upserts a status by key, by name, or creates a fresh row when neither
