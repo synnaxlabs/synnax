@@ -210,7 +210,9 @@ var _ = Describe("Status backfill", func() {
 				},
 			}
 			Expect(
-				statusSvc.NewWriter(nil).Set(ctx, &legacyStatus),
+				db.WithTx(ctx, func(tx gorp.Tx) error {
+					return statusSvc.NewWriter(tx).Set(ctx, &legacyStatus)
+				}),
 			).To(Succeed())
 
 			// The backfill reads existing statuses as Status[StatusDetails]. This would
