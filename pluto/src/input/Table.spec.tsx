@@ -66,6 +66,12 @@ describe("Input.Table", () => {
     expect(cell("Scaled", "1").value).toBe("10");
   });
 
+  it("should render the column headings when there are no rows", () => {
+    renderTable({ value: [] });
+    expect(screen.getByRole("columnheader", { name: "Raw" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Scaled" })).toBeTruthy();
+  });
+
   it("should render every cell as a shadow input", () => {
     renderTable();
     const chassis = cell("Raw", "1").closest(".pluto-input");

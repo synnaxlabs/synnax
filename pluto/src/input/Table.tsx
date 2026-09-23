@@ -191,8 +191,7 @@ export const Table = ({
   // Accessible row names survive without a gutter.
   const rowName = (index: number): string =>
     rowLabel?.(index) ?? (index + 1).toString();
-  // Headings describe rows, so an empty grid renders none.
-  const hasHeader = value.length > 0 && columns.some(({ name }) => name != null);
+  const hasHeader = columns.some(({ name }) => name != null);
 
   const handleCellChange = (at: xy.XY, next: TableCell) =>
     onChange(
