@@ -29,7 +29,7 @@ const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 export const TextBoxForm = (): ReactElement => {
-  const autoFit = Base.useField<boolean>("autoFit", { optional: true });
+  const autoFitDisabled = Base.useField<boolean>("autoFitDisabled");
   return (
     <Form.Wrapper x align="stretch" grow>
       <Flex.Box y grow>
@@ -54,7 +54,7 @@ export const TextBoxForm = (): ReactElement => {
         <Flex.Box x>
           <Form.ColorField path="color" />
           <Base.Field<number>
-            onChange={(_, { set }) => set("autoFit", false)}
+            onChange={(_, { set }) => set("autoFitDisabled", true)}
             path="width"
             label="Wrap width"
             padHelpText={false}
@@ -62,12 +62,12 @@ export const TextBoxForm = (): ReactElement => {
             {(p) => (
               <Input.Numeric {...p} {...WRAP_WIDTH_INPUT_PROPS}>
                 <Button.Button
-                  onClick={() => autoFit?.onChange(true)}
-                  disabled={autoFit?.value === true}
+                  onClick={() => autoFitDisabled.onChange(false)}
+                  disabled={!autoFitDisabled.value}
                   variant="outlined"
                   className={CSS.BE("text-box-form", "auto-fit-btn")}
                   tooltip={
-                    autoFit?.value === true
+                    !autoFitDisabled.value
                       ? "Manually enter value to disable auto fit"
                       : "Enable auto fit"
                   }

@@ -7,42 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
 
-import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/light/config";
 import { LightForm } from "@/schematic/node/general/light/Form";
 import { Light } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { Staleness } from "@/vis/staleness";
 
-export * from "@/schematic/node/general/light/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
-  orientation: "left",
-  scale: 1,
-  color: color.ZERO,
-  label: Label.defaultConfig("Light"),
-  ...Staleness.ZERO_CONFIG,
-  source: telem.sourcePipeline("boolean", {
-    connections: [{ from: "valueStream", to: "threshold" }],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-      threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
-    },
-    outlet: "threshold",
-  }),
-});
-
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"light", schematic.LightNodeConfig> = {
+  key: "light",
   name: "Light",
   Form: LightForm,
   Node: Symbol,
   Preview: Light,
-  defaultConfig,
   zIndex: 4,
 };

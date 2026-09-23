@@ -114,6 +114,32 @@ describe("Range.useCreateModal", () => {
     });
   });
 
+  it("should close on save after the prefilled parent is cleared", async () => {
+    const parent = await createTestRange(client);
+    const { store } = await openModal(
+      {
+        name: "Orphaned Range",
+        timeRange: { start: 1000, end: 2000 },
+        parent: parent.key,
+      },
+      { client },
+    );
+    // Clicking the selected range a second time in the list deselects it.
+    fireEvent.click(await screen.findByText(parent.name));
+    await waitFor(
+      () => expect(screen.getAllByText(parent.name).length).toBeGreaterThan(1),
+      { timeout: 5000 },
+    );
+    fireEvent.click(screen.getAllByText(parent.name).at(-1) as HTMLElement);
+    await waitFor(() => expect(screen.getByText("Parent range")).toBeTruthy());
+    await clickWhenEnabled("Save locally");
+    await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
+    const created = Session.Range.selectMultiple(store.getState()).find(
+      (r) => r.variant === "static" && r.name === "Orphaned Range",
+    );
+    expect(created).toBeDefined();
+  });
+
   it("should attach the parent and labels when saving to Synnax", async () => {
     const parent = await createTestRange(client);
     const label = await client.labels.create({

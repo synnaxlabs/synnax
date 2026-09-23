@@ -29,7 +29,7 @@ import {
 } from "@/testutil";
 
 interface RenderNavigateParams {
-  configs?: Record<string, Record<string, unknown>>;
+  configs?: Record<string, schematic.ElementConfig>;
   editable?: boolean;
 }
 
@@ -56,14 +56,15 @@ const renderNavigateHook = async ({
 };
 
 const offPageConfig = (
-  page: unknown,
+  page: schematic.Page | undefined,
   overrides: Record<string, unknown> = {},
-): Record<string, unknown> => ({
-  variant: "offPageReference",
-  label: { label: "Target Ref" },
-  page,
-  ...overrides,
-});
+): schematic.ElementConfig =>
+  schematic.offPageReferenceElementConfigZ.parse({
+    variant: "off_page_reference",
+    label: { label: "Target Ref" },
+    page,
+    ...overrides,
+  });
 
 const expectNavigatedTo = async (
   store: TestStore,
@@ -90,15 +91,6 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const target = await createSchematic({ name: uniqueName("target") });
     const { result, store } = await renderNavigateHook({
       configs: { n1: offPageConfig({ type: "schematic", key: target.key }) },
-    });
-    act(() => result.current.handler("n1", true));
-    await expectNavigatedTo(store, target);
-  });
-
-  it("navigates to a schematic referenced by a legacy bare page string", async () => {
-    const target = await createSchematic({ name: uniqueName("target") });
-    const { result, store } = await renderNavigateHook({
-      configs: { n1: offPageConfig(target.key) },
     });
     act(() => result.current.handler("n1", true));
     await expectNavigatedTo(store, target);
@@ -142,8 +134,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
       configs: {
-        n1: offPageConfig(target.key),
-        ctl: offPageConfig(control.key),
+        n1: offPageConfig({ type: "schematic", key: target.key }),
+        ctl: offPageConfig({ type: "schematic", key: control.key }),
       },
     });
     act(() => result.current.handler("n1", false));
@@ -155,7 +147,12 @@ describe("Schematic.useHandleNodeClickAction", () => {
   it("navigates on single click when dblClickNav is disabled", async () => {
     const target = await createSchematic({ name: uniqueName("target") });
     const { result, store } = await renderNavigateHook({
-      configs: { n1: offPageConfig(target.key, { dblClickNav: false }) },
+      configs: {
+        n1: offPageConfig(
+          { type: "schematic", key: target.key },
+          { dblClickNavDisabled: true },
+        ),
+      },
     });
     act(() => result.current.handler("n1", false));
     await expectNavigatedTo(store, target);
@@ -166,8 +163,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { source, result, store } = await renderNavigateHook({
       configs: {
-        n1: offPageConfig(target.key),
-        ctl: offPageConfig(control.key),
+        n1: offPageConfig({ type: "schematic", key: target.key }),
+        ctl: offPageConfig({ type: "schematic", key: control.key }),
       },
       editable: true,
     });
@@ -187,8 +184,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
       configs: {
-        n1: { variant: "valve", page: target.key },
-        ctl: offPageConfig(control.key),
+        n1: schematic.valveElementConfigZ.parse({ variant: "valve" }),
+        ctl: offPageConfig({ type: "schematic", key: control.key }),
       },
     });
     act(() => result.current.handler("n1", true));
@@ -197,25 +194,13 @@ describe("Schematic.useHandleNodeClickAction", () => {
     await expectNotOpened(store, target.key);
   });
 
-  it("ignores references with an unknown page type", async () => {
-    const key = uuid.create();
-    const control = await createSchematic({ name: uniqueName("control") });
-    const { result, store } = await renderNavigateHook({
-      configs: {
-        n1: offPageConfig({ type: "bogus", key }),
-        ctl: offPageConfig(control.key),
-      },
-    });
-    act(() => result.current.handler("n1", true));
-    act(() => result.current.handler("ctl", true));
-    await expectNavigatedTo(store, control);
-    await expectNotOpened(store, key);
-  });
-
   it("ignores references with an empty page", async () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
-      configs: { n1: offPageConfig(""), ctl: offPageConfig(control.key) },
+      configs: {
+        n1: offPageConfig(undefined),
+        ctl: offPageConfig({ type: "schematic", key: control.key }),
+      },
     });
     act(() => result.current.handler("n1", true));
     act(() => result.current.handler("ctl", true));
@@ -227,7 +212,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
 
   it("raises an error status naming the reference when the target is missing", async () => {
     const { result } = await renderNavigateHook({
-      configs: { n1: offPageConfig(uuid.create()) },
+      configs: { n1: offPageConfig({ type: "schematic", key: uuid.create() }) },
     });
     act(() => result.current.handler("n1", true));
     await waitFor(() =>
@@ -258,7 +243,10 @@ describe("Schematic.useHandleNodeClickAction", () => {
   it("names the reference by its page noun when it has no label", async () => {
     const { result } = await renderNavigateHook({
       configs: {
-        n1: offPageConfig({ type: "table", key: uuid.create() }, { label: {} }),
+        n1: offPageConfig(
+          { type: "table", key: uuid.create() },
+          { label: { label: "" } },
+        ),
       },
     });
     act(() => result.current.handler("n1", true));
