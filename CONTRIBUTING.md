@@ -32,13 +32,16 @@ lowers it.
 | ---- | ----------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | `review/thorough` | One human, plus Greptile | A flag turning on for the Console or being deleted (a feature promotion). A change to the telemetry pipeline (Cesium, the framer, the Driver pipeline) or a metadata system (Aspen, Gorp, the ontology, Oracle, the schemas' semantics). A refactor that moves a layer boundary. |
 | 2    | `review/light`    | One human, plus Greptile | A user-facing surface changes: CLI commands or flags, a client API, how the Console looks or behaves. A stored shape changes: anything under `schemas/`, a migration. A feature lands dark behind a flag. Code that ships only in Synnax Desktop.                                |
-| 3    | `review/bot`      | Greptile only            | A simple bug fix. Tests, lints, renames, formatting, generated code, and other mechanical refactors.                                                                                                                                                                             |
+| 3    | `review/bot`      | Greptile only            | A simple bug fix. Tests, lints, renames, formatting, generated code, and other mechanical refactors. CI and developer tooling: workflows, actions, and scripts a customer never installs.                                                                                        |
 
 **Tier 1**: The reviewer pulls the branch, runs the feature, and reads every file and
 the code around it, against the `CLAUDE.md` principles, the tests, and the docs. **Tier
 2**: The reviewer reads the changed surface and its tests, and confirms a stored shape
 change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
-reads it. A fix that turns out to change behavior gets its tier raised.
+reads it. A workflow change stays here however much it rewires a job, because none of it
+reaches a customer; one that changes how a shipped artifact is built, signed, or
+published takes the tier of that artifact. A fix that turns out to change behavior gets
+its tier raised.
 
 The `Review gate` status, required on `main` with `Greptile Review`, stays pending until
 the PR has one tier label and, for Tier 1 or 2, an approval from a human other than the
