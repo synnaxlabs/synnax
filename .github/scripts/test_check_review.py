@@ -72,7 +72,11 @@ class Harness:
         (self.data / "pull.json").write_text(json.dumps(payload))
 
     def reviews(self, *reviews: tuple[str, str] | tuple[str, str, str]) -> None:
-        """Sets the reviews in order as (login, state) or (login, state, user type)."""
+        """Sets the reviews in order as (login, state) or (login, state, user type).
+
+        The first review lands on its own page and the rest on a second one, the way
+        gh --paginate emits them.
+        """
         payload = [
             {
                 "user": {"login": r[0], "type": r[2] if len(r) > 2 else "User"},
@@ -80,7 +84,8 @@ class Harness:
             }
             for r in reviews
         ]
-        (self.data / "reviews.json").write_text(json.dumps(payload))
+        pages = [payload[:1], payload[1:]] if len(payload) > 1 else [payload]
+        (self.data / "reviews.json").write_text("\n".join(map(json.dumps, pages)))
 
     def run(self) -> tuple[str, str]:
         """Runs the script and returns the (state, description) it reports."""

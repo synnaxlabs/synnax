@@ -9,12 +9,14 @@
 
 # Reports the Review gate commit status the main ruleset requires. The job itself
 # always succeeds: a pull request that still waits on a label or an approval gets a
-# pending status, not a failed run and its email.
+# pending status, not a failed run and its email. pull_request_target and the base-ref
+# checkout run the base branch's workflow and script, so a pull request cannot edit
+# the gate it is judged by; no pull request code runs here.
 
 name: Check - Review
 
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - reopened
@@ -43,6 +45,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Report the Review gate status
         env:

@@ -46,9 +46,11 @@ TIER=${FOUND[0]#review/}
 if [ "$TIER" = bot ]; then report success "review/bot: no human approval required"; fi
 
 # The latest review by each human decides; a later request for changes or a dismissal
-# retires an earlier approval.
+# retires an earlier approval. Pages are joined before grouping, since gh applies a
+# --jq filter to each page on its own.
 APPROVERS=$(gh api "repos/${REPO}/pulls/${PR}/reviews?per_page=100" --paginate \
-    --jq '[.[] | select(.user.type != "Bot") | select(.state != "COMMENTED")]
+    | jq -rs 'add
+        | map(select(.user.type != "Bot" and .state != "COMMENTED"))
         | group_by(.user.login) | map(last)
         | map(select(.state == "APPROVED" and .user.login != "'"$AUTHOR"'"))
         | .[].user.login')
