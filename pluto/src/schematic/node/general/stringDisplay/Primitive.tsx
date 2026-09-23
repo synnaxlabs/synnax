@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/stringDisplay/stringDisplay.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
@@ -17,12 +18,16 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Staleness } from "@/vis/staleness";
 
-interface RenderProps extends Omit<Config, "label" | "variant"> {
+interface RenderProps extends Partial<
+  Pick<
+    schematic.StringDisplayNodeConfig,
+    "color" | "textColor" | "stalenessColor" | "orientation" | "level" | "inlineSize"
+  >
+> {
   className?: string;
   value?: string;
   stale?: boolean;
@@ -39,14 +44,13 @@ export const StringDisplay = ({
   value,
   stale = false,
 }: RenderProps): ReactElement => {
-  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.variable("symbol-color")]: symbolColor,
+      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
       width: inlineSize,
       height: HEIGHTS[LEVEL_SIZES[level]],
     }),
-    [symbolColor, inlineSize, level],
+    [colorVal, inlineSize, level],
   );
   const theme = Theming.use();
   const resolvedTextColor = stale

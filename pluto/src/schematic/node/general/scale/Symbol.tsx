@@ -7,43 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { box, dimensions, location, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import {
-  axis,
-  type Config,
-  DEFAULT_DIMENSIONS,
-} from "@/schematic/node/general/scale/config";
+import { Scale as BaseScale } from "@/schematic/node/common/scale";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Scale as BaseScale } from "@/vis/scale";
+import { Scale as VisScale } from "@/vis/scale";
 
 export const Symbol = ({
   nodeKey,
   position,
   onConfigChange,
   selected,
-  config: {
-    label,
-    color,
-    dimensions: dims = DEFAULT_DIMENSIONS,
-    orientation = "top",
-    indicator,
-  },
-}: NodeProps<Config>): ReactElement => {
-  const dir = axis(orientation);
+  config: { label, color, dimensions: dims, orientation, indicator },
+}: NodeProps<schematic.ScaleNodeConfig>): ReactElement => {
+  const dir = location.direction(orientation);
   // The configured dimensions are the bar's own. The ticks live beside it, so the
   // symbol takes the gutter on top of them.
-  const gutter = BaseScale.gutter(indicator);
+  const vis = BaseScale.visProps(indicator);
+  const gutter = VisScale.gutter(vis);
   const outer: dimensions.Dimensions =
     dir === "y"
       ? { width: dims.width + gutter, height: dims.height }
       : { width: dims.width, height: dims.height + gutter };
-  BaseScale.use({
-    ...indicator,
+  const telem = useMemo(() => BaseScale.source(indicator), [indicator]);
+  VisScale.use({
+    ...vis,
+    telem,
     color,
     aetherKey: nodeKey,
     box: box.construct(position ?? xy.ZERO, outer),

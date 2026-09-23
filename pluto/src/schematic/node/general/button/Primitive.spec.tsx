@@ -7,24 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { schematic } from "@synnaxlabs/client";
+import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Form } from "@/form";
-import { type Config, configZ } from "@/schematic/node/general/button/config";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
-  const el = container.querySelector<HTMLElement>("button");
+  const el = container.querySelector<HTMLElement>(".pluto-btn");
   if (el == null) throw new Error("expected a button element");
   return el;
 };
 
 describe("button symbol", () => {
+  it("should carry the symbol-colored + symbol-button classes and set the source color", () => {
+    // The bg/border/text vars are mapped to the display/contrast vars in button.css;
+    // jsdom cannot compute them, so we assert the marker classes and the source var.
+    const { container } = render(<Button color="#ff0000" />);
+    const btn = getButton(container);
+    const cls = btn.getAttribute("class") ?? "";
+    expect(cls).toContain("pluto-symbol-colored");
+    expect(cls).toContain("pluto-symbol-button");
+    expect(btn.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
+  });
+
+  it("should not engage the base button's concrete-color JS path", () => {
+    const { container } = render(<Button color="#ff0000" />);
+    const btn = getButton(container);
+    // The color is not forwarded, so the base button never sets its own color var.
+    expect(btn.getAttribute("class")).not.toContain("pluto-btn--custom-color");
+    expect(btn.style.getPropertyValue("--pluto-btn-color")).toBe("");
+  });
+
+  it("should carry the alpha channel so a translucent button stays translucent", () => {
+    const { container } = render(<Button color={[255, 0, 0, 0.5]} />);
+    expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+      "255, 0, 0, 0.5",
+    );
+  });
+
+  it("should pass a fully transparent color through as a choice", () => {
+    const { container } = render(<Button color={color.ZERO} />);
+    expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+      "0, 0, 0, 0",
+    );
+  });
+
   describe("handler routing", () => {
     it("should actuate fire mode through onClick, not the raw handlers", () => {
       const onClick = vi.fn();
@@ -173,35 +206,32 @@ describe("button symbol", () => {
         const btn = getButton(container);
         fireEvent.mouseDown(btn);
         expect(onMouseDown).toHaveBeenCalledTimes(1);
+        expect(btn.style.getPropertyValue("--pluto-btn-delay")).toBe("");
       });
     });
   });
 });
 
-const LEGACY_CONFIG: Config = {
-  variant: "button",
-  orientation: "left",
-  color: "#000000",
-  label: { label: "Button", level: "h5", orientation: "top" },
-  mode: "fire",
-};
+const CONFIG_Z = schematic.buttonNodeConfigZ;
+
+const CONFIG = CONFIG_Z.parse({ variant: "button", label: { label: "Button" } });
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof configZ>({
-    values: deep.copy(LEGACY_CONFIG),
-    schema: configZ,
+  const methods = Form.use<typeof CONFIG_Z>({
+    values: deep.copy(CONFIG),
+    schema: CONFIG_Z,
   });
   return (
     <SynnaxWrapper>
-      <Form.Form<typeof configZ> {...methods}>{children}</Form.Form>
+      <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
     </SynnaxWrapper>
   );
 };
 
 describe("ButtonForm", () => {
-  it("should show the size field with medium selected for a config without a size key", () => {
+  it("should show the size field with the schema default medium selected", () => {
     const { getByText } = render(
       <FormWrapper>
         <ButtonForm />

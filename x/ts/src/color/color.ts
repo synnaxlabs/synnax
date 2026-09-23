@@ -208,12 +208,12 @@ export const rgbString = (color: Crude): string => {
 };
 
 /**
- * @returns the color as an RGBA string, or undefined for an unset or ZERO color so a
- * CSS custom property set from it falls back to its default.
+ * @returns the color as an RGBA string, or undefined when no color is given so a CSS
+ * custom property set from it falls back to its default.
  * @example "255, 0, 0, 0.5"
  */
 export const rgbaString = (color?: Crude): string | undefined =>
-  color == null || isZero(color) ? undefined : `${rgbString(color)}, ${aValue(color)}`;
+  color == null ? undefined : `${rgbString(color)}, ${aValue(color)}`;
 
 /**
  * @returns the color as an RGBA tuple, with each color value between 0 and 1,
