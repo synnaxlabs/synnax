@@ -18,6 +18,7 @@ cc_library(
     deps = [
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
+        "//x/cpp/errors",
         "//x/cpp/telem",
         "@abseil-cpp//absl/log",
         "@protobuf",
@@ -30,7 +31,6 @@ cc_test(
     deps = [
         ":connection",
         "//freighter/cpp/mock",
-        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

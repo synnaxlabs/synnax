@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <thread>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -29,6 +31,22 @@ grpc::connectivity::CheckResponse make_response(
         node_time != 0 ? node_time : x::telem::TimeStamp::now().nanoseconds()
     );
     return res;
+}
+
+TEST(TestVersionsCompatible, EqualMinor) {
+    EXPECT_TRUE(versions_compatible("0.59.2", "0.59.0"));
+    EXPECT_FALSE(versions_compatible("0.59.2", "0.60.0"));
+}
+
+TEST(TestVersionsCompatible, MalformedVersion) {
+    EXPECT_FALSE(versions_compatible("", "0.59.0"));
+    EXPECT_FALSE(versions_compatible("0.59.0", "nightly"));
+    EXPECT_FALSE(versions_compatible("", ""));
+}
+
+TEST(TestVersionsCompatible, DevBuild) {
+    EXPECT_TRUE(versions_compatible("0.0.0-dev", "0.59.0"));
+    EXPECT_TRUE(versions_compatible("0.59.0", "0.0.0-abc1234"));
 }
 
 TEST(TestChecker, ConnectedOnValidResponse) {

@@ -15,16 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd"
+	"github.com/synnaxlabs/synnax/pkg/version"
 )
 
 var _ = Describe("Cmd", func() {
-	Describe("Version", func() {
-		It("Should print the version when using the --version flag", func() {
-			var buf bytes.Buffer
-			cmd.Cmd.SetArgs([]string{"--version"})
-			cmd.Cmd.SetOut(&buf)
-			Expect(cmd.Cmd.Execute()).To(Succeed())
-			Expect(buf.String()).To(Equal(version))
-		})
+	It("Should print the version when using the --version flag", func() {
+		var buf bytes.Buffer
+		cmd.Cmd.SetArgs([]string{"--version"})
+		cmd.Cmd.SetOut(&buf)
+		Expect(cmd.Cmd.Execute()).To(Succeed())
+		Expect(buf.String()).To(Equal("Synnax " + version.Full() + "\n"))
 	})
 })
