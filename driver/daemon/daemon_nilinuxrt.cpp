@@ -52,7 +52,6 @@ DAEMON="/usr/local/bin/$NAME"
 DAEMON_USER="synnax"
 PIDFILE="(pid_file)"
 LOGFILE="/var/log/$NAME.log"
-ENV_FILE="/etc/synnax/driver.env"
 START_CMD="start -s --disable-stdin-stop"
 HEALTH_CHECK_DELAY_SECONDS=2
 
@@ -107,13 +106,6 @@ do_start() {
     # Add debug logging
     log_message "Starting daemon with command: $DAEMON $START_CMD $ADDITIONAL_ARGS" "$BLUE"
     log_message "Running as user: $(whoami)" "$BLUE"
-
-    # Export every variable in the env file to the daemon.
-    if [ -f "$ENV_FILE" ]; then
-        set -a
-        . "$ENV_FILE"
-        set +a
-    fi
 
     # Use start-stop-daemon to properly manage the PID file
     start-stop-daemon --start --background \

@@ -48,9 +48,6 @@ ExecStart=/usr/local/bin/synnax-driver internal-start --disable-stdin-stop
 User=synnax
 Group=synnax
 
-# Environment
-EnvironmentFile=-/etc/synnax/driver.env
-
 # Watchdog configuration
 WatchdogSec=30s
 
