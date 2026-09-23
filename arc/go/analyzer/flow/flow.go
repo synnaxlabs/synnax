@@ -76,7 +76,7 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 }
 
 // rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select{}.
-func rejectTransitionIntoBranch(ctx context.Context[parser.IFlowStatementContext]) {
+func rejectTransitionIntoBranch[T antlr.ParserRuleContext](ctx context.Context[T]) {
 	children := ctx.AST.GetChildren()
 	for i, child := range children {
 		op, ok := child.(parser.IFlowOperatorContext)
@@ -610,6 +610,7 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 	}
 
 	for _, entry := range ctx.AST.AllRoutingEntry() {
+		rejectTransitionIntoBranch(ctx.Child(entry))
 		warnNumericTransitions(ctx.Child(entry))
 	}
 

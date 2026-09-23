@@ -3623,6 +3623,14 @@ var _ = Describe("Routing entry strictness", func() {
 			    high: true -> vlv_cmd,
 			    low: false -> vlv_cmd
 			}`),
+		Entry("inside an inline stage in a routing entry", `
+			flag -> select{} -> {
+			    true: stage {
+			        flag -> select{} => {
+			            true: true -> vlv_cmd
+			        }
+			    }
+			}`),
 	)
 
 	DescribeTable("Should reject '=>' feeding select",
@@ -3655,7 +3663,34 @@ var _ = Describe("Routing entry strictness", func() {
 			    }
 			    stage second {}
 			}`),
+		Entry("inside a routing entry", `
+			flag -> select{} -> {
+			    true: flag => select{}
+			}`),
+		Entry("inside an inline stage in a routing entry", `
+			flag -> select{} -> {
+			    true: stage {
+			        flag => select{} -> {
+			            true: true -> vlv_cmd
+			        }
+			    }
+			}`),
 	)
+
+	It("Should report every '=>' feeding select", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+			flag -> select{} -> {
+			    true: flag => select{},
+			    false: flag => select{}
+			}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+		analyzer.AnalyzeProgram(ctx)
+		errs := ctx.Diagnostics.Errors()
+		Expect(errs).To(HaveLen(2))
+		for _, err := range errs {
+			Expect(err.Message).To(ContainSubstring("'=>' cannot feed select{}"))
+		}
+	})
 
 	// Inline bodies are the exception to the full-statement rule. They are
 	// self-contained, so they run without the entry providing an upstream flow.
