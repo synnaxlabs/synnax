@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+from typing import Literal
+
 from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -103,7 +106,7 @@ class Overview(Surface):
         second: int = 0,
     ) -> None:
         """Set the start time in the range overview, in local time."""
-        self._set_time(0, year, month, day, hour, minute, second)
+        self._set_time("Start", year, month, day, hour, minute, second)
 
     def set_end_time(
         self,
@@ -115,11 +118,11 @@ class Overview(Surface):
         second: int = 0,
     ) -> None:
         """Set the end time in the range overview, in local time."""
-        self._set_time(1, year, month, day, hour, minute, second)
+        self._set_time("End", year, month, day, hour, minute, second)
 
     def _set_time(
         self,
-        index: int,
+        bound: Literal["Start", "End"],
         year: int,
         month: int,
         day: int,
@@ -127,9 +130,11 @@ class Overview(Surface):
         minute: int = 0,
         second: int = 0,
     ) -> None:
-        """Set a time in the range overview by cell index (0=start, 1=end)."""
-        time_range = self.layout.page.locator(".console-time-range")
-        time_range.locator(".pluto-time-editor__trigger").nth(index).click(timeout=5000)
+        """Set a time in the range overview through the cell named for its end
+        ("Start" or "End")."""
+        timeline = self.layout.page.locator(".pluto-range-timeline:visible")
+        cell = timeline.get_by_role("button", name=re.compile(rf"^{bound}, "))
+        cell.click(timeout=5000)
         editor = self.layout.page.locator(".pluto-time-editor__dialog input")
         editor.fill(
             f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}",
@@ -157,7 +162,9 @@ class Overview(Surface):
     def _open_labels_dropdown(self) -> Locator:
         """Open the labels dropdown in the range overview and return the
         dialog."""
-        labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
+        labels_row = self.layout.page.locator(
+            ".console-range-overview__labels-select:visible"
+        )
         # The add button only renders once a label is set. Before that, the
         # placeholder is the trigger.
         add_button = labels_row.locator("button").last
@@ -204,7 +211,9 @@ class Overview(Surface):
 
         :returns: A list of label names.
         """
-        labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
+        labels_row = self.layout.page.locator(
+            ".console-range-overview__labels-select:visible"
+        )
         label_chips = labels_row.locator(".pluto-tag")
         labels = []
         for i in range(label_chips.count()):

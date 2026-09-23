@@ -25,6 +25,7 @@ export interface RequiredGetOptions {
 
 export interface DefaultGetOptions<V> {
   optional?: boolean;
+  /** The value returned while the path holds none. Only a change writes it. */
   defaultValue: V;
 }
 
@@ -263,7 +264,6 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     if (value == null) {
       if (defaultValue == null) return null;
       value = defaultValue;
-      this.setValue(path, value);
     }
     cachedRef.value = value;
     cachedRef.required = false;

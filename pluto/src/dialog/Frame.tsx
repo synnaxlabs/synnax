@@ -201,9 +201,15 @@ export const Frame = ({
     value: propsVisible,
     onChange: propsOnVisibleChange,
   });
-  const close = useCallback(() => setVisible(false), [setVisible]);
-  const open = useCallback(() => setVisible(true), [setVisible]);
-  const toggle = useCallback(() => setVisible((prev) => !prev), [setVisible]);
+  // Read through a ref, so a caller's onVisibleChange can change identity without
+  // re-subscribing the outside-click and Escape listeners below.
+  const setVisibleRef = useSyncedRef(setVisible);
+  const close = useCallback(() => setVisibleRef.current(false), [setVisibleRef]);
+  const open = useCallback(() => setVisibleRef.current(true), [setVisibleRef]);
+  const toggle = useCallback(
+    () => setVisibleRef.current((prev) => !prev),
+    [setVisibleRef],
+  );
 
   const id = useId();
   const visibleRef = useSyncedRef(visible);
@@ -219,7 +225,7 @@ export const Frame = ({
     if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
       return;
     const target = box.construct(targetRef.current);
-    if (box.areaIsZero(target) && variant !== "modal") return setVisible(false);
+    if (box.areaIsZero(target) && variant !== "modal") return close();
 
     let dialog = box.construct(dialogRef.current);
     if (variant === "connected") dialog = box.resize(dialog, "x", box.width(target));
@@ -261,7 +267,7 @@ export const Frame = ({
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
-  }, [propsLocation, variant, setVisible]);
+  }, [propsLocation, variant, close]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
