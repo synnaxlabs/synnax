@@ -14,11 +14,10 @@ import {
   type TimeSpan as XTimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
+import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type Action, type BaseProps, Editor } from "@/input/time/Editor";
 import {
@@ -54,8 +53,9 @@ export interface DateTimeProps extends Control<number>, BaseProps {
   /** The end of a range the input holds; decides what a bare duration or time means. */
   bound?: Bound;
   /**
-   * Rendered once in every reading and action with the value it would commit. Use it
-   * to say what else a commit would change.
+   * Rendered under the options with the value the highlighted reading or the hovered
+   * action would commit. Use it to say what else a commit would change, and return
+   * null when nothing else would.
    */
   effect?: Component.RenderProp<{ candidate: number }>;
   /** The finest unit the label shows; the tooltip and editor keep every digit. */
@@ -71,13 +71,17 @@ export interface DateTimeProps extends Control<number>, BaseProps {
   clearLabel?: string;
 }
 
-const resolveAnchors = ({ start, end, parent }: DateTimeAnchors): Anchors => {
+const resolveAnchors = (
+  start: number | undefined,
+  end: number | undefined,
+  parentStart: number | undefined,
+): Anchors => {
   const anchors: Anchors = { now: TimeStamp.now() };
   // An end at the edge of time is open, not an instant to offset from.
   if (start != null && start > TimeStamp.MIN.nanoseconds)
-    anchors.start = new TimeStamp(start);
-  if (end != null && end < TimeStamp.MAX.nanoseconds) anchors.end = new TimeStamp(end);
-  if (parent != null) anchors.parent = new TimeStamp(parent.start);
+    anchors.start = fromNumeric(start);
+  if (end != null && end < TimeStamp.MAX.nanoseconds) anchors.end = fromNumeric(end);
+  if (parentStart != null) anchors.parent = fromNumeric(parentStart);
   return anchors;
 };
 
@@ -121,94 +125,61 @@ export const DateTime = ({
   const isEmpty = emptyValue != null && value === emptyValue;
   const stamp = isEmpty ? null : fromNumeric(value);
   const formatted = stamp?.toPreciseString("local") ?? "";
-  const anchors = resolveAnchors({ start, end, parent });
+  const parentStart = parent?.start;
 
-  // Anchors resolve on each call, so `now` inside a reading is the moment of the edit.
+  // Editor memoizes the readings on this function. Anchors resolve on each call, so
+  // `now` inside a reading is the moment of the edit.
   const suggest = useCallback(
     (text: string) =>
       suggestTimeStamps(text, {
-        anchors: resolveAnchors({ start, end, parent }),
+        anchors: resolveAnchors(start, end, parentStart),
         current: isEmpty ? undefined : fromNumeric(value),
         bound,
       }),
-    [start, end, parent, isEmpty, value, bound],
+    [start, end, parentStart, isEmpty, value, bound],
   );
 
   // Digits in the fixed layout nudge; a phrase walks its readings.
-  const nudgeText = useCallback(
-    (text: string, caret: number, steps: number): string | null => {
-      if (!FIXED_LAYOUT_RE.test(text.trim())) return null;
-      const parsed = parseTimeStamp(text, resolveAnchors({ start, end, parent }));
-      if (!parsed.ok) return null;
-      return nudge(parsed.value, unitAt(caret), steps).toPreciseString("local");
-    },
-    [start, end, parent],
-  );
+  const nudgeText = (text: string, caret: number, steps: number): string | null => {
+    if (!FIXED_LAYOUT_RE.test(text.trim())) return null;
+    const parsed = parseTimeStamp(text, resolveAnchors(start, end, parentStart));
+    if (!parsed.ok) return null;
+    return nudge(parsed.value, unitAt(caret), steps).toPreciseString("local");
+  };
 
-  const commit = useCallback(
-    (next: number) => {
-      // The empty value is a sentinel, not an instant to round.
-      const round = (v: number): number =>
-        v === emptyValue ? v : Number(roundNumeric(v));
-      if (round(next) !== round(value)) onChange(round(next));
-    },
-    [onChange, value, emptyValue],
-  );
+  const commit = (next: number): void => {
+    // The empty value is a sentinel, not an instant to round.
+    const round = (v: number): number =>
+      v === emptyValue ? v : Number(roundNumeric(v));
+    if (round(next) !== round(value)) onChange(round(next));
+  };
 
-  const handleCommit = useCallback(
-    (next: TimeStamp) => commit(Number(next.valueOf())),
-    [commit],
-  );
-
-  const handleClear = useCallback(() => {
-    if (emptyValue != null) commit(emptyValue);
-  }, [emptyValue, commit]);
-
-  const actions = useMemo(() => {
-    const out: Action<TimeStamp>[] = [
-      {
-        key: "now",
-        icon: <Icon.Time />,
-        label: "Now",
-        hint: "now",
-        value: () => TimeStamp.now(),
-      },
-    ];
-    if (emptyValue != null && !isEmpty)
-      out.push({
-        key: "empty",
-        icon: <Icon.Close />,
-        label: clearLabel,
-        hint: "empty",
-        value: () => new TimeStamp(emptyValue),
-      });
-    if (parent == null) return out;
-    out.push({
+  const actions: Action<TimeStamp>[] = [
+    { key: "now", icon: <Icon.Time />, label: "Now", value: () => TimeStamp.now() },
+  ];
+  if (emptyValue != null && !isEmpty)
+    actions.push({
+      key: "empty",
+      icon: <Icon.Close />,
+      label: clearLabel,
+      value: () => new TimeStamp(emptyValue),
+    });
+  if (parent != null) {
+    actions.push({
       key: "parentStart",
       icon: <Icon.Range />,
       label: "Parent start",
       hint: "T+0",
-      value: () => new TimeStamp(parent.start),
+      value: () => fromNumeric(parent.start),
     });
     if (parent.end < TimeStamp.MAX.nanoseconds)
-      out.push({
+      actions.push({
         key: "parentEnd",
         icon: <Icon.Range />,
         label: "Parent end",
-        hint: "T+end",
-        value: () => new TimeStamp(parent.end),
+        value: () => fromNumeric(parent.end),
       });
-    return out;
-  }, [emptyValue, isEmpty, clearLabel, parent]);
-
-  const editorEffect = useMemo(
-    () =>
-      effect == null
-        ? undefined
-        : ({ candidate }: { candidate: TimeStamp }) =>
-            effect({ candidate: Number(candidate.valueOf()) }),
-    [effect],
-  );
+  }
 
   let label: ReactNode;
   if (stamp == null)
@@ -219,7 +190,7 @@ export const DateTime = ({
       <>
         {showDay && (
           <span className={CSS.BE("datetime", "day")}>
-            {TelemText.describeDay(stamp, anchors.now)}
+            {TelemText.describeDay(stamp, TimeStamp.now())}
           </span>
         )}
         <span>{TelemText.formatTime(stamp, resolution)}</span>
@@ -237,36 +208,41 @@ export const DateTime = ({
       initialText={formatted}
       suggest={suggest}
       nudge={nudgeText}
-      onCommit={handleCommit}
-      onClear={handleClear}
+      onCommit={(next) => commit(Number(next.valueOf()))}
+      onClear={emptyValue == null ? undefined : () => commit(emptyValue)}
       hint="Try 14:05, tomorrow 3pm, now - 5m, or 2h"
       unreadMessage="Not a time"
       fieldPlaceholder="14:05, tomorrow 3pm, now - 5m"
       actions={actions}
-      effect={editorEffect}
+      effect={
+        effect == null
+          ? undefined
+          : ({ candidate }) => effect({ candidate: Number(candidate.valueOf()) })
+      }
       {...rest}
     >
       {({ value: candidate, reading }) => {
-        // A reading relative to now already says what the offset hint would.
-        const relative = /\b(now|ago)$/.test(reading);
-        const hints = relative ? [] : [describeOffset(candidate, anchors.now)];
-        if (anchors.parent != null)
-          hints.push(describeParent(candidate, anchors.parent));
+        const now = TimeStamp.now();
+        // A reading relative to now already says what the offset would.
+        const details = [reading];
+        if (!/\b(now|ago)$/.test(reading)) details.push(describeOffset(candidate, now));
+        if (parentStart != null)
+          details.push(describeParent(candidate, fromNumeric(parentStart)));
         return (
           <>
-            <Flex.Box x align="center" justify="between" gap="medium">
-              <span>
-                <span className={CSS.BE("datetime", "day")}>
-                  {TelemText.describeDay(candidate, anchors.now)}
-                </span>{" "}
-                {TelemText.formatTime(candidate)}
-              </span>
-              <Text.Text level="small" color={9}>
-                {hints.filter((h) => h.length > 0).join(" · ")}
-              </Text.Text>
-            </Flex.Box>
-            <Text.Text level="small" color={9} overflow="ellipsis">
-              {reading}
+            <span>
+              <span className={CSS.BE("datetime", "day")}>
+                {TelemText.describeDay(candidate, now)}
+              </span>{" "}
+              {TelemText.formatTime(candidate)}
+            </span>
+            <Text.Text
+              level="small"
+              color={9}
+              overflow="ellipsis"
+              className={CSS.BE("time-editor", "detail")}
+            >
+              {details.filter((d) => d.length > 0).join(" · ")}
             </Text.Text>
           </>
         );

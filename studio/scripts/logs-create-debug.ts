@@ -1,0 +1,38 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { capture } from "@/index";
+
+/** Diagnostic: native palette-button click, rig typing, then native item click. */
+export default async (session: capture.CaptureSession): Promise<void> => {
+  const { page } = session;
+  await capture.login(session);
+  await capture.clearPanel(session);
+
+  session.startRecording();
+  const btn = page.locator(".console-palette button").first();
+  await session.moveTo(btn);
+  await btn.click();
+  const input = page.locator(".console-palette__input input[role='textbox']");
+  await session.waitFor(input);
+  await session.hold(300);
+  await session.type(">");
+  await session.type("Create log");
+  await session.hold(600);
+  const items = await page.locator(".pluto-list__item").allTextContents();
+  console.log("items:", JSON.stringify(items.slice(0, 3)));
+  const item = page
+    .locator(".pluto-list__item")
+    .filter({ has: page.getByText("Create log", { exact: true }) })
+    .first();
+  await session.moveTo(item, { text: true });
+  await item.click();
+  await session.settle(2500);
+  console.log("log count:", await page.locator(".pluto-log").count());
+};

@@ -15,7 +15,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
-  color: color.Crude;
+  color?: color.Crude;
 }
 
 const INTERACTION_WIDTH = 30;

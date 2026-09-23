@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createStatic } from "@/schematic/node/common/create";
 import { Coriolis } from "@/schematic/node/flowmeters/Coriolis";
 import { Electromagnetic } from "@/schematic/node/flowmeters/Electromagnetic";
@@ -24,104 +22,89 @@ import { VariableArea } from "@/schematic/node/flowmeters/VariableArea";
 import { Venturi } from "@/schematic/node/flowmeters/Venturi";
 
 const general = createStatic({
-  variant: "flowmeterGeneral",
+  variant: "flowmeter_general",
   name: "General",
   label: "General flowmeter",
   Primitive: General,
 });
 const electromagnetic = createStatic({
-  variant: "flowmeterElectromagnetic",
+  variant: "flowmeter_electromagnetic",
   name: "Electromagnetic",
   label: "Electromagnetic flowmeter",
   Primitive: Electromagnetic,
 });
 const variableArea = createStatic({
-  variant: "flowmeterVariableArea",
+  variant: "flowmeter_variable_area",
   name: "Variable area",
   label: "Variable area flowmeter",
   Primitive: VariableArea,
 });
 const coriolis = createStatic({
-  variant: "flowmeterCoriolis",
+  variant: "flowmeter_coriolis",
   name: "Coriolis",
   label: "Coriolis flowmeter",
   Primitive: Coriolis,
 });
 const nozzle = createStatic({
-  variant: "flowmeterNozzle",
+  variant: "flowmeter_nozzle",
   name: "Nozzle",
   label: "Nozzle flowmeter",
   Primitive: Nozzle,
 });
 const venturi = createStatic({
-  variant: "flowmeterVenturi",
+  variant: "flowmeter_venturi",
   name: "Venturi",
   label: "Venturi flowmeter",
   Primitive: Venturi,
 });
 const ringPiston = createStatic({
-  variant: "flowmeterRingPiston",
+  variant: "flowmeter_ring_piston",
   name: "Ring piston",
   label: "Ring piston flowmeter",
   Primitive: RingPiston,
 });
 const positiveDisplacement = createStatic({
-  variant: "flowmeterPositiveDisplacement",
+  variant: "flowmeter_positive_displacement",
   name: "Positive displacement",
   label: "Positive displacement flowmeter",
   Primitive: PositiveDisplacement,
 });
 const turbine = createStatic({
-  variant: "flowmeterTurbine",
+  variant: "flowmeter_turbine",
   name: "Turbine",
   label: "Turbine flowmeter",
   Primitive: Turbine,
 });
 const pulse = createStatic({
-  variant: "flowmeterPulse",
+  variant: "flowmeter_pulse",
   name: "Pulse",
   label: "Pulse flowmeter",
   Primitive: Pulse,
 });
 const floatSensor = createStatic({
-  variant: "flowmeterFloatSensor",
+  variant: "flowmeter_float_sensor",
   name: "Float sensor",
   label: "Float sensor flowmeter",
   Primitive: FloatSensor,
 });
 const orifice = createStatic({
-  variant: "flowmeterOrifice",
+  variant: "flowmeter_orifice",
   name: "Orifice",
   label: "Orifice flowmeter",
   Primitive: Orifice,
 });
 
 export const REGISTRY = {
-  flowmeterGeneral: general.spec,
-  flowmeterElectromagnetic: electromagnetic.spec,
-  flowmeterVariableArea: variableArea.spec,
-  flowmeterCoriolis: coriolis.spec,
-  flowmeterNozzle: nozzle.spec,
-  flowmeterVenturi: venturi.spec,
-  flowmeterRingPiston: ringPiston.spec,
-  flowmeterPositiveDisplacement: positiveDisplacement.spec,
-  flowmeterTurbine: turbine.spec,
-  flowmeterPulse: pulse.spec,
-  flowmeterFloatSensor: floatSensor.spec,
-  flowmeterOrifice: orifice.spec,
+  flowmeter_general: general.spec,
+  flowmeter_electromagnetic: electromagnetic.spec,
+  flowmeter_variable_area: variableArea.spec,
+  flowmeter_coriolis: coriolis.spec,
+  flowmeter_nozzle: nozzle.spec,
+  flowmeter_venturi: venturi.spec,
+  flowmeter_ring_piston: ringPiston.spec,
+  flowmeter_positive_displacement: positiveDisplacement.spec,
+  flowmeter_turbine: turbine.spec,
+  flowmeter_pulse: pulse.spec,
+  flowmeter_float_sensor: floatSensor.spec,
+  flowmeter_orifice: orifice.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  general.configZ,
-  electromagnetic.configZ,
-  variableArea.configZ,
-  coriolis.configZ,
-  nozzle.configZ,
-  venturi.configZ,
-  ringPiston.configZ,
-  positiveDisplacement.configZ,
-  turbine.configZ,
-  pulse.configZ,
-  floatSensor.configZ,
-  orifice.configZ,
-]);

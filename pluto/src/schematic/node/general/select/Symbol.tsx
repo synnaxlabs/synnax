@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import { type schematic } from "@synnaxlabs/client";
+import { type ReactElement, useMemo, useState } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/select/config";
+import { Telem } from "@/schematic/node/common/telem";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
@@ -26,14 +27,15 @@ export const Symbol = ({
     orientation = "left",
     control,
     color,
-    sink,
+    commandChannel,
     options,
     size,
     disabled,
     inlineSize,
     onClickDelay,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
+  const sink = useMemo(() => Telem.numberSink(commandChannel), [commandChannel]);
   const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
   const handleSelectionChange = (key: string | null): void =>
@@ -46,7 +48,11 @@ export const Symbol = ({
       resizeHandles={["left", "right"]}
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
-      <Control.State config={control} onChange={onConfigChange} />
+      <Control.State
+        config={control}
+        channel={commandChannel}
+        onChange={onConfigChange}
+      />
       <Label.Label config={label} onChange={onConfigChange} />
       <Select
         value={selectedKey}

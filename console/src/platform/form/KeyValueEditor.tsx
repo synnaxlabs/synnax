@@ -77,7 +77,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
             (row) =>
               ({ [keyField]: row[keyIndex], value: row[valueIndex] }) as Entry<K, V>,
           )
-        : undefined,
+        : [],
     );
 
   const keyColumn = (

@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type FC } from "react";
 import { type z } from "zod";
 
 import { type FormProps } from "@/schematic/node/spec";
 import { type Diagram } from "@/vis/diagram";
 
-export interface EdgeProps<Config extends object = object> extends Diagram.EdgeProps {
-  onChange: (p: Partial<Config>) => void;
-  config: Config;
+export interface EdgeProps extends Diagram.EdgeProps {
+  onChange: (p: Partial<schematic.EdgeConfig>) => void;
+  config: schematic.EdgeConfig;
 }
 
-export type Edge<Config extends object = object> = FC<EdgeProps<Config>>;
+export type Edge = FC<EdgeProps>;
 
 export interface Spec<
   Variant extends string = string,
@@ -28,6 +29,6 @@ export interface Spec<
   name: string;
   configZ: z.ZodType<P>;
   Form: FC<FormProps>;
-  Edge: Edge<P>;
+  Edge: Edge;
   defaultConfig: () => P;
 }

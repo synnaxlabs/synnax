@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type schematic } from "@synnaxlabs/client";
+import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
+import { telem } from "@/telem/aether";
 import { StringValue as BaseStringValue } from "@/vis/stringValue";
 
 export const Symbol = ({
@@ -22,7 +23,7 @@ export const Symbol = ({
   selected,
   config: {
     label,
-    telem,
+    channel,
     stalenessTimeout,
     stalenessColor,
     color,
@@ -31,10 +32,14 @@ export const Symbol = ({
     inlineSize,
     orientation,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.StringDisplayNodeConfig>): ReactElement => {
+  const source = useMemo(
+    () => telem.streamChannelStringValue({ channel: channel ?? 0 }),
+    [channel],
+  );
   const { value, stale } = BaseStringValue.use({
     aetherKey: nodeKey,
-    telem,
+    telem: source,
     stalenessTimeout,
   });
   return (

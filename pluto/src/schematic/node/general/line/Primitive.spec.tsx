@@ -40,10 +40,10 @@ describe("line symbol", () => {
       );
     });
 
-    it("should leave the source color unset for the ZERO sentinel", () => {
+    it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(<Line color={color.ZERO} />);
       expect(getRoot(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-        "",
+        "0, 0, 0, 0",
       );
     });
 
