@@ -16,11 +16,34 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// tankCfg constructs a typed tank element config. hex is optional.
+func tankCfg(label, hex string) schematic.ElementConfig {
+	cfg := schematic.TankElementConfig{
+		Label: schematic.LabelConfig{Label: label},
+	}
+	if hex != "" {
+		cfg.Color = new(MustSucceed(color.FromHex(hex)))
+	}
+	return schematic.ElementConfig{Variant: cfg}
+}
+
+// pipeCfg constructs a typed pipe edge config. hex is optional.
+func pipeCfg(hex string) schematic.ElementConfig {
+	cfg := schematic.SegmentedEdgeConfig{}
+	if hex != "" {
+		cfg.Color = new(MustSucceed(color.FromHex(hex)))
+	}
+	return schematic.ElementConfig{
+		Variant: schematic.PipeElementConfig{SegmentedEdgeConfig: cfg},
+	}
+}
 
 // node constructs a node at the given coordinates. zIndex is left zero.
 func node(key string, x, y float64) schematic.Node {
@@ -36,12 +59,14 @@ func edge(key, srcNode, srcParam, tgtNode, tgtParam string) schematic.Edge {
 	}
 }
 
-// groupCfg constructs a groupBox config listing the given members.
-func groupCfg(members ...any) msgpack.EncodedJSON {
+// groupCfg constructs a typed group box config listing the given members.
+func groupCfg(members ...string) schematic.ElementConfig {
 	if members == nil {
-		members = []any{}
+		members = []string{}
 	}
-	return msgpack.EncodedJSON{"variant": "groupBox", "members": members}
+	return schematic.ElementConfig{
+		Variant: schematic.GroupBoxElementConfig{Members: members},
+	}
 }
 
 var _ = Describe("Reducer", func() {
@@ -120,19 +145,25 @@ var _ = Describe("Reducer", func() {
 				schematic.Reduce(
 					state,
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
-						Node: node("n1", 0, 0),
-						Config: msgpack.EncodedJSON{
-							"label": "Pump",
-							"color": "#ff0000",
-						},
+						Node:   node("n1", 0, 0),
+						Config: new(tankCfg("Pump", "#ff0000")),
 					}),
 				),
 			)
 			Expect(out.Configs).To(HaveKey("n1"))
-			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
-				"label": "Pump",
-				"color": "#ff0000",
-			}))
+			Expect(out.Configs["n1"]).To(Equal(tankCfg("Pump", "#ff0000")))
+		})
+		It("Should reject a config naming no variant", func() {
+			Expect(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
+					Node:   node("n1", 0, 0),
+					Config: &schematic.ElementConfig{},
+				}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("names no variant")),
+			))
 		})
 		It("Should leave configs untouched when the action's config is nil", func() {
 			state := schematic.Schematic{}
@@ -176,9 +207,9 @@ var _ = Describe("Reducer", func() {
 			func() {
 				state := schematic.Schematic{
 					Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
-					Configs: map[string]msgpack.EncodedJSON{
-						"n1": {"label": "Pump"},
-						"n2": {"label": "Tank"},
+					Configs: map[string]schematic.ElementConfig{
+						"n1": tankCfg("Pump", ""),
+						"n2": tankCfg("Tank", ""),
 					},
 				}
 				out := MustSucceed(
@@ -216,7 +247,7 @@ var _ = Describe("Reducer", func() {
 		It("Should be a no-op when the key does not match any node", func() {
 			state := schematic.Schematic{
 				Nodes:   []schematic.Node{node("n1", 0, 0)},
-				Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "Pump"}},
+				Configs: map[string]schematic.ElementConfig{"n1": tankCfg("Pump", "")},
 			}
 			out := MustSucceed(
 				schematic.Reduce(
@@ -246,7 +277,7 @@ var _ = Describe("Reducer", func() {
 		DescribeTable("splicing",
 			func(
 				nodes []schematic.Node,
-				configs, expected map[string]msgpack.EncodedJSON,
+				configs, expected map[string]schematic.ElementConfig,
 				key string,
 			) {
 				out := removeNode(
@@ -257,18 +288,18 @@ var _ = Describe("Reducer", func() {
 			},
 			Entry("splices the removed member from its group",
 				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2")},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n2")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "n2")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n2")},
 				"n1",
 			),
 			Entry(
 				"splices the key from every group that lists it",
 				[]schematic.Node{node("g1", 0, 0), node("g2", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{
+				map[string]schematic.ElementConfig{
 					"g1": groupCfg("n1", "a"),
 					"g2": groupCfg("b", "n1"),
 				},
-				map[string]msgpack.EncodedJSON{
+				map[string]schematic.ElementConfig{
 					"g1": groupCfg("a"),
 					"g2": groupCfg("b"),
 				},
@@ -276,8 +307,8 @@ var _ = Describe("Reducer", func() {
 			),
 			Entry("removes duplicate member entries",
 				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0), node("n2", 0, 0)},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2", "n1")},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n2")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "n2", "n1")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n2")},
 				"n1",
 			),
 			Entry(
@@ -287,20 +318,20 @@ var _ = Describe("Reducer", func() {
 					node("inner", 0, 0),
 					node("m1", 0, 0),
 				},
-				map[string]msgpack.EncodedJSON{
+				map[string]schematic.ElementConfig{
 					"outer": groupCfg("inner", "x"),
 					"inner": groupCfg("m1"),
 				},
-				map[string]msgpack.EncodedJSON{"outer": groupCfg("x")},
+				map[string]schematic.ElementConfig{"outer": groupCfg("x")},
 				"inner",
 			),
 			Entry("leaves a former member's config untouched when its group is removed",
 				[]schematic.Node{node("g1", 0, 0), node("m1", 0, 0)},
-				map[string]msgpack.EncodedJSON{
+				map[string]schematic.ElementConfig{
 					"g1": groupCfg("m1"),
-					"m1": {"label": "Pump"},
+					"m1": tankCfg("Pump", ""),
 				},
-				map[string]msgpack.EncodedJSON{"m1": {"label": "Pump"}},
+				map[string]schematic.ElementConfig{"m1": tankCfg("Pump", "")},
 				"g1",
 			),
 			Entry("only splices the direct group in a nested chain",
@@ -310,12 +341,12 @@ var _ = Describe("Reducer", func() {
 					node("inner", 0, 0),
 					node("n1", 0, 0),
 				},
-				map[string]msgpack.EncodedJSON{
+				map[string]schematic.ElementConfig{
 					"outer": groupCfg("mid"),
 					"mid":   groupCfg("inner"),
 					"inner": groupCfg("n1", "n2"),
 				},
-				map[string]msgpack.EncodedJSON{
+				map[string]schematic.ElementConfig{
 					"outer": groupCfg("mid"),
 					"mid":   groupCfg("inner"),
 					"inner": groupCfg("n2"),
@@ -324,83 +355,45 @@ var _ = Describe("Reducer", func() {
 			),
 			Entry("preserves other group config fields",
 				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{
-					"g1": {
-						"variant": "groupBox",
-						"members": []any{"n1", "n2"},
-						"locked":  true,
-					},
+				map[string]schematic.ElementConfig{
+					"g1": {Variant: schematic.GroupBoxElementConfig{
+						Members: []string{"n1", "n2"},
+						Locked:  true,
+					}},
 				},
-				map[string]msgpack.EncodedJSON{
-					"g1": {
-						"variant": "groupBox",
-						"members": []any{"n2"},
-						"locked":  true,
-					},
+				map[string]schematic.ElementConfig{
+					"g1": {Variant: schematic.GroupBoxElementConfig{
+						Members: []string{"n2"},
+						Locked:  true,
+					}},
 				},
 				"n1",
 			),
 			Entry("leaves groups untouched when the removed node is in no group",
 				[]schematic.Node{node("g1", 0, 0), node("loose", 5, 5)},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1")},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1")},
 				"loose",
-			),
-			Entry("ignores a non-group config with a members field",
-				[]schematic.Node{node("t1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{
-					"t1": {"variant": "table", "members": []any{"n1"}},
-				},
-				map[string]msgpack.EncodedJSON{
-					"t1": {"variant": "table", "members": []any{"n1"}},
-				},
-				"n1",
-			),
-			Entry("skips a group whose members is not an array",
-				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{
-					"g1": {"variant": "groupBox", "members": "n1"},
-				},
-				map[string]msgpack.EncodedJSON{
-					"g1": {"variant": "groupBox", "members": "n1"},
-				},
-				"n1",
-			),
-			Entry("skips a config whose variant is not a string",
-				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{
-					"g1": {"variant": 42, "members": []any{"n1"}},
-				},
-				map[string]msgpack.EncodedJSON{
-					"g1": {"variant": 42, "members": []any{"n1"}},
-				},
-				"n1",
-			),
-			Entry("preserves non-string member entries",
-				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg(42, "n1", nil)},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg(42, nil)},
-				"n1",
 			),
 			Entry("leaves an empty members list untouched",
 				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg()},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg()},
+				map[string]schematic.ElementConfig{"g1": groupCfg()},
+				map[string]schematic.ElementConfig{"g1": groupCfg()},
 				"n1",
 			),
 			Entry("does not cascade on a no-op removal, even for a listed key",
 				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "ghost")},
-				map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "ghost")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "ghost")},
+				map[string]schematic.ElementConfig{"g1": groupCfg("n1", "ghost")},
 				"ghost",
 			),
 			Entry("drops a self-listing group's config with the node",
 				[]schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-				map[string]msgpack.EncodedJSON{
+				map[string]schematic.ElementConfig{
 					"g1": groupCfg("g1", "n1"),
-					"n1": {"label": "Pump"},
+					"n1": tankCfg("Pump", ""),
 				},
-				map[string]msgpack.EncodedJSON{"n1": {"label": "Pump"}},
+				map[string]schematic.ElementConfig{"n1": tankCfg("Pump", "")},
 				"g1",
 			),
 		)
@@ -415,22 +408,22 @@ var _ = Describe("Reducer", func() {
 		It("Should splice a membership cycle when one side is removed", func() {
 			out := removeNode(schematic.Schematic{
 				Nodes: []schematic.Node{node("g1", 0, 0), node("g2", 0, 0)},
-				Configs: map[string]msgpack.EncodedJSON{
+				Configs: map[string]schematic.ElementConfig{
 					"g1": groupCfg("g2"),
 					"g2": groupCfg("g1"),
 				},
 			}, "g1")
 			Expect(out.Configs).To(
-				Equal(map[string]msgpack.EncodedJSON{"g2": groupCfg()}),
+				Equal(map[string]schematic.ElementConfig{"g2": groupCfg()}),
 			)
 		})
 		It("Should converge to the same configs regardless of removal order", func() {
 			build := func() schematic.Schematic {
 				return schematic.Schematic{
 					Nodes: []schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
-					Configs: map[string]msgpack.EncodedJSON{
+					Configs: map[string]schematic.ElementConfig{
 						"g1": groupCfg("n1"),
-						"n1": {"label": "Pump"},
+						"n1": tankCfg("Pump", ""),
 					},
 				}
 			}
@@ -443,8 +436,8 @@ var _ = Describe("Reducer", func() {
 		})
 		It("Should splice the key from a large fan of groups", func() {
 			nodes := []schematic.Node{node("n1", 0, 0)}
-			configs := make(map[string]msgpack.EncodedJSON, 50)
-			expected := make(map[string]msgpack.EncodedJSON, 50)
+			configs := make(map[string]schematic.ElementConfig, 50)
+			expected := make(map[string]schematic.ElementConfig, 50)
 			for i := range 50 {
 				key := "g" + strconv.Itoa(i)
 				nodes = append(nodes, node(key, 0, 0))
@@ -461,45 +454,19 @@ var _ = Describe("Reducer", func() {
 					node("n1", 0, 0),
 					node("n2", 0, 0),
 				},
-				Configs: map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2")},
+				Configs: map[string]schematic.ElementConfig{"g1": groupCfg("n1", "n2")},
 			}, "n1")
 			out := MustSucceed(
 				schematic.Reduce(
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "g1",
-						Config: msgpack.EncodedJSON{"members": []any{"n1", "n2", "n3"}},
+						Config: groupCfg("n1", "n2", "n3"),
 					}),
 				),
 			)
 			Expect(out.Configs["g1"]).To(Equal(groupCfg("n1", "n2", "n3")))
 		})
-		It(
-			"Should keep the splice when the removal lands after a members write",
-			func() {
-				state := schematic.Schematic{
-					Nodes: []schematic.Node{
-						node("g1", 0, 0),
-						node("n1", 0, 0),
-						node("n2", 0, 0),
-					},
-					Configs: map[string]msgpack.EncodedJSON{"g1": groupCfg("n1", "n2")},
-				}
-				withWrite := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "g1",
-							Config: msgpack.EncodedJSON{
-								"members": []any{"n1", "n2", "n3"},
-							},
-						}),
-					),
-				)
-				out := removeNode(withWrite, "n1")
-				Expect(out.Configs["g1"]).To(Equal(groupCfg("n2", "n3")))
-			},
-		)
 	})
 
 	Describe("AddEdge", func() {
@@ -544,9 +511,9 @@ var _ = Describe("Reducer", func() {
 						edge("e1", "a", "o", "b", "i"),
 						edge("e2", "b", "o", "c", "i"),
 					},
-					Configs: map[string]msgpack.EncodedJSON{
-						"e1": {"color": "#fff"},
-						"e2": {"color": "#000"},
+					Configs: map[string]schematic.ElementConfig{
+						"e1": pipeCfg("#ffffff"),
+						"e2": pipeCfg("#000000"),
 					},
 				}
 				out := MustSucceed(
@@ -567,7 +534,7 @@ var _ = Describe("Reducer", func() {
 		It("Should be a no-op when the key does not match any edge", func() {
 			state := schematic.Schematic{
 				Edges:   []schematic.Edge{edge("e1", "a", "o", "b", "i")},
-				Configs: map[string]msgpack.EncodedJSON{"e1": {"color": "#fff"}},
+				Configs: map[string]schematic.ElementConfig{"e1": pipeCfg("#ffffff")},
 			}
 			out := MustSucceed(
 				schematic.Reduce(
@@ -590,29 +557,56 @@ var _ = Describe("Reducer", func() {
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "n1",
-						Config: msgpack.EncodedJSON{"label": "Pump"},
+						Config: tankCfg("Pump", ""),
 					}),
 				),
 			)
-			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"label": "Pump"}))
+			Expect(out.Configs["n1"]).To(Equal(tankCfg("Pump", "")))
 		})
-		It("Should merge payload fields into an existing config entry", func() {
-			state := schematic.Schematic{Configs: map[string]msgpack.EncodedJSON{
-				"n1": {"label": "Old", "color": "#ff0000"},
+		It("Should replace an existing config entry whole", func() {
+			state := schematic.Schematic{Configs: map[string]schematic.ElementConfig{
+				"n1": tankCfg("Old", "#ff0000"),
 			}}
 			out := MustSucceed(
 				schematic.Reduce(
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "n1",
-						Config: msgpack.EncodedJSON{"label": "New"},
+						Config: tankCfg("New", ""),
 					}),
 				),
 			)
-			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
-				"label": "New",
-				"color": "#ff0000",
+			Expect(out.Configs["n1"]).To(Equal(tankCfg("New", "")))
+		})
+		It("Should replace an entry with one of another variant", func() {
+			state := schematic.Schematic{Configs: map[string]schematic.ElementConfig{
+				"e1": pipeCfg("#000000"),
+			}}
+			out := MustSucceed(
+				schematic.Reduce(
+					state,
+					schematic.NewSetConfigAction(schematic.SetConfigPayload{
+						Key: "e1",
+						Config: schematic.ElementConfig{
+							Variant: schematic.ElectricElementConfig{},
+						},
+					}),
+				),
+			)
+			Expect(out.Configs["e1"]).To(Equal(schematic.ElementConfig{
+				Variant: schematic.ElectricElementConfig{},
 			}))
+		})
+		// A nil config would otherwise store a null entry, which no client can read
+		// back, taking the whole schematic down with it.
+		It("Should reject a config naming no variant", func() {
+			Expect(schematic.Reduce(
+				schematic.Schematic{},
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{Key: "n1"}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("names no variant")),
+			))
 		})
 		It("Should accept a key that does not match any node or edge", func() {
 			state := schematic.Schematic{}
@@ -621,139 +615,12 @@ var _ = Describe("Reducer", func() {
 					state,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
 						Key:    "orphan",
-						Config: msgpack.EncodedJSON{"data": 1},
+						Config: tankCfg("Floating", ""),
 					}),
 				),
 			)
-			Expect(out.Configs["orphan"]).To(Equal(msgpack.EncodedJSON{"data": 1}))
+			Expect(out.Configs["orphan"]).To(Equal(tankCfg("Floating", "")))
 		})
-		It(
-			"Should override the payload color with the edge's source color on insert",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"color": "#00ff00"},
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "e1",
-							Config: msgpack.EncodedJSON{
-								"variant": "pipe",
-								"color":   "#000000",
-							},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#00ff00",
-				}))
-			},
-		)
-		It(
-			"Should inherit the edge's source color when the payload omits color",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"color": "#00ff00"},
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key:    "e1",
-							Config: msgpack.EncodedJSON{"variant": "pipe"},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#00ff00",
-				}))
-			},
-		)
-		It(
-			"Should leave the payload untouched when the source node has no color",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"label": "Pump"},
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "e1",
-							Config: msgpack.EncodedJSON{
-								"variant": "pipe",
-								"color":   "#000000",
-							},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#000000",
-				}))
-			},
-		)
-		It(
-			"Should leave the payload untouched when the source node has no config",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "e1",
-							Config: msgpack.EncodedJSON{
-								"variant": "pipe",
-								"color":   "#000000",
-							},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "pipe",
-					"color":   "#000000",
-				}))
-			},
-		)
-		It(
-			"Should not override the color when merging into an existing edge config",
-			func() {
-				state := schematic.Schematic{
-					Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
-					Configs: map[string]msgpack.EncodedJSON{
-						"src": {"color": "#00ff00"},
-						"e1":  {"variant": "pipe", "color": "#000000"},
-					},
-				}
-				out := MustSucceed(
-					schematic.Reduce(
-						state,
-						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key:    "e1",
-							Config: msgpack.EncodedJSON{"variant": "electric"},
-						}),
-					),
-				)
-				Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
-					"variant": "electric",
-					"color":   "#000000",
-				}))
-			},
-		)
 	})
 
 	Describe("ReduceAll real-world scenarios", func() {
@@ -798,30 +665,30 @@ var _ = Describe("Reducer", func() {
 				),
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "pump",
-					Config: msgpack.EncodedJSON{"label": "Main Pump"},
+					Config: tankCfg("Main Pump", ""),
 				}),
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "e1",
-					Config: msgpack.EncodedJSON{"variant": "pipe"},
+					Config: pipeCfg(""),
 				}),
 			}
 			out := MustSucceed(schematic.Reduce(state, actions...))
 			Expect(out.Nodes).To(HaveLen(3))
 			Expect(out.Edges).To(HaveLen(2))
 			Expect(out.Configs).To(HaveLen(2))
-			Expect(
-				out.Configs["pump"],
-			).To(Equal(msgpack.EncodedJSON{"label": "Main Pump"}))
-			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{"variant": "pipe"}))
+			Expect(out.Configs["pump"]).To(Equal(tankCfg("Main Pump", "")))
+			Expect(out.Configs["e1"]).To(Equal(pipeCfg("")))
 		})
 
 		It(
 			"Should drop config but keep dangling edges when a node is removed and re-added",
 			func() {
 				state := schematic.Schematic{
-					Nodes:   []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
-					Edges:   []schematic.Edge{edge("e1", "n1", "o", "n2", "i")},
-					Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "v1"}},
+					Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
+					Edges: []schematic.Edge{edge("e1", "n1", "o", "n2", "i")},
+					Configs: map[string]schematic.ElementConfig{
+						"n1": tankCfg("v1", ""),
+					},
 				}
 				actions := []schematic.Action{
 					schematic.NewRemoveNodeAction(
@@ -905,18 +772,18 @@ var _ = Describe("Reducer", func() {
 					actions = append(
 						actions,
 						schematic.NewSetConfigAction(schematic.SetConfigPayload{
-							Key: "n" + string(rune('0'+i)),
-							Config: msgpack.EncodedJSON{
-								"label": "node " + string(rune('0'+i)),
-							},
+							Key:    "n" + string(rune('0'+i)),
+							Config: tankCfg("node "+string(rune('0'+i)), ""),
 						}),
 					)
 				}
 				actions = append(
 					actions,
 					schematic.NewSetConfigAction(schematic.SetConfigPayload{
-						Key:    "e1",
-						Config: msgpack.EncodedJSON{"variant": "electric"},
+						Key: "e1",
+						Config: schematic.ElementConfig{
+							Variant: schematic.ElectricElementConfig{},
+						},
 					}),
 				)
 				out := MustSucceed(schematic.Reduce(state, actions...))
