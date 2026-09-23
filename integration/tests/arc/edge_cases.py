@@ -362,6 +362,32 @@ TYPE_MISMATCH_CASES = [
     ),
 ]
 
+# ── Routing table operator (invalid, caught at configure time) ──
+
+# A routing key selects its entry, so `=>` before the table has nothing to gate.
+ARC_TRANSITION_INTO_ROUTING_TABLE = """
+ch1 > 0.0 -> select{} => {
+    true: 1.0 -> edge_diamond,
+    false: 0.0 -> edge_diamond,
+}
+"""
+
+
+@dataclass
+class RoutingTableCase:
+    label: str
+    source: str
+    wait_substr: str
+
+
+ROUTING_TABLE_CASES = [
+    RoutingTableCase(
+        "TransitionIntoTable",
+        ARC_TRANSITION_INTO_ROUTING_TABLE,
+        "cannot feed a routing table",
+    ),
+]
+
 # ── Guarded circular calls (valid, should configure successfully) ──
 # Comprehensive guarded topology coverage is in the Go unit tests.
 
@@ -609,6 +635,14 @@ class EdgeCases(ArcCase):
                 case.source, f"TypeMismatch{case.label}", case.wait_substr
             )
 
+    def _verify_routing_table_cases(self) -> None:
+        self.log("=== Routing table operator detection ===")
+        for case in ROUTING_TABLE_CASES:
+            self.log(f"[{case.label}] Testing routing table operator")
+            self._assert_configure_error(
+                case.source, f"RoutingTable{case.label}", case.wait_substr
+            )
+
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
         name = self.load_arc(
@@ -634,5 +668,6 @@ class EdgeCases(ArcCase):
         self._verify_guarded_cases()
         self._verify_exec_context_cases()
         self._verify_type_mismatch_cases()
+        self._verify_routing_table_cases()
         self._verify_import_cases()
         self._verify_read_only_monitor()

@@ -4841,7 +4841,7 @@ time.wait{duration=500ms} -> output`
 				    return ` + retValue + `
 				}
 
-				is_ready{} ` + op + ` select{} => {
+				is_ready{} ` + op + ` select{} -> {
 				    true: "ready" -> log,
 				    false: "not ready" -> log,
 				}`
@@ -4888,7 +4888,7 @@ time.wait{duration=500ms} -> output`
 				    return true
 				}
 
-				is_ready{} -> select{} => {
+				is_ready{} -> select{} -> {
 				    true: "ready" -> log,
 				    false: "not ready" -> log,
 				}`

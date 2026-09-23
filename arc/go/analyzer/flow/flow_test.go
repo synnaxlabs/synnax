@@ -3584,6 +3584,47 @@ var _ = Describe("Routing entry strictness", func() {
 			flag -> select{} -> { true: true => alarm }`),
 	)
 
+	DescribeTable("Should reject '=>' feeding a routing table",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(routingResolver))
+			analyzer.AnalyzeProgram(ctx)
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring(
+				"'=>' cannot feed a routing table",
+			))
+			line := strings.Split(source, "\n")[errs[0].Range.Start.Line]
+			Expect(int(errs[0].Range.Start.Character)).To(
+				Equal(strings.Index(line, "=>")),
+			)
+		},
+		Entry("top-level select", `
+			flag -> select{} => {
+			    true: true -> vlv_cmd,
+			    false: false -> vlv_cmd
+			}`),
+		Entry("select inside a stage", `
+			sequence main {
+			    stage first {
+			        flag -> select{} => { true: true => next }
+			    }
+			    stage second {}
+			}`),
+		Entry("custom routing func", `
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+			sensor_chan -> demux{} => {
+			    high: true -> vlv_cmd,
+			    low: false -> vlv_cmd
+			}`),
+	)
+
 	// Inline bodies are the exception to the full-statement rule. They are
 	// self-contained, so they run without the entry providing an upstream flow.
 	DescribeTable("Should accept an inline body without an upstream flow",

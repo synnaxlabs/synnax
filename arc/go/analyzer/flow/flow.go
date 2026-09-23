@@ -71,7 +71,27 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	for _, routingTable := range ctx.AST.AllRoutingTable() {
 		analyzeRoutingTable(ctx.Child(routingTable))
 	}
+	rejectTransitionIntoRoutingTable(ctx)
 	warnNumericTransitions(ctx)
+}
+
+// rejectTransitionIntoRoutingTable blocks a `=>` feeding a routing table.
+func rejectTransitionIntoRoutingTable(
+	ctx context.Context[parser.IFlowStatementContext],
+) {
+	children := ctx.AST.GetChildren()
+	for i, child := range children {
+		op, ok := child.(parser.IFlowOperatorContext)
+		if !ok || op.TRANSITION() == nil || i+1 >= len(children) {
+			continue
+		}
+		if _, ok := children[i+1].(parser.IRoutingTableContext); !ok {
+			continue
+		}
+		ctx.Diagnostics.Add(diagnostics.Errorf(op,
+			"'=>' cannot feed a routing table, use '->'",
+		).WithNote("each routing key already selects its entry"))
+	}
 }
 
 // warnNumericTransitions flags a numeric condition feeding a `=>` transition.
