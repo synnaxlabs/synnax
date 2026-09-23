@@ -27,6 +27,7 @@ import {
 import { primitive } from "@synnaxlabs/x";
 import { useState } from "react";
 
+import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -45,6 +46,8 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   variant: "text",
   placeholder: "Name",
 };
+
+const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 export const useCalculatedModal = Modals.create<CalculatedModalParams>(
   ({ channelKey, close }) => {
@@ -90,6 +93,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                     initialValue={value}
                     language={Arc.NAME}
                     onValueChange={onChange}
+                    extraMenuItems={EXTRA_MENU_ITEMS}
                     isBlock
                     bordered
                     rounded

@@ -22,6 +22,7 @@ import {
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
 import {
+  awaitEditableForm,
   clickDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -48,6 +49,8 @@ const createDraft = async (
   config: EtherCAT.Task.WritePayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.WRITE_SCHEMAS);
 
+// The form renders read-only until the update grant lands, and a preview field renders
+// no input, so wait for it to become editable before querying fields.
 const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
@@ -59,6 +62,7 @@ const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
       statuses.push(...next);
     },
   });
+  await awaitEditableForm();
   return { ...rendered, draft, statuses };
 };
 

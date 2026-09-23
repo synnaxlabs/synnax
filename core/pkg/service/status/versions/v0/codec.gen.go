@@ -12,7 +12,7 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"

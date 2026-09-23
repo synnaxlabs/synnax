@@ -1,8 +1,8 @@
 ---
-title: "CLI Reference"
+title: "CLI reference"
 layout: "@/layouts/Reference.astro"
 description: "Find information about the Synnax Core CLI."
-next: "Systemd Service"
+next: "systemd service"
 nextURL: "/reference/core/systemd-service"
 prev: "Requirements"
 prevURL: "/reference/core/requirements"
@@ -229,7 +229,7 @@ synnax start -l localhost:9090 -im
   ]}
 />
 
-### Environment Variable Equivalents
+### Environment variable equivalents
 
 The following environment variables can be used in place of the corresponding flags.
 Command line flags will take precedence over environment variables.
@@ -277,7 +277,7 @@ Command line flags will take precedence over environment variables.
   ]}
 />
 
-### Configuration Files
+### Configuration files
 
 Synnax will also read configuration files in JSON, TOML and YAML formats. The values set
 in these configuration files take the lowest precedence and will be overridden by any
@@ -404,13 +404,13 @@ disable-channel-name-validation = false
 </Fragment>
 </Tabs>
 
-#### Multiple Listeners
+#### Multiple listeners
 
 The `listen` key takes either form. A single address (as above) binds one listener over
 the node certificate paths. A list of objects binds one listener per entry, each with
 its own address and certificate. The list form works in configuration files only, not as
 a flag. See
-[Serving Multiple Listeners](/reference/core/production#serving-multiple-listeners) for
+[Serving multiple listeners](/reference/core/production#serving-multiple-listeners) for
 the full deployment model.
 
 ```yaml
@@ -471,7 +471,7 @@ Each listener object accepts the following fields:
   ]}
 />
 
-### Root User Reconciliation
+### Root user reconciliation
 
 Every time a Core starts, it reconciles the configured `--username` / `--password`
 against the existing cluster state. The configured credentials are the source of truth:
@@ -558,7 +558,7 @@ This command has no flags.
 
 <Divider.Divider x />
 
-## Service (Windows Only)
+## Service (Windows only)
 
 The `service` command manages Synnax as a Windows Service. These commands are only
 available on Windows and require administrator privileges.

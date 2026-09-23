@@ -11,8 +11,8 @@ package policy_test
 
 import (
 	"slices"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -43,7 +43,7 @@ var _ = Describe("Writer", func() {
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
-			Expect(p.Key).ToNot(Equal(uuid.Nil))
+			Expect(p.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It(
@@ -82,7 +82,7 @@ var _ = Describe("Writer", func() {
 				Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
-			Expect(p.Key).ToNot(Equal(uuid.Nil))
+			Expect(p.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It("Should create a policy with ActionAll wildcard", func(ctx SpecContext) {
@@ -122,7 +122,7 @@ var _ = Describe("Writer", func() {
 					Internal: true,
 				}
 				Expect(internalWriter.Create(ctx, p)).To(Succeed())
-				Expect(p.Key).ToNot(Equal(uuid.Nil))
+				Expect(p.Key).ToNot(Equal(uuid.Nil()))
 			},
 		)
 

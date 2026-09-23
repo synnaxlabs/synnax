@@ -12,17 +12,16 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -149,13 +148,13 @@ var _ = Describe("Codec", func() {
 				LjmScanBacklogWarnOnCount:    15,
 			}),
 			Entry("zero values", v2.ReadConfig{
-				Key:                          uuid.Nil,
+				Key:                          uuid.Nil(),
 				AutoStart:                    false,
 				DataSavingDisabled:           false,
 				SampleRate:                   telem.Rate(0),
 				StreamRate:                   telem.Rate(0),
 				Device:                       "",
-				Channels:                     nil,
+				Channels:                     []v2.ReadChannel{},
 				DeviceScanBacklogWarnOnCount: 0,
 				LjmScanBacklogWarnOnCount:    0,
 			}),
@@ -211,7 +210,7 @@ var _ = Describe("Codec", func() {
 				TCPScanMultiplier: 5,
 			}),
 			Entry("zero values", v2.ScanConfig{
-				Key:               uuid.Nil,
+				Key:               uuid.Nil(),
 				Rate:              telem.Rate(0),
 				Disabled:          false,
 				TCPScanMultiplier: 0,
@@ -253,12 +252,12 @@ var _ = Describe("Codec", func() {
 				Channels:           []v2.WriteChannel{{Variant: v2.AnalogWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 			}),
 			Entry("zero values", v2.WriteConfig{
-				Key:                uuid.Nil,
+				Key:                uuid.Nil(),
 				AutoStart:          false,
 				DataSavingDisabled: false,
 				Device:             "",
 				StateRate:          telem.Rate(0),
-				Channels:           nil,
+				Channels:           []v2.WriteChannel{},
 			}),
 			Entry("empty collections", v2.WriteConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -481,7 +480,7 @@ func FuzzDecodeBaseReadChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -528,7 +527,7 @@ func FuzzDecodeBaseWriteChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -589,7 +588,7 @@ func FuzzDecodeReadChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -623,13 +622,13 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			Key:                          uuid.Nil,
+			Key:                          uuid.Nil(),
 			AutoStart:                    false,
 			DataSavingDisabled:           false,
 			SampleRate:                   telem.Rate(0),
 			StreamRate:                   telem.Rate(0),
 			Device:                       "",
-			Channels:                     nil,
+			Channels:                     []v2.ReadChannel{},
 			DeviceScanBacklogWarnOnCount: 0,
 			LjmScanBacklogWarnOnCount:    0,
 		}
@@ -673,7 +672,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -725,7 +724,7 @@ func FuzzDecodeScale(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -747,7 +746,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ScanConfig{
-			Key:               uuid.Nil,
+			Key:               uuid.Nil(),
 			Rate:              telem.Rate(0),
 			Disabled:          false,
 			TCPScanMultiplier: 0,
@@ -774,7 +773,7 @@ func FuzzDecodeScanConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -813,7 +812,7 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -837,12 +836,12 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			Key:                uuid.Nil,
+			Key:                uuid.Nil(),
 			AutoStart:          false,
 			DataSavingDisabled: false,
 			Device:             "",
 			StateRate:          telem.Rate(0),
-			Channels:           nil,
+			Channels:           []v2.WriteChannel{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -881,7 +880,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

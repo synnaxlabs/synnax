@@ -2,7 +2,7 @@
     <img src="../../x/media/static/logo/icon-white-padded.png" width="20%"/>
 </a>
 
-# Synnax TypeScript Client Library
+# Synnax TypeScript client library
 
 The Synnax TypeScript client library is used for interacting with a Synnax cluster. The
 client library can be used in both node and browser environments. The

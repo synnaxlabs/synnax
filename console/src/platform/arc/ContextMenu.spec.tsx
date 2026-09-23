@@ -55,6 +55,11 @@ describe("Arc.ContextMenu", () => {
     expect(await screen.findByText("Delete")).toBeTruthy();
   });
 
+  it("should offer Reload Console", async () => {
+    await renderMenu(await createArc());
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it.each(["Viewer", "Operator"] as const)(
     "should withhold the write actions from a %s",
     async (role) => {
