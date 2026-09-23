@@ -29,7 +29,7 @@ var _ = Describe("sync command", func() {
 	Describe("with a valid schema", func() {
 		BeforeEach(func() {
 			// Intentionally unformatted so sync rewrites the schema source.
-			repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			repoDir, cleanup = setupMiniRepo(map[string]string{
 				"synnax/user.oracle": "@go output  \"x/go/user\"\n" +
 					"User struct {key uuid\nname   string}",
 			})
@@ -53,7 +53,7 @@ var _ = Describe("sync command", func() {
 
 	Describe("with an invalid schema", func() {
 		BeforeEach(func() {
-			repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			repoDir, cleanup = setupMiniRepo(map[string]string{
 				"bad.oracle": "Thing struct { name string }\n" +
 					"Thing struct { other string }\n",
 			})
@@ -68,7 +68,7 @@ var _ = Describe("sync command", func() {
 
 	Describe("with no schemas", func() {
 		BeforeEach(func() {
-			repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{})
+			repoDir, cleanup = setupMiniRepo(map[string]string{})
 		})
 
 		It("errors when no schema files exist", func() {
