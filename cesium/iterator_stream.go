@@ -258,7 +258,7 @@ func (s *streamIterator) error() error {
 func (s *streamIterator) close() error {
 	var err error
 	for _, i := range s.internal {
-		err = errors.Combine(err, i.Close())
+		err = errors.Join(err, i.Close())
 	}
 	return err
 }
