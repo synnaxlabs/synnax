@@ -96,13 +96,13 @@ func start(cmd *cobra.Command) {
 
 func init() { AddFlags(Cmd) }
 
-// readVerifier returns the token from the key flag, or the trimmed contents of the
+// readLicenseToken returns the token from the key flag, or the trimmed contents of the
 // file the path flag names when the key flag is empty.
-func readVerifier() (string, error) {
-	if v := viper.GetString(FlagDecoded); v != "" {
+func readLicenseToken() (string, error) {
+	if v := viper.GetString(FlagLicenseKey); v != "" {
 		return v, nil
 	}
-	path := viper.GetString(FlagDecodedPath)
+	path := viper.GetString(FlagLicenseFile)
 	if path == "" {
 		return "", nil
 	}
@@ -134,7 +134,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 			return l.Address
 		},
 	)
-	verifier, err := readVerifier()
+	licenseToken, err := readLicenseToken()
 	if err != nil {
 		return CoreConfig{}, err
 	}
@@ -143,7 +143,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
 		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
-		verifier:            verifier,
+		licenseToken:        licenseToken,
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,
 		peers:               peers,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package verification_test
+package license_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestVerification(t *testing.T) {
+func TestLicense(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Channel Verification Suite")
+	RunSpecs(t, "Service Channel License Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

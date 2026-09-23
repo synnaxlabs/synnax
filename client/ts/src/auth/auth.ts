@@ -23,7 +23,7 @@ const clusterInfoZ = z.object({
   nodeVersion: z.string().optional(),
   nodeKey: z.number().optional(),
   nodeTime: TimeStamp.z,
-  verification: license.stateZ.optional(),
+  license: license.stateZ.optional(),
 });
 
 const tokenResponseZ = z.object({

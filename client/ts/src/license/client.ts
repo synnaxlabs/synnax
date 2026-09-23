@@ -18,23 +18,16 @@ export const stateZ = z.enum(STATES);
 /** Whether a license applies to the Core. */
 export type State = z.infer<typeof stateZ>;
 
-const infoZ = z
-  .object({
-    state: stateZ,
-    warning: z.string().optional(),
-    host: z
-      .string()
-      .array()
-      .default(() => []),
-    grant: licenseZ.optional(),
-  })
-  .transform(({ state, warning, host, grant }) => ({
-    state,
-    warning,
-    fingerprint: host,
-    license: grant,
-  }));
-/** The Core's license state, its host fingerprint, and the license that applies. */
+const infoZ = z.object({
+  state: stateZ,
+  warning: z.string().optional(),
+  fingerprint: z
+    .string()
+    .array()
+    .default(() => []),
+  license: licenseZ.optional(),
+});
+/** The Core's license state, its machine fingerprint, and the license that applies. */
 export interface Info extends z.infer<typeof infoZ> {}
 
 const activateReqZ = z.object({ token: z.string() });
@@ -65,7 +58,7 @@ export class Client {
   /**
    * Activates a license token on the Core and returns the resulting state.
    * @throws {InvalidLicenseError} if the token cannot be verified or is malformed.
-   * @throws {LicenseHostError} if the token is bound to a different host.
+   * @throws {LicenseFingerprintError} if the token is bound to another machine.
    * @throws {ExpiredLicenseError} if the token no longer applies.
    */
   async activate(token: string): Promise<Info> {

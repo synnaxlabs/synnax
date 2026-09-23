@@ -52,8 +52,8 @@ export const CLAIMS: client.License = {
   v: 1,
   org: LICENSE.organization,
   ed: "e",
-  fp: [HASH_A],
-  fs: 1,
+  fingerprints: [HASH_A],
+  fingerprintScheme: 1,
   n: 2,
   ch: 0,
 };

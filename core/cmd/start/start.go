@@ -35,7 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -60,7 +60,7 @@ type CoreConfig struct {
 	noDriver             *bool
 	alamos.Instrumentation
 	dataPath             string
-	verifier             string
+	licenseToken         string
 	rootCredentials      auth.Credentials
 	listeners            listener.Configs
 	peers                []address.Address
@@ -125,7 +125,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		insecure:        override.Nil(c.insecure, other.insecure),
 		debug:           override.Nil(c.debug, other.debug),
 		autoCert:        override.Nil(c.autoCert, other.autoCert),
-		verifier:        override.String(c.verifier, other.verifier),
+		licenseToken:    override.String(c.licenseToken, other.licenseToken),
 		memBacked:       override.Nil(c.memBacked, other.memBacked),
 		listeners:       override.Slice(c.listeners, other.listeners),
 		peers:           override.Slice(c.peers, other.peers),
@@ -164,6 +164,9 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		),
 	}
 }
+
+const unlicensedTemplate = "no active license on this Core. Host fingerprint: %s. " +
+	"Open the Console at %s to activate."
 
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
@@ -257,7 +260,7 @@ func BootupCore(
 		Security:             securityProvider,
 		Storage:              storageLayer,
 		RootCredentials:      cfg.rootCredentials,
-		Verifier:             cfg.verifier,
+		LicenseToken:         cfg.licenseToken,
 		Version:              version.Get(),
 		ValidateChannelNames: cfg.validateChannelNames,
 	})
@@ -352,14 +355,14 @@ func BootupCore(
 		return err
 	}
 
-	verificationInfo := serviceLayer.Verification.Retrieve()
-	covered := verificationInfo.State == verification.StateOK
+	licenseInfo := serviceLayer.License.Retrieve()
+	covered := licenseInfo.State == license.StateOK
 	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:  new(!*cfg.noDriver),
 			Insecure: cfg.insecure,
-			// Without a covering grant the Core refuses the rack registration, so the
+			// Without a covering license the Core refuses the rack registration, so the
 			// Driver must keep retrying in the background instead of failing the start.
 			Detached: new(!covered),
 			Integrations: parseIntegrations(
@@ -395,8 +398,8 @@ func BootupCore(
 			scheme = "http"
 		}
 		cfg.L.Warn(fmt.Sprintf(
-			noneTemplate,
-			strings.Join(verificationInfo.Host, ", "),
+			unlicensedTemplate,
+			strings.Join(licenseInfo.Fingerprint, ", "),
 			scheme+"://"+string(cfg.listeners.AdvertiseAddress()),
 		))
 	}

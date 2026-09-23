@@ -14,7 +14,7 @@
 namespace synnax::errors {
 /// @brief the Core refused the request over its license. Every license error
 /// carries this prefix.
-const x::errors::Error LICENSE = x::errors::SY.sub("verification");
+const x::errors::Error LICENSE = x::errors::SY.sub("license");
 
 inline x::errors::Error unexpected_missing_error(const std::string &name) {
     return x::errors::Error(

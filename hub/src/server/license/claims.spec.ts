@@ -28,7 +28,7 @@ describe("claims.build", () => {
     });
     expect(claims.exp).toBeUndefined();
     expect(claims.mv).toBe("0.62");
-    expect(claims.fp).toEqual([]);
+    expect(claims.fingerprints).toEqual([]);
   });
 
   it("should code the desktop edition as d", () => {

@@ -19,7 +19,7 @@ import {
   InvalidLicenseError,
   InvalidTokenError,
   LicenseError,
-  LicenseHostError,
+  LicenseFingerprintError,
   LicenseLimitError,
   MissingLicenseError,
   MultipleFoundError,
@@ -69,7 +69,11 @@ describe("error", () => {
         new InvalidLicenseError("message"),
         InvalidLicenseError,
       ],
-      [LicenseHostError.TYPE, new LicenseHostError("message"), LicenseHostError],
+      [
+        LicenseFingerprintError.TYPE,
+        new LicenseFingerprintError("message"),
+        LicenseFingerprintError,
+      ],
       [LicenseLimitError.TYPE, new LicenseLimitError("message"), LicenseLimitError],
     ];
     ERRORS.forEach(([typeName, error, type]) =>
