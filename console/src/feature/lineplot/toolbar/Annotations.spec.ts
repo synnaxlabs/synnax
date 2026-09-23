@@ -128,6 +128,12 @@ describe("lineplot/toolbar/Annotations", () => {
     });
   });
 
+  it("offers Reload Console from the list context menu", async () => {
+    await createRule();
+    fireEvent.contextMenu(screen.getByText("Rule 1"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("removes rules through the list context menu", async () => {
     const { key, store } = await createRule();
     fireEvent.contextMenu(screen.getByText("Rule 1"));

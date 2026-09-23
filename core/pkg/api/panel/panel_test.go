@@ -11,8 +11,8 @@ package panel_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apipanel "github.com/synnaxlabs/synnax/pkg/api/panel"

@@ -381,7 +381,6 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Rebuilds a cached device, attaching its cached status when requested. */
   private compose(cached: Omit<Device, "status">, includeStatus: boolean): Device {
     if (!includeStatus) return cached;
     const st = this.cfg.statusStore.get(statusKey(cached.key));
@@ -391,11 +390,10 @@ export class Client extends query.Retriever<
     return { ...cached, status: parsed.data };
   }
 
-  /** Writes fetched devices and their included statuses. */
   private writeThrough(devices: Device[]): void {
-    this.store.set(devices.map(stripStatus));
+    this.store.ingest(devices.map(stripStatus));
     devices.forEach(({ status: st }) => {
-      if (st != null) this.cfg.statusStore.set(st);
+      if (st != null) this.cfg.statusStore.ingest(st);
     });
   }
 
@@ -412,7 +410,6 @@ export class Client extends query.Retriever<
     return res.devices;
   }
 
-  /** Fetches devices and writes their included statuses through the caches. */
   private async fetchThrough(req: RetrieveRequest): Promise<Device[]> {
     const devices = await this.execRetrieve(req);
     this.writeThrough(devices);

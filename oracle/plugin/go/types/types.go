@@ -492,14 +492,21 @@ func renderGoFile(
 		SubstituteDefaultedTypeParams: true,
 	}
 
+	importResolver := &GoImportResolver{
+		RepoRoot:       repoRoot,
+		CurrentPackage: pkg,
+		AliasOverrides: aliasOverrides,
+	}
 	r := &resolver.Resolver{
-		Formatter: GoFormatter(),
-		ImportResolver: &GoImportResolver{
-			RepoRoot:       repoRoot,
-			CurrentPackage: pkg,
-			AliasOverrides: aliasOverrides,
-		},
+		Formatter:       GoFormatter(),
+		ImportResolver:  importResolver,
 		ImportAdder:     imports,
+		PrimitiveMapper: primitiveMapper,
+	}
+	probeResolver := &resolver.Resolver{
+		Formatter:       GoFormatter(),
+		ImportResolver:  importResolver,
+		ImportAdder:     discardedImports{},
 		PrimitiveMapper: primitiveMapper,
 	}
 
@@ -511,6 +518,7 @@ func renderGoFile(
 		table:          table,
 		repoRoot:       repoRoot,
 		resolver:       r,
+		probeResolver:  probeResolver,
 		ctx:            ctx,
 		aliasOverrides: aliasOverrides,
 	}
@@ -591,6 +599,23 @@ const (
 type orderedDecl struct {
 	kind declKind
 	typ  resolution.Type
+}
+
+// discardedImports drops every import registered through it. Resolution registers the
+// imports a rendering needs as a side effect, which is wrong when the rendering is
+// thrown away.
+type discardedImports struct{}
+
+// AddImport implements resolver.ImportAdder.
+func (discardedImports) AddImport(string, string, string) {}
+
+// probe returns a view of d whose resolution registers no imports. Predicates that ask
+// whether a field renders anything build the rendering to find out and discard it; the
+// imports that rendering would need belong to the file only if it is emitted.
+func (d *templateData) probe() *templateData {
+	probed := *d
+	probed.resolver = d.probeResolver
+	return &probed
 }
 
 // orderDecls merges the kind-grouped type lists into schema declaration order. An
@@ -886,21 +911,12 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
-	// Collection fields (arrays, maps, records) carry `,omitzero` so a nil ("not
-	// loaded") collection is omitted from the wire while an allocated empty
-	// collection still serializes as [] / {}. Receivers default an absent
-	// collection to its empty form, preserving the distinction between "not
-	// loaded" and "present but empty". CollectionKind sees through aliases and
-	// type-parameter constraints so a field typed as an array/map alias or a
-	// collection-constrained type parameter is tagged too.
-	_, isContainer := resolution.CollectionKind(field.Type, data.table)
 	return fieldData{
-		GoName:      naming.GetFieldName(field),
-		GoType:      goType,
-		JSONName:    casing.FieldSnake(field.Name),
-		IsOptional:  field.Optional,
-		IsContainer: isContainer,
-		Doc:         doc.Get(field.Domains),
+		GoName:     naming.GetFieldName(field),
+		GoType:     goType,
+		JSONName:   casing.FieldSnake(field.Name),
+		IsOptional: field.Optional,
+		Doc:        doc.Get(field.Domains),
 	}
 }
 
@@ -989,6 +1005,9 @@ type templateData struct {
 	// latest, when set, resolves omitted (memory-only) fields against the latest table
 	// so they track dependencies' current versions.
 	latest *templateData
+	// probeResolver resolves exactly like resolver but discards the imports it would
+	// register, for predicates that build a rendering only to ask whether one exists.
+	probeResolver *resolver.Resolver
 	// aliasOverrides remaps specific output paths to explicit import aliases
 	// during the conflict re-render pass.
 	aliasOverrides map[string]string
@@ -1046,21 +1065,27 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	GoName      string
-	GoType      string
-	JSONName    string
-	Doc         string
-	IsOptional  bool
-	IsContainer bool
+	GoName     string
+	GoType     string
+	JSONName   string
+	Doc        string
+	IsOptional bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field. Collection fields use
-// `,omitzero` so a nil collection is omitted while an allocated empty one serializes as
-// [] / {}. Other optional fields use `,omitempty`.
-func (f fieldData) TagSuffix() string {
-	if f.IsContainer {
+// JSONTagSuffix returns the JSON tag suffix for the field. An optional field uses
+// `,omitzero` so its Go zero — a nil slice, map or pointer — is omitted while any
+// allocated value serializes, including an empty collection or a pointer to "". A
+// required field always serializes, because the schema says it always applies.
+func (f fieldData) JSONTagSuffix() string {
+	if f.IsOptional {
 		return ",omitzero"
 	}
+	return ""
+}
+
+// MsgpackTagSuffix returns the msgpack tag suffix for the field. vmihailenco/msgpack
+// honors only `,omitempty`, which also omits an allocated empty collection.
+func (f fieldData) MsgpackTagSuffix() string {
 	if f.IsOptional {
 		return ",omitempty"
 	}
@@ -1246,7 +1271,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1258,7 +1283,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -1377,7 +1402,7 @@ type {{.TypeName}} struct {
 {{- if .Doc}}
 	{{formatFieldDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 }
 
@@ -1473,54 +1498,46 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 type {{.Name}} struct {
 	Variant {{.InterfaceName}}
 }
-
-// MarshalJSON encodes the active variant with its "{{.DiscJSONName}}" tag injected.
-func (u {{.Name}}) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t {{.DiscType}}
-	switch u.Variant.(type) {
+{{$u := .}}
+// MarshalJSONTo encodes the active variant with its "{{.DiscJSONName}}" tag injected.
+func (u {{.Name}}) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 {{- range .Variants}}
 	case {{.TypeName}}:
-		t = {{.ConstName}}
+		return json.MarshalEncode(enc, struct {
+			Type {{$u.DiscType}} ` + "`" + `json:"{{$u.DiscJSONName}}"` + "`" + `
+			{{.TypeName}}
+		}{Type: {{.ConstName}}, {{.TypeName}}: v})
 {{- end}}
 	default:
-		return nil, errors.Newf("{{.Name}}: nil or unknown variant %T", u.Variant)
+		return errors.Newf("{{.Name}}: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["{{.DiscJSONName}}"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "{{.DiscJSONName}}" field.
-func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "{{.DiscJSONName}}" field.
+func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type {{.DiscType}} ` + "`" + `json:"{{.DiscJSONName}}"` + "`" + `
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 {{- range .Variants}}
 	case {{.ConstName}}:
 		var v {{.TypeName}}
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v

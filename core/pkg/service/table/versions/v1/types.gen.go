@@ -14,7 +14,6 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -30,7 +29,7 @@ type Cell struct {
 	// Props is the variant-specific cell configuration. The shape is determined by the
 	// variant; the wire format intentionally stores it as an opaque record so new
 	// variants can be added without a schema migration.
-	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
+	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
 }
 
 // Row is a single row in a table, with height and ordered cell keys.
@@ -39,7 +38,7 @@ type Row struct {
 	Size float64 `json:"size" msgpack:"size"`
 	// Cells is the ordered list of cell keys in this row from left to right. Each key
 	// points at an entry in the table's cells map.
-	Cells []string `json:"cells,omitzero" msgpack:"cells,omitzero"`
+	Cells []string `json:"cells" msgpack:"cells"`
 }
 
 // Column is a single column in a table, with width.
@@ -57,19 +56,11 @@ type Table struct {
 	// Name is a human-readable name for the table.
 	Name string `json:"name" msgpack:"name"`
 	// Rows are the table rows in display order, top to bottom.
-	Rows []Row `json:"rows,omitzero" msgpack:"rows,omitzero"`
+	Rows []Row `json:"rows" msgpack:"rows"`
 	// Columns are the table columns in display order, left to right.
-	Columns []Column `json:"columns,omitzero" msgpack:"columns,omitzero"`
+	Columns []Column `json:"columns" msgpack:"columns"`
 	// Cells contains all cells in the table, keyed by cell key. Cell positions are
 	// derived from rows[*].cells[*] references; cells not referenced by any row are
 	// orphaned and will be pruned on the next structural edit.
-	Cells map[string]Cell `json:"cells,omitzero" msgpack:"cells,omitzero"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (t Table) Validate() error {
-	v := validate.New("Table")
-	v.NotEmptyString("name", t.Name)
-	return v.Error()
+	Cells map[string]Cell `json:"cells" msgpack:"cells"`
 }

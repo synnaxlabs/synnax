@@ -30,7 +30,7 @@ export const defaultConfig = (): Config => ({
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "Switch",
-  Form: () => <Form.ToggleForm hideInnerOrientation omit={["onClickDelay"]} />,
+  Form: () => <Form.ToggleForm hideInnerOrientation />,
   Node: Toggle.createToggle<Config>(Switch),
   Preview: Switch,
   defaultConfig,

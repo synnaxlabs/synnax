@@ -217,5 +217,13 @@ var _ = Describe("Manager", func() {
 			}
 			Expect(data.NeedsAlias()).To(BeTrue())
 		})
+
+		It("should return false for a module major version matching its alias", func() {
+			data := imports.InternalImportData{
+				Path:  "github.com/vmihailenco/msgpack/v5",
+				Alias: "msgpack",
+			}
+			Expect(data.NeedsAlias()).To(BeFalse())
+		})
 	})
 })

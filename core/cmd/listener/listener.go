@@ -69,7 +69,8 @@ func (c Config) source(fs xfs.FS, ca *cert.Factory) (cert.Source, error) {
 	case file.SourceType:
 		certPath, keyPath := c.Cert.Cert, c.Cert.Key
 		if certPath == "" && keyPath == "" {
-			certPath, keyPath = ca.AbsoluteNodeCertPath(), ca.AbsoluteNodeKeyPath()
+			certPath, keyPath = ca.Config().AbsoluteNodeCertPath(),
+				ca.Config().AbsoluteNodeKeyPath()
 		}
 		return file.NewSource(fs, certPath, keyPath)
 	case auto.SourceType:

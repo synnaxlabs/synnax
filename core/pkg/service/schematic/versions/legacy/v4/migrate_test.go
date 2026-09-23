@@ -10,7 +10,7 @@
 package v4_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -32,7 +32,7 @@ func nonZeroV3() v3.Data {
 		Edges: []v3.Edge{
 			{Key: "e1", Source: "n1", Target: "n2", Segments: []v3.Segment{}},
 		},
-		Props: map[string]json.RawMessage{"n1": json.RawMessage(`{"k":1}`)},
+		Props: map[string]jsontext.Value{"n1": jsontext.Value(`{"k":1}`)},
 	}
 }
 

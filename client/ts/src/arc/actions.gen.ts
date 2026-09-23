@@ -143,7 +143,21 @@ export const forgetCharsPayloadZ = z.object({
 
 export type ForgetCharsPayload = z.infer<typeof forgetCharsPayloadZ>;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "set_node"; setNode: SetNodePayload }
+  | { type: "set_node_position"; setNodePosition: SetNodePositionPayload }
+  | { type: "set_node_inputs"; setNodeInputs: SetNodeInputsPayload }
+  | { type: "remove_node"; removeNode: RemoveNodePayload }
+  | { type: "add_edge"; addEdge: AddEdgePayload }
+  | { type: "remove_edge"; removeEdge: RemoveEdgePayload }
+  | { type: "reconnect_edge"; reconnectEdge: ReconnectEdgePayload }
+  | { type: "insert_char"; insertChar: InsertCharPayload }
+  | { type: "delete_char"; deleteChar: DeleteCharPayload }
+  | { type: "forget_chars"; forgetChars: ForgetCharsPayload };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
@@ -163,8 +177,6 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("delete_char"), deleteChar: deleteCharPayloadZ }),
   z.object({ type: z.literal("forget_chars"), forgetChars: forgetCharsPayloadZ }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",
