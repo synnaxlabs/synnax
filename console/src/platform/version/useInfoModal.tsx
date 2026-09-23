@@ -28,8 +28,8 @@ import { useState } from "react";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
-import { useInstallMiddleware } from "@/platform/version/Install";
 import { isDevBuild } from "@/platform/version/build";
+import { useInstallMiddleware } from "@/platform/version/Install";
 import { Session } from "@/session";
 
 type UpdateCheck =
