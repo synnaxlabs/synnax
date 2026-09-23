@@ -10,15 +10,8 @@
 import "@/input/time/Time.css";
 
 import { state } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, type ReactNode, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
@@ -26,6 +19,7 @@ import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { type Icon } from "@/icon";
 import { Text } from "@/input/Text";
+import { Effect } from "@/input/time/Effect";
 import { type Suggestion } from "@/input/time/suggest";
 import { type Variant } from "@/input/types";
 import { Menu } from "@/menu";
@@ -44,8 +38,8 @@ export interface Action<V> {
   key: string;
   icon: Icon.ReactElement;
   label: string;
-  /** The expression that types the same value. */
-  hint: string;
+  /** An expression that types the same value, shown when it differs from the label. */
+  hint?: string;
   /** Called on render and again on a click, so a value like now stays current. */
   value: () => V;
 }
@@ -74,19 +68,31 @@ export interface EditorProps<V> extends BaseProps {
   fieldPlaceholder?: string;
   actions?: Action<V>[];
   /**
-   * Rendered once in every reading and action with the value it would commit. Use it
-   * to say what else a commit would change.
+   * Rendered under the options with the value the highlighted reading or the hovered
+   * action would commit. Use it to say what else a commit would change, and return
+   * null when nothing else would.
    */
   effect?: Component.RenderProp<{ candidate: V }>;
-  /** Renders one reading. */
+  /** Renders one reading on one line. */
   children: Component.RenderProp<Suggestion<V>>;
 }
+
+/** An open editor's state. The editor is closed while it has none. */
+interface Draft {
+  text: string;
+  /** The index of the highlighted reading. */
+  selected: number;
+  /** The key of the action under the pointer or focus. */
+  hoveredAction: string | null;
+}
+
+const openDraft = (text: string): Draft => ({ text, selected: 0, hoveredAction: null });
 
 /**
  * A value that reads as content and edits in a connected dialog under it, the shape
  * of a select. The dialog holds a text field over the readings of its text. Enter or a
  * click outside commits the highlighted reading; Escape discards the edit; Enter on
- * text with no reading keeps the editor open.
+ * text with no reading keeps the editor open. Hovering a reading highlights it.
  */
 export const Editor = <V,>({
   label,
@@ -107,109 +113,83 @@ export const Editor = <V,>({
   tooltip,
   ...rest
 }: EditorProps<V>): ReactElement => {
-  const [visible, setVisible] = useState(false);
-  const [text, setTextState] = useState("");
-  const [selected, setSelected] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const caretRef = useRef<number | null>(null);
-
-  const setText = useCallback((next: string) => {
-    setTextState(next);
-    setSelected(0);
-  }, []);
-
-  const suggestions = useMemo(() => suggest(text), [suggest, text]);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const text = draft?.text;
+  const suggestions = useMemo(
+    () => (text == null ? [] : suggest(text)),
+    [suggest, text],
+  );
+  const selected = draft?.selected ?? 0;
   const chosen = suggestions[Math.min(selected, suggestions.length - 1)];
-  const blank = text.trim().length === 0;
+  const blank = text == null || text.trim().length === 0;
   const unread = !blank && suggestions.length === 0;
 
-  const close = useCallback(() => setVisible(false), []);
+  const update = (patch: Partial<Draft>): void =>
+    setDraft((prev) => (prev == null ? prev : { ...prev, ...patch }));
+  const setText = (next: string): void => update({ text: next, selected: 0 });
+  const close = (): void => setDraft(null);
 
-  const commit = useCallback(
-    (value: V) => {
-      onCommit(value);
-      close();
-    },
-    [onCommit, close],
-  );
+  const commit = (value: V): void => {
+    onCommit(value);
+    close();
+  };
 
-  const finish = useCallback(() => {
+  const finish = (): void => {
     if (blank) onClear?.();
     else if (chosen != null) onCommit(chosen.value);
     close();
-  }, [blank, chosen, onClear, onCommit, close]);
+  };
 
-  const handleVisibleChange = useCallback(
-    (next: state.SetArg<boolean>) => {
-      if (!state.executeSetter(next, visible)) return finish();
-      setText(initialText);
-      setVisible(true);
-    },
-    [visible, finish, setText, initialText],
-  );
+  const handleVisibleChange = (next: state.SetArg<boolean>): void => {
+    if (state.executeSetter(next, draft != null)) setDraft(openDraft(initialText));
+    else finish();
+  };
 
-  useLayoutEffect(() => {
-    const caret = caretRef.current;
-    if (caret == null || inputRef.current == null) return;
-    caretRef.current = null;
-    inputRef.current.setSelectionRange(caret, caret);
-  }, [text]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        if (!unread) finish();
-      } else if (e.key === "Escape") close();
-      else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        e.preventDefault();
-        const up = e.key === "ArrowUp";
-        const caret = e.currentTarget.selectionStart ?? text.length;
-        const nudged = nudge?.(text, caret, (up ? 1 : -1) * (e.shiftKey ? 10 : 1));
-        if (nudged != null) {
-          caretRef.current = caret;
-          return setText(nudged);
-        }
-        setSelected((i) =>
-          Math.max(0, Math.min(suggestions.length - 1, i + (up ? -1 : 1))),
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === "Enter") {
+      if (!unread) finish();
+    } else if (e.key === "Escape") close();
+    else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const up = e.key === "ArrowUp";
+      const field = e.currentTarget;
+      const current = field.value;
+      const caret = field.selectionStart ?? current.length;
+      const nudged = nudge?.(current, caret, (up ? 1 : -1) * (e.shiftKey ? 10 : 1));
+      if (nudged == null) {
+        const last = suggestions.length - 1;
+        const step = up ? -1 : 1;
+        return setDraft(
+          (prev) =>
+            prev && {
+              ...prev,
+              selected: Math.max(0, Math.min(last, prev.selected + step)),
+            },
         );
       }
-    },
-    [unread, finish, close, nudge, text, setText, suggestions.length],
-  );
+      // The field re-renders with the new text before the caret moves back into it.
+      flushSync(() => setText(nudged));
+      field.setSelectionRange(caret, caret);
+    }
+  };
 
-  const handleSuggestion = useCallback(
-    (key: string) => {
-      const hit = suggestions.find((sg) => sg.key === key);
-      if (hit != null) commit(hit.value);
-    },
-    [suggestions, commit],
-  );
+  const handleSuggestion = (key: string): void => {
+    const hit = suggestions.find((sg) => sg.key === key);
+    if (hit != null) commit(hit.value);
+  };
 
-  const handleAction = useCallback(
-    (key: string) => {
-      const hit = actions?.find((a) => a.key === key);
-      if (hit != null) commit(hit.value());
-    },
-    [actions, commit],
-  );
+  const handleAction = (key: string): void => {
+    const hit = actions?.find((a) => a.key === key);
+    if (hit != null) commit(hit.value());
+  };
 
-  // Caller content sits in its own box, so it never displaces the hints beside it.
-  const renderEffect = (candidate: V): ReactElement | null =>
-    effect == null ? null : (
-      <Flex.Box
-        x
-        gap="small"
-        align="center"
-        className={CSS.BE("time-editor", "effect")}
-      >
-        {effect({ candidate })}
-      </Flex.Box>
-    );
+  const action = actions?.find((a) => a.key === draft?.hoveredAction);
+  const candidate = action != null ? action.value() : chosen?.value;
 
   return (
     <Dialog.Frame
       variant="connected"
-      visible={visible}
+      visible={draft != null}
       onVisibleChange={handleVisibleChange}
       className={CSS.cls(CSS.B("time-editor"), CSS.M(variant), className)}
       style={style}
@@ -217,7 +197,7 @@ export const Editor = <V,>({
       <Dialog.Trigger
         hideCaret
         variant={variant === "outlined" ? "outlined" : "text"}
-        tooltip={visible ? undefined : tooltip}
+        tooltip={draft != null ? undefined : tooltip}
         tooltipLocation="bottom"
         className={CSS.BE("time-editor", "trigger")}
         {...rest}
@@ -226,14 +206,13 @@ export const Editor = <V,>({
       </Dialog.Trigger>
       <Dialog.Dialog className={CSS.BE("time-editor", "dialog")} bordered={false}>
         <Text
-          ref={inputRef}
           type="text"
           flush
           autoFocus
           rounded
           full="x"
           size="medium"
-          value={text}
+          value={text ?? ""}
           onChange={setText}
           onKeyDown={handleKeyDown}
           onFocus={(e) => e.currentTarget.select()}
@@ -262,16 +241,14 @@ export const Editor = <V,>({
             )}
             {suggestions.length > 0 && (
               <Menu.Menu value={chosen?.key} onChange={handleSuggestion}>
-                {suggestions.map((suggestion) => (
+                {suggestions.map((suggestion, i) => (
                   <Menu.Item
                     key={suggestion.key}
                     itemKey={suggestion.key}
                     className={CSS.BE("time-editor", "suggestion")}
+                    onMouseEnter={() => update({ selected: i })}
                   >
-                    <Flex.Box y gap="tiny" grow>
-                      {children(suggestion)}
-                      {renderEffect(suggestion.value)}
-                    </Flex.Box>
+                    {children(suggestion)}
                   </Menu.Item>
                 ))}
               </Menu.Menu>
@@ -280,22 +257,33 @@ export const Editor = <V,>({
           {actions != null && actions.length > 0 && (
             <Flex.Box y gap="tiny" className={CSS.BE("time-editor", "actions")}>
               <Menu.Menu onChange={handleAction}>
-                {actions.map(({ key, icon, label, hint, value }) => (
+                {actions.map(({ key, icon, label, hint }) => (
                   <Menu.Item
                     key={key}
                     itemKey={key}
                     className={CSS.BE("time-editor", "action")}
+                    onMouseEnter={() => update({ hoveredAction: key })}
+                    onMouseLeave={() => update({ hoveredAction: null })}
+                    onFocus={() => update({ hoveredAction: key })}
+                    onBlur={() => update({ hoveredAction: null })}
                   >
                     {icon}
                     {label}
-                    <BaseText.Text color={9} className={CSS.BE("time-editor", "hint")}>
-                      {hint}
-                    </BaseText.Text>
-                    {renderEffect(value())}
+                    {hint != null && (
+                      <BaseText.Text
+                        color={9}
+                        className={CSS.BE("time-editor", "hint")}
+                      >
+                        {hint}
+                      </BaseText.Text>
+                    )}
                   </Menu.Item>
                 ))}
               </Menu.Menu>
             </Flex.Box>
+          )}
+          {effect != null && (
+            <Effect>{candidate == null ? null : effect({ candidate })}</Effect>
           )}
         </Flex.Box>
       </Dialog.Dialog>

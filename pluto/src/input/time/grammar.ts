@@ -163,10 +163,17 @@ export const roundNumeric = (value: number): bigint => {
 export const fromNumeric = (value: number): TimeStamp =>
   new TimeStamp(roundNumeric(value));
 
-/** An instant the way a reading names it: `Today 14:05`. */
-export const formatInstant = (value: number, now: TimeStamp): string => {
+/**
+ * An instant the way a reading names it: `Today 14:05`. Digits below `resolution` are
+ * dropped.
+ */
+export const formatInstant = (
+  value: number,
+  now: TimeStamp,
+  resolution?: TimeSpan,
+): string => {
   const ts = fromNumeric(value);
-  return `${TelemText.describeDay(ts, now)} ${TelemText.formatTime(ts)}`;
+  return `${TelemText.describeDay(ts, now)} ${TelemText.formatTime(ts, resolution)}`;
 };
 
 /** A unit of the fixed layout, in caret order. */
