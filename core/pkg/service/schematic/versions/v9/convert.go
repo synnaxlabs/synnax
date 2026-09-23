@@ -1,0 +1,310 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v9
+
+import (
+	"encoding/json"
+	"reflect"
+	"strings"
+	"unicode"
+
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// opaqueConfigFields names element config fields whose contents carry semantic keys
+// (telem pipeline segment names) and must not be case-converted.
+var opaqueConfigFields = set.New("props")
+
+// NormalizeConfigKeys converts a config payload's field keys from the camelCase the
+// Console writes verbatim to the snake_case wire form of the element config union,
+// along with the variant discriminator value, whose legacy form matched the camelCase
+// symbol registry keys. Already snake_case input passes through unchanged, so the
+// conversion is idempotent. Values under opaque fields are left untouched.
+func NormalizeConfigKeys(raw msgpack.EncodedJSON) msgpack.EncodedJSON {
+	if raw == nil {
+		return nil
+	}
+	out := normalizeConfigMap(raw)
+	if variant, ok := out["variant"].(string); ok {
+		out["variant"] = camelToSnakeKey(variant)
+	}
+	return out
+}
+
+func normalizeConfigMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, val := range m {
+		nk := camelToSnakeKey(k)
+		if opaqueConfigFields.Contains(nk) {
+			out[nk] = val
+			continue
+		}
+		out[nk] = normalizeConfigValue(val)
+	}
+	return out
+}
+
+func normalizeConfigValue(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		return normalizeConfigMap(t)
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			out[i] = normalizeConfigValue(val)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// camelToSnakeKey converts a camelCase identifier to snake_case, leaving already
+// snake_case identifiers unchanged.
+func camelToSnakeKey(s string) string {
+	var b strings.Builder
+	b.Grow(len(s) + 4)
+	for i, r := range s {
+		if unicode.IsUpper(r) {
+			if i > 0 {
+				b.WriteByte('_')
+			}
+			b.WriteRune(unicode.ToLower(r))
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// DecodeElementConfig validates an opaque config payload against the element config
+// union. It wraps validate.ErrValidation when the payload names no variant, names one
+// the union does not, or carries fields that do not fit the variant it names.
+func DecodeElementConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return ElementConfig{}, err
+	}
+	var cfg ElementConfig
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return ElementConfig{}, errors.Wrapf(
+			validate.ErrValidation, "invalid element config: %s", err,
+		)
+	}
+	// A null payload decodes to a nil variant without erroring, which would persist an
+	// entry no client can read back.
+	if cfg.Variant == nil {
+		return ElementConfig{}, errors.Wrap(
+			validate.ErrValidation, "element config names no variant",
+		)
+	}
+	return cfg, nil
+}
+
+// ElementConfigFields returns a config's wire fields as an opaque map for partial
+// merging.
+func ElementConfigFields(cfg ElementConfig) (msgpack.EncodedJSON, error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var m msgpack.EncodedJSON
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// extractTelemArgs rewrites a config's stored telem pipeline specs into the semantic
+// arguments the schema now declares, in place on the normalized wire map. Channel keys
+// are read from the pipeline's well-known segments; a zero channel (the legacy unset
+// default) produces no argument. Spec fields are removed regardless so the entry
+// decodes under the args-based schema.
+func extractTelemArgs(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	switch variant {
+	case "value", "gauge":
+		if ch, ok := segProp(cfg["telem"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
+			cfg["rolling_average"] = w
+		}
+		delete(cfg, "telem")
+		delete(cfg, "background_telem")
+	case "string_display":
+		if ch, ok := segProp(cfg["telem"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		delete(cfg, "telem")
+	case "light":
+		if ch, ok := segProp(cfg["source"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		if b, ok := segProp(cfg["source"], "threshold", "trueBound"); ok {
+			cfg["threshold"] = b
+		}
+		delete(cfg, "source")
+	case "state_indicator":
+		if ch, ok := segProp(cfg["source"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		delete(cfg, "source")
+	case "setpoint":
+		if ch, ok := segProp(cfg["sink"], "setter", "channel"); ok {
+			cfg["command_channel"] = ch
+		}
+		delete(cfg, "source")
+		delete(cfg, "sink")
+	case "button", "select", "input":
+		if ch, ok := segProp(cfg["sink"], "setter", "channel"); ok {
+			cfg["command_channel"] = ch
+		}
+		delete(cfg, "sink")
+	default:
+		if _, ok := cfg["source"]; ok {
+			if ch, k := segProp(cfg["source"], "valueStream", "channel"); k {
+				cfg["state_channel"] = ch
+			}
+			delete(cfg, "source")
+		}
+		if _, ok := cfg["sink"]; ok {
+			if ch, k := segProp(cfg["sink"], "setter", "channel"); k {
+				cfg["command_channel"] = ch
+			}
+			delete(cfg, "sink")
+		}
+	}
+	if ctl, ok := cfg["control"].(map[string]any); ok {
+		if chip, ok := ctl["chip"].(map[string]any); ok {
+			if sink, ok := chip["sink"].(map[string]any); ok {
+				if props, ok := sink["props"].(map[string]any); ok {
+					if a, ok := props["authority"]; ok {
+						ctl["authority"] = a
+					}
+				}
+			}
+		}
+		delete(ctl, "chip")
+		delete(ctl, "indicator")
+	}
+}
+
+// segProp reads a property from a named segment of a stored pipeline spec, reporting
+// false when any layer is missing or the value is a zero channel.
+func segProp(spec any, segment, prop string) (any, bool) {
+	m, ok := spec.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	props, ok := m["props"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	segments, ok := props["segments"].(map[string]any)
+	if !ok {
+		// Single-segment pipelines store the spec at the top level.
+		segments = map[string]any{segment: m}
+	}
+	seg, ok := segments[segment].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	segProps, ok := seg["props"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	v, ok := segProps[prop]
+	if !ok {
+		return nil, false
+	}
+	if prop == "channel" && isZeroNumber(v) {
+		return nil, false
+	}
+	return v, true
+}
+
+// isZeroNumber reports whether v is a numeric zero of any width, since msgpack decodes
+// a stored integer to the narrowest type that holds it.
+func isZeroNumber(v any) bool {
+	rv := reflect.ValueOf(v)
+	switch {
+	case rv.CanInt():
+		return rv.Int() == 0
+	case rv.CanUint():
+		return rv.Uint() == 0
+	case rv.CanFloat():
+		return rv.Float() == 0
+	}
+	return false
+}
+
+// normalizePage lifts an off-page reference's legacy page, a bare schematic key, into
+// the typed page reference. An empty key meant no page.
+func normalizePage(cfg map[string]any) {
+	if cfg["variant"] != "off_page_reference" {
+		return
+	}
+	key, ok := cfg["page"].(string)
+	if !ok {
+		return
+	}
+	if key == "" {
+		delete(cfg, "page")
+		return
+	}
+	cfg["page"] = map[string]any{"type": "schematic", "key": key}
+}
+
+// zeroColorOpaqueFields names fields whose colors are required and so must keep a
+// zero value, alongside the fields already excluded from normalization.
+var zeroColorOpaqueFields = set.New("gradient")
+
+// stripZeroColors deletes every color-valued field holding the zero color. Consoles
+// before v9 stored transparent black for an unchosen color; v9 stores nothing, so the
+// theme picks the color instead. Gradient stops and opaque fields are left alone.
+func stripZeroColors(v any) {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, val := range t {
+			if opaqueConfigFields.Contains(k) || zeroColorOpaqueFields.Contains(k) {
+				continue
+			}
+			if strings.HasSuffix(k, "color") {
+				if isZeroColor(val) {
+					delete(t, k)
+				}
+				continue
+			}
+			stripZeroColors(val)
+		}
+	case []any:
+		for _, item := range t {
+			stripZeroColors(item)
+		}
+	}
+}
+
+// isZeroColor reports whether v decodes as the zero color in any stored encoding.
+func isZeroColor(v any) bool {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return false
+	}
+	var c color.Color
+	if err := json.Unmarshal(b, &c); err != nil {
+		return false
+	}
+	return c.IsZero()
+}

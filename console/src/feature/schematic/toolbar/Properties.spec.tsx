@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { Schematic as PSchematic, type Status, Theming } from "@synnaxlabs/pluto";
+import { Schematic as PSchematic, type Status } from "@synnaxlabs/pluto";
 import { location, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -25,10 +25,8 @@ import {
   isPlutoDisabled,
 } from "@/testutil";
 
-const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
-
 const createValveConfig = (): Record<string, unknown> =>
-  PSchematic.Node.resolveSpec("valve").defaultConfig(theme);
+  PSchematic.Node.createConfig({ variant: "valve" });
 
 interface RenderPropertiesParams {
   nodeKeys: string[];
@@ -104,12 +102,11 @@ describe("Schematic toolbar Properties", () => {
     it("shows the missing symbol form when the referenced spec does not exist", async () => {
       await renderProperties({
         nodeKeys: ["n1"],
-        createConfig: () => ({
-          ...(PSchematic.Node.resolveSpec("customStatic").defaultConfig(
-            theme,
-          ) as Record<string, unknown>),
-          specKey: uuid.create(),
-        }),
+        createConfig: () =>
+          PSchematic.Node.createConfig({
+            variant: "custom_static",
+            specKey: uuid.create(),
+          }),
       });
       expect(
         await screen.findByText(
@@ -126,10 +123,9 @@ describe("Schematic toolbar Properties", () => {
     const createGroupedConfig = (key: string): Record<string, unknown> =>
       key === "g1"
         ? {
-            ...(PSchematic.Node.resolveSpec("groupBox").defaultConfig(theme) as Record<
-              string,
-              unknown
-            >),
+            ...(PSchematic.Node.createConfig({
+              variant: "group_box",
+            }) as unknown as Record<string, unknown>),
             members: ["n1", "n2"],
           }
         : createValveConfig();

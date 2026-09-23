@@ -218,19 +218,42 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 
 ### Rule 2: Pull request conventions
 
-1. **Confirm the base branch.** Every PR targets `main`; stacked PRs target the parent
-   branch. A hotfix lands on `main` first, then a cherry-pick PR targets
-   `release/<product>-X.Y`. Ask if unclear.
+1. **Confirm the base branch.** Every PR targets `main`. A hotfix lands on `main` first,
+   then a cherry-pick PR targets `release/<product>-X.Y`. A PR based on another unmerged
+   branch is the exception, not the pattern (Rule 3).
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
 3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
    prefixes like `[docs]` for non-issue work. Check
    `gh pr list --state all --limit 20 --json title,baseRefName` and match — don't invent
    a format.
-4. **Fill the template** at `.github/PULL_REQUEST_TEMPLATE/issue.md`: Linear issue
-   number and link (both `####` placeholders), a description of **what changed and why**
-   (lead with user-facing/architectural impact, not a diff restatement), readiness
-   checkboxes left unchecked unless actually performed.
+4. **Fill the template** at `.github/pull_request_template.md`: Linear issue number and
+   link (both `####` placeholders), a description of **what changed and why** (lead with
+   user-facing/architectural impact, not a diff restatement).
+5. **Add one review tier label**: `review/thorough`, `review/light`, or `review/bot`,
+   chosen by what the change can affect in a shipped enterprise product. The tiers and
+   the gate are in `CONTRIBUTING.md`. Never lower a tier a reviewer raised.
+
+### 🚨 Rule 3: Cut small PRs into `main`, early and often 🚨
+
+The failure mode is a branch that grows for days, then lands as one PR nobody can
+review. A Claude session pushes against it, never along with it:
+
+- **Plan the PR sequence before the code.** For any task over a few hundred lines, list
+  the PRs first. Each one merges into `main` on its own, leaves `main` green, and makes
+  sense without the ones after it. Open the first one in the same session.
+- **Aim for a couple hundred lines.** When the working diff passes ~300 lines, or a
+  second idea appears in it, stop and tell the user: this is a PR, open it now. Do not
+  keep building on top of it.
+- **Prefer separate branches off `main` over a stack.** A dependency on unmerged work
+  usually means the earlier piece should have merged already: open it, get it in, then
+  branch again from `main`. Stack only when a piece truly cannot land alone.
+- **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
+  behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
+  small PR, never the first big one.
+- **Mechanical changes ship alone** as `review/bot` PRs: renames, format runs, lint
+  fixes, regenerated code. The human review then reads only hand-written code.
+- **A fix and the refactor it needed are two PRs.** The refactor lands first.
 
 ## Self-editing guidelines
 

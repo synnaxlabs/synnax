@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { fireEvent, render } from "@testing-library/react";
 import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
 import { type ReactElement } from "react";
@@ -14,7 +15,6 @@ import { assert, describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
 import { type Config } from "@/schematic/node/groupBox/config";
-import { defaultConfig } from "@/schematic/node/groupBox/external";
 import { Symbol } from "@/schematic/node/groupBox/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 
@@ -40,7 +40,10 @@ const renderSymbol = (
             nodeKey="g1"
             selected={false}
             onConfigChange={vi.fn()}
-            config={{ ...defaultConfig(), members: ["m1", "m2"] }}
+            config={{
+              ...schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
+              members: ["m1", "m2"],
+            }}
             {...props}
           />
         </div>
@@ -70,7 +73,9 @@ describe("GroupBox.Symbol", () => {
   });
 
   it("should fall back to the padding rectangle without members", () => {
-    const { container } = renderSymbol({ config: defaultConfig() });
+    const { container } = renderSymbol({
+      config: schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
+    });
     expect(box(container).style.width).toBe("40px");
     expect(box(container).style.height).toBe("60px");
   });
@@ -96,7 +101,10 @@ describe("GroupBox.Symbol", () => {
               nodeKey="g1"
               selected={false}
               onConfigChange={vi.fn()}
-              config={{ ...defaultConfig(), members: ["m1", "m2"] }}
+              config={{
+                ...schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
+                members: ["m1", "m2"],
+              }}
             />
           </div>
           <Resize label="grow" nodes={resized({ width: 80, height: 90 })} />
@@ -132,7 +140,10 @@ describe("GroupBox.Symbol", () => {
     const { container } = renderSymbol({
       selected: true,
       draggable: false,
-      config: { ...defaultConfig(), locked: true },
+      config: {
+        ...schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
+        locked: true,
+      },
     });
     expect(container.querySelector(".pluto-group-box__lock")).not.toBeNull();
   });
@@ -151,7 +162,10 @@ describe("GroupBox.Symbol", () => {
     const { container } = renderSymbol({
       selected: true,
       onConfigChange,
-      config: { ...defaultConfig(), locked: true },
+      config: {
+        ...schematic.groupBoxNodeConfigZ.parse({ variant: "group_box" }),
+        locked: true,
+      },
     });
     expect(container.querySelector(".pluto-icon--lock")).not.toBeNull();
     fireEvent.click(chip(container));

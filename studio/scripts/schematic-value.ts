@@ -27,7 +27,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.moveTo({ x: 300, y: 620 });
 
     session.startRecording();
-    await session.hold(1200);
+    await session.hold(500);
 
     // No zoom anywhere: the symbol must stay in frame so the live value shows
     // up the moment the channel is bound.
@@ -78,7 +78,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // Live telemetry arrives on wall time, so give the stream real time to
     // push samples before the closing hold.
     await session.settleWall(1500);
-    await session.hold(2600);
+    await session.hold(500);
   } finally {
     await fixture.stop();
   }
