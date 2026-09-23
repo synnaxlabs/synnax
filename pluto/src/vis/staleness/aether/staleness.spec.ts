@@ -398,9 +398,9 @@ describe("staleness", () => {
   describe("resolveColor", () => {
     const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
 
-    it("should resolve an unset color to the theme warning shade", () => {
+    it("should honor a zero color as a chosen transparent", () => {
       expect(staleness.resolveColor(color.ZERO, theme)).toEqual(
-        theme.colors.warning.m1,
+        color.construct(color.ZERO),
       );
     });
 

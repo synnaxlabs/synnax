@@ -56,9 +56,8 @@ export const scaleStateZ = staleness.configZ.extend({
   caretSide: location.outerZ.default("right"),
   // Appended to the readout, after the value.
   units: z.string().default(""),
-  // Colors the fill, the caret, and the readout once the source stops sending. Zero
-  // uses the theme.
-  stalenessColor: color.colorZ.default(color.ZERO),
+  // Colors the fill, the caret, and the readout once the source stops sending.
+  stalenessColor: color.colorZ.optional(),
   // Formatting of the readout value.
   notation: notation.notationZ.default("standard"),
   precision: z.number().default(2),
