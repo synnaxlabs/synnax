@@ -62,6 +62,38 @@ describe("Swatch", () => {
     });
   });
 
+  describe("onClear", () => {
+    it("should render an unset swatch without a color", () => {
+      const c = render(<Color.Swatch value={undefined} onChange={vi.fn()} />, {
+        wrapper: Wrapper,
+      });
+      const swatch = swatchOf(c);
+      expect(swatch.classList.contains(CSS.M("unset"))).toBe(true);
+      expect(swatch.style.getPropertyValue(SWATCH_VAR)).toEqual("");
+    });
+
+    it("should not show the clear button while the swatch is unset", () => {
+      const c = render(
+        <Color.Swatch value={undefined} onChange={vi.fn()} onClear={vi.fn()} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      expect(c.queryByText("Clear")).toBeNull();
+    });
+
+    it("should call onClear and close the picker", () => {
+      const onClear = vi.fn();
+      const c = render(
+        <Color.Swatch value={RED} onChange={vi.fn()} onClear={onClear} />,
+        { wrapper: Wrapper },
+      );
+      fireEvent.click(swatchOf(c));
+      fireEvent.click(c.getByText("Clear"));
+      expect(onClear).toHaveBeenCalledOnce();
+      expect(c.queryByLabelText("hex")).toBeNull();
+    });
+  });
+
   describe("onlyChangeOnBlur", () => {
     it("should not call onChange while the picker is open", () => {
       const onChange = vi.fn();

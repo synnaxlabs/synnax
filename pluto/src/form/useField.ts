@@ -16,7 +16,6 @@ import { type ContextValue, useContext } from "@/form/Context";
 import {
   type FieldState,
   type GetOptions,
-  type OptionalGetOptions,
   type RequiredGetOptions,
 } from "@/form/state";
 
@@ -81,7 +80,7 @@ export const useField = (<I, O = I>(
   );
   const state = useSyncExternalStore(
     bind,
-    useCallback(() => get<I>(path, { optional } as GetOptions), [path, get, optional]),
+    useCallback(() => get<I>(path, { optional }), [path, get, optional]),
     () => null,
   );
   if (state == null) {
@@ -99,7 +98,7 @@ export interface UseFieldValue {
   ): O;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: OptionalGetOptions & ContextOptions<Z>,
+    opts?: GetOptions & ContextOptions<Z>,
   ): O | null;
 }
 
@@ -110,7 +109,7 @@ export interface UseFieldState {
   ): FieldState<O>;
   <I, O = I, Z extends z.ZodType = z.ZodType>(
     path: string,
-    opts?: OptionalGetOptions & ContextOptions<Z>,
+    opts?: GetOptions & ContextOptions<Z>,
   ): FieldState<O> | null;
 }
 
@@ -122,7 +121,7 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   const { get, bind } = useContext(opts?.ctx);
   return useSyncExternalStore(
     bind,
-    useCallback(() => get<O>(path, opts as GetOptions), [path, get, opts]),
+    useCallback(() => get<O>(path, opts), [path, get, opts]),
     () => null,
   );
 }) as UseFieldState;
@@ -131,9 +130,7 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   path: string,
   opts?: GetOptions & ContextOptions<Z>,
-): O | null =>
-  useFieldState<I, O, Z>(path, opts as OptionalGetOptions & ContextOptions<Z>)?.value ??
-  null) as UseFieldValue;
+): O | null => useFieldState<I, O, Z>(path, opts)?.value ?? null) as UseFieldValue;
 
 /** @returns whether the field at the path passed its last validation. */
 export const useFieldValid = (path: string): boolean =>

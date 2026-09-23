@@ -22,12 +22,10 @@ export interface RequiredGetOptions {
   optional?: false;
 }
 
-export interface OptionalGetOptions {
+export interface GetOptions {
   /** Whether a path the form cannot serve returns null instead of throwing. */
-  optional: true;
+  optional?: boolean;
 }
-
-export type GetOptions = RequiredGetOptions | OptionalGetOptions;
 
 const getVariant = (issue: z.core.$ZodIssue): status.Variant => {
   if (issue.code === "custom" && issue.params != null && "variant" in issue.params)

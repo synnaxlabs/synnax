@@ -44,7 +44,7 @@ export interface DateTimeAnchors {
   parent?: NumericTimeRange;
 }
 
-export interface DateTimeProps extends Control<number>, BaseProps {
+export interface DateTimeProps extends Control<number | undefined, number>, BaseProps {
   anchors?: DateTimeAnchors;
   /**
    * An instant whose day is already shown beside this input; the label drops its own

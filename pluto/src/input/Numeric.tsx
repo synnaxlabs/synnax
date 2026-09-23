@@ -22,7 +22,7 @@ export interface NumericProps
   extends
     Omit<TextProps, "type" | "onBlur" | "value" | "onChange">,
     DragButtonExtraProps,
-    Control<number> {
+    Control<number | undefined, number> {
   /** Whether focusing selects the whole value. Defaults to true. */
   selectOnFocus?: boolean;
   /** Whether to show the drag handle that scrubs the value. Defaults to true. */
@@ -87,10 +87,11 @@ export const Numeric = ({
     if (isValueValidRef.current) return;
     setIsValueValid(true);
     const raw = internalValueRef.current.trim();
-    if (raw === "") {
-      if (emptyValue != null) onChange?.(emptyValue);
-      if (emptyValue != null || valueRef.current == null) return;
+    if (raw === "" && emptyValue != null) {
+      onChange?.(emptyValue);
+      return;
     }
+    if (raw === "" && valueRef.current == null) return;
     let v = null;
     try {
       const ev = evaluate(internalValueRef.current);
