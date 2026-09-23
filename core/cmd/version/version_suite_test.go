@@ -14,16 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/version"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-var expected string
-
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-	expected = "Synnax " + version.Full() + "\n"
-})
 
 func TestVersion(t *testing.T) {
 	RegisterFailHandler(Fail)

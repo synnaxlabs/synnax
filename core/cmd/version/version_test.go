@@ -15,7 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd/version"
+	pkgversion "github.com/synnaxlabs/synnax/pkg/version"
 )
+
+var expected = "Synnax " + pkgversion.Full() + "\n"
 
 var _ = Describe("Version", func() {
 	Describe("FPrint", func() {

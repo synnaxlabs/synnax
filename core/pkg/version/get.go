@@ -18,9 +18,6 @@ import (
 
 const unknown = "unknown"
 
-// The build injects these with -ldflags, for example
-// -X github.com/synnaxlabs/synnax/pkg/version.version=1.0.0. Nothing writes them at
-// runtime.
 var (
 	version   string
 	gitCommit string
@@ -43,14 +40,6 @@ func Commit() string {
 	return unknown
 }
 
-// date returns the build date injected at build time, or "unknown".
-func date() string {
-	if buildDate != "" {
-		return buildDate
-	}
-	return unknown
-}
-
 // Time returns the build date as a time.Time, or the zero time when it was not
 // injected or does not parse.
 func Time() time.Time {
@@ -69,7 +58,10 @@ func Time() time.Time {
 func Full() string {
 	v := Get()
 	commit := Commit()
-	d := date()
+	d := buildDate
+	if d == "" {
+		d = unknown
+	}
 	if commit != unknown && d != unknown {
 		return fmt.Sprintf("%s (commit: %s, built: %s)", v, commit[:7], d)
 	} else if commit != unknown {

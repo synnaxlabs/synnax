@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/cmd"
+	"github.com/synnaxlabs/synnax/pkg/version"
 )
 
 var _ = Describe("Cmd", func() {
@@ -24,7 +25,7 @@ var _ = Describe("Cmd", func() {
 			cmd.Cmd.SetArgs([]string{"--version"})
 			cmd.Cmd.SetOut(&buf)
 			Expect(cmd.Cmd.Execute()).To(Succeed())
-			Expect(buf.String()).To(Equal(expected))
+			Expect(buf.String()).To(Equal("Synnax " + version.Full() + "\n"))
 		})
 	})
 })
