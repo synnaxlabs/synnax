@@ -11,8 +11,8 @@ package schematic
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -39,7 +39,7 @@ func (w Writer) Create(
 	s *Schematic,
 ) (err error) {
 	var exists bool
-	if s.Key == uuid.Nil {
+	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
 		exists, err = w.table.NewRetrieve().
@@ -60,7 +60,7 @@ func (w Writer) Create(
 		if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
-		if projectKey != uuid.Nil {
+		if projectKey != uuid.Nil() {
 			if err := w.otgWriter.DefineRelationships(
 				ctx,
 				project.OntologyID(projectKey),
@@ -104,10 +104,10 @@ func (w Writer) findParentProject(
 		WhereTypes(ontology.ResourceTypeProject).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
-		return uuid.Nil, false, err
+		return uuid.Nil(), false, err
 	}
 	if len(res) == 0 {
-		return uuid.Nil, false, nil
+		return uuid.Nil(), false, nil
 	}
 	k, err := uuid.Parse(res[0].ID.Key)
 	return k, true, err

@@ -134,12 +134,11 @@ func firstSegment(s string) string {
 // them to a qualified one silently skips the collapse and yields a variant name that
 // disagrees with the union's own declaration. sep is the qualifier separator.
 func QualifiedVariantTypeName(unionName, variantValue, sep string) string {
-	idx := strings.LastIndex(unionName, sep)
-	if idx < 0 {
+	qualifier, bare, ok := strings.CutLast(unionName, sep)
+	if !ok {
 		return VariantTypeName(unionName, variantValue)
 	}
-	split := idx + len(sep)
-	return unionName[:split] + VariantTypeName(unionName[split:], variantValue)
+	return qualifier + sep + VariantTypeName(bare, variantValue)
 }
 
 // leadingAcronym returns the run of leading uppercase letters of s that form an

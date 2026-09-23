@@ -113,6 +113,7 @@ func (n *nodeImpl) runBatch(
 	count int64,
 	inputTime telem.Series,
 	clockStamp bool,
+	clockStart telem.TimeStamp,
 ) bool {
 	b := n.batch
 	out := n.Output(0)
@@ -187,7 +188,7 @@ func (n *nodeImpl) runBatch(
 	outTime := n.OutputTime(0)
 	if clockStamp {
 		for i := range int(count) {
-			setValueAt(*outTime, i, uint64(n.clock.Now()))
+			setValueAt(*outTime, i, uint64(clockStart)+uint64(i))
 		}
 	} else {
 		copy(outTime.Data, inputTime.Data)

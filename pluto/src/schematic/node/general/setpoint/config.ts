@@ -24,6 +24,7 @@ export const configZ = Label.labeledConfigZ.extend({
   color: color.crudeZ.optional(),
   units: z.string().optional(),
   disabled: z.boolean().optional(),
+  onClickDelay: z.number().optional(),
   control: Control.stateConfigZ.optional(),
 });
 export type Config = z.infer<typeof configZ>;

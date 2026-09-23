@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
@@ -43,7 +42,7 @@ type (
 	deleteServer = grpc.UnaryServer[
 		channel.DeleteRequest,
 		*DeleteRequest,
-		types.Nil,
+		struct{},
 		*emptypb.Empty,
 	]
 )

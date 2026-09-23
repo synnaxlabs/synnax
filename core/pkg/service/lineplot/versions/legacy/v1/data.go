@@ -42,9 +42,9 @@ type LegendPosition struct {
 	// Y is the vertical legend position.
 	Y float64 `json:"y"`
 	// Units is the optional unit hint for the position.
-	Units *StickyUnits `json:"units,omitempty"`
+	Units *StickyUnits `json:"units"`
 	// Root is the optional root anchor for the position.
-	Root *StickyRoot `json:"root,omitempty"`
+	Root *StickyRoot `json:"root"`
 }
 
 // Legend is the plot legend configuration at v1. v1 adds Position.

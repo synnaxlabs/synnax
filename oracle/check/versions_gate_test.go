@@ -71,7 +71,7 @@ Channel struct {
 	}
 
 	run := func(p *pipeline.Result) check.GateReport {
-		return check.VersionsGate{}.Run(
+		return check.NewVersionsGate().Run(
 			GinkgoT().Context(), p, check.Env{RepoRoot: root},
 		)
 	}
@@ -168,7 +168,7 @@ Channel struct {
 		p.MergedSources = map[string][]byte{
 			"schemas/synnax/channel.oracle": mergeLive(liveV0),
 		}
-		report := check.VersionsGate{}.Run(
+		report := check.NewVersionsGate().Run(
 			GinkgoT().Context(), p,
 			check.Env{RepoRoot: root, IncludeDiffs: true},
 		)

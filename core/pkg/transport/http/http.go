@@ -10,8 +10,6 @@
 package http
 
 import (
-	"go/types"
-
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
@@ -55,21 +53,21 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AuthLogin: router.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](
 			"/api/v1/auth/login",
 		),
-		AuthChangePassword: router.NewUnaryServer[auth.ChangePasswordRequest, types.Nil](
+		AuthChangePassword: router.NewUnaryServer[auth.ChangePasswordRequest, struct{}](
 			"/api/v1/auth/change-password",
 		),
 
 		// USER
-		UserRename: router.NewUnaryServer[user.RenameRequest, types.Nil](
+		UserRename: router.NewUnaryServer[user.RenameRequest, struct{}](
 			"/api/v1/user/rename",
 		),
-		UserChangeUsername: router.NewUnaryServer[user.ChangeUsernameRequest, types.Nil](
+		UserChangeUsername: router.NewUnaryServer[user.ChangeUsernameRequest, struct{}](
 			"/api/v1/user/change-username",
 		),
 		UserCreate: router.NewUnaryServer[user.CreateRequest, user.CreateResponse](
 			"/api/v1/user/create",
 		),
-		UserDelete: router.NewUnaryServer[user.DeleteRequest, types.Nil](
+		UserDelete: router.NewUnaryServer[user.DeleteRequest, struct{}](
 			"/api/v1/user/delete",
 		),
 		UserRetrieve: router.NewUnaryServer[user.RetrieveRequest, user.RetrieveResponse](
@@ -83,10 +81,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ChannelRetrieve: router.NewUnaryServer[channel.RetrieveRequest, channel.RetrieveResponse](
 			"/api/v1/channel/retrieve",
 		),
-		ChannelDelete: router.NewUnaryServer[channel.DeleteRequest, types.Nil](
+		ChannelDelete: router.NewUnaryServer[channel.DeleteRequest, struct{}](
 			"/api/v1/channel/delete",
 		),
-		ChannelRename: router.NewUnaryServer[channel.RenameRequest, types.Nil](
+		ChannelRename: router.NewUnaryServer[channel.RenameRequest, struct{}](
 			"/api/v1/channel/rename",
 		),
 		ChannelRetrieveGroup: router.NewUnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse](
@@ -94,7 +92,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// CONNECTIVITY
-		ConnectivityCheck: router.NewUnaryServer[types.Nil, connectivity.CheckResponse](
+		ConnectivityCheck: router.NewUnaryServer[struct{}, connectivity.CheckResponse](
 			"/api/v1/connectivity/check",
 		),
 
@@ -111,7 +109,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/frame/stream",
 			framerServerOption,
 		),
-		FrameDelete: router.NewUnaryServer[framer.DeleteRequest, types.Nil](
+		FrameDelete: router.NewUnaryServer[framer.DeleteRequest, struct{}](
 			"/api/v1/frame/delete",
 		),
 
@@ -124,13 +122,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 		OntologyRetrieve: router.NewUnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse](
 			"/api/v1/ontology/retrieve",
 		),
-		OntologyAddChildren: router.NewUnaryServer[ontology.AddChildrenRequest, types.Nil](
+		OntologyAddChildren: router.NewUnaryServer[ontology.AddChildrenRequest, struct{}](
 			"/api/v1/ontology/add-children",
 		),
-		OntologyRemoveChildren: router.NewUnaryServer[ontology.RemoveChildrenRequest, types.Nil](
+		OntologyRemoveChildren: router.NewUnaryServer[ontology.RemoveChildrenRequest, struct{}](
 			"/api/v1/ontology/remove-children",
 		),
-		OntologyMoveChildren: router.NewUnaryServer[ontology.MoveChildrenRequest, types.Nil](
+		OntologyMoveChildren: router.NewUnaryServer[ontology.MoveChildrenRequest, struct{}](
 			"/api/v1/ontology/move-children",
 		),
 
@@ -138,10 +136,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		GroupCreate: router.NewUnaryServer[group.CreateRequest, group.CreateResponse](
 			"/api/v1/ontology/create-group",
 		),
-		GroupDelete: router.NewUnaryServer[group.DeleteRequest, types.Nil](
+		GroupDelete: router.NewUnaryServer[group.DeleteRequest, struct{}](
 			"/api/v1/ontology/delete-group",
 		),
-		GroupRename: router.NewUnaryServer[group.RenameRequest, types.Nil](
+		GroupRename: router.NewUnaryServer[group.RenameRequest, struct{}](
 			"/api/v1/ontology/rename-group",
 		),
 		GroupRetrieve: router.NewUnaryServer[group.RetrieveRequest, group.RetrieveResponse](
@@ -155,13 +153,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 		RangeCreate: router.NewUnaryServer[ranger.CreateRequest, ranger.CreateResponse](
 			"/api/v1/range/create",
 		),
-		RangeDelete: router.NewUnaryServer[ranger.DeleteRequest, types.Nil](
+		RangeDelete: router.NewUnaryServer[ranger.DeleteRequest, struct{}](
 			"/api/v1/range/delete",
 		),
-		RangeRename: router.NewUnaryServer[ranger.RenameRequest, types.Nil](
+		RangeRename: router.NewUnaryServer[ranger.RenameRequest, struct{}](
 			"/api/v1/range/rename",
 		),
-		RangeSetEnd: router.NewUnaryServer[ranger.SetEndRequest, types.Nil](
+		RangeSetEnd: router.NewUnaryServer[ranger.SetEndRequest, struct{}](
 			"/api/v1/range/set-end",
 		),
 
@@ -169,15 +167,15 @@ func Bind(layer *api.Layer, router *http.Router) {
 		KVGet: router.NewUnaryServer[kv.GetRequest, kv.GetResponse](
 			"/api/v1/range/kv/get",
 		),
-		KVSet: router.NewUnaryServer[kv.SetRequest, types.Nil](
+		KVSet: router.NewUnaryServer[kv.SetRequest, struct{}](
 			"/api/v1/range/kv/set",
 		),
-		KVDelete: router.NewUnaryServer[kv.DeleteRequest, types.Nil](
+		KVDelete: router.NewUnaryServer[kv.DeleteRequest, struct{}](
 			"/api/v1/range/kv/delete",
 		),
 
 		// ALIAS
-		AliasSet: router.NewUnaryServer[alias.SetRequest, types.Nil](
+		AliasSet: router.NewUnaryServer[alias.SetRequest, struct{}](
 			"/api/v1/range/alias/set",
 		),
 		AliasResolve: router.NewUnaryServer[alias.ResolveRequest, alias.ResolveResponse](
@@ -189,7 +187,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AliasList: router.NewUnaryServer[alias.ListRequest, alias.ListResponse](
 			"/api/v1/range/alias/list",
 		),
-		AliasDelete: router.NewUnaryServer[alias.DeleteRequest, types.Nil](
+		AliasDelete: router.NewUnaryServer[alias.DeleteRequest, struct{}](
 			"/api/v1/range/alias/delete",
 		),
 
@@ -200,13 +198,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ProjectRetrieve: router.NewUnaryServer[project.RetrieveRequest, project.RetrieveResponse](
 			"/api/v1/project/retrieve",
 		),
-		ProjectDelete: router.NewUnaryServer[project.DeleteRequest, types.Nil](
+		ProjectDelete: router.NewUnaryServer[project.DeleteRequest, struct{}](
 			"/api/v1/project/delete",
 		),
-		ProjectRename: router.NewUnaryServer[project.RenameRequest, types.Nil](
+		ProjectRename: router.NewUnaryServer[project.RenameRequest, struct{}](
 			"/api/v1/project/rename",
 		),
-		ProjectSetLayout: router.NewUnaryServer[project.SetLayoutRequest, types.Nil](
+		ProjectSetLayout: router.NewUnaryServer[project.SetLayoutRequest, struct{}](
 			"/api/v1/project/set-layout",
 		),
 		ProjectExport: router.NewUnaryServer[project.ExportRequest, project.ExportResponse](
@@ -225,10 +223,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicRetrieve: router.NewUnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse](
 			"/api/v1/schematic/retrieve",
 		),
-		SchematicDelete: router.NewUnaryServer[schematic.DeleteRequest, types.Nil](
+		SchematicDelete: router.NewUnaryServer[schematic.DeleteRequest, struct{}](
 			"/api/v1/schematic/delete",
 		),
-		SchematicDispatch: router.NewUnaryServer[schematic.DispatchRequest, types.Nil](
+		SchematicDispatch: router.NewUnaryServer[schematic.DispatchRequest, struct{}](
 			"/api/v1/schematic/dispatch",
 		),
 		SchematicCopy: router.NewUnaryServer[schematic.CopyRequest, schematic.CopyResponse](
@@ -242,10 +240,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicSymbolRetrieve: router.NewUnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse](
 			"/api/v1/schematic/symbol/retrieve",
 		),
-		SchematicSymbolDelete: router.NewUnaryServer[symbol.DeleteRequest, types.Nil](
+		SchematicSymbolDelete: router.NewUnaryServer[symbol.DeleteRequest, struct{}](
 			"/api/v1/schematic/symbol/delete",
 		),
-		SchematicSymbolRename: router.NewUnaryServer[symbol.RenameRequest, types.Nil](
+		SchematicSymbolRename: router.NewUnaryServer[symbol.RenameRequest, struct{}](
 			"/api/v1/schematic/symbol/rename",
 		),
 		SchematicSymbolRetrieveGroup: router.NewUnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
@@ -259,7 +257,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/schematic/symbol/group/import",
 			http.WithRequestDecoders(zip.Codec),
 		),
-		SchematicSymbolDeleteGroup: router.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
+		SchematicSymbolDeleteGroup: router.NewUnaryServer[symbol.DeleteGroupRequest, struct{}](
 			"/api/v1/schematic/symbol/group/delete",
 		),
 
@@ -270,10 +268,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		LinePlotRetrieve: router.NewUnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse](
 			"/api/v1/lineplot/retrieve",
 		),
-		LinePlotDelete: router.NewUnaryServer[lineplot.DeleteRequest, types.Nil](
+		LinePlotDelete: router.NewUnaryServer[lineplot.DeleteRequest, struct{}](
 			"/api/v1/lineplot/delete",
 		),
-		LinePlotDispatch: router.NewUnaryServer[lineplot.DispatchRequest, types.Nil](
+		LinePlotDispatch: router.NewUnaryServer[lineplot.DispatchRequest, struct{}](
 			"/api/v1/lineplot/dispatch",
 		),
 
@@ -284,10 +282,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		PanelRetrieve: router.NewUnaryServer[panel.RetrieveRequest, panel.RetrieveResponse](
 			"/api/v1/panel/retrieve",
 		),
-		PanelDelete: router.NewUnaryServer[panel.DeleteRequest, types.Nil](
+		PanelDelete: router.NewUnaryServer[panel.DeleteRequest, struct{}](
 			"/api/v1/panel/delete",
 		),
-		PanelDispatch: router.NewUnaryServer[panel.DispatchRequest, types.Nil](
+		PanelDispatch: router.NewUnaryServer[panel.DispatchRequest, struct{}](
 			"/api/v1/panel/dispatch",
 		),
 
@@ -298,10 +296,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		LogRetrieve: router.NewUnaryServer[log.RetrieveRequest, log.RetrieveResponse](
 			"/api/v1/log/retrieve",
 		),
-		LogDelete: router.NewUnaryServer[log.DeleteRequest, types.Nil](
+		LogDelete: router.NewUnaryServer[log.DeleteRequest, struct{}](
 			"/api/v1/log/delete",
 		),
-		LogDispatch: router.NewUnaryServer[log.DispatchRequest, types.Nil](
+		LogDispatch: router.NewUnaryServer[log.DispatchRequest, struct{}](
 			"/api/v1/log/dispatch",
 		),
 
@@ -312,10 +310,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		TableRetrieve: router.NewUnaryServer[table.RetrieveRequest, table.RetrieveResponse](
 			"/api/v1/table/retrieve",
 		),
-		TableDelete: router.NewUnaryServer[table.DeleteRequest, types.Nil](
+		TableDelete: router.NewUnaryServer[table.DeleteRequest, struct{}](
 			"/api/v1/table/delete",
 		),
-		TableDispatch: router.NewUnaryServer[table.DispatchRequest, types.Nil](
+		TableDispatch: router.NewUnaryServer[table.DispatchRequest, struct{}](
 			"/api/v1/table/dispatch",
 		),
 
@@ -326,13 +324,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 		LabelRetrieve: router.NewUnaryServer[label.RetrieveRequest, label.RetrieveResponse](
 			"/api/v1/label/retrieve",
 		),
-		LabelDelete: router.NewUnaryServer[label.DeleteRequest, types.Nil](
+		LabelDelete: router.NewUnaryServer[label.DeleteRequest, struct{}](
 			"/api/v1/label/delete",
 		),
-		LabelAdd: router.NewUnaryServer[label.AddRequest, types.Nil](
+		LabelAdd: router.NewUnaryServer[label.AddRequest, struct{}](
 			"/api/v1/label/set",
 		),
-		LabelRemove: router.NewUnaryServer[label.RemoveRequest, types.Nil](
+		LabelRemove: router.NewUnaryServer[label.RemoveRequest, struct{}](
 			"/api/v1/label/remove",
 		),
 
@@ -343,7 +341,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		RackRetrieve: router.NewUnaryServer[rack.RetrieveRequest, rack.RetrieveResponse](
 			"/api/v1/rack/retrieve",
 		),
-		RackDelete: router.NewUnaryServer[rack.DeleteRequest, types.Nil](
+		RackDelete: router.NewUnaryServer[rack.DeleteRequest, struct{}](
 			"/api/v1/rack/delete",
 		),
 
@@ -354,7 +352,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		TaskRetrieve: router.NewUnaryServer[task.RetrieveRequest, task.RetrieveResponse](
 			"/api/v1/task/retrieve",
 		),
-		TaskDelete: router.NewUnaryServer[task.DeleteRequest, types.Nil](
+		TaskDelete: router.NewUnaryServer[task.DeleteRequest, struct{}](
 			"/api/v1/task/delete",
 		),
 		TaskCopy: router.NewUnaryServer[task.CopyRequest, task.CopyResponse](
@@ -368,7 +366,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceRetrieve: router.NewUnaryServer[device.RetrieveRequest, device.RetrieveResponse](
 			"/api/v1/device/retrieve",
 		),
-		DeviceDelete: router.NewUnaryServer[device.DeleteRequest, types.Nil](
+		DeviceDelete: router.NewUnaryServer[device.DeleteRequest, struct{}](
 			"/api/v1/device/delete",
 		),
 
@@ -376,7 +374,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AccessCreatePolicy: router.NewUnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse](
 			"/api/v1/access/policy/create",
 		),
-		AccessDeletePolicy: router.NewUnaryServer[access.DeletePolicyRequest, types.Nil](
+		AccessDeletePolicy: router.NewUnaryServer[access.DeletePolicyRequest, struct{}](
 			"/api/v1/access/policy/delete",
 		),
 		AccessRetrievePolicy: router.NewUnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse](
@@ -385,16 +383,16 @@ func Bind(layer *api.Layer, router *http.Router) {
 		AccessCreateRole: router.NewUnaryServer[access.CreateRoleRequest, access.CreateRoleResponse](
 			"/api/v1/access/role/create",
 		),
-		AccessDeleteRole: router.NewUnaryServer[access.DeleteRoleRequest, types.Nil](
+		AccessDeleteRole: router.NewUnaryServer[access.DeleteRoleRequest, struct{}](
 			"/api/v1/access/role/delete",
 		),
 		AccessRetrieveRole: router.NewUnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
 			"/api/v1/access/role/retrieve",
 		),
-		AccessAssignRole: router.NewUnaryServer[access.AssignRoleRequest, types.Nil](
+		AccessAssignRole: router.NewUnaryServer[access.AssignRoleRequest, struct{}](
 			"/api/v1/access/role/assign",
 		),
-		AccessUnassignRole: router.NewUnaryServer[access.UnassignRoleRequest, types.Nil](
+		AccessUnassignRole: router.NewUnaryServer[access.UnassignRoleRequest, struct{}](
 			"/api/v1/access/role/unassign",
 		),
 
@@ -402,13 +400,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ArcCreate: router.NewUnaryServer[arc.CreateRequest, arc.CreateResponse](
 			"/api/v1/arc/create",
 		),
-		ArcDelete: router.NewUnaryServer[arc.DeleteRequest, types.Nil](
+		ArcDelete: router.NewUnaryServer[arc.DeleteRequest, struct{}](
 			"/api/v1/arc/delete",
 		),
 		ArcRetrieve: router.NewUnaryServer[arc.RetrieveRequest, arc.RetrieveResponse](
 			"/api/v1/arc/retrieve",
 		),
-		ArcDispatch: router.NewUnaryServer[arc.DispatchRequest, types.Nil](
+		ArcDispatch: router.NewUnaryServer[arc.DispatchRequest, struct{}](
 			"/api/v1/arc/dispatch",
 		),
 		ArcSetRack: router.NewUnaryServer[arc.SetRackRequest, arc.SetRackResponse](
@@ -425,7 +423,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		StatusRetrieve: router.NewUnaryServer[status.RetrieveRequest, status.RetrieveResponse](
 			"/api/v1/status/retrieve",
 		),
-		StatusDelete: router.NewUnaryServer[status.DeleteRequest, types.Nil](
+		StatusDelete: router.NewUnaryServer[status.DeleteRequest, struct{}](
 			"/api/v1/status/delete",
 		),
 		StatusSetByKeyOrName: router.NewUnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse](
@@ -439,7 +437,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		ViewRetrieve: router.NewUnaryServer[view.RetrieveRequest, view.RetrieveResponse](
 			"/api/v1/view/retrieve",
 		),
-		ViewDelete: router.NewUnaryServer[view.DeleteRequest, types.Nil](
+		ViewDelete: router.NewUnaryServer[view.DeleteRequest, struct{}](
 			"/api/v1/view/delete",
 		),
 

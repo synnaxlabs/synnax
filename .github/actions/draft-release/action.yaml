@@ -1,0 +1,55 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Draft Release
+description: Creates a draft release under a tag with generated notes
+
+inputs:
+  tag:
+    description: The release tag, such as console/v0.59.0
+    required: true
+  title:
+    description: The release title
+    required: true
+  previous_tag:
+    description: The tag the generated notes start after
+    required: true
+  notes:
+    description: Text placed above the generated notes
+    required: false
+    default: ""
+  prerelease:
+    description: Mark the release as a pre-release
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # A failed earlier run can leave a draft under the same tag; the tag itself only
+    # exists once a release is published.
+    - name: Draft Release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ inputs.tag }}
+        TITLE: ${{ inputs.title }}
+        PREVIOUS_TAG: ${{ inputs.previous_tag }}
+        NOTES: ${{ inputs.notes }}
+        PRERELEASE: ${{ inputs.prerelease }}
+      run: |
+        if gh release list --json tagName,isDraft --jq --arg tag "$TAG" \
+          '.[] | select(.tagName == $tag and .isDraft)' | grep -q .; then
+          gh release delete "$TAG" --yes
+        fi
+        ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --generate-notes
+          --notes-start-tag "$PREVIOUS_TAG")
+        if [ -n "$NOTES" ]; then ARGS+=(--notes "$NOTES"); fi
+        if [ "$PRERELEASE" = true ]; then ARGS+=(--prerelease); fi
+        gh release create "$TAG" "${ARGS[@]}"

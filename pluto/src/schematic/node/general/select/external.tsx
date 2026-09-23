@@ -31,6 +31,7 @@ export const defaultConfig = (): Config => ({
   options: [],
   label: Label.defaultConfig("Select"),
   control: { show: true },
+  onClickDelay: 0,
   sink: telem.sinkPipeline("number", {
     connections: [],
     segments: { setter: control.setChannelValue({ channel: 0 }) },

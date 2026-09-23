@@ -14,6 +14,8 @@ on:
     branches:
       - main
     paths:
+      - .github/scripts/pin_internal_deps.sh
+      - .github/scripts/prune_published.py
       - .github/workflows/deploy.py.yaml
       - alamos/py/**
       - x/py/**
@@ -23,12 +25,14 @@ on:
       - uv.lock
   workflow_dispatch:
 
+# Trusted publishing: uv exchanges the job's OIDC token with PyPI; no token is stored.
+permissions:
+  id-token: write
+
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    env:
-      UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
@@ -42,7 +46,7 @@ jobs:
           python-version-file: client/py/pyproject.toml
 
       - name: Pin internal dependency constraints
-        run: ./scripts/pin_internal_deps.sh
+        run: .github/scripts/pin_internal_deps.sh
 
       - name: Build Alamos
         working-directory: alamos/py
@@ -61,7 +65,7 @@ jobs:
         run: uv build
 
       - name: Prune already-published distributions
-        run: python scripts/prune_published.py
+        run: python .github/scripts/prune_published.py
 
       - name: Publish
         run: |

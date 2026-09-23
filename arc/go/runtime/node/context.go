@@ -26,10 +26,28 @@ const (
 	ReasonChannelInput
 )
 
+// Cycle carries the timing shared by every producer in one scheduler pass. The
+// runtime loop reads the clock once, builds a Cycle, and hands it to Scheduler.Next;
+// nothing downstream reads a clock of its own.
+type Cycle struct {
+	// Now is the wall clock sampled once at the top of the pass. Producers that
+	// have no upstream timestamp to carry forward stamp their output from it, so
+	// everything one pass writes shares a single reference.
+	Now telem.TimeStamp
+	// Elapsed is the time elapsed since the runtime started.
+	// Used by time-based nodes (interval, wait) to track timing.
+	Elapsed telem.TimeSpan
+	// Reason indicates what triggered this scheduler run (timer tick or channel input).
+	// Time-based nodes should only fire when Reason is ReasonTimerTick.
+	Reason RunReason
+}
+
 // Context carries runtime execution state and callbacks for node execution.
 // It embeds context.Context for cancellation, deadlines, and values.
 type Context struct {
 	context.Context
+	// Cycle is the timing of the scheduler pass the node runs in.
+	Cycle
 	// MarkChanged signals that an output has new data, identified by the
 	// output's 0-based position in the owning ir.Node's Outputs slice.
 	// This triggers dependent nodes to execute in the next scheduler pass.
@@ -43,16 +61,14 @@ type Context struct {
 	// needs a TimerTick. The scheduler tracks the minimum across all nodes
 	// and uses it to wake the loop at the right time.
 	SetDeadline func(telem.TimeSpan)
+	// ReserveStamps takes n distinct timestamps from the cycle and returns the first;
+	// the rest follow 1 ns apart. Reservations in one pass never overlap, and the
+	// runtime's clock resumes above the last stamp reserved.
+	ReserveStamps func(n int) telem.TimeStamp
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
-	// Elapsed is the time elapsed since the runtime started.
-	// Used by time-based nodes (interval, wait) to track timing.
-	Elapsed telem.TimeSpan
 	// Tolerance is the timing tolerance for interval/wait comparisons.
 	// Allows firing up to this amount early to handle OS scheduling jitter.
 	Tolerance telem.TimeSpan
-	// Reason indicates what triggered this scheduler run (timer tick or channel input).
-	// Time-based nodes should only fire when Reason is ReasonTimerTick.
-	Reason RunReason
 }

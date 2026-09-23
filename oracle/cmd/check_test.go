@@ -104,7 +104,7 @@ var _ = Describe("check command flag paths", func() {
 
 	Describe("with a well-formed schema", func() {
 		BeforeEach(func() {
-			_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			_, cleanup = setupMiniRepo(map[string]string{
 				"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 			})
 		})
@@ -135,7 +135,7 @@ var _ = Describe("check command flag paths", func() {
 
 	Describe("with format drift", func() {
 		BeforeEach(func() {
-			_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			_, cleanup = setupMiniRepo(map[string]string{
 				"user.oracle": "User struct {key uuid\nname   string}",
 			})
 		})
@@ -155,7 +155,7 @@ var _ = Describe("check command flag paths", func() {
 
 	Describe("with an analyzer warning", func() {
 		BeforeEach(func() {
-			_, cleanup = setupMiniRepo("0.53.4", map[string]string{
+			_, cleanup = setupMiniRepo(map[string]string{
 				"warn.oracle": "@go output \"x/go/warn\"\n" +
 					"Thing struct {\n    other other.Missing\n}\n",
 			})

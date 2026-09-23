@@ -11,7 +11,7 @@ package arc
 
 import (
 	"cmp"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"slices"
 
@@ -21,19 +21,20 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// semanticContent is the hash input: the fields that change an arc's compiled
-// behavior. Node positions and edge identities are excluded, so layout edits and a
-// rebuilt-but-identical connection hash equally.
+// semanticContent is the hash input: the fields that change an Arc's compiled behavior.
+// Node positions and edge identities are excluded, so layout edits and a
+// rebuilt-but-identical connection hash equally. Every field serializes, so the hash is
+// a function of all of them and the inactive mode's fields contribute their zero.
 type semanticContent struct {
 	Mode      Mode                           `json:"mode"`
-	Text      string                         `json:"text,omitempty"`
-	Functions ir.Functions                   `json:"functions,omitempty"`
-	Nodes     []string                       `json:"nodes,omitempty"`
-	Edges     []ir.Edge                      `json:"edges,omitempty"`
-	Inputs    map[string]msgpack.EncodedJSON `json:"inputs,omitempty"`
+	Text      string                         `json:"text"`
+	Functions ir.Functions                   `json:"functions"`
+	Nodes     []string                       `json:"nodes"`
+	Edges     []ir.Edge                      `json:"edges"`
+	Inputs    map[string]msgpack.EncodedJSON `json:"inputs"`
 }
 
-// Hash returns the xxhash64 of the arc's semantic content as 16 lowercase hex
+// Hash returns the xxhash64 of the Arc's semantic content as 16 lowercase hex
 // characters. Only the active mode's source contributes: text mode hashes the
 // materialized source, graph mode hashes the graph without layout data. Equal content
 // hashes equally regardless of edit history, so an edit that is undone restores the
@@ -56,7 +57,7 @@ func Hash(a Arc) (string, error) {
 		slices.SortFunc(content.Edges, compareEdges)
 		content.Inputs = a.Graph.Inputs
 	}
-	b, err := json.Marshal(content)
+	b, err := json.Marshal(content, json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to hash arc %s", a.Key)
 	}

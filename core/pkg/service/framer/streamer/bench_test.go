@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -106,11 +107,20 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	if err != nil {
 		b.Fatalf("failed to open writer service: %v", err)
 	}
-	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
-		Framer:  node.Framer,
-		Writer:  writerSvc,
+	channelGraph, err := calcgraph.Open(b.Context(), calcgraph.Config{
+		DB:      node.DB,
 		Channel: channelSvc,
 		Status:  statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open channel calculation graph: %v", err)
+	}
+	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
+		DB:           node.DB,
+		Framer:       node.Framer,
+		Writer:       writerSvc,
+		Channel:      channelSvc,
+		ChannelGraph: channelGraph,
 	})
 	if err != nil {
 		b.Fatalf("failed to open calculation service: %v", err)
@@ -255,7 +265,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 }
 
 func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
-	for _, factor := range []int{2, 10} {
+	for _, factor := range []uint32{2, 10} {
 		b.Run(fmt.Sprintf("factor=%d", factor), func(b *testing.B) {
 			env := newBenchStreamerEnv(b)
 			defer env.close(b)

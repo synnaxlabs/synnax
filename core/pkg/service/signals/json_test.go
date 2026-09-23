@@ -10,7 +10,7 @@
 package signals_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 	"math"
 	"time"
@@ -98,6 +98,7 @@ var _ = Describe("JSON", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			sigs := MustSucceed(signals.New(signals.Config{
+				DB:      db,
 				Channel: channelSvc,
 				Framer:  framerSvc,
 			}))
