@@ -51,6 +51,9 @@ describe("Tabs", () => {
     frame.getBoundingClientRect = () => ({ top }) as DOMRect;
   };
 
+  const hidden = (text: string): boolean =>
+    screen.getByText(text).closest("[hidden]") != null;
+
   const clickTypeScript = (): MockResizeObserver => {
     fireEvent.click(screen.getByText("TypeScript"));
     assert(MockResizeObserver.body != null);
@@ -78,11 +81,11 @@ describe("Tabs", () => {
 
   it("switches the selected tab and visible panel on click", () => {
     renderTabs();
-    expect(screen.getByText("py")).toBeDefined();
-    expect(screen.queryByText("ts")).toBeNull();
+    expect(hidden("py")).toBe(false);
+    expect(hidden("ts")).toBe(true);
     fireEvent.click(screen.getByText("TypeScript"));
-    expect(screen.getByText("ts")).toBeDefined();
-    expect(screen.queryByText("py")).toBeNull();
+    expect(hidden("ts")).toBe(false);
+    expect(hidden("py")).toBe(true);
     const tab = screen.getByText("TypeScript").closest('[role="tab"]');
     expect(tab?.getAttribute("aria-selected")).toBe("true");
   });
@@ -96,8 +99,8 @@ describe("Tabs", () => {
     act(() => {
       window.dispatchEvent(new CustomEvent("urlchange"));
     });
-    expect(screen.getByText("ts")).toBeDefined();
-    expect(screen.queryByText("py")).toBeNull();
+    expect(hidden("ts")).toBe(false);
+    expect(hidden("py")).toBe(true);
   });
 
   it("scrolls away drift while the page settles", () => {

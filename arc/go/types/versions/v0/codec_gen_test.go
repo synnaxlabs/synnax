@@ -14,12 +14,11 @@ package v0_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/types/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -38,7 +37,7 @@ var _ = Describe("Codec", func() {
 				Read:  map[uint32]string{2: "test_1"},
 				Write: map[uint32]string{3: "test_2"},
 			}),
-			Entry("zero values", v0.Channels{Read: nil, Write: nil}),
+			Entry("zero values", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
 			Entry("empty collections", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
 		)
 	})
@@ -266,9 +265,9 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v0.FunctionProperties{
-				Inputs:  nil,
-				Outputs: nil,
-				Config:  nil,
+				Inputs:  []v0.Param{},
+				Outputs: []v0.Param{},
+				Config:  []v0.Param{},
 			}),
 			Entry("empty collections", v0.FunctionProperties{
 				Inputs:  []v0.Param{},
@@ -471,9 +470,9 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Param{
 				Name: "",
 				Type: v0.Type{
-					Inputs:        nil,
-					Outputs:       nil,
-					Config:        nil,
+					Inputs:        []v0.Param{},
+					Outputs:       []v0.Param{},
+					Config:        []v0.Param{},
 					Kind:          v0.Kind(0),
 					Name:          "",
 					Elem:          nil,
@@ -1045,9 +1044,9 @@ var _ = Describe("Codec", func() {
 				ChanDirection: v0.ChanDirection(0),
 			}),
 			Entry("zero values", v0.Type{
-				Inputs:        nil,
-				Outputs:       nil,
-				Config:        nil,
+				Inputs:        []v0.Param{},
+				Outputs:       []v0.Param{},
+				Config:        []v0.Param{},
 				Kind:          v0.Kind(0),
 				Name:          "",
 				Elem:          nil,
@@ -2350,7 +2349,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Channels{Read: nil, Write: nil}
+		seed := v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2381,7 +2380,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2438,7 +2437,7 @@ func FuzzDecodeDimensions(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2633,9 +2632,9 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 	}
 	{
 		seed := v0.FunctionProperties{
-			Inputs:  nil,
-			Outputs: nil,
-			Config:  nil,
+			Inputs:  []v0.Param{},
+			Outputs: []v0.Param{},
+			Config:  []v0.Param{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2671,7 +2670,7 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -2869,9 +2868,9 @@ func FuzzDecodeParam(f *testing.F) {
 		seed := v0.Param{
 			Name: "",
 			Type: v0.Type{
-				Inputs:        nil,
-				Outputs:       nil,
-				Config:        nil,
+				Inputs:        []v0.Param{},
+				Outputs:       []v0.Param{},
+				Config:        []v0.Param{},
 				Kind:          v0.Kind(0),
 				Name:          "",
 				Elem:          nil,
@@ -2903,7 +2902,7 @@ func FuzzDecodeParam(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3467,9 +3466,9 @@ func FuzzDecodeType(f *testing.F) {
 	}
 	{
 		seed := v0.Type{
-			Inputs:        nil,
-			Outputs:       nil,
-			Config:        nil,
+			Inputs:        []v0.Param{},
+			Outputs:       []v0.Param{},
+			Config:        []v0.Param{},
 			Kind:          v0.Kind(0),
 			Name:          "",
 			Elem:          nil,
@@ -3712,7 +3711,7 @@ func FuzzDecodeType(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -3777,7 +3776,7 @@ func FuzzDecodeUnit(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

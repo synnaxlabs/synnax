@@ -11,8 +11,8 @@ package role_test
 
 import (
 	"slices"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -40,7 +40,7 @@ var _ = Describe("Writer", func() {
 				Description: "Administrator role",
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
-			Expect(r.Key).ToNot(Equal(uuid.Nil))
+			Expect(r.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It("Should create a role with provided UUID", func(ctx SpecContext) {
@@ -96,7 +96,7 @@ var _ = Describe("Writer", func() {
 					Internal:    true,
 				}
 				Expect(w.Create(ctx, r)).To(Succeed())
-				Expect(r.Key).ToNot(Equal(uuid.Nil))
+				Expect(r.Key).ToNot(Equal(uuid.Nil()))
 			},
 		)
 

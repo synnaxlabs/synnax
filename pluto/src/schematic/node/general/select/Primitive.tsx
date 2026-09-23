@@ -10,15 +10,16 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/select/select.css";
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
+import { type Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Select as BaseSelect } from "@/select";
 
 interface RenderProps extends Omit<Config, "sink" | "variant"> {
@@ -28,10 +29,14 @@ interface RenderProps extends Omit<Config, "sink" | "variant"> {
   onSend?: (value: number) => void;
 }
 
+const DIALOG_PROPS: Dialog.DialogProps = {
+  className: CSS.BE("select-symbol", "dialog"),
+};
+
 export const Select = ({
   className,
   orientation = "left",
-  color,
+  color: colorVal,
   value,
   onChange,
   onSend,
@@ -39,15 +44,17 @@ export const Select = ({
   size,
   disabled,
   inlineSize,
+  onClickDelay,
 }: RenderProps): ReactElement => {
   const data = useMemo(
     () => options.map((o) => ({ key: o.key, name: o.name || `Option ${o.value}` })),
     [options],
   );
   const matched = options.find((o) => o.key === value);
+  const symbolColor = color.rgbaString(colorVal);
   const style = useMemo(
-    () => ({ [CSS.variable("symbol-color")]: symbolColorVar(color) }),
-    [color],
+    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
+    [symbolColor],
   );
   const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (
@@ -94,6 +101,7 @@ export const Select = ({
           disabled={disabled}
           resourceName="option"
           triggerProps={{ size }}
+          dialogProps={DIALOG_PROPS}
           style={triggerStyle}
         />
         {onSend != null && (
@@ -104,6 +112,7 @@ export const Select = ({
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
+            onClickDelay={onClickDelay}
             disabled={disabled}
           >
             Send

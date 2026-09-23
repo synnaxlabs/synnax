@@ -25,7 +25,7 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Config contains configuration parameter values as a JSON object.
-	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 	// Position is the canvas position (x, y) for visual layout.
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
@@ -47,9 +47,9 @@ type Graph struct {
 	// Viewport is the current camera state for the graph view.
 	Viewport Viewport `json:"viewport" msgpack:"viewport"`
 	// Functions contains function definitions available in this graph.
-	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
+	Functions ir.Functions `json:"functions" msgpack:"functions"`
 	// Edges contains dataflow connections between node parameters.
-	Edges ir.Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	Edges ir.Edges `json:"edges" msgpack:"edges"`
 	// Nodes contains visual nodes with canvas positions.
-	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
+	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 }

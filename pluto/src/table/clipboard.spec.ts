@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type table } from "@synnaxlabs/client";
+import { table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -51,6 +51,11 @@ const makeClipboardEvent = (
 
 const MIME = "web application/synnax-table+json";
 
+const valueCfg = (units: string): table.CellConfig =>
+  table.cellConfigZ.parse({ variant: "value", units });
+const textCfg = (value: string): table.CellConfig =>
+  table.cellConfigZ.parse({ variant: "text", value });
+
 describe("table clipboard", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -71,15 +76,15 @@ describe("table clipboard", () => {
       ],
       columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
       cells: {
-        a: { key: "a", variant: "value", props: { v: "A" } },
-        b: { key: "b", variant: "value", props: { v: "B" } },
-        c: { key: "c", variant: "value", props: { v: "C" } },
-        d: { key: "d", variant: "text", props: { v: "D" } },
-        e: { key: "e", variant: "text", props: { v: "E" } },
-        f: { key: "f", variant: "text", props: { v: "F" } },
-        g: { key: "g", variant: "value", props: { v: "G" } },
-        h: { key: "h", variant: "value", props: { v: "H" } },
-        i: { key: "i", variant: "value", props: { v: "I" } },
+        a: valueCfg("A"),
+        b: valueCfg("B"),
+        c: valueCfg("C"),
+        d: textCfg("D"),
+        e: textCfg("E"),
+        f: textCfg("F"),
+        g: valueCfg("G"),
+        h: valueCfg("H"),
+        i: valueCfg("I"),
       },
     });
   };
@@ -108,11 +113,11 @@ describe("table clipboard", () => {
       expect(ev.defaultPrevented).toBe(true);
       const payload = JSON.parse(ev._data[MIME]) as {
         version: number;
-        cells: Array<{ row: number; col: number; variant: string }>;
+        cells: Array<{ row: number; col: number; config: table.CellConfig }>;
       };
       expect(payload.version).toEqual(1);
       const positions = new Map(
-        payload.cells.map((c) => [`${c.row},${c.col}`, c.variant]),
+        payload.cells.map((c) => [`${c.row},${c.col}`, c.config.variant]),
       );
       expect(positions.get("0,0")).toEqual("text");
       expect(positions.get("0,1")).toEqual("text");
@@ -148,15 +153,15 @@ describe("table clipboard", () => {
       const payload = {
         version: 1,
         cells: [
-          { row: 0, col: 0, variant: "value", props: { v: "X" } },
-          { row: 0, col: 1, variant: "value", props: { v: "Y" } },
+          { row: 0, col: 0, config: valueCfg("X") },
+          { row: 0, col: 1, config: valueCfg("Y") },
         ],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
-        expect(result.current.retrieve?.cells.a.props.v).toEqual("X");
-        expect(result.current.retrieve?.cells.b.props.v).toEqual("Y");
+        expect(result.current.retrieve?.cells.a).toMatchObject(valueCfg("X"));
+        expect(result.current.retrieve?.cells.b).toMatchObject(valueCfg("Y"));
       });
       expect(result.current.retrieve?.rows).toHaveLength(3);
       expect(result.current.retrieve?.columns).toHaveLength(3);
@@ -169,8 +174,8 @@ describe("table clipboard", () => {
       const payload = {
         version: 1,
         cells: [
-          { row: 0, col: 0, variant: "text", props: { v: "P" } },
-          { row: 0, col: 1, variant: "text", props: { v: "Q" } },
+          { row: 0, col: 0, config: textCfg("P") },
+          { row: 0, col: 1, config: textCfg("Q") },
         ],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
@@ -178,7 +183,7 @@ describe("table clipboard", () => {
       await waitFor(() => {
         expect(result.current.retrieve?.columns).toHaveLength(4);
         expect(result.current.retrieve?.rows[0].cells).toHaveLength(4);
-        expect(result.current.retrieve?.cells.c.props.v).toEqual("P");
+        expect(result.current.retrieve?.cells.c).toMatchObject(textCfg("P"));
       });
     });
 
@@ -189,15 +194,15 @@ describe("table clipboard", () => {
       const payload = {
         version: 1,
         cells: [
-          { row: 0, col: 0, variant: "text", props: { v: "P" } },
-          { row: 1, col: 0, variant: "text", props: { v: "Q" } },
+          { row: 0, col: 0, config: textCfg("P") },
+          { row: 1, col: 0, config: textCfg("Q") },
         ],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       await waitFor(() => {
         expect(result.current.retrieve?.rows).toHaveLength(4);
-        expect(result.current.retrieve?.cells.g.props.v).toEqual("P");
+        expect(result.current.retrieve?.cells.g).toMatchObject(textCfg("P"));
       });
     });
 
@@ -208,8 +213,8 @@ describe("table clipboard", () => {
       const payload = {
         version: 1,
         cells: [
-          { row: 0, col: 0, variant: "value", props: { v: "X" } },
-          { row: 1, col: 1, variant: "value", props: { v: "Y" } },
+          { row: 0, col: 0, config: valueCfg("X") },
+          { row: 1, col: 1, config: valueCfg("Y") },
         ],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
@@ -226,12 +231,12 @@ describe("table clipboard", () => {
       await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 1,
-        cells: [{ row: 0, col: 0, variant: "value", props: { v: "X" } }],
+        cells: [{ row: 0, col: 0, config: valueCfg("X") }],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       expect(ev.defaultPrevented).toBe(false);
-      expect(result.current.retrieve?.cells.a.props.v).toEqual("A");
+      expect(result.current.retrieve?.cells.a).toMatchObject(valueCfg("A"));
     });
 
     it("is a no-op when the payload version is unknown", async () => {
@@ -240,12 +245,12 @@ describe("table clipboard", () => {
       await waitFor(() => expect(result.current.retrieve).toBeDefined());
       const payload = {
         version: 99,
-        cells: [{ row: 0, col: 0, variant: "value", props: { v: "X" } }],
+        cells: [{ row: 0, col: 0, config: valueCfg("X") }],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
       await act(async () => result.current.clipboard.onPaste(ev));
       expect(ev.defaultPrevented).toBe(false);
-      expect(result.current.retrieve?.cells.a.props.v).toEqual("A");
+      expect(result.current.retrieve?.cells.a).toMatchObject(valueCfg("A"));
     });
 
     it("fires onPaste with the keys that were overwritten", async () => {
@@ -270,8 +275,8 @@ describe("table clipboard", () => {
       const payload = {
         version: 1,
         cells: [
-          { row: 0, col: 0, variant: "value", props: { v: "X" } },
-          { row: 0, col: 1, variant: "value", props: { v: "Y" } },
+          { row: 0, col: 0, config: valueCfg("X") },
+          { row: 0, col: 1, config: valueCfg("Y") },
         ],
       };
       const ev = makeClipboardEvent({ [MIME]: JSON.stringify(payload) });
@@ -308,14 +313,10 @@ describe("table clipboard", () => {
       const pasteEv = makeClipboardEvent({ [MIME]: wire });
       await act(async () => pasteHook.result.current.onPaste(pasteEv));
       await waitFor(() => {
-        expect(retrieve.result.current?.cells.e.variant).toEqual("value");
-        expect(retrieve.result.current?.cells.e.props.v).toEqual("A");
-        expect(retrieve.result.current?.cells.f.variant).toEqual("value");
-        expect(retrieve.result.current?.cells.f.props.v).toEqual("B");
-        expect(retrieve.result.current?.cells.h.variant).toEqual("text");
-        expect(retrieve.result.current?.cells.h.props.v).toEqual("D");
-        expect(retrieve.result.current?.cells.i.variant).toEqual("text");
-        expect(retrieve.result.current?.cells.i.props.v).toEqual("E");
+        expect(retrieve.result.current?.cells.e).toMatchObject(valueCfg("A"));
+        expect(retrieve.result.current?.cells.f).toMatchObject(valueCfg("B"));
+        expect(retrieve.result.current?.cells.h).toMatchObject(textCfg("D"));
+        expect(retrieve.result.current?.cells.i).toMatchObject(textCfg("E"));
       });
     });
   });

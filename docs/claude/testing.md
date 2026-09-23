@@ -1,18 +1,18 @@
-# Testing Guide
+# Testing guide
 
 Per-language frameworks, rules, and examples live in the toolchain docs
 (`docs/claude/toolchains/*.md`): Vitest (TS), Ginkgo/Gomega (Go), pytest (Python),
 Google Test + xtest (C++). All BDD-style; tests co-located with source (TS/Go/C++) or in
 `tests/` (Python).
 
-## Universal Practices
+## Universal practices
 
 - Descriptive "should"-style names; AAA (arrange, act, assert); one behavior per test.
 - Fast (unit tests <100ms), deterministic (no flaky tests, no random data), independent
   (no inter-test dependencies).
 - Mock via interfaces / dependency injection, not by patching internals.
 
-## Live-Core Tests
+## Live-Core tests
 
 Client (TS/Python/C++) tests, Pluto and Console live-core specs, and Driver tests
 connect to a core at `localhost:9090` (login `synnax`/`seldon`). Before running any of
@@ -32,7 +32,7 @@ cd core && go build -o synnax . && cd ..
 
 Start it in the background; in-memory state is lost on restart.
 
-## Integration Testing (`/integration/`)
+## Integration testing (`/integration/`)
 
 A custom Python **test conductor** orchestrates the full stack: Go server +
 TS/Python/C++ clients. Console UI tests use Playwright.

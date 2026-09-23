@@ -2,9 +2,9 @@
 layout: "@/layouts/Reference.astro"
 title: "Alarms"
 description: "Trigger warnings and notifications when sensor values exceed limits"
-prev: "Data Processing"
+prev: "Data processing"
 prevURL: "/reference/control/arc/how-to/data-processing"
-next: "Bang-Bang Control"
+next: "Bang-bang control"
 nextURL: "/reference/control/arc/how-to/bang-bang-control"
 ---
 
@@ -19,7 +19,7 @@ seconds should sound an alarm. Arc makes these patterns straightforward.
 
 <Divider.Divider x />
 
-## Basic Threshold
+## Basic threshold
 
 The simplest alarm compares a value to a threshold.
 
@@ -30,7 +30,7 @@ tank_pressure > 9000.0 -> status.set{ ... }
 
 <Divider.Divider x />
 
-## Time-Delayed
+## Time-delayed
 
 A brief spike might be acceptable, but a sustained high value indicates a real problem.
 Debounce the condition with
@@ -84,7 +84,7 @@ below 580 psi. This 20 psi deadband eliminates chatter.
 
 <Divider.Divider x />
 
-## High and Low with Deadband
+## High and low with deadband
 
 Many sensors need both high and low alarms. Create separate functions for each:
 
@@ -114,7 +114,7 @@ tank_pressure -> low_deadband_alarm{low=100.0, clear=120.0} -> pressure_low
 
 <Divider.Divider x />
 
-## Multi-Condition
+## Multi-condition
 
 Some alarms require multiple conditions. An abort alarm might trigger when both inlet
 and outlet pressures are elevated (potential runaway), or when any single pressure
@@ -186,7 +186,7 @@ operator acknowledges it by clicking the button.
 
 <Divider.Divider x />
 
-## Priority Levels
+## Priority levels
 
 The simplest form maps a reading to a priority level and logs it:
 
@@ -239,7 +239,7 @@ stage monitor {
 
 <Divider.Divider x />
 
-## Alarms in Sequences
+## Alarms in sequences
 
 Alarms are often used to trigger sequence transitions:
 

@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -29,5 +30,5 @@ type LinePlot struct {
 	Name string `json:"name" msgpack:"name"`
 	// Data is the line plot configuration including channel references, axis settings,
 	// and display options.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
+	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }

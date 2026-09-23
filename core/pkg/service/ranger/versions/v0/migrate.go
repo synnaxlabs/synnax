@@ -11,8 +11,8 @@ package v0
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"

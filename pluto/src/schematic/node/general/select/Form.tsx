@@ -71,6 +71,7 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
       <Input.Item label="Command channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
+      <Form.ActivationDelayField />
       <Form.ControlChipField />
     </Form.Wrapper>
   );
