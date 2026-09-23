@@ -20,6 +20,7 @@ cc_library(
         "//x/cpp/caseconv",
         "//x/cpp/errors",
         "//x/cpp/fs",
+        "//x/cpp/strings",
         "@abseil-cpp//absl/log",
     ],
 )
