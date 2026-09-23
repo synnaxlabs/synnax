@@ -8,19 +8,12 @@
 // included in the file licenses/APL.txt.
 
 /**
- * Turns a `VITE_FLAG_*` value into a flag. Vite replaces `import.meta.env.VITE_*`
- * statically, so dark code tree-shakes out of production. Dev builds turn every flag
- * on.
- * @param value - The raw environment value; only the exact string "true" enables.
- * @param dev - Whether this is a dev build. Defaults to the build's `IS_DEV`.
- */
-export const flag = (value: string | undefined, dev: boolean = IS_DEV): boolean =>
-  dev || value === "true";
-
-/**
- * Static build-time flags that hide unfinished work in production. Each entry names its
- * owner and the release that removes it: `example:
- * flag(import.meta.env.VITE_FLAG_EXAMPLE), // Owner: Name. Removed in 0.60.`
+ * Static build-time flags that hide unfinished work in production. Vite replaces
+ * `import.meta.env.VITE_*` statically, so dark code tree-shakes out of production, and
+ * dev builds turn every flag on. Only the exact string "true" enables a flag. Each
+ * entry names its owner and the release that removes it:
+ * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
+ * Removed in 0.60.`
  */
 export const FLAGS = {} as const satisfies Record<string, boolean>;
 
