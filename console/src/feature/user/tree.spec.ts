@@ -64,10 +64,14 @@ describe("user ontology service", () => {
     expect(screen.queryByText("Change role")).toBeNull();
   });
 
-  it("should not offer a role change for the root user", async () => {
+  it("should offer no credential or role changes for the root user", async () => {
+    // The Core reconciles the root user's username and password from its
+    // configuration at every startup, so any change here would revert on restart.
     const u = await createUser();
     await renderMenu([userResource(u.key, u.username, true)]);
-    expect(await screen.findByText("Change username")).toBeTruthy();
+    expect(await screen.findByText("Copy properties")).toBeTruthy();
+    expect(screen.queryByText("Change username")).toBeNull();
+    expect(screen.queryByText("Change password")).toBeNull();
     expect(screen.queryByText("Change role")).toBeNull();
   });
 

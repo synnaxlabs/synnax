@@ -89,7 +89,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
   return (
     <ContextMenu.Menu>
-      {hasUpdatePermission && singleResource && isNotCurrentUser && (
+      {hasUpdatePermission && singleResource && isNotCurrentUser && !isRootUser && (
         <>
           <Menu.Item itemKey="rename" onClick={rename}>
             <Icon.Rename />
@@ -102,12 +102,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             <Icon.Lock />
             Change password
           </Menu.Item>
-          {!isRootUser && (
-            <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
-              <Icon.Role />
-              Change role
-            </Menu.Item>
-          )}
+          <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
+            <Icon.Role />
+            Change role
+          </Menu.Item>
         </>
       )}
       <Menu.Divider />

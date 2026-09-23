@@ -222,3 +222,5 @@ export const useResultUsername = createResultSelector(({ username }) => username
 export const useResultFirstName = createResultSelector(({ firstName }) => firstName);
 
 export const useResultLastName = createResultSelector(({ lastName }) => lastName);
+
+export const useResultRootUser = createResultSelector(({ rootUser }) => rootUser);

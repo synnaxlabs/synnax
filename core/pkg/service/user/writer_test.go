@@ -120,7 +120,27 @@ var _ = Describe("Writer", func() {
 				).To(MatchError(auth.ErrRepeatedUsername))
 			},
 		)
+		It("Should not rename a root user", func(ctx SpecContext) {
+			// Insert a root user directly via the raw gorp writer because
+			// Writer.Create rejects RootUser=true.
+			root := user.User{
+				Key:      uuid.New(),
+				Username: uuid.New().String(),
+				RootUser: true,
+			}
+			Expect(
+				gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, root),
+			).To(Succeed())
+			Expect(w.ChangeUsername(ctx, root.Key, uuid.New().String())).
+				To(MatchError(user.ErrRootCredentialsManaged))
+			var stored user.User
+			Expect(svc.NewRetrieve().
+				Where(user.MatchKeys(root.Key)).Entry(&stored).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(stored.Username).To(Equal(root.Username))
+		})
 	})
+
 	Describe("ChangeName", func() {
 		It("Should change the names of a user", func(ctx SpecContext) {
 			created := MustSucceed(

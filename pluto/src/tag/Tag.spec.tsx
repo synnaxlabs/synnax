@@ -22,6 +22,12 @@ describe("Tag", () => {
     expect(c.getByText("Test")).toBeTruthy();
     expect(c.getByText("Icon")).toBeTruthy();
   });
+  it("should call onClick when one is provided", () => {
+    const onClick = vi.fn();
+    const c = render(<Tag.Tag onClick={onClick}>Test</Tag.Tag>);
+    fireEvent.click(c.getByText("Test"));
+    expect(onClick).toHaveBeenCalled();
+  });
   it("should render a close button if onClose is provided", () => {
     const close = vi.fn();
     const c = render(<Tag.Tag onClose={close}>Test</Tag.Tag>);

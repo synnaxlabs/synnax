@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Triggers } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -103,9 +104,9 @@ describe("Core.Badge", () => {
     expect(screen.queryByText("Log out")).toBeNull();
   });
 
-  it("should close the dialog and open the password modal from the actions row", async () => {
+  it("should open the password modal from the actions row", async () => {
     const { wrapper } = await createConsoleWrapper({
-      client: null,
+      client: await new RoleClients(createTestClient()).get("Viewer"),
       preloadedState: createStateWithUser("Core-user"),
     });
     const { container } = render(
@@ -117,8 +118,23 @@ describe("Core.Badge", () => {
     );
     clickCoreBadge(container);
     fireEvent.click(await screen.findByText("Change password"));
-    expect(await screen.findByLabelText("New password")).toBeTruthy();
+    expect(await screen.findByLabelText("Current password")).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
+  });
+
+  it("should withhold the password action from the root user", async () => {
+    // The Core reconciles the root password from its configuration at every startup,
+    // so the change would revert on the next restart. The test cluster signs in as
+    // the root user, which is what makes this the interesting case.
+    const { wrapper } = await createConsoleWrapper({
+      client: createTestClient(),
+      preloadedState: createStateWithUser("Core-user"),
+    });
+    const { container } = render(<Core.Badge />, { wrapper });
+    clickCoreBadge(container);
+    // Log out shares the actions row, so it proves the row rendered at all.
+    expect(await screen.findByText("Log out")).toBeTruthy();
+    expect(screen.queryByText("Change password")).toBeNull();
   });
 
   it("should log out of the active Core when Log out is clicked", async () => {

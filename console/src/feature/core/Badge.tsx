@@ -53,6 +53,9 @@ const Content = (): ReactElement => {
   const copy = Clipboard.useCopy();
   const openConnect = Core.useConnectModal();
   const openChangePassword = User.useChangeOwnPasswordModal();
+  // The Core reconciles the root user's password from its configuration at every
+  // startup, so a change here would revert on the next restart.
+  const rootUser = User.useRootUser();
   const handleLogout = Session.useLogout();
   const { close } = Dialog.useContext();
   const degraded =
@@ -155,16 +158,18 @@ const Content = (): ReactElement => {
           )}
           {activeKey != null && (
             <>
-              <Button.Button
-                onClick={changePassword}
-                variant="outlined"
-                size="small"
-                grow
-                justify="center"
-              >
-                <Icon.Lock />
-                Change password
-              </Button.Button>
+              {rootUser === false && (
+                <Button.Button
+                  onClick={changePassword}
+                  variant="outlined"
+                  size="small"
+                  grow
+                  justify="center"
+                >
+                  <Icon.Lock />
+                  Change password
+                </Button.Button>
+              )}
               <Button.Button
                 onClick={handleLogout}
                 variant="filled"

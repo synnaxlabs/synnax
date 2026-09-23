@@ -147,7 +147,8 @@ type ChangePasswordRequest struct {
 }
 
 // ChangePassword replaces the password for the user with the given key. The subject
-// must hold update access on that user; the current password is not required.
+// must hold update access on that user; the current password is not required. Returns
+// [user.ErrRootCredentialsManaged] if the key names the root user.
 func (s *Service) ChangePassword(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -165,6 +166,9 @@ func (s *Service) ChangePassword(
 		Where(user.MatchKeys(req.Key)).Entry(&u).
 		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
+	}
+	if u.RootUser {
+		return struct{}{}, user.ErrRootCredentialsManaged
 	}
 	return struct{}{}, s.auth.NewWriter(tx).ChangePassword(ctx, svcauth.Credentials{
 		Username: u.Username,

@@ -348,8 +348,10 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should let a subject with update access change its own password",
+			"Should refuse to change the root user's password",
 			func(ctx SpecContext) {
+				// The Core reconciles the root password against its configuration on
+				// every startup, so a change here would revert on the next restart.
 				Expect(
 					apiSvc.ChangePassword(
 						rootCtx(ctx),
@@ -359,9 +361,10 @@ var _ = Describe("Service", func() {
 							Password: "root-new",
 						},
 					),
-				).To(Equal(struct{}{}))
+				).Error().
+					To(MatchError(user.ErrRootCredentialsManaged))
 				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-					Username: root.Username, Password: "root-new",
+					Username: root.Username, Password: "p",
 				})).To(Succeed())
 			},
 		)

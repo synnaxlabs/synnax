@@ -41,6 +41,12 @@ export const useDisplayName = (): string => {
   return firstName != null && firstName !== "" ? firstName : username;
 };
 
+/**
+ * Whether the signed-in user is the cluster's root user, or undefined while the
+ * record is still loading.
+ */
+export const useRootUser = (): boolean | undefined => User.useResultRootUser({}).data;
+
 /** The signed-in user's name, roles, and username, for embedding in a dialog. */
 export const Info = (): ReactElement => {
   const { data: remoteUsername } = User.useResultUsername({});
