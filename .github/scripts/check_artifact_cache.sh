@@ -63,6 +63,7 @@ CONSOLE_PATHS=(
     "console/**"
     "drift/**"
     "freighter/ts/**"
+    "lyra/**"
     "package.json"
     "pluto/**"
     "pnpm-lock.yaml"

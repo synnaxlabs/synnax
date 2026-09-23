@@ -29,6 +29,7 @@ on:
       - drift/**
       - freighter/go/**
       - freighter/ts/**
+      - lyra/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml
@@ -59,6 +60,7 @@ on:
       - drift/**
       - freighter/go/**
       - freighter/ts/**
+      - lyra/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml

@@ -44,6 +44,7 @@ on:
       - .github/scripts/check_artifact_cache.sh
       - MODULE.bazel
       - MODULE.bazel.lock
+      - lyra/**
       - package.json
       - pluto/**
       - pnpm-lock.yaml
