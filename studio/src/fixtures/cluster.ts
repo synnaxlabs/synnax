@@ -79,7 +79,7 @@ export const createLabels = async (
  */
 export const resetLabels = async (
   specs: LabelSpec[],
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<void> => {
   const client = connect(opts);
   try {
@@ -97,7 +97,7 @@ export const resetLabels = async (
     const missing = specs.filter((s) => !kept.has(s.name));
     if (missing.length > 0) await client.labels.create(missing);
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
@@ -107,7 +107,7 @@ export const resetLabels = async (
  */
 export const ensureLabels = async (
   specs: LabelSpec[],
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<Record<string, string>> => {
   const client = connect(opts);
   try {
@@ -119,7 +119,7 @@ export const ensureLabels = async (
       keys[spec.name] = byName.get(spec.name) ?? (await client.labels.create(spec)).key;
     return keys;
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
@@ -141,7 +141,7 @@ export interface RangeSetup {
  */
 export const ensureRange = async (
   spec: RangeSetup,
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<string> => {
   const client = connect(opts);
   try {
@@ -158,7 +158,7 @@ export const ensureRange = async (
       await client.labels.label(range.ontologyID, spec.labels);
     return range.key;
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
@@ -166,7 +166,7 @@ export const ensureRange = async (
  * clearWorkspace deletes every range and view on the cluster, leaving labels
  * and the rest untouched, so a shot starts and ends from a bare workspace.
  */
-export const clearWorkspace = async (opts: ClusterOptions = {}): Promise<void> => {
+export const clearWorkspace = async (opts: ConnectionOptions = {}): Promise<void> => {
   const client = connect(opts);
   try {
     const ranges = await client.ranges.retrieve({ limit: 1000 });
@@ -174,21 +174,21 @@ export const clearWorkspace = async (opts: ClusterOptions = {}): Promise<void> =
     const views = await client.views.retrieve({ limit: 1000 });
     if (views.length > 0) await client.views.delete(views.map((v) => v.key));
   } finally {
-    client.close();
+    await client.close();
   }
 };
 
 /** removeChannels deletes the named channels, so a shot can create them on camera. */
 export const removeChannels = async (
   names: string[],
-  opts: ClusterOptions = {},
+  opts: ConnectionOptions = {},
 ): Promise<void> => {
   const client = connect(opts);
   try {
     const found = await client.channels.retrieve({ names });
     if (found.length > 0) await client.channels.delete(found.map((c) => c.key));
   } finally {
-    client.close();
+    await client.close();
   }
 };
 

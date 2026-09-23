@@ -19,7 +19,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // Off-camera: the shot creates the channel itself, so drop any earlier copy.
   await fixtures.removeChannels([NAME, `${NAME}_time`]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   const placeholder = capture.tab(page, "Create component");
   if (await placeholder.isVisible().catch(() => false)) {

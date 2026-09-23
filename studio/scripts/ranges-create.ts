@@ -172,7 +172,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(150);
 
   // Navigate back to the Range Explorer by its open mosaic tab.
-  await capture.selectTab(session, "Range explorer");
+  await session.click(capture.tab(page, "Range explorer"));
   await session.waitFor(page.locator(".console-range-explorer").first());
   await session.hold(2000);
 };

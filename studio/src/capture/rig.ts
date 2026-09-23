@@ -49,6 +49,8 @@ export interface CaptureOptions {
   fps?: number;
   theme?: "light" | "dark";
   headed?: boolean;
+  /** Accepts self-signed certificates, for a capture Core served over TLS. */
+  insecure?: boolean;
   /**
    * Hides the text caret. The native caret blinks on renderer wall time, which
    * capture cannot step, so it blinks fps/wall-rate times too fast in output.
@@ -157,6 +159,7 @@ export class CaptureSession {
       fps: 60,
       theme: "light",
       headed: false,
+      insecure: false,
       hideCaret: false,
       hideNotifications: true,
       corePort: 9090,
@@ -167,17 +170,15 @@ export class CaptureSession {
       args: [
         "--force-color-profile=srgb",
         "--hide-scrollbars",
-        // ignoreHTTPSErrors does not reach WebSocket TLS; remote capture cores
-        // serve self-signed certificates.
-        "--ignore-certificate-errors",
+        // ignoreHTTPSErrors does not reach WebSocket TLS.
+        ...(opts.insecure ? ["--ignore-certificate-errors"] : []),
       ],
     });
     const context = await browser.newContext({
       viewport: { width: opts.width, height: opts.height },
       deviceScaleFactor: opts.dsf,
       colorScheme: opts.theme,
-      // Remote capture cores serve self-signed certificates.
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: opts.insecure,
     });
     const page = await context.newPage();
     await page.clock.install();

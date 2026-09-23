@@ -31,6 +31,8 @@ export interface CaptureRunOptions {
   url: string;
   theme: "light" | "dark";
   headed?: boolean;
+  /** Accepts self-signed certificates from the capture Core. */
+  insecure?: boolean;
   hideCaret?: boolean;
   width?: number;
   height?: number;
@@ -79,6 +81,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
       theme: opts.theme,
       corePort: port,
       headed: opts.headed ?? false,
+      insecure: opts.insecure ?? false,
       hideCaret: opts.hideCaret ?? false,
       ...(width != null && { width }),
       ...(height != null && { height }),

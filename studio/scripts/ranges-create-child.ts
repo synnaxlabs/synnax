@@ -95,7 +95,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await add("Eng Ops", at(9, 30, 1), at(11, 30), enerNom, "Setup");
   await add("Propellant Load", at(11, 30, 1), at(13, 0), enerNom, "Setup");
 
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   // Off-camera: show the DQ-4 view in the Range explorer tab.
   await page.getByText("DQ-4", { exact: true }).first().click();

@@ -28,14 +28,14 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     { name: "Nominal", color: "#3B7DDB" },
     { name: "Anomaly", color: "#DC1360" },
   ]);
-  await fixtures.seedRanges([
+  await fixtures.createRanges([
     {
       name: "My Range",
       timeRange: new TimeRange(START, START.add(TimeSpan.minutes(15))),
     },
   ]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   await capture.searchPalette(session, "My Range");
   const trigger = page.getByText("Select labels", { exact: true }).first();
@@ -63,7 +63,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const hide = ["Child ranges", "Metadata", "Snapshots"];
     for (const el of document.querySelectorAll(".pluto-header"))
       if (hide.includes(el.textContent?.trim() ?? ""))
-        (el.parentElement as HTMLElement | null)?.style.setProperty("display", "none");
+        el.parentElement?.style.setProperty("display", "none");
   });
 
   await session.moveTo({ x: 756, y: 400 });

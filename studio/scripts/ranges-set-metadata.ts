@@ -21,14 +21,14 @@ const START = new TimeStamp(new Date(2025, 2, 14, 10, 0, 0));
  * appears as a saved row.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
-  await fixtures.seedRanges([
+  await fixtures.createRanges([
     {
       name: "My Range",
       timeRange: new TimeRange(START, START.add(TimeSpan.minutes(15))),
     },
   ]);
   const { page } = session;
-  await capture.login(session, { username: "synnax", password: "seldon" });
+  await capture.login(session);
 
   await capture.searchPalette(session, "My Range");
   const section = page.locator(".pluto-header").filter({ hasText: "Metadata" });
@@ -39,7 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await page.evaluate(() => {
     for (const el of document.querySelectorAll(".pluto-header"))
       if (el.textContent?.trim() === "Snapshots")
-        (el.parentElement as HTMLElement | null)?.style.setProperty("display", "none");
+        el.parentElement?.style.setProperty("display", "none");
   });
 
   await session.moveTo({ x: 756, y: 400 });
