@@ -33,7 +33,7 @@ const gaugeState = staleness.configZ.extend({
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
-  stalenessColor: color.colorZ.default(color.ZERO),
+  stalenessColor: color.colorZ.optional(),
   precision: z.number().default(2),
   minWidth: z.number().default(60),
   width: z.number().optional(),

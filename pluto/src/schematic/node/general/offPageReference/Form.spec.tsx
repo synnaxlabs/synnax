@@ -7,47 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { Form } from "@/form";
+import { Node } from "@/schematic/node";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 
-const offPageRefSchema = z.object({
-  label: z.object({
-    label: z.string(),
-    level: z.string().optional(),
-    orientation: z.string().optional(),
-  }),
-  page: z.object({ type: z.string(), key: z.string() }).or(z.string()),
-  dblClickNav: z.boolean(),
-  color: z.string().nullable().optional(),
-  orientation: z.string().optional(),
-});
-
-const offPageRefValues: z.infer<typeof offPageRefSchema> = {
-  label: { label: "Test Label", level: "p", orientation: "top" },
-  page: "",
-  dblClickNav: true,
-  color: "#000000",
-  orientation: "left",
-};
+const CONFIG_Z = schematic.offPageReferenceNodeConfigZ;
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof offPageRefSchema>({
-    values: deep.copy(offPageRefValues),
-    schema: offPageRefSchema,
+  const methods = Form.use<typeof CONFIG_Z>({
+    values: Node.createConfig({ variant: "off_page_reference" }),
+    schema: CONFIG_Z,
   });
   return (
     <SynnaxWrapper>
-      <Form.Form<typeof offPageRefSchema> {...methods}>{children}</Form.Form>
+      <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
     </SynnaxWrapper>
   );
 };
@@ -94,12 +77,12 @@ describe("OffPageReferenceForm", () => {
 
   interface PageFormFixtureArgs {
     targetType?: "schematic" | "lineplot";
-    initialPage?: (targetKey: string) => z.input<typeof offPageRefSchema>["page"];
+    initialPage?: (targetKey: string) => schematic.Page | undefined;
   }
 
   const createPageFormFixture = async ({
     targetType = "lineplot",
-    initialPage = () => "",
+    initialPage = () => undefined,
   }: PageFormFixtureArgs = {}) => {
     const client = createTestClient();
     const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
@@ -110,15 +93,21 @@ describe("OffPageReferenceForm", () => {
       targetType === "schematic"
         ? await client.schematics.create(proj.key, { name: targetName })
         : await client.lineplots.create(proj.key, { name: targetName });
-    let methods: Form.UseReturn<typeof offPageRefSchema> | undefined;
+    const initialColor = "#000000";
+    let methods: Form.UseReturn<typeof CONFIG_Z> | undefined;
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
-      methods = Form.use<typeof offPageRefSchema>({
-        values: { ...deep.copy(offPageRefValues), page: initialPage(target.key) },
-        schema: offPageRefSchema,
+      methods = Form.use<typeof CONFIG_Z>({
+        values: CONFIG_Z.parse({
+          variant: "off_page_reference",
+          label: { label: "Test Label" },
+          color: initialColor,
+          page: initialPage(target.key),
+        }),
+        schema: CONFIG_Z,
       });
       return (
         <SynnaxWrapper>
-          <Form.Form<typeof offPageRefSchema> {...methods}>{children}</Form.Form>
+          <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
         </SynnaxWrapper>
       );
     };
@@ -127,22 +116,23 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm schematicKey={source.key} />
       </Wrapper>,
     );
-    const getMethods = (): Form.UseReturn<typeof offPageRefSchema> => {
+    const getMethods = (): Form.UseReturn<typeof CONFIG_Z> => {
       if (methods == null) throw new Error("form did not mount");
       return methods;
     };
-    return { ...rendered, target, targetName, getMethods };
+    const getColor = (): string => JSON.stringify(getMethods().get("color").value);
+    return { ...rendered, target, targetName, getMethods, getColor };
   };
 
-  it("should select the canonical entry for a legacy bare page value", async () => {
+  it("should select the entry for a schematic page", async () => {
     const { getByText, targetName } = await createPageFormFixture({
       targetType: "schematic",
-      initialPage: (key) => key,
+      initialPage: (key) => ({ type: "schematic", key }),
     });
     await waitFor(() => expect(getByText(targetName)).toBeDefined());
   });
 
-  it("should select the entry for a page object value", async () => {
+  it("should select the entry for a line plot page", async () => {
     const { getByText, targetName } = await createPageFormFixture({
       initialPage: (key) => ({ type: "lineplot", key }),
     });
@@ -150,8 +140,9 @@ describe("OffPageReferenceForm", () => {
   });
 
   it("should write a typed page and recolor when a page is first selected", async () => {
-    const { getByText, findByText, getMethods, target, targetName } =
+    const { getByText, findByText, getMethods, getColor, target, targetName } =
       await createPageFormFixture();
+    const before = getColor();
     fireEvent.click(getByText("Select page"));
     fireEvent.click(await findByText(targetName));
     await waitFor(() =>
@@ -160,12 +151,15 @@ describe("OffPageReferenceForm", () => {
         key: target.key,
       }),
     );
-    expect(getMethods().get("color").value).not.toBe(offPageRefValues.color);
+    expect(getColor()).not.toBe(before);
   });
 
-  it("should not recolor when replacing an existing legacy page", async () => {
-    const { getByText, findByText, getMethods, target, targetName } =
-      await createPageFormFixture({ initialPage: () => uuid.create() });
+  it("should not recolor when replacing an existing page", async () => {
+    const { getByText, findByText, getMethods, getColor, target, targetName } =
+      await createPageFormFixture({
+        initialPage: () => ({ type: "schematic", key: uuid.create() }),
+      });
+    const before = getColor();
     fireEvent.click(getByText("Select page"));
     fireEvent.click(await findByText(targetName));
     await waitFor(() =>
@@ -174,18 +168,21 @@ describe("OffPageReferenceForm", () => {
         key: target.key,
       }),
     );
-    expect(getMethods().get("color").value).toBe(offPageRefValues.color);
+    expect(getColor()).toBe(before);
   });
 
   it("should clear the page and keep the color when deselected", async () => {
-    const { findByText, getAllByText, getMethods, targetName } =
+    const { findByText, getAllByText, getMethods, getColor, targetName } =
       await createPageFormFixture({
         initialPage: (key) => ({ type: "lineplot", key }),
       });
+    const before = getColor();
     fireEvent.click(await findByText(targetName));
     const options = getAllByText(targetName);
     fireEvent.click(options[options.length - 1]);
-    await waitFor(() => expect(getMethods().get("page").value).toBe(""));
-    expect(getMethods().get("color").value).toBe(offPageRefValues.color);
+    await waitFor(() =>
+      expect(getMethods().get("page", { optional: true })?.value).toBeUndefined(),
+    );
+    expect(getColor()).toBe(before);
   });
 });

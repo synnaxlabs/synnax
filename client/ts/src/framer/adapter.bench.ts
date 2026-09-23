@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series } from "@synnaxlabs/x";
+import { array, DataType, Series } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { bench, describe } from "vitest";
 
@@ -26,7 +26,7 @@ const payloads: channel.Payload[] = keys.map((key) =>
 );
 
 const retrieveChannels = async (params: channel.Params): Promise<channel.Payload[]> => {
-  const arr = Array.isArray(params) ? params : [params];
+  const arr = array.toArray(params);
   return payloads.filter((p) =>
     arr.some((c) =>
       typeof c === "object" ? c.key === p.key : c === p.key || c === p.name,

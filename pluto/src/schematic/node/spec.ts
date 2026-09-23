@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type xy } from "@synnaxlabs/x";
 import { type FC, type ReactNode } from "react";
-
-import { type Theming } from "@/theming";
 
 export interface FormProps {
   /** actions render in the right corner of the form's tab strip. */
@@ -33,12 +32,20 @@ export type PreviewProps<P extends object = object> = P & {
 
 export type Node<Config extends object = object> = FC<NodeProps<Config>>;
 
-export interface Spec<Variant extends string = string, Config extends object = object> {
+/**
+ * Spec describes how to render and edit one node variant. The default parameters give
+ * the erased view that holds a spec of any variant.
+ */
+export interface Spec<
+  Variant extends string = schematic.NodeConfigType,
+  Config extends object = schematic.NodeConfig,
+> {
   key: Variant;
   name: string;
+  /** The text written into the symbol's label on creation. Defaults to name. */
+  label?: string;
   Form: FC<FormProps>;
   Node: Node<Config>;
-  defaultConfig: (t: Theming.Theme) => Config;
   Preview: FC<PreviewProps<Config>>;
   zIndex: number;
   needsPosition?: boolean;

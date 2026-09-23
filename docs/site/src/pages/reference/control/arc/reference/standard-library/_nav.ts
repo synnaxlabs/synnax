@@ -12,7 +12,7 @@ import { type PageNavNode } from "@/components/nav/Page";
 export const STANDARD_LIBRARY_NAV: PageNavNode = {
   key: "standard-library",
   href: "/reference/control/arc/reference/standard-library",
-  name: "Standard Library",
+  name: "Standard library",
   children: [
     {
       key: "/reference/control/arc/reference/standard-library/control",

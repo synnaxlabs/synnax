@@ -1,4 +1,4 @@
-# Synnax Architecture
+# Synnax architecture
 
 Synnax is a horizontally-scalable observability and control platform for hardware
 telemetry, optimized for real-time performance and distributed reliability.
@@ -41,7 +41,7 @@ telemetry, optimized for real-time performance and distributed reliability.
 - **Alamos** (`/alamos/`, multi-language) — instrumentation: OpenTelemetry
   traces/metrics/logs with cross-service context propagation.
 
-## Dependency Graph
+## Dependency graph
 
 Every language stacks the same way, low to high: `x` (utilities) → `alamos`
 (instrumentation) → `freighter` (transport) → client → application. Higher depends on
@@ -55,7 +55,7 @@ lower, never the reverse.
 - **Python**: `x` → `alamos` → `freighter` → `client` (synnax) → `integration`.
 - **C++**: `x` → `freighter` → `client` → `driver`.
 
-## What Belongs Where
+## What belongs where
 
 Put code in the lowest package that can hold it without gaining a forbidden dependency.
 
@@ -78,21 +78,21 @@ Put code in the lowest package that can hold it without gaining a forbidden depe
 - `driver` — hardware integration (see `driver/CLAUDE.md`).
 - `integration` — cross-component integration tests + the tc conductor.
 
-## Data Flow
+## Data flow
 
 - Ingestion: Hardware → Driver → Server → Cesium → Distribution → Clients.
 - Control: Client → Server (validation) → Distribution → Driver → Hardware.
 - Cluster: nodes sync metadata via Aspen gossip; time-series data routed between Cesium
   stores.
 
-## Development Guidelines
+## Development guidelines
 
 - **Protocol agnostic** — use Freighter abstractions, never direct HTTP/gRPC.
 - **Multi-language API parity** across Go, TS, Python, C++.
 - **Real-time focus** — low latency, high frequency; design for horizontal scale.
 - Availability over consistency for metadata; strong consistency for telemetry.
 
-## Gotchas & Performance
+## Gotchas & performance
 
 - **Cesium**: overlapping time ranges cause write conflicts; structure queries for
   columnar reads.

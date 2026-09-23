@@ -155,6 +155,10 @@ type Scheduler struct {
 	// nextDeadline is the earliest deadline reported by any node during
 	// the previous Next; reset to TimeSpanMax at the start of each cycle.
 	nextDeadline telem.TimeSpan
+	// cycleNow is the stamp the current cycle began at.
+	cycleNow telem.TimeStamp
+	// nextStamp is the first stamp ReserveStamps has not handed out this cycle.
+	nextStamp telem.TimeStamp
 }
 
 // ErrorHandler receives errors raised by node execution.
@@ -183,16 +187,14 @@ func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 // Next executes one cycle of the reactive computation, re-walking until changes
 // settle. Nodes with pending changes execute in stratum order; sequential scopes
 // advance via their transitions; gated scopes activate when their handle fires.
-func (s *Scheduler) Next(
-	ctx context.Context,
-	elapsed telem.TimeSpan,
-	reason rnode.RunReason,
-) {
+// Next returns the highest stamp nodes reserved during the cycle, or zero when they
+// reserved none. The caller's clock must resume above it.
+func (s *Scheduler) Next(ctx context.Context, cycle rnode.Cycle) telem.TimeStamp {
 	s.nextDeadline = telem.TimeSpanMax
+	s.cycleNow, s.nextStamp = cycle.Now, cycle.Now
 	s.nodeCtx.Context = ctx
-	s.nodeCtx.Elapsed = elapsed
+	s.nodeCtx.Cycle = cycle
 	s.nodeCtx.Tolerance = s.tolerance
-	s.nodeCtx.Reason = reason
 	// Re-pass until no change lands on an already-run node, bounded against cycles.
 	for range len(s.changedFlags) + 1 {
 		s.settled = true
@@ -204,6 +206,10 @@ func (s *Scheduler) Next(
 	}
 	clear(s.changedFlags)
 	clear(s.markedFlags)
+	if s.nextStamp == s.cycleNow {
+		return 0
+	}
+	return s.nextStamp - 1
 }
 
 // walk executes one pass over a scope; no-op if inactive.
@@ -326,7 +332,7 @@ func (s *Scheduler) resetLeafNode(m *member) {
 	if n := m.node; m.isNode() && n != nil {
 		s.selfChangedFlags[n.idx] = 0
 		s.firedFlags[n.idx] = 0
-		n.Reset()
+		n.Reset(s.nodeCtx)
 	}
 }
 
@@ -441,6 +447,12 @@ func (s *Scheduler) markSelfChanged() {
 
 // reportError forwards err to the error handler, tagged with the
 // currently-executing node's key. No-op if no handler is set.
+func (s *Scheduler) reserveStamps(n int) telem.TimeStamp {
+	first := s.nextStamp
+	s.nextStamp += telem.TimeStamp(n)
+	return first
+}
+
 func (s *Scheduler) reportError(err error) {
 	if s.errorHandler != nil {
 		s.errorHandler.HandleError(s.nodeCtx.Context, s.currNode.key, err)

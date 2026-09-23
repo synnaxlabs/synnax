@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context } from "./check.ts";
+import { type Context } from "@/util/checks/check";
 
 // Some hosts reject non-browser user agents outright.
 const HEADERS = {
@@ -18,6 +18,14 @@ const HEADERS = {
 };
 const ATTEMPTS = 3;
 const TIMEOUT_MS = 15000;
+
+// A 503 is a host that answered but is temporarily unavailable, so its retry waits
+// long enough for a short outage to clear instead of the usual second or two.
+const UNAVAILABLE_DELAY_MS = 15000;
+const backoff = (last: number | string, attempt: number): Promise<void> =>
+  new Promise((resolve) =>
+    setTimeout(resolve, (last === 503 ? UNAVAILABLE_DELAY_MS : 1000) * attempt),
+  );
 
 const request = async (url: string, method: string): Promise<number | string> => {
   try {
@@ -69,8 +77,7 @@ const fetchBody = async (url: string): Promise<Body | Probe> => {
     } catch (e) {
       last = e instanceof Error ? e.message : String(e);
     }
-    if (attempt < ATTEMPTS)
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    if (attempt < ATTEMPTS) await backoff(last, attempt);
   }
   return { reason: `${url}: ${describe(last)}`, hung: typeof last !== "number" };
 };
@@ -105,8 +112,7 @@ const probe = async (url: string): Promise<Probe | null> => {
       if (typeof last === "number" && ok(last)) return null;
       if (last === 404 || last === 410) break;
     } else return null;
-    if (attempt < ATTEMPTS)
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    if (attempt < ATTEMPTS) await backoff(last, attempt);
   }
   return { reason: `${url}: ${describe(last)}`, hung: typeof last !== "number" };
 };

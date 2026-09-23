@@ -9,6 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto--enabled svg {
+    stroke: var(--pluto-symbol-display) !important;
+    fill: var(--pluto-symbol-display) !important;
+}
+
+.pluto--enabled svg .pluto--detail {
+    stroke: oklch(from var(--pluto-symbol-contrast) l c h / 90%) !important;
+}
+
 .pluto-symbol-primitive {
     width: fit-content;
     height: fit-content;
@@ -58,6 +67,70 @@
     }
 }
 
+/* Alpha, so a stroke-only symbol masks along its lines and a closed one masks its
+   interior, whatever color the symbol paints. */
+.pluto-symbol-hold__mask {
+    mask-type: alpha;
+    fill: white;
+    stroke: white;
+}
+
+.pluto-symbol-hold__fill {
+    display: none;
+    pointer-events: none;
+    fill: oklch(from var(--pluto-symbol-display) l c h / 20%);
+}
+
+.pluto-symbol-primitive-toggle {
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+
+    &:focus {
+        outline: none;
+    }
+
+    &.pluto--pressed {
+        opacity: 0.95;
+    }
+
+    &:not(.pluto--enabled) svg {
+        fill: none;
+    }
+
+    /* A custom symbol's SVG is injected, so its hold fill stays a box over the
+       button. Built-in symbols draw the fill inside their shapes below. */
+    &.pluto-symbol-primitive-toggle--delayed.pluto-symbol--custom {
+        position: relative;
+
+        &::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+
+            /* An image, not a color: the keyframe owns background-color for the dim. */
+            background-image: linear-gradient(
+                oklch(from var(--pluto-symbol-display) l c h / 20%),
+                oklch(from var(--pluto-symbol-display) l c h / 20%)
+            );
+            clip-path: inset(0 100% 0 0);
+            pointer-events: none;
+        }
+
+        &.pluto--pressed::after {
+            animation: delay var(--pluto-toggle-delay) linear;
+            clip-path: inset(0 0 0 0);
+        }
+    }
+
+    &.pluto--pressed .pluto-symbol-hold__fill {
+        display: inline;
+        animation: symbol-hold var(--pluto-toggle-delay) linear;
+    }
+}
+
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
@@ -71,7 +144,7 @@
         }
     }
 
-    &:active {
+    &.pluto--pressed {
         &:not(.pluto--enabled) svg {
             fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
             stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
@@ -84,53 +157,18 @@
     }
 }
 
-.pluto--enabled svg {
-    stroke: var(--pluto-symbol-display) !important;
-    fill: var(--pluto-symbol-display) !important;
-}
-
-.pluto--enabled svg .pluto--detail {
-    stroke: oklch(from var(--pluto-symbol-contrast) l c h / 90%) !important;
-}
-
-.pluto-symbol-primitive-toggle {
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0;
-
-    &:focus {
-        outline: none;
+@keyframes symbol-hold {
+    0% {
+        clip-path: inset(0 100% 0 0);
+        fill: rgb(0 0 0 / 40%);
     }
 
-    &:active {
-        opacity: 0.95;
+    99% {
+        clip-path: inset(0 0 0 0);
+        fill: rgb(0 0 0 / 40%);
     }
 
-    &:not(.pluto--enabled) svg {
-        fill: none;
-    }
-
-    &.pluto-symbol-primitive-toggle--delayed {
-        position: relative;
-
-        &::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-            /* An image, not a color: the keyframe owns background-color for the dim. */
-            background-image: linear-gradient(
-                oklch(from var(--pluto-symbol-display) l c h / 20%),
-                oklch(from var(--pluto-symbol-display) l c h / 20%)
-            );
-            clip-path: inset(0 100% 0 0);
-            pointer-events: none;
-        }
-
-        &:active::after {
-            animation: delay var(--pluto-toggle-delay) linear;
-            clip-path: inset(0 0 0 0);
-        }
+    100% {
+        clip-path: inset(0 0 0 0);
     }
 }

@@ -24,7 +24,6 @@ namespace arc::stl::constant {
 /// @brief Node that outputs a configured or var-bound value.
 class Constant : public runtime::node::Node {
     runtime::state::Node state;
-    x::telem::MonoClock clock;
     x::telem::SampleValue value;
 
 public:
@@ -55,12 +54,12 @@ public:
             o->set(0, this->value);
         }
         o_time->resize(1);
-        o_time->set(0, this->clock.now());
-        ctx.mark_changed(0);
+        o_time->set(0, ctx.cycle.now);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset() override { this->state.reset(); }
+    void reset(runtime::node::Context &) override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);

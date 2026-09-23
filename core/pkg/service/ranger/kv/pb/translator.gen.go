@@ -12,7 +12,8 @@
 package pb
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 )

@@ -11,8 +11,8 @@ package project_test
 
 import (
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
@@ -112,7 +112,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "import-" + uuid.NewString(),
+		Username: "import-" + uuid.New().String(),
 	}))
 }
 
@@ -142,10 +142,13 @@ func grantOn(
 	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: string(action) + "-" + uuid.NewString(), Description: "test"}
+	r := &role.Role{
+		Name:        string(action) + "-" + uuid.New().String(),
+		Description: "test",
+	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
-		Name:    string(action) + "-policy-" + uuid.NewString(),
+		Name:    string(action) + "-policy-" + uuid.New().String(),
 		Objects: objects,
 		Actions: []access.Action{action},
 	}

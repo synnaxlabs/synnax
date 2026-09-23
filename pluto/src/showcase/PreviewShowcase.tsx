@@ -246,12 +246,6 @@ export const PreviewShowcase = (): ReactElement => (
     <Row label="Numeric">
       {(p) => <Input.Numeric value={50} onChange={() => {}} preview={p} />}
     </Row>
-    <Row label="Date">
-      {(p) => <Input.Date value={NOW} onChange={() => {}} preview={p} />}
-    </Row>
-    <Row label="Time">
-      {(p) => <Input.Time value={NOW} onChange={() => {}} preview={p} />}
-    </Row>
     <Row label="DateTime">
       {(p) => <Input.DateTime value={NOW} onChange={() => {}} preview={p} />}
     </Row>

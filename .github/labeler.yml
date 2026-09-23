@@ -1,0 +1,68 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Labels applied to a pull request from the paths it touches, one per product a user
+# knows. A package lands under the product that ships it; a per-language package under
+# the product in that language. Release notes group entries by these labels (see
+# release.yml).
+
+console:
+  - changed-files:
+      - any-glob-to-any-file:
+          - console/**
+          - drift/**
+          - pluto/**
+
+driver:
+  - changed-files:
+      - any-glob-to-any-file:
+          - driver/**
+
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - alamos/go/**
+          - aspen/**
+          - cesium/**
+          - core/**
+          - freighter/go/**
+          - x/go/**
+
+arc:
+  - changed-files:
+      - any-glob-to-any-file:
+          - arc/**
+
+cpp-client:
+  - changed-files:
+      - any-glob-to-any-file:
+          - client/cpp/**
+          - freighter/cpp/**
+          - x/cpp/**
+
+py-client:
+  - changed-files:
+      - any-glob-to-any-file:
+          - alamos/py/**
+          - client/py/**
+          - freighter/py/**
+          - x/py/**
+
+ts-client:
+  - changed-files:
+      - any-glob-to-any-file:
+          - alamos/ts/**
+          - client/ts/**
+          - freighter/ts/**
+          - x/ts/**
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/site/**

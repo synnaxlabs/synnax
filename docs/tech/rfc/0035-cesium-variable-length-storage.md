@@ -66,7 +66,7 @@ it a data corruption vector.
 
 Cesium has two per-channel database variants:
 
-| Variant   | Package    | Persists | Data Types    | Index Required |
+| Variant   | Package    | Persists | Data types    | Index required |
 | --------- | ---------- | -------- | ------------- | -------------- |
 | `unary`   | `unary/`   | Yes      | Any non-event | Yes            |
 | `virtual` | `virtual/` | No       | Any           | No             |

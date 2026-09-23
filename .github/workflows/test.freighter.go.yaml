@@ -23,7 +23,7 @@ on:
   push:
     branches:
       - main
-      - rc
+      - release/**
     paths:
       - .github/workflows/test.freighter.go.yaml
       - .github/workflows/test.go.yaml

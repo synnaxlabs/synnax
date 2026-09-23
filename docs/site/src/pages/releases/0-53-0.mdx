@@ -1,5 +1,5 @@
 ---
-title: "Version 0.53 Release Notes"
+title: "Version 0.53 release notes"
 ---
 
 import { Image } from "@/components/media/Media";
@@ -11,7 +11,7 @@ export const components = mdxOverrides;
 <Release
     version="0.53.0"
     date="Mar 13, 2026"
-    title="HTTP Write Tasks"
+    title="HTTP write tasks"
 >
 
 <Image client:only="react" id="releases/0-53-0/http-write-task" themed={false} />
@@ -22,7 +22,7 @@ stability improvements to the Arc runtime and server.
 
 <Divider.Divider x />
 
-### HTTP Write Task
+### HTTP write task
 
 The HTTP driver now supports writing data from Synnax channels to REST API endpoints,
 completing the read/write story introduced in v0.52. Write tasks send channel data as
@@ -34,7 +34,7 @@ bridge between Synnax and any REST API.
 
 <Divider.Divider x />
 
-### Python Client HTTP Support
+### Python client HTTP support
 
 The Python client can now create and configure HTTP read and write tasks
 programmatically. This provides an alternative to the Console UI for managing HTTP
@@ -43,7 +43,7 @@ larger deployment workflows.
 
 <Divider.Divider x />
 
-### Minor Improvements and Bug Fixes
+### Minor improvements and bug fixes
 
 #### Arc
 
@@ -66,7 +66,7 @@ larger deployment workflows.
 - The formatter no longer corrupts config blocks containing comments or incorrectly
   collapses closing braces.
 
-#### Arc Editor
+#### Arc editor
 
 - Inserting a newline at the beginning of an Arc program no longer breaks syntax
   highlighting.
@@ -91,7 +91,7 @@ larger deployment workflows.
 
 #### Console
 
-- Refreshed the HTTP Read Task configuration UI.
+- Refreshed the HTTP read task configuration UI.
 - DateTime inputs now correctly display and select local time instead of UTC.
 - Context menus for items near the bottom of a page no longer appear off-screen.
 - Fixed a crash when loading ranges that were created before a color schema migration.

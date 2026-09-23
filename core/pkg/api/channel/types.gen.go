@@ -20,11 +20,10 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	gotypes "go/types"
 )
 
 // Status is channel-specific status information.
-type Status = status.Status[gotypes.Nil]
+type Status = status.Status[struct{}]
 
 // Channel is a logical collection of samples emitted by or representing values from a
 // single source. Channels are the fundamental unit of telemetry storage and streaming
@@ -48,7 +47,7 @@ type Channel struct {
 	// with a timestamp.
 	Index servicechannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
-	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
+	Alias *string `json:"alias,omitzero" msgpack:"alias,omitempty"`
 	// Virtual is true if this channel does not store data in the database but can still
 	// be used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
@@ -59,12 +58,12 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg, derivative)
 	// applied to channel data over time or triggered by a reset channel.
-	Operations []servicechannel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
+	Operations []servicechannel.Operation `json:"operations" msgpack:"operations"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
