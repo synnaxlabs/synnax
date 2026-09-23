@@ -1,0 +1,59 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Portal from "@/portal/layouts/Portal.astro";
+import { licenseFor } from "@/portal/access";
+import { failure, load } from "@/portal/page";
+import { Page } from "@/portal/ui/Page";
+import { License } from "@/portal/ui/licenses/License";
+import { listForLicense } from "@/server/event";
+import { organizationsFor } from "@/server/organization";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session } = loaded;
+
+const organizations = await organizationsFor(portal.store, session);
+
+let error: string | undefined;
+let view: Awaited<ReturnType<typeof licenseFor>> | undefined;
+let events: Awaited<ReturnType<typeof listForLicense>> = [];
+try {
+    view = await licenseFor(portal, session, Astro.params.key ?? "");
+    events = await listForLicense(portal.store, view.license.key);
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+}
+---
+
+<Portal
+    title={view?.license.label || "License"}
+    session={session}
+    organizations={organizations}
+    organization={view?.organization}
+>
+    {
+        view == null ? (
+            <Page client:load title="License" error={error} />
+        ) : (
+            <License
+                client:load
+                license={view.license}
+                organization={view.organization}
+                activations={view.activations}
+                events={events}
+                staff={session.staff}
+                now={portal.now()}
+            />
+        )
+    }
+</Portal>

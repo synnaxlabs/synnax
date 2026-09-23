@@ -21,8 +21,8 @@ its stdin closes.
 ## 1 Motivation
 
 A new user installs two programs today. The installation page
-(`docs/site/src/pages/reference/installation.mdx`) has four steps: install the Core from
-a terminal, start it with three flags, install the Console, and log in with `synnax` and
+(`hub/src/pages/reference/installation.mdx`) has four steps: install the Core from a
+terminal, start it with three flags, install the Console, and log in with `synnax` and
 `seldon`. Three of the four steps exist only because the Core is a separate install. An
 instrumentation engineer at a bench wants to plug in a LabJack or NI device and see
 data. If that engineer stops at the terminal step, the product never gets evaluated.

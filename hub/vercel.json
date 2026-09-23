@@ -1,0 +1,26 @@
+{
+  "installCommand": "npx --yes pnpm@12.3.1 install --frozen-lockfile",
+  "crons": [{ "path": "/api/cron/expiry", "schedule": "0 9 * * *" }],
+  "redirects": [
+    {
+      "source": "/guides/comparison/performance/one-billion-rows",
+      "destination": "/blog/one-billion-rows",
+      "permanent": true
+    },
+    {
+      "source": "/guides/:slug*",
+      "destination": "/reference/",
+      "permanent": true
+    },
+    {
+      "source": "/reference/cluster/:slug*",
+      "destination": "/reference/core/:slug*",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug*",
+      "destination": "/reference/driver/:slug*",
+      "permanent": true
+    }
+  ]
+}

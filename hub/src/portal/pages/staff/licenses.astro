@@ -1,0 +1,61 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { desc, eq } from "drizzle-orm";
+import Portal from "@/portal/layouts/Portal.astro";
+import { requireStaff } from "@/portal/access";
+import { failure, load } from "@/portal/page";
+import { Page } from "@/portal/ui/Page";
+import { StaffLicenses } from "@/portal/ui/staff/Licenses";
+import { license, organization } from "@/server/db/schema";
+import { type Listed, listTeams } from "@/server/directory";
+import { organizationsFor } from "@/server/organization";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session } = loaded;
+
+const organizations = await organizationsFor(portal.store, session);
+
+let error: string | undefined;
+let teams: Listed[] = [];
+let licenses: {
+    license: typeof license.$inferSelect;
+    organization: typeof organization.$inferSelect;
+}[] = [];
+try {
+    requireStaff(session);
+    teams = await listTeams(Astro);
+    licenses = await portal.store.query
+        .select({ license, organization })
+        .from(license)
+        .innerJoin(organization, eq(license.organization, organization.key))
+        .orderBy(desc(license.issuedAt));
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+}
+---
+
+<Portal title="All licenses" session={session} organizations={organizations}>
+    {
+        error != null ? (
+            <Page client:load title="All licenses" error={error} />
+        ) : (
+            <StaffLicenses
+                client:load
+                teams={teams}
+                licenses={licenses}
+                now={portal.now()}
+            />
+        )
+    }
+</Portal>

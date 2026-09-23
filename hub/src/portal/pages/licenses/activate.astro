@@ -1,0 +1,46 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import Portal from "@/portal/layouts/Portal.astro";
+import { load } from "@/portal/page";
+import { Activate } from "@/portal/ui/licenses/Activate";
+import { license, organization } from "@/server/db/schema";
+import { organizationsFor } from "@/server/organization";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session } = loaded;
+
+const organizations = await organizationsFor(portal.store, session);
+const choices = await portal.store.query
+    .select({ license, organization })
+    .from(license)
+    .innerJoin(organization, eq(license.organization, organization.key))
+    .where(
+        and(
+            inArray(
+                license.organization,
+                organizations.filter((o) => o.kind === "team").map((o) => o.key),
+            ),
+            isNull(license.revokedAt),
+        ),
+    )
+    .orderBy(desc(license.issuedAt));
+const selected = Astro.url.searchParams.get("license");
+---
+
+<Portal title="Activate a machine" session={session} organizations={organizations}>
+    <Activate
+        client:load
+        choices={choices}
+        selected={choices.some((c) => c.license.key === selected) ? selected : null}
+    />
+</Portal>
