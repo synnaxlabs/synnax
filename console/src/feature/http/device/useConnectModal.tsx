@@ -61,7 +61,7 @@ const INITIAL_VALUES: Device = {
   configured: true,
 };
 
-const useForm = PDevice.createForm(SCHEMAS);
+const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 // Longer than the usual request timeout to allow for negotiating an SSL handshake.
@@ -118,7 +118,6 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       variant,
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
-      initialValues: INITIAL_VALUES,
       beforeSave,
       afterSave: useCallback(() => close(), [close]),
     });

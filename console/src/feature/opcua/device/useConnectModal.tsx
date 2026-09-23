@@ -43,8 +43,6 @@ import { FS } from "@/platform/fs";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const useForm = PDevice.createForm(SCHEMAS);
-
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
 const INITIAL_VALUES: Device = {
@@ -57,6 +55,8 @@ const INITIAL_VALUES: Device = {
   rack: 0,
   configured: true,
 };
+
+const useForm = PDevice.createForm(SCHEMAS, INITIAL_VALUES);
 
 const beforeValidate = ({
   get,
@@ -104,7 +104,6 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       variant,
     } = useForm({
       query: deviceKey == null ? null : { key: deviceKey },
-      initialValues: INITIAL_VALUES,
       beforeValidate,
       beforeSave,
       afterSave: useCallback(() => close(), [close]),

@@ -150,12 +150,36 @@ export type FormSchema<S> =
 
 export type FormQuery = RetrieveQuery;
 
-export const createForm = <
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
->(
-  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+const BLANK_VALUES: z.infer<typeof formSchema> = {
+  key: "",
+  rack: 0,
+  name: "",
+  make: "",
+  model: "",
+  location: "",
+  configured: true,
+  properties: {},
+};
+
+export interface CreateForm {
+  (): Flux.UseForm<FormQuery, typeof formSchema>;
+  <
+    Properties extends z.ZodType<record.Unknown>,
+    Make extends z.ZodType<string>,
+    Model extends z.ZodType<string>,
+  >(
+    schemas: device.DeviceSchemas<Properties, Make, Model>,
+    initialValues: z.infer<FormSchema<device.DeviceSchemas<Properties, Make, Model>>>,
+  ): Flux.UseForm<FormQuery, FormSchema<device.DeviceSchemas<Properties, Make, Model>>>;
+}
+
+/**
+ * Builds a device form. With vendor schemas the caller supplies initial values that
+ * satisfy them; without, the form starts from a blank generic device.
+ */
+export const createForm: CreateForm = (
+  schemas?: device.DeviceSchemas,
+  initialValues: z.infer<typeof formSchema> = BLANK_VALUES,
 ) => {
   const schema = device.deviceZ(schemas);
   // Cached records and streamed set events are parsed generically, so they can carry
@@ -167,18 +191,7 @@ export const createForm = <
   return Flux.createForm<FormQuery, typeof schema>({
     name: RESOURCE_NAME,
     schema,
-    // A blank make and model wait on the modal's first step, so the draft does not
-    // satisfy a vendor's literals until then.
-    initialValues: {
-      key: "",
-      rack: 0,
-      name: "",
-      make: "",
-      model: "",
-      location: "",
-      configured: true,
-      properties: {},
-    } as z.infer<typeof schema>,
+    initialValues,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ query, client }) =>
       schemas != null
@@ -194,12 +207,7 @@ export const createForm = <
         data.key = uuid.create();
         set("key", data.key);
       }
-      if (schemas != null)
-        await client.devices.create(
-          data as device.New<Properties, Make, Model>,
-          schemas,
-        );
-      else await client.devices.create(data as device.New);
+      await client.devices.create(data as device.New, schemas);
     },
     mountListeners: ({ client, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];
