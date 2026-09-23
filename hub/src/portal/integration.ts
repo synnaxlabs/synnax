@@ -39,6 +39,17 @@ const ROUTES: Record<string, string> = {
   "/api/desktop/renew": "routes/desktop/renew.ts",
 };
 
+const MATCHERS = Object.keys(ROUTES).map(
+  (pattern) =>
+    new RegExp(
+      `^${pattern.replace(/\/\[\.\.\.[^\]]+\]/g, "(?:/.*)?").replace(/\[[^\]]+\]/g, "[^/]+")}$`,
+    ),
+);
+
+/** owns reports whether route belongs to the portal. */
+export const owns = (route: string): boolean =>
+  MATCHERS.some((matcher) => matcher.test(route));
+
 /** portal adds the signed-in pages, API routes, and Clerk middleware. */
 export const portal = (): AstroIntegration => ({
   name: "portal",
