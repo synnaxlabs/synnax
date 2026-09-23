@@ -84,7 +84,7 @@ var _ = Describe("Service", func() {
 				res := MustSucceed(
 					apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
 						Users: []apiuser.NewUser{{
-							Username: "existing-" + uuid.NewString(),
+							Username: "existing-" + uuid.New().String(),
 							Password: password,
 						}},
 					}),
@@ -108,7 +108,7 @@ var _ = Describe("Service", func() {
 				"Should rename the user, rotate the password, and free the old username",
 				func(ctx SpecContext) {
 					u := createUser(ctx, "one")
-					renamed := "renamed-" + uuid.NewString()
+					renamed := "renamed-" + uuid.New().String()
 					res := upsert(ctx, apiuser.NewUser{
 						Username:  renamed,
 						Password:  "two",

@@ -11,8 +11,8 @@ package user
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -119,7 +119,7 @@ func (s *Service) retrieveByKey(
 	tx gorp.Tx,
 	key user.Key,
 ) (user.User, bool, error) {
-	if key == uuid.Nil {
+	if key == uuid.Nil() {
 		return user.User{}, false, nil
 	}
 	var u user.User
