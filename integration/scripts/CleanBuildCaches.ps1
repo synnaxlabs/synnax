@@ -109,9 +109,10 @@ $junkDirs = @(
     "C:\Windows\Temp\*",
     "$env:TEMP\*",
     "C:\Windows\SoftwareDistribution\Download\*",
-    "C:\Users\Administrator\setup-pnpm",
-    "C:\Users\Administrator\AppData\Local\bazelisk",
-    "C:\Users\Administrator\AppData\Local\pnpm-cache",
+    "C:\Windows\SystemTemp\go-build*",
+    "$env:USERPROFILE\setup-pnpm*",
+    "$env:LOCALAPPDATA\bazelisk",
+    "$env:LOCALAPPDATA\pnpm-cache",
     "C:\Users\Default\.cargo",
     "C:\Users\Default\.rustup",
     "C:\Users\Default\go",
@@ -161,9 +162,8 @@ if (Test-EnoughSpace) {
 Write-Output "Deleting oldest cache files until ${MinFreeGB} GB free..."
 
 $cacheDirs = @(
-    "C:\Users\Administrator\AppData\Local\go-build",
-    "C:\Users\Administrator\go\pkg\mod\cache",
-    "C:\Windows\SystemTemp\go-build"
+    "$env:LOCALAPPDATA\go-build",
+    "$env:USERPROFILE\go\pkg\mod\cache"
 )
 $coreDir = Join-Path $repoRoot "core"
 
