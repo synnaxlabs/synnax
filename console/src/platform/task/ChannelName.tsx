@@ -97,8 +97,10 @@ interface MessageProps {
   children: Tooltip.DialogProps["children"][1];
 }
 
+const TOOLTIP_LOCATION = { y: "center" } as const;
+
 const Message = ({ variant, message, description, children }: MessageProps) => (
-  <Tooltip.Dialog location={{ y: "center" }}>
+  <Tooltip.Dialog location={TOOLTIP_LOCATION}>
     <Flex.Box y gap="small" className={CSS.B("task-channel-name")}>
       <Text.Text status={variant} level="p" color={10} weight={500}>
         {message}
