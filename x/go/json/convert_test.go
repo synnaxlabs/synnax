@@ -10,9 +10,6 @@
 package json_test
 
 import (
-	"encoding/json"
-	"strings"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xjson "github.com/synnaxlabs/x/json"
@@ -21,14 +18,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// decode parses JSON text the way a payload decoder does, keeping number precision.
 func decode(text string) any {
 	GinkgoHelper()
-	dec := json.NewDecoder(strings.NewReader(text))
-	dec.UseNumber()
-	var v any
-	Expect(dec.Decode(&v)).To(Succeed())
-	return v
+	return MustSucceed(xjson.Decode([]byte(text)))
 }
 
 func convert(
@@ -43,6 +35,31 @@ func convert(
 }
 
 var _ = Describe("Convert", func() {
+	Describe("Decode", func() {
+		It("Should keep the exact text of a number", func() {
+			Expect(decode(`{"a":[18446744073709551615]}`)).To(Equal(map[string]any{
+				"a": []any{xjson.NumberText("18446744073709551615")},
+			}))
+		})
+		It("Should keep the last value of a duplicate name", func() {
+			Expect(decode(`{"a":1,"a":2}`)).
+				To(Equal(map[string]any{"a": xjson.NumberText("2")}))
+		})
+		It("Should replace invalid UTF-8", func() {
+			Expect(decode("\"a\xffb\"")).To(Equal("a\uFFFDb"))
+		})
+		It("Should reject text after the document", func() {
+			Expect(xjson.Decode([]byte("1 2"))).Error().To(HaveOccurred())
+		})
+	})
+
+	Describe("Marshal", func() {
+		It("Should sort object names and keep number text", func() {
+			doc := map[string]any{"b": xjson.NumberText("1.50"), "a": "x"}
+			Expect(xjson.Marshal(doc)).To(BeEquivalentTo(`{"a":"x","b":1.50}`))
+		})
+	})
+
 	Describe("ParseTimeFormat", func() {
 		DescribeTable("Should parse each format",
 			func(text string, expected xjson.TimeFormat) {

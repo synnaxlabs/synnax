@@ -10,7 +10,6 @@
 package json_test
 
 import (
-	"encoding/json"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +28,7 @@ func marshalSample(
 ) string {
 	GinkgoHelper()
 	v := MustSucceed(xjson.FromSample(s.DataType, s.At(0), target, enums))
-	return string(MustSucceed(json.Marshal(v)))
+	return string(MustSucceed(xjson.Marshal(v)))
 }
 
 var _ = Describe("FromSample", func() {
@@ -54,7 +53,7 @@ var _ = Describe("FromSample", func() {
 	Describe("ZeroValue", func() {
 		DescribeTable("Should return the zero value of each type",
 			func(t xjson.Type, expected string) {
-				Expect(MustSucceed(json.Marshal(xjson.ZeroValue(t)))).
+				Expect(MustSucceed(xjson.Marshal(xjson.ZeroValue(t)))).
 					To(BeEquivalentTo(expected))
 			},
 			Entry("number", xjson.Number, "0"),
@@ -176,7 +175,7 @@ var _ = Describe("FromSample", func() {
 		DescribeTable("Should format a timestamp",
 			func(ts telem.TimeStamp, format xjson.TimeFormat, expected string) {
 				v := xjson.FromTimeStamp(ts, format)
-				Expect(MustSucceed(json.Marshal(v))).To(BeEquivalentTo(expected))
+				Expect(MustSucceed(xjson.Marshal(v))).To(BeEquivalentTo(expected))
 			},
 			Entry("ISO 8601", ts, xjson.ISO8601, `"2026-01-02T03:04:05.678Z"`),
 			Entry("ISO 8601 whole second",

@@ -10,9 +10,7 @@
 package mqtt
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"slices"
 	"strings"
 	"time"
@@ -198,10 +196,8 @@ func newReadTopic(
 // topic. It converts every field or none, because a frame that writes to an index
 // must hold every channel of that index.
 func (t readTopic) convert(msg message) (framer.Frame, telem.TimeStamp, error) {
-	var doc any
-	dec := json.NewDecoder(bytes.NewReader(msg.payload))
-	dec.UseNumber()
-	if err := dec.Decode(&doc); err != nil {
+	doc, err := xjson.Decode(msg.payload)
+	if err != nil {
 		// A payload that is not JSON is taken as a bare string, such as ON.
 		doc = string(msg.payload)
 	}

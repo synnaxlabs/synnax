@@ -11,7 +11,6 @@ package mqtt
 
 import (
 	"context"
-	"encoding/json"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -148,7 +147,7 @@ func newWriteTarget(target PlainWriteTarget, ch channel.Channel) (writeTarget, e
 					path, field.Pointer, field.JSONType,
 				)
 			}
-			if extra.static, err = json.Marshal(field.Value); err != nil {
+			if extra.static, err = xjson.Marshal(field.Value); err != nil {
 				return t, errors.Wrapf(
 					validate.ErrValidation,
 					"%s: static value at %s is not JSON", path, field.Pointer,
@@ -209,7 +208,7 @@ func (t writeTarget) payload(series telem.Series, i int) ([]byte, error) {
 		var extraValue any
 		switch {
 		case extra.static != nil:
-			if err = json.Unmarshal(extra.static, &extraValue); err != nil {
+			if extraValue, err = xjson.Decode(extra.static); err != nil {
 				return nil, err
 			}
 		case extra.generator == GeneratorTypeTimestamp:
@@ -224,7 +223,7 @@ func (t writeTarget) payload(series telem.Series, i int) ([]byte, error) {
 	if doc, err = t.pointer.Set(doc, value); err != nil {
 		return nil, err
 	}
-	return json.Marshal(doc)
+	return xjson.Marshal(doc)
 }
 
 // writeSink is the driver.Sink of an MQTT write task.

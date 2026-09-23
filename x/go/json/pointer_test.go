@@ -10,8 +10,6 @@
 package json_test
 
 import (
-	"encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xjson "github.com/synnaxlabs/x/json"
@@ -97,7 +95,7 @@ var _ = Describe("Pointer", func() {
 			}
 			p := MustSucceed(xjson.ParsePointer(pointer))
 			out := MustSucceed(p.Set(root, decode(value)))
-			return string(MustSucceed(json.Marshal(out)))
+			return string(MustSucceed(xjson.Marshal(out)))
 		}
 		DescribeTable("Should place a value",
 			func(doc, pointer, value, expected string) {

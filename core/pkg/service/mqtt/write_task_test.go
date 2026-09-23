@@ -11,7 +11,7 @@ package mqtt_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"math"
 	"time"
 	"uuid"

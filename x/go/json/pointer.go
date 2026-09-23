@@ -69,8 +69,8 @@ func (p Pointer) String() string {
 	return b.String()
 }
 
-// Get resolves the pointer against doc, a document decoded by encoding/json into
-// map[string]any, []any, and scalar values. It returns false when the pointer does not
+// Get resolves the pointer against doc, a document of map[string]any, []any, and
+// scalar values such as one from Decode. It returns false when the pointer does not
 // lead to a value.
 func (p Pointer) Get(doc any) (any, bool) {
 	for _, token := range p {

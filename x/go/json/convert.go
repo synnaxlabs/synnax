@@ -10,7 +10,9 @@
 package json
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	stderrors "errors"
 	"math"
 	"strconv"
 	"strings"
@@ -79,6 +81,52 @@ func (f TimeFormat) nanosPerUnit() int64 {
 	}
 }
 
+// NumberText is the text of a JSON number. It keeps the exact value of a number that a
+// float64 cannot hold, and marshals as the number itself.
+type NumberText string
+
+// MarshalJSONTo implements json.MarshalerTo.
+func (n NumberText) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(n))
+}
+
+// decodeOptions accept the duplicate names and invalid UTF-8 of payloads from
+// publishers the Core does not control, and keep numbers as NumberText.
+var decodeOptions = json.JoinOptions(
+	jsontext.AllowDuplicateNames(true),
+	jsontext.AllowInvalidUTF8(true),
+	json.WithUnmarshalers(json.UnmarshalFromFunc(
+		func(dec *jsontext.Decoder, v *any) error {
+			if dec.PeekKind() != '0' {
+				return stderrors.ErrUnsupported
+			}
+			text, err := dec.ReadValue()
+			if err != nil {
+				return err
+			}
+			*v = NumberText(text)
+			return nil
+		},
+	)),
+)
+
+// Decode parses data into a document of map[string]any, []any, string, bool,
+// NumberText, and nil values. A duplicate object name keeps its last value, and
+// invalid UTF-8 becomes the replacement character.
+func Decode(data []byte) (any, error) {
+	var doc any
+	if err := json.Unmarshal(data, &doc, decodeOptions); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// Marshal encodes a document with its object names in sorted order. Invalid UTF-8
+// becomes the replacement character.
+func Marshal(doc any) ([]byte, error) {
+	return json.Marshal(doc, json.Deterministic(true), jsontext.AllowInvalidUTF8(true))
+}
+
 // EnumMap maps string labels in a JSON document to numeric sample values.
 type EnumMap map[string]float64
 
@@ -95,8 +143,8 @@ func SupportsSampleTarget(dt telem.DataType) bool {
 }
 
 // AppendSample converts value to one sample of dt and appends its series encoding to
-// dst, in the manner of strconv.AppendInt. value is a node of a document decoded by
-// encoding/json; decode with Decoder.UseNumber to keep full 64-bit integer precision.
+// dst, in the manner of strconv.AppendInt. value is a node of a document from Decode,
+// which keeps full 64-bit integer precision.
 //
 // Numbers, booleans (as 1 and 0), and numeric strings convert to numeric types. A
 // string found in enums converts to its mapped number. Any value converts to a
@@ -117,7 +165,7 @@ func AppendSample(
 	if err == nil {
 		return out, nil
 	}
-	text, marshalErr := json.Marshal(value)
+	text, marshalErr := Marshal(value)
 	if marshalErr != nil {
 		text = []byte("<unencodable>")
 	}
@@ -150,7 +198,7 @@ func appendSample(
 		if s, ok := value.(string); ok {
 			return append(dst, telem.MarshalVariableSample([]byte(s))...), nil
 		}
-		text, err := json.Marshal(value)
+		text, err := Marshal(value)
 		if err != nil {
 			return dst, err
 		}
@@ -247,8 +295,8 @@ func toNumber(value any, dt telem.DataType, enums EnumMap) (number, error) {
 			return number{kind: kindUint, u: 1}, nil
 		}
 		return number{kind: kindUint}, nil
-	case json.Number:
-		return parseNumber(v.String(), dt)
+	case NumberText:
+		return parseNumber(string(v), dt)
 	case int64:
 		return integer(v), nil
 	case uint64:
@@ -369,8 +417,8 @@ func appendUint(dst []byte, dt telem.DataType, v uint64) []byte {
 func toTimeStamp(value any, format TimeFormat) (telem.TimeStamp, error) {
 	var text string
 	switch v := value.(type) {
-	case json.Number:
-		text = v.String()
+	case NumberText:
+		text = string(v)
 	case int64:
 		return scaleTimeStamp(integer(v), format)
 	case float64:
@@ -499,8 +547,8 @@ func CheckFromSample(dt telem.DataType, target Type) error {
 	return errors.Wrapf(ErrConversion, "cannot convert %s to a JSON %s", dt, target)
 }
 
-// FromSample converts one sample of dt to a value that encoding/json marshals as
-// target. sample is the series encoding of the sample, as returned by Series.At.
+// FromSample converts one sample of dt to a value that Marshal encodes as target.
+// sample is the series encoding of the sample, as returned by Series.At.
 //
 // A numeric sample converts to a number, to a boolean that is true when the sample is
 // not zero, or to a string. The string is the label in enums when one matches, and
@@ -598,9 +646,9 @@ func (n number) text(dt telem.DataType) string {
 	return strconv.FormatFloat(n.f, 'g', -1, bitSize)
 }
 
-// FromTimeStamp converts ts to a value that encoding/json marshals in format. ISO8601
-// gives a UTC RFC 3339 string with no trailing fractional zeros. The numeric formats
-// give a json.Number that holds the exact decimal count of their unit.
+// FromTimeStamp converts ts to a value that Marshal encodes in format. ISO8601 gives a
+// UTC RFC 3339 string with no trailing fractional zeros. The numeric formats give a
+// NumberText that holds the exact decimal count of their unit.
 func FromTimeStamp(ts telem.TimeStamp, format TimeFormat) any {
 	if format == ISO8601 {
 		return time.Unix(0, int64(ts)).UTC().Format(time.RFC3339Nano)
@@ -608,7 +656,7 @@ func FromTimeStamp(ts telem.TimeStamp, format TimeFormat) any {
 	scale := format.nanosPerUnit()
 	whole, frac := int64(ts)/scale, int64(ts)%scale
 	if frac == 0 {
-		return json.Number(strconv.FormatInt(whole, 10))
+		return NumberText(strconv.FormatInt(whole, 10))
 	}
 	sign := ""
 	if ts < 0 {
@@ -616,7 +664,7 @@ func FromTimeStamp(ts telem.TimeStamp, format TimeFormat) any {
 	}
 	// Pad the fraction to the digit count of the unit, then drop trailing zeros.
 	digits := strconv.FormatInt(scale+frac, 10)[1:]
-	return json.Number(
+	return NumberText(
 		sign + strconv.FormatInt(whole, 10) + "." + strings.TrimRight(digits, "0"),
 	)
 }
