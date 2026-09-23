@@ -18,6 +18,9 @@ export type Tx = Parameters<
   Parameters<NeonDatabase<typeof schema>["transaction"]>[0]
 >[0];
 
+/** Reader is what a read runs against: a plain query, or an open transaction. */
+export type Reader = Query | Tx;
+
 /**
  * Store is the portal's database. Plain reads and writes go over Neon's stateless
  * HTTP driver through `query`. A read-then-write that must be atomic runs inside

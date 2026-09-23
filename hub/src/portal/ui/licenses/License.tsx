@@ -15,12 +15,17 @@ import {
   channels,
   date,
   dateTime,
+  describeEvent,
   edition,
-  shortHash,
+  type LicenseStatus,
+  machineName,
   statusOf,
   term,
+  usable,
 } from "@/portal/ui/format";
 import { ActivateDialog } from "@/portal/ui/licenses/ActivateDialog";
+import { EditDialog } from "@/portal/ui/licenses/EditDialog";
+import { RenameDialog } from "@/portal/ui/licenses/RenameDialog";
 import { StatusTag } from "@/portal/ui/licenses/StatusTag";
 import * as Modal from "@/portal/ui/Modal";
 import { Empty, Page, Section } from "@/portal/ui/Page";
@@ -38,6 +43,8 @@ export interface LicenseProps {
   organization: Organization;
   activations: Activation[];
   events: Event[];
+  /** actors is the name each Clerk user id in `events` reads as. */
+  actors: Record<string, string>;
   staff: boolean;
   now: Date | string;
 }
@@ -50,12 +57,15 @@ export const License = ({
   organization,
   activations,
   events,
+  actors,
   staff,
   now,
 }: LicenseProps): ReactElement => {
   const at = new Date(now);
   const status = statusOf(lic, at);
   const held = activations.filter((a) => a.releasedAt == null);
+  const released = activations.filter((a) => a.releasedAt != null);
+  const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
   return (
     <Page
       title={lic.label || "Untitled license"}
@@ -70,9 +80,7 @@ export const License = ({
       actions={
         <>
           {staff && <StaffActions license={lic} status={status} />}
-          {status === "active" && (
-            <ActivateDialog licenseKey={lic.key} label={lic.label} />
-          )}
+          {usable(status) && <ActivateDialog licenseKey={lic.key} label={lic.label} />}
         </>
       }
     >
@@ -86,12 +94,12 @@ export const License = ({
         ) : (
           <Table
             columns={MACHINE_COLUMNS}
-            head={["Host", "First seen", "Last seen", ""]}
+            head={["Machine", "First seen", "Last seen", ""]}
           >
             {held.map((a) => (
               <Row key={a.key} columns={MACHINE_COLUMNS}>
-                <Text.Text level="p" variant="code" overflow="ellipsis">
-                  {shortHash(a.fingerprint)}
+                <Text.Text level="p" overflow="ellipsis">
+                  {machineName(a)}
                 </Text.Text>
                 <Text.Text level="p" color={10}>
                   {date(a.firstSeen)}
@@ -107,6 +115,31 @@ export const License = ({
           </Table>
         )}
       </Section>
+      {released.length > 0 && (
+        <Section title="Released">
+          <Table
+            columns={MACHINE_COLUMNS}
+            head={["Machine", "First seen", "Last seen", "Released"]}
+          >
+            {released.map((a) => (
+              <Row key={a.key} columns={MACHINE_COLUMNS}>
+                <Text.Text level="p" color={9} overflow="ellipsis">
+                  {machineName(a)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.firstSeen)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.lastSeen)}
+                </Text.Text>
+                <Text.Text level="p" color={9}>
+                  {date(a.releasedAt)}
+                </Text.Text>
+              </Row>
+            ))}
+          </Table>
+        </Section>
+      )}
       <Section title="Activity">
         {events.length === 0 ? (
           <Empty message="Nothing yet" />
@@ -118,7 +151,7 @@ export const License = ({
                   {dateTime(e.at)}
                 </Text.Text>
                 <Text.Text level="small" color={10}>
-                  {describe(e)}
+                  {describeEvent(e, { machines, actors })}
                 </Text.Text>
               </Flex.Box>
             ))}
@@ -168,23 +201,6 @@ const Fact = ({
   </Flex.Box>
 );
 
-const EVENT_LABELS: Record<Event["kind"], string> = {
-  issue: "License issued",
-  activate: "Machine activated",
-  activate_denied: "Activation denied",
-  token: "Token downloaded",
-  release: "Seat released",
-  revoke: "License revoked",
-  expiry_notice: "Expiry notice sent",
-};
-
-const describe = (e: Event): string => {
-  const label = EVENT_LABELS[e.kind];
-  const detail = e.detail as Record<string, unknown>;
-  const reason = typeof detail.reason === "string" ? ` (${detail.reason})` : "";
-  return `${label}${reason}`;
-};
-
 interface MachineMenuProps {
   activation: Activation;
   label: string;
@@ -192,13 +208,15 @@ interface MachineMenuProps {
 
 const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
   const [releasing, setReleasing] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const download = useAction(
     useCallback(async () => {
-      const blob = await postFile(`/api/portal/activations/${activation.key}/token`);
+      const blob = await postFile(`/api/activations/${activation.key}/token`);
       save(blob, `${label || "synnax"}.license`);
     }, [activation.key, label]),
   );
   const release = useCallback(() => setReleasing(true), []);
+  const rename = useCallback(() => setRenaming(true), []);
   return (
     <>
       <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
@@ -211,10 +229,17 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
           <Icon.KebabMenu />
         </Dialog.Trigger>
         <Dialog.Dialog bordered rounded background={1} style={{ padding: "1rem" }}>
-          <Menu.Menu level="small" onChange={{ download: download.run, release }}>
+          <Menu.Menu
+            level="small"
+            onChange={{ download: download.run, rename, release }}
+          >
             <Menu.Item itemKey="download">
               <Icon.Download />
               Download token
+            </Menu.Item>
+            <Menu.Item itemKey="rename">
+              <Icon.Rename />
+              Rename
             </Menu.Item>
             <Menu.Item itemKey="release" status="error">
               <Icon.Release />
@@ -231,6 +256,11 @@ const MachineMenu = ({ activation, label }: MachineMenuProps): ReactElement => {
       >
         <ReleaseContent activation={activation} />
       </Modal.Frame>
+      <RenameDialog
+        activation={activation}
+        visible={renaming}
+        onVisibleChange={setRenaming}
+      />
     </>
   );
 };
@@ -239,7 +269,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
   const { close } = Dialog.useContext();
   const action = useAction(
     useCallback(async () => {
-      await post(`/api/portal/activations/${activation.key}/release`);
+      await post(`/api/activations/${activation.key}/release`);
       close();
       await reload();
     }, [activation.key, close]),
@@ -248,7 +278,7 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
     <>
       <Modal.Body gap="small">
         <Text.Text level="h4" weight={450}>
-          Release the seat held by {shortHash(activation.fingerprint)}?
+          Release the seat held by {machineName(activation)}?
         </Text.Text>
         <Text.Text level="p" color={10}>
           The Core on that machine loses its license at its next check. Activate it
@@ -272,19 +302,20 @@ const ReleaseContent = ({ activation }: { activation: Activation }): ReactElemen
 
 interface StaffActionsProps {
   license: LicenseRecord;
-  status: ReturnType<typeof statusOf>;
+  status: LicenseStatus;
 }
 
 const StaffActions = ({ license: lic, status }: StaffActionsProps): ReactElement => {
   const floating = useAction(
     useCallback(async () => {
-      const blob = await postFile(`/api/portal/licenses/${lic.key}/floating`);
+      const blob = await postFile(`/api/licenses/${lic.key}/floating`);
       save(blob, `${lic.label || "synnax"}.license`);
     }, [lic.key, lic.label]),
   );
   return (
     <>
-      {status === "active" && (
+      {status !== "revoked" && <EditDialog license={lic} />}
+      {usable(status) && (
         <Button.Button
           variant="outlined"
           onClick={floating.run}
@@ -317,7 +348,7 @@ const RevokeContent = ({ license: lic }: { license: LicenseRecord }): ReactEleme
   const { close } = Dialog.useContext();
   const action = useAction(
     useCallback(async () => {
-      await post(`/api/portal/licenses/${lic.key}/revoke`);
+      await post(`/api/licenses/${lic.key}/revoke`);
       close();
       await reload();
     }, [lic.key, close]),

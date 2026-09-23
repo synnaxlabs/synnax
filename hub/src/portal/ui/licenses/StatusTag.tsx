@@ -14,12 +14,14 @@ import { type LicenseStatus } from "@/portal/ui/format";
 
 const VARIANTS: Record<LicenseStatus, "success" | "warning" | "error"> = {
   active: "success",
-  expired: "warning",
+  expiring: "warning",
+  expired: "error",
   revoked: "error",
 };
 
 const LABELS: Record<LicenseStatus, string> = {
   active: "Active",
+  expiring: "Expiring",
   expired: "Expired",
   revoked: "Revoked",
 };

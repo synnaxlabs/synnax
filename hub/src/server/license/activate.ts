@@ -70,6 +70,8 @@ export const decide = ({
 export interface ActivateArgs {
   licenseKey: string;
   fingerprint: string[];
+  /** name is what the ledger calls the machine. */
+  name: string;
   actor: string;
   now: Date;
 }
@@ -86,7 +88,7 @@ export type Result =
 export const activate = async (
   store: Store,
   signer: Signer,
-  { licenseKey, fingerprint, actor, now }: ActivateArgs,
+  { licenseKey, fingerprint, name, actor, now }: ActivateArgs,
 ): Promise<Result> =>
   await store.transact(async (tx) => {
     const [lic] = await tx
@@ -114,11 +116,17 @@ export const activate = async (
       decision.existing == null
         ? await tx
             .insert(activation)
-            .values({ license: lic.key, fingerprint, firstSeen: now, lastSeen: now })
+            .values({
+              license: lic.key,
+              fingerprint,
+              name,
+              firstSeen: now,
+              lastSeen: now,
+            })
             .returning()
         : await tx
             .update(activation)
-            .set({ lastSeen: now })
+            .set({ lastSeen: now, name })
             .where(eq(activation.key, decision.existing.key))
             .returning();
     await tx.insert(event).values({

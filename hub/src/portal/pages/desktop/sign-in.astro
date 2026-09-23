@@ -1,0 +1,46 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Root from "@/layouts/Root.astro";
+import { load } from "@/portal/page";
+import { Link } from "@/portal/ui/desktop/Link";
+import { STATE } from "@/portal/ui/desktop/url";
+import { parse } from "@/server/license/fingerprint";
+import "@/portal/portal.css";
+
+const loaded = await load(Astro);
+if (loaded instanceof Response) return loaded;
+const { session } = loaded;
+
+const params = Astro.url.searchParams;
+const state = params.get("state") ?? "";
+const name = (params.get("name") ?? "").trim();
+let fingerprint: string[] = [];
+let problem: string | null = null;
+try {
+    fingerprint = parse(params.get("fp") ?? "");
+} catch (err) {
+    problem = (err as Error).message;
+}
+if (!STATE.test(state)) problem = "This link did not come from the Synnax Desktop app.";
+---
+
+<Root frontmatter={{ title: "Sign in to Synnax Desktop" }}>
+    <section class="portal-auth-page">
+        <Link
+            client:load
+            state={state}
+            fingerprint={fingerprint}
+            name={name}
+            email={session.email}
+            problem={problem}
+        />
+    </section>
+</Root>

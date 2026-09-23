@@ -17,7 +17,7 @@ export const WINDOW_MS = 60 * 60 * 1000;
 export const PER_ACTOR = 30;
 export const PER_ORGANIZATION = 200;
 
-const COUNTED = ["activate", "activate_denied", "token"] as const;
+const COUNTED = ["activate", "activate_denied", "token", "link", "renew"] as const;
 
 export interface CheckArgs {
   actor: string;

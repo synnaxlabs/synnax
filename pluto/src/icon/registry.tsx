@@ -104,6 +104,7 @@ import {
   MdCalendarToday,
   MdComment,
   MdCommit,
+  MdComputer,
   MdContentCut,
   MdContentPaste,
   MdDarkMode,
@@ -460,6 +461,7 @@ export const Hardware = wrapSVGIcon(MdHardware, "hardware");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Task = wrapSVGIcon(TbRadarFilled, "task");
 export const Device = wrapSVGIcon(SiGooglenearby, "device");
+export const Computer = wrapSVGIcon(MdComputer, "computer");
 export const Link = wrapSVGIcon(MdLink, "link");
 export const Attachment = wrapSVGIcon(GrAttachment, "attachment");
 export const Drag = wrapSVGIcon(GrDrag, "drag");
@@ -662,6 +664,7 @@ const icons = {
   Save,
   Task,
   Device,
+  Computer,
   Link,
   Attachment,
   Drag,

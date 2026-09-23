@@ -14,8 +14,14 @@ import { z } from "zod";
 import { post, reload, save } from "@/portal/ui/api";
 import * as Modal from "@/portal/ui/Modal";
 import { type Action, useAction } from "@/portal/ui/useAction";
+import { MAX_NAME_LENGTH } from "@/server/license/machine";
 
 const schema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name the machine")
+    .max(MAX_NAME_LENGTH, "Use a shorter name"),
   fingerprint: z.string().trim().min(1, "Paste the host hashes the Core printed"),
 });
 export type ActivateSchema = typeof schema;
@@ -39,12 +45,13 @@ export const useActivate = (
   licenseKey: string,
   onDone: () => Promise<void>,
 ): Activate => {
-  const methods = Form.use({ values: { fingerprint: "" }, schema });
+  const methods = Form.use({ values: { name: "", fingerprint: "" }, schema });
   const action = useAction(
     useCallback(async () => {
       if (!methods.validate()) return;
-      const { fingerprint } = methods.value();
-      const res = await post<Activated>(`/api/portal/licenses/${licenseKey}/activate`, {
+      const { name, fingerprint } = methods.value();
+      const res = await post<Activated>(`/api/licenses/${licenseKey}/activate`, {
+        name,
         fingerprint,
       });
       save(new Blob([res.token], { type: "text/plain" }), res.filename);
@@ -54,7 +61,7 @@ export const useActivate = (
   return { methods, action };
 };
 
-/** ActivateFields renders the instructions and the host hash input of the form. */
+/** ActivateFields renders the instructions and the inputs of the activation form. */
 export const ActivateFields = (): ReactElement => (
   <>
     <Text.Text level="p" color={10}>
@@ -62,12 +69,16 @@ export const ActivateFields = (): ReactElement => (
       shows them too. Give the token you download to the Core with
       <code>--license-file</code> or through the Console.
     </Text.Text>
+    <Form.TextField
+      path="name"
+      label="Machine name"
+      inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
+    />
     <Form.Field<string> path="fingerprint" label="Host hashes">
       {(p) => (
         <Input.Text
           {...p}
           area
-          autoFocus
           spellCheck={false}
           placeholder="One hash per line, or separated by commas"
           style={{ minHeight: "14rem" }}

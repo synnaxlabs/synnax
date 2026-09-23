@@ -9,4 +9,5 @@
 
 export * from "@/platform/license/Details";
 export * from "@/platform/license/term";
+export * from "@/platform/license/urls";
 export * from "@/platform/license/useInfo";

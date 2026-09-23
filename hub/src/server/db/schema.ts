@@ -29,12 +29,17 @@ export type Term = (typeof TERMS)[number];
 
 export const EVENT_KINDS = [
   "issue",
+  "amend",
   "activate",
   "activate_denied",
   "token",
   "release",
+  "rename",
   "revoke",
   "expiry_notice",
+  "link",
+  "renew",
+  "unlink",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
@@ -78,6 +83,10 @@ export const activation = pgTable(
       .notNull()
       .references(() => license.key),
     fingerprint: text("fingerprint").array().notNull(),
+    /** name is the hostname a Desktop machine signed in with. */
+    name: text("name"),
+    /** renewalSecretHash is the SHA-256 of the secret a Desktop machine renews with. */
+    renewalSecretHash: text("renewal_secret_hash").unique(),
     firstSeen: timestamp("first_seen", { withTimezone: true }).notNull().defaultNow(),
     lastSeen: timestamp("last_seen", { withTimezone: true }).notNull().defaultNow(),
     releasedAt: timestamp("released_at", { withTimezone: true }),

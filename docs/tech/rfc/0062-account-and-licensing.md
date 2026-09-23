@@ -1,4 +1,4 @@
-# 62 Portal and licensing
+# 62 Account and licensing
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-09-17
@@ -22,7 +22,7 @@ with Ed25519 and bound to a machine, verified offline with public keys compiled 
 binary. Two paths issue that token. The free edition, Synnax Desktop, signs the user in
 through the system browser and issues itself a short-lived license that renews while
 signed in. The enterprise edition, the standalone Core, activates through a start flag
-or the Console against a license that staff issued in the portal, on a subscription or
+or the Console against a license that staff issued in the hub, on a subscription or
 perpetual term. Downloads stay public, the Core never phones home, a running Core never
 stops because of time, and the old key format is deleted.
 
@@ -46,12 +46,12 @@ stops because of time, and the old key format is deleted.
 ## 2 Vocabulary
 
 - **Hub**: The Astro site at `hub/`, formerly `docs/site`: the docs, blog, releases, and
-  the portal. One deployment on Vercel.
-- **Portal**: The signed-in surface of the hub: account, organizations, and licenses. It
-  is the same Astro site, not a second deployment.
-- **Organization**: The owner of every license. A row in the portal's own table. A
-  personal organization exists for every user; a team organization is additionally
-  backed by a Clerk organization for membership, invitations, and roles.
+  the account area. One deployment on Vercel.
+- **Account area**: The signed-in surface of the hub: licenses, organizations, and
+  settings. It is the same Astro site, not a second deployment.
+- **Organization**: The owner of every license. A row in the hub's own table. A personal
+  organization exists for every user; a team organization is additionally backed by a
+  Clerk organization for membership, invitations, and roles.
 - **Edition**: `desktop` or `enterprise`. Desktop is the feature-flagged Console build
   with an embedded Core. Enterprise is the standalone Core, Console, and Driver.
 - **License**: A signed JWT naming an organization, an edition, the machine it binds to,
@@ -63,9 +63,9 @@ stops because of time, and the old key format is deleted.
   addresses. A license binds to a fingerprint, or to none.
 - **Floating license**: A license with no fingerprint. Valid on any machine. Staff-only.
   Used by CI.
-- **Activation**: The act of storing a license in a Core, and the portal's record that a
+- **Activation**: The act of storing a license in a Core, and the hub's record that a
   machine holds a seat under a license.
-- **Activation ledger**: The portal's list of activations per license, with release and
+- **Activation ledger**: The hub's list of activations per license, with release and
   reactivate.
 - **Grace window**: The period after a subscription expires during which a Core still
   starts, with warnings.
@@ -75,7 +75,7 @@ stops because of time, and the old key format is deleted.
 1. **One license primitive**: Desktop sign-in and enterprise activation produce the same
    token, verified by the same code. There is no second mechanism.
 2. **The running Core never phones home**: Verification is offline. Network calls happen
-   in the Console or the portal, never in the server. This continues RFC 0011 §4.4.0 and
+   in the Console or the hub, never in the server. This continues RFC 0011 §4.4.0 and
    RFC 0020 §1.
 3. **Bypass requires editing code**: The public keys are constants in source. No flag,
    environment variable, or build tag substitutes them. Published source can always be
@@ -89,7 +89,7 @@ stops because of time, and the old key format is deleted.
 6. **Buy the standard parts, build the Synnax parts**: Identity, teams, email, and key
    custody come from Clerk, Resend, and AWS KMS. The license token, the fingerprint, the
    verifier, the organization model, and the activation ledger are ours.
-7. **Vendor ids never enter a stored format**: The license names the portal's own
+7. **Vendor ids never enter a stored format**: The license names the hub's own
    organization key. The Clerk id is a column on that row, replaceable without reissuing
    anything.
 8. **Infrastructure is code**: Every cloud resource the hub needs is declared in
@@ -136,7 +136,7 @@ through a registry (`console/src/app/link/useDeep.ts`).
 
 ### 5.0 Editions and ownership
 
-Every license belongs to an organization, and the portal owns the organization record. A
+Every license belongs to an organization, and the hub owns the organization record. A
 user who signs up gets a personal organization whose only member is that user; no Clerk
 organization is created for it. An enterprise customer gets a team organization backed
 by a Clerk organization, which supplies membership, invitations, and the `admin` and
@@ -164,8 +164,8 @@ license (§5.3). The keyless 50-channel tier is removed.
 
 A license is a JWS compact token: a JWT signed with `EdDSA` over Ed25519, the format
 Grafana Enterprise ships as `license.jwt`. The Core verifies it with `golang-jwt`, which
-it already depends on; the portal signs it with `jose`. Both libraries handle the
-header, the base64url segments, `exp`, and `iat`, so no custom framing exists.
+it already depends on; the hub signs it with `jose`. Both libraries handle the header,
+the base64url segments, `exp`, and `iat`, so no custom framing exists.
 
 The header carries `alg: EdDSA` and `kid`. The Core embeds a small set of public keys by
 `kid`. Rotation adds a key to the set in one release and moves signing to it; old tokens
@@ -175,14 +175,14 @@ release and reissues the licenses signed under it.
 The claims are defined once, in `schemas/synnax/license.oracle`, with
 `@go output "core/pkg/service/channel/license"`, `@ts output "client/ts/src/license"`,
 and `@py output "client/py/synnax/license"`. The type is `License` in every language.
-The TypeScript output is both the client's type and the portal signer's type, since the
+The TypeScript output is both the client's type and the hub signer's type, since the
 site already imports `@synnaxlabs/client`. Keys are short in the JWT tradition:
 
-- **`jti`**: License UUID. The portal's primary key.
+- **`jti`**: License UUID. The hub's primary key.
 - **`iat`**: Issued-at, seconds since the epoch, as JWT defines it.
 - **`exp`** (optional): Expiry. Absent on a perpetual license.
 - **`v`**: Claim set version. Starts at `1`.
-- **`org`**: The portal's organization UUID. Never a Clerk id.
+- **`org`**: The hub's organization UUID. Never a Clerk id.
 - **`ed`**: Edition, `d` for desktop or `e` for enterprise.
 - **`fp`**: List of per-interface hashes (§5.2). Empty for a floating license.
 - **`fs`**: The fingerprint scheme. Starts at `1`.
@@ -203,7 +203,7 @@ The three terms fall out of `exp` and `mv`:
 The Go package exports `Sign(priv, kid, grant)` and `Verify(keys, token)`. `Sign` exists
 for tests; the private key never lives in the repository. Production signing happens in
 AWS KMS under an `ECC_NIST_EDWARDS25519` key, so the private key never exists in
-plaintext anywhere. The portal calls KMS `Sign` with `MessageType: RAW` over the signing
+plaintext anywhere. The hub calls KMS `Sign` with `MessageType: RAW` over the signing
 input `jose` produces. A Vercel environment secret is the fallback if KMS proves
 unworkable from the Vercel runtime, and is what tests and the CI bootstrap script use.
 
@@ -221,8 +221,8 @@ error says so.
 The Core prints the fingerprint at start and returns it from the retrieve operation
 (§5.4). Docker assigns a random address per container start, so the Docker install docs
 pin one with `--mac-address`. A multi-node cluster has one fingerprint per node; each
-node activates against the same license, and the portal counts activations against `n`.
-A cold standby node consumes a seat; the docs say so.
+node activates against the same license, and the hub counts activations against `n`. A
+cold standby node consumes a seat; the docs say so.
 
 The scheme is a deterrent, not a wall, and every vendor surveyed accepts that (§8). The
 control that holds is the activation ledger (§5.7). Recording `fs` in the token lets a
@@ -332,11 +332,11 @@ license operations are refused client-side with the typed error. The check loop 
 polling, so a Core activated by a start flag is noticed by a Console left open. The
 layout shows an activation screen in place of the workspace, behind login and ahead of
 the settled gate: the fingerprint from `license.retrieve` with a copy button, a paste
-field and file picker for the token, and a link to the portal's activation page. On
-success the next check flips the state and the screen dismisses without reconnecting.
-When licensed, the version info modal (`console/src/platform/version/useInfoModal.tsx`)
-shows the edition, organization, term, node count, and channel usage, and a warning
-banner appears inside the grace window or under a version fallback.
+field and file picker for the token, and a link to the hub's activation page. On success
+the next check flips the state and the screen dismisses without reconnecting. When
+licensed, the version info modal (`console/src/platform/version/useInfoModal.tsx`) shows
+the edition, organization, term, node count, and channel usage, and a warning banner
+appears inside the grace window or under a version fallback.
 
 The same screen serves the embedded web Console the Core hosts, which is how a headless
 server is activated without a desktop install.
@@ -348,15 +348,15 @@ license gate in both guard trees. In Desktop the gate sits outside the embedded 
 guard, because an unlicensed Core never settles, and its activation screen is
 standalone: no connection island and no log out action.
 
-### 5.6 Portal identity and organizations
+### 5.6 Hub identity and organizations
 
 Clerk provides sign-up, sign-in, sessions, and, for team organizations, membership,
-invitations, and roles through `@clerk/astro`, on a direct Clerk account. The portal
+invitations, and roles through `@clerk/astro`, on a direct Clerk account. The hub
 renders every one of those screens itself on Clerk's client API (§5.11); no Clerk widget
 appears on the site. The site's middleware gains the Clerk handler ahead of the existing
 CSP handler, and the CSP allowlist gains Clerk's domains. After sign-in, PostHog
 identifies the user, which the site's `person_profiles: "identified_only"` setting
-already anticipates. The portal's organization rows follow Clerk at the seams that read
+already anticipates. The hub's organization rows follow Clerk at the seams that read
 them: resolving a session upserts a row for every team the user belongs to, and issuing
 a license upserts the row for the team the staff member chose from Clerk's organization
 list. A Clerk webhook mirrors the same creations as a fast path; it is idempotent and
@@ -370,7 +370,7 @@ Inside a team, every member activates machines, releases seats, and downloads to
 because the person at the test stand is rarely the account admin. Only admins invite and
 remove members and change roles. No license action is admin-only.
 
-Neon Postgres, on a direct Neon account, holds the portal's tables through Drizzle:
+Neon Postgres, on a direct Neon account, holds the hub's tables through Drizzle:
 
 - **`organization`**: `key`, `kind` (`personal` or `team`), `name`, `clerk_org_id` (team
   only), `owner_user_id` (personal only).
@@ -394,20 +394,26 @@ their remaining dashboard steps, and Resend, which has no provider, are document
 `infra/README.md`. The layout is one Terraform root per lifecycle, so `infra/runners/`
 can later provision integration test runners without sharing state with the signing key.
 
-### 5.7 Portal licenses and the activation ledger
+### 5.7 Hub licenses and the activation ledger
 
 An organization's licenses page lists its licenses with edition, term, node count, and
-activations. Each license opens to its activation ledger: machines that hold seats, when
-they were last issued a token, and a release action that frees the seat. A released
-machine can reactivate, which is the Ignition shape for a hardware change.
+activations. Each license opens to its activation ledger: machines that hold seats by
+the name given at activation, when they were last issued a token, and a release action
+that frees the seat. A released machine can reactivate, which is the Ignition shape for
+a hardware change.
 
-Issuing a token is one endpoint, `POST /api/portal/licenses/:key/activate`, taking a
-fingerprint. It checks that the caller is a member of the owning organization, that the
-license is not revoked or expired, and that active activations are below `nodes` (or
-that this fingerprint already holds a seat), then inserts or touches the activation row,
-writes the event, and returns the signed token. It is rate limited per caller and per
-organization. Enterprise users reach it through the offline page (paste the fingerprint
-the Core printed, download the token) and Desktop's renewal (§5.8).
+Issuing a token is one endpoint, `POST /api/licenses/:key/activate`, taking a
+fingerprint and the name the machine goes by. The name is required, because the only
+moment anyone knows which box a set of hashes belongs to is the moment they activate it.
+A machine is renamed later through `POST /api/activations/:key/name`, which writes a
+rename event. Renewal never touches the name, so a name chosen in the hub outlives the
+hostname the app first reported. It checks that the caller is a member of the owning
+organization, that the license is not revoked or expired, and that active activations
+are below `nodes` (or that this fingerprint already holds a seat), then inserts or
+touches the activation row, writes the event, and returns the signed token. It is rate
+limited per caller and per organization. Enterprise users reach it through the offline
+page (paste the fingerprint the Core printed, download the token) and Desktop's renewal
+(§5.8).
 
 Staff issue every enterprise license, trials included, from the staff area: pick the
 organization, set node count, channel cap, a label, and the term. A subscription takes
@@ -417,18 +423,47 @@ exist in this version.
 
 ### 5.8 Desktop sign-in
 
-Desktop follows RFC 8252. The app opens `docs.synnaxlabs.com/desktop/sign-in` in the
-system browser with a one-time state value. The user signs in with Clerk. The page calls
-the portal, which issues a desktop license for the user's personal organization against
-the fingerprint carried in the request, then opens `synnax://desktop/activate?code=...`.
-The Console's deep link registry gains a `desktop` handler that exchanges the code for
-the token over the portal API and calls `license.activate` on the embedded Core.
+Desktop follows RFC 8252 with a custom scheme of its own, `synnax-desktop://`,
+registered in `tauri.desktop.conf.json`. The Console keeps `synnax://`, so the two apps
+installed side by side never claim each other's links. The Desktop deep link handler
+replaces the Console's link registry in the Desktop build; no Console link can reach
+Desktop.
 
-While signed in and online, the Console renews the token when it is within the renewal
-threshold of expiry, using the same activation endpoint. Unlinking the device in the
-portal releases the activation, so the next renewal is refused and the license lapses at
-expiry plus the grace window. A laptop that never reaches the portal runs until then,
-and shows the activation screen with the offline instructions on its next start.
+The app reads the fingerprint from its embedded Core, mints a one-time `state` value,
+and opens `docs.synnaxlabs.com/desktop/sign-in?state=&fp=&name=&v=` in the system
+browser, `name` being the machine's hostname and `v` the app version. The user signs in
+with Clerk; the page then calls `POST /api/desktop/link`, which issues a desktop license
+for the user's personal organization, records the activation against the fingerprint,
+mints an opaque renewal secret, and answers the token beside the secret. The page opens
+`synnax-desktop://activate?state=&token=&secret=` and shows an "Open Synnax Desktop"
+button for a browser that blocks the navigation. The app refuses a link whose `state` it
+did not mint, calls `license.activate` on the embedded Core with the token, and keeps
+the secret and the activation key in its account slice, persisted with the rest of the
+session. No code exchange exists: the token is bound to the host, so a captured link
+licenses nothing else, and the hub session never leaves the browser.
+
+Each machine holds its own desktop license: `edition: desktop`, `term: subscription`,
+`nodes: 1`, `channels: 0`, and an expiry one term out. The activation row stores the
+hash of the renewal secret and the machine name. A machine that signs in again
+supersedes its earlier link: any unreleased activation in the organization that shares a
+host hash is released and its license revoked, so one machine is one entry. On launch
+and every six hours, while online, the app renews when the license is within the renewal
+threshold of expiry: `POST /api/desktop/renew` with the secret as a bearer token slides
+the license's expiry, touches the activation, and answers a fresh token that the app
+activates. The route answers any origin, since the app calls it from its own; the secret
+is the guard. Unlinking the machine in the hub releases the activation, clears the
+secret hash, and revokes the license, so the next renewal is refused and the license
+lapses at expiry plus the grace window. The app clears its account slice on a refused
+renewal. A machine that never reaches the hub runs until the lapse. The expiry notices
+(§5.7) skip the desktop edition.
+
+In Desktop the license gate shows a sign-in screen in place of the enterprise activation
+screen: one line and a Sign in button, a waiting state while the browser is open, an
+offline state with Try again, and a link, Use a license file, that opens the
+paste-and-file screen standalone. Desktop's unlicensed messages use plain words ("Sign
+in to continue", "Your sign-in has lapsed") per RFC 0063 §5.5. There is no sign-out in
+the app: the version modal shows the signed-in email with a link to the hub, and
+switching accounts is Unlink in the hub or Erase all data.
 
 ### 5.9 Development, CI, and hosted Cores
 
@@ -442,9 +477,9 @@ organization provides them:
   workflows pass through `SYNNAX_LICENSE_KEY`. The secret is new because a released Core
   refuses to start on a token, so the old secret stays only for the job that runs the
   released image. The floating token is the one license that is a secret.
-- **Before the portal deploys**: The KMS key is created first, and the hub's signing
-  module runs as a local script so staff can sign the engineer and CI tokens while the
-  portal is still on a branch. There is no bootstrap key and no rotation.
+- **Before the hub deploys**: The KMS key is created first, and the hub's signing module
+  runs as a local script so staff can sign the engineer and CI tokens while the hub is
+  still on a branch. There is no bootstrap key and no rotation.
 - **Hosted Cores**: The demo Core behind the docs live plot and any other Core Synnax
   runs hold ordinary machine-bound licenses from the internal organization, listed in
   the cutover checklist (§7.0).
@@ -478,27 +513,27 @@ The JWT claim keys stay short (§5.1), which is a token-size convention rather t
 concealment. The two that were short to avoid a word, `fp` and `fs`, spell out as
 `fingerprints` and `fingerprint_scheme`.
 
-### 5.11 Portal interface
+### 5.11 Account interface
 
-The portal is a section of the hub, not a second shell. The header gains a fourth entry,
-Portal, beside Reference, Blog, and Releases, visible signed out; a signed-out click
-lands on sign-in and returns to the page asked for. Signed in, the header's sign-in
-button becomes an avatar menu with Portal, Account, and Sign out. Below the header, a
-portal page takes the docs' left rail for its own sidebar: the organization switcher on
-top for a user in more than one team, then Licenses for a team member or Desktop for a
-personal user, and Account, and for staff a second group with Licenses. The content
-column runs at Pluto's own type scale and radius, scoped to the portal frame the way the
-feedback modal already scopes them, so the portal reads as an application while the docs
-keep their editorial scale. Theme follows the operating system, as the docs do. Below
-the mobile breakpoint the sidebar folds into the existing drawer and tables collapse to
-cards.
+The account area is a section of the hub, not a second shell. The header gains a fourth
+entry, Account, beside Reference, Blog, and Releases, visible signed out; a signed-out
+click lands on sign-in and returns to the page asked for. Signed in, the header's
+sign-in button becomes an avatar menu with Licenses, Settings, and Sign out. Below the
+header, an account page takes the docs' left rail for its own sidebar: the organization
+switcher on top for a user in more than one team, then Licenses for a team member or
+Desktop for a personal user, then Settings, and for staff a second group with All
+licenses. The content column runs at Pluto's own type scale and radius, scoped to the
+account frame the way the feedback modal already scopes them, so the account area reads
+as an application while the docs keep their editorial scale. Theme follows the operating
+system, as the docs do. Below the mobile breakpoint the sidebar folds into the existing
+drawer and tables collapse to cards.
 
-Every portal page is an Astro page that loads its data on the server through the
+Every account page is an Astro page that loads its data on the server through the
 existing server functions and renders one React island with that data as props, hydrated
 on load so the first paint is server HTML. Actions open Pluto modal dialogs with the
 Console's anatomy: a header bar carrying the title and a close button, a body, and a
 footer bar with the primary action and the save shortcut. A dialog posts JSON to the
-existing `/api/portal/...` route, shows a route error inline as a status summary, and on
+existing `/api/...` route, shows a route error inline as a status summary, and on
 success navigates to the same URL so the page reloads its data. The `?error=` query
 channel and the page-level form posts are deleted. That anatomy moves from the Console
 into Pluto as `Modal` (frame, header, body, footer), and the Console's `platform/modals`
@@ -509,40 +544,52 @@ keeps only what binds it to the session: the factory and the stack.
   `handleRedirectCallback` from Clerk's client. Sign-in offers email and password, a
   Google button, and a Microsoft button; a second factor renders when the account has
   one. Reset sends an email code and takes a new password. Sign-up takes name, email,
-  and password, verifies the email with a six-digit code, and lands on `/portal`. OAuth
+  and password, verifies the email with a six-digit code, and lands on `/account`. OAuth
   redirects to `/sso-callback` and completes to the requested page. Clerk's error codes
   map to field help text; nothing else surfaces raw vendor copy.
-- **Licenses** (`/portal`, team members): The organization's licenses as a table of
-  label, edition, term, seats in use, and a status tag. Activate a machine opens a
-  dialog: the license to activate, if the page did not name one, a field for the
+- **Licenses** (`/account`, team members): The organization's licenses as a table of
+  label, edition, term, seats in use, and a status tag. A license reads Active,
+  Expiring, Expired, or Revoked. Expiring means within 30 days of its expiry, and a
+  Desktop license never reads it, because a short term it renews itself says nothing. An
+  expiring license still grants seats. Activate a machine opens a dialog: the license to
+  activate, if the page did not name one, a name for the machine, a field for the
   fingerprint the Console copied, and an Activate action that downloads the token and
-  leaves the dialog in a done state with Download again. `/portal/licenses/activate`,
+  leaves the dialog in a done state with Download again. `/account/licenses/activate`,
   the page the Console links, is the licenses page with that dialog open, taking
   `?license=`. An organization with no licenses sees why.
-- **Desktop** (`/portal`, personal users): The machines signed in through Desktop (§5.8)
-  with first seen and last renewal, an Unlink action per machine, and an empty state
-  until Phase 4 ships. The Enterprise panel sits beneath the list.
-- **License** (`/portal/licenses/<key>`): The label, status tag, and actions on top:
-  Activate a machine, and for staff Floating token and Revoke, the latter a hold to
-  confirm. A facts grid for edition, term, seats, channels, issued, and key. The
-  machines table with first seen, last token, and a per-machine menu of Download token
-  and Release, the latter confirmed. The license's activity from the event table
-  beneath, newest first.
-- **Account** (`/portal/account`): Profile with name, email, avatar, and password change
-  through Clerk's user API. For a personal user, the Enterprise panel in place of a
-  teams section. For each team the user belongs to, its members with their roles, and
+- **Desktop** (`/account`, personal users): The machines signed in through Desktop
+  (§5.8) by name, each with the status of its license, how long that license still runs,
+  first seen, last renewal, and Rename and Unlink actions. A machine whose license
+  lapsed reads Expired and is told to open the app there, since only the app renews it.
+  The Enterprise panel sits beneath the list.
+- **License** (`/account/licenses/<key>`): The label, status tag, and actions on top:
+  Activate a machine, and for staff Edit, Floating token, and Revoke, the last a hold to
+  confirm. Edit changes the terms of the license in place, keeping its key so seats and
+  history survive a renewal; it refuses a seat count below the machines holding one, and
+  the machines take the new terms on their next token. A facts grid for edition, term,
+  seats, channels, issued, and key. The machines table with first seen, last token, and
+  a per-machine menu of Download token, Rename, and Release, the last confirmed. A
+  Released group beneath lists the machines that gave up a seat, with the date each did,
+  and appears only when there are some. The license's activity from the event table
+  beneath, newest first. Each line names the machine the event concerned and the person
+  who acted, resolved through Clerk. A machine renewing itself is named once.
+- **Settings** (`/account/settings`): Profile with name, email, avatar, and password
+  change through Clerk's user API. For a personal user, the Enterprise panel in place of
+  a teams section. For each team the user belongs to, its members with their roles, and
   for an admin an Invite dialog taking email and role, with remove and role change in a
   per-member menu. Membership goes through Clerk's organization API; there is no team
   creation on the site.
-- **Staff licenses** (`/portal/staff/licenses`): Every license with its organization,
-  and Issue license as a dialog: the organization chosen from Clerk's organization list,
-  label, term, nodes, channels, and the expiry or maximum version the term needs,
-  validated before the post. Issuing upserts the organization row (§5.6).
+- **Staff licenses** (`/account/staff/licenses`): Every license with its organization,
+  narrowed by a search over label, organization, and key, and by a status filter. The
+  Expiring filter sorts soonest first, which is the renewal queue. Issue license is a
+  dialog: the organization chosen from Clerk's organization list, label, term, nodes,
+  channels, and the expiry or maximum version the term needs, validated before the post.
+  Issuing upserts the organization row (§5.6).
 
 ## 6 What this RFC does not cover
 
-- Support. The docs feedback form stays on Formspree, and the portal has no support
-  threads, inbox, or help desk integration.
+- Support. The docs feedback form stays on Formspree, and the account area has no
+  support threads, inbox, or help desk integration.
 - Building Synnax Desktop itself: embedding a Core in the Console bundle and the feature
   flag surface beyond the sign-in state. RFC 0063 covers that build. This RFC defines
   the license path Desktop uses.
@@ -557,12 +604,12 @@ keeps only what binds it to the session: the factory and the stack.
 - Integration test runner infrastructure. `infra/runners/` is where it goes; the layout
   is chosen here, the resources are not.
 
-Considered and left additive, because JWT claims and the portal tables absorb each
-without a format change:
+Considered and left additive, because JWT claims and the hub tables absorb each without
+a format change:
 
 - **Feature entitlements** as a claim list, for integrations or Arc.
 - **Per-user seats** on a license.
-- **Single sign-on** for customer portal accounts, a Clerk add-on.
+- **Single sign-on** for customer accounts, a Clerk add-on.
 - **Warm failover** without a seat, which would need a "standby" activation kind.
 
 ## 7 Implementation phases
@@ -587,30 +634,32 @@ lands with the Desktop bundle.
   The flag keeps its obfuscated name. The second: the Console activation screen and
   guard, the info modal block, the warning badge, and the four docs pages. Boundary
   between the two earned by risk isolation: wire and enforcement apart from UX.
-- **Phase 2: Portal accounts and licenses.** One pull request: `infra/hub/`, Clerk,
-  Neon, and Resend on direct accounts, the middleware and CSP changes, the `astro:env`
-  schema, the static-check exclusions for session-bound routes, the webhook, the four
-  tables, the organization pages, KMS signing, the activation ledger, the activation
-  endpoint with rate limits, the offline page, the expiry cron, and the staff area with
-  all three terms. Its infrastructure step is applied first of the whole unit, because
-  the key and the CI secret must exist before Phase 1's Core runs in CI. Boundary earned
-  by a green intermediate state: after this phase staff issue the cutover licenses
-  (§7.0) and the release can ship.
-- **Phase 3: Portal interface.** Two pull requests. The first moves the modal anatomy
+- **Phase 2: Hub accounts and licenses.** One pull request: `infra/hub/`, Clerk, Neon,
+  and Resend on direct accounts, the middleware and CSP changes, the `astro:env` schema,
+  the static-check exclusions for session-bound routes, the webhook, the four tables,
+  the organization pages, KMS signing, the activation ledger, the activation endpoint
+  with rate limits, the offline page, the expiry cron, and the staff area with all three
+  terms. Its infrastructure step is applied first of the whole unit, because the key and
+  the CI secret must exist before Phase 1's Core runs in CI. Boundary earned by a green
+  intermediate state: after this phase staff issue the cutover licenses (§7.0) and the
+  release can ship.
+- **Phase 3: Account interface.** Two pull requests. The first moves the modal anatomy
   from the Console into Pluto and migrates the Console's callers, a mechanical change
-  kept apart by risk isolation. The second replaces every portal page: the header entry
+  kept apart by risk isolation. The second replaces every account page: the header entry
   and avatar menu, the sidebar, the custom sign-in, sign-up, reset, and callback pages,
-  the licenses, license, account, and staff pages with their dialogs, the `/portal`
+  the licenses, license, account, and staff pages with their dialogs, the `/account`
   routes with the Console's activation link moved, and the deletion of the form-post
-  pages, the `?error=` channel, and the portal stylesheet. Boundary earned by
+  pages, the `?error=` channel, and the account stylesheet. Boundary earned by
   reviewability: Phase 2 is reviewed on its server behavior, and this one on its
   interface. Before it deploys, the production Clerk instance needs the name attribute,
   organizations, and the Microsoft connection enabled, and the Neon database needs the
   Drizzle migration applied; neither the build nor the deploy runs it.
-- **Phase 4: Desktop sign-in.** The browser handoff page, the deep link handler, and the
-  account slice and renewal loop. The Desktop bundle and its build flag exist (RFC
-  0063), and until this phase lands a Desktop install activates through the standalone
-  activation screen.
+- **Phase 4: Desktop sign-in.** One pull request on top of Phase 3: the `synnax-desktop`
+  scheme, the sign-in page and its link route, the renew route with the renewal secret
+  on the activation row, the machine name, the Desktop sign-in screen and deep link
+  handler, the account slice, and the renewal loop. The Desktop bundle and its build
+  flag exist (RFC 0063). Before it deploys, the Neon database needs the Drizzle
+  migration that adds the two activation columns.
 
 ### 7.0 Compatibility
 
@@ -633,11 +682,11 @@ registered error types. New clients decode it.
    two. The trade is real: a solo user sees one more concept.
 2. **One signed offline token with expiry and renewal**: Online-only validation makes a
    running Core depend on our uptime and cannot run air-gapped. Extending the opaque key
-   keeps it forgeable. Keygen would remove the signer but not the portal, the verifier,
-   or the identity model, and adds a vendor for the life of the product; the token stays
+   keeps it forgeable. Keygen would remove the signer but not the hub, the verifier, or
+   the identity model, and adds a vendor for the life of the product; the token stays
    standard enough that issuance could move to a vendor behind the same endpoint. A
    Desktop-only session would leave two mechanisms.
-3. **No download wall**: Every channel except the portal page is public already, and the
+3. **No download wall**: Every channel except the hub page is public already, and the
    Tauri updater, `pip`, and `docker pull` cannot be gated. Desktop sign-in and
    activation give the counts a wall would have given. The trade is real: nothing stops
    a direct GitHub link.
@@ -680,7 +729,7 @@ registered error types. New clients decode it.
     from unlimited licenses until a binary ships with a new key set. KMS supports
     Ed25519 signing and the key never exists in plaintext. The trade is real: a second
     cloud account and a network call per issuance.
-15. **The portal owns organizations; Clerk backs only teams**: A first draft made every
+15. **The hub owns organizations; Clerk backs only teams**: A first draft made every
     organization a Clerk organization and put its id in the token. Rejected on cost,
     since Clerk bills per retained organization and Desktop makes every free user one,
     and on principle 7, since a vendor id would sit in every stored license.
@@ -728,23 +777,24 @@ registered error types. New clients decode it.
     has none, and a Marketplace install bills through Vercel and injects its variables
     without a secret changing hands. The trade is real: Neon and Clerk settings are
     dashboard steps in `infra/README.md`, not code.
-27. **Portal routes under one prefix**: `/portal` lands on licenses, then
-    `/portal/licenses/<key>`, `/portal/licenses/activate`, `/portal/account`,
-    `/portal/staff/licenses`, and `/api/portal/...` for the endpoints. Sign-in, sign-up,
-    and the SSO callback stay at the root, since they are not portal pages. A first
-    draft put the pages at the root; once the header named the section Portal, the URL
-    had to say the same. The organization is a query parameter, not a path segment, so a
-    license URL never changes when an organization is renamed.
+27. **Account routes under one prefix**: `/account` lands on licenses, then
+    `/account/licenses/<key>`, `/account/licenses/activate`, `/account/settings`,
+    `/account/staff/licenses`, and `/api/...` for the endpoints. Sign-in, sign-up, and
+    the SSO callback stay at the root, since they are not account pages. A first draft
+    put the pages at the root; once the header named the section Account, the URL had to
+    say the same. Portal named the container rather than the content, and no user says
+    it. The organization is a query parameter, not a path segment, so a license URL
+    never changes when an organization is renamed.
 28. **The site becomes `hub/`**: `docs/site` understates a site that carries accounts
     and licenses. `site/` and `www/` were rejected as generic, `portal/` names one
     section, `cloud/` implies a hosted service, and a coined name was offered and
     declined. The landing page merge is deferred (§6).
-29. **The portal is a section, not a shell**: Tailscale, Vercel, Linear, and Stripe put
-    the signed-in surface in an application shell on its own host. The hub is one
-    deployment, and the portal will stay small, so it takes one header entry and a
-    sidebar in the docs' left rail rather than a shell of its own. The trade is real:
-    the portal inherits the docs header and footer, and its density is scoped by CSS
-    rather than by a separate layout.
+29. **The account area is a section, not a shell**: Tailscale, Vercel, Linear, and
+    Stripe put the signed-in surface in an application shell on its own host. The hub is
+    one deployment, and the account area will stay small, so it takes one header entry
+    and a sidebar in the docs' left rail rather than a shell of its own. The trade is
+    real: the account area inherits the docs header and footer, and its density is
+    scoped by CSS rather than by a separate layout.
 30. **Sign-in and the team screens are ours, on Clerk's client API**: Clerk's prebuilt
     components take an appearance object, not a design; they render their own layout and
     copy, and they would be the only surface on the site not built from Pluto. The trade
@@ -753,7 +803,7 @@ registered error types. New clients decode it.
 31. **One island per page over JSON**: Restyling the server-rendered forms was cheaper
     but cannot produce a dialog or an inline error, and every action would remain a
     full-page round trip through a query string. The routes already accept JSON, so the
-    island model costs nothing on the server. The trade is real: the portal pages need
+    island model costs nothing on the server. The trade is real: the account pages need
     React to act, where the docs pages do not.
 32. **Members act on licenses, admins act on the team**: Making every license action
     admin-only would send the engineer at the stand to their manager for a token. The
@@ -773,13 +823,43 @@ registered error types. New clients decode it.
     account shapes fork the licenses page and the account page.
 35. **Organization rows follow Clerk at the seams that read them**: A first draft relied
     on the webhook alone, so a dropped delivery, or a local instance the webhook cannot
-    reach, left a team invisible to the portal. Session resolve and license issue now
+    reach, left a team invisible to the hub. Session resolve and license issue now
     upsert the rows they need; the webhook remains a fast path. The trade is real: every
     session resolve costs one query per team.
+36. **A custom scheme for the Desktop return path**: A loopback redirect (RFC 8252 §7.3)
+    works in development and cannot be claimed by another app, but needs an HTTP
+    listener in the Rust shell and is blocked by some managed browsers. A scheme of
+    Desktop's own reuses the deep link plugin already in the shell and is the shape of
+    every desktop app that signs in through a browser. The trade is real: a scheme fires
+    only in a bundled app, so `tauri dev` on macOS activates through the file fallback.
+37. **The token rides the deep link; no code exchange**: A first draft exchanged a
+    one-time code for the token at the hub with PKCE. The token is bound to the host and
+    only activates a Core, so a captured link licenses nothing, and the hub session
+    never leaves the browser. The trade is real: a link that another app registered the
+    scheme for lands a working token on that machine, which the `state` check the app
+    performs does not prevent, only a foreign account's token.
+38. **A per-machine renewal secret**: A long term with no renewal would make Unlink do
+    nothing for a year and lose the liveness signal the free-user count rests on. The
+    secret is opaque, hashed on the activation row, and renews one license on one
+    fingerprint. The trade is real: a secret sits on disk in the session store, and a
+    copy of it renews that one license from anywhere until the machine is unlinked.
+39. **One desktop license per machine**: One license per person with a seat per machine
+    needs a per-seat expiry, a new column, and a change to the token builder. One
+    license per machine reuses the issue, activate, revoke, and ledger paths unchanged.
+    The trade is real: a person's machines are a filter on the edition, not a row.
+40. **Desktop is unlimited**: A channel cap would not move anyone to enterprise, whose
+    value is a standalone Core that other people, Drivers, and scripts reach (RFC 0063
+    §8), and it would be the first wall a serious evaluator hits. The trade is real:
+    nothing in the free edition is metered.
+41. **No sign-out in Desktop**: The Core stores every token it accepts and has no
+    operation to drop one, so a sign-out could only stop renewal while the machine ran
+    on under the old account for up to the term plus grace. A Core operation that
+    un-licenses a running Core would be permanent surface for a case Unlink and Erase
+    all data cover. The trade is real: switching accounts on one machine is a hub
+    action, not an app action.
 
 ## 9 Open questions
 
-- Desktop license term and renewal threshold. Proposed: 30 days, renew under 7.
 - Grace window after `exp`. Proposed: 14 days.
 - Clock rollback tolerance. Proposed: 24 hours.
 - Internal engineer license term. Proposed: one year.

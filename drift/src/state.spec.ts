@@ -14,6 +14,7 @@ import {
   assignLabel,
   createWindow,
   type CreateWindowPayload,
+  focusWindow,
   internalSetInitial,
   reducer,
   restoreWindows,
@@ -195,6 +196,33 @@ describe("setWindowProps", () => {
     expect(s.windows.pre.visible).toEqual(true);
     s = reducer(s, runtimeSetWindowProps({ label: "pre", position: { x: 5, y: 5 } }));
     expect(s.windows.pre.position).toEqual({ x: 5, y: 5 });
+  });
+});
+
+describe("focusWindow", () => {
+  const withPrerender = (): SliceState =>
+    sliceState({
+      [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
+      pre: { ...INITIAL_PRERENDER_WINDOW_STATE },
+    });
+
+  // A pre-render runs the whole app, so anything the app focuses on startup is
+  // dispatched from there too, with the pre-render's own label.
+  it("should leave an unreserved pre-rendered window hidden", () => {
+    const s = withPrerender();
+    const next = reducer(s, assignLabel(focusWindow({ key: "pre" }), s));
+    expect(next.windows.pre.visible).toEqual(false);
+    expect(next.windows.pre.focusCount).toEqual(0);
+  });
+
+  it("should raise a claimed window", () => {
+    let s = reducer(
+      withPrerender(),
+      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+    );
+    s = reducer(s, assignLabel(focusWindow({ key: "a" }), s));
+    expect(s.windows.pre.visible).toEqual(true);
+    expect(s.windows.pre.focusCount).toEqual(2);
   });
 });
 

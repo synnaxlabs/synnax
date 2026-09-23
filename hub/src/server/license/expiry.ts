@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import {
@@ -74,7 +74,14 @@ export const sweep = async ({
     .select({ license, organization })
     .from(license)
     .innerJoin(organization, eq(license.organization, organization.key))
-    .where(and(isNotNull(license.expiresAt), isNull(license.revokedAt)));
+    .where(
+      and(
+        isNotNull(license.expiresAt),
+        isNull(license.revokedAt),
+        // A desktop license renews itself while the app runs; nobody is warned.
+        ne(license.edition, "desktop"),
+      ),
+    );
   const sent: Sent[] = [];
   for (const row of rows) {
     const notices = await store.query

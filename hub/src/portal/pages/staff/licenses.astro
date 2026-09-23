@@ -8,13 +8,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { desc, eq } from "drizzle-orm";
 import Portal from "@/portal/layouts/Portal.astro";
 import { requireStaff } from "@/portal/access";
 import { failure, load } from "@/portal/page";
 import { Page } from "@/portal/ui/Page";
 import { StaffLicenses } from "@/portal/ui/staff/Licenses";
-import { license, organization } from "@/server/db/schema";
+import { type Owned, listAll } from "@/server/license/list";
 import { type Listed, listTeams } from "@/server/directory";
 import { organizationsFor } from "@/server/organization";
 
@@ -26,18 +25,11 @@ const organizations = await organizationsFor(portal.store, session);
 
 let error: string | undefined;
 let teams: Listed[] = [];
-let licenses: {
-    license: typeof license.$inferSelect;
-    organization: typeof organization.$inferSelect;
-}[] = [];
+let licenses: Owned[] = [];
 try {
     requireStaff(session);
     teams = await listTeams(Astro);
-    licenses = await portal.store.query
-        .select({ license, organization })
-        .from(license)
-        .innerJoin(organization, eq(license.organization, organization.key))
-        .orderBy(desc(license.issuedAt));
+    licenses = await listAll(portal.store.query);
 } catch (err) {
     const f = failure(err);
     Astro.response.status = f.status;

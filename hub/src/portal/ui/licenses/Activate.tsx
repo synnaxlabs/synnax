@@ -84,7 +84,7 @@ const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
   const { methods, action } = useActivate(
     licenseKey,
     useCallback(async () => {
-      await navigate(`/portal/licenses/${licenseKey}`);
+      await navigate(`/account/licenses/${licenseKey}`);
     }, [licenseKey]),
   );
   return (
@@ -98,7 +98,7 @@ const Inline = ({ licenseKey }: { licenseKey: string }): ReactElement => {
             <span />
           )}
           <Flex.Box x gap="small">
-            <Button.Button variant="outlined" href="/portal">
+            <Button.Button variant="outlined" href="/account">
               Cancel
             </Button.Button>
             <ActivateButton action={action} />

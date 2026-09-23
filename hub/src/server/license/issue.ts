@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import {
+  activation,
   type Edition,
   event,
   type License,
@@ -23,9 +24,8 @@ import { sign, type Signer } from "@/server/license/sign";
 
 const MINOR_VERSION = /^\d+\.\d+$/;
 
-export interface IssueArgs {
-  organization: string;
-  edition: Edition;
+/** Terms are the fields staff set when issuing a license and may change later. */
+export interface Terms {
   term: Term;
   nodes: number;
   channels: number;
@@ -34,12 +34,17 @@ export interface IssueArgs {
   expiresAt?: Date;
   /** maxVersion is required on a perpetual license and optional on a subscription. */
   maxVersion?: string;
+}
+
+export interface IssueArgs extends Terms {
+  organization: string;
+  edition: Edition;
   actor: string;
   now: Date;
 }
 
-/** validate checks the term rules an issuance must satisfy and throws a 400 if not. */
-export const validate = (args: IssueArgs): void => {
+/** validate checks the term rules a license must satisfy and throws a 400 if not. */
+export const validate = (args: Terms & { now: Date }): void => {
   if (!Number.isInteger(args.nodes) || args.nodes < 1)
     throw badRequest("Nodes must be a whole number of at least 1");
   if (!Number.isInteger(args.channels) || args.channels < 0)
@@ -83,6 +88,84 @@ export const issue = async (store: Store, args: IssueArgs): Promise<License> => 
     detail: { nodes: row.nodes, channels: row.channels, term: row.term },
   });
   return row;
+};
+
+export interface AmendArgs extends Terms {
+  licenseKey: string;
+  actor: string;
+  now: Date;
+}
+
+/** CHANGEABLE are the license fields an amendment may alter. */
+const CHANGEABLE = [
+  "term",
+  "nodes",
+  "channels",
+  "label",
+  "expiresAt",
+  "maxVersion",
+] as const;
+
+const readable = (value: unknown): unknown =>
+  value instanceof Date ? value.toISOString() : value;
+
+/** changes lists what an amendment altered, each field as its before and after. */
+export const changes = (before: License, after: License): Record<string, unknown> => {
+  const out: Record<string, unknown> = {};
+  for (const field of CHANGEABLE) {
+    const from = readable(before[field]);
+    const to = readable(after[field]);
+    if (from !== to) out[field] = { from, to };
+  }
+  return out;
+};
+
+/**
+ * amend changes the terms of a license already issued, keeping its key so seats and
+ * history survive. Machines pick the new terms up on their next token.
+ * @throws {HTTPError} 400 when the license is revoked or the seat count would drop
+ * below the machines holding one.
+ */
+export const amend = async (
+  store: Store,
+  { licenseKey, actor, now, ...terms }: AmendArgs,
+): Promise<License> => {
+  validate({ ...terms, now });
+  const [before] = await store.query
+    .select()
+    .from(license)
+    .where(eq(license.key, licenseKey));
+  if (before == null) throw notFound("License");
+  if (before.revokedAt != null) throw badRequest("A revoked license cannot be changed");
+  const held = await store.query
+    .select()
+    .from(activation)
+    .where(and(eq(activation.license, licenseKey), isNull(activation.releasedAt)));
+  if (terms.nodes < held.length)
+    throw badRequest(
+      `${held.length} machines hold a seat. Release one before lowering the limit ` +
+        `to ${terms.nodes}.`,
+    );
+  const [after] = await store.query
+    .update(license)
+    .set({
+      term: terms.term,
+      nodes: terms.nodes,
+      channels: terms.channels,
+      label: terms.label,
+      expiresAt: terms.expiresAt ?? null,
+      maxVersion: terms.maxVersion ?? null,
+    })
+    .where(eq(license.key, licenseKey))
+    .returning();
+  await store.query.insert(event).values({
+    kind: "amend",
+    actor,
+    organization: after.organization,
+    license: after.key,
+    detail: changes(before, after),
+  });
+  return after;
 };
 
 export interface RevokeArgs {

@@ -10,8 +10,6 @@
 import { Drift } from "@synnaxlabs/drift";
 import { Status, Synnax, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { strings, TimeSpan } from "@synnaxlabs/x";
-import { type UnlistenFn } from "@tauri-apps/api/event";
-import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useEffect, useRef } from "react";
 
 import { Link } from "@/platform/link";
@@ -22,20 +20,6 @@ const BASE_LINK = `${Link.PREFIX}<cluster-key>`;
 const INCORRECT_FORMAT_ERROR_MESSAGE = `Links must be of the form ${BASE_LINK} or ${BASE_LINK}/<resource>/<resource-key>`;
 
 const SETTLE_TIMEOUT = TimeSpan.seconds(30);
-
-// Deps are the runtime bindings useDeep relies on. They default to the live Tauri
-// deep-link plugin and runtime engine; tests inject fakes to drive links without Tauri.
-export interface Deps {
-  engine: Session.Runtime.Engine;
-  getCurrentURLs: () => Promise<string[] | null>;
-  onOpenURL: (handler: (urls: string[]) => void) => Promise<UnlistenFn>;
-}
-
-const DEFAULT_DEPS: Deps = {
-  engine: Session.Runtime.ENGINE,
-  getCurrentURLs: getCurrent,
-  onOpenURL: onOpenUrl,
-};
 
 // A link outlives the renders that turn its preconditions true, so callers park here
 // and an effect releases them when met transitions. A timeout rejects parked calls.
@@ -73,7 +57,7 @@ const useWaitFor = (
 export const useDeep = (
   connect: Link.Connect,
   handlers: Record<string, Link.Handler>,
-  deps: Deps = DEFAULT_DEPS,
+  deps: Link.Deps = Link.DEFAULT_DEPS,
 ): void => {
   // While early returns are usually bad in hooks, this is fine because the engine is a
   // constant and so the hook will be the exact same for a given runtime.
