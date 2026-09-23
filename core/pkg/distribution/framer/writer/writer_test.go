@@ -53,23 +53,23 @@ var _ = Describe("Writer", func() {
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
 				}))
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
-				)))
+				))).To(BeTrue())
 				MustSucceed(writer.Commit())
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](3, 4, 5),
 						telem.NewSeriesV[int64](5, 6, 7),
 					},
-				)))
+				))).To(BeTrue())
 				MustSucceed(writer.Commit())
 			})
 		}
@@ -109,13 +109,13 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
 			}))
-			MustSucceed(w.Write(frame.NewMulti(
+			Expect(w.Write(frame.NewMulti(
 				s.keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12),
 					telem.NewSeriesV("hello", "world", "foo"),
 				},
-			)))
+			))).To(BeTrue())
 			MustSucceed(w.Commit())
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
@@ -142,14 +142,14 @@ var _ = Describe("Writer", func() {
 				Start: 20 * telem.SecondTS,
 				Sync:  new(true),
 			}))
-			MustSucceed(w.Write(frame.NewMulti(
+			Expect(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(20, 21, 22),
 					telem.NewSeriesV(1.1, 2.2, 3.3),
 					telem.NewSeriesV("a", "b", "c"),
 				},
-			)))
+			))).To(BeTrue())
 			MustSucceed(w.Commit())
 			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
@@ -477,10 +477,10 @@ var _ = Describe("Writer", func() {
 				}))
 				data := telem.NewSeriesV[float32](1, 2)
 				idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					keys,
 					[]telem.Series{idx, data},
-				)))
+				))).To(BeTrue())
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData := res.Frame.Get(dataCh.Key()).Series[0]
@@ -493,10 +493,10 @@ var _ = Describe("Writer", func() {
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 				data = telem.NewSeriesV[float32](3, 4)
 				idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
-				MustSucceed(writer.Write(frame.NewMulti(
+				Expect(writer.Write(frame.NewMulti(
 					keys,
 					[]telem.Series{idx, data},
-				)))
+				))).To(BeTrue())
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.KeysSlice()).To(Equal(keys))
 				writtenData = res.Frame.Get(dataCh.Key()).Series[0]

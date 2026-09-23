@@ -17,22 +17,12 @@ export const CONSOLE_NAV: PageNavNode = {
     {
       key: "/reference/console/get-started",
       href: "/reference/console/get-started",
-      name: "Get Started",
+      name: "Get started",
     },
     {
       key: "/reference/console/ui-overview",
       href: "/reference/console/ui-overview",
-      name: "UI Overview",
-    },
-    {
-      key: "/reference/console/channels",
-      href: "/reference/console/channels",
-      name: "Channels",
-    },
-    {
-      key: "/reference/console/calculated-channels",
-      href: "/reference/console/calculated-channels",
-      name: "Calculated Channels",
+      name: "UI overview",
     },
     {
       key: "/reference/console/projects",
@@ -40,14 +30,9 @@ export const CONSOLE_NAV: PageNavNode = {
       name: "Projects",
     },
     {
-      key: "/reference/console/ranges",
-      href: "/reference/console/ranges",
-      name: "Ranges",
-    },
-    {
       key: "/reference/console/line-plots",
       href: "/reference/console/line-plots",
-      name: "Line Plots",
+      name: "Line plots",
     },
     { key: "/reference/console/logs", href: "/reference/console/logs", name: "Logs" },
     {

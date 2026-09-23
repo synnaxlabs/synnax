@@ -618,7 +618,7 @@ boundary concern.
 
 ## 5 Console code replaced
 
-| Console Code                                   | Server Replacement           |
+| Console code                                   | Server replacement           |
 | ---------------------------------------------- | ---------------------------- |
 | `console/src/import/import.ts`                 | Server import API endpoint   |
 | `console/src/export/extractor.ts`              | Server export API endpoint   |

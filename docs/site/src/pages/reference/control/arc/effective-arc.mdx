@@ -2,9 +2,9 @@
 layout: "@/layouts/Reference.astro"
 title: "Effective Arc"
 description: "Best practices and common pitfalls when writing Arc automations"
-prev: "Test Sequences"
+prev: "Test sequences"
 prevURL: "/reference/control/arc/how-to/test-sequences"
-next: "Language Reference"
+next: "Language reference"
 nextURL: "/reference/control/arc/reference"
 ---
 
@@ -18,9 +18,9 @@ building real control systems.
 
 <Divider.Divider x />
 
-## Best Practices
+## Best practices
 
-### Safety Conditions First
+### Safety conditions first
 
 Line order determines priority for conditional transitions (`=>`). Always list abort
 conditions before normal operations:
@@ -41,7 +41,7 @@ stage pressurize {
 
 If multiple transitions are true simultaneously, the first one wins.
 
-### Use `->` for Streaming, `=>` for Transitions
+### Use `->` for streaming, `=>` for transitions
 
 Continuous edges (`->`) fire whenever the source produces a value. Conditional edges
 (`=>`) fire while the source is truthy.
@@ -58,7 +58,7 @@ For sequence and stage transitions, `=>` is what you want. `->` into a stage nam
 transitions but fires on the first data arrival regardless of truthiness, which rarely
 matches operator intent.
 
-### Keep Stages Focused
+### Keep stages focused
 
 Each stage should do one thing. Split complex operations:
 
@@ -74,7 +74,7 @@ stage do_everything {
 }
 ```
 
-### Reach for a Stage Only When You Need Parallelism
+### Reach for a stage only when you need parallelism
 
 Stages are for steps that need to watch multiple conditions at once: a success check
 with safety monitoring, or a control loop that runs while a timeout counts down. If a
@@ -115,7 +115,7 @@ sequence prime {
 A stage earns its place when it holds two or more concurrent flows. A stage that holds a
 single write is noise.
 
-### Initialize Stateful Variables Appropriately
+### Initialize stateful variables appropriately
 
 Stateful variables (`$=`) persist across invocations. Consider whether your initial
 value makes sense:
@@ -147,7 +147,7 @@ func rate(value f64) f64 {
 }
 ```
 
-### Set Authority Below Maximum
+### Set authority below maximum
 
 Start programs at authority 200 (or lower) rather than the default 255:
 
@@ -177,9 +177,9 @@ automations. Starting below 255 makes this possible without stopping the program
 
 <Divider.Divider x />
 
-## Common Pitfalls
+## Common pitfalls
 
-### Using `->` When `=>` Is Needed
+### Using `->` when `=>` is needed
 
 ```arc channels="pressure"
 // Wrong: fires on every data arrival, regardless of truthiness
@@ -193,7 +193,7 @@ pressure > 500 => next
 source rather than on truthiness. Operators writing a condition like `pressure > 500`
 almost always mean "while this is true," which is `=>`.
 
-### Multiple Writes to Same Channel
+### Multiple writes to same channel
 
 When multiple flows write to the same channel, last write wins:
 
@@ -210,7 +210,7 @@ This is usually a mistake. Use conditional logic instead:
 pressure < 500 -> valve_cmd
 ```
 
-### Type Mismatches
+### Type mismatches
 
 Arc requires explicit type casting. No implicit conversions:
 
@@ -237,7 +237,7 @@ count i64 := 42
 msg str := "count: " + str(count) // "count: 42"
 ```
 
-### Division by Zero in Rates
+### Division by zero in rates
 
 Rate calculations divide by time. Protect against zero:
 
@@ -255,7 +255,7 @@ func rate{dt_ms f64} (value f64) f64 {
 }
 ```
 
-### Unhandled Transitions
+### Unhandled transitions
 
 Sequences can get stuck if no transition fires:
 
@@ -277,9 +277,9 @@ stage wait_with_timeout {
 
 <Divider.Divider x />
 
-## Performance Guidelines
+## Performance guidelines
 
-### Control Loop Rates
+### Control loop rates
 
 The C++ driver runtime runs control loops at 1kHz. Deterministic cycle times need a
 Linux real-time kernel.
@@ -295,7 +295,7 @@ For timing-critical applications:
 time.interval{period=1ms} -> fast_controller{}
 ```
 
-### Minimize Work Per Cycle
+### Minimize work per cycle
 
 Each function executes on every trigger. Avoid unnecessary computation:
 
@@ -314,7 +314,7 @@ func process{scale f64} (value f64) f64 {
 sensor -> process{scale=3.14159} -> output
 ```
 
-### Flow Chain Length
+### Flow chain length
 
 Long chains add latency. If timing matters, consider combining operations:
 
@@ -330,12 +330,12 @@ sensor -> combined_filter{} -> output
 
 ## Debugging
 
-### Check Task Status
+### Check task status
 
 When an Arc automation doesn't behave as expected, check its status in Console. Runtime
 errors (division by zero, out-of-bounds access) stop the task and report the error.
 
-### Use Channel Outputs for Visibility
+### Use channel outputs for visibility
 
 Write intermediate values to channels for debugging:
 
@@ -352,7 +352,7 @@ func debug_controller(value f64) f64 {
 
 Monitor these channels in Console to trace data flow.
 
-### Start Simple
+### Start simple
 
 Build sequences incrementally:
 
@@ -361,7 +361,7 @@ Build sequences incrementally:
 3. Test abort paths explicitly
 4. Run the complete sequence
 
-### Common Error Messages
+### Common error messages
 
 | Message               | Meaning                                     |
 | --------------------- | ------------------------------------------- |

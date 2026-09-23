@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
-import {
-  type ComponentPropsWithRef,
-  type MouseEventHandler,
-  type ReactElement,
-  useMemo,
-  useRef,
-} from "react";
+import { color, type CrudeTimeSpan } from "@synnaxlabs/x";
+import { type ComponentPropsWithRef, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
+import { useHold } from "@/hooks";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface ButtonBaseProps extends Omit<
@@ -40,57 +36,47 @@ export const Button = ({
   onClickDelay = 0,
   onClick,
   onMouseDown,
+  disabled,
   style,
+  children,
   ...rest
 }: ButtonProps): ReactElement => {
-  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleClick: MouseEventHandler<HTMLButtonElement> = (e) => {
-    if (parsedDelay.isZero) onClick?.(e);
-  };
-
-  const handleMouseDown: MouseEventHandler<HTMLButtonElement> = (e) => {
-    onMouseDown?.(e);
-    if (parsedDelay.isZero) return;
-    document.addEventListener(
-      "mouseup",
-      () => {
-        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      },
-      { once: true },
-    );
-    timeoutRef.current = setTimeout(() => {
-      onClick?.(e);
-      timeoutRef.current = null;
-    }, parsedDelay.milliseconds);
-  };
+  const hold = useHold<HTMLButtonElement>({
+    onClick,
+    onMouseDown,
+    onClickDelay,
+    disabled,
+  });
+  const delayed = !hold.delay.isZero;
 
   const pStyle = useMemo(() => {
-    if (parsedDelay.isZero) return style;
+    if (!delayed) return style;
     return {
       ...style,
-      [CSS.variable("toggle-delay")]: `${parsedDelay.seconds.toString()}s`,
+      [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
     };
-  }, [parsedDelay.milliseconds, style]);
+  }, [hold.delay, style]);
 
   return (
     <button
       className={CSS.cls(
         CSS.B("symbol-primitive"),
         CSS.B("symbol-primitive-toggle"),
-        !parsedDelay.isZero && CSS.BM("symbol-primitive-toggle", "delayed"),
+        delayed && CSS.BM("symbol-primitive-toggle", "delayed"),
         orientation != null && CSS.loc(orientation),
         enabled && CSS.M("enabled"),
         triggered && CSS.M("triggered"),
+        hold.pressed && CSS.M("pressed"),
         className,
       )}
       color={color.cssString(colorVal)}
-      onClick={handleClick}
-      onMouseDown={handleMouseDown}
+      onClick={hold.onClick}
+      onMouseDown={hold.onMouseDown}
+      disabled={disabled}
       style={pStyle}
       {...rest}
-    />
+    >
+      <Primitive.HoldFill value={delayed}>{children}</Primitive.HoldFill>
+    </button>
   );
 };

@@ -59,11 +59,11 @@ type RenamePayload struct {
 // the existing tab instead. Skipping one tab does not stop the others.
 type InsertTabsPayload struct {
 	Tabs       []Tab             `json:"tabs" msgpack:"tabs"`
-	TargetLeaf *int32            `json:"target_leaf,omitempty" msgpack:"target_leaf,omitempty"`
-	TargetTab  *TabKey           `json:"target_tab,omitempty" msgpack:"target_tab,omitempty"`
-	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
-	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
-	Singleton  *bool             `json:"singleton,omitempty" msgpack:"singleton,omitempty"`
+	TargetLeaf *int32            `json:"target_leaf,omitzero" msgpack:"target_leaf,omitempty"`
+	TargetTab  *TabKey           `json:"target_tab,omitzero" msgpack:"target_tab,omitempty"`
+	Index      *int32            `json:"index,omitzero" msgpack:"index,omitempty"`
+	Location   *spatial.Location `json:"location,omitzero" msgpack:"location,omitempty"`
+	Singleton  *bool             `json:"singleton,omitzero" msgpack:"singleton,omitempty"`
 }
 
 // RemoveTabPayload removes the tab with the given key. If the containing leaf becomes
@@ -81,8 +81,8 @@ type RemoveTabPayload struct {
 type MoveTabPayload struct {
 	Key        TabKey            `json:"key" msgpack:"key"`
 	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
-	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
-	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
+	Index      *int32            `json:"index,omitzero" msgpack:"index,omitempty"`
+	Location   *spatial.Location `json:"location,omitzero" msgpack:"location,omitempty"`
 }
 
 // SplitTabPayload splits the tab with the given key off its leaf into a new sibling
@@ -122,15 +122,15 @@ type SetTabViewPayload struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type           string                 `json:"type" msgpack:"type"`
-	Create         *CreatePayload         `json:"create,omitempty" msgpack:"create,omitempty"`
-	Rename         *RenamePayload         `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitempty" msgpack:"insert_tabs,omitempty"`
-	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
-	MoveTab        *MoveTabPayload        `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
-	SplitTab       *SplitTabPayload       `json:"split_tab,omitempty" msgpack:"split_tab,omitempty"`
-	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
-	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitempty" msgpack:"set_tab_resource,omitempty"`
-	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitempty" msgpack:"set_tab_view,omitempty"`
+	Create         *CreatePayload         `json:"create,omitzero" msgpack:"create,omitempty"`
+	Rename         *RenamePayload         `json:"rename,omitzero" msgpack:"rename,omitempty"`
+	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitzero" msgpack:"insert_tabs,omitempty"`
+	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitzero" msgpack:"remove_tab,omitempty"`
+	MoveTab        *MoveTabPayload        `json:"move_tab,omitzero" msgpack:"move_tab,omitempty"`
+	SplitTab       *SplitTabPayload       `json:"split_tab,omitzero" msgpack:"split_tab,omitempty"`
+	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitzero" msgpack:"resize_split,omitempty"`
+	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitzero" msgpack:"set_tab_resource,omitempty"`
+	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitzero" msgpack:"set_tab_view,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on

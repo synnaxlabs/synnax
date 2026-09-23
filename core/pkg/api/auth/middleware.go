@@ -12,9 +12,9 @@ package auth
 import (
 	"context"
 	"strings"
+	"uuid"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
@@ -86,7 +86,7 @@ func GetSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
-		return user.OntologyID(uuid.Nil)
+		return user.OntologyID(uuid.Nil())
 	}
 	return s.(ontology.ID)
 }

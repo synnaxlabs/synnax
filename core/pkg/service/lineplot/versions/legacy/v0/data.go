@@ -123,7 +123,7 @@ type Line struct {
 	// Key is the line's unique key.
 	Key string `json:"key"`
 	// Label overrides the derived line label; absent derives it.
-	Label *string `json:"label,omitempty"`
+	Label *string `json:"label"`
 	// Color is the line color.
 	Color color.Color `json:"color"`
 	// StrokeWidth is the line width in pixels.

@@ -17,6 +17,7 @@ import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 
 import { Notifications } from "@/platform/notifications";
+import { isDevBuild } from "@/platform/version/build";
 import { useInfoModal } from "@/platform/version/useInfoModal";
 import { Session } from "@/session";
 
@@ -32,6 +33,7 @@ export const useCheckForUpdates = (): boolean => {
   const checkForUpdates = async () => {
     if (Session.Runtime.ENGINE !== "tauri" || availableRef.current) return;
     try {
+      if (await isDevBuild()) return;
       const update = await check();
       if (update == null) return;
       setAvailable(true);

@@ -115,7 +115,6 @@ export const formSchema = z.object({
     .object({ start: z.number(), end: z.number() })
     .refine(({ start, end }) => end >= start, {
       error: "End time must be after start time",
-      path: ["end"],
     }),
 });
 

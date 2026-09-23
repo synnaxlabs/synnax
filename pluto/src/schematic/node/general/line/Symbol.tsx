@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { box, xy } from "@synnaxlabs/x";
 import { useStoreApi } from "@xyflow/react";
 import { type ReactElement, useRef } from "react";
@@ -14,7 +15,6 @@ import { type ReactElement, useRef } from "react";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
 import { Grid } from "@/schematic/node/common/grid";
-import { type Config } from "@/schematic/node/general/line/config";
 import { Line } from "@/schematic/node/general/line/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 
@@ -35,7 +35,7 @@ export const Symbol = ({
   draggable,
   position = xy.ZERO,
   config: { color, start, end, strokeWidth },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.LineNodeConfig>): ReactElement => {
   const store = useStoreApi();
   const dragRef = useRef<Drag | null>(null);
   const points = [start, end];

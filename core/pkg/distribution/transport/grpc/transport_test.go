@@ -11,7 +11,6 @@ package grpc_test
 
 import (
 	"context"
-	"go/types"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -85,16 +84,16 @@ var _ = Describe("Transport", func() {
 			func(ctx SpecContext) {
 				var received deleter.Request
 				transport.Framer().Deleter().Server().BindHandler(
-					func(_ context.Context, req deleter.Request) (types.Nil, error) {
+					func(_ context.Context, req deleter.Request) (struct{}, error) {
 						received = req
-						return types.Nil{}, nil
+						return struct{}{}, nil
 					},
 				)
 				Expect(transport.Framer().Deleter().Client().Send(
 					ctx,
 					addr,
 					deleter.Request{Keys: channel.Keys{1, 2, 3}},
-				)).To(Equal(types.Nil{}))
+				)).To(Equal(struct{}{}))
 				Expect(received.Keys).To(Equal(channel.Keys{1, 2, 3}))
 			},
 		)
@@ -166,15 +165,15 @@ var _ = Describe("Transport", func() {
 				))
 
 				t.Framer().Deleter().Server().BindHandler(
-					func(_ context.Context, _ deleter.Request) (types.Nil, error) {
-						return types.Nil{}, nil
+					func(_ context.Context, _ deleter.Request) (struct{}, error) {
+						return struct{}{}, nil
 					},
 				)
 				Expect(t.Framer().Deleter().Client().Send(
 					ctx,
 					useAddr,
 					deleter.Request{Keys: channel.Keys{1}},
-				)).To(Equal(types.Nil{}))
+				)).To(Equal(struct{}{}))
 
 				t.Control().RetrieveServer().BindHandler(func(
 					_ context.Context,
