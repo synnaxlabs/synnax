@@ -36,7 +36,7 @@ import { Text } from "@/text";
  * ends: a day-long range reads to the minute, an hour-long one to the second, a
  * second-long one to the millisecond, anything shorter to the microsecond.
  */
-export const resolutionFor = (span: TimeSpan): TimeSpan => {
+const resolutionFor = (span: TimeSpan): TimeSpan => {
   if (span.greaterThanOrEqual(TimeSpan.DAY)) return TimeSpan.MINUTE;
   if (span.greaterThanOrEqual(TimeSpan.MINUTE)) return TimeSpan.SECOND;
   if (span.greaterThanOrEqual(TimeSpan.SECOND)) return TimeSpan.MILLISECOND;
@@ -182,9 +182,9 @@ export const StageButton = ({
   );
 };
 
-const Arrow = ({ level }: { level?: text.Level }): ReactElement => (
-  <Text.Text level={level} color={7} className={CSS.BE("range-timeline", "arrow")}>
-    <Icon.Arrow.Right />
+const Dot = ({ level }: { level?: text.Level }): ReactElement => (
+  <Text.Text level={level} color={8} className={CSS.BE("range-timeline", "dot")}>
+    <Icon.Circle />
   </Text.Text>
 );
 
@@ -363,17 +363,26 @@ export const Timeline = ({
             effect={startEffect}
             {...cell}
           />
+          {ended && endCell}
+          <Dot level={level} />
           <Input.TimeSpan
             value={0}
             onChange={handleSpan}
             elapsedSince={start}
             {...cell}
           />
-          {endCell}
+          {!ended && endCell}
         </>
       )}
       {stage === "completed" && (
         <>
+          <Text.Text
+            level={level}
+            color={9}
+            className={CSS.BE("range-timeline", "word")}
+          >
+            started
+          </Text.Text>
           <Input.DateTime
             value={start}
             onChange={handleStart}
@@ -383,7 +392,13 @@ export const Timeline = ({
             effect={startEffect}
             {...cell}
           />
-          <Arrow level={level} />
+          <Text.Text
+            level={level}
+            color={9}
+            className={CSS.BE("range-timeline", "word")}
+          >
+            ended
+          </Text.Text>
           <Input.DateTime
             value={end}
             onChange={handleEnd}
@@ -394,6 +409,7 @@ export const Timeline = ({
             effect={endEffect}
             {...cell}
           />
+          <Dot level={level} />
           <Input.TimeSpan value={end - start} onChange={handleSpan} {...cell} />
         </>
       )}

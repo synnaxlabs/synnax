@@ -203,7 +203,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           path="timeRange"
           padHelpText={false}
           showLabel={false}
-          className={CSS.B("time-range")}
         >
           {(p) => (
             <Ranger.Timeline

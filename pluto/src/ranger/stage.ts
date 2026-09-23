@@ -48,16 +48,6 @@ export const STAGE_NAMES: Record<Stage, string> = {
   completed: "Completed",
 };
 
-interface WrapNumericTimeRangeToStageParams {
-  value: NumericTimeRange;
-  onChange: (value: NumericTimeRange) => void;
-}
-
-interface WrapNumericTimeRangeToStageReturn {
-  value: Stage;
-  onChange: (value: Stage) => void;
-}
-
 /**
  * Returns the range with the timestamps that put it in `stage` as of now: to do moves
  * a past start to the end, in progress stamps a future start and clears a past end,
@@ -88,11 +78,3 @@ export const moveToStage = (
   }
   return tr;
 };
-
-export const wrapNumericTimeRangeToStage = ({
-  value,
-  onChange,
-}: WrapNumericTimeRangeToStageParams): WrapNumericTimeRangeToStageReturn => ({
-  value: getStage(value),
-  onChange: (v: Stage) => onChange(moveToStage(value, v)),
-});

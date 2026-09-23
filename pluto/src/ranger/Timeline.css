@@ -37,7 +37,11 @@
         user-select: none;
     }
 
-    & .pluto-range-timeline__arrow {
+    & .pluto-range-timeline__dot {
         flex-shrink: 0;
+        & svg {
+            width: 0.4em;
+            height: 0.4em;
+        }
     }
 }
