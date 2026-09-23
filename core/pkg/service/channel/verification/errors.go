@@ -13,33 +13,28 @@ import (
 	"context"
 	"strings"
 
-	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
 )
 
 var (
 	// ErrVerification is the base error for every verification failure.
-	ErrVerification = errors.New(base64.MustDecode("bGljZW5zZSBlcnJvcg=="))
+	ErrVerification = errors.New("license error")
 	// ErrMissing is returned while no grant applies to this Core.
-	ErrMissing = errors.Wrap(ErrVerification, base64.MustDecode(
-		"bm8gbGljZW5zZSBpcyBhY3RpdmF0ZWQgb24gdGhpcyBDb3Jl",
-	))
+	ErrMissing = errors.Wrap(ErrVerification, "no license is activated on this Core")
 	// ErrExpired is returned while the grant on this Core no longer covers it.
-	ErrExpired = errors.Wrap(ErrVerification, base64.MustDecode(
-		"dGhlIGxpY2Vuc2Ugb24gdGhpcyBDb3JlIGhhcyBleHBpcmVk",
-	))
+	ErrExpired = errors.Wrap(ErrVerification, "the license on this Core has expired")
 	// ErrInvalid is returned when a token fails to verify.
-	ErrInvalid = errors.Wrap(ErrVerification, base64.MustDecode(
-		"aW52YWxpZCBsaWNlbnNl",
-	))
+	ErrInvalid = errors.Wrap(ErrVerification, "invalid license")
 	// ErrHost is returned when a grant is bound to hosts this machine is not one of.
-	ErrHost = errors.Wrap(ErrVerification, base64.MustDecode(
-		"dGhlIGxpY2Vuc2Ugd2FzIG5vdCBpc3N1ZWQgZm9yIHRoaXMgbWFjaGluZQ==",
-	))
+	ErrHost = errors.Wrap(
+		ErrVerification,
+		"the license was not issued for this machine",
+	)
 	// ErrTooMany is returned when a channel would exceed the grant's cap.
-	ErrTooMany = errors.Wrap(ErrVerification, base64.MustDecode(
-		"dXNpbmcgbW9yZSBjaGFubmVscyB0aGFuIGFsbG93ZWQgYnkgdGhlIGxpY2Vuc2U=",
-	))
+	ErrTooMany = errors.Wrap(
+		ErrVerification,
+		"using more channels than allowed by the license",
+	)
 )
 
 const (
@@ -51,7 +46,7 @@ const (
 	tooManyType = errorType + ".too_many"
 )
 
-var errTooManyWrapString = base64.MustDecode("bGltaXQgaXMgJWQgY2hhbm5lbHM=")
+const errTooManyWrapString = "limit is %d channels"
 
 func newTooManyError(count uint32) error {
 	return errors.Wrapf(ErrTooMany, errTooManyWrapString, count)

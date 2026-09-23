@@ -21,7 +21,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
@@ -145,11 +144,12 @@ var DefaultServiceConfig = ServiceConfig{
 
 var (
 	// prefix keys the accepted tokens. The stored value is the token itself.
-	prefix = []byte("bGljZW5zZUtleQ==/")
-	// legacyKey held the previous format; it is removed on open.
+	prefix = []byte("license/")
+	// legacyKey held the previous format; it is removed on open. Its bytes are what
+	// a Core before this format wrote, so they never change.
 	legacyKey = []byte("bGljZW5zZUtleQ==")
 	// markKey holds the latest clock reading the service has recorded.
-	markKey = []byte("aGlnaFdhdGVy")
+	markKey = []byte("highWater")
 )
 
 // Service verifies the grant a Core runs under and gates the API on it.
@@ -250,9 +250,10 @@ func (s *Service) Apply(ctx context.Context, token string) (Info, error) {
 		return Info{}, err
 	}
 	if grant.Exp == nil && grant.Mv == nil {
-		return Info{}, errors.Wrap(ErrInvalid, base64.MustDecode(
-			"YSBsaWNlbnNlIHdpdGhvdXQgYW4gZXhwaXJ5IG11c3QgY2FycnkgYSBtYXhpbXVtIHZlcnNpb24=",
-		))
+		return Info{}, errors.Wrap(
+			ErrInvalid,
+			"a license without an expiry must carry a maximum version",
+		)
 	}
 	if grant.Mv != nil {
 		if _, _, ok := parseMinor(*grant.Mv); !ok {
@@ -362,20 +363,14 @@ func (s *Service) load(ctx context.Context) error {
 	return nil
 }
 
-var (
-	warnExpiresTemplate = base64.MustDecode("bGljZW5zZSBleHBpcmVzIGluICVz")
-	warnGraceTemplate   = base64.MustDecode(
-		"bGljZW5zZSBleHBpcmVkIG9uICVzLCBncmFjZSBwZXJpb2QgZW5kcyBvbiAlcw==",
-	)
-	warnFallbackTemplate = base64.MustDecode(
-		"c3Vic2NyaXB0aW9uIGVuZGVkIG9uICVzLCB0aGlzIHZlcnNpb24gaXMgY292ZXJlZCB1cCB0byAlcw==",
-	)
-	expiredVersionTemplate = base64.MustDecode(
-		"bGljZW5zZSBjb3ZlcnMgdmVyc2lvbnMgdXAgdG8gJXMsIHRoaXMgQ29yZSBpcyAlcw==",
-	)
-	expiredClockTemplate = base64.MustDecode(
-		"c3lzdGVtIGNsb2NrIGlzIGJlaGluZCB0aGUgbGFzdCByZWNvcmRlZCB0aW1lIGJ5IG1vcmUgdGhhbiAlcywgdHJlYXRpbmcgdGhlIGxpY2Vuc2UgYXMgZXhwaXJlZA==",
-	)
+const (
+	warnExpiresTemplate  = "license expires in %s"
+	warnGraceTemplate    = "license expired on %s, grace period ends on %s"
+	warnFallbackTemplate = "subscription ended on %s, this version is covered up to %s"
+
+	expiredVersionTemplate = "license covers versions up to %s, this Core is %s"
+	expiredClockTemplate   = "system clock is behind the last recorded time by more " +
+		"than %s, treating the license as expired"
 )
 
 // evaluate decides the state a grant puts this Core in at the current time.
@@ -456,11 +451,9 @@ func parseMinor(version string) (major, minor int, ok bool) {
 	return major, minor, true
 }
 
-var (
-	logActive      = base64.MustDecode("bGljZW5zZSBhY3RpdmU=")
-	logCapTemplate = base64.MustDecode(
-		"bGljZW5zZSBhY3RpdmUsIGxpbWl0IGlzICVkIGNoYW5uZWxz",
-	)
+const (
+	logActive      = "license active"
+	logCapTemplate = "license active, limit is %d channels"
 )
 
 func (s *Service) logState() {

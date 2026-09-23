@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
-	"github.com/synnaxlabs/x/encoding/base64"
 )
 
 // Flag names used for starting a Synnax Core.
@@ -118,14 +117,11 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().String(FlagDecodedPath, "", usagePath)
 }
 
-var (
-	FlagDecoded     = base64.MustDecode("bGljZW5zZS1rZXk=")
-	FlagDecodedPath = base64.MustDecode("bGljZW5zZS1maWxl")
-	usage           = base64.MustDecode("TGljZW5zZSB0b2tlbg==")
-	usagePath       = base64.MustDecode(
-		"UGF0aCB0byBhIGZpbGUgY29udGFpbmluZyB0aGUgbGljZW5zZSB0b2tlbg==",
-	)
-	noneTemplate = base64.MustDecode(
-		"bm8gYWN0aXZlIGxpY2Vuc2Ugb24gdGhpcyBDb3JlLiBIb3N0IGZpbmdlcnByaW50OiAlcy4gT3BlbiB0aGUgQ29uc29sZSBhdCAlcyB0byBhY3RpdmF0ZS4=",
-	)
+const (
+	FlagDecoded     = "license-key"
+	FlagDecodedPath = "license-file"
+	usage           = "License token"
+	usagePath       = "Path to a file containing the license token"
+	noneTemplate    = "no active license on this Core. Host fingerprint: %s. Open " +
+		"the Console at %s to activate."
 )

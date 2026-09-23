@@ -40,14 +40,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/verification"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
-	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
-)
-
-var (
-	verificationRetrievePath = base64.MustDecode("L2FwaS92MS9saWNlbnNlL3JldHJpZXZl")
-	verificationApplyPath    = base64.MustDecode("L2FwaS92MS9saWNlbnNlL2FjdGl2YXRl")
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
@@ -105,10 +99,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 
 		// VERIFICATION
 		VerificationRetrieve: router.NewUnaryServer[verification.RetrieveRequest, verification.RetrieveResponse](
-			verificationRetrievePath,
+			"/api/v1/license/retrieve",
 		),
 		VerificationApply: router.NewUnaryServer[verification.ApplyRequest, verification.ApplyResponse](
-			verificationApplyPath,
+			"/api/v1/license/activate",
 		),
 
 		// FRAME

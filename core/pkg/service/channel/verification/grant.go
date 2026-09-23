@@ -22,7 +22,8 @@ import (
 // header's key identifier.
 type Anchors = map[string]ed25519.PublicKey
 
-// anchors holds the production keys. Key 1 is the hub's signing key.
+// anchors holds the production keys. Key 1 is the hub's signing key; its private
+// half lives only in KMS.
 var anchors = Anchors{
 	"1": ed25519.PublicKey(base64.MustDecode(
 		"Sc6M2xG71KCrrL6XUjftfyLX8dLOSoBoN/LbXkT0lwE=",
