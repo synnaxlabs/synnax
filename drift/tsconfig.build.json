@@ -6,6 +6,8 @@
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": true,
-    "outDir": "dist"
-  }
+    "rootDir": "."
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.spec.*", "src/**/*.bench.*"]
 }

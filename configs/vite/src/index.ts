@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import dts from "unplugin-dts/vite";
 import { type Plugin } from "vite";
+
+import { declarations } from "./declarations.js";
 
 export interface Options {
   name: string;
@@ -23,35 +24,32 @@ export interface Options {
   publishSourcemaps?: boolean;
 }
 
-export const lib = ({ name, publishSourcemaps = true }: Options): Plugin[] => {
-  const dtsPlugin = dts({});
-  return [
-    {
-      name: "vite-plugin-lib",
-      config: (config) => {
-        const prod = isProd();
-        console.log(
-          `\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`,
-        );
-        return {
-          resolve: { tsconfigPaths: true },
-          build: {
-            sourcemap: prod && !publishSourcemaps ? "hidden" : true,
-            minify: prod,
-            lib: {
-              name,
-              formats: ["es"],
-              fileName: (_, entryName) =>
-                `${entryName === "index" ? name : entryName}.js`,
-              entry: path.resolve(config.root ?? ".", "src/index.ts"),
-              ...config.build?.lib,
-            },
+export const lib = ({ name, publishSourcemaps = true }: Options): Plugin[] => [
+  {
+    name: "vite-plugin-lib",
+    config: (config) => {
+      const prod = isProd();
+      console.log(
+        `\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`,
+      );
+      return {
+        resolve: { tsconfigPaths: true },
+        build: {
+          sourcemap: prod && !publishSourcemaps ? "hidden" : true,
+          minify: prod,
+          lib: {
+            name,
+            formats: ["es"],
+            fileName: (_, entryName) =>
+              `${entryName === "index" ? name : entryName}.js`,
+            entry: path.resolve(config.root ?? ".", "src/index.ts"),
+            ...config.build?.lib,
           },
-        };
-      },
+        },
+      };
     },
-    ...(Array.isArray(dtsPlugin) ? dtsPlugin : [dtsPlugin]),
-  ];
-};
+  },
+  declarations(),
+];
 
 export const isProd = () => process.env.SYNNAX_TS_ENV === "prod";
