@@ -59,6 +59,9 @@ const verdictSchema = z.object({
   color: z
     .object({ r: z.number().default(0), g: z.number().default(0) })
     .default({ r: 1, g: 1 }),
+  layout: z
+    .object({ margin: z.object({ x: z.number().default(1) }).default({ x: 2 }) })
+    .optional(),
 });
 type VerdictValues = z.infer<typeof verdictSchema>;
 const verdictValues = {
@@ -100,6 +103,12 @@ describe("State", () => {
         const state = new State(verdictValues, verdictSchema);
         state.setValue("redline.upper", 10);
         expect(state.values.redline).toEqual({ upper: 10 });
+      });
+
+      it("should build nested defaults below an optional ancestor", () => {
+        const state = new State(verdictValues, verdictSchema);
+        state.setValue("layout.margin.x", 9);
+        expect(state.values.layout).toEqual({ margin: { x: 9 } });
       });
 
       it("should leave a present ancestor alone", () => {
@@ -609,6 +618,11 @@ describe("State", () => {
       it("should read a leaf of a defaulted subtree from the subtree default", () => {
         const state = new State(verdictValues, verdictSchema);
         expect(state.getState("color.r").value).toBe(1);
+      });
+
+      it("should read a leaf below an optional ancestor from nested defaults", () => {
+        const state = new State(verdictValues, verdictSchema);
+        expect(state.getState("layout.margin.x").value).toBe(2);
       });
     });
 

@@ -66,10 +66,10 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.updateCachedRefs(path);
   }
 
-  /** @returns the value the schema supplies for an absent prefix, or undefined. */
-  private schemaDefault(prefix: string): unknown {
+  /** @returns the value the schema supplies for an absent path, or undefined. */
+  private schemaDefault(path: string): unknown {
     if (this.schema == null) return undefined;
-    const schema = zod.getFieldSchema(this.schema, prefix, {
+    const schema = zod.getFieldSchema(this.schema, path, {
       optional: true,
       values: this.values,
     });
@@ -83,40 +83,34 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return built.success ? built.data : undefined;
   }
 
-  /**
-   * Builds each absent ancestor of the path from its schema default, so a write to a
-   * leaf never leaves a parent the schema would reject.
-   */
-  private materialize(path: string) {
+  /** @returns the first absent ancestor of the path together with its default. */
+  private absentAncestor(path: string): [prefix: string, value: unknown] | null {
     const parts = path.split(".");
     for (let i = 1; i < parts.length; i++) {
       const prefix = parts.slice(0, i).join(".");
       if (deep.get(this.values, prefix, { optional: true }) != null) continue;
       const value = this.schemaDefault(prefix);
-      if (value == null) return;
-      deep.set(this.values, prefix, value);
+      return value == null ? null : [prefix, value];
     }
+    return null;
   }
 
   /**
-   * Reads an absent path the way a write would materialize it: the nearest absent
-   * ancestor with a schema default supplies the rest of the path.
+   * Builds the absent ancestor of the path from its schema default, so a write to a
+   * leaf never leaves a parent the schema would reject.
    */
+  private materialize(path: string) {
+    const ancestor = this.absentAncestor(path);
+    if (ancestor != null) deep.set(this.values, ...ancestor);
+  }
+
+  /** Reads an absent path out of the default a write would materialize. */
   private readAbsent(path: string): unknown {
-    const parts = path.split(".");
-    let base: unknown = this.values;
-    let start = 0;
-    for (let i = 1; i < parts.length; i++) {
-      const rel = parts.slice(start, i).join(".");
-      if (deep.get(base, rel, { optional: true }) != null) continue;
-      const value = this.schemaDefault(parts.slice(0, i).join("."));
-      if (value == null) return undefined;
-      [base, start] = [value, i];
-    }
-    if (start === 0) return undefined;
-    return (
-      deep.get(base, parts.slice(start).join("."), { optional: true }) ?? undefined
-    );
+    const ancestor = this.absentAncestor(path);
+    if (ancestor == null) return undefined;
+    const [prefix, value] = ancestor;
+    const rest = path.slice(prefix.length + 1);
+    return deep.get(value, rest, { optional: true }) ?? undefined;
   }
 
   private checkTouched(path: string, value: unknown, options: SetValueOptions = {}) {
