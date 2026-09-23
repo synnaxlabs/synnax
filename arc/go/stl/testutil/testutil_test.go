@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/testutil"
+	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Testutil", func() {
@@ -92,6 +93,15 @@ var _ = Describe("Testutil", func() {
 		It("Should decode F64 values", func(ctx SpecContext) {
 			encoded := math.Float64bits(3.14)
 			Expect(testutil.AsF64(encoded)).To(Equal(3.14))
+		})
+	})
+
+	Describe("ReserveStamps", func() {
+		It("Should hand out ranges that start at first and never overlap", func() {
+			reserve := testutil.ReserveStamps(100)
+			Expect(reserve(3)).To(Equal(telem.TimeStamp(100)))
+			Expect(reserve(2)).To(Equal(telem.TimeStamp(103)))
+			Expect(reserve(1)).To(Equal(telem.TimeStamp(105)))
 		})
 	})
 })

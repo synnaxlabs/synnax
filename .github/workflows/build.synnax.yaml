@@ -190,13 +190,9 @@ jobs:
             echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
             echo "PURE_VERSION=${PURE_VERSION}" >> $GITHUB_OUTPUT
           else
-            BASE_VERSION=$(cat pkg/version/VERSION)
-            echo "PURE_VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
-            if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-              echo "VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
-            else
-              echo "VERSION=${BASE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
-            fi
+            # A build without a resolved version is a dev build.
+            echo "PURE_VERSION=0.0.0" >> $GITHUB_OUTPUT
+            echo "VERSION=0.0.0-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate OS Matrix
@@ -266,7 +262,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       BAZEL_BUILD_FLAGS:
         --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt'
-        }} --announce_rc --verbose_failures
+        }} --announce_rc --verbose_failures --define=SYNNAX_DRIVER_VERSION=${{
+        needs.setup.outputs.VERSION }}
       BAZEL_REMOTE_CACHE_FLAGS:
         --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
         --remote_cache_compression=true
@@ -702,9 +699,9 @@ jobs:
         run: |
           go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} \
             -ldflags="-w -s \
-              -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} \
-              -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
-              -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              -X github.com/synnaxlabs/synnax/pkg/version.version=${{ needs.setup.outputs.VERSION }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.gitCommit=${{ github.sha }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Core Binary
@@ -981,8 +978,9 @@ jobs:
             runner.name) || '~/setup-pnpm' }}
 
       # A release build carries the resolved version and polls its updater channel;
-      # tauri.conf.json never changes. The MSI bundler accepts only a numeric
-      # pre-release, so a candidate X.Y.Z-rc.N runs as app version X.Y.Z-N.
+      # tauri.conf.json never changes, and a dev build falls back to the Cargo.toml
+      # version. The MSI bundler accepts only a numeric pre-release, so a candidate
+      # X.Y.Z-rc.N runs as app version X.Y.Z-N.
       - name: Write Tauri Release Config
         id: config
         working-directory: console
@@ -996,7 +994,7 @@ jobs:
               '{version: $version, plugins: {updater: {endpoints: [$endpoint]}}}' \
               > release.tauri.conf.json
           else
-            APP_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            APP_VERSION=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
             jq -n --arg endpoint "$ENDPOINT" \
               '{plugins: {updater: {endpoints: [$endpoint]}}}' > release.tauri.conf.json
           fi

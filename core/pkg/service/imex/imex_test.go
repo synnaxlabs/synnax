@@ -10,12 +10,15 @@
 package imex_test
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // wirePayload is the shape used by the envelope-level tests to exercise Decode and
@@ -44,7 +47,7 @@ func (bodyExported) ExportBody() any {
 
 var _ = Describe("ImEx", func() {
 	Describe("Envelope", func() {
-		Describe("UnmarshalJSON", func() {
+		Describe("UnmarshalJSONFrom", func() {
 			It(
 				"Should extract promoted headers and retain the body for typed decode",
 				func(ctx SpecContext) {
@@ -141,6 +144,23 @@ var _ = Describe("ImEx", func() {
 				)
 			})
 
+			It("Should reject a duplicate object name", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
+				)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("duplicate object member name")),
+				))
+			})
+
+			It("Should reject invalid UTF-8", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
+				)).To(MatchError(ContainSubstring("invalid UTF-8")))
+			})
+
 			It("Should accept an envelope without a type", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
@@ -160,7 +180,7 @@ var _ = Describe("ImEx", func() {
 			It("Should error when the input is a bare JSON number", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`34`), &env)).To(
-					MatchError(ContainSubstring("cannot unmarshal number")),
+					MatchError(ContainSubstring("unmarshal JSON number")),
 				)
 			})
 
@@ -187,7 +207,7 @@ var _ = Describe("ImEx", func() {
 			)
 		})
 
-		Describe("MarshalJSON", func() {
+		Describe("MarshalJSONTo", func() {
 			It(
 				"Should emit the body built by Encode, with headers at the top level",
 				func() {
@@ -213,22 +233,24 @@ var _ = Describe("ImEx", func() {
 					Expect(
 						env.Encode(wirePayload{Name: "n", Bar: `<svg id="a"/>`}),
 					).To(Succeed())
-					Expect(string(MustSucceed(env.MarshalJSON()))).
-						To(ContainSubstring(`"<svg id=\"a\"/>"`))
-					Expect(string(MustSucceed(json.Marshal(env)))).
-						To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
+					Expect(string(MustSucceed(
+						json.Marshal(env, jsontext.EscapeForHTML(false)),
+					))).To(ContainSubstring(`"<svg id=\"a\"/>"`))
+					Expect(string(MustSucceed(
+						json.Marshal(env, jsontext.EscapeForHTML(true)),
+					))).To(ContainSubstring(`"\u003csvg id=\"a\"/\u003e"`))
 				},
 			)
 
 			It(
 				"Should error when marshaling a hand-constructed envelope with no body",
 				func() {
-					// Hand-constructed envelopes have a nil body. MarshalJSON refuses
+					// Hand-constructed envelopes have a nil body. The marshaler refuses
 					// rather than silently emitting JSON null, so a service that
 					// accidentally returns an empty Envelope surfaces the bug at the
 					// transport boundary rather than over the wire.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-					Expect(json.Marshal(env)).Error().
+					Expect(json.MarshalWrite(io.Discard, env)).
 						To(MatchError(ContainSubstring("envelope has no body")))
 				},
 			)
@@ -822,6 +844,10 @@ var _ = Describe("ImEx", func() {
 			Entry("non-zero minor/patch", `"1.2.3"`),
 			Entry("not a semver", `"garbage"`),
 			Entry("wrong type", "true"),
+			Entry("fractional number", "1.5"),
+			Entry("negative number", "-1"),
+			Entry("composite value", "[1]"),
+			Entry("null", "null"),
 		)
 	})
 })

@@ -12,11 +12,11 @@ package testutil
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 )
 
 // UniqueChannelName generates a random channel name that should be unique. Channel name
 // uniqueness itself is enforced by the channel service during creation.
 func UniqueChannelName() string {
-	return fmt.Sprintf("test_ch_%09d", rand.Intn(999999999))
+	return fmt.Sprintf("test_ch_%09d", rand.IntN(999999999))
 }

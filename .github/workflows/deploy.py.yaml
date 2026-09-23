@@ -25,12 +25,14 @@ on:
       - uv.lock
   workflow_dispatch:
 
+# Trusted publishing: uv exchanges the job's OIDC token with PyPI; no token is stored.
+permissions:
+  id-token: write
+
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
-    env:
-      UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7

@@ -528,6 +528,7 @@ func finalizeEnumExtensions(c *analysisCtx) {
 		if !ok {
 			continue
 		}
+		form.Declared = form.Values
 		form.Values = merged
 		form.IsIntEnum = isInt
 		typ.Form = form
@@ -657,7 +658,8 @@ func effectiveEnumValues(
 // followed by the union's own declared variants. Extends targets that are structs keep
 // the shared-base-field semantics and are left untouched; mixing the two in one
 // declaration is an error. The table is mutated in place so downstream plugins read a
-// plain, fully populated union.
+// plain, fully populated union; the union bases move to Included, where a renderer
+// reading the table back finds the declared form.
 func finalizeUnionExtensions(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		form, ok := typ.Form.(resolution.UnionForm)
@@ -671,8 +673,9 @@ func finalizeUnionExtensions(c *analysisCtx) {
 		if !ok {
 			continue
 		}
+		form.Declared = form.Variants
 		form.Variants = merged
-		form.Extends = nil
+		form.Included, form.Extends = form.Extends, nil
 		typ.Form = form
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {

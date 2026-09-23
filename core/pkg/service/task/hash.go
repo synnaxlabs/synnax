@@ -10,7 +10,7 @@
 package task
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"
@@ -26,7 +26,7 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
-	b, err := json.Marshal(map[string]any(config))
+	b, err := json.Marshal(map[string]any(config), json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrap(err, "failed to hash task config")
 	}

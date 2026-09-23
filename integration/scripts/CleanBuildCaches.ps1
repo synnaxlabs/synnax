@@ -103,14 +103,32 @@ if (Test-Path $repoRoot) {
 }
 Write-Output ""
 
-# --- C:/tmp: Bazel install/server files that `bazel clean` leaves behind ---
-if (Test-Path "C:/tmp") {
-    $tmpBefore = [math]::Round(
-        ((Get-ChildItem -Recurse -File "C:/tmp" -ErrorAction SilentlyContinue |
+# --- Temp dirs, tool caches, and AMI leftovers ---
+$junkDirs = @(
+    "C:\tmp\*",
+    "C:\Windows\Temp\*",
+    "$env:TEMP\*",
+    "C:\Windows\SoftwareDistribution\Download\*",
+    "C:\Windows\SystemTemp\go-build*",
+    "$env:USERPROFILE\setup-pnpm*",
+    "$env:LOCALAPPDATA\bazelisk",
+    "$env:LOCALAPPDATA\pnpm-cache",
+    "C:\Users\Default\.cargo",
+    "C:\Users\Default\.rustup",
+    "C:\Users\Default\go",
+    "C:\Users\Default\setup-pnpm",
+    "C:\Users\Default\_bazel_Administrator",
+    "C:\Users\Default\AppData\Local\go-build",
+    "C:\Users\Default\AppData\Local\bazelisk"
+)
+foreach ($dir in $junkDirs) {
+    if (-not (Test-Path $dir)) { continue }
+    $before = [math]::Round(
+        ((Get-ChildItem -Recurse -File $dir -ErrorAction SilentlyContinue |
             Measure-Object -Property Length -Sum).Sum / 1MB), 0)
-    Remove-Item -Recurse -Force "C:/tmp" -ErrorAction SilentlyContinue
-    $script:totalFreed += $tmpBefore
-    Write-Output ("  {0,-35} freed {1}MB" -f "C:/tmp", $tmpBefore)
+    Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+    $script:totalFreed += $before
+    Write-Output ("  {0,-35} freed {1}MB" -f $dir, $before)
 }
 Write-Output ""
 
@@ -144,9 +162,8 @@ if (Test-EnoughSpace) {
 Write-Output "Deleting oldest cache files until ${MinFreeGB} GB free..."
 
 $cacheDirs = @(
-    "C:\Users\Administrator\AppData\Local\go-build",
-    "C:\Users\Administrator\go\pkg\mod\cache",
-    "C:\Windows\SystemTemp\go-build"
+    "$env:LOCALAPPDATA\go-build",
+    "$env:USERPROFILE\go\pkg\mod\cache"
 )
 $coreDir = Join-Path $repoRoot "core"
 
