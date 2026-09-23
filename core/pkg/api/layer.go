@@ -76,7 +76,7 @@ type Transport struct {
 	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[struct{}, connectivity.CheckResponse]
-	// VERIFICATION
+	// LICENSE
 	LicenseRetrieve freighter.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]
 	LicenseApply    freighter.UnaryServer[license.ApplyRequest, license.ApplyResponse]
 	// FRAME
@@ -438,7 +438,7 @@ func (l *Layer) BindTo(t Transport) {
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
 
-	// VERIFICATION
+	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
 	t.LicenseApply.BindHandler(l.License.Apply)
 	t.AuthChangePassword.BindHandler(
