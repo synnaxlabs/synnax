@@ -46,13 +46,13 @@ type Edges []Edge
 // layout for the Arc graph editor.
 type Graph struct {
 	// Functions contains function definitions available in this graph.
-	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
+	Functions ir.Functions `json:"functions" msgpack:"functions"`
 	// Edges contains dataflow connections between node parameters.
-	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	Edges Edges `json:"edges" msgpack:"edges"`
 	// Nodes contains visual nodes with canvas positions.
-	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
+	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 	// Inputs contains per-node inputs keyed by node key. Each value is a JSON object
 	// holding the node's function type under "type" plus its input parameter values.
 	// The wire format stores it as an opaque record; the client types it per function.
-	Inputs map[string]msgpack.EncodedJSON `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs map[string]msgpack.EncodedJSON `json:"inputs" msgpack:"inputs"`
 }

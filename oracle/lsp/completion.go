@@ -321,8 +321,7 @@ func (s *Server) Completion(
 
 func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
 	trimmed := strings.TrimLeft(linePrefix, " \t")
-	if i := strings.LastIndex(trimmed, "@"); i >= 0 {
-		rest := trimmed[i+1:]
+	if _, rest, ok := strings.CutLast(trimmed, "@"); ok {
 		switch {
 		case strings.HasPrefix(rest, "validate "):
 			return validateExpressionCompletions

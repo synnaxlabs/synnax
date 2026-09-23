@@ -10,6 +10,11 @@
 module(name = "synnax")
 
 bazel_dep(name = "abseil-cpp", version = "20260526.0")
+
+# Must come before rules_cc so the Apple toolchain wins toolchain resolution on macOS.
+# The rules_cc toolchain does not list the SDK root as a builtin include directory, so
+# Xcode 27 builds fail on the compiler's read of SDKSettings.json.
+bazel_dep(name = "apple_support", version = "2.3.0")
 bazel_dep(name = "boost.uuid", version = "1.90.0.bcr.1")
 bazel_dep(name = "cpp-httplib", version = "0.46.0")
 bazel_dep(name = "curl", version = "8.21.0.bcr.1")

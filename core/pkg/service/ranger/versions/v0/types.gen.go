@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )

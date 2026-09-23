@@ -21,8 +21,8 @@ package writer
 import (
 	"context"
 	"sync/atomic"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"

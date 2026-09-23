@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/testdata"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -33,7 +34,7 @@ var _ = Describe("Migration Test", func() {
 				fs xfs.FS
 			)
 			BeforeEach(func() { fs = openFS() })
-			Specify("V1 to V2", func(ctx SpecContext) {
+			Specify("V1 to current", func(ctx SpecContext) {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
@@ -60,7 +61,8 @@ var _ = Describe("Migration Test", func() {
 					} else {
 						Expect(err).ToNot(HaveOccurred())
 					}
-					Expect(chInDB.Version).To(Equal(uint8(2)))
+					Expect(chInDB.Version).To(Equal(channel.VersionCurrent))
+					Expect(chInDB.IsIndex).To(Equal(ch.IsIndex))
 
 					var (
 						channelFS = MustSucceed(fs.Sub(strconv.Itoa(int(ch.Key))))

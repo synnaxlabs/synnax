@@ -10,9 +10,9 @@
 package json
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"io"
 	"strconv"
 
@@ -25,143 +25,113 @@ import (
 var Codec = NewCodec()
 
 type codec struct {
-	// indent is the per-level indentation for encoded output; empty means compact.
-	indent string
-	// escapeHTML is whether <, >, and & are escaped in encoded string values.
-	escapeHTML bool
+	trailingNewline bool
+	opts            json.Options
 }
 
 // NewCodec returns a JSON implementation of http.FileCodec configured with the given
-// options.
-func NewCodec(opts ...Option) http.FileCodec {
-	c := &codec{escapeHTML: true}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c
+// options. Indented output also ends in a newline.
+func NewCodec(opts ...json.Options) http.FileCodec {
+	joined := json.JoinOptions(opts...)
+	indent, _ := json.GetOption(joined, jsontext.WithIndent)
+	return &codec{opts: joined, trailingNewline: indent != ""}
 }
-
-// Option configures a codec built by NewCodec.
-type Option func(*codec)
-
-// WithIndent encodes each level of nesting with the given indentation and appends a
-// trailing newline, for files a user reads. Decoding is unaffected.
-func WithIndent(indent string) Option { return func(c *codec) { c.indent = indent } }
-
-// WithoutHTMLEscaping writes <, >, and & literally rather than as \u003c, \u003e, and
-// \u0026, for files a user reads: JSON holding markup or source is unreadable escaped.
-// U+2028 and U+2029 stay escaped, which the standard library does unconditionally.
-// Decoding is unaffected, so output encoded either way reads back the same. Encoding
-// runs through a streaming encoder, which terminates its output with a newline.
-//
-// The escape only guards bytes placed into an HTML document without a parse, so drop it
-// only where that cannot happen.
-func WithoutHTMLEscaping() Option { return func(c *codec) { c.escapeHTML = false } }
 
 func (*codec) ContentType() string { return "application/json" }
 
-func (*codec) Decode(_ context.Context, data []byte, value any) error {
-	if err := json.Unmarshal(data, value); err != nil {
+func (c *codec) Decode(_ context.Context, data []byte, value any) error {
+	if err := json.Unmarshal(data, value, c.opts); err != nil {
 		return encoding.SugarDecodingError(data, value, err)
 	}
 	return nil
 }
 
-func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
-	if err := json.NewDecoder(r).Decode(value); err != nil {
+func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+	dec := jsontext.NewDecoder(r, c.opts)
+	if err := json.UnmarshalDecode(dec, value, c.opts); err != nil {
 		data, ioErr := io.ReadAll(r)
 		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
 	}
 	return nil
 }
 
-func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
-	if c.indent == "" && c.escapeHTML {
-		b, err := json.Marshal(value)
-		if err != nil {
-			return nil, encoding.SugarEncodingError(value, err)
-		}
-		return b, nil
+func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
+	b, err := json.Marshal(value, c.opts)
+	if err != nil {
+		return nil, encoding.SugarEncodingError(value, err)
 	}
-	var buf bytes.Buffer
-	if err := c.EncodeStream(ctx, &buf, value); err != nil {
-		return nil, err
+	if c.trailingNewline {
+		b = append(b, '\n')
 	}
-	return buf.Bytes(), nil
+	return b, nil
 }
 
 func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", c.indent)
-	enc.SetEscapeHTML(c.escapeHTML)
-	if err := enc.Encode(value); err != nil {
+	if err := json.MarshalWrite(w, value, c.opts); err != nil {
 		return encoding.SugarEncodingError(value, err)
 	}
-	return nil
+	if !c.trailingNewline {
+		return nil
+	}
+	_, err := w.Write([]byte{'\n'})
+	return err
 }
 
 func (*codec) Extension() string { return ".json" }
 
-// MarshalStringInt64 marshals the int64 value to a UTF-8 string.
-func MarshalStringInt64(n int64) []byte {
-	return []byte(`"` + strconv.FormatInt(n, 10) + `"`)
+// MarshalStringInt64To writes the int64 to enc as a JSON string.
+func MarshalStringInt64To(enc *jsontext.Encoder, n int64) error {
+	return enc.WriteToken(jsontext.String(strconv.FormatInt(n, 10)))
 }
 
-// MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
-func MarshalStringUint64(n uint64) []byte {
-	return []byte(`"` + strconv.FormatUint(n, 10) + `"`)
+// MarshalStringUint64To writes the uint64 to enc as a JSON string.
+func MarshalStringUint64To(enc *jsontext.Encoder, n uint64) error {
+	return enc.WriteToken(jsontext.String(strconv.FormatUint(n, 10)))
 }
 
-// UnmarshalStringInt64 attempts to unmarshal an int64 directly. If that fails, it
-// attempts to convert a string to an int64.
-func UnmarshalStringInt64(b []byte) (int64, error) {
-	var n int64
-	if err := json.Unmarshal(b, &n); err == nil {
-		return n, nil
+// readDigits reads the next token from dec as its decimal digits. A JSON number and a
+// JSON string both decode, so a value written as either form reads back.
+func readDigits(dec *jsontext.Decoder) (string, error) {
+	tok, err := dec.ReadToken()
+	if err != nil {
+		return "", err
 	}
-	var str string
-	if err := json.Unmarshal(b, &str); err != nil {
-		return 0, err
+	if k := tok.Kind(); k != '0' && k != '"' {
+		return "", errors.Newf("cannot decode a number from JSON %s", k.String())
 	}
-	v, err := strconv.ParseInt(str, 10, 64)
+	return tok.String(), nil
+}
+
+// UnmarshalStringInt64From reads an int64 from dec, accepting a JSON number or a JSON
+// string holding the decimal digits.
+func UnmarshalStringInt64From(dec *jsontext.Decoder) (int64, error) {
+	digits, err := readDigits(dec)
 	if err != nil {
 		return 0, err
 	}
-	return v, nil
+	return strconv.ParseInt(digits, 10, 64)
 }
 
-// UnmarshalStringUint32 attempts to unmarshal the uint32 directly. If that fails, it
-// attempts to convert a string to a uint32.
-func UnmarshalStringUint32(b []byte) (uint32, error) {
-	var n uint32
-	if err := json.Unmarshal(b, &n); err == nil {
-		return n, nil
-	}
-	var str string
-	if err := json.Unmarshal(b, &str); err != nil {
-		return 0, err
-	}
-	v, err := strconv.ParseUint(str, 10, 32)
+// UnmarshalStringUint32From reads a uint32 from dec, accepting a JSON number or a JSON
+// string holding the decimal digits.
+func UnmarshalStringUint32From(dec *jsontext.Decoder) (uint32, error) {
+	digits, err := readDigits(dec)
 	if err != nil {
 		return 0, err
 	}
-	return uint32(v), nil
-}
-
-// UnmarshalStringUint64 attempts to unmarshal the uint64 directly. If that fails, it
-// attempts to convert a string to a uint64.
-func UnmarshalStringUint64(b []byte) (uint64, error) {
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		return n, nil
-	}
-	var str string
-	if err := json.Unmarshal(b, &str); err != nil {
-		return 0, err
-	}
-	v, err := strconv.ParseUint(str, 10, 64)
+	n, err := strconv.ParseUint(digits, 10, 32)
 	if err != nil {
 		return 0, err
 	}
-	return v, nil
+	return uint32(n), nil
+}
+
+// UnmarshalStringUint64From reads a uint64 from dec, accepting a JSON number or a JSON
+// string holding the decimal digits.
+func UnmarshalStringUint64From(dec *jsontext.Decoder) (uint64, error) {
+	digits, err := readDigits(dec)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(digits, 10, 64)
 }

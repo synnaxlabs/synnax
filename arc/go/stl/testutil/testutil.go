@@ -381,3 +381,14 @@ func GraphConfig(
 	state := node.New(analyzed)
 	return node.Config{Node: analyzed.Nodes.Get("n"), State: state.Node("n")}
 }
+
+// ReserveStamps returns a node.Context ReserveStamps callback whose reservations start
+// at first and never overlap, as within one scheduler cycle.
+func ReserveStamps(first telem.TimeStamp) func(n int) telem.TimeStamp {
+	next := first
+	return func(n int) telem.TimeStamp {
+		reserved := next
+		next += telem.TimeStamp(n)
+		return reserved
+	}
+}

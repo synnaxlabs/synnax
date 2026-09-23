@@ -306,6 +306,9 @@ func referencedNamespaces(
 		for _, e := range f.Extends {
 			walkRef(e)
 		}
+		for _, e := range f.Included {
+			walkRef(e)
+		}
 	case resolution.DistinctForm:
 		walkRef(f.Base)
 	case resolution.AliasForm:

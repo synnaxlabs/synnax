@@ -42,7 +42,7 @@ type Axis struct {
 	// TickSpacing is the spacing between axis ticks in pixels.
 	TickSpacing float64 `json:"tickSpacing"`
 	// Type is the optional tick type; empty means linear.
-	Type string `json:"type,omitempty"`
+	Type string `json:"type"`
 }
 
 // Axes bundles every axis configuration at v2.
