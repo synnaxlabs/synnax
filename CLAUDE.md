@@ -227,10 +227,26 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
    prefixes like `[docs]` for non-issue work. Check
    `gh pr list --state all --limit 20 --json title,baseRefName` and match — don't invent
    a format.
-4. **Fill the template** at `.github/PULL_REQUEST_TEMPLATE/issue.md`: Linear issue
-   number and link (both `####` placeholders), a description of **what changed and why**
-   (lead with user-facing/architectural impact, not a diff restatement), readiness
-   checkboxes left unchecked unless actually performed.
+4. **Fill the template** at `.github/pull_request_template.md`: Linear issue number and
+   link (both `####` placeholders), a description of **what changed and why** (lead with
+   user-facing/architectural impact, not a diff restatement).
+5. **Add one review tier label**: `review/thorough`, `review/light`, or `review/bot`,
+   chosen by what the change can affect in a shipped enterprise product. The tiers, the
+   path floors, and the gate are in `CONTRIBUTING.md`. Never lower a tier a reviewer
+   raised.
+
+### Rule 3: Cut small, atomic pull requests
+
+A reviewer must finish a PR in one sitting; the median merged PR is about 500 lines.
+
+- **One idea per PR.** A fix and the refactor it needed are two PRs; the refactor lands
+  first at its own tier.
+- **Mechanical changes ship alone** as `review/bot` PRs: renames, format runs, lint
+  fixes, regenerated code. The human review then reads only hand-written code.
+- **Stack the rest.** A multi-step change is a chain of PRs, each targeting the one
+  below it and titled with a stack prefix (`[B2] SY-4862: ...`). Merge from the bottom.
+- **A new feature lands dark** behind a flag in `console/src/flags.ts`, as small Tier 2
+  PRs. The flag flip or deletion is the one Tier 1 PR that reads the whole feature.
 
 ## Self-editing guidelines
 
