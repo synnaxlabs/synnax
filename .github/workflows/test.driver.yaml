@@ -159,3 +159,7 @@ jobs:
       - name: Stop Synnax
         if: always()
         run: docker rm -f synnax-test-driver || true
+
+      - name: Clean Build Caches
+        if: always()
+        run: integration/scripts/clean_build_caches.sh 25

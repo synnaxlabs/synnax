@@ -12,17 +12,16 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -80,7 +79,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v2.Region{
 				Key:         "",
 				Name:        "",
-				Selectors:   nil,
+				Selectors:   []string{},
 				StrokeColor: nil,
 				FillColor:   nil,
 			}),
@@ -155,9 +154,9 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v2.Spec{
 				SVG:             "",
-				States:          nil,
+				States:          []v2.State{},
 				Variant:         "",
-				Handles:         nil,
+				Handles:         []v2.Handle{},
 				Scale:           0,
 				StrokeScaled:    false,
 				PreviewViewport: nil,
@@ -210,7 +209,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v2.State{
 				Key:     "",
 				Name:    "",
-				Regions: nil,
+				Regions: []v2.Region{},
 			}),
 			Entry("empty collections", v2.State{
 				Key:     "test_1",
@@ -264,13 +263,13 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.Symbol{
-				Key:  uuid.Nil,
+				Key:  uuid.Nil(),
 				Name: "",
 				Data: v2.Spec{
 					SVG:             "",
-					States:          nil,
+					States:          []v2.State{},
 					Variant:         "",
-					Handles:         nil,
+					Handles:         []v2.Handle{},
 					Scale:           0,
 					StrokeScaled:    false,
 					PreviewViewport: nil,
@@ -518,7 +517,7 @@ func FuzzDecodeHandle(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -553,7 +552,7 @@ func FuzzDecodeRegion(f *testing.F) {
 		seed := v2.Region{
 			Key:         "",
 			Name:        "",
-			Selectors:   nil,
+			Selectors:   []string{},
 			StrokeColor: nil,
 			FillColor:   nil,
 		}
@@ -603,7 +602,7 @@ func FuzzDecodeRegion(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -659,9 +658,9 @@ func FuzzDecodeSpec(f *testing.F) {
 	{
 		seed := v2.Spec{
 			SVG:             "",
-			States:          nil,
+			States:          []v2.State{},
 			Variant:         "",
-			Handles:         nil,
+			Handles:         []v2.Handle{},
 			Scale:           0,
 			StrokeScaled:    false,
 			PreviewViewport: nil,
@@ -704,7 +703,7 @@ func FuzzDecodeSpec(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -745,7 +744,7 @@ func FuzzDecodeState(f *testing.F) {
 		seed := v2.State{
 			Key:     "",
 			Name:    "",
-			Regions: nil,
+			Regions: []v2.Region{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -781,7 +780,7 @@ func FuzzDecodeState(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -830,13 +829,13 @@ func FuzzDecodeSymbol(f *testing.F) {
 	}
 	{
 		seed := v2.Symbol{
-			Key:  uuid.Nil,
+			Key:  uuid.Nil(),
 			Name: "",
 			Data: v2.Spec{
 				SVG:             "",
-				States:          nil,
+				States:          []v2.State{},
 				Variant:         "",
-				Handles:         nil,
+				Handles:         []v2.Handle{},
 				Scale:           0,
 				StrokeScaled:    false,
 				PreviewViewport: nil,
@@ -864,7 +863,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

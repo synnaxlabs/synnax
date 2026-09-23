@@ -64,11 +64,11 @@ type Schematic struct {
 	// Snapshot is true if this schematic is an immutable snapshot copy.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
-	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
+	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	// Edges contains all connections between nodes.
-	Edges []Edge `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	Edges []Edge `json:"edges" msgpack:"edges"`
 	// Configs contains per-element configuration keyed by node or edge key. The shape
 	// of each value is determined by the element's variant; the wire format
 	// intentionally stores it as an opaque record.
-	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
+	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
 }

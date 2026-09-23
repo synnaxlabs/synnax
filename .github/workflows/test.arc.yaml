@@ -151,6 +151,10 @@ jobs:
         if: always()
         run: docker rm -f synnax-test-arc || true
 
+      - name: Clean Build Caches
+        if: always()
+        run: integration/scripts/clean_build_caches.sh 25
+
   test-cpp:
     name: Test C++ (${{ matrix.os }})
     strategy:
@@ -186,3 +190,8 @@ jobs:
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true \
             --test_tag_filters=-requires-core
         shell: bash
+
+      - name: Clean Build Caches (Windows)
+        if: always() && matrix.os == 'windows-build-bot'
+        shell: powershell
+        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30

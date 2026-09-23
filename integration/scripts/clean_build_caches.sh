@@ -10,8 +10,7 @@
 # included in the file licenses/APL.txt.
 
 # Cleans build caches on self-hosted Linux runners to prevent unbounded disk growth.
-# - Bazel: always runs `bazel clean` (unconditional — remote cache serves next build)
-# - Go/binaries: deletes oldest files first until MIN_FREE_GB of disk space is available
+# Does nothing while free space is at least MIN_FREE_GB.
 #
 # Usage: clean_build_caches.sh [MIN_FREE_GB]
 #
@@ -41,9 +40,14 @@ echo "=== Build Cache Cleanup (target: ${MIN_FREE_GB}GB free) ==="
 echo "  Current free space: $(get_free_mb)MB (target: ${MIN_FREE_MB}MB)"
 echo ""
 
-# --- Bazel clean (unconditional) ---
+if has_enough_space; then
+    echo "Free space $(($(get_free_mb) / 1024))GB >= ${MIN_FREE_GB}GB, nothing to clean."
+    exit 0
+fi
+
+# --- Bazel clean ---
 echo "Bazel clean:"
-BAZEL_BASE=$(bazel info output_user_root 2> /dev/null || echo "/root/.bazel")
+BAZEL_BASE=$(bazel info output_base 2> /dev/null || echo "/home/ubuntu/.bazel")
 if [ -d "$BAZEL_BASE" ] && [ -d "$REPO_ROOT" ]; then
     before_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
     before_bazel=${before_bazel:-0}

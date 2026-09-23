@@ -11,13 +11,13 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"strconv"
 	"strings"
+	"uuid"
 
 	"github.com/cespare/xxhash/v2"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
@@ -66,7 +66,7 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
-	b, err := json.Marshal(map[string]any(config))
+	b, err := json.Marshal(map[string]any(config), json.Deterministic(true))
 	if err != nil {
 		return "", errors.Wrap(err, "failed to hash task config")
 	}

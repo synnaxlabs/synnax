@@ -11,7 +11,6 @@ package kvmock
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
@@ -26,8 +25,8 @@ import (
 type Builder struct {
 	clustermock.Builder
 	OpNet       *mock.Network[kv.TxRequest, kv.TxRequest]
-	FeedbackNet *mock.Network[kv.FeedbackMessage, types.Nil]
-	LeaseNet    *mock.Network[kv.TxRequest, types.Nil]
+	FeedbackNet *mock.Network[kv.FeedbackMessage, struct{}]
+	LeaseNet    *mock.Network[kv.TxRequest, struct{}]
 	RecoveryNet *mock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 	KVs         map[node.Key]xkv.DB
 	// engines holds memkv.New() backing stores keyed by node so Close can
@@ -42,8 +41,8 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 		BaseCfg:     baseKVCfg,
 		Builder:     *clustermock.NewBuilder(baseClusterCfg),
 		OpNet:       mock.NewNetwork[kv.TxRequest, kv.TxRequest](),
-		FeedbackNet: mock.NewNetwork[kv.FeedbackMessage, types.Nil](),
-		LeaseNet:    mock.NewNetwork[kv.TxRequest, types.Nil](),
+		FeedbackNet: mock.NewNetwork[kv.FeedbackMessage, struct{}](),
+		LeaseNet:    mock.NewNetwork[kv.TxRequest, struct{}](),
 		RecoveryNet: mock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 		KVs:         make(map[node.Key]xkv.DB),
 		engines:     make(map[node.Key]xkv.DB),

@@ -24,9 +24,9 @@ import (
 // truth from which raw is materialized.
 type Document struct {
 	// Inserts are the operations that reconstruct the document's characters.
-	Inserts []crdt.Insert `json:"inserts,omitzero" msgpack:"inserts,omitzero"`
+	Inserts []crdt.Insert `json:"inserts" msgpack:"inserts"`
 	// Deletes are the operations that tombstone deleted characters.
-	Deletes []crdt.Delete `json:"deletes,omitzero" msgpack:"deletes,omitzero"`
+	Deletes []crdt.Delete `json:"deletes" msgpack:"deletes"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
