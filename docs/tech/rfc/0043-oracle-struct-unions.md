@@ -119,7 +119,7 @@ object. This rules out any design that requires wrapping or nesting.
 
 How existing systems cover the axes:
 
-| System          | Tagging                 | Discriminator              | Shared Fields        | Nesting         |
+| System          | Tagging                 | Discriminator              | Shared fields        | Nesting         |
 | --------------- | ----------------------- | -------------------------- | -------------------- | --------------- |
 | **Serde**       | All 4 strategies        | Explicit (`tag = "..."`)   | Via struct embedding | Yes             |
 | **Protobuf**    | External/adjacent       | Implicit (field name)      | None                 | No              |

@@ -118,7 +118,9 @@ var _ = Describe("Migration", func() {
 				Time:    telem.Now(),
 				Details: v0.StatusDetails{Rack: d.Rack, Device: d.Key},
 			}
-			Expect(statusSvc.NewWriter(nil).Set(ctx, &existing)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, &existing)
+			})).To(Succeed())
 
 			runMigration(ctx)
 

@@ -1,4 +1,4 @@
-# LabJack Examples
+# LabJack examples
 
 This directory contains example scripts for working with LabJack devices in Synnax.
 
@@ -13,11 +13,11 @@ This directory contains example scripts for working with LabJack devices in Synn
    - Synnax driver running
 3. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
-## Quick Start Guide
+## Quick start guide
 
 Follow these scripts in order:
 
-### 1. Connect Your Device
+### 1. Connect your device
 
 First, register your LabJack device with Synnax:
 
@@ -41,7 +41,7 @@ device:
 - `CONNECTION_TYPE`: Connection method (`"ANY"`, `"USB"`, `"TCP"`, `"ETHERNET"`, or
   `"WIFI"`)
 
-### 2. Read Data from Analog Inputs
+### 2. Read data from analog inputs
 
 Read analog voltages from your LabJack:
 
@@ -58,7 +58,7 @@ This example:
 
 **What you'll see**: Real-time voltage readings from AIN0 and AIN1.
 
-### 3. Read Thermocouple Data
+### 3. Read thermocouple data
 
 For temperature measurements with K-type thermocouples:
 
@@ -76,7 +76,7 @@ This example:
 
 **Hardware setup**: Connect K-type thermocouples to AIN0 and AIN2 on your T7/T7-Pro.
 
-### 4. Control Outputs
+### 4. Control outputs
 
 Send commands to analog and digital outputs:
 
@@ -94,7 +94,7 @@ This example:
 **Hardware setup**: Connect an LED to FIO4 or an oscilloscope to DAC0 to see the
 outputs.
 
-### 5. Delete Device (Cleanup)
+### 5. Delete device (cleanup)
 
 When finished, remove the device registration:
 
@@ -104,9 +104,9 @@ uv run python examples/labjack/delete_device.py
 
 This will remove the device and all associated tasks from Synnax.
 
-## Common Device Configurations
+## Common device configurations
 
-### USB Connection (Default)
+### USB connection (default)
 
 ```python
 IDENTIFIER = "ANY"
@@ -115,7 +115,7 @@ CONNECTION_TYPE = "USB"
 
 The driver will connect to any LabJack device found on USB.
 
-### Specific Serial Number
+### Specific serial number
 
 ```python
 IDENTIFIER = "470012345"  # Replace with your serial number
@@ -124,7 +124,7 @@ CONNECTION_TYPE = "ANY"
 
 Connect to a specific device by serial number.
 
-### Ethernet/WiFi Connection
+### Ethernet/WiFi connection
 
 ```python
 IDENTIFIER = "192.168.1.100"  # Replace with your device IP
@@ -133,9 +133,9 @@ CONNECTION_TYPE = "ETHERNET"  # or "WIFI"
 
 Connect to a network-connected LabJack.
 
-## Channel Types
+## Channel types
 
-### Read Channels
+### Read channels
 
 - **InputChannelAI** (type="AI"): Analog input (voltage)
   - Configurable range (±0.01V to ±10V)
@@ -152,7 +152,7 @@ Connect to a network-connected LabJack.
   - Binary state (0 or 1)
   - Use for switches, sensors, etc.
 
-### Write Channels
+### Write channels
 
 - **OutputChannelAO** (type="AO"): Analog output
   - Voltage control (typically 0-5V on DAC0/DAC1)
@@ -162,7 +162,7 @@ Connect to a network-connected LabJack.
   - Binary control (0 or 1)
   - Use for relays, LEDs, digital control
 
-## Sample Rates
+## Sample rates
 
 - **Analog inputs**: Up to 100 kHz (device dependent)
 - **Thermocouples**: Typically 10 Hz maximum (due to CJC calculations)
@@ -198,13 +198,13 @@ Synnax. For example, 100 Hz sampling with 25 Hz streaming sends 4 samples per pa
 - Check CJC configuration (typically use `TEMPERATURE_DEVICE_K`)
 - Ensure proper thermocouple connections (correct polarity)
 
-## Additional Resources
+## Additional resources
 
 - [LabJack T-Series Datasheet](https://labjack.com/pages/support?doc=/datasheets/t-series-datasheet/)
 - [Synnax LabJack Driver Documentation](https://docs.synnaxlabs.com/reference/driver/labjack/)
 - [LabJack Support Forum](https://labjack.com/forums)
 
-## Next Steps
+## Next steps
 
 After running these examples, you can:
 

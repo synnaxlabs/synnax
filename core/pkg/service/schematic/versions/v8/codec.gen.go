@@ -12,7 +12,7 @@
 package v8
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"

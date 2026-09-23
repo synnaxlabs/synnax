@@ -15,7 +15,7 @@ import { type Label } from "@/schematic/node/common/label";
 import { Select } from "@/schematic/node/common/orientation/select";
 
 interface SymbolOrientation {
-  label?: Label.Config;
+  label: Label.Config;
   orientation?: location.Outer;
 }
 
@@ -45,7 +45,7 @@ export const Field = ({
         <Select
           value={{
             inner: value.orientation ?? "top",
-            outer: value.label?.orientation ?? "top",
+            outer: value.label.orientation,
           }}
           hideInner={hideInner}
           hideOuter={hideOuter}

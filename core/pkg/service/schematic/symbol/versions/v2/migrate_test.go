@@ -10,7 +10,8 @@
 package v2_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"

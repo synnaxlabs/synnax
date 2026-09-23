@@ -20,7 +20,6 @@ import {
   Menu,
   Schematic as PSchematic,
   Status,
-  telem,
   Text,
   Tooltip,
   Tree as PTree,
@@ -40,29 +39,10 @@ import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
-  const t = telem.sourcePipeline("string", {
-    connections: [
-      {
-        from: "valueStream",
-        to: "stringifier",
-      },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: Number(otgID.key) }),
-      stringifier: telem.stringifyNumber({ precision: 2 }),
-    },
-    outlet: "stringifier",
-  });
-  const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
-    variant: "value",
-    label: { label: name, level: "p" },
-    telem: t,
-  };
   const items = [
     PSchematic.createHaulItem({
       key: id.create(),
-      variant: "value",
-      config: nodeConfig,
+      config: { variant: "value", label: { label: name }, channel: Number(otgID.key) },
     }),
   ];
   if (data?.internal === true) return items;

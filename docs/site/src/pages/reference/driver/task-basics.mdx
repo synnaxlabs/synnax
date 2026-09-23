@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Task Basics"
+title: "Task basics"
 description: "Learn the fundamentals of working with tasks in Synnax."
 prev: "Installation"
 prevURL: "/reference/driver/installation"
@@ -32,7 +32,7 @@ device:
 
 <Divider.Divider x />
 
-## What Are Tasks?
+## What are tasks?
 
 Tasks are the primary method for communicating with hardware devices in Synnax. Tasks
 can be used for both control and data acquisition purposes. A task defines a background
@@ -44,14 +44,14 @@ purposes and switch between them as needed.
 
 <Divider.Divider x />
 
-## Creating a Task
+## Creating a task
 
 <Tabs
   client:load
   tabs={[
-    { name: "Devices Toolbar", tabKey: "tab1" },
-    { name: "Command Palette", tabKey: "tab2" },
-    { name: "Layout Selector", tabKey: "tab3" }
+    { name: "Devices toolbar", tabKey: "tab1" },
+    { name: "Command palette", tabKey: "tab2" },
+    { name: "Layout selector", tabKey: "tab3" }
   ]}
 >
 <Fragment slot="tab1">
@@ -65,7 +65,7 @@ task type.
 </Fragment>
 <Fragment slot="tab2">
 
-Open the [Command Palette](/reference/console/ui-overview#search-and-command-palette)
+Open the [command palette](/reference/console/ui-overview#search-and-command-palette)
 and type `Create`. Select the task type you need to open the task configuration dialog.
 
 <Video client:only="react" id="device-drivers/task/command-palette" />
@@ -83,7 +83,7 @@ select the task type from the menu.
 
 <Divider.Divider x />
 
-## Task Lifecycle
+## Task lifecycle
 
 The task form saves every edit. Click play (<Icon.Play />) to send the configuration to
 the Driver and start the task. Click stop (<Icon.Stop />) to stop it.
@@ -95,18 +95,19 @@ the Driver and start the task. Click stop (<Icon.Stop />) to stop it.
 
 <Divider.Divider x />
 
-## Read Tasks
+## Read tasks
 
 A read task samples hardware inputs and streams the values into Synnax channels. Every
 channel in a task shares one sample rate, and a channel can be fed by only one running
 task at a time.
 
 For tasks under 50 Hz, set the stream rate equal to the sample rate. For faster tasks,
-keep the stream rate under 50 Hz. See [Timing](#timing) for how samples are timestamped.
+keep the stream rate under 50 Hz. How samples are [timestamped](#timing) depends on
+whether the task is hardware or software timed.
 
 <Divider.Divider x />
 
-## Write Tasks
+## Write tasks
 
 A write task listens on command channels (`_cmd`) and writes each value to the hardware.
 Outputs that report back also get a state channel (`_state`), refreshed at the task's
@@ -119,14 +120,14 @@ the same target to read the state back.
 
 ## Timing
 
-### Hardware Timed Tasks
+### Hardware timed tasks
 
 Where the acquisition module has a sample clock, the Driver uses it and interpolates the
 time between samples. NI analog read tasks, NI digital read tasks with a timing source,
 and LabJack read tasks without thermocouple channels are hardware timed. A task sampling
 at 100 Hz and streaming at 10 Hz acquires 10 samples per read:
 
-| Sample Index | Time (s) | Notes                       |
+| Sample index | Time (s) | Notes                       |
 | ------------ | -------- | --------------------------- |
 | 0            | 0.000    | First sample of first read  |
 | 1            | 0.010    |                             |
@@ -154,7 +155,7 @@ Skew correction is on by default. Disable it with `timing.correct_skew: false` i
 Driver configuration file, `--correct-skew=false` on the command line, or
 `SYNNAX_DRIVER_CORRECT_SKEW=false` in the environment.
 
-### Software Timed Tasks
+### Software timed tasks
 
 Without a hardware clock, the Driver timestamps samples when it receives them, which is
 less accurate. NI digital read tasks without a timing source, NI counter read tasks,
@@ -163,7 +164,7 @@ all write tasks are software timed.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

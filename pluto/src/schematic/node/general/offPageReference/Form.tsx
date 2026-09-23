@@ -13,17 +13,11 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Component } from "@/component";
 import { Form as Base } from "@/form";
+import { Input } from "@/input";
 import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
-import {
-  type Page,
-  PAGE_ICONS,
-  PAGE_TYPES,
-  pageTypeZ,
-  pageZ,
-  parsePage,
-} from "@/schematic/node/general/offPageReference/config";
+import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
 import { Status } from "@/status/base";
@@ -40,12 +34,12 @@ const ClickModeSelect = Component.renderProp(
     onChange: (v: boolean) => void;
   }): ReactElement => {
     const handleChange = useCallback(
-      (v: string) => onChange(v === "double"),
+      (v: string) => onChange(v === "single"),
       [onChange],
     );
     return (
       <Select.Buttons
-        value={value ? "double" : "single"}
+        value={value ? "single" : "double"}
         onChange={handleChange}
         keys={CLICK_MODE_KEYS}
       >
@@ -56,18 +50,23 @@ const ClickModeSelect = Component.renderProp(
   },
 );
 
-const selectKey = (page: Page): string =>
-  page.key.length === 0 ? "" : ontology.idToString(page);
+const selectKey = (page?: schematic.Page | null): string =>
+  page == null || page.key.length === 0 ? "" : ontology.idToString(page);
 
 const useHandlePageChange = (): ((v: string | null) => void) => {
   const theme = Theming.use();
   const ctx = Base.useContext();
   return useCallback(
     (v: string | null) => {
-      const prev = ctx.get<Page | string>("page").value;
+      const prev = ctx.get<schematic.Page | undefined>("page", {
+        optional: true,
+      })?.value;
       const cleared = v == null || v.length === 0;
-      ctx.set("page", cleared ? "" : pageZ.parse(ontology.stringIDZ.parse(v)));
-      const hadPage = parsePage(prev).key.length > 0;
+      ctx.set(
+        "page",
+        cleared ? undefined : schematic.pageZ.parse(ontology.stringIDZ.parse(v)),
+      );
+      const hadPage = prev != null && prev.key.length > 0;
       if (!hadPage && !cleared) ctx.set("color", color.hex(theme.colors.primary.z));
     },
     [ctx, theme],
@@ -84,11 +83,11 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     handleError(async () => {
       const children = await Project.retrieveChildren(client, {
         resourceID: schematic.ontologyID(schematicKey),
-        types: [...PAGE_TYPES],
+        types: [...schematic.PAGE_TYPES],
       });
       setSiblings(
         children.flatMap(({ key, name, type }) => {
-          const pageType = pageTypeZ.safeParse(type);
+          const pageType = schematic.pageTypeZ.safeParse(type);
           if (!pageType.success) return [];
           const PageIcon = PAGE_ICONS[pageType.data];
           return {
@@ -101,6 +100,9 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
     }, "Failed to retrieve project pages");
   }, [client, schematicKey, handleError]);
   const handlePageChange = useHandlePageChange();
+  const page = Base.useFieldValue<schematic.Page | undefined>("page", {
+    optional: true,
+  });
   return (
     <Base.Sections x>
       <Base.Section title="Label">
@@ -115,30 +117,21 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         </Base.Field>
       </Base.Section>
       <Base.Section title="Navigation">
-        <Base.Field<Page | string>
-          path="page"
-          label="Page"
-          padHelpText={false}
-          hideIfNull={false}
-          defaultValue=""
-        >
-          {({ value }) => (
-            <Select.Static
-              value={selectKey(parsePage(value))}
-              onChange={handlePageChange}
-              data={siblings}
-              resourceName="page"
-              emptyContent="No other pages in this project"
-              allowNone
-            />
-          )}
-        </Base.Field>
+        <Input.Item label="Page" padHelpText={false}>
+          <Select.Static
+            value={selectKey(page)}
+            onChange={handlePageChange}
+            data={siblings}
+            resourceName="page"
+            emptyContent="No other pages in this project"
+            allowNone
+          />
+        </Input.Item>
         <Base.Field<boolean>
-          path="dblClickNav"
+          path="dblClickNavDisabled"
           label="Click mode"
           padHelpText={false}
           hideIfNull={false}
-          defaultValue
         >
           {ClickModeSelect}
         </Base.Field>

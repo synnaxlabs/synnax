@@ -473,7 +473,7 @@ func (x *WriterResponse) GetEnd() int64 {
 type StreamerRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Keys             []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	DownsampleFactor int32                  `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
+	DownsampleFactor uint32                 `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
 	ThrottleRateHz   float64                `protobuf:"fixed64,4,opt,name=throttle_rate_hz,json=throttleRateHz,proto3" json:"throttle_rate_hz,omitempty"`
 	ExcludeGroups    []uint32               `protobuf:"varint,5,rep,packed,name=exclude_groups,json=excludeGroups,proto3" json:"exclude_groups,omitempty"`
 	unknownFields    protoimpl.UnknownFields
@@ -517,7 +517,7 @@ func (x *StreamerRequest) GetKeys() []uint32 {
 	return nil
 }
 
-func (x *StreamerRequest) GetDownsampleFactor() int32 {
+func (x *StreamerRequest) GetDownsampleFactor() uint32 {
 	if x != nil {
 		return x.DownsampleFactor
 	}
@@ -696,7 +696,7 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\x03end\x18\x05 \x01(\x03R\x03end\"\xa3\x01\n" +
 	"\x0fStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
-	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\x12(\n" +
+	"\x11downsample_factor\x18\x02 \x01(\rR\x10downsampleFactor\x12(\n" +
 	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\x12%\n" +
 	"\x0eexclude_groups\x18\x05 \x03(\rR\rexcludeGroups\"S\n" +
 	"\x10StreamerResponse\x12'\n" +

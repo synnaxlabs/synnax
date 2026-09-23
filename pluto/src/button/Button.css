@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-space.pluto--direction-y .pluto-btn {
-    flex-shrink: 0;
-}
-
 /* Reveals with clip-path rather than width so the fill never runs layout, and never
    scales, which would distort the overlay's corner radius. */
 @keyframes delay {
@@ -80,6 +76,12 @@
         padding: 0 1rem;
     }
 
+    /* Cap content that outgrows the square sizes the row past the caps themselves, so
+       pin them to the row's right edge and every hint ends on the same edge. */
+    .pluto-trigger-indicator > .pluto-text {
+        justify-content: flex-end;
+    }
+
     &.pluto-btn--filled {
         border-radius: var(--pluto-border-radius-small);
 
@@ -126,7 +128,7 @@
         &.pluto--status-warning {
             color: var(--pluto-text-on-warning);
 
-            .pluto-text {
+            :where(.pluto-text) {
                 color: var(--pluto-text-on-warning);
             }
 
@@ -166,7 +168,7 @@
             clip-path: inset(0 100% 0 0);
         }
 
-        &:active::after {
+        &.pluto--pressed::after {
             animation: delay var(--pluto-btn-delay) linear;
             clip-path: inset(0 0 0 0);
         }
@@ -174,12 +176,6 @@
 
     &:not(.pluto--square) .pluto-trigger-indicator {
         margin-left: auto;
-    }
-
-    /* Cap content that outgrows the square sizes the row past the caps themselves, so
-       pin them to the row's right edge and every hint ends on the same edge. */
-    .pluto-trigger-indicator > .pluto-text {
-        justify-content: flex-end;
     }
 
     &.pluto--square {
@@ -302,8 +298,8 @@
         color: var(--pluto-selected-color);
     }
 
-    /* Placed after the selected block so a preview strips the selected chassis
-       too: the value reads as plain text, never as a still-active control. */
+    /* Placed after the selected block so a preview strips the selected chassis too: the
+       value reads as plain text, never as a still-active control. */
     &.pluto-btn--preview {
         cursor: default;
         pointer-events: none;
@@ -355,27 +351,28 @@
         }
     }
 
-    /* Inline glyph action: a chassis-nested micro-button (tab close, tag close).
-       No fill feedback; the glyph alone carries hover and press. The bg re-point
-       shields it from the host chassis's inherited fill vars. */
+    /* Inline glyph action: a chassis-nested micro-button (tab close, tag close). No
+       fill feedback; the glyph alone carries hover and press. The bg re-point shields
+       it from the host chassis's inherited fill vars. */
     &.pluto-btn--glyph {
         --pluto-bg: transparent;
         --pluto-hover-bg: transparent;
         --pluto-active-bg: transparent;
+        --pluto-glyph-fill: var(--pluto-gray-l9);
+
+        &:hover {
+            --pluto-glyph-fill: var(--pluto-gray-l11);
+        }
+
+        &.pluto--destructive.pluto--pressed {
+            --pluto-glyph-fill: var(--pluto-error-z);
+        }
 
         & svg {
-            fill: var(--pluto-gray-l9);
+            fill: var(--pluto-glyph-fill);
             transition:
                 transform 0.1s ease-out,
                 fill 0.1s ease-out;
-        }
-
-        &:hover svg {
-            fill: var(--pluto-gray-l11);
-        }
-
-        &.pluto--destructive:active svg {
-            fill: var(--pluto-error-z);
         }
     }
 
@@ -405,11 +402,11 @@
         --pluto-border-color: var(--haul-border-color) !important;
     }
 
-    /* We use the flex selector that is always present in order to increase
-     specificity of the hover and active states. */
+    /* We use the flex selector that is always present in order to increase specificity
+     of the hover and active states. */
 
-    /* pluto--focus-frozen marks a control whose pointer states freeze while it
-       holds focus: hover and press swap nothing until it blurs. */
+    /* pluto--focus-frozen marks a control whose pointer states freeze while it holds
+       focus: hover and press swap nothing until it blurs. */
     &:not(.pluto-btn--prevent-click, .pluto--disabled) {
         &:is(:hover, .pluto--hovered, [data-context-menu-open]):not(
                 .pluto--focus-frozen:focus-within
@@ -418,7 +415,7 @@
             --pluto-border-color: var(--pluto-hover-border-color);
         }
 
-        &:active:not(.pluto--focus-frozen:focus-within) {
+        &.pluto--pressed:not(.pluto--focus-frozen:focus-within) {
             --pluto-bg: var(--pluto-active-bg);
             --pluto-border-color: var(--pluto-active-border-color);
         }

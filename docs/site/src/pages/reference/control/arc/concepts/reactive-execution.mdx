@@ -1,11 +1,11 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Reactive Execution"
+title: "Reactive execution"
 description:
   "How Arc executes programs using reactive dataflow and stratified scheduling"
-prev: "Control Authority"
+prev: "Control authority"
 prevURL: "/reference/control/arc/concepts/control-authority"
-next: "Sequences and Stages"
+next: "Sequences and stages"
 nextURL: "/reference/control/arc/concepts/sequences-and-stages"
 ---
 
@@ -14,7 +14,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-## Why This Matters
+## Why this matters
 
 Consider two functions reading the same pressure sensor:
 
@@ -35,7 +35,7 @@ safe.
 
 <Divider.Divider x />
 
-## The Reactive Model
+## The reactive model
 
 Arc programs don't execute line-by-line like traditional code. Instead, they use a
 **reactive dataflow model** where computations run automatically in response to new data
@@ -53,11 +53,11 @@ When `tank_pressure` receives new data, Arc runs `scale` and writes the result t
 
 <Divider.Divider x />
 
-## Flow Statements and Edges
+## Flow statements and edges
 
 Flow statements connect channels and functions using **edges**. There are two types:
 
-### Continuous Edges (`->`)
+### Continuous edges (`->`)
 
 Run every time data arrives:
 
@@ -74,7 +74,7 @@ time.interval{period=50ms} -> controller{}
 
 Every time the source produces data, the entire pipeline executes.
 
-### Conditional Edges (`=>`)
+### Conditional edges (`=>`)
 
 Fire while the source expression is truthy:
 
@@ -108,7 +108,7 @@ transitions, `=>` is what you want.
 
 <Divider.Divider x />
 
-## Stratified Execution
+## Stratified execution
 
 Arc guarantees **deterministic, glitch-free execution** through stratification:
 
@@ -125,7 +125,7 @@ errors.
 
 <Divider.Divider x />
 
-## Stages and Functions
+## Stages and functions
 
 Arc programs have two kinds of code, and they serve different purposes.
 
@@ -164,7 +164,7 @@ keeps Arc programs predictable.
 
 <Divider.Divider x />
 
-## Expressions in Flows
+## Expressions in flows
 
 Inline expressions work as implicit functions:
 
@@ -184,7 +184,7 @@ function bodies.
 
 <Divider.Divider x />
 
-## Cycle Detection
+## Cycle detection
 
 Flow graphs must be acyclic. You can't create a loop where node A depends on node B
 which depends on node A. The compiler will reject this with an error.

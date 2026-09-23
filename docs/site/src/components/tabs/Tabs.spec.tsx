@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Tabs } from "@/components/tabs/Tabs";
@@ -18,42 +18,53 @@ const TABS = [
 ];
 
 class MockResizeObserver {
-  observe = vi.fn();
+  static body: MockResizeObserver | undefined;
+  callback: ResizeObserverCallback;
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+  observe = vi.fn((target: Element) => {
+    if (target === document.body) MockResizeObserver.body = this;
+  });
   disconnect = vi.fn();
   unobserve = vi.fn();
+  resize(): void {
+    this.callback([], this);
+  }
 }
 
 describe("Tabs", () => {
-  let frames: Map<number, FrameRequestCallback>;
-  let nextFrame: number;
   let top: number;
   let scrollBy: ReturnType<typeof vi.fn>;
 
-  const flushFrame = (): void => {
-    const pending = [...frames.values()];
-    frames.clear();
-    pending.forEach((cb) => cb(0));
-  };
-
-  const renderTabs = (): void => {
+  const renderTabs = (queryParamKey?: string): void => {
     const { container } = render(
-      <Tabs tabs={TABS} python={<div>py</div>} typescript={<div>ts</div>} />,
+      <Tabs
+        tabs={TABS}
+        queryParamKey={queryParamKey}
+        python={<div>py</div>}
+        typescript={<div>ts</div>}
+      />,
     );
     const frame = container.querySelector(".pluto-tabs");
     assert(frame != null);
     frame.getBoundingClientRect = () => ({ top }) as DOMRect;
   };
 
+  const hidden = (text: string): boolean =>
+    screen.getByText(text).closest("[hidden]") != null;
+
+  const clickTypeScript = (): MockResizeObserver => {
+    fireEvent.click(screen.getByText("TypeScript"));
+    assert(MockResizeObserver.body != null);
+    return MockResizeObserver.body;
+  };
+
   beforeEach(() => {
-    frames = new Map();
-    nextFrame = 1;
     top = 100;
+    MockResizeObserver.body = undefined;
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
-    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-      frames.set(nextFrame, cb);
-      return nextFrame++;
-    });
-    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
     // Scrolling down by y moves the frame's viewport-relative top up by y.
     scrollBy = vi.fn((_: number, y: number) => {
       top -= y;
@@ -64,45 +75,67 @@ describe("Tabs", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
+    window.history.replaceState({}, "", window.location.pathname);
   });
 
   it("switches the selected tab and visible panel on click", () => {
     renderTabs();
-    expect(screen.getByText("py")).toBeDefined();
-    expect(screen.queryByText("ts")).toBeNull();
+    expect(hidden("py")).toBe(false);
+    expect(hidden("ts")).toBe(true);
     fireEvent.click(screen.getByText("TypeScript"));
-    expect(screen.getByText("ts")).toBeDefined();
-    expect(screen.queryByText("py")).toBeNull();
+    expect(hidden("ts")).toBe(false);
+    expect(hidden("py")).toBe(true);
     const tab = screen.getByText("TypeScript").closest('[role="tab"]');
     expect(tab?.getAttribute("aria-selected")).toBe("true");
   });
 
-  it("scrolls away movement that lands before the first frame", () => {
-    renderTabs();
+  it("keeps its tab when the url names one it lacks", () => {
+    renderTabs("client");
     fireEvent.click(screen.getByText("TypeScript"));
-    top = 60;
-    flushFrame();
-    expect(scrollBy).toHaveBeenCalledExactlyOnceWith(0, -40);
-    expect(top).toBe(100);
-    flushFrame();
-    expect(scrollBy).toHaveBeenCalledTimes(1);
+    const url = new URL(window.location.href);
+    url.searchParams.set("client", "console");
+    window.history.replaceState({}, "", url.toString());
+    act(() => {
+      window.dispatchEvent(new CustomEvent("urlchange"));
+    });
+    expect(hidden("ts")).toBe(false);
+    expect(hidden("py")).toBe(true);
   });
 
-  it("scrolls away movement that lands between frames", () => {
+  it("scrolls away drift while the page settles", () => {
     renderTabs();
-    fireEvent.click(screen.getByText("TypeScript"));
-    flushFrame();
-    top = 130;
-    flushFrame();
-    expect(scrollBy).toHaveBeenCalledExactlyOnceWith(0, 30);
+    const observer = clickTypeScript();
+    top = 60;
+    observer.resize();
+    expect(scrollBy).toHaveBeenCalledExactlyOnceWith(0, -40);
     expect(top).toBe(100);
   });
 
   it("does not scroll when nothing moves", () => {
     renderTabs();
-    fireEvent.click(screen.getByText("TypeScript"));
-    flushFrame();
-    flushFrame();
+    clickTypeScript().resize();
     expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("stops when the reader scrolls", () => {
+    renderTabs();
+    const observer = clickTypeScript();
+    fireEvent.wheel(window);
+    expect(observer.disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("stops once the page has settled", () => {
+    renderTabs();
+    const observer = clickTypeScript();
+    vi.advanceTimersByTime(1000);
+    expect(observer.disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("stops on unmount", () => {
+    renderTabs();
+    const observer = clickTypeScript();
+    cleanup();
+    expect(observer.disconnect).toHaveBeenCalledOnce();
   });
 });

@@ -34,9 +34,10 @@ const formatTime = (
 ): null | string | [string, string] => {
   const tr = new XTimeRange(timeRange).makeValid();
   if (tr.start.equals(TimeStamp.MAX)) return null;
-  const startFormat = tr.start.isToday ? "time" : "dateTime";
+  const today = tr.start.isSameDay(TimeStamp.now(), displayTimeZone);
+  const startFormat = today ? "time" : "dateTime";
   let startTime = new TimeStamp(tr.start).toString(startFormat, displayTimeZone);
-  if (tr.start.isToday) startTime = `Today ${startTime}`;
+  if (today) startTime = `Today ${startTime}`;
   if (tr.end.equals(TimeStamp.MAX)) {
     if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
     return `Starts ${startTime}`;

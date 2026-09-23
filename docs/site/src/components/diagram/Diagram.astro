@@ -23,8 +23,8 @@ const { preview, variant, ...rest } = Astro.props;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        margin: 5rem 0;
-        width: 100%;
+        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
+        width: calc(100% - 2 * var(--docs-block-inset));
         border-radius: 1.5rem;
         border: var(--pluto-border);
         box-shadow: var(--pluto-shadow-v1);
@@ -42,6 +42,26 @@ const { preview, variant, ...rest } = Astro.props;
                 var(--pluto-gray-l4-70) 0.5px,
                 transparent 0.5px
             );
+        }
+
+        &.themed {
+            padding: 3rem;
+            background-image: radial-gradient(
+                var(--pluto-gray-l7) 0.5px,
+                var(--pluto-gray-l0) 1px
+            );
+            :global(.box) {
+                fill: var(--pluto-gray-l0);
+                stroke: var(--pluto-gray-l8);
+            }
+            :global(.arrow) {
+                fill: var(--pluto-gray-l11);
+                stroke: var(--pluto-gray-l11);
+            }
+            :global(.label) {
+                fill: var(--pluto-text-color);
+                font-family: var(--pluto-font-family);
+            }
         }
 
         &.preview {

@@ -13,6 +13,7 @@
 package arrays
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/resolution"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -131,7 +132,7 @@ func OptionalWrapperName(
 		return "ListWrapper"
 	}
 	if resolved, ok := elemType.Resolve(table); ok {
-		return resolved.Name + "List"
+		return lo.PascalCase(resolved.Name) + "List"
 	}
 	if resolution.IsPrimitive(elemType.Name) {
 		return cases.Title(language.English).String(elemType.Name) + "List"

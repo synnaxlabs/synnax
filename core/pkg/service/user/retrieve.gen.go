@@ -13,6 +13,7 @@ package user
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/gorp"
 )
 
