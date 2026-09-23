@@ -27,6 +27,8 @@ RESOURCE_TYPE_GROUP: Literal["group"] = "group"
 
 RESOURCE_TYPE_LABEL: Literal["label"] = "label"
 
+RESOURCE_TYPE_LICENSE: Literal["license"] = "license"
+
 RESOURCE_TYPE_LINEPLOT: Literal["lineplot"] = "lineplot"
 
 RESOURCE_TYPE_LOG: Literal["log"] = "log"
@@ -59,8 +61,6 @@ RESOURCE_TYPE_TASK: Literal["task"] = "task"
 
 RESOURCE_TYPE_USER: Literal["user"] = "user"
 
-RESOURCE_TYPE_VERIFICATION: Literal["verification"] = "verification"
-
 RESOURCE_TYPE_VIEW: Literal["view"] = "view"
 
 
@@ -72,6 +72,7 @@ ResourceType = Literal[
     "framer",
     "group",
     "label",
+    "license",
     "lineplot",
     "log",
     "node",
@@ -88,6 +89,5 @@ ResourceType = Literal[
     "table",
     "task",
     "user",
-    "verification",
     "view",
 ]

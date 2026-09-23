@@ -37,7 +37,7 @@ const headerKeyID = "kid"
 
 // claims adapts Grant to the jwt.Claims interface. Validation of the times is the
 // service's job, so the accessors only expose them.
-type claims struct{ Grant }
+type claims struct{ License }
 
 var _ jwt.Claims = claims{}
 
@@ -61,8 +61,8 @@ func (c claims) GetSubject() (string, error) { return "", nil }
 func (c claims) GetAudience() (jwt.ClaimStrings, error) { return nil, nil }
 
 // Sign produces a token carrying g, signed with priv under the key identifier kid.
-func Sign(priv ed25519.PrivateKey, kid string, g Grant) (string, error) {
-	tk := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims{Grant: g})
+func Sign(priv ed25519.PrivateKey, kid string, g License) (string, error) {
+	tk := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims{License: g})
 	tk.Header[headerKeyID] = kid
 	return tk.SignedString(priv)
 }
@@ -70,7 +70,7 @@ func Sign(priv ed25519.PrivateKey, kid string, g Grant) (string, error) {
 // Verify checks token's signature against the anchor its header names and returns the
 // grant it carries. It does not check the grant's term; the service does. Returns
 // ErrInvalid on a bad signature, an unknown key, or an unsupported claim set version.
-func Verify(anchors Anchors, token string) (Grant, error) {
+func Verify(anchors Anchors, token string) (License, error) {
 	var c claims
 	if _, err := jwt.ParseWithClaims(
 		token,
@@ -87,16 +87,16 @@ func Verify(anchors Anchors, token string) (Grant, error) {
 		jwt.WithoutClaimsValidation(),
 	); err != nil {
 		if errors.Is(err, ErrInvalid) {
-			return Grant{}, err
+			return License{}, err
 		}
-		return Grant{}, errors.Wrap(ErrInvalid, err.Error())
+		return License{}, errors.Wrap(ErrInvalid, err.Error())
 	}
 	if c.V != claimsVersion {
-		return Grant{}, errors.Wrapf(
+		return License{}, errors.Wrapf(
 			ErrInvalid,
 			"unsupported claim set version %d",
 			c.V,
 		)
 	}
-	return c.Grant, nil
+	return c.License, nil
 }

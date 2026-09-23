@@ -48,7 +48,7 @@ class CheckResponse(BaseModel):
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
     # A Core from before licensing reports nothing and is not gated.
-    verification: LicenseState = "ok"
+    license: LicenseState = "ok"
 
 
 def _parse_version(v: str) -> tuple[int, int]:
@@ -180,7 +180,7 @@ class Checker:
                 self._state.message = f"Connected to {self._name or 'cluster'}"
                 self._state.cluster_key = res.cluster_key
                 self._state.node_version = res.node_version
-                self._state.license = res.verification
+                self._state.license = res.license
                 state = dataclasses.replace(self._state)
 
         changed = (

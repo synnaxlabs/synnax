@@ -14,38 +14,38 @@ import { z } from "zod";
 
 /** License is the signed set of claims a Core verifies. */
 export const licenseZ = z.object({
-  /** jti is the unique identifier of the grant. */
+  /** jti is the unique identifier of the license. */
   jti: z.uuid(),
-  /** iat is when the grant was issued, in seconds since the Unix epoch. */
+  /** iat is when the license was issued, in seconds since the Unix epoch. */
   iat: z.uint32(),
   /**
-   * exp is when the grant stops applying, in seconds since the Unix epoch. Absent when
-   * it never stops applying on its own.
+   * exp is when the license stops applying, in seconds since the Unix epoch. Absent
+   * when it never stops applying on its own.
    */
   exp: z.uint32().optional(),
   /** v is the version of the claim set. */
   v: zod.uint8,
-  /** org is the organization the grant belongs to. */
+  /** org is the organization the license belongs to. */
   org: z.uuid(),
-  /** ed is the edition the grant applies to. */
+  /** ed is the edition the license applies to. */
   ed: z.string(),
   /**
-   * fp is the set of host hashes the grant is bound to. Empty when the grant is not
-   * bound to a host.
+   * fingerprints is the set of machine fingerprints the license is bound to. Empty when
+   * the license runs on any machine.
    */
-  fp: z
+  fingerprints: z
     .string()
     .array()
     .default(() => []),
-  /** fs is the scheme that produced the host hashes. */
-  fs: zod.uint8,
-  /** n is how many hosts may run under the grant. */
+  /** fingerprintScheme is the scheme that produced the fingerprints. */
+  fingerprintScheme: zod.uint8,
+  /** n is how many machines may run under the license. */
   n: z.uint32(),
   /** ch is the channel cap per Core. Zero means unlimited. */
   ch: z.uint32(),
   /**
-   * mv is the highest Core minor version the grant covers, as "0.62". Absent means any
-   * version.
+   * mv is the highest Core minor version the license covers, as "0.62". Absent means
+   * any version.
    */
   mv: z.string().optional(),
 });

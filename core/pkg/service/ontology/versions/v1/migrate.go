@@ -18,12 +18,12 @@ import (
 
 // ResourceMigration lifts stored resources from v0 to v1.
 var ResourceMigration = gorp.NewEntryMigration(
-	"v60_verification_resource", autoMigrateResource,
+	"v60_license_resource", autoMigrateResource,
 )
 
 // RelationshipMigration lifts stored relationships from v0 to v1.
 var RelationshipMigration = gorp.NewEntryMigration(
-	"v60_verification_relationship", autoMigrateRelationship,
+	"v60_license_relationship", autoMigrateRelationship,
 )
 
 // MigrateID lifts a v0 identifier to v1. The stored bytes are unchanged: v1 only widens

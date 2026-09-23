@@ -24,6 +24,7 @@ const (
 	ResourceTypeFramer          ResourceType = v1.ResourceTypeFramer
 	ResourceTypeGroup           ResourceType = v1.ResourceTypeGroup
 	ResourceTypeLabel           ResourceType = v1.ResourceTypeLabel
+	ResourceTypeLicense         ResourceType = v1.ResourceTypeLicense
 	ResourceTypeLineplot        ResourceType = v1.ResourceTypeLineplot
 	ResourceTypeLog             ResourceType = v1.ResourceTypeLog
 	ResourceTypeNode            ResourceType = v1.ResourceTypeNode
@@ -40,7 +41,6 @@ const (
 	ResourceTypeTable           ResourceType = v1.ResourceTypeTable
 	ResourceTypeTask            ResourceType = v1.ResourceTypeTask
 	ResourceTypeUser            ResourceType = v1.ResourceTypeUser
-	ResourceTypeVerification    ResourceType = v1.ResourceTypeVerification
 	ResourceTypeView            ResourceType = v1.ResourceTypeView
 )
 

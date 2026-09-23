@@ -20,11 +20,11 @@ State = Literal["ok", "missing", "expired"]
 
 
 class Info(BaseModel):
-    """The Core's license state, its host fingerprint, and the license that applies.
+    """The Core's license state, its machine fingerprint, and the license that applies.
 
     :param state: Whether a license applies to the Core.
     :param warning: Set while the state is ok but a change is near or past.
-    :param fingerprint: The hashes that identify the Core's host.
+    :param fingerprint: The hashes that identify the Core's machine.
     :param license: The license that applies, if any.
     """
 
@@ -32,21 +32,6 @@ class Info(BaseModel):
     warning: str = ""
     fingerprint: list[str] = Field(default_factory=list)
     license: License | None = None
-
-
-class _InfoResponse(BaseModel):
-    state: State
-    warning: str = ""
-    host: list[str] = Field(default_factory=list)
-    grant: License | None = None
-
-    def info(self) -> Info:
-        return Info(
-            state=self.state,
-            warning=self.warning,
-            fingerprint=self.host,
-            license=self.grant,
-        )
 
 
 class _ActivateRequest(BaseModel):
@@ -68,11 +53,9 @@ class Client:
     def retrieve(self) -> Info:
         """Retrieves the Core's license state.
 
-        :returns: The license state, the host fingerprint, and the license that applies.
+        :returns: The state, the machine fingerprint, and the license that applies.
         """
-        return send_required(
-            self._client, _RETRIEVE_ENDPOINT, Empty(), _InfoResponse
-        ).info()
+        return send_required(self._client, _RETRIEVE_ENDPOINT, Empty(), Info)
 
     def activate(self, token: str) -> Info:
         """Activates a license token on the Core.
@@ -84,8 +67,5 @@ class Client:
         :raises ExpiredLicense: If the token no longer applies.
         """
         return send_required(
-            self._client,
-            _ACTIVATE_ENDPOINT,
-            _ActivateRequest(token=token),
-            _InfoResponse,
-        ).info()
+            self._client, _ACTIVATE_ENDPOINT, _ActivateRequest(token=token), Info
+        )

@@ -34,16 +34,16 @@ var (
 
 func seconds(t time.Time) *uint32 { return new(uint32(t.Unix())) }
 
-func grant() verification.Grant {
-	return verification.Grant{
-		Jti: uuid.New(),
-		Iat: uint32(now.Add(-day).Unix()),
-		Exp: seconds(now.Add(30 * day)),
-		V:   1,
-		Org: uuid.New(),
-		Ed:  "e",
-		Fs:  1,
-		N:   1,
+func grant() verification.License {
+	return verification.License{
+		Jti:               uuid.New(),
+		Iat:               uint32(now.Add(-day).Unix()),
+		Exp:               seconds(now.Add(30 * day)),
+		V:                 1,
+		Org:               uuid.New(),
+		Ed:                "e",
+		FingerprintScheme: 1,
+		N:                 1,
 	}
 }
 
@@ -54,7 +54,7 @@ var _ = Describe("Verification", func() {
 		anchors verification.Anchors
 		cfg     verification.ServiceConfig
 	)
-	sign := func(g verification.Grant) string {
+	sign := func(g verification.License) string {
 		GinkgoHelper()
 		return MustSucceed(verification.Sign(private, keyID, g))
 	}
@@ -330,7 +330,7 @@ var _ = Describe("Verification", func() {
 		)
 		It("should refuse a grant bound to other hosts", func(ctx SpecContext) {
 			g := grant()
-			g.Fp = []string{"0000"}
+			g.Fingerprints = []string{"0000"}
 			Expect(svc.Apply(ctx, sign(g))).Error().
 				To(MatchError(verification.ErrHost))
 		})
@@ -340,7 +340,7 @@ var _ = Describe("Verification", func() {
 				Skip("this machine has no hashable network interface")
 			}
 			g := grant()
-			g.Fp = []string{"0000", host[len(host)-1]}
+			g.Fingerprints = []string{"0000", host[len(host)-1]}
 			Expect(svc.Apply(ctx, sign(g))).Error().To(Succeed())
 		})
 		It("should refuse hashes from a scheme this Core does not implement", func(
@@ -351,8 +351,8 @@ var _ = Describe("Verification", func() {
 				Skip("this machine has no hashable network interface")
 			}
 			g := grant()
-			g.Fs = 2
-			g.Fp = []string{host[0]}
+			g.FingerprintScheme = 2
+			g.Fingerprints = []string{host[0]}
 			Expect(svc.Apply(ctx, sign(g))).Error().
 				To(MatchError(verification.ErrHost))
 		})

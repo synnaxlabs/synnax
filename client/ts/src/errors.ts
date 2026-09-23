@@ -118,7 +118,7 @@ export const isConnectionError = (err: unknown): boolean =>
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
 /** Raised when the Core refuses a request over its license. */
-export class LicenseError extends SynnaxError.sub("verification") {}
+export class LicenseError extends SynnaxError.sub("license") {}
 
 /** Raised when no license is active on the Core. */
 export class MissingLicenseError extends LicenseError.sub("missing") {}

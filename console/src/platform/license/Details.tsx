@@ -93,7 +93,7 @@ export const Details = (): ReactElement | null => {
           <Row name="Edition" value={editionLabel(license)} />
           <Row name="Organization" value={license.org} />
           <Row name="Term" value={describeTerm(license)} />
-          <Row name="Hosts" value={String(license.n)} />
+          <Row name="Machines" value={String(license.n)} />
           <Row name="Channels" value={describeChannels(license)} />
         </>
       )}

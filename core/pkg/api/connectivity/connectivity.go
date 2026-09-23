@@ -41,10 +41,10 @@ type CheckResponse = auth.ClusterInfo
 
 func (s *Service) Check(context.Context, struct{}) (CheckResponse, error) {
 	return CheckResponse{
-		ClusterKey:   s.cluster.Key().String(),
-		NodeVersion:  version.Get(),
-		NodeKey:      s.cluster.HostKey(),
-		NodeTime:     telem.Now(),
-		Verification: s.verification.Retrieve().State,
+		ClusterKey:  s.cluster.Key().String(),
+		NodeVersion: version.Get(),
+		NodeKey:     s.cluster.HostKey(),
+		NodeTime:    telem.Now(),
+		License:     s.verification.Retrieve().State,
 	}, nil
 }

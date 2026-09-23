@@ -38,7 +38,7 @@ var (
 )
 
 const (
-	errorType   = "sy.verification"
+	errorType   = "sy.license"
 	missingType = errorType + ".missing"
 	expiredType = errorType + ".expired"
 	invalidType = errorType + ".invalid"

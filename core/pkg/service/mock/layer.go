@@ -43,23 +43,23 @@ func NewKeys() Keys {
 }
 
 // Sign signs g under the key.
-func (k Keys) Sign(g verification.Grant) string {
+func (k Keys) Sign(g verification.License) string {
 	return lo.Must(verification.Sign(k.Private, KeyID, g))
 }
 
-// NewGrant returns a grant that floats between hosts and applies for fifty years.
-func NewGrant() verification.Grant {
+// NewLicense returns a grant that floats between hosts and applies for fifty years.
+func NewLicense() verification.License {
 	now := time.Now()
 	exp := uint32(now.Add(50 * 365 * 24 * time.Hour).Unix())
-	return verification.Grant{
-		Jti: uuid.New(),
-		Iat: uint32(now.Unix()),
-		Exp: &exp,
-		V:   1,
-		Org: uuid.New(),
-		Ed:  "e",
-		Fs:  1,
-		N:   1,
+	return verification.License{
+		Jti:               uuid.New(),
+		Iat:               uint32(now.Unix()),
+		Exp:               &exp,
+		V:                 1,
+		Org:               uuid.New(),
+		Ed:                "e",
+		FingerprintScheme: 1,
+		N:                 1,
 	}
 }
 
@@ -82,7 +82,7 @@ func OpenLayer(
 		Distribution: node.Layer,
 		Security:     sec,
 		Storage:      node.Storage,
-		Verifier:     keys.Sign(NewGrant()),
+		Verifier:     keys.Sign(NewLicense()),
 		Anchors:      keys.Anchors,
 	}
 	return service.OpenLayer(ctx, append([]service.LayerConfig{base}, cfgs...)...)

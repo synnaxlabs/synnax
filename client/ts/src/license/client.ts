@@ -18,23 +18,16 @@ export const stateZ = z.enum(STATES);
 /** Whether a license applies to the Core. */
 export type State = z.infer<typeof stateZ>;
 
-const infoZ = z
-  .object({
-    state: stateZ,
-    warning: z.string().optional(),
-    host: z
-      .string()
-      .array()
-      .default(() => []),
-    grant: licenseZ.optional(),
-  })
-  .transform(({ state, warning, host, grant }) => ({
-    state,
-    warning,
-    fingerprint: host,
-    license: grant,
-  }));
-/** The Core's license state, its host fingerprint, and the license that applies. */
+const infoZ = z.object({
+  state: stateZ,
+  warning: z.string().optional(),
+  fingerprint: z
+    .string()
+    .array()
+    .default(() => []),
+  license: licenseZ.optional(),
+});
+/** The Core's license state, its machine fingerprint, and the license that applies. */
 export interface Info extends z.infer<typeof infoZ> {}
 
 const activateReqZ = z.object({ token: z.string() });

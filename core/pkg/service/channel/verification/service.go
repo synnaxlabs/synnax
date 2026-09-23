@@ -50,9 +50,9 @@ type Info struct {
 	// Warning is set while the state is ok but a change is near or past.
 	Warning string `json:"warning,omitempty" msgpack:"warning,omitempty"`
 	// Host identifies this machine.
-	Host Host `json:"host" msgpack:"host"`
+	Host Host `json:"fingerprint" msgpack:"fingerprint"`
 	// Grant is the grant that applies, if any.
-	Grant *Grant `json:"grant,omitempty" msgpack:"grant,omitempty"`
+	Grant *License `json:"license,omitempty" msgpack:"license,omitempty"`
 }
 
 // ServiceConfig is the configuration for a verification service.
@@ -260,7 +260,7 @@ func (s *Service) Apply(ctx context.Context, token string) (Info, error) {
 			return Info{}, errors.Wrapf(ErrInvalid, "bad version ceiling %q", *grant.Mv)
 		}
 	}
-	if !s.host.Covers(grant.Fs, grant.Fp) {
+	if !s.host.Covers(grant.FingerprintScheme, grant.Fingerprints) {
 		return Info{}, ErrHost
 	}
 	info := s.evaluate(grant)
@@ -346,7 +346,7 @@ func (s *Service) load(ctx context.Context) error {
 			)
 			continue
 		}
-		if !s.host.Covers(grant.Fs, grant.Fp) {
+		if !s.host.Covers(grant.FingerprintScheme, grant.Fingerprints) {
 			continue
 		}
 		info := s.evaluate(grant)
@@ -374,7 +374,7 @@ const (
 )
 
 // evaluate decides the state a grant puts this Core in at the current time.
-func (s *Service) evaluate(grant Grant) Info {
+func (s *Service) evaluate(grant License) Info {
 	info := Info{State: StateOK, Host: s.host, Grant: &grant}
 	if s.rolledBack {
 		info.State = StateExpired

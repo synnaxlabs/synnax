@@ -20,6 +20,7 @@ ResourceType enum {
     framer           = "framer"
     group            = "group"
     label            = "label"
+    license          = "license"
     lineplot         = "lineplot"
     log              = "log"
     node             = "node"
@@ -36,7 +37,6 @@ ResourceType enum {
     table            = "table"
     task             = "task"
     user             = "user"
-    verification     = "verification"
     view             = "view"
 
     @doc value "is the type of the resource."

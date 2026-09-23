@@ -22,13 +22,13 @@ var _ = Describe("Layer", func() {
 	Describe("Keys", func() {
 		It("should sign a grant its anchors verify", func() {
 			keys := mock.NewKeys()
-			g := mock.NewGrant()
+			g := mock.NewLicense()
 			Expect(verification.Verify(keys.Anchors, keys.Sign(g))).To(Equal(g))
 		})
 		It("should not verify a grant signed by other keys", func() {
 			keys := mock.NewKeys()
 			Expect(verification.Verify(
-				mock.NewKeys().Anchors, keys.Sign(mock.NewGrant()),
+				mock.NewKeys().Anchors, keys.Sign(mock.NewLicense()),
 			)).Error().To(MatchError(verification.ErrInvalid))
 		})
 	})

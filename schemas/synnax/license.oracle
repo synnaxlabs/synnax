@@ -11,53 +11,51 @@
 @py output "client/py/synnax/license"
 @ts output "client/ts/src/license"
 
-Grant struct {
-    jti uuid     {
-        @doc value "is the unique identifier of the grant."
+License struct {
+    jti                uuid     {
+        @doc value "is the unique identifier of the license."
     }
-    iat uint32   {
-        @doc value "is when the grant was issued, in seconds since the Unix epoch."
+    iat                uint32   {
+        @doc value "is when the license was issued, in seconds since the Unix epoch."
     }
-    exp uint32?  {
+    exp                uint32?  {
         @doc value """
-            is when the grant stops applying, in seconds since the Unix epoch. Absent
+            is when the license stops applying, in seconds since the Unix epoch. Absent
             when it never stops applying on its own.
         """
     }
-    v   uint8    {
+    v                  uint8    {
         @doc value "is the version of the claim set."
     }
-    org uuid     {
-        @doc value "is the organization the grant belongs to."
+    org                uuid     {
+        @doc value "is the organization the license belongs to."
     }
-    ed  string   {
-        @doc value "is the edition the grant applies to."
+    ed                 string   {
+        @doc value "is the edition the license applies to."
     }
-    fp  string[] = [] {
+    fingerprints       string[] = [] {
         @doc value """
-            is the set of host hashes the grant is bound to. Empty when the grant is not
-            bound to a host.
+            is the set of machine fingerprints the license is bound to. Empty when the
+            license runs on any machine.
         """
     }
-    fs  uint8    {
-        @doc value "is the scheme that produced the host hashes."
+    fingerprint_scheme uint8    {
+        @doc value "is the scheme that produced the fingerprints."
     }
-    n   uint32   {
-        @doc value "is how many hosts may run under the grant."
+    n                  uint32   {
+        @doc value "is how many machines may run under the license."
     }
-    ch  uint32   {
+    ch                 uint32   {
         @doc value "is the channel cap per Core. Zero means unlimited."
     }
-    mv  string?  {
+    mv                 string?  {
         @doc value """
-            is the highest Core minor version the grant covers, as "0.62". Absent means
-            any version.
+            is the highest Core minor version the license covers, as "0.62". Absent
+            means any version.
         """
     }
 
     @doc value """
         is the signed set of claims a Core verifies.
     """
-    @py name   "License"
-    @ts name   "License"
 }

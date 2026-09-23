@@ -73,7 +73,7 @@ class AccessDenied(AuthError):
 class LicenseError(Exception):
     """Raised when the Core refuses a request over its license."""
 
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "verification"
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "license"
 
 
 class MissingLicense(LicenseError):

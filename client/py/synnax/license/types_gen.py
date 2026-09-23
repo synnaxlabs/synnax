@@ -20,20 +20,20 @@ class License(BaseModel):
     """Is the signed set of claims a Core verifies.
 
     Attributes:
-        jti: Is the unique identifier of the grant.
-        iat: Is when the grant was issued, in seconds since the Unix epoch.
-        exp: Is when the grant stops applying, in seconds since the Unix epoch. Absent
+        jti: Is the unique identifier of the license.
+        iat: Is when the license was issued, in seconds since the Unix epoch.
+        exp: Is when the license stops applying, in seconds since the Unix epoch. Absent
             when it never stops applying on its own.
         v: Is the version of the claim set.
-        org: Is the organization the grant belongs to.
-        ed: Is the edition the grant applies to.
-        fp: Is the set of host hashes the grant is bound to. Empty when the grant is not
-            bound to a host.
-        fs: Is the scheme that produced the host hashes.
-        n: Is how many hosts may run under the grant.
+        org: Is the organization the license belongs to.
+        ed: Is the edition the license applies to.
+        fingerprints: Is the set of machine fingerprints the license is bound to. Empty
+            when the license runs on any machine.
+        fingerprint_scheme: Is the scheme that produced the fingerprints.
+        n: Is how many machines may run under the license.
         ch: Is the channel cap per Core. Zero means unlimited.
-        mv: Is the highest Core minor version the grant covers, as "0.62". Absent means
-            any version.
+        mv: Is the highest Core minor version the license covers, as "0.62". Absent
+            means any version.
     """
 
     jti: UUID
@@ -42,8 +42,8 @@ class License(BaseModel):
     v: int = Field(ge=0, le=255)
     org: UUID
     ed: str
-    fp: list[str] = Field(default_factory=list)
-    fs: int = Field(ge=0, le=255)
+    fingerprints: list[str] = Field(default_factory=list)
+    fingerprint_scheme: int = Field(ge=0, le=255)
     n: int = Field(ge=0, le=4294967295)
     ch: int = Field(ge=0, le=4294967295)
     mv: str | None = None

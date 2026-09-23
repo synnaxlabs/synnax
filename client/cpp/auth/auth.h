@@ -49,7 +49,7 @@ struct ClusterInfo {
     /// request.
     x::telem::TimeStamp node_time = x::telem::TimeStamp(0);
     /// @brief whether a license applies to the Core: "ok", "missing", or "expired".
-    std::string verification;
+    std::string license;
 
     ClusterInfo() = default;
 
@@ -58,7 +58,7 @@ struct ClusterInfo {
         node_version(info.node_version()),
         node_key(info.node_key()),
         node_time(info.node_time()),
-        verification(info.verification()) {}
+        license(info.license()) {}
 };
 
 /// @brief auth::Middleware for authenticating requests using a bearer token.

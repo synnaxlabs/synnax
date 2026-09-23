@@ -22,7 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var object = ontology.ID{Type: ontology.ResourceTypeVerification}
+var object = ontology.ID{Type: ontology.ResourceTypeLicense}
 
 var _ = Describe("Service", Ordered, func() {
 	It("Should refuse retrieval without a retrieve grant", func(ctx SpecContext) {
@@ -72,14 +72,14 @@ var _ = Describe("Service", Ordered, func() {
 		)
 		Expect(apiSvc.Apply(
 			AuthedCtx(ctx, reader),
-			apiverification.ApplyRequest{Token: keys.Sign(svcmock.NewGrant())},
+			apiverification.ApplyRequest{Token: keys.Sign(svcmock.NewLicense())},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 
 	It("Should apply a token for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
 		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
-		grant := svcmock.NewGrant()
+		grant := svcmock.NewLicense()
 		info := MustSucceed(apiSvc.Apply(
 			AuthedCtx(ctx, owner),
 			apiverification.ApplyRequest{Token: keys.Sign(grant)},
