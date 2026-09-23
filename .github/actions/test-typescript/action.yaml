@@ -43,7 +43,7 @@ runs:
   using: composite
   steps:
     - name: Set up pnpm and Node.js
-      uses: pnpm/setup@v2
+      uses: pnpm/setup@v3
       with:
         cache: true
         # A separate dest keeps main's pnpm store intact in mixed-version migration

@@ -301,7 +301,7 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver && inputs.driver_ref_run_id == ''
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
 
       - name: Build Driver (Windows)
         if:
@@ -628,7 +628,7 @@ jobs:
 
       - name: Set up pnpm and Node.js
         if: inputs.console && inputs.console_ref_run_id == ''
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
           # only adds time. Linux stores it on the persistent root volume. Windows uses
@@ -965,7 +965,7 @@ jobs:
         run: .github/scripts/import_apple_certificate.sh
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           # Signed builds run on macos-latest and windows-latest, which start cold and
           # want the cache. An unsigned build takes macos-build-bot, which keeps a local
@@ -1001,7 +1001,7 @@ jobs:
           echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}

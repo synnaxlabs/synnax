@@ -85,7 +85,7 @@ jobs:
             oracle/go.sum
 
       - name: Set up pnpm and Node
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           cache: true
 
@@ -95,7 +95,7 @@ jobs:
           python-version-file: pyproject.toml
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 
