@@ -128,5 +128,6 @@ func (s *Service) NewRetrieve() Retrieve {
 // the writer will use it, otherwise it will execute operations directly against the
 // underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
 }

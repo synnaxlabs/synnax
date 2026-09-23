@@ -1458,6 +1458,72 @@ describe("Table", () => {
       expect(table.get("x")).toEqual(item("x", "x-fetched"));
       expect(table.get("y")).toEqual(item("y", "local-edit"));
     });
+
+    const pendingFetch = () => {
+      let release: (entries: Item[]) => void = () => {};
+      const fetch = vi.fn(
+        async () => await new Promise<Item[]>((resolve) => (release = resolve)),
+      );
+      return { fetch, release: (entries: Item[]) => release(entries) };
+    };
+
+    it("should keep a write that landed while the fetch was in flight", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "renamed")]);
+      release([item("a", "old")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+    });
+
+    it("should overwrite a write that landed before the fetch began", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      release([item("a", "fresh")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "fresh"));
+    });
+
+    it("should not tombstone a key written while a refresh was in flight", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "recreated")]);
+      release([]);
+      await pending;
+      expect(table.status("a")).toBe("present");
+      expect(table.get("a")).toEqual(item("a", "recreated"));
+    });
+
+    it("should keep a write restored by a rolled back delete", async () => {
+      const { fetch, release } = pendingFetch();
+      const table = fetchTable(fetch);
+      table.set([item("a", "old")]);
+      const pending = table.retrieve(["a"], { refresh: true });
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      table.set([item("a", "renamed")]);
+      table.delete("a")();
+      release([item("a", "old")]);
+      await pending;
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+    });
+
+    it("should skip ingesting entries written after the given stamp", () => {
+      const table = fetchTable(async () => []);
+      const since = table.stamp();
+      table.set([item("a", "renamed")]);
+      table.ingest([item("a", "old"), item("b", "fetched")], { since });
+      expect(table.get("a")).toEqual(item("a", "renamed"));
+      expect(table.get("b")).toEqual(item("b", "fetched"));
+    });
   });
 });
 
@@ -1570,7 +1636,7 @@ describe("Tombstones", () => {
         { key: "k1", name: "c" },
         { key: "k2", name: "d" },
       ],
-      "set",
+      { mode: "set" },
     );
     expect(table.status("k1")).toBe("tombstoned");
     expect(table.get("k2")).toEqual({ key: "k2", name: "d" });

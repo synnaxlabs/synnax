@@ -95,8 +95,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	outputMemoryCounter := uint32(0x1000)
 	outputMemoryBases := make(map[string]uint32)
 
-	var compiled []compiledFunction
+	var (
+		compiled     []compiledFunction
+		batchTargets []batchTarget
+	)
 	for _, i := range program.Functions {
+		if t, ok := batchTargetFor(i); ok {
+			batchTargets = append(batchTargets, t)
+		}
 		if strings.HasPrefix(i.Key, FmtStrSyntheticPrefix) {
 			cf, err := compileFmtStrSynthetic(compCtx, i)
 			if err != nil {
@@ -156,6 +162,10 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 			return Output{}, err
 		}
 		compiled = append(compiled, cf)
+	}
+
+	for _, t := range batchTargets {
+		compiled = append(compiled, compileBatchWrapper(compCtx, t))
 	}
 
 	resolver.FinalizeAndPatch(compCtx.Module)

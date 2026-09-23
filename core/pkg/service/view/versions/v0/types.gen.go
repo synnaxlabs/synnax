@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -30,5 +31,5 @@ type View struct {
 	Type string `json:"type" msgpack:"type"`
 	// Query is a type-agnostic JSON object containing view-specific configuration and
 	// query parameters.
-	Query msgpack.EncodedJSON `json:"query,omitzero" msgpack:"query,omitzero"`
+	Query msgpack.EncodedJSON `json:"query" msgpack:"query"`
 }

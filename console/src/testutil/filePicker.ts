@@ -29,8 +29,8 @@ export const fakePickedFile = (
 
 /**
  * FilePickerInterceptor drives the browser file-picker boundary from a test: the
- * production <input type="file"> element is real, only its click into the native
- * dialog is captured.
+ * production <input type="file"> element is real, only its click into the native dialog
+ * is captured.
  */
 export interface FilePickerInterceptor {
   /** lastInput returns the most recently opened picker input. */
@@ -42,20 +42,25 @@ export interface FilePickerInterceptor {
 }
 
 /**
- * interceptFilePicker captures <input type="file"> clicks so tests can drive the
- * real browser pickFiles/pickDirectory code paths without a native dialog. The
- * returned interceptor selects files or cancels on the captured input. Installs a
- * spy on HTMLElement.prototype.click; callers restore it via vi.restoreAllMocks()
- * in afterEach.
+ * interceptFilePicker captures <input type="file"> clicks so tests can drive the real
+ * browser pickFiles/pickDirectory code paths without a native dialog. The returned
+ * interceptor selects files or cancels on the captured input. Installs a spy on
+ * HTMLElement.prototype.click; callers restore it via vi.restoreAllMocks() in
+ * afterEach.
  */
 export const interceptFilePicker = (): FilePickerInterceptor => {
-  const inputs: HTMLInputElement[] = [];
-  vi.spyOn(HTMLElement.prototype, "click").mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    if (this instanceof HTMLInputElement) inputs.push(this);
-  });
-  const lastInput = (): HTMLInputElement => inputs[inputs.length - 1];
+  // The spy calls through instead of replacing the click, so a component that actuates
+  // itself through the DOM still works while a pick is intercepted. A file input's own
+  // click is inert in jsdom, which has no picker.
+  const spy = vi.spyOn(HTMLElement.prototype, "click");
+  const lastInput = (): HTMLInputElement => {
+    const input = spy.mock.contexts.findLast(
+      (ctx): ctx is HTMLInputElement =>
+        ctx instanceof HTMLInputElement && ctx.type === "file",
+    );
+    if (input == null) throw new Error("no file picker was opened");
+    return input;
+  };
   return {
     lastInput,
     selectFiles: (files) => {

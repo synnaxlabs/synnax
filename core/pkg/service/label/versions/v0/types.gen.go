@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )

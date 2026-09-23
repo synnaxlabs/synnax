@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "NI Counter Read Task"
+title: "NI counter read task"
 description: "Learn how to acquire counter data from NI devices with Synnax."
-next: "Digital Read Task"
+next: "Digital read task"
 nextURL: "/reference/driver/ni/digital-read-task"
-prev: "Analog Write Task"
+prev: "Analog write task"
 prevURL: "/reference/driver/ni/analog-write-task"
 ---
 
@@ -18,11 +18,12 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lifecycle).
+This task follows the standard
+[task lifecycle](/reference/driver/task-basics#task-lifecycle).
 
 <Divider.Divider x />
 
-## Task Configuration Reference
+## Task configuration reference
 
 | Parameter     | Type   | Required | Default | Description                                                   |
 | ------------- | ------ | -------- | ------- | ------------------------------------------------------------- |
@@ -32,7 +33,7 @@ For the task lifecycle, see [Task Basics](/reference/driver/task-basics#task-lif
 
 <Divider.Divider x />
 
-## Channel Types Reference
+## Channel types reference
 
 <DetailsGroup>
 
@@ -267,7 +268,7 @@ Measures the duty cycle of a periodic signal.
 
 <Divider.Divider x />
 
-## Important Rules
+## Important rules
 
 - **One task per module** -> Only one running task can claim a module at a time.
 - **Unique ports** -> A counter port can appear only once in a task.
@@ -276,7 +277,7 @@ Measures the duty cycle of a periodic signal.
 
 <Divider.Divider x />
 
-## How-To
+## How-to
 
 <Client.Tabs client:load exclude={["cpp"]}>
   <Fragment slot="console">

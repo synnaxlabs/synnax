@@ -8,27 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { query, table } from "@synnaxlabs/client";
-import { type record, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { type ClipboardEventHandler, useCallback } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { Synnax } from "@/synnax";
 import { Cell } from "@/table/cells";
 import { findCellPosition, useDispatch } from "@/table/queries";
-import { Theming } from "@/theming";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
 const MIME = "web application/synnax-table+json";
 const VERSION = 1;
-const BASE_ROW_SIZE = 36;
-const BASE_COL_SIZE = 72;
+// The base sizes come from the schema, which declares the default size of a row and a
+// column.
+const BASE_ROW_SIZE = table.rowZ.parse({}).size;
+const BASE_COL_SIZE = table.columnZ.parse({}).size;
 
 interface CellPayload {
   row: number;
   col: number;
-  variant: string;
-  props: record.Unknown;
+  config: table.CellConfig;
 }
 
 interface Payload {
@@ -62,7 +62,6 @@ export const useClipboard = ({
   const { dispatch } = useDispatch();
   const client = Synnax.use();
   const selectedRef = useSyncedRef(selected ?? []);
-  const theme = Theming.use();
 
   const getTable = useCallback((): table.Table | undefined => {
     const cached = client?.tables.getCached(key);
@@ -82,7 +81,11 @@ export const useClipboard = ({
       const cells: CellPayload[] = [];
       let minRow = Number.POSITIVE_INFINITY;
       let minCol = Number.POSITIVE_INFINITY;
-      const intermediate: Array<{ row: number; col: number; cell: table.Cell }> = [];
+      const intermediate: Array<{
+        row: number;
+        col: number;
+        cell: table.CellConfig;
+      }> = [];
       for (const cellKey of sel) {
         const p = findCellPosition(t.rows, cellKey);
         const c = t.cells[cellKey];
@@ -93,12 +96,7 @@ export const useClipboard = ({
       }
       if (intermediate.length === 0) return;
       for (const { row, col, cell } of intermediate)
-        cells.push({
-          row: row - minRow,
-          col: col - minCol,
-          variant: cell.variant,
-          props: cell.props,
-        });
+        cells.push({ row: row - minRow, col: col - minCol, config: cell });
       const payload: Payload = { version: VERSION, cells };
       e.preventDefault();
       e.clipboardData.setData(MIME, JSON.stringify(payload));
@@ -141,7 +139,7 @@ export const useClipboard = ({
       const targetCols = maxCol + 1;
 
       const actions: table.Action[] = [];
-      const defaultProps = Cell.REGISTRY.text.defaultProps(theme);
+      const defaultConfig = Cell.defaultConfig("text");
       // keyAt maps a final-state grid position to the cell key at that
       // position. Existing positions use the current document keys; newly-added
       // positions get fresh UUIDs that are baked into the addCol/addRow
@@ -161,11 +159,7 @@ export const useClipboard = ({
         for (let r = 0; r < existingRows; r++) {
           const newKey = uuid.create();
           keyAt[posKey(r, colIdx)] = newKey;
-          cellsForExistingRows.push({
-            key: newKey,
-            variant: "text",
-            props: defaultProps,
-          });
+          cellsForExistingRows.push({ key: newKey, config: defaultConfig });
         }
         actions.push(
           table.addCol({
@@ -183,11 +177,7 @@ export const useClipboard = ({
         for (let c = 0; c < targetCols; c++) {
           const newKey = uuid.create();
           keyAt[posKey(rowIdx, c)] = newKey;
-          cellsForAllCols.push({
-            key: newKey,
-            variant: "text",
-            props: defaultProps,
-          });
+          cellsForAllCols.push({ key: newKey, config: defaultConfig });
         }
         actions.push(
           table.addRow({
@@ -204,17 +194,13 @@ export const useClipboard = ({
         const col = anchorPos.x + c.col;
         const k = keyAt[posKey(r, col)];
         if (k == null) continue;
-        actions.push(
-          table.setCell({
-            cell: { key: k, variant: c.variant, props: c.props },
-          }),
-        );
+        actions.push(table.setCell({ cell: { key: k, config: c.config } }));
         overwritten.push(k);
       }
       dispatch({ key, actions });
       if (actions.length > 0) onPaste?.(overwritten);
     },
-    [key, getTable, theme, dispatch, onPaste],
+    [key, getTable, dispatch, onPaste],
   );
 
   return { onCopy: handleCopy, onPaste: handlePaste };

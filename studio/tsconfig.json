@@ -1,0 +1,14 @@
+{
+  "extends": "@synnaxlabs/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": [
+    "src/**/*",
+    "scripts/**/*",
+    "videos.ts",
+    "eslint.config.ts",
+    "vite.config.ts"
+  ]
+}

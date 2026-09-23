@@ -9,17 +9,19 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { direction } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/textBox/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<
+  schematic.TextBoxNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
   onChange?: (value: string) => void;
 }
@@ -30,17 +32,17 @@ export const TextBox = ({
   width,
   color: colorVal,
   level,
-  autoFit,
+  autoFitDisabled,
   align = "center",
   value,
   onChange,
 }: RenderProps): ReactElement => {
   const isVertical = direction.construct(orientation) === "y";
-  const size = autoFit ? "fit-content" : width;
+  const size = autoFitDisabled ? width : "fit-content";
   const style = useMemo<CSSProperties>(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
-      [CSS.variable("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.variable("symbol-color")]: color.rgbaString(colorVal),
       ...(isVertical ? { height: size } : { width: size }),
     }),
     [align, colorVal, isVertical, size],

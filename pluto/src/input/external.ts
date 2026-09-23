@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/input/Checkbox";
-export * from "@/input/Date";
-export * from "@/input/DateTime";
 export * from "@/input/DragButton";
 export * from "@/input/HelpText";
 export * from "@/input/Item";
@@ -18,5 +16,9 @@ export * from "@/input/Numeric";
 export * from "@/input/Switch";
 export * from "@/input/Table";
 export * from "@/input/Text";
-export * from "@/input/Time";
+export * from "@/input/time/DateTime";
+export * from "@/input/time/Effect";
+export { formatInstant } from "@/input/time/grammar";
+export type { Bound } from "@/input/time/suggest";
+export * from "@/input/time/TimeSpan";
 export * from "@/input/types";
