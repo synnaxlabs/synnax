@@ -7,6 +7,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Reports the Review gate commit status the main ruleset requires. The job itself
+# always succeeds: a pull request that still waits on a label or an approval gets a
+# pending status, not a failed run and its email.
+
 name: Check - Review
 
 on:
@@ -26,6 +30,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  statuses: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -39,7 +44,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      - name: Check the tier label and approvals
-        run: .github/scripts/check_review.sh ${{ github.event.pull_request.number }}
+      - name: Report the Review gate status
         env:
           GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          IFS=$'\t' read -r state description < <(.github/scripts/check_review.sh "$PR")
+          echo "$state: $description"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" \
+            -f state="$state" \
+            -f context="Review gate" \
+            -f description="$description" \
+            -f target_url="$RUN_URL" > /dev/null
