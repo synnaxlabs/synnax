@@ -49,9 +49,9 @@ Reviewing the wrong diff poisons every downstream finding.
 
 - **Find the real base.** Every PR targets `main`; a hotfix cherry-pick targets
   `release/<product>-X.Y` (`gh pr view --json baseRefName`). A PR based on another
-  unmerged branch is itself a finding: the guide requires each PR to merge into `main`
-  on its own. Review only what the PR actually introduces; content already merged into
-  the base washes out.
+  unmerged branch is the exception; note in one line whether the piece could have landed
+  from `main` alone. Review only what the PR actually introduces; content already merged
+  into the base washes out.
 - **Recover renames locally.** GitHub disables rename detection on large diffs, so moves
   render as delete + add. Run `git diff -M -C <base>...<head>` before treating any "new
   file" as new code, and before mourning any "deleted" one.

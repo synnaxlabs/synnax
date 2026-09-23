@@ -256,9 +256,9 @@ is a couple hundred lines a reviewer reads in one sitting. The known failure is 
 delivered as one branch that grows for two weeks and lands as a PR nobody can review.
 The phase list exists to prevent that, and a Claude session enforces it on the user:
 
-- **Every phase stands alone.** No phase depends on an unmerged one. A phase that only
-  makes sense after another lands comes later in the list, and the earlier one merges
-  first. Never a chain of PRs based on each other.
+- **Phases branch from `main`, not from each other.** A phase that only makes sense
+  after another lands comes later in the list, and the earlier one merges first. A stack
+  is the exception for a piece that truly cannot land alone.
 - **Unfinished behavior ships dark.** A feature that needs several phases hides behind a
   flag from the first phase on; the flag flip or deletion is the last phase. A migration
   prefers additive-introduce, then an atomic cutover.

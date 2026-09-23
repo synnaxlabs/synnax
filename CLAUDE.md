@@ -219,8 +219,8 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 ### Rule 2: Pull request conventions
 
 1. **Confirm the base branch.** Every PR targets `main`. A hotfix lands on `main` first,
-   then a cherry-pick PR targets `release/<product>-X.Y`. Never base a PR on another
-   unmerged branch: that branch should have merged already (Rule 3).
+   then a cherry-pick PR targets `release/<product>-X.Y`. A PR based on another unmerged
+   branch is the exception, not the pattern (Rule 3).
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
 3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
@@ -246,9 +246,9 @@ review. A Claude session pushes against it, never along with it:
 - **Aim for a couple hundred lines.** When the working diff passes ~300 lines, or a
   second idea appears in it, stop and tell the user: this is a PR, open it now. Do not
   keep building on top of it.
-- **No PR waits on an unmerged branch.** A dependency on unmerged work means the earlier
-  piece should have merged already. Open it, get it in, then continue from `main`. Never
-  base a PR on a feature branch, and never title PRs as parts of a stack.
+- **Prefer separate branches off `main` over a stack.** A dependency on unmerged work
+  usually means the earlier piece should have merged already: open it, get it in, then
+  branch again from `main`. Stack only when a piece truly cannot land alone.
 - **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
   behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
   small PR, never the first big one.
