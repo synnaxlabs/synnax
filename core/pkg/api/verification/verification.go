@@ -13,7 +13,6 @@ package verification
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -41,7 +40,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
-	RetrieveRequest  = types.Nil
+	RetrieveRequest  = struct{}
 	RetrieveResponse = svcverification.Info
 	ApplyRequest     struct {
 		Token string `json:"token" msgpack:"token"`
@@ -49,7 +48,7 @@ type (
 	ApplyResponse = svcverification.Info
 )
 
-var objectID = ontology.ID{Type: ontology.ResourceTypeVerification}
+var objectID = ontology.ID{Type: ontology.ResourceTypeLicense}
 
 // Retrieve returns the state of the Core's grant, the host hashes, and the grant when
 // one applies.
