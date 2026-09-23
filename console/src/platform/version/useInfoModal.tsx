@@ -29,6 +29,7 @@ import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { useInstallMiddleware } from "@/platform/version/Install";
+import { isDevBuild } from "@/platform/version/build";
 import { Session } from "@/session";
 
 type UpdateCheck =
@@ -41,7 +42,7 @@ const useUpdateCheck = (): UpdateCheck => {
   useAsyncEffect(async (signal) => {
     try {
       let update: Update | null = null;
-      if (Session.Runtime.ENGINE === "tauri") {
+      if (Session.Runtime.ENGINE === "tauri" && !(await isDevBuild())) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         update = await check();
       }

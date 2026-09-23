@@ -20,6 +20,17 @@ import { symbols, theme } from "./src/util/shiki";
 
 const secret = envField.string({ context: "server", access: "secret" });
 
+export type EnvSchema = NonNullable<NonNullable<AstroUserConfig["env"]>["schema"]>;
+
+// Vercel sets this at build time; flags read it to light up preview deploys.
+const docsEnv: EnvSchema = {
+  VERCEL_ENV: envField.string({
+    context: "client",
+    access: "public",
+    optional: true,
+  }),
+};
+
 /**
  * docs is the site without the portal: what the static site check builds. The portal
  * integrations need Clerk keys and a database, which the check has no use for.
@@ -27,16 +38,7 @@ const secret = envField.string({ context: "server", access: "secret" });
 export const docs = {
   integrations: [react(), mdx()],
   output: "server",
-  env: {
-    schema: {
-      // Vercel sets this at build time; flags read it to light up preview deploys.
-      VERCEL_ENV: envField.string({
-        context: "client",
-        access: "public",
-        optional: true,
-      }),
-    },
-  },
+  env: { schema: docsEnv },
   adapter: vercel(),
   markdown: {
     shikiConfig: {
@@ -117,6 +119,7 @@ const config: AstroUserConfig = {
   ],
   env: {
     schema: {
+      ...docsEnv,
       DATABASE_URL: secret,
       LICENSE_KMS_KEY_ARN: secret,
       LICENSE_KID: envField.string({

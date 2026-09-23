@@ -26,8 +26,8 @@ Examples of usage of the TypeScript client can be found in our
 ## Development
 
 If you are interested in contributing, please read both the
-[Synnax](../../docs/CONTRIBUTING.md) and [TypeScript client](CONTRIBUTING.md)
-contribution guides.
+[Synnax](../../CONTRIBUTING.md) and [TypeScript client](CONTRIBUTING.md) contribution
+guides.
 
 ## Bugs
 

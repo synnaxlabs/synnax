@@ -9,13 +9,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Fails unless every package manifest shares one minor that is the Core's latest stable
+# minor or the next one. Usage: check_versions.sh [root], root defaulting to the repo.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(
     cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1
     pwd
 )"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." > /dev/null 2>&1 && pwd)"
+ROOT_DIR="$(cd "${1:-$SCRIPT_DIR/..}" > /dev/null 2>&1 && pwd)"
 
 fail() {
     echo "Error: $*" >&2
@@ -35,15 +38,19 @@ major_minor() {
     echo "$1" | cut -d '.' -f1-2
 }
 
-get_expected_version_mm() {
-    local version_file="$ROOT_DIR/core/pkg/version/VERSION"
-    require_file "$version_file"
-
-    local full
-    full="$(< "$version_file")"
-    EXPECTED_MM="$(major_minor "$full")"
-    [[ -n "$EXPECTED_MM" ]] || fail "failed to parse version from $version_file"
-    echo "Expected version: ${EXPECTED_MM}.x (from core/pkg/version/VERSION)"
+# The train rule: every package shares one minor, and that minor is the Core's latest
+# stable minor or the next one.
+get_allowed_mm() {
+    local core
+    core="$(git -C "$ROOT_DIR" tag --list 'core/v*' \
+        | sed -nE 's#^core/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+        | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
+    [[ -n "$core" ]] || fail "no stable core tag found; fetch tags first"
+    local major minor
+    IFS=. read -r major minor _ <<< "$core"
+    CORE_MM="$major.$minor"
+    NEXT_MM="$major.$((minor + 1))"
+    echo "Allowed versions: ${CORE_MM}.x or ${NEXT_MM}.x (from core/v$core)"
 }
 
 read_node_mm() {
@@ -66,16 +73,6 @@ read_python_mm() {
     major_minor "$full"
 }
 
-read_tauri_mm() {
-    local tauri_conf="$1"
-    require_file "$tauri_conf"
-
-    local full
-    full="$(grep -m1 '"version"[[:space:]]*:' "$tauri_conf" | cut -d '"' -f4)"
-    [[ -n "$full" ]] || fail "could not read version from $tauri_conf"
-    major_minor "$full"
-}
-
 check_match() {
     local label="$1"
     local found_mm="$2"
@@ -91,9 +88,10 @@ check_match() {
 }
 
 main() {
-    get_expected_version_mm
+    get_allowed_mm
 
     local ok=true
+    local expected=""
 
     local PYTHON_DIRS=(
         "$ROOT_DIR/alamos/py"
@@ -107,7 +105,8 @@ main() {
         local f="$d/pyproject.toml"
         local found
         found="$(read_python_mm "$f")"
-        if ! check_match "Python ($d)" "$found" "$EXPECTED_MM" "$f"; then ok=false; fi
+        expected="${expected:-$found}"
+        if ! check_match "Python ($d)" "$found" "$expected" "$f"; then ok=false; fi
     done
 
     local NODE_DIRS=(
@@ -126,16 +125,26 @@ main() {
         local f="$d/package.json"
         local found
         found="$(read_node_mm "$f")"
-        if ! check_match "Node ($d)" "$found" "$EXPECTED_MM" "$f"; then ok=false; fi
+        expected="${expected:-$found}"
+        if ! check_match "Node ($d)" "$found" "$expected" "$f"; then ok=false; fi
     done
 
-    local TAURI_CONF="$ROOT_DIR/console/src-tauri/tauri.conf.json"
-    local tauri_found
-    tauri_found="$(read_tauri_mm "$TAURI_CONF")"
-    if ! check_match "Tauri (console/src-tauri/tauri.conf.json)" "$tauri_found" "$EXPECTED_MM" "$TAURI_CONF"; then ok=false; fi
+    local cpp_version="$ROOT_DIR/client/cpp/version/VERSION"
+    require_file "$cpp_version"
+    local found
+    found="$(major_minor "$(tr -d '[:space:]' < "$cpp_version")")"
+    expected="${expected:-$found}"
+    if ! check_match "C++ (client/cpp)" "$found" "$expected" "$cpp_version"; then
+        ok=false
+    fi
+
+    if [[ "$expected" != "$CORE_MM" && "$expected" != "$NEXT_MM" ]]; then
+        echo "❌ packages are on ${expected}.x, not ${CORE_MM}.x or ${NEXT_MM}.x" >&2
+        ok=false
+    fi
 
     if [[ "$ok" == true ]]; then
-        echo "All versions match."
+        echo "All packages share ${expected}.x."
         exit 0
     else
         echo "Version check failed."

@@ -39,8 +39,8 @@ const DESKTOP_LICENSE: license.License = {
   v: 1,
   org: "6e5d4c3b-2a1f-4e8c-9d2f-4b7a6e1d0c9b",
   ed: "d",
-  fp: ["aa"],
-  fs: 1,
+  fingerprints: ["aa"],
+  fingerprintScheme: 1,
   n: 1,
   ch: 0,
 };

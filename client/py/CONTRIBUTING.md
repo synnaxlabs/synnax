@@ -1,6 +1,6 @@
 # Contributing to the Synnax Python client
 
-If you haven't already, read the [Synnax Contribution Guide](../../docs/CONTRIBUTING.md)
+If you haven't already, read the [Synnax Contribution Guide](../../CONTRIBUTING.md)
 before continuing.
 
 ## Development environment setup

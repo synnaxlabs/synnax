@@ -33,12 +33,6 @@ fi
 echo "Bumping all versions to $VERSION"
 echo "================================"
 
-update_version_file() {
-    local version_file="$ROOT_DIR/core/pkg/version/VERSION"
-    echo "$VERSION" > "$version_file"
-    echo "✅ Updated VERSION file: $version_file"
-}
-
 update_python() {
     local pyproject="$1"
     if [[ -f "$pyproject" ]]; then
@@ -60,21 +54,6 @@ update_node() {
         return 1
     fi
 }
-
-update_tauri() {
-    local tauri_conf="$1"
-    if [[ -f "$tauri_conf" ]]; then
-        sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$tauri_conf"
-        echo "✅ Updated Tauri: $tauri_conf"
-    else
-        echo "❌ File not found: $tauri_conf"
-        return 1
-    fi
-}
-
-echo ""
-echo "Updating VERSION file..."
-update_version_file
 
 echo ""
 echo "Updating Python packages..."
@@ -110,8 +89,9 @@ for d in "${NODE_DIRS[@]}"; do
 done
 
 echo ""
-echo "Updating Tauri config..."
-update_tauri "$ROOT_DIR/console/src-tauri/tauri.conf.json"
+echo "Updating the C++ client..."
+printf '%s\n' "$VERSION" > "$ROOT_DIR/client/cpp/version/VERSION"
+echo "✅ Updated C++: $ROOT_DIR/client/cpp/version/VERSION"
 
 echo ""
 echo "================================"
