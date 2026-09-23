@@ -9,9 +9,10 @@
 
 #include "absl/log/log.h"
 
-#include "driver/version/version.h"
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
+
+#include "driver/version/version.h"
 
 namespace driver::cmd::sub {
 std::string version() {
