@@ -427,6 +427,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcRetrieve,
 		t.ArcDispatch,
 		t.ArcSetRack,
+		t.ArcLSP,
 
 		// IMPORT/EXPORT
 		t.ImExImport,
