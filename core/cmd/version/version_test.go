@@ -24,6 +24,7 @@ var _ = Describe("Version", func() {
 	BeforeEach(func() {
 		expected = "Synnax " + pkgversion.Full() + "\n"
 	})
+
 	It("Should print the version", func() {
 		var buf bytes.Buffer
 		Expect(version.FPrint(&buf)).To(Succeed())

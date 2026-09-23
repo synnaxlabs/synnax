@@ -18,9 +18,9 @@ export const flag = (value: string | undefined, dev: boolean = IS_DEV): boolean 
   dev || value === "true";
 
 /**
- * Static build-time flags that hide unfinished work in production. Each entry names
- * its owner and the release that removes it:
- * `example: flag(import.meta.env.VITE_FLAG_EXAMPLE), // Owner: Name. Removed in 0.60.`
+ * Static build-time flags that hide unfinished work in production. Each entry names its
+ * owner and the release that removes it: `example:
+ * flag(import.meta.env.VITE_FLAG_EXAMPLE), // Owner: Name. Removed in 0.60.`
  */
 export const FLAGS = {} as const satisfies Record<string, boolean>;
 
