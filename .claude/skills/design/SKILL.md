@@ -6,7 +6,7 @@ description:
   whether to follow or break an existing pattern, deciding package boundaries or where a
   behavior lives, researching prior art or user workflows, or interviewing the user to
   lock design decisions. Enforces research-before-questions, one-decision-at-a-time
-  interviews, and earned phase boundaries.
+  interviews, and phases that each merge into `main` on their own.
 ---
 
 # Design & Planning
@@ -37,12 +37,12 @@ NEVER AskUserQuestion.
    gates. Lock decisions; persist locked answers into documents or memories so the same
    ground is never re-interviewed.
 4. **Draft the deliverable** in the house RFC form (Rule 9), rejections folded in.
-5. **Phase the work** with earned boundaries only (Rule 10).
+5. **Phase the work** into PRs that each merge into `main` on their own (Rule 10).
 
 Register for the whole process: lead with the long-term structural answer, never a
 tactical unblock framed as the path forward. No half measures: complications get worked
-through, not punted to hypothetical future PRs. Scope concretely (files, tests, lines)
-before calling anything expensive.
+through in the design, and the phase list names the PR that handles each one. Scope
+concretely (files, tests, lines) before calling anything expensive.
 
 ## Rule 1: Implementation research — no hallucinated APIs, no reinvented wheels
 
@@ -223,8 +223,8 @@ Load it before the first question. Design adds these gates on top:
 - **Termination lands in the deliverable.** Remaining parameters go to the RFC's Open
   Questions tail.
 - **Locked means locked.** Persist locked decisions (working doc, then memory). Deliver
-  the full implementation of what was locked; sequencing is the session's choice and
-  never a question.
+  the full implementation of what was locked as the PR sequence of Rule 10; the order
+  inside that sequence is the session's choice and never a question.
 
 ## Rule 9: The deliverable takes the house RFC form
 
@@ -249,40 +249,42 @@ Conventions that matter:
 - Short RFCs are fine when they justify their existence. A plan persisted in the
   codebase takes RFC form; otherwise plans live in session memory.
 
-## Rule 10: Phase boundaries are earned
+## 🚨 Rule 10: A phase is one PR that merges into `main` on its own 🚨
 
-A phase (or PR) boundary is earned only when it buys one of:
+A phase is one pull request. It merges into `main` by itself, leaves `main` green, and
+is a couple hundred lines a reviewer reads in one sitting. The known failure is a design
+delivered as one branch that grows for two weeks and lands as a PR nobody can review.
+The phase list exists to prevent that, and a Claude session enforces it on the user:
 
-1. **A reviewable unit** -> a reviewer can hold the whole diff's intent in their head.
-2. **A green intermediate state** -> the system builds and tests pass at the boundary;
-   nothing half-wired.
-3. **Risk isolation** -> mechanical or wire changes land separately from behavior
-   changes, so bisection points at one culprit.
-
-If a proposed split buys none of these, merge the phases. Split along architectural
-seams (identity/wire vs behavior vs UX), never along file counts. Sequence so the
-lowest-risk, dependency-unblocking work lands first; migrations are first-class citizens
-of the phase list, and a compatibility statement closes the plan.
-
-🚨 **The session's known bias is OVER-splitting.** Default to fewer phases. A boundary
-proposed "to keep PRs small" with no reviewability, greenness, or risk argument is the
-bias firing. Additive-introduce followed by atomic-cutover is the sanctioned two-phase
-shape for migrations that would otherwise be unreviewable, and zero-coexistence cutovers
-(no flags, no parallel old/new) are preferred over long coexistence windows.
+- **Every phase stands alone.** No phase depends on an unmerged one. A phase that only
+  makes sense after another lands comes later in the list, and the earlier one merges
+  first. Never a chain of PRs based on each other.
+- **Unfinished behavior ships dark.** A feature that needs several phases hides behind a
+  flag from the first phase on; the flag flip or deletion is the last phase. A migration
+  prefers additive-introduce, then an atomic cutover.
+- **Split along seams, then by size.** Wire or identity changes, behavior, and UX land
+  separately so bisection points at one culprit. Within a seam, split again when a phase
+  would pass a few hundred lines. Mechanical work (renames, regeneration) is its own
+  phase.
+- **Lowest-risk, dependency-unblocking work first.** Migrations are first-class entries
+  in the list, and a compatibility statement closes the plan.
+- **The first phase opens this session.** A plan whose first PR is not open by the end
+  of the session that wrote it is the failure mode in progress. When the working diff
+  passes ~300 lines, the session says so and cuts the PR.
 
 ## Quick reference
 
-| Activity                            | Gate                                                                             |
-| ----------------------------------- | -------------------------------------------------------------------------------- |
-| Naming any API in a design          | Existence ledger: _exists_ (file:line, read) or _NEW_                            |
-| Marking anything NEW                | Search recorded (x/, owning pkg, siblings) + named precedent                     |
-| Diverging from a codebase norm      | Justified in blood; absence of a pattern is itself a principle                   |
-| Touching any existing pattern       | Classify conform / extend / replace-everywhere; never silent                     |
-| Proposing replace-everywhere        | Six-signal evidence summary + recommendation to the user                         |
-| Extracting a package                | Shared utility, clean seam, or parent split; naming improves; tests in isolation |
-| Placing a behavior                  | Deep modules first; grid placement explicit                                      |
-| Any UX claim                        | Role + workflow moment + consequence if wrong                                    |
-| Choosing an externally-solved shape | Prior-art paragraph: tools checked, choices, why we differ                       |
-| Asking the user anything            | Research done; recommendation attached; ONE question, prose                      |
-| Ending the interview                | Remaining unknowns are parameters, not shapes                                    |
-| Adding a phase boundary             | Buys reviewability, greenness, or risk isolation; else merge                     |
+| Activity                            | Gate                                                                                |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| Naming any API in a design          | Existence ledger: _exists_ (file:line, read) or _NEW_                               |
+| Marking anything NEW                | Search recorded (x/, owning pkg, siblings) + named precedent                        |
+| Diverging from a codebase norm      | Justified in blood; absence of a pattern is itself a principle                      |
+| Touching any existing pattern       | Classify conform / extend / replace-everywhere; never silent                        |
+| Proposing replace-everywhere        | Six-signal evidence summary + recommendation to the user                            |
+| Extracting a package                | Shared utility, clean seam, or parent split; naming improves; tests in isolation    |
+| Placing a behavior                  | Deep modules first; grid placement explicit                                         |
+| Any UX claim                        | Role + workflow moment + consequence if wrong                                       |
+| Choosing an externally-solved shape | Prior-art paragraph: tools checked, choices, why we differ                          |
+| Asking the user anything            | Research done; recommendation attached; ONE question, prose                         |
+| Ending the interview                | Remaining unknowns are parameters, not shapes                                       |
+| Listing a phase                     | One PR, merges into `main` alone, a few hundred lines; the first opens this session |

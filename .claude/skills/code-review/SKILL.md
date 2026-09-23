@@ -47,18 +47,21 @@ explicit instruction in that session.
 
 Reviewing the wrong diff poisons every downstream finding.
 
-- **Find the real base.** Feature/fix PRs target `rc`, hotfixes `main`, stacked PRs the
-  parent branch (`gh pr view --json baseRefName`). A stacked PR reviewed against `rc`
-  shows the whole stack; sibling content already merged into the base washes out. Review
-  only what the PR actually introduces.
+- **Find the real base.** Every PR targets `main`; a hotfix cherry-pick targets
+  `release/<product>-X.Y` (`gh pr view --json baseRefName`). A PR based on another
+  unmerged branch is itself a finding: the guide requires each PR to merge into `main`
+  on its own. Review only what the PR actually introduces; content already merged into
+  the base washes out.
 - **Recover renames locally.** GitHub disables rename detection on large diffs, so moves
   render as delete + add. Run `git diff -M -C <base>...<head>` before treating any "new
   file" as new code, and before mourning any "deleted" one.
 - **Record the baseline.** Failures that exist on the base (check-types errors, red CI,
   lint debt) are never attributed to the diff. When attribution is in question, check
   the base's CI, not just the head's.
-- **PR hygiene, briefly.** Title matches `SY-####: Title Case`, template filled with
-  real content, base branch correct. One line in the report; never the headline.
+- **PR hygiene, briefly.** Title matches `SY-####: Sentence case description`, template
+  filled with real content, one review tier label, base branch correct. A diff far past
+  a few hundred lines gets one line asking where it should have been cut. One line in
+  the report; never the headline.
 
 ## Rule 2: The reading guide — chunk the diff by concern
 

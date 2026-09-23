@@ -218,9 +218,9 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 
 ### Rule 2: Pull request conventions
 
-1. **Confirm the base branch.** Every PR targets `main`; stacked PRs target the parent
-   branch. A hotfix lands on `main` first, then a cherry-pick PR targets
-   `release/<product>-X.Y`. Ask if unclear.
+1. **Confirm the base branch.** Every PR targets `main`. A hotfix lands on `main` first,
+   then a cherry-pick PR targets `release/<product>-X.Y`. Never base a PR on another
+   unmerged branch: that branch should have merged already (Rule 3).
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
 3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
@@ -235,18 +235,26 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
    path floors, and the gate are in `CONTRIBUTING.md`. Never lower a tier a reviewer
    raised.
 
-### Rule 3: Cut small, atomic pull requests
+### 🚨 Rule 3: Cut small PRs into `main`, early and often 🚨
 
-A reviewer must finish a PR in one sitting; the median merged PR is about 500 lines.
+The failure mode is a branch that grows for days, then lands as one PR nobody can
+review. A Claude session pushes against it, never along with it:
 
-- **One idea per PR.** A fix and the refactor it needed are two PRs; the refactor lands
-  first at its own tier.
+- **Plan the PR sequence before the code.** For any task over a few hundred lines, list
+  the PRs first. Each one merges into `main` on its own, leaves `main` green, and makes
+  sense without the ones after it. Open the first one in the same session.
+- **Aim for a couple hundred lines.** When the working diff passes ~300 lines, or a
+  second idea appears in it, stop and tell the user: this is a PR, open it now. Do not
+  keep building on top of it.
+- **No PR waits on an unmerged branch.** A dependency on unmerged work means the earlier
+  piece should have merged already. Open it, get it in, then continue from `main`. Never
+  base a PR on a feature branch, and never title PRs as parts of a stack.
+- **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
+  behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
+  small PR, never the first big one.
 - **Mechanical changes ship alone** as `review/bot` PRs: renames, format runs, lint
   fixes, regenerated code. The human review then reads only hand-written code.
-- **Stack the rest.** A multi-step change is a chain of PRs, each targeting the one
-  below it and titled with a stack prefix (`[B2] SY-4862: ...`). Merge from the bottom.
-- **A new feature lands dark** behind a flag in `console/src/flags.ts`, as small Tier 2
-  PRs. The flag flip or deletion is the one Tier 1 PR that reads the whole feature.
+- **A fix and the refactor it needed are two PRs.** The refactor lands first.
 
 ## Self-editing guidelines
 

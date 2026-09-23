@@ -14,10 +14,9 @@ and apply to every author, human or not.
 
 `main` is the only long-lived branch and is always releasable. A change branches from
 `main`, is named after its Linear issue (`sy-4892-review-tiers`), and returns to `main`
-by pull request. A stacked pull request targets its parent branch and carries a stack
-prefix in its title (`[B2] SY-4862: ...`). A hotfix lands on `main` first and is then
-cherry-picked by pull request onto `release/<product>-X.Y`. A person dispatches every
-release; nothing publishes on push. See
+by pull request, and never targets another unmerged branch. A hotfix lands on `main`
+first and is then cherry-picked by pull request onto `release/<product>-X.Y`. A person
+dispatches every release; nothing publishes on push. See
 [RFC 0058](docs/tech/rfc/0058-release-workflow.md).
 
 ## Pull requests
@@ -78,20 +77,22 @@ Repository admins can bypass the ruleset when Greptile is down. The paths live i
 
 ## Pull request size
 
-There is no size limit. A reviewer must be able to finish a pull request in one sitting,
-and the median merged pull request changes about 500 lines. Above that, split:
+There is no size limit, but a reviewer must finish a pull request in one sitting, and a
+couple hundred lines is the target. The failure to avoid is a branch that grows for days
+and lands as one pull request nobody can review. So:
 
-- **One idea per pull request.** A fix and the refactor it needed are two pull requests.
-  The refactor lands first, at its own tier.
+- **Cut early.** When the diff passes a few hundred lines, or a second idea appears in
+  it, open the pull request and continue from `main` once it merges.
+- **Every pull request merges on its own.** None depends on another unmerged branch. If
+  a piece only makes sense after another lands, land the other first. A chain of pull
+  requests based on each other is the failure mode with extra steps.
+- **Unfinished work ships dark.** A feature that is not ready merges behind a flag as
+  small Tier 2 pull requests. The promotion pull request is the one place the whole
+  feature is read at once.
 - **Mechanical changes go alone.** A rename, a format run, a lint fix, or regenerated
   code ships as its own `review/bot` pull request, so the human review reads only the
   hand-written change.
-- **Stack the rest.** A feature that needs several steps is a chain of pull requests,
-  each targeting the one below it, each reviewable on its own, titled with a stack
-  prefix. Merge from the bottom.
-- **A new feature lands dark.** Its pieces enter `main` behind a flag as small Tier 2
-  pull requests. The promotion pull request is the one place the whole feature is read
-  at once.
+- **A fix and the refactor it needed are two pull requests.** The refactor lands first.
 
 ## Dark launches and Synnax Desktop
 
