@@ -52,6 +52,7 @@ cc_test(
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/testutil",
         "//arc/cpp/stl/channels",
         "//x/cpp/mem",
         "//x/cpp/telem",

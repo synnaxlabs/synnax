@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { group } from "@/group";
@@ -268,6 +268,18 @@ describe("Symbol Client", () => {
 
       await expect(client.schematics.symbols.retrieve(symbol.key)).rejects.toThrow();
     });
+
+    it("drops the symbol's relationships by key, never by predicate", async () => {
+      const symbol = await client.schematics.symbols.create({
+        name: "Delete Scan Pin",
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        parent: group.ontologyID(symbolGroup.key),
+      });
+      const spy = vi.spyOn(client.ontology.cache.relationships, "delete");
+      await client.schematics.symbols.delete(symbol.key);
+      for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+      spy.mockRestore();
+    });
   });
 
   describe("retrieveGroup", () => {
@@ -425,6 +437,22 @@ describe("Symbol Client", () => {
       } finally {
         stop();
       }
+    });
+
+    it("touches the relationship table by key, never by predicate", async () => {
+      const target = await createTarget();
+      await client.schematics.symbols.create({
+        symbols: [{ name: "Inlet", data: SYMBOL_DATA }],
+        parent: group.ontologyID(target.key),
+      });
+      const rels = client.ontology.cache.relationships;
+      const getSpy = vi.spyOn(rels, "get");
+      const deleteSpy = vi.spyOn(rels, "delete");
+      await client.schematics.symbols.deleteGroup(target.key);
+      for (const [arg] of getSpy.mock.calls) expect(typeof arg).not.toBe("function");
+      for (const [arg] of deleteSpy.mock.calls) expect(typeof arg).not.toBe("function");
+      getSpy.mockRestore();
+      deleteSpy.mockRestore();
     });
 
     it("should drop the deleted symbols from parent subscribers", async () => {

@@ -7,26 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { render } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
-import { type Config } from "@/schematic/node/general/box/config";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
 import { type NodeProps } from "@/schematic/node/spec";
 
 const NODE_KEY = "b1";
 
-const CONFIG: Config = {
-  variant: "box",
-  dimensions: { width: 125, height: 200 },
-  borderRadius: 3,
-  strokeWidth: 2,
-};
+const CONFIG = schematic.boxNodeConfigZ.parse({ variant: "box" });
 
 const renderSymbol = (
-  props: Partial<NodeProps<Config>> = {},
+  props: Partial<NodeProps<schematic.BoxNodeConfig>> = {},
 ): ReturnType<typeof render> =>
   render(
     <ReactFlowProvider>
@@ -64,13 +59,6 @@ describe("Box.Symbol", () => {
   it("should round the frame so the band follows the corners", () => {
     const { container } = renderSymbol({ config: { ...CONFIG, borderRadius: 12 } });
     expect(frame(container)?.getAttribute("rx")).toBe("12");
-  });
-
-  it("should leave the frame square without a border radius", () => {
-    const { container } = renderSymbol({
-      config: { ...CONFIG, borderRadius: undefined },
-    });
-    expect(frame(container)?.getAttribute("rx")).toBeNull();
   });
 
   it("should put the frame inside the drag handle so the border drags the node", () => {

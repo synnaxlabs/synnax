@@ -9,7 +9,7 @@ prev: "Channels"
 prevURL: "/reference/concepts/channels"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider, Note } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -20,6 +20,10 @@ stored within Synnax, and can be used to correlate metadata with channel telemet
 To create a range, you only need to specify a name, a starting timestamp, and an ending
 timestamp. While a range can be used to query the data within a channel, it is not
 necessary to specify the channels that belong within a range.
+
+<Note.Note variant="info" className="compact">
+  The interval is start-inclusive and end-exclusive.
+</Note.Note>
 
 <Divider.Divider x />
 
@@ -39,7 +43,7 @@ repository.
 
 <Divider.Divider x />
 
-## Channel Aliases
+## Channel aliases
 
 Sometimes you want to refer to a channel by a different name within the scope of a
 range. For example, imagine you're connecting to a device with three analog input
@@ -53,7 +57,7 @@ within a range, you can search for the channel by both its original name and its
 
 <Divider.Divider x />
 
-## Child Ranges
+## Child ranges
 
 Child ranges can be used to further segment a range into small, specific intervals. If
 you have a range that tracks a series of tests for a single component, you can create a
@@ -88,9 +92,7 @@ category relevant to your team.
 
 <Divider.Divider x />
 
-## Using Ranges
+## Using ranges
 
-There are a number of ways to create, access, and modify ranges within Synnax. The
-[Python](/reference/python-client/ranges) and TypeScript client libraries provide
-programmatic interfaces. Ranges can also be managed in the
-[Synnax Console](/reference/console/ranges).
+Create, access, and modify ranges from the Console or the
+[client libraries](/reference/client/ranges).

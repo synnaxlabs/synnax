@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/light/config";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Partial<
+  Pick<schematic.LightNodeConfig, "color" | "orientation" | "scale">
+> {
   className?: string;
   enabled?: boolean;
 }

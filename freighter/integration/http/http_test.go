@@ -12,7 +12,7 @@ package http_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 	"net/http"
 
@@ -78,7 +78,7 @@ var _ = Describe("BindTo", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			var msg ihttp.Message
-			Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+			Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 			Expect(msg).To(Equal(ihttp.Message{Message: "hello", ID: 2}))
 		},
 	)
@@ -126,7 +126,7 @@ var _ = Describe("BindTo", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			var msg ihttp.Message
-			Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+			Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 			Expect(msg.ID).To(Equal(8))
 		},
 	)
@@ -153,7 +153,7 @@ var _ = Describe("unaryParamEcho", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 		var msg ihttp.Message
-		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+		Expect(json.UnmarshalRead(resp.Body, &msg)).To(Succeed())
 		return msg
 	}
 
@@ -213,7 +213,7 @@ var _ = Describe("flakyUnavailable", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusServiceUnavailable))
 
 		var pld errors.Payload
-		Expect(json.NewDecoder(resp.Body).Decode(&pld)).To(Succeed())
+		Expect(json.UnmarshalRead(resp.Body, &pld)).To(Succeed())
 		Expect(pld.Type).To(Equal("integration.error"))
 	})
 
@@ -229,7 +229,7 @@ var _ = Describe("flakyUnavailable", func() {
 			second := post(app, ihttp.Message{Message: "flaky-recovers", ID: 1})
 			Expect(second.StatusCode).To(Equal(http.StatusOK))
 			var msg ihttp.Message
-			Expect(json.NewDecoder(second.Body).Decode(&msg)).To(Succeed())
+			Expect(json.UnmarshalRead(second.Body, &msg)).To(Succeed())
 			Expect(msg).To(Equal(ihttp.Message{Message: "flaky-recovers", ID: 2}))
 		},
 	)

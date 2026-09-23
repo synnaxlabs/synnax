@@ -9,14 +9,13 @@
 // included in the file licenses/APL.txt.
 
 import Inline from "@/components/code/Inline.astro";
-import { fetchVersion } from "@/util/fetchVersion";
-const { os, name } = Astro.props;
+const { os, name, product } = Astro.props;
 
-const version = await fetchVersion();
+const version = await Astro.locals.releases.latest(product);
 ---
 
 <Inline
     lang="bash"
-    code={`sudo mv ${name}-v${version.trim()}-${os.toLowerCase()} /usr/local/bin/${name}`}
+    code={`sudo mv ${name}-v${version}-${os.toLowerCase()} /usr/local/bin/${name}`}
     theme="css-variables"
 />

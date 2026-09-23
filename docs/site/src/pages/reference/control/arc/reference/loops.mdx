@@ -4,7 +4,7 @@ title: "Loops"
 description: "Arc for loop reference for iterating over series, ranges, and conditions"
 prev: "Statements"
 prevURL: "/reference/control/arc/reference/statements"
-next: "Standard Library"
+next: "Standard library"
 nextURL: "/reference/control/arc/reference/standard-library"
 ---
 
@@ -24,7 +24,7 @@ multiple executions, use
 
 <Divider.Divider x />
 
-## Iterating Over a Series
+## Iterating over a series
 
 Use `for` to walk through each element of a series:
 
@@ -42,7 +42,7 @@ func sum_all() f64 {
 Each iteration binds the next element to `x`. The loop ends when every element has been
 visited.
 
-### Index and Value
+### Index and value
 
 If you also need the position, declare two variables:
 
@@ -65,11 +65,11 @@ The index starts at 0 and has type `i32`.
 
 <Divider.Divider x />
 
-## Range Loops
+## Range loops
 
 `range` generates a sequence of integers. It accepts one, two, or three arguments.
 
-### One Argument
+### One argument
 
 `range(end)` counts from 0 up to (but not including) `end`:
 
@@ -80,7 +80,7 @@ for i := range(5) {
 }
 ```
 
-### Two Arguments
+### Two arguments
 
 `range(start, end)` counts from `start` up to (but not including) `end`:
 
@@ -97,7 +97,7 @@ for i := range(5, 10) {
   produces zero iterations because `start` is already past `end`.
 </Note.Note>
 
-### Three Arguments
+### Three arguments
 
 `range(start, end, step)` counts from `start` toward `end`, advancing by `step`:
 
@@ -114,7 +114,7 @@ for i := range(5, -5, -2) {
 
 A negative step counts downward. The loop stops before reaching `end`.
 
-### Edge Cases
+### Edge cases
 
 If the range is empty, the loop body never executes:
 
@@ -131,7 +131,7 @@ for i := range(0, 10, -1) {} // no iterations (start < end, step is negative)
 
 <Divider.Divider x />
 
-## Conditional Loops
+## Conditional loops
 
 A `for` with a condition repeats while the condition is true (a `bool`, or a non-zero
 numeric):
@@ -152,7 +152,7 @@ never runs.
 
 <Divider.Divider x />
 
-## Infinite Loops
+## Infinite loops
 
 A bare `for` repeats until you `break` out:
 
@@ -171,7 +171,7 @@ func next_power_of_two(n i32) i32 {
 
 <Divider.Divider x />
 
-## Break and Continue
+## Break and continue
 
 `break` exits the loop immediately. `continue` skips to the next iteration.
 
@@ -211,7 +211,7 @@ func sum_positive() i32 {
 }
 ```
 
-### Nested Loops
+### Nested loops
 
 `break` and `continue` apply to the innermost enclosing loop:
 
@@ -233,7 +233,7 @@ func count_valid_pairs() i64 {
 
 <Divider.Divider x />
 
-## Loop Variables
+## Loop variables
 
 Loop variables (`i`, `x`, etc.) are scoped to the loop body and cannot be reassigned:
 

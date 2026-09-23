@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import random
-from datetime import timezone
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -27,6 +28,7 @@ class RangeLifecycle(ConsoleCase):
     child_range_name: str | None = None
     labeled_range_name: str | None = None
     new_child_range_name: str | None = None
+    timeline_range_name: str | None = None
 
     def setup(self) -> None:
         super().setup()
@@ -44,6 +46,7 @@ class RangeLifecycle(ConsoleCase):
             self.new_child_range_name,
             self.child_range_name,
             self.staged_range_name,
+            self.timeline_range_name,
         ]
 
         with self._try_to("delete ranges"):
@@ -88,6 +91,8 @@ class RangeLifecycle(ConsoleCase):
         self.test_navigate_to_parent()
         self.test_change_times_in_overview()
         self.test_change_stage_in_overview()
+        self.test_set_planned_end_in_overview()
+        self.test_move_start_past_end_in_overview()
         self.test_add_label_in_overview()
         self.test_remove_label_in_overview()
         self.test_rename_range_from_tab()
@@ -268,10 +273,10 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.set_start_time(
-            year=2024, month="January", day=1, hour=0, minute=0, second=0
+            year=2024, month=1, day=1, hour=0, minute=0, second=0
         )
         self.console.ranges.overview.set_end_time(
-            year=2024, month="January", day=2, hour=0, minute=0, second=0
+            year=2024, month=1, day=2, hour=0, minute=0, second=0
         )
 
         # The overview form autosaves on a debounce, so poll until the last
@@ -347,6 +352,69 @@ class RangeLifecycle(ConsoleCase):
 
         self.console.ranges.overview.set_stage("In progress")
         self.assert_range_spans_now(self.labeled_range_name)
+
+    def wait_for_range(self, name: str, done: Callable[[sy.Range], bool]) -> sy.Range:
+        """Poll until the range satisfies ``done``, since overview edits
+        autosave on a debounce."""
+        rng = self.client.ranges.retrieve(name=name)
+        for _ in range(10):
+            if done(rng):
+                break
+            sy.sleep(0.5)
+            rng = self.client.ranges.retrieve(name=name)
+        return rng
+
+    def test_set_planned_end_in_overview(self) -> None:
+        """Test setting a planned end on a running range in the overview."""
+        self.log("Testing: Set planned end in overview")
+        self.timeline_range_name = f"TimelineRange_{self.rand_suffix}"
+        self.console.ranges.create(self.timeline_range_name, persisted=True)
+        self.console.ranges.explorer.open()
+        self.console.ranges.overview.open(self.timeline_range_name)
+        self.console.ranges.overview.wait_for(self.timeline_range_name)
+        start = self.client.ranges.retrieve(
+            name=self.timeline_range_name
+        ).time_range.start
+
+        end = (datetime.now() + timedelta(days=1)).replace(microsecond=0)
+        self.console.ranges.overview.set_end_time(
+            end.year, end.month, end.day, end.hour, end.minute, end.second
+        )
+
+        expected = sy.TimeStamp(end.astimezone())
+        rng = self.wait_for_range(
+            self.timeline_range_name, lambda r: r.time_range.end == expected
+        )
+        assert rng.time_range.end == expected, (
+            f"End should be {expected}, got {rng.time_range.end}"
+        )
+        assert rng.time_range.start == start, "Setting the end should keep the start"
+        self.assert_range_spans_now(self.timeline_range_name)
+
+    def test_move_start_past_end_in_overview(self) -> None:
+        """Test that moving the start past the end drags the end with it."""
+        assert self.timeline_range_name is not None
+        self.log("Testing: Move start past end in overview")
+        before = self.client.ranges.retrieve(name=self.timeline_range_name)
+        duration = int(before.time_range.end) - int(before.time_range.start)
+
+        start = (datetime.now() + timedelta(days=2)).replace(microsecond=0)
+        self.console.ranges.overview.set_start_time(
+            start.year, start.month, start.day, start.hour, start.minute, start.second
+        )
+
+        expected = sy.TimeStamp(start.astimezone())
+        rng = self.wait_for_range(
+            self.timeline_range_name, lambda r: r.time_range.start == expected
+        )
+        assert rng.time_range.start == expected, (
+            f"Start should be {expected}, got {rng.time_range.start}"
+        )
+        moved = int(rng.time_range.end) - int(rng.time_range.start)
+        # The Console holds instants as float64, which is exact only to the microsecond.
+        assert abs(moved - duration) < int(sy.TimeSpan.MICROSECOND), (
+            f"The drag should keep the duration {duration}, got {moved}"
+        )
 
     def test_add_label_in_overview(self) -> None:
         """Test adding a label to a range in the overview."""

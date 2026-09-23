@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Requirements"
-heading: "Deployment Requirements"
+heading: "Deployment requirements"
 description:
   "Hardware and software requirements for deploying a Synnax Core to production."
-next: "CLI Reference"
+next: "CLI reference"
 nextURL: "/reference/core/cli-reference"
 prev: "Production"
 prevURL: "/reference/core/production"
@@ -15,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 import { Table } from "@/components";
 export const components = mdxOverrides;
 
-## Operating System
+## Operating system
 
 A Synnax Core can run on Linux, macOS, Windows, or a containerized environment.
 
@@ -24,7 +24,7 @@ distribution, such as [Ubuntu](https://ubuntu.com/download/server) 24.04 LTS or 
 [Red Hat Enterprise Linux](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux),
 or [CentOS](https://www.centos.org/centos-stream/).
 
-### Synnax Driver Compatibility
+### Synnax Driver compatibility
 
 If you plan on using the Synnax Driver to integrate directly with your hardware, only
 certain operating systems are supported. Minimum OS versions are listed in the
@@ -78,7 +78,7 @@ certain operating systems are supported. Minimum OS versions are listed in the
 
 Core hardware requirements vary depending on your data acquisition and control workload.
 
-### Calculating Workload
+### Calculating workload
 
 The first step in sizing a system to meet your requirements is to calculate the total
 sample throughput of your workload.
@@ -99,7 +99,7 @@ For example, if we have three groups of channels:
 
 The total throughput for our Core is 250k + 10k + 1k = 261k samples/s.
 
-### Workload-Based Minimum Requirements
+### Workload-based minimum requirements
 
 Once you've calculated your total throughput, use the following table to determine the
 _minimum_ hardware requirements for your Core.
@@ -180,7 +180,7 @@ Avoid single or dual core processors for anything beyond development or testing
 environments.
 
 If you plan on using large numbers of
-[calculated channels](/reference/console/calculated-channels), increase the number of
+[calculated channels](/reference/client/calculated-channels), increase the number of
 cores for your deployment.
 
 ### Memory
@@ -198,23 +198,23 @@ replication, and client connections. Given Synnax's high-performance capabilitie
 both data acquisition and control operations, the network infrastructure must be
 designed to handle substantial throughput with minimal latency.
 
-### Network Interface Requirements
+### Network interface requirements
 
 For production deployments, we recommend the following network interface specifications:
 
-#### Minimum Requirements
+#### Minimum requirements
 
 - 10 Gigabit Ethernet (10GbE) network interface cards (NICs)
 - Full-duplex operation support
 - Hardware-based packet processing capabilities
 
-#### High-Performance Scenarios
+#### High-performance scenarios
 
 - 25 Gigabit Ethernet (25GbE) or higher for workloads exceeding 2M samples/s
 - Multiple NICs for redundancy and load balancing in mission-critical environments
 - RDMA-capable NICs for ultra-low latency applications
 
-### Switch Infrastructure
+### Switch infrastructure
 
 Network switches should be selected and configured to minimize latency and maximize
 throughput:
@@ -228,7 +228,7 @@ throughput:
 - **Quality of Service (QoS)** -> Implement traffic prioritization to ensure control
   commands receive priority over bulk data transfers.
 
-### Cabling and Physical Infrastructure
+### Cabling and physical infrastructure
 
 For optimal performance, especially over longer distances:
 
@@ -237,7 +237,7 @@ For optimal performance, especially over longer distances:
 - **Direct Attach Cables (DAC)** -> Acceptable for short runs (< 10 meters) between
   adjacent equipment.
 
-### Network Security and Isolation
+### Network security and isolation
 
 <Note.Note variant="error">
   **Critical Security & Performance Requirement** -> Never use public internet

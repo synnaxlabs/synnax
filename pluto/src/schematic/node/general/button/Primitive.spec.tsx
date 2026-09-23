@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { color, deep } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Form } from "@/form";
-import { type Config, configZ } from "@/schematic/node/general/button/config";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
@@ -51,10 +51,10 @@ describe("button symbol", () => {
     );
   });
 
-  it("should leave the source color unset for the ZERO sentinel", () => {
+  it("should pass a fully transparent color through as a choice", () => {
     const { container } = render(<Button color={color.ZERO} />);
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
-      "",
+      "0, 0, 0, 0",
     );
   });
 
@@ -98,6 +98,26 @@ describe("button symbol", () => {
       const { container } = render(<Button mode="pulse" onMouseDown={onMouseDown} />);
       fireEvent.mouseDown(getButton(container));
       expect(onMouseDown).toHaveBeenCalledTimes(1);
+    });
+
+    it("should ignore a secondary-button press in momentary mode", () => {
+      const onMouseDown = vi.fn();
+      const onMouseUp = vi.fn();
+      const { container } = render(
+        <Button mode="momentary" onMouseDown={onMouseDown} onMouseUp={onMouseUp} />,
+      );
+      const btn = getButton(container);
+      fireEvent.mouseDown(btn, { button: 2 });
+      fireEvent.mouseUp(btn, { button: 2 });
+      expect(onMouseDown).not.toHaveBeenCalled();
+      expect(onMouseUp).not.toHaveBeenCalled();
+    });
+
+    it("should ignore a secondary-button press for an undelayed pulse", () => {
+      const onMouseDown = vi.fn();
+      const { container } = render(<Button mode="pulse" onMouseDown={onMouseDown} />);
+      fireEvent.mouseDown(getButton(container), { button: 2 });
+      expect(onMouseDown).not.toHaveBeenCalled();
     });
 
     describe("activation delay", () => {
@@ -158,6 +178,26 @@ describe("button symbol", () => {
         expect(onMouseDown).not.toHaveBeenCalled();
       });
 
+      it("should ignore a secondary-button hold in fire mode", () => {
+        const onClick = vi.fn();
+        const { container } = render(
+          <Button mode="fire" onClick={onClick} onClickDelay={500} />,
+        );
+        fireEvent.mouseDown(getButton(container), { button: 2 });
+        vi.advanceTimersByTime(1000);
+        expect(onClick).not.toHaveBeenCalled();
+      });
+
+      it("should ignore a secondary-button hold for a delayed pulse", () => {
+        const onMouseDown = vi.fn();
+        const { container } = render(
+          <Button mode="pulse" onMouseDown={onMouseDown} onClickDelay={500} />,
+        );
+        fireEvent.mouseDown(getButton(container), { button: 2 });
+        vi.advanceTimersByTime(1000);
+        expect(onMouseDown).not.toHaveBeenCalled();
+      });
+
       it("should ignore the delay for momentary mode", () => {
         const onMouseDown = vi.fn();
         const { container } = render(
@@ -172,37 +212,33 @@ describe("button symbol", () => {
   });
 });
 
-const LEGACY_CONFIG: Config = {
-  variant: "button",
-  orientation: "left",
-  color: "#000000",
-  label: { label: "Button", level: "h5", orientation: "top" },
-  mode: "fire",
-};
+const CONFIG_Z = schematic.buttonNodeConfigZ;
+
+const CONFIG = CONFIG_Z.parse({ variant: "button", label: { label: "Button" } });
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
 const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof configZ>({
-    values: deep.copy(LEGACY_CONFIG),
-    schema: configZ,
+  const methods = Form.use<typeof CONFIG_Z>({
+    values: deep.copy(CONFIG),
+    schema: CONFIG_Z,
   });
   return (
     <SynnaxWrapper>
-      <Form.Form<typeof configZ> {...methods}>{children}</Form.Form>
+      <Form.Form<typeof CONFIG_Z> {...methods}>{children}</Form.Form>
     </SynnaxWrapper>
   );
 };
 
 describe("ButtonForm", () => {
-  it("should show the size field with medium selected for a config without a size key", () => {
+  it("should show the size field with the schema default medium selected", () => {
     const { getByText } = render(
       <FormWrapper>
         <ButtonForm />
       </FormWrapper>,
     );
     expect(getByText("Size")).toBeDefined();
-    expect(getByText("M").closest("button")?.classList).toContain("pluto--selected");
+    expect(getByText("M").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("should not render the label size and direction fields", () => {

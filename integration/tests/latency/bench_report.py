@@ -19,7 +19,7 @@ import numpy as np
 
 import synnax as sy
 from tests.latency.latency import Latency
-from x import get_machine_info, get_memory_info, get_synnax_version
+from x import get_machine_info, get_memory_info
 
 
 class BenchReport(Latency):
@@ -83,6 +83,7 @@ class BenchReport(Latency):
         machine_desc = f"Machine: {machine_name}"
         if memory_info:
             machine_desc += f", {memory_info}"
+        core_version = self.report_client.connectivity.state.node_version
 
         # Create the plot (updated for 2x2 layout)
         fig = plt.figure(figsize=(12, 10))
@@ -96,7 +97,7 @@ class BenchReport(Latency):
         plt.figtext(
             0.1,
             0.92,
-            f"{machine_desc} | Platform Version: {get_synnax_version()} | Config: "
+            f"{machine_desc} | Platform Version: {core_version} | Config: "
             "LL-PP-C500-R1-50-R2-10",
             fontsize=10,
             ha="left",

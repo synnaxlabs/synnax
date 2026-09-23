@@ -10,7 +10,7 @@
 package v0_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"time"
 

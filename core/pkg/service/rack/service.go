@@ -204,9 +204,13 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	}
 	embeddedRack.Name = name
 	embeddedRack.Embedded = true
-	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
+	if err = s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.NewWriter(tx).Create(ctx, &embeddedRack)
+	}); err != nil {
+		return err
+	}
 	s.EmbeddedKey = embeddedRack.Key
-	return err
+	return nil
 }
 
 func (s *Service) Close() error { return s.closer.Close() }

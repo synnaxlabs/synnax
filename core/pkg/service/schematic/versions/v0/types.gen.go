@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -29,7 +30,7 @@ type Schematic struct {
 	Name string `json:"name" msgpack:"name"`
 	// Data is the schematic content including symbols, connections, and layout
 	// configuration.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
+	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 }

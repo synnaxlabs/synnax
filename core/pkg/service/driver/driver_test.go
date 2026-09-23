@@ -15,8 +15,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -569,7 +570,9 @@ var _ = Describe("Driver", func() {
 									Time:    telem.Now(),
 									Details: task.NewStatusDetails(t, false),
 								}
-								return statusSvc.NewWriter(nil).Set(ctx, &stat)
+								return db.WithTx(ctx, func(tx gorp.Tx) error {
+									return statusSvc.NewWriter(tx).Set(ctx, &stat)
+								})
 							},
 						}, nil
 					},

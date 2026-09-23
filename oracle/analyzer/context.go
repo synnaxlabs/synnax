@@ -31,16 +31,15 @@ type FileLoader interface {
 	Versioned(importPath string) bool
 }
 
-// StandardFileLoader loads files from the filesystem relative to the git repo root.
-type StandardFileLoader struct{ repoRoot string }
+type standardFileLoader struct{ repoRoot string }
 
 // NewStandardFileLoader creates a FileLoader that resolves paths from the repo root.
-func NewStandardFileLoader(repoRoot string) *StandardFileLoader {
-	return &StandardFileLoader{repoRoot: repoRoot}
+func NewStandardFileLoader(repoRoot string) FileLoader {
+	return standardFileLoader{repoRoot: repoRoot}
 }
 
 // Load loads a schema file by its repo-relative import path.
-func (l *StandardFileLoader) Load(importPath string) (string, string, error) {
+func (l standardFileLoader) Load(importPath string) (string, string, error) {
 	importPath = paths.EnsureOracleExtension(importPath)
 	fullPath := paths.Resolve(importPath, l.repoRoot)
 	content, err := os.ReadFile(fullPath)
@@ -51,10 +50,10 @@ func (l *StandardFileLoader) Load(importPath string) (string, string, error) {
 }
 
 // RepoRoot returns the absolute path to the git repository root.
-func (l *StandardFileLoader) RepoRoot() string { return l.repoRoot }
+func (l standardFileLoader) RepoRoot() string { return l.repoRoot }
 
 // Versioned implements FileLoader.
-func (l *StandardFileLoader) Versioned(importPath string) bool {
+func (l standardFileLoader) Versioned(importPath string) bool {
 	dir, ok := paths.VersionsDir(paths.EnsureOracleExtension(importPath))
 	if !ok {
 		return false

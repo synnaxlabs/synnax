@@ -26,13 +26,11 @@ export const CylinderForm = (): ReactElement => (
       <Base.NumericField
         path="dimensions.width"
         label="Width"
-        defaultValue={200}
         inputProps={Form.DIMENSIONS_INPUT_PROPS}
       />
       <Base.NumericField
         path="dimensions.height"
         label="Height"
-        defaultValue={200}
         inputProps={Form.DIMENSIONS_INPUT_PROPS}
       />
     </Base.Section>

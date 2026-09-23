@@ -9,5 +9,6 @@
 
 export * from "@/vis/value/redline";
 export * from "@/vis/value/RedlineForm";
+export * from "@/vis/value/telem";
 export * from "@/vis/value/TelemForm";
 export * from "@/vis/value/use";

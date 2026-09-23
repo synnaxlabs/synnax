@@ -14,12 +14,11 @@ package v0_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -48,6 +47,41 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Stop", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Stop) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Stop
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Stop{
+				Key: "test_1",
+				Color: v0.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				},
+				Position: 7.5,
+				Switched: new(bool(false)),
+			}),
+			Entry("zero values", v0.Stop{
+				Key: "",
+				Color: v0.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
+				Position: 0,
+				Switched: nil,
+			}),
+		)
+	})
 })
 
 func BenchmarkEncodeDecodeColor(b *testing.B) {
@@ -65,6 +99,33 @@ func BenchmarkEncodeDecodeColor(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.Color
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStop(b *testing.B) {
+	seed := v0.Stop{
+		Key: "test_1",
+		Color: v0.Color{
+			R: 4,
+			G: 5,
+			B: 6,
+			A: 6.5,
+		},
+		Position: 7.5,
+		Switched: new(bool(false)),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.Stop
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -115,7 +176,66 @@ func FuzzDecodeColor(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStop(f *testing.F) {
+	{
+		seed := v0.Stop{
+			Key: "test_1",
+			Color: v0.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			},
+			Position: 7.5,
+			Switched: new(bool(false)),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.Stop{
+			Key: "",
+			Color: v0.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			},
+			Position: 0,
+			Switched: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.Stop
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.Stop
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
