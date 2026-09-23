@@ -966,8 +966,9 @@ jobs:
           cache: ${{ !endsWith(matrix.os, '-build-bot') }}
 
       # A release build carries the resolved version and polls its updater channel;
-      # tauri.conf.json never changes. The MSI bundler accepts only a numeric
-      # pre-release, so a candidate X.Y.Z-rc.N runs as app version X.Y.Z-N.
+      # tauri.conf.json never changes, and a dev build falls back to the Cargo.toml
+      # version. The MSI bundler accepts only a numeric pre-release, so a candidate
+      # X.Y.Z-rc.N runs as app version X.Y.Z-N.
       - name: Write Tauri Release Config
         id: config
         working-directory: console
@@ -981,7 +982,7 @@ jobs:
               '{version: $version, plugins: {updater: {endpoints: [$endpoint]}}}' \
               > release.tauri.conf.json
           else
-            APP_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            APP_VERSION=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
             jq -n --arg endpoint "$ENDPOINT" \
               '{plugins: {updater: {endpoints: [$endpoint]}}}' > release.tauri.conf.json
           fi
