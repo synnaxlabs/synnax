@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { url } from "@synnaxlabs/x";
+import { id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {
@@ -80,6 +80,39 @@ describe("auth", () => {
         expect(tkOne).toBeDefined();
         expect(tkTwo).toBeDefined();
       });
+    });
+
+    it("should log back in under the new username after a rename", async () => {
+      const client = createTestClient();
+      const username = id.create();
+      const created = await client.users.create({ username, password: "test" });
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const authClient = new auth.Client(transport.unary, {
+        username,
+        password: "test",
+      });
+      const mw = authClient.middleware();
+      await mw(DUMMY_CTX, async () => DUMMY_CTX);
+      const renamed = id.create();
+      await client.users.changeUsername(created.key, renamed);
+      authClient.setUser({ ...created, username: renamed });
+      let isFirst = true;
+      await expect(
+        mw(DUMMY_CTX, async () => {
+          if (isFirst) {
+            isFirst = false;
+            throw new InvalidTokenError();
+          }
+          return DUMMY_CTX;
+        }),
+      ).resolves.toEqual(DUMMY_CTX);
+      expect(authClient.user?.username).toEqual(renamed);
+      await client.close();
     });
 
     it("should fail after MAX_RETRIES", async () => {

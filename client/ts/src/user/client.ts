@@ -104,7 +104,7 @@ export class Client extends query.Retriever<
   SingleParams
 > {
   private readonly cfg: ClientConfig;
-  private readonly store: query.Table<Key, User>;
+  readonly store: query.Table<Key, User>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;

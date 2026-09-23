@@ -26,7 +26,7 @@ import (
 // nonRootCtx returns a freighter.Context whose Subject is a freshly-created user
 // holding no roles. Every RBAC enforcement against this subject must fail with
 // access.ErrDenied. Returns both the context and the underlying user so callers can
-// assert on identity-bearing behavior (e.g., the self-rename guard).
+// assert on identity-bearing behavior.
 func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	u := MustSucceed(writer.Create(ctx, user.User{
 		Username: "non-root-" + uuid.New().String(),
@@ -369,13 +369,36 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should reject a self-rename through the user service",
+			"Should let a subject holding update access rename itself",
+			func(ctx SpecContext) {
+				oldName := "self-rename-" + uuid.New().String()
+				newName := "self-rename-new-" + uuid.New().String()
+				u := MustSucceed(writer.Create(ctx, user.User{Username: oldName}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: oldName, Password: "p",
+				})).To(Succeed())
+				fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+				fctx.Set("Subject", u.OntologyID())
+				grant(ctx, u.OntologyID(), access.ActionUpdate, u.OntologyID())
+
+				Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
+					Key:      u.Key,
+					Username: newName,
+				})).Error().ToNot(HaveOccurred())
+
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: newName, Password: "p",
+				})).To(Succeed())
+			},
+		)
+		It(
+			"Should deny a self-rename when the subject lacks update access",
 			func(ctx SpecContext) {
 				fctx, subject := nonRootCtx(ctx)
 				Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
 					Key:      subject.Key,
-					Username: "anything",
-				})).Error().To(MatchError(ContainSubstring("change your own username")))
+					Username: "self-rename-denied-" + uuid.New().String(),
+				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It(

@@ -133,8 +133,7 @@ func (s *Service) retrieveByKey(
 	return u, true, nil
 }
 
-// update replaces the username, password, and names of existing with the values in nu,
-// keeping the user record and credentials in sync.
+// update applies nu to existing, rotating the stored credentials with it.
 func (s *Service) update(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -168,8 +167,12 @@ func (s *Service) update(
 		return user.User{}, err
 	}
 	var updated user.User
-	return updated, s.internal.NewRetrieve().
-		Where(user.MatchKeys(existing.Key)).Entry(&updated).Exec(ctx, tx)
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(existing.Key)).Entry(&updated).
+		Exec(ctx, tx); err != nil {
+		return user.User{}, err
+	}
+	return updated, nil
 }
 
 type ChangeUsernameRequest struct {
@@ -183,12 +186,6 @@ func (s *Service) ChangeUsername(
 	tx gorp.Tx,
 	req ChangeUsernameRequest,
 ) (struct{}, error) {
-	subject := auth.GetSubject(ctx)
-	if subject.Key == req.Key.String() {
-		return struct{}{}, errors.New(
-			"you cannot change your own username through the user service",
-		)
-	}
 	var u user.User
 	if err := s.internal.NewRetrieve().
 		Where(user.MatchKeys(req.Key)).Entry(&u).
@@ -199,7 +196,7 @@ func (s *Service) ChangeUsername(
 		return struct{}{}, nil
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: subject,
+		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {

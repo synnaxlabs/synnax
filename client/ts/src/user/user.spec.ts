@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil";
+import { createTestClient, createTestClientWithRole } from "@/testutil";
 import { type user } from "@/user";
 
 interface SortType {
@@ -268,6 +268,14 @@ describe("User", () => {
       await expect(
         client.users.changeUsername(userTwo.key as string, userOne.username),
       ).rejects.toThrow(AuthError));
+    test("keeps the authenticated user current after a self-rename", async () => {
+      const asOwner = await createTestClientWithRole(client, "Owner");
+      const self = await asOwner.auth.retrieveUser();
+      const renamed = id.create();
+      await asOwner.users.changeUsername(self.key, renamed);
+      expect(asOwner.auth.user?.username).toEqual(renamed);
+      await asOwner.close();
+    });
     test("Repeated usernames fail", async () => {
       const oldUsername = id.create();
       const user = await client.users.create({
