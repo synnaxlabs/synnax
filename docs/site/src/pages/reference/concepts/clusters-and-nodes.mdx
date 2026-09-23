@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Clusters and Nodes"
+title: "Clusters and nodes"
 description: "Learn how clusters and nodes interact to form the Synnax database."
 next: "Channels"
 nextURL: "/reference/concepts/channels"
-prev: "Concepts Overview"
+prev: "Concepts overview"
 prevURL: "/reference/concepts/overview"
 ---
 
@@ -22,7 +22,7 @@ development, or be deployed in the cloud for high performance analysis.
 
 <Divider.Divider x />
 
-## What is a Cluster?
+## What is a cluster?
 
 Multiple nodes join together to form a cluster. These nodes constantly communicate with
 each other to coordinate operations across the cluster. Through this communication, the
@@ -34,9 +34,9 @@ development. We recommend running larger clusters for production.
 
 <Divider.Divider x />
 
-## Cluster Topology
+## Cluster topology
 
-### Reachable Addresses and IDs
+### Reachable addresses and IDs
 
 Nodes are uniquely identified by both a reachable address and an ID. A node's address
 allows clients and other nodes to communicate with it. Synnax multiplexes client and
@@ -49,7 +49,7 @@ leaves the cluster, it's ID will not be reassigned. Node ID's are used to genera
 cluster-wide unique ID's for components such as [channels](/reference/concepts/channels)
 as well as synchronizing operations across the cluster.
 
-### Heartbeats and Gossip
+### Heartbeats and gossip
 
 Nodes use a
 [gossip protocol](https://en.wikipedia.org/wiki/Gossip_protocol#:~:text=A%20gossip%20protocol%20or%20eschematicemic,all%20members%20of%20a%20group.)

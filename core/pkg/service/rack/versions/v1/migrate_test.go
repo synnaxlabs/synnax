@@ -11,8 +11,8 @@ package v1_test
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -95,7 +95,7 @@ var _ = Describe("MigrateRack", func() {
 				Name:     "Loaded Rack",
 				Embedded: false,
 				Status: &v0.Status{
-					Key:         "rack:" + uuid.NewString(),
+					Key:         "rack:" + uuid.New().String(),
 					Name:        "healthy",
 					Variant:     "success",
 					Message:     "rack heartbeat received",

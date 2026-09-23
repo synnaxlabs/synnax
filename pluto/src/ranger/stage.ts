@@ -25,9 +25,12 @@ export type Stage = (typeof STAGES)[number];
 export const sortByStage = (a: ranger.Range, b: ranger.Range): number =>
   STAGES.indexOf(getStage(a.timeRange)) - STAGES.indexOf(getStage(b.timeRange));
 
-export const getStage = (timeRange: CrudeTimeRange): Stage => {
+/** @returns the stage `timeRange` is in at `now`. */
+export const getStage = (
+  timeRange: CrudeTimeRange,
+  now: TimeStamp = TimeStamp.now(),
+): Stage => {
   const tr = new TimeRange(timeRange).makeValid();
-  const now = TimeStamp.now();
   if (now.before(tr.start)) return "to_do";
   if (now.after(tr.end)) return "completed";
   return "in_progress";
@@ -45,41 +48,33 @@ export const STAGE_NAMES: Record<Stage, string> = {
   completed: "Completed",
 };
 
-interface WrapNumericTimeRangeToStageParams {
-  value: NumericTimeRange;
-  onChange: (value: NumericTimeRange) => void;
-}
-
-interface WrapNumericTimeRangeToStageReturn {
-  value: Stage;
-  onChange: (value: Stage) => void;
-}
-
-export const wrapNumericTimeRangeToStage = ({
-  value,
-  onChange,
-}: WrapNumericTimeRangeToStageParams): WrapNumericTimeRangeToStageReturn => ({
-  value: getStage(value),
-  onChange: (v: Stage) => {
-    // We subtract a millisecond here to avoid weird issues where you select "completed"
-    // but you actually get "in_progress" or "to_do" because of precision issues with
-    // numeric time ranges.
-    const now = TimeStamp.now().sub(TimeSpan.MILLISECOND).nanoseconds;
-    const tr = new TimeRange(value).makeValid().numeric;
-    switch (v) {
-      case "to_do":
-        if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
-        if (tr.start < now) tr.start = tr.end;
-        break;
-      case "in_progress":
-        if (tr.start > now) tr.start = now;
-        if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
-        break;
-      case "completed":
-        if (tr.end > now) tr.end = now;
-        if (tr.start > tr.end) tr.start = tr.end;
-        break;
-    }
-    onChange(tr);
-  },
-});
+/**
+ * Returns the range with the timestamps that put it in `stage` as of now: to do moves
+ * a past start to the end, in progress stamps a future start and clears a past end,
+ * and completed stamps a future end.
+ */
+export const moveToStage = (
+  value: NumericTimeRange,
+  stage: Stage,
+): NumericTimeRange => {
+  // We subtract a millisecond here to avoid weird issues where you select "completed"
+  // but you actually get "in_progress" or "to_do" because of precision issues with
+  // numeric time ranges.
+  const now = TimeStamp.now().sub(TimeSpan.MILLISECOND).nanoseconds;
+  const tr = new TimeRange(value).makeValid().numeric;
+  switch (stage) {
+    case "to_do":
+      if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
+      if (tr.start < now) tr.start = tr.end;
+      break;
+    case "in_progress":
+      if (tr.start > now) tr.start = now;
+      if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
+      break;
+    case "completed":
+      if (tr.end > now) tr.end = now;
+      if (tr.start > tr.end) tr.start = tr.end;
+      break;
+  }
+  return tr;
+};

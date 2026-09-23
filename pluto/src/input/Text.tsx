@@ -29,7 +29,7 @@ export interface TextProps
   extends
     InputProps<string>,
     Omit<Button.ExtensionProps, "variant">,
-    Tooltip.WrapProps {
+    Tooltip.ExtensionProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
   resetOnBlurIfEmpty?: boolean;

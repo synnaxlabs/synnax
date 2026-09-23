@@ -10,7 +10,8 @@
 package versions_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
@@ -24,19 +25,17 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
 	}
 
-	props := func(c versions.Cell) map[string]any {
+	text := func(c versions.CellConfig) versions.TextCellConfig {
 		GinkgoHelper()
-		var out map[string]any
-		Expect(c.Props.Unmarshal(&out)).To(Succeed())
-		return out
+		cfg, ok := c.Variant.(versions.TextCellConfig)
+		return MustBeOk(cfg, ok)
 	}
 
 	It("Should decode a server-exported envelope", func(ctx SpecContext) {
 		t := decode(ctx, "testdata/import_v1.json")
 		Expect(t.Rows).To(Equal([]versions.Row{{Size: 30, Cells: []string{"c1"}}}))
 		Expect(t.Columns).To(Equal([]versions.Column{{Size: 100}}))
-		Expect(t.Cells["c1"].Variant).To(Equal("text"))
-		Expect(props(t.Cells["c1"])).To(HaveKeyWithValue("value", "hi"))
+		Expect(text(t.Cells["c1"]).Value).To(Equal("hi"))
 	})
 
 	It(
@@ -45,7 +44,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			t := decode(ctx, "testdata/import_typed_console.json")
 			Expect(t.Rows).To(Equal([]versions.Row{{Size: 25, Cells: []string{"c1"}}}))
 			Expect(t.Columns).To(Equal([]versions.Column{{Size: 90}}))
-			Expect(props(t.Cells["c1"])).To(HaveKeyWithValue("fooBar", 1.0))
+			Expect(text(t.Cells["c1"]).Weight).To(Equal(700.0))
 		},
 	)
 
@@ -56,8 +55,10 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		)
 		Expect(t.Columns).To(Equal([]versions.Column{{Size: 100}, {Size: 120}}))
 		Expect(t.Cells).To(HaveLen(2))
-		Expect(t.Cells["c2"].Variant).To(Equal("value"))
-		Expect(props(t.Cells["c1"])).To(HaveKeyWithValue("fooBar", 3.0))
+		Expect(
+			t.Cells["c2"].Variant,
+		).To(BeAssignableToTypeOf(versions.ValueCellConfig{}))
+		Expect(text(t.Cells["c1"]).Weight).To(Equal(700.0))
 	})
 
 	// The fixtures below are tables a shipped Console exported.
@@ -82,11 +83,13 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		}))
 		Expect(t.Columns).To(HaveLen(3))
 		Expect(t.Cells).To(HaveLen(3))
-		Expect(t.Cells["C0sVTFh81T3"].Variant).To(Equal("text"))
+		Expect(
+			text(t.Cells["C0sVTFh81T3"]).Align,
+		).To(Equal(versions.FlexAlignmentCenter))
 	})
 
 	It("Should drop the key on the wire", func(ctx SpecContext) {
-		Expect(decode(ctx, "testdata/import_v1.json").Key).To(Equal(uuid.Nil))
+		Expect(decode(ctx, "testdata/import_v1.json").Key).To(Equal(uuid.Nil()))
 	})
 
 	It("Should take the name from the envelope header", func(ctx SpecContext) {

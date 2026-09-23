@@ -1,0 +1,247 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Calculated channels"
+description: "Process live telemetry with calculated channels."
+next: "Ranges"
+nextURL: "/reference/client/ranges"
+prev: "Channels"
+prevURL: "/reference/client/channels"
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import Diagram from "@/components/diagram/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Calculated channels compute values from other [channels](/reference/client/channels) in
+real time:
+
+- Scale, convert, or filter raw data
+- Implement sensor voting algorithms
+- Trigger alarms or warnings from a condition
+
+Calculated channels are [virtual](/reference/concepts/channels#virtual-channels): their
+data is computed on demand and never stored to disk. Because nothing is stored, an edit
+applies to all [historical data](/reference/concepts/channels#historical-evaluation). A
+channel changed from `chan * 3` to `chan * 10` shows `chan * 10` for its whole history.
+
+<Divider.Divider x />
+
+## Calculated channel parameters
+
+| Parameter    | Type                | Default  | Description                                                                                                                                                                                                    |
+| ------------ | ------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`       | string              | Required | A name for the channel.                                                                                                                                                                                        |
+| `expression` | string              | Required | The Arc expression that calculates the value to be written to the calculated channel. This expression must end with a `return` statement. Channel dependencies are automatically detected from the expression. |
+| `operations` | list of `Operation` | `[]`     | Post-processing operation applied to the expression result. Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change.                                  |
+
+### Operation parameters
+
+| Parameter                                                       | Type       | Default  | Description                                                                                                       |
+| --------------------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `type`                                                          | string     | Required | Options include `min`, `max`, `avg` for [running aggregations](#operations), and `derivative` for rate of change. |
+| `duration`                                                      | `TimeSpan` | `0`      | How long the window runs before the operation state resets. Set to 0 for no timed reset.                          |
+| <Client.Var client:load py="reset_channel" ts="resetChannel" /> | number     | `0`      | A `boolean` [channel that triggers operation reset](#reset-channels) when its value is `true`.                    |
+
+<Divider.Divider x />
+
+## Create and edit a calculated channel
+
+<Client.Tabs client:load exclude={["cpp"]}>
+
+  <Fragment slot="console">
+
+Create a calculated channel with the "Create Calculated Channel" command in the
+[command palette](/reference/console/ui-overview#search-and-command-palette). To edit a
+calculated channel, right-click it in the channels toolbar and select "Edit Calculation"
+from the context menu.
+
+<Video client:only="react" id="client/calculated-channels/create-and-edit" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+# Create a calculated channel
+avg_pressure = client.channels.create(
+    name="avg_pressure",
+    data_type=sy.DataType.FLOAT32,
+    expression="return (pressure_1 + pressure_2) / 2",
+    operations=[sy.channel.Operation(type="avg", duration=10 * sy.TimeSpan.SECOND)],
+)
+
+# Upsert to edit a calculated channel
+avg_pressure.expression = "return pressure_1 * 2"
+avg_pressure.operations = [
+    sy.channel.Operation(type="max", duration=10 * sy.TimeSpan.SECOND)
+]
+client.channels.create(avg_pressure)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Create a calculated channel
+const avgPressure = await client.channels.create({
+  name: "avg_pressure",
+  dataType: DataType.FLOAT32,
+  expression: "return (pressure_1 + pressure_2) / 2",
+  operations: [{ type: "avg", duration: TimeSpan.seconds(10) }],
+});
+
+// Upsert to edit a calculated channel
+await client.channels.create({
+  ...avgPressure.payload,
+  expression: "return pressure_1 * 2",
+  operations: [{ type: "max", duration: TimeSpan.seconds(10) }],
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Operations
+
+Operations are optional steps that apply a running aggregation, such as a minimum,
+maximum, or average.
+
+<Diagram variant="themed">
+  <svg
+    viewBox="18 18 629 124"
+    style={{ width: "100%", height: "auto" }}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <defs>
+      <marker
+        id="arrow"
+        viewBox="0 0 8 8"
+        refX="7"
+        refY="4"
+        markerWidth="7"
+        markerHeight="7"
+        orient="auto"
+      >
+        <path class="arrow" d="M0,0 L8,4 L0,8 z" />
+      </marker>
+    </defs>
+    <g class="box">
+      <rect x="20" y="20" width="130" height="40" rx="6" />
+      <rect x="185" y="20" width="130" height="40" rx="6" />
+      <rect x="350" y="20" width="130" height="40" rx="6" />
+      <rect x="515" y="20" width="130" height="40" rx="6" />
+      <rect x="350" y="100" width="130" height="40" rx="6" />
+    </g>
+    <g class="arrow" stroke-width="1" marker-end="url(#arrow)">
+      <line x1="150" y1="40" x2="183" y2="40" />
+      <line x1="315" y1="40" x2="348" y2="40" />
+      <line x1="480" y1="40" x2="513" y2="40" />
+      <line x1="415" y1="100" x2="415" y2="63" />
+    </g>
+    <g class="label" font-size="14" text-anchor="middle" dominant-baseline="middle">
+      <text x="85" y="40">
+        {"Input channels"}
+      </text>
+      <text x="250" y="40">
+        {"Expression"}
+      </text>
+      <text x="415" y="40">
+        {"Operation"}
+      </text>
+      <text x="580" y="40">
+        {"Output channel"}
+      </text>
+      <text x="415" y="120">
+        {"Reset channel"}
+      </text>
+    </g>
+  </svg>
+</Diagram>
+
+The operation keeps state across executions and outputs a single aggregated value.
+
+### Supported operations
+
+| Operation    | Description                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| `min`        | Tracks the smallest value seen since the last reset.                                           |
+| `max`        | Tracks the largest value seen since the last reset.                                            |
+| `avg`        | Computes the mean of all values since the last reset.                                          |
+| `derivative` | Computes the derivative (dx/dt) per second of the expression result. Always outputs `float64`. |
+
+<Note.Note variant="info">
+  The derivative operation does not support window or reset channel configuration. It
+  maintains only the previous value and timestamp, so there is no accumulated state to
+  reset.
+</Note.Note>
+
+### Example configurations
+
+| Use case                   | `type`       | `duration` | <Client.Var client:load py="reset_channel" ts="resetChannel" /> |
+| -------------------------- | ------------ | ---------- | --------------------------------------------------------------- |
+| Rolling 10-second average  | `avg`        | `10s`      | none                                                            |
+| Maximum until manual reset | `max`        | `0s`       | `manual_reset_btn`                                              |
+| Minimum, time or signal    | `min`        | `60s`      | `cycle_complete`                                                |
+| Rate of change             | `derivative` | n/a        | n/a                                                             |
+
+### Reset channels
+
+A reset channel provides signal-based control over operation state and must have the
+data type `boolean`. When it receives `true`, the operation clears its state and
+restarts.
+
+{/* [VIDEO NEEDED] Demonstration of reset channel triggering and operation resetting */}
+
+- **Manual**: write to a `boolean` channel from a schematic button or control panel.
+- **Periodic**: use a timer or sequence to generate reset pulses.
+- **Conditional**: use a calculated channel that outputs `true` when a condition is met.
+
+#### Reset example
+
+| Time                   | Pressure | `max` output |
+| ---------------------- | -------- | ------------ |
+| 0s                     | 50       | 50           |
+| 5s                     | 100      | 100          |
+| 10s                    | 75       | 100          |
+| 10.1s (`reset = true`) | 75       | 75           |
+| 15s                    | 90       | 90           |
+| 20s                    | 110      | 110          |
+
+At 10.1s, the reset channel triggers, clearing the max value. The operation restarts
+from the current input (75) and continues tracking the new maximum.
+
+<Divider.Divider x />
+
+## Writing expressions
+
+Expressions are written in [Arc](/reference/control/arc/introduction). Reference
+channels by name, and end the expression with a `return` statement. The output data type
+is inferred from the return value. Channel references are series, not scalars, so
+`return temperature + pressure` is an elementwise operation on arrays.
+
+```arc
+scaled := pressure * 2.5
+return scaled + 10
+```
+
+| Use case                  | Expression                                |
+| ------------------------- | ----------------------------------------- |
+| Scale a sensor            | `return pressure * 1.5`                   |
+| Convert Celsius to Kelvin | `return temperature + 273.15`             |
+| Power                     | `return voltage * current`                |
+| Sum sensors               | `return sensor_1 + sensor_2 + sensor_3`   |
+| Average                   | `return (temp_1 + temp_2 + temp_3) / 3`   |
+| Differential pressure     | `return inlet_pressure - outlet_pressure` |
+
+See the Arc reference for [operators](/reference/control/arc/reference/operators),
+[variables](/reference/control/arc/reference/variables), and
+[if statements](/reference/control/arc/reference/statements#if-statements).

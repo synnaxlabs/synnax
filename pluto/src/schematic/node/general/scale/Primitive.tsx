@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { type Config } from "@/schematic/node/general/scale/config";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface RenderProps extends Pick<Config, "indicator"> {
+interface RenderProps extends Pick<schematic.ScaleNodeConfig, "indicator"> {
   className?: string;
 }
 
@@ -46,18 +45,18 @@ const TICK_YS = TICK_RATIOS.map(alongBar);
 const AXIS_FALLBACK = "var(--pluto-gray-l8)";
 
 export const Scale = ({
-  indicator: { color: c, axisColor, showFill, showCaret },
+  indicator: { color: c, axisColor, fillHidden, caretHidden },
   className,
 }: RenderProps): ReactElement => {
   const containerStyle = useMemo<CSSProperties>(
-    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: symbolColorVar(c) }),
+    () => ({ ...CONTAINER_STYLE, [CSS.variable("symbol-color")]: color.rgbaString(c) }),
     [c],
   );
   const axis = color.isZero(axisColor) ? AXIS_FALLBACK : color.hex(axisColor);
   return (
     <div className={CSS.cls(CSS.B("symbol-colored"), className)} style={containerStyle}>
       <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>
-        {showFill && (
+        {!fillHidden && (
           <>
             <rect
               x={BAR_LEFT}
@@ -79,7 +78,7 @@ export const Scale = ({
             />
           </>
         )}
-        {!showFill && (
+        {fillHidden && (
           <line
             x1={BAR_RIGHT}
             y1={BAR_TOP}
@@ -100,7 +99,7 @@ export const Scale = ({
             strokeWidth={1}
           />
         ))}
-        {showCaret && (
+        {!caretHidden && (
           <path
             d={`M ${BAR_RIGHT} ${VALUE_Y} L ${BAR_RIGHT + CARET_SIZE} ${VALUE_Y - CARET_SIZE} L ${BAR_RIGHT + CARET_SIZE} ${VALUE_Y + CARET_SIZE} Z`}
             fill="var(--pluto-symbol-display)"

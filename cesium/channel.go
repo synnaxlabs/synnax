@@ -15,7 +15,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -108,11 +107,11 @@ func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string)
 	return db.renameChannel(ctx, key, newName)
 }
 
-// RenameChannel renames the channel with the specified key to newName. There is a
-// race condition here: one could rename a channel while it is being read or streamed
-// from or written to. We choose to not address this since the name is purely
-// decorative in Cesium and not used to identify channels whereas the key is the
-// unique identifier. The same goes for the virtual database.
+// RenameChannel renames the channel with the specified key to newName. There is a race
+// condition here: one could rename a channel while it is being read or streamed from or
+// written to. We choose to not address this since the name is purely decorative in
+// Cesium and not used to identify channels whereas the key is the unique identifier.
+// The same goes for the virtual database.
 func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string) error {
 	if u, ok := db.mu.dbs.unary[key]; ok {
 		if err := u.RenameChannelInMeta(ctx, newName); err != nil {
@@ -149,7 +148,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	ch.Version = version.VersionCurrent
+	ch.Version = channel.VersionCurrent
 	err = db.openVirtualOrUnary(ctx, ch)
 	return err
 }
@@ -254,8 +253,8 @@ func (db *DB) RekeyChannel(
 		delete(db.mu.dbs.unary, oldKey)
 		db.mu.dbs.unary[newKey] = *newDB
 
-		// If the DB is an index channel, update every unary DB that referenced the
-		// old key as its index.
+		// If the DB is an index channel, update every unary DB that referenced the old
+		// key as its index.
 		if u.Channel().IsIndex {
 			for otherDBKey := range db.mu.dbs.unary {
 				otherDB := db.mu.dbs.unary[otherDBKey]

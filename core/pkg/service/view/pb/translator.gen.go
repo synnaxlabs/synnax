@@ -12,7 +12,8 @@
 package pb
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"google.golang.org/protobuf/types/known/structpb"
 )

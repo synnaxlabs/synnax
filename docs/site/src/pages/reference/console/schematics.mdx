@@ -40,7 +40,7 @@ to try it out yourself.
 
 <Divider.Divider x />
 
-## Creating a Schematic
+## Creating a schematic
 
 <CreateVisualization type="schematic" video="console/schematics/create" />
 
@@ -85,7 +85,7 @@ the controls in the top-right corner of the schematic.
   </tbody>
 </table>
 
-### Control Mode
+### Control mode
 
 In control mode, click an actionable symbol, such as a valve, switch, or button, to
 write to its command channel. The indicator next to the symbol displays the control
@@ -105,19 +105,19 @@ The color of the bar and legend indicate what has control over the channel.
 
 <Divider.Divider x />
 
-## Configuring the Schematic
+## Configuring the schematic
 
 Click the schematic <Icon.Schematic /> button in the bottom-left corner to open the
-Component Toolbar and configure the schematic. Select a symbol to show its properties in
+component toolbar and configure the schematic. Select a symbol to show its properties in
 the toolbar; the tabs fine-tune its look and behavior.
 
-### Symbols Library
+### Symbols library
 
 Schematics are assembled by dragging symbols from the library onto the canvas. Symbols
 represent sensors, actuators, and other components of your hardware system. Synnax has a
 collection of built-in symbols including valves, live sensor values, buttons, and tanks.
 
-### Style Tab
+### Style tab
 
 The style tab edits the symbol's label, size, orientation, color, and other visual
 properties.
@@ -174,7 +174,7 @@ properties.
   </tbody>
 </table>
 
-### Telemetry Tab
+### Telemetry tab
 
 The telemetry tab is available on symbols that receive data, such as the value, gauge,
 string display, light, switch, valve, and state indicator symbols. Select a channel to
@@ -244,7 +244,7 @@ stream and display its live data.
 
 <Video client:only="react" id="console/schematics/value" />
 
-### Control Tab
+### Control tab
 
 The control tab is available on symbols that can be actuated.
 
@@ -283,23 +283,32 @@ The control tab is available on symbols that can be actuated.
 
 <Divider.Divider x />
 
-## Styling the Schematic
+## Styling the schematic
 
-### Connection Lines
+### Connection lines
 
 Attachment points appear when you hover over a symbol. To draw a connection line, click
 an attachment point and drag to another symbol:
 
 <Video client:only="react" id="console/schematics/connections" />
 
-### Aligning Elements
+### Selecting multiple elements
 
-Select elements by dragging a box on the canvas, then use the vertical or horizontal
-alignment buttons:
+{/* prettier-ignore-start */}
+
+Hold <Icon.Keyboard.Control /> (Windows) / <Icon.Keyboard.Command /> (macOS) or
+<Icon.Keyboard.Shift /> and click a symbol or connection line to add it to the selection
+or remove it again. Dragging a box on the canvas selects everything inside it.
+
+{/* prettier-ignore-end */}
+
+### Aligning elements
+
+Select the elements to align, then use the vertical or horizontal alignment buttons:
 
 <Video client:only="react" id="console/schematics/align-items" />
 
-### Changing Colors
+### Changing colors
 
 You can also change the color of multiple symbols together in the same manner:
 
@@ -307,33 +316,33 @@ You can also change the color of multiple symbols together in the same manner:
 
 <Divider.Divider x />
 
-## Snapshotting a Schematic
+## Snapshotting a schematic
 
 Snapshot a schematic to a range to preserve exactly how it looked at that point in time.
-Right-click the schematic in the Projects Toolbar and snapshot it to a range.
+Right-click the schematic in the projects toolbar and snapshot it to a range.
 
 <Video client:only="react" id="console/schematics/snapshot" />
 
 <Divider.Divider x />
 
-## Creating Custom Symbols
+## Creating custom symbols
 
 Create your own symbols with the built-in symbol editor. They can display data and
 actuate channels like the built-in symbols.
 
-### Creating a Symbol Group
+### Creating a symbol group
 
 Create a new symbol group in the schematic symbols browser.
 
 <Video client:only="react" id="console/schematics/symbol-create-group" />
 
-### Opening the Editing Dialog
+### Opening the editing dialog
 
 Once you've created a group, open the create symbol dialog and import an SVG file.
 
 <Video client:only="react" id="console/schematics/symbol-import-svg" />
 
-### Static Symbols vs. Actuators
+### Static symbols vs. actuators
 
 Static symbols are used for background images and other non-interactive elements. They
 have a single color palette and are not connected to any telemetry sources.
@@ -342,7 +351,7 @@ Actuators are interactive elements that command outputs to `1` or `0`, like the 
 valves and switches. They have two states: `base`, shown when the connected channel is
 `0`, and `active`, shown when it is `1`.
 
-### Choosing Color Palettes
+### Choosing color palettes
 
 Each actuator state has its own color palette.
 
@@ -360,13 +369,13 @@ change it.
 To edit how an actuator looks when clicked, select the `active` tab under the states
 section and edit the region's colors.
 
-### Scaling the Symbol
+### Scaling the symbol
 
 The imported SVG's dimensions set the symbol's default size on a schematic. Drag the
 slider or enter a value in the properties field to change the scale.
 
 <Divider.Divider x />
 
-## Sharing and Exporting
+## Sharing and exporting
 
 <ShareAndExport type="schematic" />

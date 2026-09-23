@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { zod } from "@synnaxlabs/x";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -17,37 +16,21 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
-import { telem } from "@/telem/aether";
 import { Staleness } from "@/vis/staleness";
-import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
+
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
-    Base.useField<Omit<BaseStateIndicator.UseProps, "aetherKey">>(path);
-  const sourceP = zod.parse(telem.sourcePipelinePropsZ, value.source?.props, {
-    label: "source pipeline",
-  });
-  const source = zod.parse(
-    telem.streamChannelValuePropsZ,
-    sourceP.segments.valueStream.props,
-    { label: "value stream source" },
-  );
+    Base.useField<Pick<schematic.StateIndicatorNodeConfig, "channel">>(path);
 
-  const handleSourceChange = (v: channel.Key | null): void => {
-    v ??= 0;
-    const t = telem.sourcePipeline("number", {
-      connections: [],
-      segments: { valueStream: telem.streamChannelValue({ channel: v }) },
-      outlet: "valueStream",
-    });
-    onChange({ ...value, source: t });
-  };
+  const handleSourceChange = (v: channel.Key | null): void =>
+    onChange({ ...value, channel: v ?? undefined });
 
   return (
     <Base.Sections x>
       <Base.Section title="State">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
-            value={source.channel as number}
+            value={value.channel ?? 0}
             onChange={handleSourceChange}
           />
         </Input.Item>
@@ -68,6 +51,7 @@ export const StateIndicatorForm = (): ReactElement => (
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.ColorField path="color" />
+          <Form.SizeField />
           <Base.NumericField
             path="inlineSize"
             label="Width"

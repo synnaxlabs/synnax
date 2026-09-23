@@ -47,7 +47,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {
+    void reset(runtime::node::Context &) override {
         this->state.reset();
         this->initialized = false;
     }

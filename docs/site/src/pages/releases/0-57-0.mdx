@@ -1,5 +1,5 @@
 ---
-title: "Version 0.57 Release Notes"
+title: "Version 0.57 release notes"
 ---
 
 import Release from "@/components/releases/Release.astro";
@@ -13,7 +13,7 @@ export const components = mdxOverrides;
     version="0.57.0"
     breakingChanges
     date="Aug 23, 2026"
-    title="Projects, Panels, and a Redesigned Console"
+    title="Projects, panels, and a redesigned Console"
 >
 
 <Video client:only="react" id="releases/0-57-0/panels" themed={false} />
@@ -30,7 +30,7 @@ a lost connection recovers on its own, and the bug fix list is long.
 
 <Divider.Divider x />
 
-### Projects and Panels
+### Projects and panels
 
 We renamed workspaces to projects, and the Console now always works inside one. Your
 existing workspaces carry over the first time you start the new Core, including the one
@@ -38,7 +38,7 @@ you had open.
 
 Every visualization belongs to a project, so the Console asks you to choose or create
 one when you log in. Nothing you build can end up unsaved. Switch projects at any time
-from the selector in the top-left corner or from the Projects toolbar.
+from the selector in the top-left corner or from the projects toolbar.
 
 #### Panels
 
@@ -76,12 +76,12 @@ for it. A large project no longer has to fit in Console memory, so size is not a
 An import that fails part way through leaves nothing behind instead of a half-built
 project.
 
-To share a project with someone on the same Core, right-click it in the Projects toolbar
+To share a project with someone on the same Core, right-click it in the projects toolbar
 and choose `Copy link`.
 
 <Divider.Divider x />
 
-### A Redesigned Console
+### A redesigned Console
 
 <Image client:only="react" id="releases/0-57-0/visual-language" themed={false} />
 
@@ -133,7 +133,7 @@ while the table scrolls.
 
 <Divider.Divider x />
 
-### Fill Levels and Scales
+### Fill levels and scales
 
 <Image client:only="react" id="releases/0-57-0/tank-fill" themed={false} />
 
@@ -159,7 +159,7 @@ dragging their handles, and the arrow keys nudge a symbol after a single click.
 
 <Divider.Divider x />
 
-### Boolean Channels
+### Boolean channels
 
 Synnax finally has a `boolean` data type. Digital signals such as valve states, limit
 switches, and coils were stored as `uint8`. Nothing downstream could tell a two-state
@@ -296,7 +296,7 @@ differ.
 #### Redeploying a running task
 
 Change the configuration of a running task and a redeploy button appears in the task
-controls and in the Tasks toolbar. A change only reaches hardware when you ask for it.
+controls and in the tasks toolbar. A change only reaches hardware when you ask for it.
 The start control shows a stop square while the task runs, because stopping a task ends
 it rather than pausing it.
 
@@ -346,7 +346,7 @@ handled by the node it happened to be connected to.
 
 <Divider.Divider x />
 
-### Serving a Core on Several Networks
+### Serving a Core on several networks
 
 A Core can now listen on several addresses at once, each with its own TLS certificate. A
 Core on a test stand can be reachable on the lab network with a certificate your
@@ -376,7 +376,7 @@ single-address deployments are unchanged.
 
 <Divider.Divider x />
 
-### Minor Improvements and Bug Fixes
+### Minor improvements and bug fixes
 
 #### Console
 
@@ -431,7 +431,7 @@ single-address deployments are unchanged.
 
 <Divider.Divider x />
 
-### Breaking Changes
+### Breaking changes
 
 #### Upgrade the Driver with the Core
 

@@ -11,13 +11,13 @@ import { type PageNavNode } from "@/components/nav/Page";
 
 export const CLIENT_NAV: PageNavNode = {
   key: "client",
-  name: "Client Libraries",
+  name: "Client libraries",
   icon: "Terminal",
   children: [
     {
       key: "/reference/client/quick-start",
       href: "/reference/client/quick-start",
-      name: "Quick Start",
+      name: "Quick start",
     },
     {
       key: "/reference/client/authentication",
@@ -30,6 +30,11 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Channels",
     },
     {
+      key: "/reference/client/calculated-channels",
+      href: "/reference/client/calculated-channels",
+      name: "Calculated channels",
+    },
+    {
       key: "/reference/client/ranges",
       href: "/reference/client/ranges",
       name: "Ranges",
@@ -37,41 +42,41 @@ export const CLIENT_NAV: PageNavNode = {
     {
       key: "/reference/client/series-and-frames",
       href: "/reference/client/series-and-frames",
-      name: "Series & Frames",
+      name: "Series & frames",
     },
     {
       key: "/reference/client/time-types",
       href: "/reference/client/time-types",
-      name: "Time Types",
+      name: "Time types",
     },
     {
       key: "/reference/client/read-data",
       href: "/reference/client/read-data",
-      name: "Reading Data",
+      name: "Reading data",
     },
     {
       key: "/reference/client/write-data",
       href: "/reference/client/write-data",
-      name: "Writing Data",
+      name: "Writing data",
     },
     {
       key: "advanced",
-      name: "Advanced Topics",
+      name: "Advanced topics",
       children: [
         {
           key: "/reference/client/advanced/auto-commit",
           href: "/reference/client/advanced/auto-commit",
-          name: "Auto-Commit",
+          name: "Auto-commit",
         },
         {
           key: "/reference/client/advanced/auto-index",
           href: "/reference/client/advanced/auto-index",
-          name: "Auto-Index",
+          name: "Auto-index",
         },
         {
           key: "/reference/client/advanced/write-authorities",
           href: "/reference/client/advanced/write-authorities",
-          name: "Write Authorities",
+          name: "Write authorities",
         },
         {
           key: "/reference/client/advanced/iterators",
@@ -81,12 +86,12 @@ export const CLIENT_NAV: PageNavNode = {
         {
           key: "/reference/client/advanced/delete-data",
           href: "/reference/client/advanced/delete-data",
-          name: "Delete Data",
+          name: "Delete data",
         },
         {
           key: "/reference/client/advanced/build-device-driver",
           href: "/reference/client/advanced/build-device-driver",
-          name: "Build a Device Driver",
+          name: "Build a device driver",
         },
       ],
     },

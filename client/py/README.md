@@ -4,7 +4,7 @@
     </a>
 </p>
 
-# Synnax Python Client and CLI
+# Synnax Python client and CLI
 
 This directory contains the source code for the Synnax Python client library. For
 practical guides on using it to communicate with a cluster, see the
@@ -22,6 +22,6 @@ pip install synnax
 
 ## Contributing
 
-Read both the [Synnax Contribution Guide](../../docs/CONTRIBUTING.md) and the
+Read both the [Synnax Contribution Guide](../../CONTRIBUTING.md) and the
 [Python Client Contribution Guide](CONTRIBUTING.md) to learn about the codebase and our
 process for working with it.

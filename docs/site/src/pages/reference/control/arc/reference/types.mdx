@@ -15,9 +15,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-## Primitive Types
+## Primitive types
 
-### Integer Types
+### Integer types
 
 | Type  | Size            | Range                                       |
 | ----- | --------------- | ------------------------------------------- |
@@ -30,20 +30,20 @@ export const components = mdxOverrides;
 | `u32` | 32-bit unsigned | 0 to 4,294,967,295                          |
 | `u64` | 64-bit unsigned | 0 to 1.8×10<sup>19</sup>                    |
 
-### Floating Point Types
+### Floating point types
 
 | Type  | Size   | Precision          |
 | ----- | ------ | ------------------ |
 | `f32` | 32-bit | ~7 decimal digits  |
 | `f64` | 64-bit | ~15 decimal digits |
 
-### String Type
+### String type
 
 | Type  | Description            |
 | ----- | ---------------------- |
 | `str` | Immutable UTF-8 string |
 
-### Boolean Type
+### Boolean type
 
 | Type   | Description                           |
 | ------ | ------------------------------------- |
@@ -51,11 +51,11 @@ export const components = mdxOverrides;
 
 <Divider.Divider x />
 
-## Type Defaults
+## Type defaults
 
 When you write a literal without an explicit type, Arc infers a default:
 
-| Literal      | Default Type |
+| Literal      | Default type |
 | ------------ | ------------ |
 | `42`         | `i64`        |
 | `3.14`       | `f64`        |
@@ -66,7 +66,7 @@ When you write a literal without an explicit type, Arc infers a default:
 
 <Divider.Divider x />
 
-## Channel Types
+## Channel types
 
 Channels connect Arc to Synnax telemetry data. Declare channel types with `chan`:
 
@@ -107,7 +107,7 @@ Reading from a channel that has no data returns the zero value for that type.
 
 <Divider.Divider x />
 
-## Series Types
+## Series types
 
 Series are homogeneous arrays. Declare series types with `series`:
 
@@ -117,14 +117,14 @@ series i32  // array of int32
 series bool // array of booleans
 ```
 
-### Series Literals
+### Series literals
 
 ```arc
 data := [1.0, 2.0, 3.0] // series f64
 empty series f64 := [] // empty series (type required)
 ```
 
-### Series Operations
+### Series operations
 
 ```arc
 length := len(data) // i64: number of elements
@@ -132,7 +132,7 @@ first := data[0] // indexing (0-based)
 subset := data[1:3] // slicing [start:end)
 ```
 
-### Element-wise Operations
+### Element-wise operations
 
 Arithmetic and comparison operators work element-wise on series:
 
@@ -160,7 +160,7 @@ inverted := not mask // [true, true, false]
 
 <Divider.Divider x />
 
-## Unit Annotations
+## Unit annotations
 
 Types can carry a single unit suffix for dimensional tracking. The suffix is one
 identifier drawn from the built-in registry (length, time, mass, pressure, frequency,
@@ -176,7 +176,7 @@ Only single-identifier units are accepted in source syntax. Compound units like 
 `m^2` are not spelled directly in declarations. They arise implicitly from arithmetic
 (see below).
 
-### Dimensional Compatibility
+### Dimensional compatibility
 
 The compiler enforces dimensional compatibility:
 
@@ -200,7 +200,7 @@ further use, but they are not spelled in source code.
 
 <Divider.Divider x />
 
-## Type Casting
+## Type casting
 
 Explicit casting converts between types.
 
@@ -224,7 +224,7 @@ state str := str(active) // bool to string: "true"
   derive a `bool`. Casting a string to a numeric or boolean is not supported either.
 </Note.Note>
 
-### Casting Rules
+### Casting rules
 
 | Conversion                          | Behavior                                     |
 | ----------------------------------- | -------------------------------------------- |
@@ -257,11 +257,11 @@ y f64 := f64(x) + 1.0
 
 <Divider.Divider x />
 
-## Zero Values
+## Zero values
 
 All types have default zero values:
 
-| Type     | Zero Value                                 |
+| Type     | Zero value                                 |
 | -------- | ------------------------------------------ |
 | integers | `0`                                        |
 | floats   | `0.0`                                      |
@@ -272,7 +272,7 @@ All types have default zero values:
 
 <Divider.Divider x />
 
-## String Operations
+## String operations
 
 Strings support the following operations:
 

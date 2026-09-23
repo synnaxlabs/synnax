@@ -28,6 +28,13 @@ class PayloadWithAlias(BaseModel):
     to: str
 
 
+class PayloadWithOptional(BaseModel):
+    """Payload with an optional field to test None omission."""
+
+    name: str
+    limit: int | None = None
+
+
 class TestJSONCodec:
     def test_encode_decode_basic(self) -> None:
         """Should encode and decode a basic payload."""
@@ -52,6 +59,13 @@ class TestJSONCodec:
         assert "from" in data
         assert "from_" not in data
         assert data["from"] == "source"
+
+    def test_encode_omits_none(self) -> None:
+        """Should leave a None field off the wire instead of sending null."""
+        codec = JSONCodec()
+        encoded = codec.encode(PayloadWithOptional(name="x"))
+        data = json.loads(encoded.decode("utf-8"))
+        assert data == {"name": "x"}
 
 
 class TestMessagePackCodec:

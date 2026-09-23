@@ -20,12 +20,13 @@ import { preview } from "astro";
 import fs from "fs";
 import { styleText } from "util";
 
-import { type Check, type Context } from "./check.ts";
-import { crawlPages, enumerateRoutes, normalizeRoute } from "./crawl.ts";
-import { createFetcher } from "./fetch.ts";
-import { links } from "./links.ts";
-import { media } from "./media.ts";
-import { tabs } from "./tabs.ts";
+import { type Check, type Context } from "@/util/checks/check";
+import { crawlPages, enumerateRoutes, normalizeRoute } from "@/util/checks/crawl";
+import { createFetcher } from "@/util/checks/fetch";
+import { links } from "@/util/checks/links";
+import { media } from "@/util/checks/media";
+import { notes } from "@/util/checks/notes";
+import { tabs } from "@/util/checks/tabs";
 
 const PORT = 4399;
 // A trailing slash would defeat the fetcher's prefix-matched localhost bypass.
@@ -50,7 +51,12 @@ for (let i = 0; i < argv.length; i++)
   } else names.push(argv[i]);
 
 const fullCrawl = prefixes.length === 0;
-const ALL: Check[] = [tabs(fullCrawl), links(fullCrawl), media(fullCrawl)];
+const ALL: Check[] = [
+  tabs(fullCrawl),
+  links(fullCrawl),
+  media(fullCrawl),
+  notes(fullCrawl),
+];
 const unknown = names.filter((name) => ALL.every((check) => check.name !== name));
 if (unknown.length > 0) {
   const valid = ALL.map((check) => check.name).join(", ");
