@@ -10,19 +10,17 @@
 import "@/feature/schematic/symbol/edit/Edit.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Flex,
-  Form,
-  Header,
-  Icon,
-  type Input,
-  List,
-  Select,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Color } from "@synnaxlabs/pluto";
 import { type color } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";

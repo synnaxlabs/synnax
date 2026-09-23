@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type record, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { z } from "zod";
-
-import { Button } from "@/button";
-import { Component } from "@/component";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
-import { List } from "@/list";
-import { Select } from "@/select";
-import { Text } from "@/text";
 
 interface RowProps {
   label: string;

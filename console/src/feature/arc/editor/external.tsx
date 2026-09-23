@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { arc, query } from "@synnaxlabs/client";
-import { Arc, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Arc } from "@synnaxlabs/pluto";
 
 import { Editor } from "@/feature/arc/editor/Editor";
 import { Toolbar } from "@/feature/arc/editor/toolbar/Toolbar";

@@ -9,12 +9,11 @@
 
 import "@/mosaic/Mosaic.css";
 
+import { context } from "@synnaxlabs/lyra/context";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { type location, type record } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useMemo } from "react";
-
-import { context } from "@/context";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
 
 /**
  * Where a drop landed within a {@link Leaf}: a drop on the leaf's body carries the

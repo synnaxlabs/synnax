@@ -9,16 +9,16 @@
 
 import "@/schematic/node/general/switch/switch.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { useHold } from "@synnaxlabs/lyra/hooks";
+import { Input as BaseInput } from "@synnaxlabs/lyra/input";
+import { blockActivation } from "@synnaxlabs/lyra/util";
 import { color, location } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
-import { CSS } from "@/css";
-import { useHold } from "@/hooks";
-import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
-import { blockActivation } from "@/util/event";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown"> {
   onClick?: MouseEventHandler<HTMLElement>;

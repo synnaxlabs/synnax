@@ -9,6 +9,11 @@
 
 import "@/mosaic/Mosaic.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { box, type location, xy } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
@@ -18,13 +23,8 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Haul } from "@/haul";
-import { useCombinedRefs } from "@/hooks";
 import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
-import { Tabs } from "@/tabs";
 
 const crossHairA = (px: number): number => px;
 

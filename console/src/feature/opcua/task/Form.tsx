@@ -10,16 +10,14 @@
 import "@/feature/opcua/task/Task.css";
 
 import { type channel } from "@synnaxlabs/client";
-import {
-  type Component,
-  Flex,
-  Form as PForm,
-  Haul,
-  Header as PHeader,
-  Icon,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { type Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type FC, useCallback, useState } from "react";
 
 import {

@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Status as StatusBase } from "@synnaxlabs/lyra/status";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { canDisable, type CanDisabledProps } from "@synnaxlabs/lyra/util";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
@@ -14,16 +19,11 @@ import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Code } from "@/code";
 import { Color } from "@/color";
-import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
-import { Status as StatusBase } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
 import { Theming } from "@/theming";
-import { Tooltip } from "@/tooltip";
-import { Triggers } from "@/triggers";
-import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { Staleness } from "@/vis/staleness";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);

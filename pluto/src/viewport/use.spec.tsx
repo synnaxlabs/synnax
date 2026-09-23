@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, location, xy } from "@synnaxlabs/x";
 import { fireEvent, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type RefObject } from "react";
 import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 
-import { mockBoundingClientRect } from "@/testutil/dom";
-import { Triggers } from "@/triggers";
 import {
   PAN_DEFAULT_TRIGGERS,
   SELECT_DEFAULT_TRIGGERS,

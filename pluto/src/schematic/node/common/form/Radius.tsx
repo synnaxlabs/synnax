@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { type border, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { PERCENT_BORDER_RADIUS_INPUT_PROPS } from "@/schematic/node/common/form/input";
 
 export interface RadiusFieldsProps {

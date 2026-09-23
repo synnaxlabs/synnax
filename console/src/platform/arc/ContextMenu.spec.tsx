@@ -9,7 +9,7 @@
 
 import { type arc, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { type List } from "@synnaxlabs/pluto";
+import { type List } from "@synnaxlabs/lyra/list";
 import { array } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";

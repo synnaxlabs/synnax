@@ -9,15 +9,15 @@
 
 import "@/schematic/node/common/form/form.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type direction, type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
 import { Direction } from "@/direction";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { type Input } from "@/input";
-import { Select } from "@/select";
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
 

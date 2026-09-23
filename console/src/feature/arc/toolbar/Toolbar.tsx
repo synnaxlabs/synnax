@@ -10,20 +10,17 @@
 import "@/feature/arc/toolbar/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
-import {
-  Access,
-  Arc,
-  Button,
-  Flex,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Status,
-  stopPropagation,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
+import { Access, Arc } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { Explorer } from "@/feature/arc/explorer";

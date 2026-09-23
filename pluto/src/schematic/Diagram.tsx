@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { useInitializerRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useStoreApi } from "@xyflow/react";
 import {
   type PropsWithChildren,
@@ -18,8 +20,6 @@ import {
   useRef,
 } from "react";
 
-import { Component } from "@/component";
-import { useInitializerRef, useSyncedRef } from "@/hooks";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";

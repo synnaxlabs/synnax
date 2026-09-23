@@ -20,7 +20,8 @@ import {
   RoleClients,
 } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
-import { Icon, Menu } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,

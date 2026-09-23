@@ -10,10 +10,9 @@
 import "@/device/StatusIndicator.css";
 
 import { type device } from "@synnaxlabs/client";
-
-import { CSS } from "@/css";
-import { Status } from "@/status/base";
-import { Tooltip } from "@/tooltip";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 
 export interface StatusIndicatorProps {
   status?: device.Status;

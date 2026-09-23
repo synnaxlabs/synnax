@@ -9,11 +9,11 @@
 
 import "@/os/Controls/Mac.css";
 
+import { type Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement } from "react";
 
-import { type Button } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { type InternalControlsProps } from "@/os/Controls/types";
 
 export const Icon = {

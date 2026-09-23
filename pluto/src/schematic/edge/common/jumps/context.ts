@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context } from "@synnaxlabs/lyra/context";
 import { type xy } from "@synnaxlabs/x";
 import { useCallback, useSyncExternalStore } from "react";
 
-import { context } from "@/context";
 import { type Store } from "@/schematic/edge/common/jumps/store";
 
 const [Context, useStore] = context.create<Store>({

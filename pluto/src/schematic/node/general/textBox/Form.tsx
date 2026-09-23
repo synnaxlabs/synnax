@@ -9,18 +9,18 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Select } from "@/select";
 
 const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   bounds: { lower: 0, upper: 2000 },

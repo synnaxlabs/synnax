@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form } from "@synnaxlabs/lyra/form";
+import { type Input } from "@synnaxlabs/lyra/input";
 import { bounds } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
-
-import { Form } from "@/form";
-import { type Input } from "@/input";
 
 const STEP = 10;
 

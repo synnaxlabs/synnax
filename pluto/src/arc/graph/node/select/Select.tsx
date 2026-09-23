@@ -9,10 +9,11 @@
 
 import "@/arc/graph/node/select/Select.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+
 import { Minimal } from "@/arc/graph/node/Base";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
 
 export const Symbol = () => (
   <Minimal

@@ -10,16 +10,12 @@
 import "@/feature/auth/ConnectionGuard.css";
 
 import { AccessDeniedError, type connection } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Errors,
-  Flex,
-  Icon,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Access, Errors, Synnax } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,

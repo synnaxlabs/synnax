@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type notation, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Form } from "@/form";
-import { Input } from "@/input";
 import { Notation } from "@/notation";
-import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Staleness } from "@/vis/staleness";
 

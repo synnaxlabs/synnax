@@ -8,17 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type access, status } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Flex,
-  Form,
-  Icon,
-  type Input,
-  Nav,
-  Synnax,
-  User,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { type Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Access, Synnax, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";

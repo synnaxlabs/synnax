@@ -10,7 +10,10 @@
 import "@/feature/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Log, Panel as PPanel, Tabs } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Log, Panel as PPanel } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Channels } from "@/feature/log/toolbar/Channels";

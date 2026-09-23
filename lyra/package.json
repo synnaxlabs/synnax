@@ -1,0 +1,260 @@
+{
+  "name": "@synnaxlabs/lyra",
+  "version": "0.58.1",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "check-types": "tsc --noEmit",
+    "watch": "vite build --watch",
+    "test": "vitest",
+    "cov": "vitest --coverage",
+    "lint": "eslint",
+    "fix": "eslint --fix",
+    "madge": "madge --circular src",
+    "stylelint": "stylelint \"src/**/*.css\"",
+    "exports": "tsx scripts/exports.ts",
+    "generate-theme": "tsx src/theming/static/generate.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "catalog:",
+    "@fontsource/geist-mono": "catalog:",
+    "@synnaxlabs/x": "catalog:",
+    "clsx": "catalog:",
+    "react-icons": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@testing-library/react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@testing-library/react": {
+      "optional": true
+    },
+    "vitest": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@juggle/resize-observer": "catalog:",
+    "@synnaxlabs/eslint-config": "catalog:",
+    "@synnaxlabs/madge": "catalog:",
+    "@synnaxlabs/stylelint-config": "catalog:",
+    "@synnaxlabs/tsconfig": "catalog:",
+    "@synnaxlabs/vite-plugin": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/node": "catalog:",
+    "@types/pluralize": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "compromise": "catalog:",
+    "compromise-dates": "catalog:",
+    "eslint": "catalog:",
+    "fuse.js": "catalog:",
+    "jsdom": "catalog:",
+    "mathjs": "catalog:",
+    "pluralize": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "stylelint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "files": [
+    "dist",
+    "!**/*.spec.*",
+    "!dist/eslint.config.*"
+  ],
+  "exports": {
+    "./breadcrumb": {
+      "types": "./dist/src/breadcrumb/index.d.ts",
+      "default": "./dist/breadcrumb.js"
+    },
+    "./button": {
+      "types": "./dist/src/button/index.d.ts",
+      "default": "./dist/button.js"
+    },
+    "./caret": {
+      "types": "./dist/src/caret/index.d.ts",
+      "default": "./dist/caret.js"
+    },
+    "./component": {
+      "types": "./dist/src/component/index.d.ts",
+      "default": "./dist/component.js"
+    },
+    "./context": {
+      "types": "./dist/src/context/index.d.ts",
+      "default": "./dist/context.js"
+    },
+    "./css": {
+      "types": "./dist/src/css/index.d.ts",
+      "default": "./dist/css.js"
+    },
+    "./cursor": {
+      "types": "./dist/src/cursor/index.d.ts",
+      "default": "./dist/cursor.js"
+    },
+    "./dialog": {
+      "types": "./dist/src/dialog/index.d.ts",
+      "default": "./dist/dialog.js"
+    },
+    "./divider": {
+      "types": "./dist/src/divider/index.d.ts",
+      "default": "./dist/divider.js"
+    },
+    "./flex": {
+      "types": "./dist/src/flex/index.d.ts",
+      "default": "./dist/flex.js"
+    },
+    "./form": {
+      "types": "./dist/src/form/index.d.ts",
+      "default": "./dist/form.js"
+    },
+    "./generic": {
+      "types": "./dist/src/generic/index.d.ts",
+      "default": "./dist/generic.js"
+    },
+    "./haul": {
+      "types": "./dist/src/haul/index.d.ts",
+      "default": "./dist/haul.js"
+    },
+    "./header": {
+      "types": "./dist/src/header/index.d.ts",
+      "default": "./dist/header.js"
+    },
+    "./hooks": {
+      "types": "./dist/src/hooks/index.d.ts",
+      "default": "./dist/hooks.js"
+    },
+    "./icon": {
+      "types": "./dist/src/icon/index.d.ts",
+      "default": "./dist/icon.js"
+    },
+    "./input": {
+      "types": "./dist/src/input/index.d.ts",
+      "default": "./dist/input.js"
+    },
+    "./list": {
+      "types": "./dist/src/list/index.d.ts",
+      "default": "./dist/list.js"
+    },
+    "./memo": {
+      "types": "./dist/src/memo/index.d.ts",
+      "default": "./dist/memo.js"
+    },
+    "./menu": {
+      "types": "./dist/src/menu/index.d.ts",
+      "default": "./dist/menu.js"
+    },
+    "./nav": {
+      "types": "./dist/src/nav/index.d.ts",
+      "default": "./dist/nav.js"
+    },
+    "./note": {
+      "types": "./dist/src/note/index.d.ts",
+      "default": "./dist/note.js"
+    },
+    "./portal": {
+      "types": "./dist/src/portal/index.d.ts",
+      "default": "./dist/portal.js"
+    },
+    "./position": {
+      "types": "./dist/src/position/index.d.ts",
+      "default": "./dist/position.js"
+    },
+    "./progress": {
+      "types": "./dist/src/progress/index.d.ts",
+      "default": "./dist/progress.js"
+    },
+    "./resize": {
+      "types": "./dist/src/resize/index.d.ts",
+      "default": "./dist/resize.js"
+    },
+    "./select": {
+      "types": "./dist/src/select/index.d.ts",
+      "default": "./dist/select.js"
+    },
+    "./state": {
+      "types": "./dist/src/state/index.d.ts",
+      "default": "./dist/state.js"
+    },
+    "./status": {
+      "types": "./dist/src/status/index.d.ts",
+      "default": "./dist/status.js"
+    },
+    "./store": {
+      "types": "./dist/src/store/index.d.ts",
+      "default": "./dist/store.js"
+    },
+    "./tabs": {
+      "types": "./dist/src/tabs/index.d.ts",
+      "default": "./dist/tabs.js"
+    },
+    "./tag": {
+      "types": "./dist/src/tag/index.d.ts",
+      "default": "./dist/tag.js"
+    },
+    "./telem": {
+      "types": "./dist/src/telem/index.d.ts",
+      "default": "./dist/telem.js"
+    },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "default": "./dist/testutil.js"
+    },
+    "./text": {
+      "types": "./dist/src/text/index.d.ts",
+      "default": "./dist/text.js"
+    },
+    "./theme": {
+      "types": "./dist/src/theme/index.d.ts",
+      "default": "./dist/theme.js"
+    },
+    "./theming": {
+      "types": "./dist/src/theming/index.d.ts",
+      "default": "./dist/theming.js"
+    },
+    "./tooltip": {
+      "types": "./dist/src/tooltip/index.d.ts",
+      "default": "./dist/tooltip.js"
+    },
+    "./tree": {
+      "types": "./dist/src/tree/index.d.ts",
+      "default": "./dist/tree.js"
+    },
+    "./triggers": {
+      "types": "./dist/src/triggers/index.d.ts",
+      "default": "./dist/triggers.js"
+    },
+    "./util": {
+      "types": "./dist/src/util/index.d.ts",
+      "default": "./dist/util.js"
+    },
+    "./video": {
+      "types": "./dist/src/video/index.d.ts",
+      "default": "./dist/video.js"
+    },
+    "./dist/*": "./dist/*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synnaxlabs/synnax.git",
+    "directory": "lyra"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/synnaxlabs/synnax/issues"
+  },
+  "homepage": "https://github.com/synnaxlabs/synnax#readme"
+}

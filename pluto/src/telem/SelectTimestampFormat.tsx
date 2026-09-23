@@ -9,11 +9,10 @@
 
 import "@/telem/SelectTimestampFormat.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type TimestampFormat } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { CSS } from "@/css";
-import { Select } from "@/select";
 
 const DATA: Select.StaticEntry<TimestampFormat>[] = [
   { key: "ISO", name: "ISO 8601" },

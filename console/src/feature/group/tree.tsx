@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Access, Flux, Group, Icon, Menu, Tree as PTree } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Access, Flux, Group } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";

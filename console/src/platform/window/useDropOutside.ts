@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { box, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect } from "react";

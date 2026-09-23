@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 
-import { removeProps } from "@/component/removeProps";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { CircleForm } from "@/schematic/node/general/circle/Form";
@@ -26,6 +26,6 @@ export const spec: Spec<"circle", schematic.CircleNodeConfig> = {
     grid: { allowRotate: false, keepAspectRatio: true },
     onResize: ({ width }) => ({ radius: width / (2 * Primitive.BASE_SCALE) }),
   }),
-  Preview: removeProps(Circle, ["clickable"]),
+  Preview: Component.removeProps(Circle, ["clickable"]),
   zIndex: 2,
 };

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Haul } from "@/haul";
 import { Mosaic } from "@/mosaic";
-import { Tabs } from "@/tabs";
-import { mockBoundingClientRect } from "@/testutil/dom";
 
 const stubRect = (el: Element, x: number, y: number, w: number, h: number): void => {
   vi.spyOn(el, "getBoundingClientRect").mockReturnValue({

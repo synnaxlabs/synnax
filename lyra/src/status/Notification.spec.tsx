@@ -1,0 +1,124 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { TimeStamp } from "@synnaxlabs/x";
+import { fireEvent, render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import { Button } from "@/button";
+import { Icon } from "@/icon";
+import { Notification, type NotificationProps } from "@/status/Notification";
+import { toString } from "@/status/status";
+
+const mockSilence = vi.fn();
+
+describe("Notification Component", () => {
+  const notificationProps: NotificationProps = {
+    status: {
+      key: "test-key",
+      name: "test-name",
+      time: TimeStamp.now(),
+      count: 1,
+      message: "Test notification message",
+      description: "Test notification description",
+      variant: "info",
+    },
+    silence: mockSilence,
+    actions: [
+      <Button.Button key="action1">Action 1</Button.Button>,
+      { key: "action2", children: "Action 2" },
+    ],
+  };
+
+  it("renders notification message and description", () => {
+    const c = render(<Notification {...notificationProps} />);
+
+    expect(c.getByText("Test notification message")).toBeTruthy();
+    expect(c.getByText("Test notification description")).toBeTruthy();
+  });
+
+  it("omits the description entirely when the status carries an empty one", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, description: "" }}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-notification__description")).toBeNull();
+  });
+
+  it("omits the name entirely when the status carries an empty one", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, name: "" }}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-notification__name")).toBeNull();
+  });
+
+  it("renders a custom icon tinted with the variant color as the indicator", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, variant: "error" }}
+        icon={<Icon.Device />}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-icon--status-concentric")).toBeNull();
+    const icon = c.container.querySelector<SVGElement>(
+      ".pluto-notification__indicator",
+    );
+    expect(icon?.classList.contains("pluto-icon--device")).toBe(true);
+    expect(icon?.style.color).toBe("var(--pluto-error-z)");
+  });
+
+  it("keeps the loading spinner even when a custom icon is given", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, variant: "loading" }}
+        icon={<Icon.Device />}
+      />,
+    );
+
+    const icon = c.container.querySelector(".pluto-notification__indicator");
+    expect(icon?.classList.contains("pluto-icon--loading")).toBe(true);
+  });
+
+  it("calls silence function when close button is clicked", () => {
+    const c = render(<Notification {...notificationProps} />);
+
+    const closeButton = c.getByRole("button", { name: "Silence" });
+    fireEvent.click(closeButton);
+
+    expect(mockSilence).toHaveBeenCalledWith("test-key");
+  });
+
+  it("renders action buttons correctly", () => {
+    const c = render(<Notification {...notificationProps} />);
+
+    expect(c.getByText("Action 1")).toBeTruthy();
+    expect(c.getByText("Action 2")).toBeTruthy();
+  });
+
+  it("should copy diagnostics to clipboard when copy button is clicked", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const c = render(<Notification {...notificationProps} />);
+    const copyButton = c.getByRole("button", { name: "Copy diagnostics" });
+    fireEvent.click(copyButton);
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(toString(notificationProps.status));
+    });
+  });
+});

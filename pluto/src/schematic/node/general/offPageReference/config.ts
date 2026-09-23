@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 export const PAGE_ICONS: Record<schematic.PageType, Icon.FC> = {
   schematic: Icon.Schematic,

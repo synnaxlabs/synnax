@@ -9,7 +9,7 @@
 
 import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";

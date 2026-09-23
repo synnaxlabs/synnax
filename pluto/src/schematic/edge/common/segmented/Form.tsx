@@ -9,15 +9,15 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type color, type record } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
 import { type Variant } from "@/schematic/edge/registry";
-import { Select } from "@/select";
 
 const SELECT_DATA: record.KeyedNamed<Variant>[] = [
   { key: "pipe", name: "Pipe" },

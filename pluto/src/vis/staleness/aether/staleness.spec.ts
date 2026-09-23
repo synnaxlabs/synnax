@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { buildStack } from "@/testutil/providers";
-import { Theming } from "@/theming";
 import { staleness } from "@/vis/staleness/aether";
 
 // A minimal source-backed component. Real leaves drive `received` from a telem
