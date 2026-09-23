@@ -1140,7 +1140,7 @@ sequence main {
 			now := 50 * telem.SecondTS
 			n.Next(node.Context{
 				Context:       ctx,
-				Cycle:         node.Cycle{Now: now},
+				Now:           now,
 				ReserveStamps: testutil.ReserveStamps(now),
 				MarkChanged:   func(int) {},
 			})
