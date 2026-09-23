@@ -475,6 +475,28 @@ var _ = Describe("Avg", func() {
 		expectOutputTime(s.state, 5*telem.SecondTS)
 	})
 
+	It("Should stamp from the data, not a longer reset batch", func(ctx SpecContext) {
+		s := openMathWithReset(ctx, "avg", types.F64(), nil)
+		resetNode := s.state.Node("reset_signal")
+		*s.inputNode.Output(0) = telem.NewSeriesV(10.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+		s.inputNode.MarkFresh(0)
+		*resetNode.Output(0) = telem.NewSeriesV(false, false, false)
+		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(7, 8, 9)
+		resetNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutputTime(s.state, 10*telem.SecondTS)
+
+		*s.inputNode.Output(0) = telem.NewSeriesV(20.0)
+		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(11)
+		s.inputNode.MarkFresh(0)
+		*resetNode.Output(0) = telem.NewSeriesV(false, false)
+		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(12, 13)
+		resetNode.MarkFresh(0)
+		nextChanged(ctx, s.n)
+		expectOutputTime(s.state, 11*telem.SecondTS)
+	})
+
 	It("Should not execute on empty input", func(ctx SpecContext) {
 		s := openMath(ctx, "avg", types.F64(), nil)
 		changed := nextChanged(ctx, s.n)
@@ -950,6 +972,38 @@ var _ = Describe("Derivative", func() {
 		Expect(result.TimeRange.Start).To(Equal(100 * telem.SecondTS))
 		Expect(result.TimeRange.End).To(Equal(200 * telem.SecondTS))
 	})
+})
+
+var _ = Describe("Literal inputs", func() {
+	DescribeTable("Should stamp the cycle when the input is a literal",
+		func(ctx SpecContext, nodeType string) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:  "n",
+				Type: nodeType,
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.F64(), Value: 5.0},
+				},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+			}}}
+			s := node.New(prog)
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			n := MustSucceed(m.Create(node.Config{
+				Node:  prog.Nodes[0],
+				State: s.Node("n"),
+			}))
+			n.Next(node.Context{
+				Context:     ctx,
+				Now:         1234 * telem.SecondTS,
+				MarkChanged: func(int) {},
+			})
+			Expect(*s.Node("n").OutputTime(0)).
+				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+		},
+		Entry("avg", "avg"),
+		Entry("min", "min"),
+		Entry("max", "max"),
+		Entry("derivative", "derivative"),
+	)
 })
 
 var _ = Describe("Construction validation", func() {

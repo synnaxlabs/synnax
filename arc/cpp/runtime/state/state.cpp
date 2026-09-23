@@ -116,6 +116,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
     std::vector<Node::InputEntry> accumulated(num_inputs);
     std::vector<size_t> input_source_idx(num_inputs, Node::NO_SOURCE);
     std::vector<bool> is_reference(num_inputs);
+    std::vector<bool> literal(num_inputs);
 
     for (size_t i = 0; i < num_inputs; i++)
         aligned_time[i] = x::mem::make_local_shared<x::telem::Series>(
@@ -181,6 +182,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
 
             aligned_data[i] = data_series;
             aligned_time[i] = time_series;
+            literal[i] = true;
 
             accumulated[i].data = data_series;
             accumulated[i].time = time_series;
@@ -218,6 +220,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             input_source_idx.push_back(entry.source);
             accumulated.push_back(std::move(entry));
             is_reference.push_back(false);
+            literal.push_back(false);
         }
     }
 
@@ -273,6 +276,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             std::move(aligned_data),
             std::move(aligned_time),
             std::move(is_reference),
+            std::move(literal),
             std::move(rearm),
             ir_node.inputs
         ),
@@ -328,6 +332,33 @@ void Node::init_input(size_t param_index, const Series &data, const Series &time
 
 void Node::mark_fresh(const size_t param_index) const {
     this->state.values[this->output_idx[param_index]].rev = ++this->state.rev;
+}
+
+bool Node::has_time(const size_t param_index) const {
+    if (this->is_reference[param_index] || this->literal[param_index]) return false;
+    const auto &t = this->aligned_time[param_index];
+    return t != nullptr && t->size() > 0;
+}
+
+int Node::time_source_idx() const {
+    int best = -1;
+    int64_t best_len = 0;
+    for (size_t i = 0; i < this->inputs.size(); i++) {
+        if (!this->has_time(i)) continue;
+        const auto &d = this->aligned_data[i];
+        const auto len = d == nullptr ? int64_t{0} : static_cast<int64_t>(d->size());
+        if (len > best_len) {
+            best = static_cast<int>(i);
+            best_len = len;
+        }
+    }
+    return best;
+}
+
+void Node::stamp_cycle(const x::telem::TimeStamp now, const size_t output_idx) const {
+    auto &t = this->output_time(output_idx);
+    t->resize(1);
+    t->set(0, now);
 }
 
 bool Node::refresh_inputs() {

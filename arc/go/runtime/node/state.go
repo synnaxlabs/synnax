@@ -66,6 +66,7 @@ func (s *ProgramState) Node(key string) *State {
 		alignedData  = make([]telem.Series, len(n.Inputs))
 		alignedTime  = make([]telem.Series, len(alignedData))
 		accumulated  = make([]inputEntry, len(n.Inputs))
+		literal      = make([]bool, len(n.Inputs))
 		inputSources = make([]*value, len(n.Inputs))
 		isReference  = make([]bool, len(n.Inputs))
 	)
@@ -122,6 +123,7 @@ func (s *ProgramState) Node(key string) *State {
 			alignedData[i] = data
 			alignedTime[i] = time
 			accumulated[i] = inputEntry{data: data, time: time}
+			literal[i] = true
 			if _, exists := s.outputs[syntheticSource]; !exists {
 				s.outputs[syntheticSource] = &value{data: data, time: time}
 			}
@@ -147,6 +149,7 @@ func (s *ProgramState) Node(key string) *State {
 			accumulated = append(accumulated, inputEntry{})
 			inputSources = append(inputSources, s.outputs[e.Source])
 			isReference = append(isReference, false)
+			literal = append(literal, false)
 		}
 	}
 
@@ -217,6 +220,13 @@ func (s *ProgramState) Node(key string) *State {
 	nd.inputSources = inputSources
 	nd.outputCache = outputCache
 	nd.isReference = isReference
+	nd.literal = literal
+	for i := range literal {
+		if !literal[i] && !isReference[i] {
+			nd.edgeFed = true
+			break
+		}
+	}
 	nd.progRev = &s.rev
 	return nd
 }
@@ -257,6 +267,12 @@ type State struct {
 	// isReference marks inputs that are channel references rather than value
 	// streams. Reference inputs carry no data series and never gate execution.
 	isReference []bool
+	// literal marks inputs fed by a configured value rather than an edge. A
+	// configured value has no time of its own.
+	literal []bool
+	// edgeFed is true when an edge feeds at least one data input. Reset leaves the
+	// literals of such a node consumed, so only fresh edge data re-runs it.
+	edgeFed bool
 	// rearm[i] selects when a consumed input i fires again.
 	rearm       []rearmRule
 	accumulated []inputEntry
@@ -290,15 +306,23 @@ func (s *State) MarkFresh(paramIndex int) {
 	s.outputCache[paramIndex].rev = *s.progRev
 }
 
-// Reset re-arms every input when the node's stage is (re)activated, so a node
-// whose gating inputs are all literal-valued re-runs instead of staying consumed.
+// Reset re-arms the node's inputs when its stage is (re)activated, so a node
+// whose inputs are all literal-valued re-runs instead of staying consumed. An
+// edge-fed input keeps what it consumed: re-arming one makes the node re-emit a
+// value it already emitted, which duplicates writes downstream.
 func (s *State) Reset(Context) {
 	for i := range s.accumulated {
 		switch s.rearm[i] {
 		case rearmOnFresh:
 		case rearmOnArrival:
 			s.absorbInput(i)
-		case rearmAlways, rearmOnReset:
+		case rearmAlways:
+			if !s.literal[i] || s.edgeFed {
+				continue
+			}
+			s.accumulated[i].consumed = false
+			s.accumulated[i].lastRev = 0
+		case rearmOnReset:
 			s.accumulated[i].consumed = false
 			s.accumulated[i].lastRev = 0
 		}
@@ -492,6 +516,38 @@ func (s *State) LastChanged() (telem.Series, bool) {
 		consumed: true,
 	}
 	return src.data, true
+}
+
+// TimeSourceIdx returns the index of the input a node copies its output timestamps
+// from, or -1 when no input has time and the node stamps the cycle instead. Among the
+// inputs that have time it picks the longest, matching how nodes broadcast a shorter
+// input up to a longer one.
+func (s *State) TimeSourceIdx() int {
+	best, bestLen := -1, int64(0)
+	for i := range s.ir.inputs {
+		if !s.HasTime(i) {
+			continue
+		}
+		if l := s.aligned.data[i].Len(); l > bestLen {
+			best, bestLen = i, l
+		}
+	}
+	return best
+}
+
+// HasTime reports whether the input at paramIndex holds upstream timestamps a node
+// can copy. Literal and reference inputs never do: a configured value has no time.
+func (s *State) HasTime(paramIndex int) bool {
+	return !s.isReference[paramIndex] && !s.literal[paramIndex] &&
+		s.aligned.time[paramIndex].Len() > 0
+}
+
+// StampCycle overwrites the output's time series with a single sample of the
+// cycle stamp, reusing its buffer. Nodes with no input time to copy use it.
+func (s *State) StampCycle(ctx Context, outputIdx int) {
+	t := s.OutputTime(outputIdx)
+	t.Resize(1)
+	t.SetValueAt(0, ctx.Now)
 }
 
 // InputTime returns the timestamp series for the input at the given parameter

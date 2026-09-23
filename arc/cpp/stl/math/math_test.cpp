@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <utility>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/local_shared.h"
@@ -219,8 +221,8 @@ TEST(MathAvgTest, ComputesRunningAverage) {
     EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 3 * sec);
 }
 
-/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
-TEST(MathAvgTest, ResetRearmsInputsOnStageReentry) {
+/// @brief reset() keeps a consumed edge-fed input on stage re-entry.
+TEST(MathAvgTest, ResetKeepsConsumedEdgeFedInput) {
     TestSetup setup(types::Kind::F64, "avg");
     Module module;
     auto node = ASSERT_NIL_P(module.create(
@@ -243,9 +245,14 @@ TEST(MathAvgTest, ResetRearmsInputsOnStageReentry) {
     ASSERT_NIL(node->next(ctx));
     EXPECT_EQ(changes, 0);
 
-    // Stage re-entry re-arms the inputs so the node runs again.
+    // Stage re-entry keeps the consumed input, so the node does not re-run.
     node->reset(ctx);
     changes = 0;
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // A new source value runs it again.
+    write_source_f64(source, {40.0}, {4 * sec});
     ASSERT_NIL(node->next(ctx));
     EXPECT_GT(changes, 0);
 }
@@ -380,6 +387,36 @@ TEST(MathAvgTest, ResetsWithSignal) {
 
     auto checker2 = setup.make_target_node();
     EXPECT_DOUBLE_EQ(checker2.output(0)->at<double>(0), 150.0);
+}
+
+TEST(MathAvgTest, StampsFromTheDataInputWhenTheResetBatchIsLonger) {
+    TestSetup setup(types::Kind::F64, "avg", {}, true);
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source1 = setup.make_source_node();
+    write_source_f64(source1, {10.0}, {10 * sec});
+    auto reset1 = setup.make_reset_node();
+    write_reset(reset1, {0, 0, 0}, {7 * sec, 8 * sec, 9 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker1 = setup.make_target_node();
+    ASSERT_EQ(checker1.output_time(0)->size(), 1);
+    EXPECT_EQ(checker1.output_time(0)->at<int64_t>(0), 10 * sec);
+
+    auto source2 = setup.make_source_node();
+    write_source_f64(source2, {20.0}, {11 * sec});
+    auto reset2 = setup.make_reset_node();
+    write_reset(reset2, {0, 0}, {12 * sec, 13 * sec});
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker2 = setup.make_target_node();
+    ASSERT_EQ(checker2.output_time(0)->size(), 1);
+    EXPECT_EQ(checker2.output_time(0)->at<int64_t>(0), 11 * sec);
 }
 
 TEST(MathMinTest, ComputesRunningMinimum) {
@@ -1396,6 +1433,143 @@ TEST(MathArithmeticTest, HandlesMismatchedSeriesLengths) {
     EXPECT_EQ(checker.output(0)->size(), 5);
     EXPECT_EQ(checker.output_time(0)->size(), 5);
 }
+
+/// @brief builds an add node whose rhs is a configured literal. With literal_lhs
+/// the lhs is a literal too, so the node has no input carrying time.
+ir::IR build_literal_ir(const bool literal_lhs) {
+    types::Param lhs;
+    lhs.name = ir::lhs_input_param;
+    lhs.type = types::Type{.kind = types::Kind::F64};
+    if (literal_lhs) lhs.value = 5.0;
+
+    types::Param rhs;
+    rhs.name = ir::rhs_input_param;
+    rhs.type = types::Type{.kind = types::Kind::F64};
+    rhs.value = 1.0;
+
+    types::Param out;
+    out.name = ir::default_output_param;
+    out.type = types::Type{.kind = types::Kind::F64};
+
+    ir::Node target;
+    target.key = "target";
+    target.type = "add";
+    target.inputs.push_back(lhs);
+    target.inputs.push_back(rhs);
+    target.outputs.push_back(out);
+
+    ir::IR prog;
+    if (!literal_lhs) {
+        types::Param src_out;
+        src_out.name = ir::default_output_param;
+        src_out.type = types::Type{.kind = types::Kind::F64};
+        ir::Node src;
+        src.key = "lhs";
+        src.type = "producer";
+        src.outputs.push_back(src_out);
+        prog.nodes.push_back(src);
+    }
+    prog.nodes.push_back(target);
+    if (!literal_lhs)
+        prog.edges.emplace_back(
+            ir::Handle("lhs", ir::default_output_param),
+            ir::Handle("target", ir::lhs_input_param)
+        );
+    return prog;
+}
+
+TEST(MathArithmeticTest, TakesTimeFromTheEdgeFedInputNotTheLiteral) {
+    const auto prog = build_literal_ir(false);
+    runtime::state::State state(
+        runtime::state::Config{.ir = prog, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    Module module;
+    auto target = ASSERT_NIL_P(state.node("target"));
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(prog, prog.nodes[1], std::move(target)))
+    );
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = ASSERT_NIL_P(state.node("lhs"));
+    write_lhs_f64(lhs, {1.0}, {777 * sec});
+    auto ctx = make_context();
+    ctx.cycle.now = x::telem::TimeStamp(1234 * sec);
+    ASSERT_NIL(node->next(ctx));
+    auto checker = ASSERT_NIL_P(state.node("target"));
+    ASSERT_EQ(checker.output_time(0)->size(), 1);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 777 * sec);
+}
+
+TEST(MathArithmeticTest, StampsTheCycleWhenEveryInputIsALiteral) {
+    const auto prog = build_literal_ir(true);
+    runtime::state::State state(
+        runtime::state::Config{.ir = prog, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    Module module;
+    auto target = ASSERT_NIL_P(state.node("target"));
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(prog, prog.nodes[0], std::move(target)))
+    );
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    ctx.cycle.now = x::telem::TimeStamp(1234 * sec);
+    ASSERT_NIL(node->next(ctx));
+    auto checker = ASSERT_NIL_P(state.node("target"));
+    ASSERT_EQ(checker.output_time(0)->size(), 1);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 1234 * sec);
+}
+
+/// @brief builds a single-input node of node_type whose input is a configured
+/// literal, so the node has no input carrying time.
+ir::IR build_literal_input_ir(const std::string &node_type) {
+    types::Param input;
+    input.name = ir::default_input_param;
+    input.type = types::Type{.kind = types::Kind::F64};
+    input.value = 5.0;
+
+    types::Param out;
+    out.name = ir::default_output_param;
+    out.type = types::Type{.kind = types::Kind::F64};
+
+    ir::Node target;
+    target.key = "target";
+    target.type = node_type;
+    target.inputs.push_back(input);
+    target.outputs.push_back(out);
+
+    ir::IR prog;
+    prog.nodes.push_back(target);
+    return prog;
+}
+
+class MathLiteralInputTest : public testing::TestWithParam<std::string> {};
+
+TEST_P(MathLiteralInputTest, StampsTheCycleWhenTheInputIsALiteral) {
+    const auto prog = build_literal_input_ir(GetParam());
+    runtime::state::State state(
+        runtime::state::Config{.ir = prog, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    Module module;
+    auto target = ASSERT_NIL_P(state.node("target"));
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(prog, prog.nodes[0], std::move(target)))
+    );
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto ctx = make_context();
+    ctx.cycle.now = x::telem::TimeStamp(1234 * sec);
+    ASSERT_NIL(node->next(ctx));
+    auto checker = ASSERT_NIL_P(state.node("target"));
+    ASSERT_EQ(checker.output_time(0)->size(), 1);
+    EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 1234 * sec);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Nodes,
+    MathLiteralInputTest,
+    testing::Values("avg", "min", "max", "derivative", "neg")
+);
 
 TEST(MathArithmeticTest, TakesTimeFromTheLongerInput) {
     BinaryTestSetup setup(types::Kind::F64, "add");

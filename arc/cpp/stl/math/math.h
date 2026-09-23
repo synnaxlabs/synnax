@@ -174,13 +174,12 @@ public:
                 break;
         }
 
-        const auto &primary_time = this->state.input_time(this->input_idx);
-        if (primary_time->size() > 0) {
-            auto last_ts = primary_time->at<int64_t>(-1);
+        if (this->state.has_time(this->input_idx))
             *this->state.output_time(0) = x::telem::Series(
-                std::vector<int64_t>{last_ts}
+                std::vector<int64_t>{input_time->at<int64_t>(-1)}
             );
-        }
+        else
+            this->state.stamp_cycle(ctx.cycle.now, 0);
 
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
@@ -331,6 +330,8 @@ public:
             default:
                 break;
         }
+        if (this->state.time_source_idx() < 0)
+            this->state.stamp_cycle(ctx.cycle.now, 0);
         return x::errors::NIL;
     }
 
@@ -455,10 +456,13 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        // The op broadcasts the shorter input up to the longer one, so the
-        // timestamps have to come from the longer side to stay one per sample.
-        const auto time_idx = rhs->size() > lhs->size() ? this->rhs_idx : this->lhs_idx;
-        output_time->copy_from(*this->state.input_time(time_idx));
+        // A literal input has no time, so it is never the time source.
+        if (const auto time_idx = this->state.time_source_idx(); time_idx < 0)
+            this->state.stamp_cycle(ctx.cycle.now, 0);
+        else
+            output_time->copy_from(
+                *this->state.input_time(static_cast<size_t>(time_idx))
+            );
         auto alignment = lhs->alignment + rhs->alignment;
         auto time_range = lhs->time_range;
         if (rhs->time_range.start != 0 &&
@@ -557,7 +561,11 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(this->input_idx);
+        // A literal input has no time, so it is never the time source.
+        if (const auto time_idx = this->state.time_source_idx(); time_idx < 0)
+            this->state.stamp_cycle(ctx.cycle.now, 0);
+        else
+            output_time = this->state.input_time(static_cast<size_t>(time_idx));
         output->alignment = input->alignment;
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;
