@@ -57,8 +57,9 @@ jobs:
           version: v2.13.2
           working-directory: ${{ inputs.directory }}
           install-only: true
-          # The matchers register before install-only returns, so they annotate the
-          # custom-gcl run below.
+          # The matchers register in install(), before install-only returns, so they
+          # annotate the custom-gcl run below. That run needs --path-mode=abs to make
+          # the paths resolve, which the action adds only to a lint it runs itself.
           problem-matchers: true
 
       # The Windows runner does not have the disk space for a cold lint, so lint both
@@ -70,11 +71,12 @@ jobs:
         run: |
           ./custom-gcl config verify
           echo "::group::GOOS=linux"
-          GOOS=linux ./custom-gcl run
+          GOOS=linux ./custom-gcl run --path-mode=abs
           echo "::endgroup::"
           echo "::group::GOOS=windows"
           # A throwaway cache keeps the shared setup-go cache down to one GOOS.
-          GOOS=windows GOCACHE="$RUNNER_TEMP/gocache-windows" ./custom-gcl run
+          GOOS=windows GOCACHE="$RUNNER_TEMP/gocache-windows" \
+            ./custom-gcl run --path-mode=abs
           echo "::endgroup::"
 
   test:
