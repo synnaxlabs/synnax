@@ -120,10 +120,10 @@ export const BLUR_MAX_PX = 3;
 export const BLUR_MIN_PX = 0.4;
 
 /** Seconds the cursor must be still before it starts fading out. */
-export const IDLE_FADE_DELAY_S = 1.5;
+export const IDLE_FADE_DELAY_S = 0.75;
 
 /** Seconds the idle fade-out takes. */
-export const IDLE_FADE_OUT_S = 0.5;
+export const IDLE_FADE_OUT_S = 0.25;
 
 /** Seconds the wake fade-in takes when the cursor moves again. */
 export const IDLE_FADE_IN_S = 0.15;
