@@ -93,9 +93,10 @@ Assets per product:
 - **Driver** (`driver/vX.Y.Z`): The four platform binaries and the NI install script.
 - **Core** (`core/vX.Y.Z`): Downloads the Console bundle and Driver binaries from their
   releases into `core/pkg/console/dist/` and `core/pkg/driver/assets/`, then builds the
-  binaries, Windows installer, and Docker image (`latest` for stable, `next` for
-  pre-release). No workflow rebuilds another product. The notes name the embedded
-  versions.
+  binaries, Windows installer, and Docker image (`next` for a pre-release, `latest` for
+  a stable that no other stable Core tag outranks, so a hotfix on an old train never
+  moves `latest` backwards). No workflow rebuilds another product. The notes name the
+  embedded versions.
 
 Console and Driver release in parallel. The Core embeds them, so it waits for both and
 never runs after one fails. A failed product leaves no tag and the rest stand; rerun
@@ -108,8 +109,8 @@ Python and TypeScript keep `deploy.py.yaml` and `deploy.ts.yaml`. A merge to `ma
 touches a package publishes every package whose manifest version is not yet on the
 registry; `uv publish --check-url` and `pnpm publish -r` skip the rest. The version bump
 in the PR is the release decision, and a package that did not change is never
-republished. Python moves to OIDC trusted publishing; TypeScript already has
-`id-token: write`. Packages have no candidate channel.
+republished. Both publish through OIDC trusted publishing with `id-token: write`, so no
+registry token lives in the repo's secrets. Packages have no candidate channel.
 
 ### 2.2 Versions
 
@@ -122,6 +123,8 @@ while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.
 and that minor is the Core's latest stable minor or the next one, read from the `core/`
 tags instead of the `VERSION` file. A split, with some manifests on each train, fails
 the check, so a package minor bump is one PR that moves every manifest to the new train.
+The C++ client is a package: its manifest is `client/cpp/version/VERSION`, bumped with
+the rest and separate from the Driver's version, so the client can release on its own.
 The catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at
 publish, so any patch mix inside a train resolves; `pluto/package.json` pins
 `@synnaxlabs/freighter` and `@synnaxlabs/media` as `workspace:*`, which publishes exact
@@ -129,13 +132,10 @@ versions, and both move to the catalog.
 
 Every binary manifest carries `0.0.0` and the build injects the resolved `version`:
 
-- **Core**: The existing `-ldflags -X` (`build.synnax.yaml:621-626`). The `VERSION` file
-  and `//go:embed` fallback in `get.go` are deleted; `Prod()` returns `0.0.0-dev` when
-  unset.
-- **Driver**: Bazel `--stamp` with a `--workspace_status_command` emitting
-  `STABLE_SYNNAX_VERSION`. The `//core/pkg/version` genrule is already stamped; it
-  switches from the `VERSION` file and `date` to `stable-status.txt` and
-  `volatile-status.txt`.
+- **Core**: The existing `-ldflags -X` in `build.synnax.yaml`. The `VERSION` file and
+  `//go:embed` fallback in `get.go` are deleted; `Get()` returns `0.0.0` when unset.
+- **Driver**: A `SYNNAX_DRIVER_VERSION` Bazel define, `0.0.0` in `.bazelrc`, that the
+  release build overrides; the `//driver/version` genrule reads it.
 - **Console**: `tauri build --config '{"version":"X.Y.Z"}'`. A candidate runs as app
   version `X.Y.Z-N`, since the MSI bundler accepts only a numeric pre-release; its tag
   stays `X.Y.Z-rc.N` and its manifest carries the app version.
@@ -144,9 +144,10 @@ Dev binaries therefore run at `0.0.0`. The client compatibility checks (`isCompa
 in `client/ts/src/connection/status.ts`, `_versions_compatible` in
 `client/py/synnax/connection.py`, and `versions_compatible` in
 `client/cpp/connection/checker.cpp`, which the Driver ships) require an equal
-major.minor today and gain one rule: a `0.0` on either side is compatible. A dev Console
-or Driver then connects to any Core, and any client connects to a dev Core, without a
-mismatch warning.
+major.minor today and gain one rule: a `0.0` on either side is compatible. Any client
+then connects to a dev Core without a mismatch warning. The Driver's check carries the
+C++ client's manifest version, not the Driver's, so a dev Driver checks like a dev
+Python or TypeScript client: against the train the checkout is on.
 
 `bump_versions.sh` drops the `VERSION` and `tauri.conf.json` edits and bumps only the
 package manifests.
@@ -210,8 +211,8 @@ flag and workflow file.
   nothing), `gh pr edit --base main` for open PRs, delete `rc`.
 - **Phase 3: Versions and Console flags.** Delete the binary version literals; point
   `check_versions.sh` at the `core/` tags and trim `bump_versions.sh`; move Pluto's two
-  `workspace:*` pins to the catalog; add the Bazel status script, the `0.0`
-  compatibility rule in all three clients, and `console/src/flags.ts`.
+  `workspace:*` pins to the catalog; add the Bazel define, the `0.0` compatibility rule
+  in all three clients, and `console/src/flags.ts`.
 - **Phase 4: First releases.** One PR bumps every package manifest to 0.59, then one
   `release.yaml` dispatch with `bump: minor` opens train 0.59. After the Console
   release, one manual commit copies its `latest.json` into `release-spec.json`, so
@@ -249,14 +250,19 @@ flag and workflow file.
     click and a hotfix with one box ticked. A workflow per product plus a train over
     them was rejected as four files for one job; separate dispatches as three clicks in
     a forced order. The products keep their own tags and releases.
+12. **Tag prefix `product/v`**: `console/v0.59.0`, the shape the repo's own tags had
+    through 0.13 (`synnax/v0.13.1`). `console-v` rejected because the slash groups tags
+    by product in every listing.
+13. **Cache TTLs**: The updater routes send `s-maxage=300, stale-while-revalidate=60`
+    and `releases.ts` caches a listing for five minutes, so the CDN absorbs the polling
+    and a release lands on the site within minutes.
+14. **Release note categories**: `.github/release.yml` groups by the path labeler's
+    labels: `console`, `driver`, `core`, `arc`, `cpp-client`, `py-client`, `ts-client`,
+    and `documentation`.
 
 ## 5 Open questions
 
-- Tag prefix separator: `console/v`, the shape the repo's own tags had through 0.13
-  (`synnax/v0.13.1`), or `console-v`.
-- Cache TTLs on the docs site and updater routes.
 - Whether the Driver release also publishes a Docker image.
-- Which PR labels `.github/release.yml` categorizes on.
 
 ## 6 Prior art
 

@@ -7,18 +7,14 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-exports_files(["VERSION"])
-
+# The client version is the VERSION manifest, bumped with the other packages.
 genrule(
     name = "version",
     srcs = ["VERSION"],
     outs = ["version.h"],
     cmd = """
         echo '#pragma once' > $@ &&
-        echo '#define SYNNAX_VERSION \"'$$(cat $(execpath VERSION))'\"' >> $@ &&
-        echo '#define SYNNAX_DRIVER_VERSION SYNNAX_VERSION' >> $@ &&
-        echo '#define SYNNAX_BUILD_TIMESTAMP \"'$$(date "+%Y-%m-%d %H:%M:%S")'\"' >> $@
+        echo '#define SYNNAX_CLIENT_VERSION \"'$$(cat $(execpath VERSION))'\"' >> $@
     """,
-    stamp = 1,
     visibility = ["//visibility:public"],
 )
