@@ -23,11 +23,10 @@
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
+#include "client/cpp/version/version.h"
 #include "client/cpp/view/view.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
-
-#include "core/pkg/version/version.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
@@ -153,7 +152,7 @@ public:
             std::make_shared<connection::Checker>(
                 std::move(this->t.connectivity_check),
                 30 * x::telem::SECOND,
-                SYNNAX_VERSION,
+                SYNNAX_CLIENT_VERSION,
                 cfg.host,
                 cfg.clock_skew_threshold
             )

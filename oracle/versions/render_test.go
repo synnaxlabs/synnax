@@ -10,6 +10,8 @@
 package versions_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -177,6 +179,65 @@ Chan union on type extends Base {
 			names = append(names, f.Name)
 		}
 		Expect(names).To(Equal([]string{"enabled", "units"}))
+	})
+
+	It("Should render an extending union and enum as the declared form", func(
+		ctx SpecContext,
+	) {
+		source := `
+NodeConfig union on variant {
+	tank { width float64 }
+}
+
+EdgeConfig union on variant {
+	pipe { length float64 }
+}
+
+ElementConfig union on variant extends NodeConfig, EdgeConfig {
+	group { count uint8 }
+}
+
+XAxisKey enum {
+	x1 = "x1"
+}
+
+YAxisKey enum {
+	y1 = "y1"
+}
+
+AxisKey enum extends XAxisKey, YAxisKey {}
+`
+		table := analyzeFixture(ctx, source)
+		rendered := versions.Render(declsOf(table), versions.RenderOptions{
+			Qualifier: func(ns string) string {
+				if ns == "test" {
+					return ""
+				}
+				return ns
+			},
+			// Table.Get, matching the live merge, so an unresolved payload
+			// reference in a declared variant fails the inline lookup here too.
+			Resolve: table.Get,
+		})
+		Expect(rendered).To(ContainSubstring(
+			"ElementConfig union on variant extends NodeConfig, EdgeConfig {",
+		))
+		Expect(rendered).To(ContainSubstring("count uint8"))
+		Expect(
+			rendered,
+		).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {"))
+		Expect(strings.Count(rendered, "tank {")).To(Equal(1))
+		Expect(strings.Count(rendered, `x1 = "x1"`)).To(Equal(1))
+
+		again := analyzeFixture(ctx, MustSucceed(formatter.Format(rendered)))
+		element := MustBeOk(again.Get("test.ElementConfig")).Form.(resolution.UnionForm)
+		names := make([]string, 0, len(element.Variants))
+		for _, v := range element.Variants {
+			names = append(names, v.Name)
+		}
+		Expect(names).To(Equal([]string{"tank", "pipe", "group"}))
+		axis := MustBeOk(again.Get("test.AxisKey")).Form.(resolution.EnumForm)
+		Expect(axis.Values).To(HaveLen(2))
 	})
 
 	It("Should render alias lines and sorted imports", func(ctx SpecContext) {

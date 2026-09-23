@@ -71,5 +71,5 @@ void synnax_client_close(SynnaxClient *client) {
 }
 
 const char *synnax_client_version(void) {
-    return SYNNAX_VERSION;
+    return SYNNAX_CLIENT_VERSION;
 }

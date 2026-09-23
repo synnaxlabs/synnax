@@ -12,7 +12,7 @@ package driver_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -178,13 +178,13 @@ var _ = Describe("Open", func() {
 			func(ctx SpecContext) {
 				logger, _ := newTestLogger()
 				Expect(driver.Open(ctx, driver.Config{
-					Instrumentation:   alamos.New("test", alamos.WithLogger(logger)),
-					FS:                mockFS,
-					Insecure:          new(true),
-					Address:           "localhost:9090",
-					ParentDirname:     GinkgoT().TempDir(),
-					RestartMaxRetries: -1,
-				})).Error().To(MatchError(ContainSubstring("max_retries")))
+					Instrumentation:     alamos.New("test", alamos.WithLogger(logger)),
+					FS:                  mockFS,
+					Insecure:            new(true),
+					Address:             "localhost:9090",
+					ParentDirname:       GinkgoT().TempDir(),
+					RestartBaseInterval: -time.Second,
+				})).Error().To(MatchError(ContainSubstring("base_interval")))
 			},
 		)
 

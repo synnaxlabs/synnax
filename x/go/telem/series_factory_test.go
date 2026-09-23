@@ -11,9 +11,10 @@ package telem_test
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
@@ -258,7 +259,7 @@ var _ = Describe("SeriesFactory", func() {
 		It("Should return an error for invalid JSON", func() {
 			data := []chan int{make(chan int)}
 			Expect(telem.NewJSONSeries(data)).Error().
-				To(MatchError(ContainSubstring("json: unsupported type: chan int")))
+				To(MatchError(ContainSubstring("marshal from Go chan int")))
 		})
 	})
 
@@ -286,7 +287,7 @@ var _ = Describe("SeriesFactory", func() {
 
 		It("Should return an error for invalid JSON", func() {
 			Expect(telem.NewJSONSeriesV(make(chan int))).Error().
-				To(MatchError(ContainSubstring("json: unsupported type: chan int")))
+				To(MatchError(ContainSubstring("marshal from Go chan int")))
 		})
 	})
 
@@ -312,7 +313,7 @@ var _ = Describe("SeriesFactory", func() {
 			s := MustSucceed(telem.NewJSONSeriesV([]int{1, 2, 3}))
 			Expect(s.DecodeJSON[string]()).Error().
 				To(MatchError(ContainSubstring(
-					"json: cannot unmarshal array into Go value of type string",
+					"unmarshal JSON array into Go string",
 				)))
 		})
 	})
@@ -715,7 +716,10 @@ var _ = Describe("SeriesFactory", func() {
 			func(input any, dt telem.DataType, msg string) {
 				Expect(func() {
 					telem.NewSeriesFromAny(input, dt)
-				}).To(PanicWith(ContainSubstring(msg)))
+				}).To(PanicWith(WithTransform(
+					func(v any) string { return fmt.Sprint(v) },
+					ContainSubstring(msg),
+				)))
 			},
 			Entry(
 				"string → Int64T",
@@ -730,12 +734,12 @@ var _ = Describe("SeriesFactory", func() {
 				"cannot cast string to v0.TimeStamp",
 			),
 			Entry("int → UUIDT", 42, telem.UUIDT, "cannot cast int to uuid.UUID"),
-			Entry("invalid string → UUIDT", "not-a-uuid", telem.UUIDT, "invalid UUID"),
+			Entry("invalid string → UUIDT", "not-a-uuid", telem.UUIDT, "invalid uuid"),
 			Entry(
 				"short []byte → UUIDT",
 				[]byte{1, 2, 3},
 				telem.UUIDT,
-				"invalid UUID (got 3 bytes)",
+				"cannot cast 3 bytes to uuid.UUID",
 			),
 			Entry("nil → Int64T", nil, telem.Int64T, "cannot cast <nil> to int64"),
 			Entry("int → unsupported", 42, telem.UnknownT, "unsupported data type"),

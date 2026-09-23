@@ -12,7 +12,7 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"

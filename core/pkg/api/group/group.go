@@ -11,7 +11,6 @@ package group
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -42,7 +41,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Parent ontology.ID `json:"parent" msgpack:"parent"`
-		Name   string      `json:"name"   msgpack:"name"   validate:"required"`
+		Name   string      `json:"name"   msgpack:"name"`
 		Key    group.Key   `json:"key"    msgpack:"key"`
 	}
 	CreateResponse struct {
@@ -71,7 +70,7 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
+		Keys []group.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
 		Groups []group.Group `json:"groups" msgpack:"groups"`
@@ -100,40 +99,40 @@ func (s *Service) Retrieve(
 }
 
 type DeleteRequest struct {
-	Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
+	Keys []group.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: group.OntologyIDs(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type RenameRequest struct {
-	Name string    `json:"name" msgpack:"name" validate:"required"`
-	Key  group.Key `json:"key"  msgpack:"key"  validate:"required"`
+	Name string    `json:"name" msgpack:"name"`
+	Key  group.Key `json:"key"  msgpack:"key"`
 }
 
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
