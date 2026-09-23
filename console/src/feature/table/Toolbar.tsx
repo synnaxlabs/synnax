@@ -123,35 +123,42 @@ interface CellFormProps {
 
 const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
   const cell = Table.useCell({ cellKey });
+  if (cell == null) return null;
+  // A swap changes the variant before the form values sync, so the new variant's form
+  // would bind paths the old config lacks. Keying on the variant remounts it fresh.
+  return <VariantCellForm key={cell.variant} cellKey={cellKey} cell={cell} />;
+};
+
+interface VariantCellFormProps extends CellFormProps {
+  cell: Table.Cell.Config;
+}
+
+const VariantCellForm = ({ cellKey, cell }: VariantCellFormProps): ReactElement => {
   const dispatch = Table.useSingleDispatch();
 
   const handleVariantChange = useCallback(
-    (variant: Table.Cell.Variant) => {
-      if (cell != null) dispatch(buildVariantSwapActions([[cellKey, cell]], variant));
-    },
+    (variant: Table.Cell.Variant) =>
+      dispatch(buildVariantSwapActions([[cellKey, cell]], variant)),
     [cell, cellKey, dispatch],
   );
 
   const handleChange = useCallback(
-    ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) => {
-      if (cell == null) return;
+    ({ values }: Form.OnChangeParams<typeof Table.Cell.configZ>) =>
       dispatch([
         table.setCell({
           cell: { key: cellKey, config: Table.Cell.configZ.parse(values) },
         }),
-      ]);
-    },
-    [cell, cellKey, dispatch],
+      ]),
+    [cellKey, dispatch],
   );
 
   const methods = Form.use<typeof Table.Cell.configZ>({
-    values: cell != null ? deep.copy(cell) : Table.Cell.defaultConfig("text"),
+    values: deep.copy(cell),
     schema: Table.Cell.configZ,
     onChange: handleChange,
     sync: true,
   });
 
-  if (cell == null) return null;
   const C = Table.Cell.REGISTRY[cell.variant];
   return (
     <Form.Form<typeof Table.Cell.configZ> {...methods}>
