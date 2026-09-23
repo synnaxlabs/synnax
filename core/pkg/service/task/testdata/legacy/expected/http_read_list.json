@@ -10,6 +10,7 @@
           "channel": 10110,
           "data_type": "timestamp",
           "disabled": false,
+          "enum_values": [],
           "key": "fld-list-ts",
           "name": "fixture_http_list_timestamp",
           "pointer": "/data/timestamp",
@@ -70,6 +71,7 @@
           "channel": 10140,
           "data_type": "float64",
           "disabled": true,
+          "enum_values": [],
           "key": "fld-list-temp",
           "name": "fixture_http_list_temperature",
           "pointer": "/results/0/tempC"

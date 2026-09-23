@@ -187,7 +187,40 @@ export type SetReceiptTimestampHiddenPayload = z.infer<
   typeof setReceiptTimestampHiddenPayloadZ
 >;
 
-export const actionZ = z.discriminatedUnion("type", [
+export type Action =
+  | { type: "create"; create: CreatePayload }
+  | { type: "rename"; rename: RenamePayload }
+  | { type: "add_channel"; addChannel: AddChannelPayload }
+  | { type: "remove_channel"; removeChannel: RemoveChannelPayload }
+  | { type: "set_channel_entry"; setChannelEntry: SetChannelEntryPayload }
+  | { type: "set_channel_color"; setChannelColor: SetChannelColorPayload }
+  | { type: "set_channel_notation"; setChannelNotation: SetChannelNotationPayload }
+  | { type: "set_channel_precision"; setChannelPrecision: SetChannelPrecisionPayload }
+  | { type: "set_channel_alias"; setChannelAlias: SetChannelAliasPayload }
+  | {
+      type: "set_channel_timestamp_format";
+      setChannelTimestampFormat: SetChannelTimestampFormatPayload;
+    }
+  | {
+      type: "set_channel_timestamp_tz";
+      setChannelTimestampTz: SetChannelTimestampTzPayload;
+    }
+  | { type: "set_channels"; setChannels: SetChannelsPayload }
+  | { type: "swap_channel"; swapChannel: SwapChannelPayload }
+  | {
+      type: "set_timestamp_precision";
+      setTimestampPrecision: SetTimestampPrecisionPayload;
+    }
+  | {
+      type: "set_channel_names_hidden";
+      setChannelNamesHidden: SetChannelNamesHiddenPayload;
+    }
+  | {
+      type: "set_receipt_timestamp_hidden";
+      setReceiptTimestampHidden: SetReceiptTimestampHiddenPayload;
+    };
+
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("add_channel"), addChannel: addChannelPayloadZ }),
@@ -235,8 +268,6 @@ export const actionZ = z.discriminatedUnion("type", [
     setReceiptTimestampHidden: setReceiptTimestampHiddenPayloadZ,
   }),
 ]);
-
-export type Action = z.infer<typeof actionZ>;
 
 export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
   type: "create",

@@ -14,13 +14,13 @@ package v1_test
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v2"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -39,15 +39,21 @@ var _ = Describe("Codec", func() {
 				Key:        "test_1",
 				Rack:       rack.Key(3),
 				Location:   "test_3",
-				Name:       "test_4",
+				Make:       "test_4",
+				Model:      "test_5",
+				Name:       "test_6",
 				Configured: true,
+				Properties: msgpack.EncodedJSON{"key_8": "value_8"},
 			}),
 			Entry("zero values", v1.Device{
 				Key:        "",
 				Rack:       rack.Key(0),
 				Location:   "",
+				Make:       "",
+				Model:      "",
 				Name:       "",
 				Configured: false,
+				Properties: msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -58,8 +64,11 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 		Key:        "test_1",
 		Rack:       rack.Key(3),
 		Location:   "test_3",
-		Name:       "test_4",
+		Make:       "test_4",
+		Model:      "test_5",
+		Name:       "test_6",
 		Configured: true,
+		Properties: msgpack.EncodedJSON{"key_8": "value_8"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -82,8 +91,11 @@ func FuzzDecodeDevice(f *testing.F) {
 			Key:        "test_1",
 			Rack:       rack.Key(3),
 			Location:   "test_3",
-			Name:       "test_4",
+			Make:       "test_4",
+			Model:      "test_5",
+			Name:       "test_6",
 			Configured: true,
+			Properties: msgpack.EncodedJSON{"key_8": "value_8"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -96,8 +108,11 @@ func FuzzDecodeDevice(f *testing.F) {
 			Key:        "",
 			Rack:       rack.Key(0),
 			Location:   "",
+			Make:       "",
+			Model:      "",
 			Name:       "",
 			Configured: false,
+			Properties: msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -121,7 +136,7 @@ func FuzzDecodeDevice(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

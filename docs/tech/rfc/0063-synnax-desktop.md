@@ -366,10 +366,10 @@ Desktop takes its version from `tauri.conf.json`, as the Console does.
 `scripts/check_versions.sh` already holds that version to the Core's major and minor
 numbers, and the bundle always carries the Core from the same commit, so the client and
 the Core always match. Desktop has its own updater manifest, because an update for one
-identifier must never install the other app: `console/release-spec.desktop.json`,
-written by the same deploy job. Desktop assets go to the `console-v*` release under
-names without a space (`Synnax-Desktop_*`), because GitHub rewrites a space in an asset
-name.
+identifier must never install the other app: `desktop-latest.json`, written by the same
+publish job and served at `/releases/desktop/latest.json`. Desktop assets go to the
+`console/v*` release under names without a space (`Synnax-Desktop_*`), because GitHub
+rewrites a space in an asset name.
 
 An update stops the Core first. The Windows installer ends the app with no exit event,
 and it cannot replace the executable of a Core that still runs. The updater plugin has

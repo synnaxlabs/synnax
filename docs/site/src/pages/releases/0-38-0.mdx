@@ -1,5 +1,5 @@
 ---
-title: "Version 0.38 Release Notes"
+title: "Version 0.38 release notes"
 ---
 
 import { Image } from "@/components/media/Media";
@@ -13,7 +13,7 @@ export const components = mdxOverrides;
 <Release
     version="0.38.0"
     date="Jan 31, 2025"
-    title="Calculated Channels"
+    title="Calculated channels"
 >
 
 <Diagram style="height: 300px" preview>
@@ -29,7 +29,7 @@ including beta calculated channels, workspace importing, and more.
 
 <Divider.Divider x />
 
-### Calculated Channels
+### Calculated channels
 
 [Calculated channels](/reference/client/calculated-channels) are a new feature that
 allows for server-side calculations to be performed on channels in real-time. Calculated
@@ -42,7 +42,7 @@ the Synnax team.
 
 <Divider.Divider x />
 
-### Workspace Importing and Exporting
+### Workspace importing and exporting
 
 The Synnax Console now supports sharing workspaces via a directory configuration.
 Workspaces can be shared by
@@ -51,7 +51,7 @@ into directories to be stored on your desktop.
 
 <Divider.Divider x />
 
-### Windows Core Installer
+### Windows Core installer
 
 The Windows version of the Core can now be installed by an installer. This means you
 only need to download a single installer file, and then run it to install the Core. More
@@ -59,7 +59,7 @@ information can be found on our [Core installation page](/reference/core/install
 
 <Divider.Divider x />
 
-### Python CLI Command Deprecation
+### Python CLI command deprecation
 
 The previous `synnax` and `synnaxkit` CLI commands to access the Python client have been
 deprecated to avoid a name collision with the `synnax` CLI command for the Core. To
@@ -73,25 +73,25 @@ sy login
 
 ### Improvements
 
-- A refactored version of the NI Digital Write Task was made with a more intuitive UI.
+- A refactored version of the NI digital write task was made with a more intuitive UI.
 - Schematic snapshots can now be renamed from their tab name.
-- NI Analog Read Task table scaling now only allows CSV files to be passed in.
-- The Synnax Demo Core is now automatically available on the Core Selector when starting
+- NI analog read task table scaling now only allows CSV files to be passed in.
+- The Synnax Demo Core is now automatically available on the Core selector when starting
   the Synnax Console.
 - Modals and the version info window are now no longer saved in workspaces.
-- Groups are now positioned above all other items within the Resources Toolbar.
+- Groups are now positioned above all other items within the resources toolbar.
 - Line plots render `uint8` data faster.
 - `Cmd + A` can now be used to group all schematic elements.
 
 <Divider.Divider x />
 
-### Bug Fixes
+### Bug fixes
 
 - A needless orientation selector was removed from the schematic switch and button
   components.
-- A bug where items in the Resources Toolbar would get duplicated is now fixed.
+- A bug where items in the resources toolbar would get duplicated is now fixed.
 - Multiple Core clusters now support key-value state forwarding.
-- Groups can now be grouped correctly within the Resources Toolbar.
+- Groups can now be grouped correctly within the resources toolbar.
 - Fixed an issue where the delete column option on the table cell context menu did not
   work.
 - Fixed an issue where the python client examples were not working.

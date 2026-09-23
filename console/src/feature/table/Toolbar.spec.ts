@@ -91,11 +91,11 @@ describe("table/Toolbar", () => {
     fireEvent.change(input, { target: { value: "Updated" } });
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.a.props.value).toBe("Updated");
+      expect(t.cells.a).toMatchObject({ variant: "text", value: "Updated" });
     });
   });
 
-  it("swaps the cell variant while preserving compatible props", async () => {
+  it("swaps the cell variant while preserving compatible fields", async () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a"], lastSelected: "a" },
     });
@@ -118,6 +118,25 @@ describe("table/Toolbar", () => {
     await waitFor(() => expect(result.container.textContent).toContain("2 cells"));
   });
 
+  it("groups uncolored cells into one selection color", async () => {
+    await renderTable(Table.Toolbar, {
+      table: {
+        name: uniqueName("table"),
+        rows: [{ size: 36, cells: ["a", "b"] }],
+        columns: [{ size: 72 }, { size: 72 }],
+        cells: {
+          a: { variant: "text", value: "Cell A", level: "h5" },
+          b: { variant: "text", value: "Cell B", level: "h5" },
+        },
+      },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    const label = await screen.findByText("Selection colors");
+    const item = label.closest(".pluto-input__item");
+    expect(item?.querySelectorAll(".pluto-color-swatch")).toHaveLength(1);
+  });
+
   it("applies a size change to every selected cell", async () => {
     const { key } = await renderToolbar({
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
@@ -126,8 +145,8 @@ describe("table/Toolbar", () => {
     fireEvent.click(screen.getByText("M"));
     await waitFor(async () => {
       const t = await client.tables.retrieve(key);
-      expect(t.cells.a.props.level).toBe("h4");
-      expect(t.cells.b.props.level).toBe("h4");
+      expect(t.cells.a).toMatchObject({ level: "h4" });
+      expect(t.cells.b).toMatchObject({ level: "h4" });
     });
   });
 });

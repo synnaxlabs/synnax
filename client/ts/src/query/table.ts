@@ -302,13 +302,18 @@ export class Table<
   }
 
   /**
-   * Writes fetched records into the table under its declared hydrate mode:
-   * "set" overwrites entries, "if-absent" leaves existing entries untouched.
+   * Writes fetched records into the table under its declared hydrate mode, or the given
+   * one: "set" overwrites entries, "if-absent" leaves existing entries untouched. A
+   * tombstoned key is skipped: the fetch may predate the delete, and only a {@link set}
+   * revives a deleted record.
    * @returns A rollback that undoes the entries this call wrote.
    */
-  ingest(values: Keyed<Key, Value> | Array<Keyed<Key, Value>>): destructor.Destructor {
-    const arr = array.toArray(values);
-    if (this.hydrateMode === "if-absent") return this.setIfAbsent(arr);
+  ingest(
+    values: Keyed<Key, Value> | Array<Keyed<Key, Value>>,
+    mode: HydrateMode = this.hydrateMode,
+  ): destructor.Destructor {
+    const arr = array.toArray(values).filter(({ key }) => !this.tombstones.has(key));
+    if (mode === "if-absent") return this.setIfAbsent(arr);
     return this.set(arr);
   }
 
@@ -358,9 +363,10 @@ export class Table<
    * Resolves the given keys to records: serves cached entries and fetches the misses
    * through the table's fetch, hydrating results under the declared mode. With refresh,
    * every key is fetched regardless of presence and cached entries the fetch omits are
-   * tombstoned. Returns the table's entries for the found keys in input order,
-   * deduplicated; keys the cluster no longer has are omitted. Tables without a fetch
-   * serve cached entries only.
+   * tombstoned. A key deleted while the fetch was in flight stays deleted either way.
+   * Returns the table's entries for the found keys in input order, deduplicated; keys
+   * the cluster no longer has are omitted. Tables without a fetch serve cached entries
+   * only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
     if (this.fetchBatcher != null) {
@@ -379,7 +385,7 @@ export class Table<
             );
             this.batch(() => {
               if (vanished.length > 0) this.delete(vanished);
-              if (fetched.length > 0) this.set(fetched);
+              if (fetched.length > 0) this.ingest(fetched, "set");
             });
           } else if (fetched.length > 0) this.ingest(fetched);
       }

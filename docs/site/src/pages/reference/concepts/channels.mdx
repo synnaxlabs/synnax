@@ -4,7 +4,7 @@ title: "Channels"
 description: "Learn how channels represent data in Synnax."
 next: "Ranges"
 nextURL: "/reference/concepts/ranges"
-prev: "Clusters and Nodes"
+prev: "Clusters and nodes"
 prevURL: "/reference/concepts/clusters-and-nodes"
 ---
 
@@ -53,14 +53,14 @@ source.
 
 <Divider.Divider x />
 
-## Channel Types
+## Channel types
 
 There are three different types of channels in Synnax. **Index** channels exclusively
 store timestamps, and are used to retrieve the samples in data channels. **Data**
 channels store actual telemetry values, such as sensor readings. **Virtual** channels
 are only used for data streaming, and do not persist their samples to the database.
 
-### Index Channels
+### Index channels
 
 An **index** channel (or just _index_) is a special type of channel optimized for fast
 lookups on timestamps. Index channels always have a data type of `timestamp`, meaning
@@ -73,7 +73,7 @@ data channel for a particular time range, Synnax will first look through the ind
 channel to find the relevant timestamps, and then retrieve the samples from the data
 channel.
 
-### Data Channels
+### Data channels
 
 Data channels are the primary method for storing telemetry samples in Synnax. Data
 channels can store sensor readings, actuator commands, calculated values, or any other
@@ -87,7 +87,7 @@ Every data channel must have an associated index channel, which is used to look 
 samples at a particular time. It's common to have multiple data channels associated with
 a single index channel.
 
-### Virtual Channels
+### Virtual channels
 
 Virtual channels are only used for real-time data streaming. Their values are not
 persisted to disk, and they do not have an associated index channel. Virtual channels
@@ -99,19 +99,19 @@ channel with a `string`, `json`, or `bytes` data type instead.
 
 <Divider.Divider x />
 
-## Calculated Channels
+## Calculated channels
 
 Calculated channels compute values from other channels with an Arc expression. See
 [calculated channels](/reference/client/calculated-channels) to create one.
 
-### On-Demand Computation
+### On-demand computation
 
 A calculated channel runs only while something reads or streams it. Opening a line plot
 or requesting its data through the API activates the calculation, and stopping the
 stream pauses it. Nothing runs in the background, so a calculation uses CPU and memory
 only while its results are needed.
 
-### Nested Calculations
+### Nested calculations
 
 Calculated channels can depend on other calculated channels, creating calculation
 chains:
@@ -124,7 +124,7 @@ Data arriving at `sensor_raw` propagates through the chain, each channel calcula
 from the output of the one before it. Nesting has no depth limit, but each level adds
 computation time.
 
-### Historical Evaluation
+### Historical evaluation
 
 A calculated channel can be queried historically, as if it had been running at that
 time. Two conditions apply:
@@ -137,7 +137,7 @@ chain are persisted.
 
 <Divider.Divider x />
 
-## Channel Fields
+## Channel fields
 
 All channel types have a common set of fields. There may be slight variations in the
 naming conventions between the various Synnax client libraries, but the core concepts
@@ -155,12 +155,12 @@ A human-readable name for the channel. This is the most common way to search for
 reference a channel. Synnax does not prevent duplicate names, although it is highly
 recommended that you keep them unique.
 
-#### Data Type
+#### Data type
 
 All channels must have a consistent data type. Index channels must always have a data
 type of `timestamp`. Data channels can have any of the following types:
 
-| Data Type   | Description                                                                  | Size     |
+| Data type   | Description                                                                  | Size     |
 | ----------- | ---------------------------------------------------------------------------- | -------- |
 | `boolean`   | Boolean value                                                                | 1 byte   |
 | `int8`      | Signed 8-bit integer                                                         | 1 byte   |
@@ -179,7 +179,7 @@ type of `timestamp`. Data channels can have any of the following types:
 | `json`      | JSON value                                                                   | variable |
 | `bytes`     | Raw byte sequence                                                            | variable |
 
-#### Is Index
+#### Is index
 
 A boolean field indicating whether the channel should be treated as an index channel.
 This field defaults to `false`, and should only be set to `true` for index channels. All

@@ -13,11 +13,12 @@ import (
 	"bytes"
 	"cmp"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"slices"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -77,7 +78,7 @@ type legacyLayout struct {
 	Name string `json:"name"`
 	// Args is the layout's renderer arguments, kept raw so one malformed record
 	// cannot fail the whole blob. Task layouts carry the task's key in args.
-	Args json.RawMessage `json:"args"`
+	Args jsontext.Value `json:"args"`
 }
 
 // legacyTab is a tab in a legacy mosaic leaf. TabKey is the key of the layout the tab

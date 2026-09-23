@@ -10,9 +10,9 @@
 package v0_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
@@ -60,11 +60,11 @@ var _ = Describe("Migration", func() {
 		func(ctx SpecContext) {
 			u1 := ontologyv0.ID{
 				Type: ontologyv0.ResourceTypeUser,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			u2 := ontologyv0.ID{
 				Type: ontologyv0.ResourceTypeUser,
-				Key:  uuid.NewString(),
+				Key:  uuid.New().String(),
 			}
 			shared := newLegacy(u1, u2)
 			single := newLegacy(u1)

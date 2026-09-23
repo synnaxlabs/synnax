@@ -12,16 +12,15 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -44,7 +43,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v1.Cell{
 				Key:     "",
 				Variant: "",
-				Props:   nil,
+				Props:   msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -75,7 +74,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Row{Size: 1.5, Cells: []string{"test_2"}}),
-			Entry("zero values", v1.Row{Size: 0, Cells: nil}),
+			Entry("zero values", v1.Row{Size: 0, Cells: []string{}}),
 			Entry("empty collections", v1.Row{Size: 1.5, Cells: []string{}}),
 		)
 	})
@@ -104,11 +103,11 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.Table{
-				Key:     uuid.Nil,
+				Key:     uuid.Nil(),
 				Name:    "",
-				Rows:    nil,
-				Columns: nil,
-				Cells:   nil,
+				Rows:    []v1.Row{},
+				Columns: []v1.Column{},
+				Cells:   map[string]v1.Cell{},
 			}),
 			Entry("empty collections", v1.Table{
 				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -222,7 +221,7 @@ func FuzzDecodeCell(f *testing.F) {
 		seed := v1.Cell{
 			Key:     "",
 			Variant: "",
-			Props:   nil,
+			Props:   msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -246,7 +245,7 @@ func FuzzDecodeCell(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -285,7 +284,7 @@ func FuzzDecodeColumn(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -301,7 +300,7 @@ func FuzzDecodeRow(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Row{Size: 0, Cells: nil}
+		seed := v1.Row{Size: 0, Cells: []string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -332,7 +331,7 @@ func FuzzDecodeRow(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -361,11 +360,11 @@ func FuzzDecodeTable(f *testing.F) {
 	}
 	{
 		seed := v1.Table{
-			Key:     uuid.Nil,
+			Key:     uuid.Nil(),
 			Name:    "",
-			Rows:    nil,
-			Columns: nil,
-			Cells:   nil,
+			Rows:    []v1.Row{},
+			Columns: []v1.Column{},
+			Cells:   map[string]v1.Cell{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -403,7 +402,7 @@ func FuzzDecodeTable(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
