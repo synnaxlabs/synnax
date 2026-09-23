@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x";
-import { evaluate, Unit } from "mathjs";
 import { type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
@@ -16,6 +15,24 @@ import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text, type TextProps } from "@/input/Text";
 import { type Control } from "@/input/types";
 import { Triggers } from "@/triggers";
+
+const parseNumber = (raw: string): number | null => {
+  const n = Number(raw);
+  return raw.trim() !== "" && Number.isFinite(n) ? n : null;
+};
+
+// mathjs is heavy and only an expression or a unit needs it, so it loads on demand.
+const evaluateExpression = async (raw: string): Promise<number | null> => {
+  const { evaluate, Unit } = await import("mathjs");
+  try {
+    const ev = evaluate(raw);
+    if (ev instanceof Unit) return ev.toNumber();
+    if (typeof ev === "number" && !isNaN(ev)) return ev;
+  } catch {
+    return null;
+  }
+  return null;
+};
 
 /** Props for {@link Numeric}. */
 export interface NumericProps
@@ -89,22 +106,18 @@ export const Numeric = ({
       onChange?.(emptyValue);
       return;
     }
-    let v = null;
-    try {
-      const ev = evaluate(internalValueRef.current);
-      // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
-      if (ev instanceof Unit) v = ev.toNumber();
-      else if (typeof ev === "number" && !isNaN(ev)) v = ev;
-    } catch {
-      v = null;
-    }
-    if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
-    else
-      setInternalValue(
-        emptyValue != null && valueRef.current === emptyValue
-          ? ""
-          : valueRef.current.toString(),
-      );
+    const commit = (v: number | null): void => {
+      if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
+      else
+        setInternalValue(
+          emptyValue != null && valueRef.current === emptyValue
+            ? ""
+            : valueRef.current.toString(),
+        );
+    };
+    const plain = parseNumber(raw);
+    if (plain != null) return commit(plain);
+    void evaluateExpression(raw).then(commit);
   }, [onChange, setInternalValue, emptyValue]);
 
   const updateActualValueRef = useSyncedRef(updateActualValue);

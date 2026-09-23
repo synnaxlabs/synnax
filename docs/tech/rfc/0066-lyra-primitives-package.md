@@ -98,10 +98,12 @@ namespaces, the visualizations, Code, Arc, and `Pluto.Provider`.
 - **Generated exports**: `@synnaxlabs/vite-plugin` derives `lib.entry` from every
   `src/**/index.ts`, and `scripts/` gains a check, run with the other codegen checks,
   that fails when `package.json` exports differ from that layout.
-- **Dependencies**: `react`, `react-dom`, `@synnaxlabs/x`, `@synnaxlabs/media`,
-  `react-icons`, `zod`, `mathjs` (`Input.Numeric` only, loaded with
-  `import("mathjs/number")` behind a plain-number fast path), `@fontsource/*`. All are
-  externals of the lyra build. Lyra never imports `@synnaxlabs/client`.
+- **Dependencies**: `react`, `react-dom`, `@synnaxlabs/x`, `react-icons`, `zod`, `clsx`,
+  `@fontsource/*`. All are externals of the lyra build. `mathjs` (expressions in
+  `Input.Numeric`) and `compromise` (phrases in the time inputs) are bundled under
+  `dist/vendor/` and loaded with `import()` on first use; a plain number commits
+  synchronously and the time grammar reads without the phrase parser. Lyra never imports
+  `@synnaxlabs/client`.
 - **Tests** move with their modules. Lyra gets its own `vitest` jsdom setup and
   `testutil/`; Pluto keeps its own copy of the setup file.
 
@@ -203,18 +205,27 @@ changelog entry that names the lyra subpath for each moved namespace.
 
 ## 5 Targets
 
-| Measure                            | `main` | Target                                                   |
-| ---------------------------------- | ------ | -------------------------------------------------------- |
-| JavaScript a docs page ships, gzip | 940 kB | Only the islands' own closure; measured per island       |
-| Docs CSS, gzip                     | 467 kB | Lyra CSS of the modules the page renders, fonts as files |
-| Cold chain build to Pluto          | 48.7 s | About 25 s (Pluto ~8 s)                                  |
-| Pluto `vite build`                 | 27.3 s | About 8 s                                                |
+Measured on the branch with the scripts used for the `main` baseline. A docs page is
+`reference/concepts/overview`, JavaScript is the static import closure of its islands.
 
-Every phase below re-measures with the scripts used for the baseline.
+| Measure                            | `main` | Target                         | Branch |
+| ---------------------------------- | ------ | ------------------------------ | ------ |
+| JavaScript a docs page ships, gzip | 940 kB | The islands' own closure       | 252 kB |
+| Docs CSS, gzip                     | 467 kB | Lyra CSS of the page's modules | 44 kB  |
+| Docs client output on disk         | 4.8 MB |                                | 2.6 MB |
+| Cold chain build to Pluto          | 48.7 s | About 25 s                     | 10.6 s |
+| Pluto `vite build`                 | 27.3 s | About 8 s                      | 4.6 s  |
+| Lyra `vite build`                  |        |                                | 4 s    |
+
+The page still loads `mathjs` (174 kB gzip) and `compromise` (36 kB gzip) as separate
+chunks, but only when a number input receives an expression or a time input receives a
+phrase.
 
 ## 6 Implementation phases
 
-Each phase is a pull request into `main` that leaves `main` green.
+The phases were built in this order and landed as one pull request into `main`: a module
+lives in one package at any commit, so a phase boundary between the moves left Pluto,
+the Console and docs importing from two packages without a reviewable seam.
 
 - **Phase 0: Native declarations.** Replace `unplugin-dts` in `lib()`, add the alias
   rewrite, drop `tsc --noEmit &&` from build scripts, adjust `watch`. Standalone win.
@@ -232,9 +243,7 @@ Each phase is a pull request into `main` that leaves `main` green.
 - **Phase 5: Docs drops Pluto.** Remove the dependency, measure, record the numbers
   against §5.
 
-Phases 3 and 4 are split because each is already a thousand-file diff; a reviewer can
-hold "these modules moved, nothing else changed" for one tier, not two. No flags: a
-module lives in one package at any commit.
+No flags: a module lives in one package at any commit.
 
 Compatibility: no persisted or wire format changes. Published packages:
 `@synnaxlabs/lyra` is new; `@synnaxlabs/pluto` loses the moved namespaces from its root.
@@ -274,8 +283,7 @@ Compatibility: no persisted or wire format changes. Published packages:
 
 ## 9 Open questions
 
-- The exact PostCSS mechanism in the docs config that scopes only lyra's stylesheets to
-  `layer(pluto)`.
-- Whether `Input.Numeric`'s lazy `mathjs/number` import needs a loading state in the
-  Console forms that use it.
-- The Pluto minor version that carries the root-barrel change.
+None. The docs PostCSS mechanism is a plugin (`docs/site/src/util/layer.ts`) that wraps
+every stylesheet under `lyra/` in `@layer pluto`. `Input.Numeric` needs no loading
+state: a plain number commits synchronously, only an expression waits for `mathjs`. The
+root-barrel change ships with the next Pluto minor.

@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import compromise from "compromise";
-import compromiseDates, { type DurationJSON } from "compromise-dates";
+import { type DurationJSON } from "compromise-dates";
 
 import {
   type Anchors,
@@ -18,7 +17,29 @@ import {
   type Reading,
 } from "@/input/time/grammar";
 
-const nlp = compromise.extend(compromiseDates);
+const createLanguage = async () => {
+  const [nlp, dates] = await Promise.all([
+    import("compromise"),
+    import("compromise-dates"),
+  ]);
+  return nlp.default.extend(dates.default);
+};
+
+// The parser is a third of the module's weight and only the phrase fallback needs
+// it, so it loads on demand. Until then readings come from the grammar alone.
+let language: Awaited<ReturnType<typeof createLanguage>> | null = null;
+let loading: Promise<void> | null = null;
+
+/** @returns true once {@link loadLanguage} has resolved. */
+export const languageLoaded = (): boolean => language != null;
+
+/** Loads the natural-language parser that reads phrases like `tomorrow at 3pm`. */
+export const loadLanguage = (): Promise<void> => {
+  loading ??= createLanguage().then((loaded) => {
+    language = loaded;
+  });
+  return loading;
+};
 
 /** The end of a range an input holds. Decides what a bare duration or time means. */
 export type Bound = "start" | "end";
@@ -196,10 +217,10 @@ export const suggestTimeStamps = (
   }
 
   // The grammar's exact read is authoritative; language only covers what it misses.
-  if (exact.ok) return distinct(out);
+  if (exact.ok || language == null) return distinct(out);
 
   const phrase = expandAbbreviations(trimmed).toLowerCase();
-  const doc = nlp(phrase);
+  const doc = language(phrase);
   const ctx = { today: now.date(), timezone: localZone() };
   const dates = doc.dates(ctx).get();
   for (const d of dates) {
@@ -294,7 +315,8 @@ export const suggestTimeSpans = (text: string): Suggestion<TimeSpan>[] => {
       value: normalized,
       reading: phrase,
     });
-  for (const d of nlp(phrase).durations().get()) {
+  if (language == null) return distinct(out);
+  for (const d of language(phrase).durations().get()) {
     const span = durationToSpan(d);
     if (span.isZero) continue;
     out.push({ key: span.valueOf().toString(), value: span, reading: phrase });

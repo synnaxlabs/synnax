@@ -10,12 +10,13 @@
 import "@/input/time/Time.css";
 
 import { TimeSpan as XTimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps, Editor } from "@/input/time/Editor";
 import { roundNumeric } from "@/input/time/grammar";
 import { suggestTimeSpans } from "@/input/time/suggest";
+import { useLanguage } from "@/input/time/useLanguage";
 import { type Control } from "@/input/types";
 import { Text } from "@/text";
 
@@ -68,6 +69,12 @@ export const TimeSpan = ({
     resolution == null ? formatted : formatTimeSpan(exact.truncate(resolution));
   const exactTooltip = elapsed == null && shown !== formatted ? formatted : undefined;
 
+  const languageReady = useLanguage();
+  const suggest = useCallback(
+    (text: string) => suggestTimeSpans(text),
+    [languageReady],
+  );
+
   const handleCommit = (span: XTimeSpan): void => {
     const next = Number(span.valueOf());
     // An elapsed readout ignores value, so any typed duration is a change.
@@ -86,7 +93,7 @@ export const TimeSpan = ({
       )}
       // An elapsed readout is a clock, not a value; the user types a fresh duration.
       initialText={elapsed == null ? formatted : ""}
-      suggest={suggestTimeSpans}
+      suggest={suggest}
       onCommit={handleCommit}
       hint="Try 2h 30m, 1:30:00, 90, or an hour and a half"
       unreadMessage="Not a duration"

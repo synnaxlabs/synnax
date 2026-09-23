@@ -8,12 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import { suggestTimeSpans, suggestTimeStamps } from "@/input/time/suggest";
+import {
+  loadLanguage,
+  suggestTimeSpans,
+  suggestTimeStamps,
+} from "@/input/time/suggest";
 
 const NOW = new TimeStamp(new Date(2026, 7, 23, 14, 5, 0, 0));
 const START = new TimeStamp(new Date(2026, 7, 20, 9, 0, 0, 0));
+
+beforeAll(loadLanguage);
 
 describe("suggestTimeStamps", () => {
   it("should lead with the grammar's exact reading", () => {

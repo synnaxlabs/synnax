@@ -12,6 +12,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
+import { loadLanguage } from "@/input/time/suggest";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
 
@@ -33,6 +34,7 @@ const type = (field: HTMLInputElement, text: string): void => {
 };
 
 describe("Input.DateTime", () => {
+  beforeAll(loadLanguage);
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });

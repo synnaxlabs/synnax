@@ -30,6 +30,7 @@ import {
   zoneName,
 } from "@/input/time/grammar";
 import { type Bound, suggestTimeStamps } from "@/input/time/suggest";
+import { useLanguage } from "@/input/time/useLanguage";
 import { type Control } from "@/input/types";
 import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
@@ -126,6 +127,7 @@ export const DateTime = ({
   const stamp = isEmpty ? null : fromNumeric(value);
   const formatted = stamp?.toPreciseString("local") ?? "";
   const parentStart = parent?.start;
+  const languageReady = useLanguage();
 
   // Editor memoizes the readings on this function. Anchors resolve on each call, so
   // `now` inside a reading is the moment of the edit.
@@ -136,7 +138,7 @@ export const DateTime = ({
         current: isEmpty ? undefined : fromNumeric(value),
         bound,
       }),
-    [start, end, parentStart, isEmpty, value, bound],
+    [start, end, parentStart, isEmpty, value, bound, languageReady],
   );
 
   // Digits in the fixed layout nudge; a phrase walks its readings.
