@@ -33,10 +33,9 @@ export interface TimeSpanProps extends Control<number>, BaseProps {
 export const formatTimeSpan = (span: XTimeSpan): string =>
   span.toString("full") || "0s";
 
-const useElapsed = (
-  since: number | undefined,
-  resolution: XTimeSpan = XTimeSpan.SECOND,
-): string | null => {
+// The clock always reads to the second, whatever the row's labels resolve to: a
+// coarser cut would show 0s for the first minute of a long range.
+const useElapsed = (since: number | undefined): string | null => {
   const [, setTick] = useState(0);
   useEffect(() => {
     if (since == null) return;
@@ -44,9 +43,7 @@ const useElapsed = (
     return () => clearInterval(i);
   }, [since]);
   if (since == null) return null;
-  // The clock ticks by the second, so it never reads finer than that.
-  const shown = resolution.lessThan(XTimeSpan.SECOND) ? XTimeSpan.SECOND : resolution;
-  return formatTimeSpan(TimeStamp.now().span(since).truncate(shown));
+  return formatTimeSpan(TimeStamp.now().span(since).truncate(XTimeSpan.SECOND));
 };
 
 /**
@@ -63,7 +60,7 @@ export const TimeSpan = ({
   tooltip,
   ...rest
 }: TimeSpanProps): ReactElement => {
-  const elapsed = useElapsed(elapsedSince, resolution);
+  const elapsed = useElapsed(elapsedSince);
 
   const exact = new XTimeSpan(roundNumeric(value));
   const formatted = formatTimeSpan(exact);

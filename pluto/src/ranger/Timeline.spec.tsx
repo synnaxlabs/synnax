@@ -130,6 +130,17 @@ describe("Ranger.Timeline", () => {
     expect(triggers(container)[0].textContent).toMatch(/\d{2}:\d{2}(:\d{2})?$/);
   });
 
+  it("should tick the elapsed clock by the second under a far end", () => {
+    const now = TimeStamp.now().nanoseconds;
+    const { container } = render(
+      <Ranger.Timeline
+        value={{ start: now - 48 * SECOND, end: now + 2 * DAY }}
+        onChange={() => {}}
+      />,
+    );
+    expect(container.querySelector(".pluto-timespan__label")?.textContent).toBe("48s");
+  });
+
   it("should offer a planned end once a range is scheduled", () => {
     const now = TimeStamp.now().nanoseconds;
     const onChange = vi.fn();
