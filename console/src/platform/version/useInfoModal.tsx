@@ -26,6 +26,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
 import { isDevBuild } from "@/platform/version/build";
 import { useInstallMiddleware } from "@/platform/version/Install";
@@ -194,6 +195,7 @@ export const useInfoModal = Modals.create(() => {
           </Text.Text>
         </Flex.Box>
         {updateContent}
+        <License.Details />
         <Text.Text
           className={CSS.BE("version-info", "footer-note")}
           level="small"

@@ -20,6 +20,7 @@ ResourceType enum {
     framer           = "framer"
     group            = "group"
     label            = "label"
+    license          = "license"
     lineplot         = "lineplot"
     log              = "log"
     node             = "node"
@@ -43,7 +44,6 @@ ResourceType enum {
 
 RelationshipType string {
     @cpp omit
-    @go hand
     @py hand
     @ts hand
 }

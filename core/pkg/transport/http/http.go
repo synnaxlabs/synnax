@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -94,6 +95,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 		// CONNECTIVITY
 		ConnectivityCheck: router.NewUnaryServer[struct{}, connectivity.CheckResponse](
 			"/api/v1/connectivity/check",
+		),
+
+		// VERIFICATION
+		LicenseRetrieve: router.NewUnaryServer[license.RetrieveRequest, license.RetrieveResponse](
+			"/api/v1/license/retrieve",
+		),
+		LicenseApply: router.NewUnaryServer[license.ApplyRequest, license.ApplyResponse](
+			"/api/v1/license/activate",
 		),
 
 		// FRAME

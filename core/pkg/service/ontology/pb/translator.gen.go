@@ -87,6 +87,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_GROUP, nil
 	case ontology.ResourceTypeLabel:
 		return ResourceType_RESOURCE_TYPE_LABEL, nil
+	case ontology.ResourceTypeLicense:
+		return ResourceType_RESOURCE_TYPE_LICENSE, nil
 	case ontology.ResourceTypeLineplot:
 		return ResourceType_RESOURCE_TYPE_LINEPLOT, nil
 	case ontology.ResourceTypeLog:
@@ -143,6 +145,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeGroup, nil
 	case ResourceType_RESOURCE_TYPE_LABEL:
 		return ontology.ResourceTypeLabel, nil
+	case ResourceType_RESOURCE_TYPE_LICENSE:
+		return ontology.ResourceTypeLicense, nil
 	case ResourceType_RESOURCE_TYPE_LINEPLOT:
 		return ontology.ResourceTypeLineplot, nil
 	case ResourceType_RESOURCE_TYPE_LOG:

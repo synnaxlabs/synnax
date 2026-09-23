@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { connection, MissingLicenseError } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Synnax } from "@synnaxlabs/pluto";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Shell } from "@/platform/shell";
 import { CONNECTION_PARAMS } from "@/session/core/testutil";
-import { createConnectedConsoleWrapper } from "@/testutil";
+import { createConnectedConsoleWrapper, createConsoleWrapper } from "@/testutil";
 
 const CORE = { name: "Local", ...CONNECTION_PARAMS };
 
@@ -41,6 +44,29 @@ describe("Connection", () => {
       connParams: { ...CONNECTION_PARAMS, password: "not-seldon" },
     });
     render(<Shell.Connection core={CORE} />, { wrapper });
+    expect(await screen.findByText("Connected")).toBeTruthy();
+    expect(screen.queryByText("Unreachable")).toBeNull();
+  });
+
+  it("should stay nominal when the Core refuses requests for want of a license", async () => {
+    const status: connection.Status = {
+      ...connection.DEFAULT_STATUS,
+      variant: "error",
+      message: "No license is active on this Core",
+      details: {
+        ...connection.DEFAULT_STATUS.details,
+        reason: "unlicensed",
+        error: new MissingLicenseError(),
+      },
+    };
+    const { wrapper: Console } = await createConsoleWrapper({ client: null });
+    render(
+      <Console>
+        <Synnax.TestProvider client={createTestClient()} status={status}>
+          <Shell.Connection core={CORE} />
+        </Synnax.TestProvider>
+      </Console>,
+    );
     expect(await screen.findByText("Connected")).toBeTruthy();
     expect(screen.queryByText("Unreachable")).toBeNull();
   });

@@ -27,6 +27,7 @@ import { Clipboard } from "@/platform/clipboard";
 import { Connection } from "@/platform/connection";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
+import { License } from "@/platform/license";
 import { User } from "@/platform/user";
 import { Session } from "@/session";
 
@@ -131,6 +132,7 @@ const Content = (): ReactElement => {
             {`Incompatible with client v${details.clientVersion}`}
           </Text.Text>
         )}
+        {details.nodeVersion != null && <License.Summary />}
         {details.clockSkewExceeded && (
           <Text.Text level="small" status="warning">
             {`Clock is ${details.clockSkew.abs().toString()} ${skewDirection} the Core`}

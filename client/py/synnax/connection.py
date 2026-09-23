@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from freighter.transport import Empty
+from synnax.license.client import State as LicenseState
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
@@ -39,12 +40,15 @@ class State:
     node_version: str = ""
     clock_skew: TimeSpan = dataclasses.field(default_factory=lambda: TimeSpan(0))
     clock_skew_exceeded: bool = False
+    license: LicenseState | None = None
 
 
 class CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
+    # A Core from before licensing reports nothing and is not gated.
+    license: LicenseState = "ok"
 
 
 def _parse_version(v: str) -> tuple[int, int] | None:
@@ -186,6 +190,7 @@ class Checker:
                 self._state.message = f"Connected to {self._name or 'cluster'}"
                 self._state.cluster_key = res.cluster_key
                 self._state.node_version = res.node_version
+                self._state.license = res.license
                 state = dataclasses.replace(self._state)
 
         changed = (

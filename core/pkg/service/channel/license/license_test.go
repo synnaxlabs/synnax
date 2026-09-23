@@ -1,0 +1,381 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package license_test
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"time"
+	"uuid"
+
+	"github.com/golang-jwt/jwt/v5"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+const keyID = "test"
+
+var (
+	now = time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+	day = 24 * time.Hour
+)
+
+func seconds(t time.Time) *uint32 { return new(uint32(t.Unix())) }
+
+func newLicense() license.License {
+	return license.License{
+		Jti:               uuid.New(),
+		Iat:               uint32(now.Add(-day).Unix()),
+		Exp:               seconds(now.Add(30 * day)),
+		V:                 1,
+		Org:               uuid.New(),
+		Ed:                "e",
+		FingerprintScheme: 1,
+		N:                 1,
+	}
+}
+
+var _ = Describe("License", func() {
+	var (
+		db      kv.DB
+		private ed25519.PrivateKey
+		anchors license.Anchors
+		cfg     license.ServiceConfig
+	)
+	sign := func(g license.License) string {
+		GinkgoHelper()
+		return MustSucceed(license.Sign(private, keyID, g))
+	}
+	open := func(ctx SpecContext, cfgs ...license.ServiceConfig) *license.Service {
+		GinkgoHelper()
+		return MustOpen(license.OpenService(ctx, append(
+			[]license.ServiceConfig{cfg}, cfgs...,
+		)...))
+	}
+	BeforeEach(func() {
+		db = DeferClose(memkv.New())
+		public, priv := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+		private = priv
+		anchors = license.Anchors{keyID: public}
+		cfg = license.ServiceConfig{
+			DB:      db,
+			Anchors: anchors,
+			Version: "0.60.1",
+			Now:     func() time.Time { return now },
+		}
+	})
+
+	Describe("ServiceConfig", func() {
+		DescribeTable(
+			"should reject a missing field",
+			func(field string, clear func(c *license.ServiceConfig)) {
+				c := license.DefaultServiceConfig.Override(cfg)
+				clear(&c)
+				Expect(c.Validate()).To(MatchError(ContainSubstring(field)))
+			},
+			Entry("db", "db", func(c *license.ServiceConfig) { c.DB = nil }),
+			Entry("anchors", "anchors", func(c *license.ServiceConfig) {
+				c.Anchors = nil
+			}),
+			Entry("now", "now", func(c *license.ServiceConfig) { c.Now = nil }),
+			Entry("check interval", "check_interval",
+				func(c *license.ServiceConfig) { c.CheckInterval = 0 }),
+			Entry("warning time", "warning_time",
+				func(c *license.ServiceConfig) { c.WarningTime = 0 }),
+			Entry(
+				"grace",
+				"grace",
+				func(c *license.ServiceConfig) { c.Grace = 0 },
+			),
+			Entry("rollback", "rollback",
+				func(c *license.ServiceConfig) { c.Rollback = 0 }),
+		)
+		It("should keep defaults the override leaves zero", func() {
+			c := license.DefaultServiceConfig.Override(cfg)
+			Expect(c.Grace).To(Equal(license.DefaultServiceConfig.Grace))
+			Expect(c.Rollback).To(Equal(license.DefaultServiceConfig.Rollback))
+			Expect(c.Validate()).To(Succeed())
+		})
+	})
+
+	Describe("Verify", func() {
+		It("should return the license a valid token carries", func() {
+			g := newLicense()
+			Expect(license.Verify(anchors, sign(g))).To(Equal(g))
+		})
+		It("should reject an unknown key", func() {
+			Expect(license.Verify(
+				license.Anchors{"other": anchors[keyID]}, sign(newLicense()),
+			)).Error().To(MatchError(license.ErrInvalid))
+		})
+		It("should reject a token signed under another algorithm", func() {
+			tk := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"v": 1})
+			tk.Header["kid"] = keyID
+			s := MustSucceed(tk.SignedString([]byte(anchors[keyID])))
+			Expect(license.Verify(anchors, s)).Error().
+				To(MatchError(license.ErrInvalid))
+		})
+		It("should reject a token signed by another key", func() {
+			_, other := MustSucceed2(ed25519.GenerateKey(rand.Reader))
+			s := MustSucceed(license.Sign(other, keyID, newLicense()))
+			Expect(license.Verify(anchors, s)).Error().
+				To(MatchError(license.ErrInvalid))
+		})
+		It("should reject garbage", func() {
+			Expect(license.Verify(anchors, "not a token")).Error().
+				To(MatchError(license.ErrInvalid))
+		})
+		It("should reject an unsupported claim set version", func() {
+			g := newLicense()
+			g.V = 2
+			Expect(license.Verify(anchors, sign(g))).Error().
+				To(MatchError(license.ErrInvalid))
+		})
+	})
+
+	Describe("Fingerprint", func() {
+		fingerprint := license.Fingerprint{"aaaa", "bbbb"}
+		DescribeTable(
+			"Covers",
+			func(scheme uint8, hashes []string, expected bool) {
+				Expect(fingerprint.Covers(scheme, hashes)).To(Equal(expected))
+			},
+			Entry("unbound", uint8(1), nil, true),
+			Entry(
+				"one hash of this fingerprint",
+				uint8(1),
+				[]string{"0000", "bbbb"},
+				true,
+			),
+			Entry("other machines only", uint8(1), []string{"0000"}, false),
+			Entry("another scheme", uint8(2), []string{"aaaa"}, false),
+		)
+	})
+
+	Describe("Open", func() {
+		It("should open missing when nothing is stored", func(ctx SpecContext) {
+			svc := open(ctx)
+			info := svc.Retrieve()
+			Expect(info.State).To(Equal(license.StateMissing))
+			Expect(info.License).To(BeNil())
+			Expect(svc.Check()).To(MatchError(license.ErrMissing))
+			Expect(svc.CheckOverflow(1000)).To(Succeed())
+		})
+		It(
+			"should accept a licenseToken on open and load it on the next",
+			func(ctx SpecContext) {
+				g := newLicense()
+				svc := open(ctx, license.ServiceConfig{Token: sign(g)})
+				Expect(svc.Retrieve().State).To(Equal(license.StateOK))
+				Expect(svc.Close()).To(Succeed())
+				svc = open(ctx)
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(license.StateOK))
+				Expect(*info.License).To(Equal(g))
+				Expect(svc.Check()).To(Succeed())
+			},
+		)
+		It(
+			"should fail to open on a licenseToken that does not verify",
+			func(ctx SpecContext) {
+				Expect(license.OpenService(ctx, cfg, license.ServiceConfig{
+					Token: "garbage",
+				})).Error().To(MatchError(license.ErrInvalid))
+			},
+		)
+		It("should remove the previous format's entry", func(ctx SpecContext) {
+			legacy := []byte("bGljZW5zZUtleQ==")
+			Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
+			svc := open(ctx)
+			Expect(svc.Close()).To(Succeed())
+			Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
+			expired := newLicense()
+			expired.Exp = seconds(now.Add(-100 * day))
+			svc := open(ctx)
+			Expect(svc.Apply(ctx, sign(newLicense()))).Error().To(Succeed())
+			Expect(svc.Close()).To(Succeed())
+			// Store the expired entry directly: Apply refuses it.
+			key := append([]byte("bGljZW5zZUtleQ==/"), expired.Jti.String()...)
+			Expect(db.Set(ctx, key, []byte(sign(expired)))).To(Succeed())
+			svc = open(ctx)
+			Expect(svc.Retrieve().State).To(Equal(license.StateOK))
+		})
+		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
+			g := newLicense()
+			svc := open(ctx, license.ServiceConfig{Token: sign(g)})
+			Expect(svc.Close()).To(Succeed())
+			later := now.Add(60 * day)
+			svc = open(ctx, license.ServiceConfig{
+				Now: func() time.Time { return later },
+			})
+			Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
+			Expect(svc.Check()).To(MatchError(license.ErrExpired))
+		})
+		It(
+			"should treat every entry as expired after a clock rollback",
+			func(ctx SpecContext) {
+				svc := open(ctx, license.ServiceConfig{Token: sign(newLicense())})
+				Expect(svc.Close()).To(Succeed())
+				earlier := now.Add(-2 * day)
+				svc = open(ctx, license.ServiceConfig{
+					Now: func() time.Time { return earlier },
+				})
+				info := svc.Retrieve()
+				Expect(info.State).To(Equal(license.StateExpired))
+				Expect(info.Warning).To(ContainSubstring("clock"))
+			},
+		)
+		It("should tolerate a clock inside the rollback window", func(ctx SpecContext) {
+			svc := open(ctx, license.ServiceConfig{Token: sign(newLicense())})
+			Expect(svc.Close()).To(Succeed())
+			earlier := now.Add(-time.Hour)
+			svc = open(ctx, license.ServiceConfig{
+				Now: func() time.Time { return earlier },
+			})
+			Expect(svc.Retrieve().State).To(Equal(license.StateOK))
+		})
+	})
+
+	Describe("Apply", func() {
+		var svc *license.Service
+		BeforeEach(func(ctx SpecContext) { svc = open(ctx) })
+
+		It("should accept a subscription before expiry", func(ctx SpecContext) {
+			info := MustSucceed(svc.Apply(ctx, sign(newLicense())))
+			Expect(info.State).To(Equal(license.StateOK))
+			Expect(info.Warning).To(BeEmpty())
+		})
+		It("should warn when expiry is near", func(ctx SpecContext) {
+			g := newLicense()
+			g.Exp = seconds(now.Add(2 * day))
+			info := MustSucceed(svc.Apply(ctx, sign(g)))
+			Expect(info.State).To(Equal(license.StateOK))
+			Expect(info.Warning).To(ContainSubstring("expires in"))
+		})
+		It(
+			"should accept a subscription inside the grace window",
+			func(ctx SpecContext) {
+				g := newLicense()
+				g.Exp = seconds(now.Add(-2 * day))
+				info := MustSucceed(svc.Apply(ctx, sign(g)))
+				Expect(info.State).To(Equal(license.StateOK))
+				Expect(info.Warning).To(ContainSubstring("grace"))
+			},
+		)
+		It("should refuse a subscription past the grace window", func(ctx SpecContext) {
+			g := newLicense()
+			g.Exp = seconds(now.Add(-20 * day))
+			Expect(svc.Apply(ctx, sign(g))).Error().
+				To(MatchError(license.ErrExpired))
+			Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
+		})
+		DescribeTable("should hold a perpetual license to its ceiling",
+			func(ctx SpecContext, ceiling string, expected error) {
+				g := newLicense()
+				g.Exp = nil
+				g.Mv = new(ceiling)
+				info, err := svc.Apply(ctx, sign(g))
+				if expected != nil {
+					Expect(err).To(MatchError(expected))
+					return
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(info.State).To(Equal(license.StateOK))
+				Expect(info.Warning).To(BeEmpty())
+			},
+			Entry("under", "0.62", nil),
+			Entry("at", "0.60", nil),
+			Entry("over", "0.59", license.ErrExpired),
+		)
+		It(
+			"should refuse a license with neither expiry nor ceiling",
+			func(ctx SpecContext) {
+				g := newLicense()
+				g.Exp = nil
+				Expect(svc.Apply(ctx, sign(g))).Error().
+					To(MatchError(license.ErrInvalid))
+			},
+		)
+		It("should refuse a ceiling that does not parse", func(ctx SpecContext) {
+			g := newLicense()
+			g.Mv = new("latest")
+			Expect(svc.Apply(ctx, sign(g))).Error().
+				To(MatchError(license.ErrInvalid))
+		})
+		It("should fall back to the ceiling past expiry", func(ctx SpecContext) {
+			g := newLicense()
+			g.Exp = seconds(now.Add(-100 * day))
+			g.Mv = new("0.62")
+			info := MustSucceed(svc.Apply(ctx, sign(g)))
+			Expect(info.State).To(Equal(license.StateOK))
+			Expect(info.Warning).To(ContainSubstring("subscription ended"))
+		})
+		It(
+			"should refuse a fallback whose ceiling is below this version",
+			func(ctx SpecContext) {
+				g := newLicense()
+				g.Exp = seconds(now.Add(-100 * day))
+				g.Mv = new("0.59")
+				Expect(svc.Apply(ctx, sign(g))).Error().
+					To(MatchError(license.ErrExpired))
+			},
+		)
+		It("should refuse a license bound to other machines", func(ctx SpecContext) {
+			g := newLicense()
+			g.Fingerprints = []string{"0000"}
+			Expect(svc.Apply(ctx, sign(g))).Error().
+				To(MatchError(license.ErrFingerprint))
+		})
+		It("should accept a license bound to this fingerprint", func(ctx SpecContext) {
+			fingerprint := svc.Retrieve().Fingerprint
+			if len(fingerprint) == 0 {
+				Skip("this machine has no hashable network interface")
+			}
+			g := newLicense()
+			g.Fingerprints = []string{"0000", fingerprint[len(fingerprint)-1]}
+			Expect(svc.Apply(ctx, sign(g))).Error().To(Succeed())
+		})
+		It("should refuse hashes from a scheme this Core does not implement", func(
+			ctx SpecContext,
+		) {
+			fingerprint := svc.Retrieve().Fingerprint
+			if len(fingerprint) == 0 {
+				Skip("this machine has no hashable network interface")
+			}
+			g := newLicense()
+			g.FingerprintScheme = 2
+			g.Fingerprints = []string{fingerprint[0]}
+			Expect(svc.Apply(ctx, sign(g))).Error().
+				To(MatchError(license.ErrFingerprint))
+		})
+		It("should reject an invalid token", func(ctx SpecContext) {
+			Expect(svc.Apply(ctx, "nope")).Error().
+				To(MatchError(license.ErrInvalid))
+		})
+		It("should enforce the channel cap", func(ctx SpecContext) {
+			g := newLicense()
+			g.Ch = 10
+			Expect(svc.Apply(ctx, sign(g))).Error().To(Succeed())
+			Expect(svc.CheckOverflow(10)).To(Succeed())
+			Expect(svc.CheckOverflow(11)).To(MatchError(license.ErrTooMany))
+		})
+		It("should not cap a license with a zero cap", func(ctx SpecContext) {
+			Expect(svc.Apply(ctx, sign(newLicense()))).Error().To(Succeed())
+			Expect(svc.CheckOverflow(1 << 19)).To(Succeed())
+		})
+	})
+})

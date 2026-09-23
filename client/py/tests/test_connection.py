@@ -17,17 +17,20 @@ import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
 from synnax.connection import Checker, CheckResponse, State, _versions_compatible
+from synnax.license.client import State as LicenseState
 from x.telem import TimeSpan, TimeStamp
 
 
 def _make_response(
     node_time: TimeStamp | None = None,
     node_version: str = "0.54.0",
+    license: LicenseState = "ok",
 ) -> CheckResponse:
     return CheckResponse(
         cluster_key="test-cluster",
         node_version=node_version,
         node_time=node_time or TimeStamp.now(),
+        license=license,
     )
 
 
@@ -148,6 +151,15 @@ class TestChecker:
         checker.stop()
         time.sleep(0.1)
         assert not checker._thread.is_alive()
+
+    def test_license_state_from_check(self) -> None:
+        """Should carry the license state the Core reports."""
+        mock = MockUnaryClient[None, CheckResponse](
+            responses=[_make_response(license="missing"), _make_response()]
+        )
+        checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
+        assert checker.state.license == "missing"
+        checker.stop()
 
     def test_version_incompatible(self) -> None:
         """Should report incompatible versions when major.minor differs."""

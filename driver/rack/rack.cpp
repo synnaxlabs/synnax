@@ -12,6 +12,7 @@
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/thread/thread.h"
 
+#include "driver/errors/errors.h"
 #include "rack.h"
 
 namespace driver::rack {
@@ -21,7 +22,7 @@ bool Rack::should_exit(
 ) {
     this->run_err = err;
     if (!err) return false;
-    const auto breaker_ok = err.matches(freighter::UNREACHABLE) && breaker.wait(err);
+    const auto breaker_ok = errors::core_unavailable(err) && breaker.wait(err);
     if (!breaker_ok && on_shutdown) on_shutdown();
     return !breaker_ok;
 }

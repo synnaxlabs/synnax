@@ -1,0 +1,61 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@go output "core/pkg/service/channel/license"
+@py output "client/py/synnax/license"
+@ts output "client/ts/src/license"
+
+License struct {
+    jti                uuid     {
+        @doc value "is the unique identifier of the license."
+    }
+    iat                uint32   {
+        @doc value "is when the license was issued, in seconds since the Unix epoch."
+    }
+    exp                uint32?  {
+        @doc value """
+            is when the license stops applying, in seconds since the Unix epoch. Absent
+            when it never stops applying on its own.
+        """
+    }
+    v                  uint8    {
+        @doc value "is the version of the claim set."
+    }
+    org                uuid     {
+        @doc value "is the organization the license belongs to."
+    }
+    ed                 string   {
+        @doc value "is the edition the license applies to."
+    }
+    fingerprints       string[] = [] {
+        @doc value """
+            is the set of machine fingerprints the license is bound to. Empty when the
+            license runs on any machine.
+        """
+    }
+    fingerprint_scheme uint8    {
+        @doc value "is the scheme that produced the fingerprints."
+    }
+    n                  uint32   {
+        @doc value "is how many machines may run under the license."
+    }
+    ch                 uint32   {
+        @doc value "is the channel cap per Core. Zero means unlimited."
+    }
+    mv                 string?  {
+        @doc value """
+            is the highest Core minor version the license covers, as "0.62". Absent
+            means any version.
+        """
+    }
+
+    @doc value """
+        is the signed set of claims a Core verifies.
+    """
+}

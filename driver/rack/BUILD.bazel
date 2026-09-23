@@ -37,6 +37,7 @@ cc_library(
     deps = [
         "//driver/arc",
         "//driver/common",
+        "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
         "//driver/labjack",
