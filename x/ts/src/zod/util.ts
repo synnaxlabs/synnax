@@ -34,8 +34,8 @@ export interface GetFieldSchemaOptions<
   /** Whether a path the schema does not contain returns null instead of throwing. */
   optional?: O;
   /**
-   * The document the path is read against. Selects the member of a discriminated union
-   * from the discriminator the document holds at that point in the path.
+   * The document the path is read against. Needed to resolve a path through a
+   * discriminated union.
    */
   values?: unknown;
 }
@@ -148,13 +148,14 @@ const walk = (
 /**
  * Finds the schema of the field at a dot-separated path.
  *
- * The walk descends through optional, default, nullable, pipe, and lazy wrappers, into
- * array elements and record values, and into the member of a discriminated union that
- * `values` selects, or the first member of a plain union that contains the path. A
- * `z.unknown()` or `z.any()` absorbs the rest of the path.
+ * A segment may name an object key, an array index or element key, a tuple index, or
+ * a record key. Wrappers such as optional, default, and pipe are transparent. Inside a
+ * discriminated union the member is chosen by the discriminator `values` holds there;
+ * inside a plain union, by the first member that contains the path. A `z.unknown()` or
+ * `z.any()` accepts any remaining path.
  *
  * @throws {Error} if the schema does not contain the path and `optional` is not set. A
- * discriminated union with no discriminator in `values` does not contain any path.
+ * discriminated union with no discriminator in `values` contains no path.
  */
 export const getFieldSchema: GetFieldSchema = ((
   schema: z.ZodType,
