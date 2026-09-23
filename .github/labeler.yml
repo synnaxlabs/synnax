@@ -22,10 +22,7 @@ console:
 driver:
   - changed-files:
       - any-glob-to-any-file:
-          - client/cpp/**
           - driver/**
-          - freighter/cpp/**
-          - x/cpp/**
 
 core:
   - changed-files:
@@ -41,6 +38,13 @@ arc:
   - changed-files:
       - any-glob-to-any-file:
           - arc/**
+
+cpp-client:
+  - changed-files:
+      - any-glob-to-any-file:
+          - client/cpp/**
+          - freighter/cpp/**
+          - x/cpp/**
 
 py-client:
   - changed-files:

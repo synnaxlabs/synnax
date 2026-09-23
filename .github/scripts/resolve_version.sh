@@ -17,6 +17,7 @@
 # release branch is never reissued. Candidates never set the base: a candidate counts up
 # from the candidates already tagged for the version, and promoting one repeats the same
 # bump. The train rule caps a product at one minor ahead of the Core's latest stable.
+# latest is true when no stable tag of the product outranks the result.
 
 set -euo pipefail
 
@@ -79,8 +80,15 @@ if [ "$PRERELEASE" = "true" ]; then
     VERSION="$NEXT-rc.$((${LAST_RC:-0} + 1))"
 fi
 
+# A hotfix on an old train must not become the product's latest release.
+ALL=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
+HIGHEST=$(printf '%s\n' "$ALL" "$NEXT" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+LATEST=false
+if [ "$HIGHEST" = "$NEXT" ]; then LATEST=true; fi
+
 echo "$PRODUCT $BASE -> $VERSION (bump $BUMP, core $CORE)" >&2
 echo "version=$VERSION"
 echo "tag=$PRODUCT/v$VERSION"
 echo "minor=$NEXT_MAJOR.$NEXT_MINOR"
 echo "previous_tag=$PRODUCT/v$BASE"
+echo "latest=$LATEST"
