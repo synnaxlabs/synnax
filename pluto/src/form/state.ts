@@ -157,13 +157,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     const nextValues = deep.copy(this.initialValues);
     this.statuses.clear();
     this.touched.clear();
-    const cachedRefsToClear = new Set<string>();
-    this.cachedRefs.forEach((_, path) => {
-      const prev = deep.get(this.values, path, { optional: true });
-      const next = deep.get(nextValues, path, { optional: true });
-      if (!deep.equal(prev, next)) cachedRefsToClear.add(path);
-    });
-    cachedRefsToClear.forEach((path) => this.cachedRefs.delete(path));
+    this.cachedRefs.clear();
     this.values = nextValues;
   }
 
@@ -292,6 +286,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   getState<V>(path: string, opts: GetOptions = {}): FieldState<V> | null {
     const { optional = false } = opts;
     const cachedRef = map.getOrSetDefault(this.cachedRefs, path, {}) as FieldState<V>;
+    if (cachedRef.status != null) return cachedRef;
     let value = deep.get<V, z.infer<Z>>(this.values, path, { optional: true });
     value ??= this.readAbsent(path) as V | null;
     let required = false;
@@ -327,9 +322,14 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return cachedRef;
   }
 
+  /**
+   * Drops the cached state of the path, its ancestors, and everything under its
+   * parent. A sibling can be the discriminator that decides the path's schema.
+   */
   private updateCachedRefs(fieldPath: string) {
+    const parent = fieldPath.slice(0, Math.max(fieldPath.lastIndexOf("."), 0));
     this.cachedRefs.forEach((_, refPath) => {
-      if (deep.pathsMatch(refPath, fieldPath) || deep.pathsMatch(fieldPath, refPath))
+      if (deep.pathsMatch(refPath, parent) || deep.pathsMatch(fieldPath, refPath))
         this.cachedRefs.set(refPath, {});
     });
   }

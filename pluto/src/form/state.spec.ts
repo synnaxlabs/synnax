@@ -639,6 +639,68 @@ describe("State", () => {
       expect(fieldState1).toBe(fieldState2);
     });
 
+    describe("memoization", () => {
+      const build = () => {
+        let checks = 0;
+        const schema = z.object({
+          tracked: z.unknown().check(() => {
+            checks++;
+          }),
+          other: z.string(),
+          config: z.discriminatedUnion("type", [
+            z.object({ type: z.literal("a"), value: z.number() }),
+            z.object({ type: z.literal("b"), value: z.string().optional() }),
+          ]),
+          nested: z.object({ leaf: z.string() }),
+        });
+        const values: z.infer<typeof schema> = {
+          tracked: 1,
+          other: "x",
+          config: { type: "a", value: 1 },
+          nested: { leaf: "l" },
+        };
+        return { state: new State(values, schema), checks: () => checks };
+      };
+
+      it("should not consult the schema again for an unchanged field", () => {
+        const { state, checks } = build();
+        state.getState("tracked");
+        state.getState("tracked");
+        expect(checks()).toBe(1);
+      });
+
+      it("should consult the schema again after the field changes", () => {
+        const { state, checks } = build();
+        state.getState("tracked");
+        state.setValue("tracked", 2);
+        expect(state.getState("tracked").value).toBe(2);
+        expect(checks()).toBe(2);
+      });
+
+      it("should refresh a field when a sibling discriminator changes", () => {
+        const { state } = build();
+        expect(state.getState("config.value").required).toBe(true);
+        state.setValue("config.type", "b");
+        expect(state.getState("config.value").required).toBe(false);
+      });
+
+      it("should refresh a child when its parent is replaced", () => {
+        const { state } = build();
+        state.getState("nested.leaf");
+        state.setValue("nested", { leaf: "m" });
+        expect(state.getState("nested.leaf").value).toBe("m");
+      });
+
+      it("should refresh every field on reset", () => {
+        const { state } = build();
+        state.setValue("other", "y");
+        state.setStatus("tracked", { key: "tracked", variant: "error", message: "e" });
+        state.reset();
+        expect(state.getState("other").touched).toBe(false);
+        expect(state.getState("tracked").status.variant).toBe("success");
+      });
+    });
+
     it("should update cached reference when field changes", () => {
       const state = new State(initialValues, basicSchema);
       const fieldState1 = state.getState("name");
