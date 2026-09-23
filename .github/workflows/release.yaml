@@ -205,6 +205,9 @@ jobs:
       ubuntu: true
       console: true
       console_tauri: true
+      # Synnax Desktop ships on the Console release and bundles the Core of this run.
+      core: true
+      desktop: true
       sign_binaries: true
       use_simple_artifact_names: true
       version: ${{ needs.resolve.outputs.console_version }}
@@ -248,6 +251,33 @@ jobs:
               }
             }' > latest.json
           gh release upload --clobber "$TAG" latest.json
+
+      - name: Write Synnax Desktop Updater Manifest
+        run: |
+          APP_VERSION="${VERSION/-rc./-}"
+          BASE="https://github.com/${GH_REPO}/releases/download/${TAG}"
+          gh release download "$TAG" --pattern 'Synnax-Desktop.app.tar.gz.sig' \
+            --pattern "Synnax-Desktop_${APP_VERSION}_x64_en-US.msi.sig"
+          jq -n --arg version "v${APP_VERSION}" --arg base "$BASE" \
+            --arg msi "Synnax-Desktop_${APP_VERSION}_x64_en-US.msi" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --rawfile darwin Synnax-Desktop.app.tar.gz.sig \
+            --rawfile windows "Synnax-Desktop_${APP_VERSION}_x64_en-US.msi.sig" \
+            '($base + "/Synnax-Desktop.app.tar.gz") as $mac | {
+              version: $version,
+              notes: "Synnax Desktop Update",
+              pub_date: $date,
+              platforms: {
+                "darwin-x86_64": {signature: $darwin, url: $mac},
+                "darwin-aarch64": {signature: $darwin, url: $mac},
+                "linux-x86_64": {
+                  signature: "not_supported_and_tauri_requires_an_entry",
+                  url: $mac
+                },
+                "windows-x86_64": {signature: $windows, url: ($base + "/" + $msi)}
+              }
+            }' > desktop-latest.json
+          gh release upload --clobber "$TAG" desktop-latest.json
 
       - name: Publish Release
         run: gh release edit "$TAG" --draft=false

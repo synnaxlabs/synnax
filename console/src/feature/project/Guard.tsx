@@ -9,8 +9,10 @@
 
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { Splash } from "@/feature/project/Splash";
+import { Splash, type SplashProps } from "@/feature/project/Splash";
 import { Session } from "@/session";
 
-export const Guard = ({ children }: PropsWithChildren): ReactNode =>
-  Session.Project.useSelectIsAnySelected() ? children : <Splash />;
+export interface GuardProps extends PropsWithChildren, SplashProps {}
+
+export const Guard = ({ children, ...rest }: GuardProps): ReactNode =>
+  Session.Project.useSelectIsAnySelected() ? children : <Splash {...rest} />;

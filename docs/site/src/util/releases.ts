@@ -34,6 +34,12 @@ export const assetURL = (product: Product, version: string, asset: string): stri
 export const manifestURL = (version: string): string =>
   assetURL("console", version, "latest.json");
 
+// Synnax Desktop ships on the Console release, so it takes a Console version and
+// differs only by asset name.
+/** Builds the URL of the Synnax Desktop updater manifest. */
+export const desktopManifestURL = (version: string): string =>
+  assetURL("console", version, "desktop-latest.json");
+
 interface Parsed {
   product: Product;
   version: string;

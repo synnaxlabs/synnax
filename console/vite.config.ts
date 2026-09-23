@@ -15,7 +15,10 @@ import * as path from "path";
 import { defineConfig, normalizePath, type Plugin } from "vite";
 
 const isDev = process.env.VITE_IS_DEV === "true";
+// Builds Synnax Desktop, the app that bundles and manages its own Core.
+const desktop = process.env.VITE_DESKTOP === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
+const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
 // the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
@@ -154,7 +157,7 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev },
+  define: { IS_DEV: isDev, DESKTOP: desktop },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so aether frames
@@ -166,7 +169,21 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["src/testutil/setuptests.ts"],
     testTimeout: 15_000,
-    exclude: ["**/node_modules/**", "**/dist/**"],
+    // DESKTOP is a build constant, so the specs of each build run as their own project.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "console",
+          exclude: ["**/node_modules/**", "**/dist/**", DESKTOP_SPECS],
+        },
+      },
+      {
+        extends: true,
+        define: { DESKTOP: true },
+        test: { name: "desktop", include: [DESKTOP_SPECS] },
+      },
+    ],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
