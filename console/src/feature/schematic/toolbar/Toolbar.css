@@ -20,8 +20,6 @@
 
 .console-schematic__properties {
     height: 100%;
-    /* Insets the node form's tab strip off the pane edge. */
-    padding: 1rem 0.75rem;
 }
 
 .console-schematic__properties-multi {
