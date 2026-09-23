@@ -10,7 +10,8 @@
 package label_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -64,7 +65,7 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
+			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil())))
 		})
 		It(
 			"Should return a validation error when the name is empty",
@@ -86,7 +87,7 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			for _, l := range ls {
-				Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
+				Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil())))
 			}
 		})
 	})

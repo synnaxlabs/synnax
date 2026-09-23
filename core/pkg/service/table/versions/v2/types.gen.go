@@ -12,7 +12,8 @@
 package v2
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -54,7 +55,7 @@ type Redline struct {
 	// Bounds is the numeric range mapped onto the gradient.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient,omitzero" msgpack:"gradient,omitzero"`
+	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
 }
 
 type CellConfigType string
@@ -80,7 +81,7 @@ type TextCellConfig struct {
 	Align FlexAlignment `json:"align" msgpack:"align"`
 	// BackgroundColor is the background color of the cell. When absent the theme picks
 	// the fill; a fully transparent value paints nothing.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	BackgroundColor *color.Color `json:"background_color,omitzero" msgpack:"background_color,omitempty"`
 }
 
 func (TextCellConfig) isCellConfigVariant() {}
@@ -117,17 +118,17 @@ type ValueCellConfig struct {
 	RollingAverage int32 `json:"rolling_average" msgpack:"rolling_average"`
 	// Precision is the number of decimal places shown. When absent the formatter picks
 	// the precision; zero shows whole numbers.
-	Precision *int32 `json:"precision,omitempty" msgpack:"precision,omitempty"`
+	Precision *int32 `json:"precision,omitzero" msgpack:"precision,omitempty"`
 	// Notation is the numeric notation used to format the value.
 	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the bounds-to-gradient mapping applied to the background. When absent
 	// the cell paints no redline.
-	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
+	Redline *Redline `json:"redline,omitzero" msgpack:"redline,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level text.Level `json:"level" msgpack:"level"`
 	// Color is the color of the displayed text. When absent the value renders with a
 	// theme-derived legible color.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
@@ -135,7 +136,7 @@ type ValueCellConfig struct {
 	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
 	// StalenessColor is the color applied when the value is stale. When absent the
 	// value renders with the theme warning color.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
+	StalenessColor *color.Color `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
 }
 
 func (ValueCellConfig) isCellConfigVariant() {}
@@ -173,58 +174,53 @@ type CellConfig struct {
 	Variant CellConfigVariant
 }
 
-// MarshalJSON encodes the active variant with its "variant" tag injected.
-func (u CellConfig) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t CellConfigType
-	switch u.Variant.(type) {
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u CellConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
 	case TextCellConfig:
-		t = TextCellConfigType
+		return json.MarshalEncode(enc, struct {
+			Type CellConfigType `json:"variant"`
+			TextCellConfig
+		}{Type: TextCellConfigType, TextCellConfig: v})
 	case ValueCellConfig:
-		t = ValueCellConfigType
+		return json.MarshalEncode(enc, struct {
+			Type CellConfigType `json:"variant"`
+			ValueCellConfig
+		}{Type: ValueCellConfigType, ValueCellConfig: v})
 	default:
-		return nil, errors.Newf("CellConfig: nil or unknown variant %T", u.Variant)
+		return errors.Newf("CellConfig: unknown variant %T", v)
 	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
 }
 
-// UnmarshalJSON decodes the variant selected by the "variant" field.
-func (u *CellConfig) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
 		u.Variant = nil
 		return nil
 	}
+	opts := dec.Options()
 	var disc struct {
 		Type CellConfigType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc); err != nil {
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case TextCellConfigType:
 		var v TextCellConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
 	case ValueCellConfigType:
 		var v ValueCellConfig
-		if err := json.Unmarshal(data, &v); err != nil {
+		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v
@@ -265,7 +261,7 @@ type Row struct {
 	Size float64 `json:"size" msgpack:"size"`
 	// Cells is the ordered list of cell keys in this row from left to right. Each key
 	// points at an entry in the table's cells map.
-	Cells []string `json:"cells,omitzero" msgpack:"cells,omitzero"`
+	Cells []string `json:"cells" msgpack:"cells"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -313,13 +309,13 @@ type Table struct {
 	// Name is a human-readable name for the table.
 	Name string `json:"name" msgpack:"name"`
 	// Rows are the table rows in display order, top to bottom.
-	Rows []Row `json:"rows,omitzero" msgpack:"rows,omitzero"`
+	Rows []Row `json:"rows" msgpack:"rows"`
 	// Columns are the table columns in display order, left to right.
-	Columns []Column `json:"columns,omitzero" msgpack:"columns,omitzero"`
+	Columns []Column `json:"columns" msgpack:"columns"`
 	// Cells contains all cells in the table, keyed by cell key. Cell positions are
 	// derived from rows[*].cells[*] references; cells not referenced by any row are
 	// orphaned and will be pruned on the next structural edit.
-	Cells map[string]CellConfig `json:"cells,omitzero" msgpack:"cells,omitzero"`
+	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

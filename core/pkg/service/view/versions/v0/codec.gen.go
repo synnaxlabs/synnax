@@ -12,7 +12,7 @@
 package v0
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 
 	"github.com/synnaxlabs/x/encoding/orc"
 )

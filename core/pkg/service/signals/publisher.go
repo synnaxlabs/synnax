@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -143,12 +144,14 @@ func (p *Provider) PublishFromObservable(
 	if deleteEnabled {
 		channels = append(channels, cfg.DeleteChannel)
 	}
-	if err = p.cfg.Channel.NewWriter(nil).CreateMany(
-		ctx,
-		&channels,
-		channel.RetrieveIfNameExists(),
-		channel.OverwriteIfNameExistsAndDifferentProperties(),
-	); err != nil {
+	if err = p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return p.cfg.Channel.NewWriter(tx).CreateMany(
+			ctx,
+			&channels,
+			channel.RetrieveIfNameExists(),
+			channel.OverwriteIfNameExistsAndDifferentProperties(),
+		)
+	}); err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)

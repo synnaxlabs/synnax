@@ -11,7 +11,7 @@ package v2
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"

@@ -11,7 +11,6 @@ package user
 
 import (
 	"context"
-	"go/types"
 	"sync"
 
 	"github.com/samber/lo"
@@ -115,12 +114,12 @@ func (s *Service) ChangeUsername(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ChangeUsernameRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	subject := auth.GetSubject(ctx)
 	if subject.Key == req.Key.String() {
-		return types.Nil{}, errors.New(
+		return struct{}{}, errors.New(
 			"you cannot change your own username through the user service",
 		)
 	}
@@ -128,23 +127,23 @@ func (s *Service) ChangeUsername(
 	if err := s.internal.NewRetrieve().
 		Where(user.MatchKeys(req.Key)).Entry(&u).
 		Exec(ctx, tx); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if u.Username == req.Username {
-		return types.Nil{}, nil
+		return struct{}{}, nil
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if err := s.internal.NewWriter(tx).
 		ChangeUsername(ctx, req.Key, req.Username); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.auth.NewWriter(tx).
+	return struct{}{}, s.auth.NewWriter(tx).
 		UpdateUsername(ctx, u.Username, req.Username)
 }
 
@@ -159,7 +158,7 @@ func (s *Service) ChangePassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ChangePasswordRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -167,15 +166,15 @@ func (s *Service) ChangePassword(
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	var u user.User
 	if err := s.internal.NewRetrieve().
 		Where(user.MatchKeys(req.Key)).Entry(&u).
 		Exec(ctx, tx); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.auth.NewWriter(tx).ChangePassword(ctx, svcauth.Credentials{
+	return struct{}{}, s.auth.NewWriter(tx).ChangePassword(ctx, svcauth.Credentials{
 		Username: u.Username,
 		Password: req.Password,
 	})
@@ -193,15 +192,15 @@ func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	req RenameRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).
+	return struct{}{}, s.internal.NewWriter(tx).
 		ChangeName(ctx, req.Key, req.FirstName, req.LastName)
 }
 
@@ -211,7 +210,7 @@ type (
 		Usernames []string   `json:"usernames" msgpack:"usernames"`
 	}
 	RetrieveResponse struct {
-		Users []user.User `json:"users,omitzero" msgpack:"users,omitzero"`
+		Users []user.User `json:"users" msgpack:"users"`
 	}
 )
 
@@ -250,7 +249,7 @@ func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -258,7 +257,7 @@ func (s *Service) Delete(
 		Action:  access.ActionDelete,
 		Objects: user.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	// Look up the usernames of the keys that actually exist so we can deactivate the
 	// matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any key is
@@ -270,16 +269,16 @@ func (s *Service) Delete(
 		Where(user.MatchKeys(req.Keys...)).
 		Entries(&toDelete).
 		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
-		return types.Nil{}, err
+		return struct{}{}, err
 	}
 	if len(toDelete) == 0 {
-		return types.Nil{}, nil
+		return struct{}{}, nil
 	}
 	usernames := lo.Map(toDelete, func(u user.User, _ int) string {
 		return u.Username
 	})
-	return types.Nil{}, s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
+	return struct{}{}, s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
 }

@@ -11,13 +11,13 @@ package task_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"maps"
 	"slices"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -30,6 +30,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -80,6 +81,7 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
+		db            *gorp.DB
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
@@ -90,6 +92,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := mock.NewNode(ctx)
+		db = node.DB
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -120,10 +123,16 @@ var _ = Describe("Task", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
-		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  node.Framer,
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:      node.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
@@ -134,14 +143,18 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 	})
 
-	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
-		return MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+	newFactoryWith := func(
+		getModule func(context.Context, uuid.UUID) (svcarc.Arc, error),
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
+		return MustSucceed(arctask.NewFactory(append([]arctask.FactoryConfig{{
+			DB:         db,
 			Channel:    channelSvc,
 			Framer:     framerSvc,
 			Status:     statusSvc,
 			GetProgram: getModule,
 			Ranger:     rangerSvc,
-		}))
+		}}, cfgs...)...))
 	}
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
@@ -163,7 +176,11 @@ var _ = Describe("Task", Ordered, func() {
 		)
 	}
 
-	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
+	newTextFactory := func(
+		ctx context.Context,
+		prof arc.Text,
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, slices.Concat(
@@ -179,7 +196,7 @@ var _ = Describe("Task", Ordered, func() {
 				Text:    prof,
 				Program: &module,
 			}, nil
-		})
+		}, cfgs...)
 	}
 
 	configToMap := func(cfg arctask.Config) map[string]any {
@@ -208,7 +225,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	createVirtualCh := func(ctx context.Context, prefix string, dataType telem.DataType) *channel.Channel {
 		ch := &channel.Channel{
-			Name:     prefix + "_" + uuid.NewString()[:8],
+			Name:     prefix + "_" + uuid.New().String()[:8],
 			Virtual:  true,
 			DataType: dataType,
 		}
@@ -289,6 +306,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should return ErrTaskNotHandled for non-Arc task types",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:      db,
 					Channel: channelSvc,
 					Framer:  framerSvc,
 					Status:  statusSvc,
@@ -320,6 +338,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -337,6 +356,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -374,6 +394,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -393,12 +414,13 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
+			Expect(stat.Message).To(ContainSubstring("invalid uuid"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -426,7 +448,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write no status for a successful configure driven by a command",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "config_status_test_ch_" + uuid.NewString()[:8],
+					Name:     "config_status_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -454,7 +476,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should attribute a start acknowledgment to the command and name it",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "start_ack_test_ch_" + uuid.NewString()[:8],
+					Name:     "start_ack_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -490,7 +512,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should auto-start task and set running status when auto_start is true",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "auto_start_test_ch_" + uuid.NewString()[:8],
+					Name:     "auto_start_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -524,7 +546,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a terminal status when stopped silently",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "silent_stop_test_ch_" + uuid.NewString()[:8],
+					Name:     "silent_stop_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -557,6 +579,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -582,6 +605,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -607,6 +631,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write an error status when GetProgram fails at boot with auto-start",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -638,7 +663,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when configured successfully at boot",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
-					Name:     "boot_silent_test_ch_" + uuid.NewString()[:8],
+					Name:     "boot_silent_test_ch_" + uuid.New().String()[:8],
 					Virtual:  true,
 					DataType: telem.Float32T,
 				}
@@ -664,7 +689,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should auto-start at boot when auto_start is true", func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     "boot_auto_start_test_ch_" + uuid.NewString()[:8],
+				Name:     "boot_auto_start_test_ch_" + uuid.New().String()[:8],
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
@@ -697,11 +722,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 				Ranger:     rangerSvc,
+				Now:        telem.Now,
 			}
 		}
 
@@ -717,6 +744,11 @@ var _ = Describe("Task", Ordered, func() {
 					clear(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
+				Entry(
+					"db",
+					func(c *arctask.FactoryConfig) { c.DB = nil },
+					"db",
+				),
 				Entry(
 					"channel",
 					func(c *arctask.FactoryConfig) { c.Channel = nil },
@@ -754,6 +786,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Status).To(BeIdenticalTo(src.Status))
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
+				Expect(merged.Now).ToNot(BeNil())
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -772,7 +805,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			ch := &channel.Channel{
-				Name:     "lifecycle_test_ch_" + uuid.NewString()[:8],
+				Name:     "lifecycle_test_ch_" + uuid.New().String()[:8],
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
@@ -966,7 +999,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Sequence with consecutive status.set steps", func() {
 		It("Should advance through every status.set step", func(ctx SpecContext) {
 			trig := createVirtualCh(ctx, "seq_status_trig", telem.Uint8T)
-			base := "seq_status_" + uuid.NewString()[:8]
+			base := "seq_status_" + uuid.New().String()[:8]
 			prog := arc.Text{Raw: fmt.Sprintf(`
 				import status
 
@@ -1031,7 +1064,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should create exactly one status for an untriggered status.set in a stage",
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "entry_status_trig", telem.Uint8T)
-				name := "entry_status_" + uuid.NewString()[:8]
+				name := "entry_status_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1093,7 +1126,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should create exactly one range for an untriggered ranges.create in a stage",
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "entry_range_trig", telem.Uint8T)
-				name := "entry_range_" + uuid.NewString()[:8]
+				name := "entry_range_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1154,7 +1187,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_status_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_status_out", telem.StringT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1218,7 +1251,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "route_status_var_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_status_var_data", telem.BooleanT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1294,7 +1327,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_status_alias_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_status_alias_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_status_alias_out", telem.StringT)
-				name := "press_high_" + uuid.NewString()[:8]
+				name := "press_high_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
@@ -1369,7 +1402,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_range_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1434,7 +1467,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "route_range_var_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_var_data", telem.BooleanT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1511,7 +1544,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_alias_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_alias_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_alias_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1586,7 +1619,7 @@ var _ = Describe("Task", Ordered, func() {
 			func(ctx SpecContext) {
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1650,7 +1683,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				probe := createVirtualCh(ctx, "route_range_val_probe", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1726,7 +1759,7 @@ var _ = Describe("Task", Ordered, func() {
 				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)
 				data := createVirtualCh(ctx, "route_range_val_data", telem.BooleanT)
 				out := createVirtualCh(ctx, "route_range_val_out", telem.StringT)
-				name := "overpressure_" + uuid.NewString()[:8]
+				name := "overpressure_" + uuid.New().String()[:8]
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
@@ -1807,15 +1840,25 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
-				dupName := "dup_alarm_" + uuid.NewString()[:8]
-				w := statusSvc.NewWriter(nil)
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "first", Time: telem.Now(),
-				})).To(Succeed())
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
-					Message: "second", Time: telem.Now(),
+				dupName := "dup_alarm_" + uuid.New().String()[:8]
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := statusSvc.NewWriter(tx)
+					if err := w.Set(ctx, &status.Status[any]{
+						Key:     uuid.New().String(),
+						Name:    dupName,
+						Variant: status.VariantInfo,
+						Message: "first",
+						Time:    telem.Now(),
+					}); err != nil {
+						return err
+					}
+					return w.Set(ctx, &status.Status[any]{
+						Key:     uuid.New().String(),
+						Name:    dupName,
+						Variant: status.VariantInfo,
+						Message: "second",
+						Time:    telem.Now(),
+					})
 				})).To(Succeed())
 
 				reportNodes, reportConfigs := buildGraphNodes(
@@ -1888,13 +1931,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Interval Timing", func() {
 		It("Should fire intervals without any streaming data", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
-				Name:     "interval_idx_" + uuid.NewString()[:8],
+				Name:     "interval_idx_" + uuid.New().String()[:8],
 				IsIndex:  true,
 				DataType: telem.TimestampT,
 			}
 			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
-				Name:       "interval_data_" + uuid.NewString()[:8],
+				Name:       "interval_data_" + uuid.New().String()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
@@ -1942,13 +1985,13 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should stamp wall-clock index timestamps for interval -> channel flows",
 			func(ctx SpecContext) {
 				idxCh := &channel.Channel{
-					Name:     "timer_wall_idx_" + uuid.NewString()[:8],
+					Name:     "timer_wall_idx_" + uuid.New().String()[:8],
 					IsIndex:  true,
 					DataType: telem.TimestampT,
 				}
 				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
 				dataCh := &channel.Channel{
-					Name:       "timer_wall_data_" + uuid.NewString()[:8],
+					Name:       "timer_wall_data_" + uuid.New().String()[:8],
 					LocalIndex: idxCh.LocalKey,
 					DataType:   telem.Uint8T,
 				}
@@ -2001,6 +2044,61 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(len(persisted)).To(BeNumerically(">=", 3))
 				for _, ts := range persisted {
 					Expect(ts).To(BeNumerically(">=", wallStart))
+				}
+			})
+
+		It("Should resume the clock above stamps forwarded into an index",
+			func(ctx SpecContext) {
+				src := createVirtualCh(ctx, "stepped_src", telem.Int64T)
+				idxCh := &channel.Channel{
+					Name:     "stepped_idx_" + uuid.New().String()[:8],
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}
+				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				dataCh := &channel.Channel{
+					Name:       "stepped_data_" + uuid.New().String()[:8],
+					LocalIndex: idxCh.LocalKey,
+					DataType:   telem.Int64T,
+				}
+				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, dataCh.Name)}
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{idxCh.Key()}, 10,
+				)
+				defer closeStreamer()
+
+				stepped := telem.Now().Add(telem.Hour)
+				t := newTask(ctx, newTextFactory(ctx, prog, arctask.FactoryConfig{
+					Now: func() telem.TimeStamp { return stepped },
+				}))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{src.Key()},
+					Start: telem.Now(),
+				}))
+				for range 2 {
+					Expect(w.Write(frame.NewUnary(
+						src.Key(), telem.NewSeriesV[int64](1, 2, 3),
+					))).To(BeTrue())
+				}
+				Expect(w.Close()).To(Succeed())
+
+				var streamed []telem.TimeStamp
+				for len(streamed) < 6 {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(idxCh.Key()).Series {
+						streamed = append(
+							streamed, ser.Unmarshal[telem.TimeStamp]()...,
+						)
+					}
+				}
+				Expect(streamed).To(HaveLen(6))
+				for i := 1; i < len(streamed); i++ {
+					Expect(streamed[i]).To(BeNumerically(">", streamed[i-1]))
 				}
 			})
 
@@ -2340,13 +2438,13 @@ var _ = Describe("Task", Ordered, func() {
 				create: func(ctx context.Context, prefix string) writeCh {
 					GinkgoHelper()
 					idx := &channel.Channel{
-						Name:     prefix + "_time_" + uuid.NewString()[:8],
+						Name:     prefix + "_time_" + uuid.New().String()[:8],
 						IsIndex:  true,
 						DataType: telem.TimestampT,
 					}
 					Expect(channelWriter.Create(ctx, idx)).To(Succeed())
 					ch := &channel.Channel{
-						Name:       prefix + "_" + uuid.NewString()[:8],
+						Name:       prefix + "_" + uuid.New().String()[:8],
 						LocalIndex: idx.LocalKey,
 						DataType:   telem.Uint8T,
 					}
@@ -3423,7 +3521,7 @@ var _ = Describe("Task", Ordered, func() {
 		// while-watching entry covers the injection ordering after entry.
 		DescribeTable("fires channel-triggered transitions across writer sessions",
 			func(ctx SpecContext, rogueSessions int, roguesAfterEntry bool) {
-				suffix := uuid.NewString()[:8]
+				suffix := uuid.New().String()[:8]
 				idxCh := &channel.Channel{
 					Name:     "trig_align_idx_" + suffix,
 					IsIndex:  true,
