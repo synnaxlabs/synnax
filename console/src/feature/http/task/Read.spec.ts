@@ -305,7 +305,7 @@ describe("Read", () => {
     });
   });
 
-  it("should follow an endpoint path edit to the channel the new path maps", async () => {
+  it("should follow a path edit to the channel the new path maps, or to none", async () => {
     const dev = await createHTTPDevice(client);
     const idxCh = await client.channels.create({
       name: uniqueName("http_idx"),
@@ -343,15 +343,19 @@ describe("Read", () => {
     );
     await renderRead({ client, taskKey: draft.key });
     await screen.findByText(dataCh.name);
+    const savedChannel = async () =>
+      (
+        await client.tasks.retrieve({
+          key: draft.key,
+          schemas: HTTP.Task.READ_SCHEMAS,
+        })
+      ).config.endpoints[0].fields[0].channel;
     commitFieldInput(screen.getByDisplayValue("/data"), "/other");
     await screen.findByText(otherCh.name);
-    await waitFor(async () => {
-      const saved = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: HTTP.Task.READ_SCHEMAS,
-      });
-      expect(saved.config.endpoints[0].fields[0].channel).toBe(otherCh.key);
-    });
+    await waitFor(async () => expect(await savedChannel()).toBe(otherCh.key));
+    commitFieldInput(screen.getByDisplayValue("/other"), "/none");
+    await waitFor(async () => expect(await savedChannel()).toBe(0));
+    expect(screen.queryByText(otherCh.name)).toBeNull();
   });
 
   it("should reuse channels already stored on the device instead of creating new ones", async () => {

@@ -208,8 +208,9 @@ const FieldBinder = ({ epKey }: FieldListProps) => {
   const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
   const resolve = useCallback(
     (field: ReadField) => {
-      const props = dev?.properties.read[epPath];
-      if (props == null) return null;
+      if (dev == null) return null;
+      const props = dev.properties.read[epPath];
+      if (props == null) return { channel: 0 };
       return {
         channel:
           field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
