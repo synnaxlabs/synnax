@@ -95,7 +95,12 @@ const main = async (): Promise<void> => {
 
   if (values["capture-only"]) return;
 
-  const outputLocation = path.join(outDir, `video-${theme}.mp4`);
+  // Name the video after the out path's last segment, beside its capture
+  // directory: `--out .../client/ranges/create` writes create-<theme>.mp4.
+  const outputLocation = path.join(
+    path.dirname(outDir),
+    `${path.basename(outDir)}-${theme}.mp4`,
+  );
   console.log(`rendering ${timeline.meta.frames} frames...`);
   await runRender({
     timeline,

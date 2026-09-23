@@ -58,17 +58,9 @@ export default manifest.define([
   { id: "console/channels/create_new", script: "scripts/channels-create.ts" },
   { id: "console/channels/alias", script: "scripts/channels-alias.ts" },
   {
-    id: "console/calculated-channels/create",
-    script: "scripts/calculated-channels-create.ts",
+    id: "console/calculated-channels/create-and-edit",
+    script: "scripts/calculated-channels-create-and-edit.ts",
   },
-  {
-    id: "console/calculated-channels/edit",
-    script: "scripts/calculated-channels-edit.ts",
-  },
-  { id: "console/ranges/palette-create", script: "scripts/ranges-palette-create.ts" },
-  { id: "console/ranges/resources", script: "scripts/ranges-resources.ts" },
-  { id: "console/ranges/explorer", script: "scripts/ranges-explorer.ts" },
-  { id: "console/ranges/palette", script: "scripts/ranges-palette.ts" },
   { id: "console/ranges/create-child", script: "scripts/ranges-create-child.ts" },
   { id: "console/ranges/add-meta-data", script: "scripts/ranges-add-meta-data.ts" },
   { id: "console/ranges/add-label", script: "scripts/ranges-add-label.ts" },
@@ -79,7 +71,6 @@ export default manifest.define([
     id: "console/users/modal-change-role",
     script: "scripts/users-modal-change-role.ts",
   },
-  { id: "console/ranges/plot-create", script: "scripts/ranges-plot-create.ts" },
   {
     id: "control/arc/get-started/create-automation",
     script: "scripts/arc-create-automation.ts",

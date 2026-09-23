@@ -68,7 +68,11 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     const { CaptureSession } = await import("@/capture/rig");
     const mod = (await import(path.resolve(opts.scriptPath))) as {
       default: VideoScript;
+      /** Script-local capture size; the --width/--height flags win over it. */
+      viewport?: { width: number; height: number };
     };
+    const width = opts.width ?? mod.viewport?.width;
+    const height = opts.height ?? mod.viewport?.height;
     const session = await CaptureSession.launch({
       url: opts.url,
       outDir: opts.outDir,
@@ -76,8 +80,8 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
       corePort: port,
       headed: opts.headed ?? false,
       hideCaret: opts.hideCaret ?? false,
-      ...(opts.width != null && { width: opts.width }),
-      ...(opts.height != null && { height: opts.height }),
+      ...(width != null && { width }),
+      ...(height != null && { height }),
       ...(opts.dsf != null && { dsf: opts.dsf }),
     });
     let timeline: Timeline;
