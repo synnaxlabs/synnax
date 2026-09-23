@@ -38,10 +38,10 @@ lowers it.
 the code around it, against the `CLAUDE.md` principles, the tests, and the docs. **Tier
 2**: The reviewer reads the changed surface and its tests, and confirms a stored shape
 change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
-reads it. A workflow change stays here however much it rewires a job, because none of it
-reaches a customer; one that changes how a shipped artifact is built, signed, or
-published takes the tier of that artifact. A fix that turns out to change behavior gets
-its tier raised.
+reads it. A CI change stays here however much it rewires a job, because none of it
+reaches a customer; a workflow, action, or script that changes how a shipped artifact is
+built, signed, or published takes the tier of that artifact. A fix that turns out to
+change behavior gets its tier raised.
 
 The `Review gate` status, required on `main` with `Greptile Review`, stays pending until
 the PR has one tier label and, for Tier 1 or 2, an approval from a human other than the
