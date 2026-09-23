@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -32,15 +32,17 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   );
 };
 
-const renderTelemetryTab = () => {
+const renderTab = (tab: string) => {
   const result = render(
     <FormWrapper>
       <ValueForm onVariantChange={vi.fn()} />
     </FormWrapper>,
   );
-  fireEvent.click(result.getByText("Telemetry"));
+  fireEvent.click(result.getByText(tab));
   return result;
 };
+
+const renderTelemetryTab = () => renderTab("Telemetry");
 
 describe("ValueForm", () => {
   describe("telemetry tab", () => {
@@ -61,6 +63,17 @@ describe("ValueForm", () => {
       fireEvent.change(input!, { target: { value: "7" } });
       fireEvent.blur(input!);
       expect(methods.get<number>("rollingAverage").value).toBe(7);
+    });
+  });
+
+  describe("redline tab", () => {
+    it("should materialize the redline for a cell that carries none", async () => {
+      const { getByText } = renderTab("Redline");
+      await waitFor(() => expect(getByText("Lower")).toBeDefined());
+      expect(methods.value().redline).toEqual({
+        bounds: { lower: 0, upper: 1 },
+        gradient: [],
+      });
     });
   });
 });

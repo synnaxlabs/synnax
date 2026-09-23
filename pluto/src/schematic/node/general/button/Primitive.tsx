@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/button/button.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -21,15 +22,7 @@ import { Button as Base } from "@/button";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/button/config";
 import { Triggers } from "@/triggers";
-
-interface ButtonProps extends Omit<Config, "variant"> {
-  className?: string;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-  onMouseDown?: MouseEventHandler<HTMLButtonElement>;
-  onMouseUp?: MouseEventHandler<HTMLButtonElement>;
-}
 
 // A context menu swallows a secondary press's release, so momentary would stay pressed.
 const primaryOnly = (
@@ -40,6 +33,20 @@ const primaryOnly = (
     : (e) => {
         if (e.button === Triggers.MOUSE_LEFT_NUMBER) handler(e);
       };
+
+interface ButtonProps extends Partial<
+  Pick<
+    schematic.ButtonNodeConfig,
+    "orientation" | "size" | "level" | "mode" | "onClickDelay"
+  >
+> {
+  label?: schematic.ButtonNodeConfig["label"];
+  color?: color.Crude;
+  className?: string;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+  onMouseDown?: MouseEventHandler<HTMLButtonElement>;
+  onMouseUp?: MouseEventHandler<HTMLButtonElement>;
+}
 
 export const Button = ({
   onClick,

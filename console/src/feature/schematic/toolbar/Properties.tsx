@@ -30,7 +30,6 @@ import {
   type dimensions,
   type direction,
   location,
-  type record,
   type text,
   xy,
 } from "@synnaxlabs/x";
@@ -180,9 +179,11 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const configActions = (
     updates: Iterable<[string, Partial<Schematic.ElementConfig>]>,
   ): schematic.Action[] =>
-    Array.from(updates, ([elKey, next]) => {
-      const existing = (configByKey.get(elKey) ?? {}) as record.Unknown;
-      return schematic.setConfig({ key: elKey, config: { ...existing, ...next } });
+    Array.from(updates).flatMap(([elKey, next]) => {
+      const existing = configByKey.get(elKey);
+      if (existing == null) return [];
+      const config = { ...existing, ...next } as Schematic.ElementConfig;
+      return schematic.setConfig({ key: elKey, config });
     });
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;

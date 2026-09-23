@@ -89,6 +89,20 @@ func NewEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
 	transform func(context.Context, I) (O, error),
 ) migrate.Migration {
+	return NewInstrumentedEntryMigration(
+		key,
+		func(ctx context.Context, old I, _ alamos.Instrumentation) (O, error) {
+			return transform(ctx, old)
+		},
+	)
+}
+
+// NewInstrumentedEntryMigration is NewEntryMigration for a transform that reports
+// through the runner's instrumentation, such as one that must log a lossy step.
+func NewInstrumentedEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
+	key string,
+	transform func(context.Context, I, alamos.Instrumentation) (O, error),
+) migrate.Migration {
 	return NewMigration(
 		key,
 		func(ctx context.Context, tx Tx, ins alamos.Instrumentation) (err error) {
@@ -109,7 +123,7 @@ func NewEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
 				if err = iter.Error(); err != nil {
 					return err
 				}
-				newEntry, err = transform(ctx, *old)
+				newEntry, err = transform(ctx, *old, ins)
 				if err != nil {
 					return errors.Wrapf(err, "entry %v (transform)", (*old).GorpKey())
 				}

@@ -9,14 +9,17 @@
 
 import "@/schematic/node/general/gauge/gauge.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { type Config } from "@/schematic/node/general/gauge/config";
 import { Text } from "@/text";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<
+  schematic.GaugeNodeConfig,
+  "variant" | "label" | "scale"
+> {
   className?: string;
 }
 
@@ -41,10 +44,9 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
     A ${radius} ${radius} 0 ${valueAngle - 135 > 180 ? 1 : 0} 1 ${centerX + radius * Math.cos(valueEndAngle)} ${centerY + radius * Math.sin(valueEndAngle)}
   `;
 
-  const symbolColor = color.rgbaString(c);
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: symbolColor }),
-    [symbolColor],
+    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(c) }),
+    [c],
   );
 
   return (
