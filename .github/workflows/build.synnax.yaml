@@ -1240,4 +1240,3 @@ jobs:
           max_attempts: 3
           shell: bash
           command: gh release upload --clobber "$RELEASE_TAG" desktop-bundles/*
-
