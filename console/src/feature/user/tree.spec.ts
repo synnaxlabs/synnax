@@ -43,6 +43,7 @@ describe("user ontology service", () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, u.username)]);
     expect(await screen.findByText("Change username")).toBeTruthy();
+    expect(screen.getByText("Change password")).toBeTruthy();
     expect(screen.getByText("Change role")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
     expect(screen.getByText("Copy properties")).toBeTruthy();
@@ -59,6 +60,7 @@ describe("user ontology service", () => {
     await renderMenu([userResource(u.key, "synnax")]);
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Change username")).toBeNull();
+    expect(screen.queryByText("Change password")).toBeNull();
     expect(screen.queryByText("Change role")).toBeNull();
   });
 
@@ -75,6 +77,26 @@ describe("user ontology service", () => {
     await clickAndSettle("Change role");
     expect(await screen.findByText(u.username)).toBeTruthy();
     expect(findModalButton("Assign")).toBeTruthy();
+  });
+
+  it("should change the selected user's password through the modal", async () => {
+    const u = await createUser();
+    await renderMenu([userResource(u.key, u.username)]);
+    await clickAndSettle("Change password");
+    expect(await screen.findByText(u.username)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "rotated12345" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm password"), {
+      target: { value: "rotated12345" },
+    });
+    fireEvent.click(findModalButton("Change"));
+    await waitFor(() => expect(screen.queryByText("New password")).toBeNull());
+    const asUser = createTestClient({
+      username: u.username,
+      password: "rotated12345",
+    });
+    await expect(asUser.connect()).resolves.toBeDefined();
   });
 
   it("should delete the user on the Core after confirmation", async () => {
@@ -115,6 +137,7 @@ describe("permission to write the user", () => {
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
+    expect(screen.queryByText("Change password")).toBeNull();
     expect(screen.queryByText("Change Role")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
   });

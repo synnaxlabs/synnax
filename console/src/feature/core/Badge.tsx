@@ -52,6 +52,7 @@ const Content = (): ReactElement => {
   const core = Session.Core.useSelectSelected();
   const copy = Clipboard.useCopy();
   const openConnect = Core.useConnectModal();
+  const openChangePassword = User.useChangeOwnPasswordModal();
   const handleLogout = Session.useLogout();
   const { close } = Dialog.useContext();
   const degraded =
@@ -64,6 +65,10 @@ const Content = (): ReactElement => {
     if (activeKey == null) return;
     close();
     openConnect({ coreKey: activeKey });
+  };
+  const changePassword = (): void => {
+    close();
+    openChangePassword();
   };
   return (
     <>
@@ -149,17 +154,29 @@ const Content = (): ReactElement => {
             <Connection.Retry variant="filled" size="small" grow justify="center" />
           )}
           {activeKey != null && (
-            <Button.Button
-              onClick={handleLogout}
-              variant="filled"
-              status="error"
-              size="small"
-              grow
-              justify="center"
-            >
-              <Icon.Logout />
-              Log out
-            </Button.Button>
+            <>
+              <Button.Button
+                onClick={changePassword}
+                variant="outlined"
+                size="small"
+                grow
+                justify="center"
+              >
+                <Icon.Lock />
+                Change password
+              </Button.Button>
+              <Button.Button
+                onClick={handleLogout}
+                variant="filled"
+                status="error"
+                size="small"
+                grow
+                justify="center"
+              >
+                <Icon.Logout />
+                Log out
+              </Button.Button>
+            </>
           )}
         </Flex.Box>
       )}

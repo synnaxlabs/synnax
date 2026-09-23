@@ -44,6 +44,21 @@ const useRename = ({
   );
 };
 
+const useChangePassword = (): ((props: Tree.ContextMenuProps) => void) => {
+  const openChangePassword = PlatformUser.useChangePasswordModal();
+
+  return useCallback(
+    ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
+      const resource = getResource(ids[0]);
+      openChangePassword({
+        userKey: ids[0].key,
+        title: ["Password", "Change", resource.name],
+      });
+    },
+    [openChangePassword],
+  );
+};
+
 const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   const openAssignRole = PlatformUser.useAssignRoleModal();
 
@@ -67,6 +82,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
+  const handleChangePassword = useChangePassword();
   const singleResource = ids.length === 1;
   const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
   const isRootUser = getResource(ids[0]).data?.root_user === true;
@@ -78,6 +94,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Menu.Item itemKey="rename" onClick={rename}>
             <Icon.Rename />
             Change username
+          </Menu.Item>
+          <Menu.Item
+            itemKey="changePassword"
+            onClick={() => handleChangePassword(props)}
+          >
+            <Icon.Lock />
+            Change password
           </Menu.Item>
           {!isRootUser && (
             <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>

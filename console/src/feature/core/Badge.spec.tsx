@@ -103,6 +103,24 @@ describe("Core.Badge", () => {
     expect(screen.queryByText("Log out")).toBeNull();
   });
 
+  it("should close the dialog and open the password modal from the actions row", async () => {
+    const { wrapper } = await createConsoleWrapper({
+      client: null,
+      preloadedState: createStateWithUser("Core-user"),
+    });
+    const { container } = render(
+      <Triggers.Provider>
+        <Core.Badge />
+        <Modals.Stack />
+      </Triggers.Provider>,
+      { wrapper },
+    );
+    clickCoreBadge(container);
+    fireEvent.click(await screen.findByText("Change password"));
+    expect(await screen.findByLabelText("New password")).toBeTruthy();
+    expect(screen.queryByText("Log out")).toBeNull();
+  });
+
   it("should log out of the active Core when Log out is clicked", async () => {
     const { container, store } = await renderWithConsole(<Core.Badge />, {
       preloadedState: createStateWithUser("Core-user"),

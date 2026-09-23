@@ -10,6 +10,7 @@
 package user_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"uuid"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -37,6 +39,15 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", u.OntologyID())
 	return fctx, u
+}
+
+// exclusiveWriteTx runs f in a transaction while holding the auth service's credential
+// lock, the shape every credential route is bound with. The commit happens inside the
+// lock: a lock released when the handler returns still leaves the window between the
+// last write and the commit open to an interleaving rename.
+func exclusiveWriteTx(ctx context.Context, f func(tx gorp.Tx) error) error {
+	GinkgoHelper()
+	return authSvc.Exclusive(func() error { return db.WithTx(ctx, f) })
 }
 
 var _ = Describe("Service", func() {
@@ -411,8 +422,8 @@ var _ = Describe("Service", func() {
 			"Should keep the password under the new username when a rename races it",
 			func(ctx SpecContext) {
 				// Both mutations read the username and then write the auth row by it.
-				// Without serialization the rename lands while the password change is
-				// still hashing, so the password write targets a username that no
+				// Without serialization the rename commits while the password change
+				// is still hashing, so the password write targets a username that no
 				// longer exists.
 				username := "change-password-race-" + uuid.New().String()
 				u := MustSucceed(writer.Create(ctx, user.User{
@@ -427,25 +438,31 @@ var _ = Describe("Service", func() {
 					var wg sync.WaitGroup
 					wg.Go(func() {
 						defer GinkgoRecover()
-						Expect(apiSvc.ChangePassword(
-							rootCtx(ctx),
-							db,
-							apiuser.ChangePasswordRequest{
-								Key:      u.Key,
-								Password: newPassword,
-							},
-						)).To(Equal(struct{}{}))
+						Expect(exclusiveWriteTx(ctx, func(tx gorp.Tx) error {
+							_, err := apiSvc.ChangePassword(
+								rootCtx(ctx),
+								tx,
+								apiuser.ChangePasswordRequest{
+									Key:      u.Key,
+									Password: newPassword,
+								},
+							)
+							return err
+						})).To(Succeed())
 					})
 					wg.Go(func() {
 						defer GinkgoRecover()
-						Expect(apiSvc.ChangeUsername(
-							rootCtx(ctx),
-							db,
-							apiuser.ChangeUsernameRequest{
-								Key:      u.Key,
-								Username: newName,
-							},
-						)).To(Equal(struct{}{}))
+						Expect(exclusiveWriteTx(ctx, func(tx gorp.Tx) error {
+							_, err := apiSvc.ChangeUsername(
+								rootCtx(ctx),
+								tx,
+								apiuser.ChangeUsernameRequest{
+									Key:      u.Key,
+									Username: newName,
+								},
+							)
+							return err
+						})).To(Succeed())
 					})
 					wg.Wait()
 					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{

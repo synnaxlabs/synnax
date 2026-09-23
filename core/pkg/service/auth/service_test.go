@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -137,6 +138,46 @@ var _ = Describe("Service", func() {
 				Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
 			},
 		)
+	})
+})
+
+var _ = Describe("Exclusive", func() {
+	var svc *auth.Service
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+	})
+	It("Should return the error from the function", func() {
+		expected := errors.New("boom")
+		Expect(svc.Exclusive(func() error { return expected })).To(MatchError(expected))
+	})
+	It("Should hold off a second call until the first returns", func() {
+		var (
+			entered = make(chan struct{})
+			release = make(chan struct{})
+			second  = make(chan struct{})
+			done    = make(chan struct{})
+		)
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			Expect(svc.Exclusive(func() error {
+				close(entered)
+				<-release
+				return nil
+			})).To(Succeed())
+		}()
+		Eventually(entered).Should(BeClosed())
+		go func() {
+			defer GinkgoRecover()
+			Expect(svc.Exclusive(func() error {
+				close(second)
+				return nil
+			})).To(Succeed())
+		}()
+		Consistently(second).ShouldNot(BeClosed())
+		close(release)
+		Eventually(second).Should(BeClosed())
+		Eventually(done).Should(BeClosed())
 	})
 })
 

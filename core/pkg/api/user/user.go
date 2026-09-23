@@ -11,7 +11,6 @@ package user
 
 import (
 	"context"
-	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -32,7 +31,6 @@ type Service struct {
 	access   *rbac.Service
 	internal *user.Service
 	auth     *svcauth.Service
-	mu       sync.Mutex
 }
 
 // NewService creates a new Service that allows for registering, updating, and removing
@@ -74,8 +72,6 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
@@ -115,8 +111,6 @@ func (s *Service) ChangeUsername(
 	tx gorp.Tx,
 	req ChangeUsernameRequest,
 ) (struct{}, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	subject := auth.GetSubject(ctx)
 	if subject.Key == req.Key.String() {
 		return struct{}{}, errors.New(
@@ -159,8 +153,6 @@ func (s *Service) ChangePassword(
 	tx gorp.Tx,
 	req ChangePasswordRequest,
 ) (struct{}, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
@@ -250,8 +242,6 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
