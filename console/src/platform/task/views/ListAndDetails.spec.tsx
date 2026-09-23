@@ -28,6 +28,8 @@ const details = Component.renderProp(({ path }: { path: string }) => (
   <span>details-for-{path}</span>
 ));
 
+const resolve = () => null;
+
 const renderListAndDetails = (
   channels: Channel[],
   createChannel: Task.Views.CreateChannel<Channel> = () => null,
@@ -37,6 +39,7 @@ const renderListAndDetails = (
       createChannel={createChannel}
       listItem={listItem}
       details={details}
+      resolve={resolve}
     />,
     { values: { config: { channels } } },
   );

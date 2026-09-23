@@ -486,6 +486,54 @@ describe("queries", () => {
     });
   });
 
+  // Other consumers write untyped tasks into the client cache. A typed hook must parse
+  // them, or a field the schema defaults and the Core does not store reads undefined.
+  describe("untyped tasks in the cache", () => {
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({
+        routingKey: z.string(),
+        autoStart: z.boolean(),
+        severity: z.string().default("critical"),
+      }),
+      statusData: z.any().optional(),
+    };
+    const createUntyped = async () => {
+      const rack = await client.racks.create({ name: "untypedRack" });
+      const created = await rack.createTask({
+        name: "untyped_task",
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-untyped", autoStart: true },
+      });
+      await client.tasks.retrieve(created.key);
+      return created;
+    };
+
+    it("should fill schema defaults on a task cached untyped", async () => {
+      const created = await createUntyped();
+      const { use } = Task.createRetrieve(schemas);
+      const { result } = await renderHookSuspended(() => use({ key: created.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
+      expect(result.current?.config.routingKey).toBe("rk-untyped");
+    });
+
+    it("should keep schema defaults across an untyped streamed update", async () => {
+      const created = await createUntyped();
+      const { use } = Task.createRetrieve(schemas);
+      const { result } = await renderHookSuspended(() => use({ key: created.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current?.config.severity).toBe("critical"));
+      await act(async () => {
+        await client.tasks.rename(created.key, "renamed_task");
+      });
+      await waitFor(() => expect(result.current?.name).toBe("renamed_task"));
+      expect(result.current?.config.severity).toBe("critical");
+    });
+  });
+
   describe("useCreateSnapshot", () => {
     it("should create a snapshot of a single task", async () => {
       const rack = await client.racks.create({
