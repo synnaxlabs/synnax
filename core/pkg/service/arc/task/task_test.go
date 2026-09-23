@@ -30,6 +30,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -80,6 +81,7 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
+		db            *gorp.DB
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
@@ -90,6 +92,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node := mock.NewNode(ctx)
+		db = node.DB
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -120,10 +123,16 @@ var _ = Describe("Task", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
-		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  node.Framer,
+		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+			DB:      node.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
+		}))
+		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			DB:           node.DB,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			ChannelGraph: channelGraph,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
@@ -134,14 +143,18 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 	})
 
-	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
-		return MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+	newFactoryWith := func(
+		getModule func(context.Context, uuid.UUID) (svcarc.Arc, error),
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
+		return MustSucceed(arctask.NewFactory(append([]arctask.FactoryConfig{{
+			DB:         db,
 			Channel:    channelSvc,
 			Framer:     framerSvc,
 			Status:     statusSvc,
 			GetProgram: getModule,
 			Ranger:     rangerSvc,
-		}))
+		}}, cfgs...)...))
 	}
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
@@ -163,7 +176,11 @@ var _ = Describe("Task", Ordered, func() {
 		)
 	}
 
-	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
+	newTextFactory := func(
+		ctx context.Context,
+		prof arc.Text,
+		cfgs ...arctask.FactoryConfig,
+	) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, slices.Concat(
@@ -179,7 +196,7 @@ var _ = Describe("Task", Ordered, func() {
 				Text:    prof,
 				Program: &module,
 			}, nil
-		})
+		}, cfgs...)
 	}
 
 	configToMap := func(cfg arctask.Config) map[string]any {
@@ -289,6 +306,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should return ErrTaskNotHandled for non-Arc task types",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:      db,
 					Channel: channelSvc,
 					Framer:  framerSvc,
 					Status:  statusSvc,
@@ -320,6 +338,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -337,6 +356,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -374,6 +394,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -399,6 +420,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
@@ -557,6 +579,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when config is invalid at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -582,6 +605,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should not write a status when GetProgram fails at boot",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -607,6 +631,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should write an error status when GetProgram fails at boot with auto-start",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+					DB:         db,
 					Channel:    channelSvc,
 					Framer:     framerSvc,
 					Status:     statusSvc,
@@ -697,11 +722,13 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
+				DB:         db,
 				Channel:    channelSvc,
 				Framer:     framerSvc,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
 				Ranger:     rangerSvc,
+				Now:        telem.Now,
 			}
 		}
 
@@ -717,6 +744,11 @@ var _ = Describe("Task", Ordered, func() {
 					clear(&cfg)
 					Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 				},
+				Entry(
+					"db",
+					func(c *arctask.FactoryConfig) { c.DB = nil },
+					"db",
+				),
 				Entry(
 					"channel",
 					func(c *arctask.FactoryConfig) { c.Channel = nil },
@@ -754,6 +786,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Status).To(BeIdenticalTo(src.Status))
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
+				Expect(merged.Now).ToNot(BeNil())
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -1808,20 +1841,24 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 				dupName := "dup_alarm_" + uuid.New().String()[:8]
-				w := statusSvc.NewWriter(nil)
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key:     uuid.New().String(),
-					Name:    dupName,
-					Variant: status.VariantInfo,
-					Message: "first",
-					Time:    telem.Now(),
-				})).To(Succeed())
-				Expect(w.Set(ctx, &status.Status[any]{
-					Key:     uuid.New().String(),
-					Name:    dupName,
-					Variant: status.VariantInfo,
-					Message: "second",
-					Time:    telem.Now(),
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := statusSvc.NewWriter(tx)
+					if err := w.Set(ctx, &status.Status[any]{
+						Key:     uuid.New().String(),
+						Name:    dupName,
+						Variant: status.VariantInfo,
+						Message: "first",
+						Time:    telem.Now(),
+					}); err != nil {
+						return err
+					}
+					return w.Set(ctx, &status.Status[any]{
+						Key:     uuid.New().String(),
+						Name:    dupName,
+						Variant: status.VariantInfo,
+						Message: "second",
+						Time:    telem.Now(),
+					})
 				})).To(Succeed())
 
 				reportNodes, reportConfigs := buildGraphNodes(
@@ -2007,6 +2044,61 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(len(persisted)).To(BeNumerically(">=", 3))
 				for _, ts := range persisted {
 					Expect(ts).To(BeNumerically(">=", wallStart))
+				}
+			})
+
+		It("Should resume the clock above stamps forwarded into an index",
+			func(ctx SpecContext) {
+				src := createVirtualCh(ctx, "stepped_src", telem.Int64T)
+				idxCh := &channel.Channel{
+					Name:     "stepped_idx_" + uuid.New().String()[:8],
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}
+				Expect(channelWriter.Create(ctx, idxCh)).To(Succeed())
+				dataCh := &channel.Channel{
+					Name:       "stepped_data_" + uuid.New().String()[:8],
+					LocalIndex: idxCh.LocalKey,
+					DataType:   telem.Int64T,
+				}
+				Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, dataCh.Name)}
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{idxCh.Key()}, 10,
+				)
+				defer closeStreamer()
+
+				stepped := telem.Now().Add(telem.Hour)
+				t := newTask(ctx, newTextFactory(ctx, prog, arctask.FactoryConfig{
+					Now: func() telem.TimeStamp { return stepped },
+				}))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{src.Key()},
+					Start: telem.Now(),
+				}))
+				for range 2 {
+					Expect(w.Write(frame.NewUnary(
+						src.Key(), telem.NewSeriesV[int64](1, 2, 3),
+					))).To(BeTrue())
+				}
+				Expect(w.Close()).To(Succeed())
+
+				var streamed []telem.TimeStamp
+				for len(streamed) < 6 {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(idxCh.Key()).Series {
+						streamed = append(
+							streamed, ser.Unmarshal[telem.TimeStamp]()...,
+						)
+					}
+				}
+				Expect(streamed).To(HaveLen(6))
+				for i := 1; i < len(streamed); i++ {
+					Expect(streamed[i]).To(BeNumerically(">", streamed[i-1]))
 				}
 			})
 

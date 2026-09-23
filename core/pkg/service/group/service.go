@@ -85,16 +85,26 @@ func (s *Service) CreateOrRetrieve(
 	groupName string,
 	parent ontology.ID,
 ) (Group, error) {
-	var g Group
-	err := s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, nil)
-	if errors.Skip(err, query.ErrNotFound) != nil {
+	var res Group
+	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var (
+			g   Group
+			err = s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, tx)
+		)
+		if errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+		w := s.NewWriter(tx)
+		if errors.Is(err, query.ErrNotFound) {
+			res, err = w.Create(ctx, groupName, parent)
+		} else {
+			res, err = w.CreateWithKey(ctx, g.Key, groupName, parent)
+		}
+		return err
+	}); err != nil {
 		return Group{}, err
 	}
-	w := s.NewWriter(nil)
-	if errors.Is(err, query.ErrNotFound) {
-		return w.Create(ctx, groupName, parent)
-	}
-	return w.CreateWithKey(ctx, g.Key, groupName, parent)
+	return res, nil
 }
 
 // Observe returns an observable that notifies callers of changes to group entries.

@@ -221,7 +221,7 @@ var _ = Describe("Module", func() {
 		It("Should construct a set node from valid inputs", func() {
 			n := MustSucceed(mod.Create(set.Config("alarm", "msg", "info")))
 			Expect(n).ToNot(BeNil())
-			Expect(func() { n.Reset() }).ToNot(Panic())
+			Expect(func() { n.Reset(node.Context{}) }).ToNot(Panic())
 			// Output(0) hasn't been written yet; truthiness reads the empty cache.
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
@@ -340,7 +340,7 @@ var _ = Describe("setNode.Next", func() {
 	It("Should update an existing row by name (single match)", func(ctx SpecContext) {
 		name := "next_single_" + uuid.New().String()
 		existingKey := uuid.New().String()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     existingKey,
 			Name:    name,
 			Variant: status.VariantInfo,
@@ -364,7 +364,7 @@ var _ = Describe("setNode.Next", func() {
 
 	It("Should update an existing row by UUID key", func(ctx SpecContext) {
 		key := uuid.New().String()
-		Expect(writer.Set(ctx, &status.Status[any]{
+		Expect(setStatus(ctx, &status.Status[any]{
 			Key:     key,
 			Name:    "by_uuid",
 			Variant: status.VariantInfo,
@@ -435,14 +435,14 @@ var _ = Describe("setNode.Next", func() {
 		func(ctx SpecContext) {
 			name := "next_multi_" + uuid.New().String()
 			k1, k2 := uuid.New().String(), uuid.New().String()
-			Expect(writer.Set(ctx, &status.Status[any]{
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k1,
 				Name:    name,
 				Variant: status.VariantInfo,
 				Message: "first",
 				Time:    telem.Now(),
 			})).To(Succeed())
-			Expect(writer.Set(ctx, &status.Status[any]{
+			Expect(setStatus(ctx, &status.Status[any]{
 				Key:     k2,
 				Name:    name,
 				Variant: status.VariantInfo,

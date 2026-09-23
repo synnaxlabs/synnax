@@ -35,6 +35,9 @@ outputs:
   previous_tag:
     description: The previous stable product tag, the baseline for release notes
     value: ${{ steps.resolve.outputs.previous_tag }}
+  latest:
+    description: true when no stable tag of the product outranks the resolved version
+    value: ${{ steps.resolve.outputs.latest }}
 
 runs:
   using: composite

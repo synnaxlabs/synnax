@@ -62,6 +62,7 @@ func (r *recordingReporter) get() []reportCall {
 // newModule builds a Module without WASM wiring (WASM is covered separately).
 func newModule(ctx context.Context, reporter *recordingReporter) node.Factory {
 	return MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+		DB:       db,
 		Ranger:   rangeSvc,
 		Reporter: reporter.report,
 	}))
@@ -222,6 +223,7 @@ var _ = Describe("Module", func() {
 				)
 				DeferCleanup(rt.Close)
 				wired := MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+					DB:       db,
 					Ranger:   rangeSvc,
 					Strings:  stlstrings.NewProgramState(),
 					Runtime:  rt,
@@ -240,12 +242,14 @@ var _ = Describe("Module", func() {
 				)
 				DeferCleanup(rt.Close)
 				MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+					DB:       db,
 					Ranger:   rangeSvc,
 					Strings:  stlstrings.NewProgramState(),
 					Runtime:  rt,
 					Reporter: rep.report,
 				}))
 				Expect(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+					DB:       db,
 					Ranger:   rangeSvc,
 					Strings:  stlstrings.NewProgramState(),
 					Runtime:  rt,
@@ -264,7 +268,7 @@ var _ = Describe("Module", func() {
 		It("Should construct a create node from valid inputs", func() {
 			n := MustSucceed(mod.Create(create.Config("rng", "", "")))
 			Expect(n).ToNot(BeNil())
-			Expect(func() { n.Reset() }).ToNot(Panic())
+			Expect(func() { n.Reset(node.Context{}) }).ToNot(Panic())
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
 
@@ -611,6 +615,7 @@ var _ = Describe("WASM host functions", func() {
 		strs = stlstrings.NewProgramState()
 		rep = &recordingReporter{}
 		MustSucceed(arcranges.NewModule(ctx, arcranges.ModuleConfig{
+			DB:       db,
 			Ranger:   rangeSvc,
 			Strings:  strs,
 			Runtime:  rt.Underlying(),

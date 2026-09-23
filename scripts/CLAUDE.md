@@ -38,9 +38,10 @@ Neither script touches `.oracle` schema files.
 
 ## Versioning and release
 
-- `check_versions.sh` — verifies version strings are consistent across the repo's
-  version-bearing files.
-- `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those same files.
+- `check_versions.sh` — verifies every npm and PyPI package manifest and the C++
+  client's `VERSION` file share one minor, and that the minor is the Core's latest
+  stable `core/v*` tag or the next one (the train rule). Needs tags fetched.
+- `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those manifests.
   Release tooling; don't run ad hoc against a dirty tree.
 
 ## Workflow-only scripts (`.github/scripts/`)

@@ -78,6 +78,7 @@ var _ = Describe("AlertTask", func() {
 	BeforeEach(func() {
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
+			DB:     db,
 			Status: statusSvc,
 			Sender: sender,
 		}))

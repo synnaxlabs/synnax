@@ -134,6 +134,14 @@ const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
 
+// Holding one of these turns a click into a toggle of that element in the selection.
+// Meta covers macOS, Control covers Windows and Linux, and Shift covers both.
+const MULTI_SELECT_KEY_CODES = ["Meta", "Control", "Shift"];
+
+// A modified click on a node or edge belongs to the selection, so only a click on the
+// empty canvas resets the zoom.
+const ELEMENT_SELECTOR = ".react-flow__node, .react-flow__edge";
+
 export type ClipboardHandler = (
   this: void,
   e: ReactClipboardEvent<HTMLDivElement>,
@@ -461,9 +469,10 @@ export const create = ({
     Triggers.use({
       triggers: triggers.modes.zoomReset,
       callback: useCallback(
-        ({ stage, cursor }: Triggers.UseEvent) => {
+        ({ stage, cursor, target }: Triggers.UseEvent) => {
           const reg = triggerRef.current;
           if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
+          if (target.closest(ELEMENT_SELECTOR) != null) return;
           fitView();
         },
         [fitView],
@@ -611,6 +620,7 @@ export const create = ({
                 isValidConnection={isValidConnection}
                 connectionMode={ConnectionMode.Loose}
                 selectionMode={SelectionMode.Partial}
+                multiSelectionKeyCode={MULTI_SELECT_KEY_CODES}
                 proOptions={PRO_OPTIONS}
                 deleteKeyCode={DELETE_KEY_CODES}
                 snapToGrid={snapToGrid}
