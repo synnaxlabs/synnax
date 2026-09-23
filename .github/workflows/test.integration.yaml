@@ -304,6 +304,13 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/check_auto_cert_refresh.sh
 
+      - name: Check Driver environment file (Ubuntu)
+        if: runner.os == 'Linux'
+        timeout-minutes: 3
+        env:
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        run: integration/scripts/check_driver_env_file.sh
+
       - name: Check Driver service lifecycle (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 4

@@ -53,4 +53,8 @@ x::errors::Error view_logs() {
 x::errors::Error status() {
     return NOT_SUPPORTED;
 }
+
+x::errors::Error load_env() {
+    return x::errors::NIL;
+}
 }

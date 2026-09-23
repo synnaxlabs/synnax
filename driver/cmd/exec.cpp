@@ -18,6 +18,7 @@
 #include "x/cpp/log/log.h"
 
 #include "driver/cmd/cmd.h"
+#include "driver/daemon/daemon.h"
 
 namespace driver::cmd {
 // Subcommands are defined in sibling files, one per command.
@@ -67,6 +68,10 @@ int exec(const int argc, char *argv[]) {
     x::log::init(!args.flag("--no-color") && x::log::stderr_is_terminal());
     if (args.flag("--debug")) absl::SetGlobalVLogLevel(2);
     VLOG(1) << "debug logging enabled";
+    // The service manager treats the environment file as optional, so a command must
+    // not die on one it cannot read. The warning is the breadcrumb for a later failure
+    // to reach the Core.
+    if (const auto err = daemon::load_env()) LOG(WARNING) << err;
     const std::string command = args.at(1, "command name required");
     if (args.error()) {
         print_usage();

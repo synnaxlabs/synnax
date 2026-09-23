@@ -34,6 +34,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/env",
         "//x/cpp/errors",
         "//x/cpp/os",
         "//x/cpp/thread",

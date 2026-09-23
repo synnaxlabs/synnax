@@ -225,12 +225,18 @@ A Core started with `--auto-cert` serves a self-signed certificate. Install its 
 certificate on the Driver's machine by following the
 [installing certificates](/reference/core/installing-certificates) guide. On a machine
 where you can't change the trust store, point the Driver at the CA file through its
-environment instead. For the Linux and NI Linux Real-Time service, add the line to
-`/etc/synnax/driver.env`:
+environment instead. On Linux and NI Linux Real-Time, add the line to the
+[environment file](#environment-file) at `/etc/synnax/driver.env` before you run
+`login`:
 
 ```bash
 GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/path/to/ca.crt
 ```
+
+Every `synnax-driver` command reads that file, so the setting applies to the login
+check, to the service, and to a foreground `start --standalone`. On Windows and macOS
+there is no environment file, so export the variable in the shell that runs
+`synnax-driver`.
 
 <Divider.Divider x />
 
@@ -265,9 +271,10 @@ Earlier sources override later ones:
 
 1. Command line arguments
 2. Environment variables
-3. Configuration file
-4. Persisted state, written by `synnax-driver login` and by the Driver itself
-5. Internal defaults
+3. The environment file, on Linux and NI Linux Real-Time
+4. Configuration file
+5. Persisted state, written by `synnax-driver login` and by the Driver itself
+6. Internal defaults
 
 The persisted state file holds the connection parameters saved by `login` and the
 identity of the rack the Driver last attached to. It lives at
@@ -275,6 +282,13 @@ identity of the rack the Driver last attached to. It lives at
 `%LOCALAPPDATA%\synnax-driver\persisted-state.json` on Windows, and
 `~/Library/Application Support/synnax-driver/persisted-state.json` on macOS. Use the
 `--state-file` flag to move it.
+
+### Environment file
+
+On Linux and NI Linux Real-Time, every `synnax-driver` command reads
+`/etc/synnax/driver.env` at start and sets each `KEY=VALUE` pair it names. A variable
+already in the environment wins, so the file never overrides a variable you set on the
+command line. The file is optional, and the service reads it too.
 
 ### Configuration file
 
