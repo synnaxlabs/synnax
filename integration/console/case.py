@@ -99,6 +99,8 @@ class ConsoleCase(TestCase):
         # the results directory on FAILED / TIMEOUT / KILLED outcomes.
         self.context.tracing.start(
             name=self.name,
+            aria_snapshots=True,
+            screen_snapshots=True,
             screenshots=True,
             snapshots=True,
             sources=True,
