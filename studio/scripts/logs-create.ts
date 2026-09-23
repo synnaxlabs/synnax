@@ -10,10 +10,8 @@
 import { capture } from "@/index";
 
 /**
- * Docs `reference/driver/task-basics`: open the Search and Command Palette,
- * run "Create NI analog read task" in command mode, and show the task
- * configuration form open. The form opens with rack 0 as its default, so no
- * configured device or connected driver is required.
+ * Docs `console/logs/create`: from an empty panel, open the component selector
+ * with "+" and pick Log, landing on the log's empty state.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -22,9 +20,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1000);
-
-  await capture.commandPalette(session, "Create NI analog read task");
-  await session.waitFor(page.locator(".console-task-configure").first());
   await session.hold(500);
+
+  await capture.clickPanelCreate(session);
+  await session.hold(800);
+  await capture.createComponent(session, "Log");
+  await session.waitFor(page.locator(".pluto-log").first());
+  await session.hold(1500);
 };

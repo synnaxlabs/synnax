@@ -46,7 +46,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 480 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(500);
 
   await session.click(capture.toolbarButton(page, "schematic", "add"));
   const modal = page.locator(".console-modal").first();
@@ -81,5 +81,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // symbol together: at full width the drawer entry is too small to read.
   await session.moveTo({ x: 420, y: 900 });
   await session.zoom({ x: 546, y: 830 }, 1.45);
-  await session.hold(2600);
+  await session.hold(500);
 };
