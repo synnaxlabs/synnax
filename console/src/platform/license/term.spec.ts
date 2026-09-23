@@ -18,8 +18,8 @@ const BASE: license.License = {
   v: 1,
   org: "0f8fad5b-d9cb-469f-a165-70867728950e",
   ed: "e",
-  fp: [],
-  fs: 1,
+  fingerprints: [],
+  fingerprintScheme: 1,
   n: 2,
   ch: 0,
 };

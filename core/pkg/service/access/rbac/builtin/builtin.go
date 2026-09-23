@@ -41,7 +41,7 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypePolicy},
 	{Type: ontology.ResourceTypeBuiltin},
 	{Type: ontology.ResourceTypeView},
-	{Type: ontology.ResourceTypeVerification},
+	{Type: ontology.ResourceTypeLicense},
 }
 
 var (
@@ -101,7 +101,7 @@ var (
 				{Type: ontology.ResourceTypeRole},
 				{Type: ontology.ResourceTypePolicy},
 				{Type: ontology.ResourceTypeBuiltin},
-				{Type: ontology.ResourceTypeVerification},
+				{Type: ontology.ResourceTypeLicense},
 			},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,

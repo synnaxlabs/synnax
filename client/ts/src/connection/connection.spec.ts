@@ -48,7 +48,7 @@ const mockUnary = (nodeTime: () => TimeStamp): UnaryClient => ({
     clusterKey: "test-cluster",
     nodeVersion: __VERSION__,
     nodeTime: nodeTime(),
-    verification: "ok",
+    license: "ok",
   })),
   use: vi.fn(),
 });
@@ -79,7 +79,7 @@ const createScriptedUnary = ({
         clusterKey: key,
         nodeVersion: __VERSION__,
         nodeTime: TimeStamp.now(),
-        verification: "ok",
+        license: "ok",
       };
     }),
     use: vi.fn(),

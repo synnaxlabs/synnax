@@ -19,6 +19,7 @@ export const RESOURCE_TYPES = [
   "framer",
   "group",
   "label",
+  "license",
   "lineplot",
   "log",
   "node",
@@ -35,7 +36,6 @@ export const RESOURCE_TYPES = [
   "table",
   "task",
   "user",
-  "verification",
   "view",
 ] as const;
 export const resourceTypeZ = z.enum(RESOURCE_TYPES);

@@ -52,7 +52,7 @@ const checkResZ = z.object({
   nodeVersion: z.string(),
   nodeTime: TimeStamp.z,
   // a Core from before licensing reports nothing and is not gated
-  verification: license.stateZ.default("ok"),
+  license: license.stateZ.default("ok"),
 });
 
 /**
@@ -71,7 +71,7 @@ export const sendCheck = async (unary: UnaryClient): Promise<Info> => {
     clusterKey: res.clusterKey,
     nodeVersion: res.nodeVersion,
     clockSkew: skew.skew,
-    license: res.verification,
+    license: res.license,
   };
 };
 

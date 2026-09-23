@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package verification
+package license
 
 import (
 	"github.com/synnaxlabs/freighter"
-	svcverification "github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	license "github.com/synnaxlabs/synnax/pkg/service/channel/license"
 )
 
-// Middleware rejects every request while the Core has no covering grant, with the
+// Middleware rejects every request while the Core has no covering license, with the
 // error the service reports. The roster it is applied to is the allowlist: the
 // middleware never inspects the request target.
-func Middleware(svc *svcverification.Service) freighter.Middleware {
+func Middleware(svc *license.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,

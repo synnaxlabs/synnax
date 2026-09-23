@@ -35,7 +35,7 @@ export {
   InvalidLicenseError,
   isConnectionError,
   LicenseError,
-  LicenseHostError,
+  LicenseFingerprintError,
   LicenseLimitError,
   MissingLicenseError,
   MultipleFoundError,

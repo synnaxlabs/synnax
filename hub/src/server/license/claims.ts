@@ -18,7 +18,7 @@ const EDITION_CODES: Record<Edition, string> = { desktop: "d", enterprise: "e" }
 
 export interface BuildArgs {
   license: License;
-  /** Host hashes to bind the token to. Empty for a floating token. */
+  /** Machine fingerprints to bind the token to. Empty for a floating token. */
   fingerprint: string[];
   now: Date;
 }
@@ -33,8 +33,8 @@ export const build = ({ license, fingerprint, now }: BuildArgs): client.License 
   v: CLAIMS_VERSION,
   org: license.organization,
   ed: EDITION_CODES[license.edition],
-  fp: fingerprint,
-  fs: FINGERPRINT_SCHEME,
+  fingerprints: fingerprint,
+  fingerprintScheme: FINGERPRINT_SCHEME,
   n: license.nodes,
   ch: license.channels,
   mv: license.maxVersion ?? undefined,

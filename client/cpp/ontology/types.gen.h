@@ -20,6 +20,7 @@ constexpr const char *RESOURCE_TYPE_DEVICE = "device";
 constexpr const char *RESOURCE_TYPE_FRAMER = "framer";
 constexpr const char *RESOURCE_TYPE_GROUP = "group";
 constexpr const char *RESOURCE_TYPE_LABEL = "label";
+constexpr const char *RESOURCE_TYPE_LICENSE = "license";
 constexpr const char *RESOURCE_TYPE_LINEPLOT = "lineplot";
 constexpr const char *RESOURCE_TYPE_LOG = "log";
 constexpr const char *RESOURCE_TYPE_NODE = "node";
@@ -36,6 +37,5 @@ constexpr const char *RESOURCE_TYPE_STATUS = "status";
 constexpr const char *RESOURCE_TYPE_TABLE = "table";
 constexpr const char *RESOURCE_TYPE_TASK = "task";
 constexpr const char *RESOURCE_TYPE_USER = "user";
-constexpr const char *RESOURCE_TYPE_VERIFICATION = "verification";
 constexpr const char *RESOURCE_TYPE_VIEW = "view";
 }

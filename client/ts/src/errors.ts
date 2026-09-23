@@ -118,7 +118,7 @@ export const isConnectionError = (err: unknown): boolean =>
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
 
 /** Raised when the Core refuses a request over its license. */
-export class LicenseError extends SynnaxError.sub("verification") {}
+export class LicenseError extends SynnaxError.sub("license") {}
 
 /** Raised when no license is active on the Core. */
 export class MissingLicenseError extends LicenseError.sub("missing") {}
@@ -129,8 +129,8 @@ export class ExpiredLicenseError extends LicenseError.sub("expired") {}
 /** Raised when a token cannot be verified or is malformed. */
 export class InvalidLicenseError extends LicenseError.sub("invalid") {}
 
-/** Raised when a license is bound to a different host. */
-export class LicenseHostError extends LicenseError.sub("host") {}
+/** Raised when a license is bound to a different machine. */
+export class LicenseFingerprintError extends LicenseError.sub("fingerprint") {}
 
 /** Raised when a channel would exceed the license's channel cap. */
 export class LicenseLimitError extends LicenseError.sub("too_many") {}
@@ -179,8 +179,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new ExpiredLicenseError(payload.data);
     if (payload.type.startsWith(InvalidLicenseError.TYPE))
       return new InvalidLicenseError(payload.data);
-    if (payload.type.startsWith(LicenseHostError.TYPE))
-      return new LicenseHostError(payload.data);
+    if (payload.type.startsWith(LicenseFingerprintError.TYPE))
+      return new LicenseFingerprintError(payload.data);
     if (payload.type.startsWith(LicenseLimitError.TYPE))
       return new LicenseLimitError(payload.data);
     return new LicenseError(payload.data);

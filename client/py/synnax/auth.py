@@ -35,7 +35,7 @@ class ClusterInfo(BaseModel):
     node_version: str = ""
     node_key: int = 0
     node_time: TimeStamp = TimeStamp(0)
-    verification: str = ""
+    license: str = ""
 
 
 class TokenResponse(BaseModel):

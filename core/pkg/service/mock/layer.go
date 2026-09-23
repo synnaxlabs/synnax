@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
 )
 
 // KeyID is the anchor identifier Keys signs under.
@@ -30,41 +30,41 @@ const KeyID = "test"
 
 // Keys is a throwaway signing key and the anchor set that verifies it.
 type Keys struct {
-	// Private signs grants.
+	// Private signs licenses.
 	Private ed25519.PrivateKey
 	// Anchors holds the matching public key under KeyID.
-	Anchors verification.Anchors
+	Anchors license.Anchors
 }
 
 // NewKeys generates a fresh signing key.
 func NewKeys() Keys {
 	pub, priv := lo.Must2(ed25519.GenerateKey(rand.Reader))
-	return Keys{Private: priv, Anchors: verification.Anchors{KeyID: pub}}
+	return Keys{Private: priv, Anchors: license.Anchors{KeyID: pub}}
 }
 
 // Sign signs g under the key.
-func (k Keys) Sign(g verification.Grant) string {
-	return lo.Must(verification.Sign(k.Private, KeyID, g))
+func (k Keys) Sign(g license.License) string {
+	return lo.Must(license.Sign(k.Private, KeyID, g))
 }
 
-// NewGrant returns a grant that floats between hosts and applies for fifty years.
-func NewGrant() verification.Grant {
+// NewLicense returns a license that floats between machines and lasts fifty years.
+func NewLicense() license.License {
 	now := time.Now()
 	exp := uint32(now.Add(50 * 365 * 24 * time.Hour).Unix())
-	return verification.Grant{
-		Jti: uuid.New(),
-		Iat: uint32(now.Unix()),
-		Exp: &exp,
-		V:   1,
-		Org: uuid.New(),
-		Ed:  "e",
-		Fs:  1,
-		N:   1,
+	return license.License{
+		Jti:               uuid.New(),
+		Iat:               uint32(now.Unix()),
+		Exp:               &exp,
+		V:                 1,
+		Org:               uuid.New(),
+		Ed:                "e",
+		FingerprintScheme: 1,
+		N:                 1,
 	}
 }
 
 // OpenLayer opens a service layer on node with an insecure security provider and a
-// grant that covers it. Fields set on cfgs take precedence.
+// license that covers it. Fields set on cfgs take precedence.
 func OpenLayer(
 	ctx context.Context,
 	node distmock.Node,
@@ -82,7 +82,7 @@ func OpenLayer(
 		Distribution: node.Layer,
 		Security:     sec,
 		Storage:      node.Storage,
-		Verifier:     keys.Sign(NewGrant()),
+		LicenseToken: keys.Sign(NewLicense()),
 		Anchors:      keys.Anchors,
 	}
 	return service.OpenLayer(ctx, append([]service.LayerConfig{base}, cfgs...)...)

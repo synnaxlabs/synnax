@@ -172,14 +172,11 @@ The header carries `alg: EdDSA` and `kid`. The Core embeds a small set of public
 keep verifying until they expire. A key compromise retires that `kid` in the next
 release and reissues the licenses signed under it.
 
-The claims are defined once, in `schemas/synnax/verification.oracle`, with
-`@go output "core/pkg/service/channel/verification"`,
-`@ts output "client/ts/src/license"`, and `@py output "client/py/synnax/license"`. The
-Go type keeps a neutral name (`verification.Grant`); `@ts name` and `@py name` expose it
-to clients as `License` (§5.10). The TypeScript output is both the client's type and the
-hub signer's type, since the site already imports `@synnaxlabs/client`. Keys are short
-in the JWT tradition, which also keeps the Core's struct tags free of license
-vocabulary:
+The claims are defined once, in `schemas/synnax/license.oracle`, with
+`@go output "core/pkg/service/channel/license"`, `@ts output "client/ts/src/license"`,
+and `@py output "client/py/synnax/license"`. The type is `License` in every language.
+The TypeScript output is both the client's type and the hub signer's type, since the
+site already imports `@synnaxlabs/client`. Keys are short in the JWT tradition:
 
 - **`jti`**: License UUID. The hub's primary key.
 - **`iat`**: Issued-at, seconds since the epoch, as JWT defines it.
@@ -231,18 +228,19 @@ The scheme is a deterrent, not a wall, and every vendor surveyed accepts that (�
 control that holds is the activation ledger (§5.7). Recording `fs` in the token lets a
 later scheme ship without invalidating issued licenses.
 
-### 5.3 Core verifier and enforcement
+### 5.3 Core license service and enforcement
 
-`core/pkg/service/channel/verification` keeps its name and location (§5.10). The service
-holds the parsed grant, the machine fingerprint, the public key set, and the clock
-high-water mark. The public keys are package constants. `ServiceConfig` takes an
-optional `Keys` override for tests only; `start` never populates it, and no environment
-variable maps to it. Internal string literals keep the existing base64 convention.
+`core/pkg/service/channel/verification` is renamed to `core/pkg/service/channel/license`
+(§5.10). The service holds the parsed license, the machine fingerprint, the public key
+set, and the clock high-water mark. The public keys are package constants.
+`ServiceConfig` takes an optional `Anchors` override for tests only; `start` never
+populates it, and no environment variable maps to it.
 
-The KV holds one entry per activated license, keyed by `jti`, under the existing
-obfuscated prefix. Because Aspen replicates the KV, every node sees every activation and
-picks the entry whose `fp` intersects its own hardware. Activating all nodes of a
-cluster through any one node therefore works without a second mechanism.
+The KV holds one entry per activated license, keyed by `jti`, under the `license/`
+prefix. A Core opened on older data deletes the single key the previous format wrote.
+Because Aspen replicates the KV, every node sees every activation and picks the entry
+whose fingerprints intersect its own hardware. Activating all nodes of a cluster through
+any one node therefore works without a second mechanism.
 
 The service also persists a clock high-water mark: the latest time it has observed,
 written on start and hourly. A start whose clock is earlier than the mark by more than a
@@ -254,11 +252,11 @@ one of three states:
 
 - **Unlicensed**: No matching entry, a bad signature, an unknown `kid`, or a fingerprint
   mismatch. The Core starts. The connectivity check and the license operations work.
-  Every other API operation fails with `verification.ErrMissing`. The start log prints
-  the fingerprint and the Console URL: open `http://<listen>` to activate.
+  Every other API operation fails with `license.ErrMissing`. The start log prints the
+  fingerprint and the Console URL: open `http://<listen>` to activate.
 - **Expired**: `exp` plus the grace window is in the past and `mv` does not cover this
   version, or `mv` alone does not cover this version. Same behavior as unlicensed, with
-  `verification.ErrExpired` and, for the version case, the ceiling in the message.
+  `license.ErrExpired` and, for the version case, the ceiling in the message.
 - **Licensed**: Everything works. Inside the grace window, or past `exp` but covered by
   `mv`, the state is licensed with a warning that the log loop repeats and the Console
   shows. The channel cap applies through `IntOverflowCheck` exactly as today
@@ -272,29 +270,29 @@ gets.
 Gating "every other operation" lives in one place. `BindTo` in `core/pkg/api/layer.go`
 already keeps two rosters of endpoints: the two that skip the token check, and the rest.
 It gains a third: every endpoint except `license.retrieve` and `license.activate` also
-carries `verification.Middleware`, which returns `ErrMissing` or `ErrExpired` without
-calling the handler while the state is not licensed. The roster is the allowlist; the
-middleware never inspects the request target, which is a path on HTTP and a method name
-on gRPC. Errors register with freighter through `errors.Register` in an `init()`,
-matching `core/pkg/api/arc/errors.go:43` and `core/pkg/service/auth/errors.go:86`, so
-the Console and clients decode them by type instead of by message.
+carries `license.Middleware`, which returns `ErrMissing` or `ErrExpired` without calling
+the handler while the state is not licensed. The roster is the allowlist; the middleware
+never inspects the request target, which is a path on HTTP and a method name on gRPC.
+Errors register with freighter through `errors.Register` in an `init()`, matching
+`core/pkg/api/arc/errors.go:43` and `core/pkg/service/auth/errors.go:86`, so the Console
+and clients decode them by type instead of by message.
 
 The connectivity check's `ClusterInfo` (`core/pkg/api/auth/auth.go:32`) gains a
-`verification` field holding `ok`, `missing`, or `expired`, returned unauthenticated by
-`/connectivity/check` and by login. It is one word: the fingerprint and the grant stay
+`license` field holding `ok`, `missing`, or `expired`, returned unauthenticated by
+`/connectivity/check` and by login. It is one word: the fingerprint and the license stay
 behind the authenticated retrieve. Every client learns the state on the first round trip
 it already makes, and the Docker health check, which calls this endpoint, keeps working
 on an unlicensed container.
 
 ### 5.4 Core API and start flags
 
-Two authenticated operations, under `core/pkg/api/verification`, wired at the five
-transport sites like every other endpoint. On the wire they are `license.retrieve` and
-`license.activate`; the Core holds the route strings as base64 literals (§5.10):
+Two authenticated operations, under `core/pkg/api/license`, wired at the five transport
+sites like every other endpoint. On the wire they are `license.retrieve` and
+`license.activate`:
 
 - **`license.retrieve`**: Returns the state (`unlicensed`, `expired`, `licensed`), any
-  warning, the fingerprint, and the decoded grant when present. Requires an
-  authenticated user; the fingerprint is not sensitive, but the grant names the
+  warning, the fingerprint, and the decoded license when present. Requires an
+  authenticated user; the fingerprint is not sensitive, but the license names the
   organization.
 - **`license.activate`**: Accepts a token, verifies it against the key set and the
   fingerprint, stores it in the KV, and flips an unlicensed or expired process to
@@ -302,13 +300,13 @@ transport sites like every other endpoint. On the wire they are `license.retriev
   it is useless anywhere else.
 
 Permission is a first-class RBAC object. `schemas/synnax/ontology.oracle` gains a
-`verification` resource type, a permission-only type in the manner of `framer`. The
-built-in Owner role holds every action on it and the Viewer role holds retrieve; the
-Engineer edit list does not include it, so Engineers read license state and Owners
-activate. `license.retrieve` enforces the retrieve action on the type and
-`license.activate` enforces update, through the existing enforcer. Built-in policies are
-rewritten on every start (`rbac/builtin/provision.go:33`), so existing clusters need no
-migration. The Console labels the type "License" in its permission views.
+`license` resource type, a permission-only type in the manner of `framer`. The built-in
+Owner role holds every action on it and the Viewer role holds retrieve; the Engineer
+edit list does not include it, so Engineers read license state and Owners activate.
+`license.retrieve` enforces the retrieve action on the type and `license.activate`
+enforces update, through the existing enforcer. Built-in policies are rewritten on every
+start (`rbac/builtin/provision.go:33`), so existing clusters need no migration. The
+Console labels the type "License" in its permission views.
 
 The `--license-key` flag and `SYNNAX_LICENSE_KEY` remain, now accepting a token, and a
 `--license-file` flag reads one from a path, which is what systemd units and the Windows
@@ -320,15 +318,15 @@ client library built for one command. Scripts that want the state call the retri
 endpoint with `curl` and a bearer token; the docs show the one-liner.
 
 The TypeScript and Python clients gain a `license` module wrapping both operations, and
-the C++ client gains the `sy.verification` error family so the Driver, including the
-copy the Core bundles and spawns, retries the gate error the way it retries an
-unreachable Core instead of exiting.
+the C++ client gains the `sy.license` error family so the Driver, including the copy the
+Core bundles and spawns, retries the gate error the way it retries an unreachable Core
+instead of exiting.
 
 ### 5.5 Console
 
-The connection lifecycle from RFC 0049 reads the `verification` word from the
-connectivity check and gains an `unlicensed` reason beside `auth` and `incompatible`. In
-that state the client never opens the change stream, so the epoch never advances and no
+The connection lifecycle from RFC 0049 reads the `license` word from the connectivity
+check and gains an `unlicensed` reason beside `auth` and `incompatible`. In that state
+the client never opens the change stream, so the epoch never advances and no
 synchronizer or Flux query runs; unary calls other than check, login, and the two
 license operations are refused client-side with the typed error. The check loop keeps
 polling, so a Core activated by a start flag is noticed by a Console left open. The
@@ -485,37 +483,35 @@ organization provides them:
 - **Hosted Cores**: The demo Core behind the docs live plot and any other Core Synnax
   runs hold ordinary machine-bound licenses from the internal organization, listed in
   the cutover checklist (§7.0).
-- **Go tests**: Tests of the verification package and of gated endpoints construct the
+- **Go tests**: Tests of the license package and of gated endpoints construct the
   service with a throwaway keypair through `ServiceConfig.Keys` and sign their own
   grants with `Sign`. No other test touches licensing, because the test fixtures that
   open a service layer inject a signed test license the same way.
 
-### 5.10 Obfuscation
+### 5.10 Naming
 
-The Core hides where enforcement lives. Release builds strip symbols with `-w -s`
-(`.github/workflows/build.synnax.yaml:627`), but Go keeps package paths and function
-names in the binary for stack traces, so identifiers matter as much as strings. The
-existing convention in `verification` and `core/cmd/start/flags.go` sets the rule, and
-this RFC extends it to every new piece in the Core:
+The Core says `license` everywhere: the package is `core/pkg/service/channel/license`,
+the token type is `license.License`, the machine identity is `license.Fingerprint`, the
+key set is `license.anchors`, the API package is `core/pkg/api/license`, the wire error
+family is `sy.license`, and route paths, flag names, log lines, and KV keys are plain
+strings.
 
-- **Identifiers are neutral**: The package stays `channel/verification`. The grant type
-  is `verification.Grant`, the fingerprint is `verification.Host`, the key set is
-  `verification.anchors`, the gating middleware is `verification.Middleware`, the API
-  package is `core/pkg/api/verification`, and the transport field is `Verification`.
-  Nothing in `core/` is named `license`, `activate`, or `fingerprint`.
-- **Strings are base64 literals**: Route paths, flag names and help text, log lines,
-  error messages, and the KV prefix are `base64.MustDecode` literals decoded at package
-  or command initialization. Wire error types and the ontology resource type use the
-  neutral word `verification`.
-- **Claims are short**: The JWT keys in §5.1 keep the struct tags free of license
-  vocabulary, and a JWT in a binary is unremarkable because the Core already issues
-  them.
-- **Readable names live outside the Core**: The clients, the Console, the docs, the hub,
-  and the wire paths say `license`. Oracle's `@ts name` and `@py name` produce `License`
-  from `Grant`. None of those surfaces enforce anything.
+An earlier draft hid this. The package was `verification`, the type was `Grant`, the
+fingerprint was `Host`, and every string was a `base64.MustDecode` literal, on the
+theory that stripped release builds plus neutral symbols raise the cost of finding the
+enforcement path. Two facts sink it. The repository is public, so anyone who wants to
+find the code reads it instead of the binary. And no open-core project does this: GitLab
+ships `ee/` with the public key in plain sight, Elastic ships x-pack, and CockroachDB
+ships `pkg/ccl/`. The ones that keep enforcement genuinely private, such as InfluxDB and
+HashiCorp, keep it out of the public repository altogether, which our single-repository
+shape rules out.
 
-Obfuscation raises the cost of a casual `strings` or `grep`; it does not stop a reader
-of the source. Principle 3 sets the bar it works toward.
+Obfuscation therefore bought nothing and cost every reader. Principle 3 already sets the
+honest bar: bypassing takes a source edit, and that is the bar we hold.
+
+The JWT claim keys stay short (§5.1), which is a token-size convention rather than
+concealment. The two that were short to avoid a word, `fp` and `fs`, spell out as
+`fingerprints` and `fingerprint_scheme`.
 
 ### 5.11 Account interface
 
@@ -626,17 +622,17 @@ lands with the Desktop bundle.
   references outside the directory. Merged alone, because a directory move carried
   inside a stack rebases badly. Boundary earned by risk isolation.
 - **Phase 1: Core license primitive.** Two pull requests. The first: the Oracle grant
-  schema, the `verification` resource type through `oracle migrate ontology`, `Sign` and
-  `Verify` in `verification`, the key set, the fingerprint, the clock high-water mark,
-  the term checks including `mv`, the gated roster, error registration, the two API
-  operations at all five transport sites, the `verification` word on the connectivity
-  check, the `--license-file` flag, the start log, a `core/pkg/service/mock` fixture
-  that opens a licensed layer for the five test suites that open one today, the
-  TypeScript `license` module and `unlicensed` connection state, the Python module, the
-  C++ error family with the Driver retry, and the workflows switched to the new secret.
-  Deletes the old parser, `FreeCount`, the free-tier default, and the channel-count-only
-  `info`. The flag keeps its obfuscated name. The second: the Console activation screen
-  and guard, the info modal block, the warning badge, and the four docs pages. Boundary
+  schema, the `license` resource type through `oracle migrate ontology`, `Sign` and
+  `Verify` in `license`, the key set, the fingerprint, the clock high-water mark, the
+  term checks including `mv`, the gated roster, error registration, the two API
+  operations at all five transport sites, the `license` word on the connectivity check,
+  the `--license-file` flag, the start log, a `core/pkg/service/mock` fixture that opens
+  a licensed layer for the five test suites that open one today, the TypeScript
+  `license` module and `unlicensed` connection state, the Python module, the C++ error
+  family with the Driver retry, and the workflows switched to the new secret. Deletes
+  the old parser, `FreeCount`, the free-tier default, and the channel-count-only `info`.
+  The flag keeps its obfuscated name. The second: the Console activation screen and
+  guard, the info modal block, the warning badge, and the four docs pages. Boundary
   between the two earned by risk isolation: wire and enforcement apart from UX.
 - **Phase 2: Hub accounts and licenses.** One pull request: `infra/hub/`, Clerk, Neon,
   and Resend on direct accounts, the middleware and CSP changes, the `astro:env` schema,
