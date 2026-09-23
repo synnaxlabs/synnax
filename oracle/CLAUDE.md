@@ -19,8 +19,8 @@ bash oracle/install.sh --cli-only --no-path && oracle sync
 `~/.local/bin/oracle`; always reinstall from the same worktree you sync in, every time,
 or generator logic and schemas disagree.
 
-- Never sync on `rc` or any shared branch — sync writes generated files repo-wide. Sync
-  only on the feature branch owning the schema changes.
+- Never sync on `main` — sync writes generated files repo-wide. Sync only on the branch
+  owning the schema changes.
 - `oracle check` verifies generated files match schemas — read-only, safe anywhere.
 - Confirm with the user before `oracle migrate` (version-affecting: scaffolds the next
   version file).

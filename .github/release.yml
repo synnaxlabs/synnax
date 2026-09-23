@@ -23,6 +23,9 @@ changelog:
     - title: Arc
       labels:
         - arc
+    - title: C++ client
+      labels:
+        - cpp-client
     - title: Python client
       labels:
         - py-client

@@ -160,9 +160,9 @@ var _ = Describe("MultiListener", func() {
 	Describe("Loopback", func() {
 		// reachable reports whether a TCP dial to host on the address's port succeeds.
 		reachable := func(host string, addr address.Address) bool {
-			conn, err := stdnet.DialTimeout(
+			conn, err := net.DialTimeout(
 				"tcp",
-				stdnet.JoinHostPort(host, addr.PortString()[1:]),
+				net.JoinHostPort(host, addr.PortString()[1:]),
 				250*time.Millisecond,
 			)
 			if err != nil {
@@ -177,15 +177,17 @@ var _ = Describe("MultiListener", func() {
 				if external == "" {
 					Skip("no non-loopback IPv4 interface")
 				}
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-				MustOpen(server.Serve(server.Config{
-					Debug:     new(false),
-					Security:  server.SecurityConfig{Insecure: new(true)},
-					Listeners: []server.Listener{{Address: addr, Loopback: loopback}},
+				s := MustOpen(server.Serve(server.Config{
+					Debug:    new(false),
+					Security: server.SecurityConfig{Insecure: new(true)},
+					Listeners: []server.Listener{
+						{Address: "localhost:0", Loopback: loopback},
+					},
 					Branches: []server.Branch{&server.SecureHTTPBranch{
 						MaxIdleWorkerDuration: 100 * time.Millisecond,
 					}},
 				}))
+				addr := s.Addresses()[0]
 				Expect(reachable("127.0.0.1", addr)).To(BeTrue())
 				Expect(reachable(external, addr)).To(Equal(!loopback))
 			},
@@ -198,9 +200,9 @@ var _ = Describe("MultiListener", func() {
 // externalIPv4 returns an IPv4 address of a non-loopback interface on this machine, or
 // an empty string when it has none.
 func externalIPv4() string {
-	addrs := MustSucceed(stdnet.InterfaceAddrs())
+	addrs := MustSucceed(net.InterfaceAddrs())
 	for _, a := range addrs {
-		ipNet, ok := a.(*stdnet.IPNet)
+		ipNet, ok := a.(*net.IPNet)
 		if !ok || ipNet.IP.IsLoopback() || ipNet.IP.To4() == nil {
 			continue
 		}
