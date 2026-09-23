@@ -71,26 +71,32 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	for _, routingTable := range ctx.AST.AllRoutingTable() {
 		analyzeRoutingTable(ctx.Child(routingTable))
 	}
-	rejectTransitionIntoRoutingTable(ctx)
+	rejectTransitionIntoBranch(ctx)
 	warnNumericTransitions(ctx)
 }
 
-// rejectTransitionIntoRoutingTable blocks a `=>` feeding a routing table.
-func rejectTransitionIntoRoutingTable(
-	ctx context.Context[parser.IFlowStatementContext],
-) {
+// rejectTransitionIntoBranch blocks a `=>` feeding a routing table or select{}.
+func rejectTransitionIntoBranch(ctx context.Context[parser.IFlowStatementContext]) {
 	children := ctx.AST.GetChildren()
 	for i, child := range children {
 		op, ok := child.(parser.IFlowOperatorContext)
 		if !ok || op.TRANSITION() == nil || i+1 >= len(children) {
 			continue
 		}
-		if _, ok := children[i+1].(parser.IRoutingTableContext); !ok {
-			continue
+		switch next := children[i+1].(type) {
+		case parser.IRoutingTableContext:
+			ctx.Diagnostics.Add(diagnostics.Errorf(op,
+				"'=>' cannot feed a routing table, use '->'",
+			))
+		case parser.IFlowNodeContext:
+			fn := next.Function()
+			if fn == nil || parser.FunctionName(fn) != "select" {
+				continue
+			}
+			ctx.Diagnostics.Add(diagnostics.Errorf(op,
+				"'=>' cannot feed select{}, use '->'",
+			))
 		}
-		ctx.Diagnostics.Add(diagnostics.Errorf(op,
-			"'=>' cannot feed a routing table, use '->'",
-		).WithNote("each routing key already selects its entry"))
 	}
 }
 

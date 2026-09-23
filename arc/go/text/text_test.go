@@ -4863,7 +4863,6 @@ time.wait{duration=500ms} -> output`
 					)
 				},
 				Entry("u8 via ->", "->", "u8", "1"),
-				Entry("u8 via =>", "=>", "u8", "1"),
 				Entry("u16", "->", "u16", "1"),
 				Entry("u32", "->", "u32", "1"),
 				Entry("u64", "->", "u64", "1"),

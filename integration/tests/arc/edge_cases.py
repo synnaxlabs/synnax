@@ -362,11 +362,19 @@ TYPE_MISMATCH_CASES = [
     ),
 ]
 
-# ── Routing table operator (invalid, caught at configure time) ──
+# ── Transition into a routing table or select (invalid, caught at configure time) ──
 
 # A routing key selects its entry, so `=>` before the table has nothing to gate.
 ARC_TRANSITION_INTO_ROUTING_TABLE = """
 ch1 > 0.0 -> select{} => {
+    true: 1.0 -> edge_diamond,
+    false: 0.0 -> edge_diamond,
+}
+"""
+
+# `=>` only passes true, so select's false entry could never run.
+ARC_TRANSITION_INTO_SELECT = """
+ch1 > 0.0 => select{} -> {
     true: 1.0 -> edge_diamond,
     false: 0.0 -> edge_diamond,
 }
@@ -385,6 +393,11 @@ ROUTING_TABLE_CASES = [
         "TransitionIntoTable",
         ARC_TRANSITION_INTO_ROUTING_TABLE,
         "cannot feed a routing table",
+    ),
+    RoutingTableCase(
+        "TransitionIntoSelect",
+        ARC_TRANSITION_INTO_SELECT,
+        "cannot feed select",
     ),
 ]
 
@@ -636,9 +649,9 @@ class EdgeCases(ArcCase):
             )
 
     def _verify_routing_table_cases(self) -> None:
-        self.log("=== Routing table operator detection ===")
+        self.log("=== Transition into routing detection ===")
         for case in ROUTING_TABLE_CASES:
-            self.log(f"[{case.label}] Testing routing table operator")
+            self.log(f"[{case.label}] Testing transition into routing")
             self._assert_configure_error(
                 case.source, f"RoutingTable{case.label}", case.wait_substr
             )

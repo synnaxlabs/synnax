@@ -626,12 +626,9 @@ flag -> select{} => {
     false: false -> vlv_cmd
 }
 `}
-			Expect(arc.CompileText(ctx, t, root)).Error().To(SatisfyAll(
+			Expect(arc.CompileText(ctx, t, root)).Error().To(
 				MatchError(ContainSubstring("'=>' cannot feed a routing table")),
-				MatchError(
-					ContainSubstring("each routing key already selects its entry"),
-				),
-			))
+			)
 		},
 	)
 
