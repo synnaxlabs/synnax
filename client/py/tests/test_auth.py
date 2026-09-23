@@ -53,22 +53,36 @@ class TestChangePassword:
         username = str(uuid4())
         client.users.create(username=username, password="old")
         as_user = sy.Synnax(host=host, port=port, username=username, password="old")
-        as_user.auth.change_password("new")
+        as_user.auth.change_password("old", "new")
         sy.Synnax(host=host, port=port, username=username, password="new")
         with pytest.raises(sy.AuthError):
             sy.Synnax(host=host, port=port, username=username, password="old")
 
+    def test_wrong_supplied_current_password(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        """Should reject the change when the caller mistypes the current password."""
+        host, port, _, _ = login_info
+        username = str(uuid4())
+        client.users.create(username=username, password="old")
+        as_user = sy.Synnax(host=host, port=port, username=username, password="old")
+        # The session is authenticated, so only a real check of the supplied value can
+        # reject this.
+        with pytest.raises(sy.AuthError):
+            as_user.auth.change_password("not-the-password", "new")
+        sy.Synnax(host=host, port=port, username=username, password="old")
+
     def test_wrong_current_password(
         self, client: sy.Synnax, login_info: tuple[str, int, str, str]
     ):
-        """Should reject the change when the stored current password is wrong."""
+        """Should reject the change when an admin already rotated the password."""
         host, port, _, _ = login_info
         username = str(uuid4())
         user = client.users.create(username=username, password="old")
         as_user = sy.Synnax(host=host, port=port, username=username, password="old")
         client.users.change_password(user.key, "rotated")
         with pytest.raises(sy.AuthError):
-            as_user.auth.change_password("new")
+            as_user.auth.change_password("old", "new")
 
 
 @pytest.mark.auth

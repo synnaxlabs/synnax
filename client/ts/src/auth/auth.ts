@@ -101,20 +101,20 @@ export class Client {
   }
 
   /**
-   * Replaces the signed-in user's password and keeps the client authenticated.
-   * @param newPassword - The password to set.
+   * Replaces the signed-in user's password and keeps the client authenticated. The
+   * caller supplies the current password rather than the client replaying the one it
+   * holds, so an unattended session cannot change its own password.
    * @param currentPassword - The user's current password, which the Core verifies.
-   * Omitted, the client sends the credentials it already holds; pass it wherever the
-   * user types it, so a session left unattended cannot change its own password.
+   * @param newPassword - The password to set.
    * @throws {AuthError} if currentPassword does not match the stored password.
    */
-  async changePassword(newPassword: string, currentPassword?: string): Promise<void> {
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     if (!this.authenticated) throw new Error("Not authenticated");
     await this.client.send(
       "/auth/change-password",
       {
         username: this.credentials.username,
-        password: currentPassword ?? this.credentials.password,
+        password: currentPassword,
         newPassword,
       },
       changePasswordReqZ,

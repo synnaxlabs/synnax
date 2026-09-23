@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { url } from "@synnaxlabs/x";
+import { id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {
@@ -50,6 +50,39 @@ describe("auth", () => {
     });
     const mw = client.middleware();
     await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(AuthError);
+  });
+
+  describe("changePassword", () => {
+    const createSelf = async () => {
+      const username = id.create();
+      await createTestClient().users.create({ username, password: "old" });
+      const asUser = createTestClient({ username, password: "old" });
+      await asUser.connect();
+      return { asUser, username };
+    };
+
+    it("should replace the signed-in user's password", async () => {
+      const { asUser, username } = await createSelf();
+      await asUser.auth.changePassword("old", "new");
+      await expect(
+        createTestClient({ username, password: "new" }).connect(),
+      ).resolves.toBeDefined();
+      await expect(
+        createTestClient({ username, password: "old" }).connect(),
+      ).rejects.toThrow(AuthError);
+    });
+
+    it("should reject a current password the caller mistyped", async () => {
+      const { asUser, username } = await createSelf();
+      // The session is already authenticated, so only a real check of the supplied
+      // value can reject this.
+      await expect(
+        asUser.auth.changePassword("not-the-password", "new"),
+      ).rejects.toThrow(AuthError);
+      await expect(
+        createTestClient({ username, password: "old" }).connect(),
+      ).resolves.toBeDefined();
+    });
   });
 
   describe("token retry", () => {

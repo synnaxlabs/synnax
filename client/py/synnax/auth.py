@@ -84,17 +84,20 @@ class Client:
         self.user = res.user
         self.authenticated = True
 
-    def change_password(self, new_password: str) -> None:
-        """Replaces the password of the authenticated user. The Core verifies the
-        current password before it writes the new one.
+    def change_password(self, current_password: str, new_password: str) -> None:
+        """Replaces the password of the authenticated user. The caller supplies the
+        current password rather than the client replaying the one it holds, so an
+        unattended session cannot change its own password.
 
+        :param current_password: The current password, which the Core verifies.
         :param new_password: The new password.
+        :raises AuthError: If current_password does not match the stored password.
         """
         self.client.send(
             "/auth/change-password",
             _ChangePasswordRequest(
                 username=self.username,
-                password=self.password,
+                password=current_password,
                 new_password=new_password,
             ),
             Empty,

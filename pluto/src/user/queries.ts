@@ -177,7 +177,7 @@ export const useChangeOwnPasswordForm = Flux.createForm<
   initialValues: ZERO_CHANGE_OWN_PASSWORD_FORM_VALUES,
   update: async ({ client, value }) => {
     const { currentPassword, password } = value();
-    await client.auth.changePassword(password, currentPassword);
+    await client.auth.changePassword(currentPassword, password);
   },
 });
 
