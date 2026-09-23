@@ -122,6 +122,7 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 		MarkChanged:     s.markChanged,
 		MarkSelfChanged: s.markSelfChanged,
 		SetDeadline:     s.setDeadline,
+		ReserveStamps:   s.reserveStamps,
 		ReportError:     s.reportError,
 	}
 	return s

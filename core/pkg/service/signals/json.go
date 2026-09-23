@@ -11,7 +11,7 @@ package signals
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"

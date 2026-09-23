@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/testutil"
 	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -186,8 +187,9 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	}
 
 	nodeCtx := node.Context{
-		Context:     ctx,
-		MarkChanged: func(int) {},
+		Context:       ctx,
+		ReserveStamps: testutil.ReserveStamps(0),
+		MarkChanged:   func(int) {},
 	}
 
 	b.ReportAllocs()
@@ -349,9 +351,10 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	}
 
 	nodeCtx := node.Context{
-		Context:     ctx,
-		MarkChanged: func(int) {},
-		ReportError: func(err error) {},
+		Context:       ctx,
+		ReserveStamps: testutil.ReserveStamps(0),
+		MarkChanged:   func(int) {},
+		ReportError:   func(err error) {},
 	}
 
 	*aNode.Output(0) = telem.NewSeriesV[float32](1)

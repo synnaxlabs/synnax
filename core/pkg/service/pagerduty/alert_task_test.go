@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -78,6 +78,7 @@ var _ = Describe("AlertTask", func() {
 	BeforeEach(func() {
 		sender = newMockSender()
 		factory = MustSucceed(pd.NewFactory(pd.FactoryConfig{
+			DB:     db,
 			Status: statusSvc,
 			Sender: sender,
 		}))

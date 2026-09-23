@@ -109,6 +109,15 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
 - **Unknown dispatch key**: fail loud (throw/error/panic) when the key is internal and
   the table should cover it — a missing handler is a composition bug. Handle gracefully
   as normal validation when the key is user-provided. Never a silent no-op.
+- 🚨 **No defense in depth. Fix the cause, in one place.** Never add a second guard
+  against a bug the real fix already closes, and never keep an old guard "just in case"
+  after fixing the cause. Layered guards read as belt-and-braces but cost more than they
+  save: each one hides the failure that would have pointed at the cause, so the next bug
+  of the same shape surfaces as wrong data instead of an error. A program that fails is
+  doing its job. Let it crash, error, or reject, and fix the one place that is wrong.
+  Corollary: never catch, skip, or tolerate an error to paper over a defect elsewhere —
+  `errors.Skip`, a swallowed rejection, or a not-found treated as empty is correct only
+  when that outcome is genuinely valid at that layer, never as insurance.
 
 ## Prose
 
@@ -183,9 +192,6 @@ Red flags. If any of these appear, rewrite immediately:
 - Never reference removed, renamed, or historical implementations the reader can't see
   ("reproduces the previous NOOP service"). Describe what the code does now; history
   belongs in the PR description.
-- Treat existing comments as load-bearing. Don't rewrite, reformat, or delete one as a
-  side effect of editing nearby code. Only touch one when it's factually wrong, clearly
-  redundant after careful reading, or the user asked. When unsure, leave it alone.
 
 ### Doc comments
 

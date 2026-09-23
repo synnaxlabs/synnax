@@ -7,21 +7,21 @@
       "channel": 6010,
       "data_type": "float64",
       "disabled": false,
+      "is_index": false,
       "key": "ch-opc-read-0",
       "name": "fixture_opc_pressure",
       "node_id": "NS=2;S=fixture.node.pressure",
-      "node_name": "FixturePressureNode",
-      "is_index": false
+      "node_name": "FixturePressureNode"
     },
     {
       "channel": 6020,
       "data_type": "int64",
       "disabled": true,
+      "is_index": true,
       "key": "ch-opc-read-1",
       "name": "fixture_opc_timestamp",
       "node_id": "NS=2;S=fixture.node.timestamp",
-      "node_name": "FixtureTimestampNode",
-      "is_index": true
+      "node_name": "FixtureTimestampNode"
     }
   ],
   "data_saving_disabled": true,
