@@ -65,32 +65,20 @@ TEST(BreakerTests, testDestructorShuttingDown) {
     t.join();
 }
 
-/// @brief it should correctly handle infinite retries
+/// @brief it should retry past the default maximum retry count when the breaker is
+/// configured to retry infinitely.
 TEST(BreakerTests, testInfiniteRetries) {
     auto b = Breaker(
-        Config{
-            "my-breaker",
-            10 * telem::MICROSECOND,
-            RETRY_INFINITELY, // Set to infinite retries
-            1.1
-        }
+        Config{"my-breaker", telem::TimeSpan::ZERO(), RETRY_INFINITELY, 1}
     );
+    const auto past_default_max = static_cast<size_t>(Config{}.max_retries) + 10;
     EXPECT_TRUE(b.start());
     EXPECT_TRUE(b.running());
-    int retry_count = 0;
-    std::thread t([&b, &retry_count]() {
-        while (b.wait("testInfiniteRetries breaker")) {
-            retry_count++;
-            if (retry_count >= 100) break; // Safety break to prevent infinite test
-        }
-    });
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    for (size_t i = 0; i < past_default_max; i++)
+        ASSERT_TRUE(b.wait("testInfiniteRetries breaker"));
+    EXPECT_EQ(b.retry_count(), past_default_max);
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.running());
-    t.join();
-
-    // Verify that we got multiple retries and didn't stop at the default max (50)
-    ASSERT_GT(retry_count, 50);
 }
 
 /// @brief it should return false when attempting to start a breaker that was
