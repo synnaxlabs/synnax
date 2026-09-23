@@ -172,8 +172,8 @@ uncontrolled and read as empty or off. `Input.DateTime` turns an absent value in
 button-style selects already render nothing highlighted (`select/Button.tsx:69`), which
 is the target behavior.
 
-`Input.Numeric` drops `emptyValue` (`input/Numeric.tsx:35-38`), a sentinel that stands
-in for absence.
+`Input.Numeric` keeps `emptyValue`, since its one use maps a stored sentinel the schema
+gives a meaning (`-1` for a log channel's precision), not absence.
 
 ### 3.3 An optional subtree is a unit
 
@@ -259,23 +259,22 @@ overlap in only 16 files, nearly all of them generated color output plus
 that cheaply; the reverse would push 301 files of churn through a branch that is nearly
 done.
 
-### 5.1 Pull request sequence
+### 5.1 One pull request
 
-Each pull request lands on `main` on its own. The field behavior of §3.0 and §3.2
-switches on in the last one, so no intermediate state has fields that hide on absence
-beside fields that render unset.
+Splitting it would leave fields that hide on absence beside fields that render unset,
+which is the state this RFC exists to end.
 
-1. This document, and `zod.getFieldSchema` learns the four moves of §3.1 with specs for
-   each. `State.getState` passes the document to it, so `required` is now correct under
-   unions and optional subtrees.
-2. The input atoms take an absent value (§3.2), and the numeric `emptyValue` prop goes.
-3. The vendor schema for device forms, and an audit of §3.6 against what landed.
-4. Optional subtrees get their materialize-on-write rule and their enable controls
-   (§3.3), and the four shared-form sites state applicability (§3.5).
-5. `State.getState` takes its verdict from the schema, and `defaultValue`, `hideIfNull`
-   and the field-level `optional` are deleted, along with all call-site props and
-   default injections. The table swatch, the scale telemetry form, and the HTTP time
-   format field fold back into `Form.Field`.
+The order inside it:
+
+1. The vendor schema for device forms, and an audit of §3.6 against what landed.
+2. `zod.getFieldSchema` learns the four moves of §3.1, with specs for each.
+3. The input atoms take an absent value (§3.2).
+4. `State.getState` takes its verdict from the schema, and `defaultValue`, `hideIfNull`
+   and the field-level `optional` are deleted, along with all 160 call-site props and
+   all 18 default injections.
+5. Optional subtrees get their materialize-on-write rule and their enable controls.
+6. The four shared-form sites state applicability, and the table swatch and the scale
+   telemetry form fold back into `Form.Field`.
 
 ## 6 Compatibility
 

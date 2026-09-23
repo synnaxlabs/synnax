@@ -142,6 +142,12 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export const formSchema = device.deviceZ();
 
+/** The schema a form built by {@link createForm} validates against. */
+export type FormSchema<S> =
+  S extends device.DeviceSchemas<infer P, infer Ma, infer Mo>
+    ? ReturnType<typeof device.deviceZ<P, Ma, Mo>>
+    : typeof formSchema;
+
 export type FormQuery = RetrieveQuery;
 
 export const createForm = <
@@ -154,13 +160,15 @@ export const createForm = <
   const schema = device.deviceZ(schemas);
   // Cached records and streamed set events are parsed generically, so they can carry
   // shapes that predate the vendor's migrations and defaults.
-  const parseRecord = (record: unknown): z.infer<typeof formSchema> | undefined => {
+  const parseRecord = (record: unknown): z.infer<typeof schema> | undefined => {
     const parsed = schema.safeParse(record);
-    return parsed.success ? (parsed.data as z.infer<typeof formSchema>) : undefined;
+    return parsed.success ? parsed.data : undefined;
   };
-  return Flux.createForm<FormQuery, typeof formSchema>({
+  return Flux.createForm<FormQuery, typeof schema>({
     name: RESOURCE_NAME,
-    schema: formSchema,
+    schema,
+    // A blank make and model wait on the modal's first step, so the draft does not
+    // satisfy a vendor's literals until then.
     initialValues: {
       key: "",
       rack: 0,
@@ -170,7 +178,7 @@ export const createForm = <
       location: "",
       configured: true,
       properties: {},
-    },
+    } as z.infer<typeof schema>,
     normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ query, client }) =>
       schemas != null
@@ -191,7 +199,7 @@ export const createForm = <
           data as device.New<Properties, Make, Model>,
           schemas,
         );
-      else await client.devices.create(data);
+      else await client.devices.create(data as device.New);
     },
     mountListeners: ({ client, query: { key }, reset, set }) => {
       if (primitive.isZero(key)) return [];

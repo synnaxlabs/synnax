@@ -25,10 +25,13 @@ const LABEL_LOCATION: position.LocationPreference = {
 };
 
 export const MenuItem = (): ReactElement => (
-  <Form.Field<label.Key[]> path="query.hasLabels" defaultValue={[]} showLabel={false}>
+  <Form.Field<label.Key[] | undefined, label.Key[]>
+    path="query.hasLabels"
+    showLabel={false}
+  >
     {({ value, onChange }) => (
       <SelectMultiple
-        value={value}
+        value={value ?? []}
         onChange={onChange}
         location={LABEL_LOCATION}
         triggerProps={TRIGGER_PROPS}

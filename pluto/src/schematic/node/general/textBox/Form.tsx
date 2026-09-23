@@ -44,7 +44,6 @@ export const TextBoxForm = (): ReactElement => {
             path="align"
             label="Alignment"
             padHelpText={false}
-            hideIfNull
           >
             {({ value, onChange }) => (
               <Select.Flex.Alignment value={value} onChange={onChange} />

@@ -81,6 +81,7 @@ describe("zod", () => {
         g: z.object({ h: z.number() }).nullable(),
         i: z.object({ j: z.number() }).transform((v) => v.j),
         k: z.lazy(() => z.object({ l: z.string() })),
+        m: z.preprocess((v) => v, z.object({ n: z.number() })),
       });
       const spec = [
         ["a.b", z.ZodNumber],
@@ -89,6 +90,7 @@ describe("zod", () => {
         ["g.h", z.ZodNumber],
         ["i.j", z.ZodNumber],
         ["k.l", z.ZodString],
+        ["m.n", z.ZodNumber],
       ] as const;
       spec.forEach(([path, type]) =>
         it(`should descend through the wrapper on ${path}`, () =>
@@ -130,6 +132,24 @@ describe("zod", () => {
         expect(() => zod.getFieldSchema(schema, "config.value")).toThrow(
           "Schema does not contain the path config.value",
         );
+      });
+    });
+
+    describe("plain unions", () => {
+      const schema = z.object({
+        props: z.union([
+          z.object({ version: z.literal(1), count: z.number() }),
+          z.object({ version: z.literal(0), name: z.string() }).transform((v) => v),
+        ]),
+      });
+      it("should serve a path from the first member that contains it", () => {
+        expect(zod.getFieldSchema(schema, "props.count")).toBeInstanceOf(z.ZodNumber);
+        expect(zod.getFieldSchema(schema, "props.name")).toBeInstanceOf(z.ZodString);
+      });
+      it("should not contain a path no member holds", () => {
+        expect(
+          zod.getFieldSchema(schema, "props.other", { optional: true }),
+        ).toBeNull();
       });
     });
 

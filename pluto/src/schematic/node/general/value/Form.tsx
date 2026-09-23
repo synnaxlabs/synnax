@@ -35,7 +35,6 @@ export const ValueForm = (): ReactElement => (
             <Base.NumericField
               path="inlineSize"
               label="Value width"
-              hideIfNull
               inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
             />
           </Flex.Box>

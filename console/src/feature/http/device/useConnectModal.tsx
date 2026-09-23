@@ -71,7 +71,10 @@ const beforeSave = async ({
   client,
   get,
   set,
-}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
     rack: get<rack.Key>("rack").value,
@@ -120,32 +123,34 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       afterSave: useCallback(() => close(), [close]),
     });
 
-    const authType = Form.useFieldValue<AuthType, AuthType, typeof PDevice.formSchema>(
-      "properties.auth.type",
-      { ctx: form },
-    );
+    const authType = Form.useFieldValue<
+      AuthType,
+      AuthType,
+      PDevice.FormSchema<typeof SCHEMAS>
+    >("properties.auth.type", { ctx: form });
 
-    const sendAs = Form.useFieldValue<string, string, typeof PDevice.formSchema>(
-      "properties.auth.sendAs",
-      { ctx: form, optional: true },
-    );
+    const sendAs = Form.useFieldValue<
+      string,
+      string,
+      PDevice.FormSchema<typeof SCHEMAS>
+    >("properties.auth.sendAs", { ctx: form, optional: true });
 
     const healthCheckMethod = Form.useFieldValue<
       HealthCheckMethod,
       HealthCheckMethod,
-      typeof PDevice.formSchema
+      PDevice.FormSchema<typeof SCHEMAS>
     >("properties.healthCheck.method", { ctx: form });
 
     const validateResponse = Form.useFieldValue<
       boolean,
       boolean,
-      typeof PDevice.formSchema
+      PDevice.FormSchema<typeof SCHEMAS>
     >("properties.healthCheck.validateResponse", { ctx: form });
 
     const expectedValueType = Form.useFieldValue<
       json.PrimitiveType,
       json.PrimitiveType,
-      typeof PDevice.formSchema
+      PDevice.FormSchema<typeof SCHEMAS>
     >("properties.healthCheck.response.expectedValueType", {
       ctx: form,
       optional: true,
@@ -227,7 +232,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       <Modals.Frame className={CSS.B("http-connect")}>
         <Modals.Header icon={<Icon.Logo.HTTP />}>Server.Connect</Modals.Header>
         <Flex.Box className={CSS.B("content")} grow gap="large">
-          <Form.Form<typeof PDevice.formSchema> {...form}>
+          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
             <Flex.Box gap="small">
               <Form.TextField path="name" inputProps={NAME_INPUT_PROPS} />
               <Form.Field<rack.Key> path="rack" label="Connect from" required>

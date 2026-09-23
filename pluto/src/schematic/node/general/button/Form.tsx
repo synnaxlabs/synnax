@@ -48,7 +48,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         {value.mode !== "momentary" && <Form.ActivationDelayField />}
         <Form.ControlChipField />
       </Flex.Box>
-      <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
+      <Base.Field<BaseButton.Mode> path="mode" label="Mode">
         {({ value, onChange }) => (
           <BaseButton.SelectMode value={value} onChange={onChange} />
         )}

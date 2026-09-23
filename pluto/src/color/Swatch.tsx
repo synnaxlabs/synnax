@@ -9,13 +9,16 @@
 
 import "@/color/Swatch.css";
 
-import { type color, state as xstate } from "@synnaxlabs/x";
+import { color, state as xstate } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
+import { Button } from "@/button";
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import { state } from "@/state";
 import { Text } from "@/text";
 
@@ -26,6 +29,8 @@ export interface SwatchProps
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;
   onlyChangeOnBlur?: boolean;
+  /** Returns the swatch to unset. Shown in the picker while a color is chosen. */
+  onClear?: () => void;
 }
 
 /**
@@ -37,6 +42,8 @@ export interface SwatchProps
  * calls `onChange` once, when the picker closes. Set it where a live preview is not
  * worth a change per pixel of drag through the gradient. A change pending when the
  * swatch unmounts is dropped.
+ * @param props.onClear - A function to call to return the color to unset. An unset
+ * swatch shows no color and takes no drag.
  */
 export const Swatch = ({
   onChange,
@@ -47,6 +54,7 @@ export const Swatch = ({
   style,
   onClick,
   value,
+  onClear,
   visible: propsVisible,
   ...rest
 }: SwatchProps): ReactElement => {
@@ -85,11 +93,17 @@ export const Swatch = ({
     (e) => (canPick ? handleVisibleChange(true) : onClick?.(e)),
     [canPick, handleVisibleChange, onClick],
   );
-  const tooltip = useMemo(
-    () =>
-      canPick ? <Text.Text level="small">Click to change color</Text.Text> : undefined,
-    [canPick],
-  );
+  const tooltip = useMemo(() => {
+    if (!canPick) return undefined;
+    const text =
+      value == null ? "Unset. Click to pick a color" : "Click to change color";
+    return <Text.Text level="small">{text}</Text.Text>;
+  }, [canPick, value]);
+  const handleClear = useCallback(() => {
+    setPending(null);
+    onClear?.();
+    handleVisibleChange(false);
+  }, [onClear, handleVisibleChange]);
   const shownValue = pending ?? value;
   const swatch = (
     <BaseSwatch
@@ -113,7 +127,15 @@ export const Swatch = ({
     >
       {swatch}
       <Dialog.Dialog rounded="small">
-        <Picker value={shownValue} onChange={handlePickerChange} />
+        <Flex.Box y>
+          <Picker value={shownValue ?? color.ZERO} onChange={handlePickerChange} />
+          {onClear != null && value != null && (
+            <Button.Button size="small" variant="text" onClick={handleClear}>
+              <Icon.Close />
+              Clear
+            </Button.Button>
+          )}
+        </Flex.Box>
       </Dialog.Dialog>
     </Dialog.Frame>
   );

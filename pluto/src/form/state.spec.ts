@@ -49,6 +49,24 @@ const initialValues = {
   optionalField: undefined,
 };
 
+const verdictSchema = z.object({
+  name: z.string(),
+  optionalField: z.string().optional(),
+  defaulted: z.string().default("cat"),
+  extra: z.record(z.string(), z.unknown()),
+  nested: z.object({ ssn: z.string() }),
+  redline: z.object({ lower: z.number().default(0), upper: z.number() }).optional(),
+  color: z
+    .object({ r: z.number().default(0), g: z.number().default(0) })
+    .default({ r: 1, g: 1 }),
+});
+type VerdictValues = z.infer<typeof verdictSchema>;
+const verdictValues = {
+  name: "John Doe",
+  extra: {},
+  nested: { ssn: "1" },
+} as VerdictValues;
+
 describe("State", () => {
   describe("constructor", () => {
     it("should initialize with values and schema", () => {
@@ -71,6 +89,29 @@ describe("State", () => {
   });
 
   describe("setValue", () => {
+    describe("materializing an absent ancestor", () => {
+      it("should build a defaulted subtree before writing its leaf", () => {
+        const state = new State(verdictValues, verdictSchema);
+        state.setValue("color.g", 5);
+        expect(state.values.color).toEqual({ r: 1, g: 5 });
+      });
+
+      it("should build an optional subtree only when it can complete it", () => {
+        const state = new State(verdictValues, verdictSchema);
+        state.setValue("redline.upper", 10);
+        expect(state.values.redline).toEqual({ upper: 10 });
+      });
+
+      it("should leave a present ancestor alone", () => {
+        const state = new State(
+          { ...verdictValues, color: { r: 3, g: 3 } },
+          verdictSchema,
+        );
+        state.setValue("color.g", 5);
+        expect(state.values.color).toEqual({ r: 3, g: 5 });
+      });
+    });
+
     it("should set a top-level value", () => {
       const state = new State(initialValues, basicSchema);
       state.setValue("name", "Jane Doe");
@@ -185,7 +226,7 @@ describe("State", () => {
         expect(state.getState("optionalField").touched).toBe(true);
 
         state.setValue("optionalField", undefined, { markTouched: false });
-        expect(state.getState("optionalField", { optional: true })).toBeNull();
+        expect(state.getState("optionalField").value).toBeUndefined();
       });
 
       it("should work with validation when markTouched is used", () => {
@@ -519,29 +560,62 @@ describe("State", () => {
       expect(fieldState).toBeNull();
     });
 
-    it("should return the default value for a null field without writing it", () => {
-      const state = new State(
-        { ...initialValues, optionalField: undefined },
-        basicSchema,
-      );
-      const fieldState = state.getState("optionalField", { defaultValue: "default" });
-      expect(fieldState?.value).toBe("default");
-      expect(state.values.optionalField).toBeUndefined();
-    });
+    describe("schema verdict on an absent value", () => {
+      it("should show the schema default without writing it", () => {
+        const state = new State(verdictValues, verdictSchema);
+        const fieldState = state.getState("defaulted");
+        expect(fieldState.value).toBe("cat");
+        expect(fieldState.required).toBe(false);
+        expect("defaulted" in state.values).toBe(false);
+      });
 
-    it("should not override existing value with default value", () => {
-      const state = new State(
-        { ...initialValues, optionalField: "existing" },
-        basicSchema,
-      );
-      const fieldState = state.getState("optionalField", { defaultValue: "default" });
-      expect(fieldState?.value).toBe("existing");
+      it("should not override an existing value with the default", () => {
+        const state = new State({ ...verdictValues, defaulted: "dog" }, verdictSchema);
+        expect(state.getState("defaulted").value).toBe("dog");
+      });
+
+      it("should read an optional field as undefined", () => {
+        const state = new State(verdictValues, verdictSchema);
+        const fieldState = state.getState("optionalField");
+        expect(fieldState.value).toBeUndefined();
+        expect(fieldState.required).toBe(false);
+      });
+
+      it("should throw for a required field", () => {
+        const state = new State(
+          { ...verdictValues, name: undefined } as unknown as VerdictValues,
+          verdictSchema,
+        );
+        expect(() => state.getState("name")).toThrow(
+          "Field name is required and holds no value",
+        );
+        expect(state.getState("name", { optional: true })).toBeNull();
+      });
+
+      it("should throw for a path the schema does not contain", () => {
+        const state = new State(verdictValues, verdictSchema);
+        expect(() => state.getState("nested.typo")).toThrow(
+          "Field nested.typo is not in the form",
+        );
+      });
+
+      it("should treat a path under a record of unknowns as optional", () => {
+        const state = new State(verdictValues, verdictSchema);
+        const fieldState = state.getState("extra.anything.deep");
+        expect(fieldState.value).toBeUndefined();
+        expect(fieldState.required).toBe(false);
+      });
+
+      it("should read a leaf of a defaulted subtree from the subtree default", () => {
+        const state = new State(verdictValues, verdictSchema);
+        expect(state.getState("color.r").value).toBe(1);
+      });
     });
 
     it("should correctly determine required status from schema", () => {
       const state = new State(initialValues, basicSchema);
       expect(state.getState("name").required).toBe(true);
-      expect(state.getState("optionalField", { optional: true })).toBeNull();
+      expect(state.getState("optionalField").required).toBe(false);
     });
 
     it("should return cached reference for performance", () => {
@@ -901,7 +975,7 @@ describe("State", () => {
         optional: z.string().optional(),
       });
       const state = new State({ optional: undefined }, optionalSchema);
-      expect(state.getState("optional", { optional: true })).toBeNull();
+      expect(state.getState("optional").value).toBeUndefined();
     });
   });
 });

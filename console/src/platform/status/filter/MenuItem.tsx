@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Component, Form, type position, type Select, Status } from "@synnaxlabs/pluto";
+import {
+  Component,
+  Form,
+  type Input,
+  type position,
+  type Select,
+  Status,
+} from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -23,26 +30,22 @@ const DIALOG_LOCATION: position.LocationPreference = {
 };
 
 export const MenuItem = (): ReactElement => (
-  <Form.Field<status.Variant[]>
+  <Form.Field<status.Variant[] | undefined, status.Variant[]>
     path="query.variants"
-    defaultValue={DEFAULT_VALUE}
     showLabel={false}
   >
     {selectVariantRenderProp}
   </Form.Field>
 );
 
-const DEFAULT_VALUE: status.Variant[] = [];
-
 const selectVariantRenderProp = Component.renderProp(
-  (
-    props: Pick<
-      Select.MultipleProps<status.Variant, Select.StaticEntry<status.Variant>>,
-      "value" | "onChange"
-    >,
-  ) => (
+  ({
+    value,
+    onChange,
+  }: Input.Control<status.Variant[] | undefined, status.Variant[]>) => (
     <Status.SelectMultipleVariants
-      {...props}
+      value={value ?? []}
+      onChange={onChange}
       location={DIALOG_LOCATION}
       triggerProps={TRIGGER_PROPS}
     />

@@ -23,6 +23,11 @@
         border-color: transparent;
     }
 
+    &.pluto--unset {
+        background: transparent;
+        border-style: dashed;
+    }
+
     &.pluto-haul-drop-region {
         border: var(--pluto-border-l6) !important;
         border-color: var(--haul-border-color) !important;

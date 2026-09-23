@@ -67,13 +67,29 @@ describe("ValueForm", () => {
   });
 
   describe("redline tab", () => {
-    it("should materialize the redline for a cell that carries none", async () => {
-      const { getByText } = renderTab("Redline");
+    it("should offer a switch and no bounds for a cell that carries none", () => {
+      const { getByText, queryByText } = renderTab("Redline");
+      expect(getByText("Redline", { selector: "label *, label" })).toBeDefined();
+      expect(queryByText("Lower")).toBeNull();
+      expect(methods.value().redline).toBeUndefined();
+    });
+
+    it("should add the redline as a unit when the switch turns on", async () => {
+      const { getByText, getByRole } = renderTab("Redline");
+      fireEvent.click(getByRole("checkbox"));
       await waitFor(() => expect(getByText("Lower")).toBeDefined());
       expect(methods.value().redline).toEqual({
         bounds: { lower: 0, upper: 1 },
         gradient: [],
       });
+    });
+
+    it("should remove the redline when the switch turns off", async () => {
+      const { getByRole, queryByText } = renderTab("Redline");
+      fireEvent.click(getByRole("checkbox"));
+      fireEvent.click(getByRole("checkbox"));
+      await waitFor(() => expect(queryByText("Lower")).toBeNull());
+      expect(methods.value().redline).toBeUndefined();
     });
   });
 });

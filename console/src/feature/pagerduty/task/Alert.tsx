@@ -95,19 +95,16 @@ const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
       <PForm.TextField
         path={`${path}.component`}
         label="Component"
-        optional
         inputProps={COMPONENT_INPUT_PROPS}
       />
       <PForm.TextField
         path={`${path}.group`}
         label="Group"
-        optional
         inputProps={GROUP_INPUT_PROPS}
       />
       <PForm.TextField
         path={`${path}.class`}
         label="Class"
-        optional
         inputProps={CLASS_INPUT_PROPS}
       />
     </Flex.Box>

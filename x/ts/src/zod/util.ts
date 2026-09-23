@@ -52,8 +52,8 @@ export interface GetFieldSchema {
 const NOT_FOUND = Symbol("notFound");
 type NotFound = typeof NOT_FOUND;
 
-/** Resolves an optional, default, nullable, pipe, or lazy wrapper to the schema inside. */
-const unwrap = (schema: $ZodType): $ZodType => {
+/** Resolves an optional, default, nullable, pipe, or lazy wrapper to what it wraps. */
+export const unwrap = (schema: $ZodType): $ZodType => {
   for (;;) {
     const def = schema._zod.def as $ZodTypeDef & Record<string, unknown>;
     switch (def.type) {
@@ -66,9 +66,12 @@ const unwrap = (schema: $ZodType): $ZodType => {
       case "nonoptional":
         schema = def.innerType as $ZodType;
         break;
-      case "pipe":
-        schema = def.in as $ZodType;
+      case "pipe": {
+        // A preprocess pipes a transform into the schema; a transform pipes out of it.
+        const input = def.in as $ZodType;
+        schema = input._zod.def.type === "transform" ? (def.out as $ZodType) : input;
         break;
+      }
       case "lazy":
         schema = (def.getter as () => $ZodType)();
         break;
@@ -115,7 +118,16 @@ const walk = (
     case "map":
       return walk(def.valueType as $ZodType, parts, index + 1, values);
     case "union": {
-      if (def.discriminator == null || values == null) return NOT_FOUND;
+      if (def.discriminator == null) {
+        // A plain union is a migration or a loose alternative: the first member that
+        // contains the path serves it.
+        for (const option of def.options as $ZodType[]) {
+          const res = walk(option, parts, index, values);
+          if (res !== NOT_FOUND) return res;
+        }
+        return NOT_FOUND;
+      }
+      if (values == null) return NOT_FOUND;
       const prefix = parts.slice(0, index).join(deep.SEPARATOR);
       const current = deep.get(values, prefix, {
         optional: true,
@@ -138,7 +150,8 @@ const walk = (
  *
  * The walk descends through optional, default, nullable, pipe, and lazy wrappers, into
  * array elements and record values, and into the member of a discriminated union that
- * `values` selects. A `z.unknown()` or `z.any()` absorbs the rest of the path.
+ * `values` selects, or the first member of a plain union that contains the path. A
+ * `z.unknown()` or `z.any()` absorbs the rest of the path.
  *
  * @throws {Error} if the schema does not contain the path and `optional` is not set. A
  * discriminated union with no discriminator in `values` does not contain any path.

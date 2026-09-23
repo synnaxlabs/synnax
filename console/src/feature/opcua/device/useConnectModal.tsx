@@ -61,14 +61,19 @@ const INITIAL_VALUES: Device = {
 const beforeValidate = ({
   get,
   set,
-}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) =>
-  set("location", get("properties.connection.endpoint").value);
+}: Flux.BeforeValidateParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => set("location", get("properties.connection.endpoint").value);
 
 const beforeSave = async ({
   client,
   get,
   set,
-}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
   const scanStatus = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
@@ -106,15 +111,16 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
     });
 
     const hasSecurity =
-      Form.useFieldValue<SecurityMode, SecurityMode, typeof PDevice.formSchema>(
-        "properties.connection.securityMode",
-        { ctx: form },
-      ) != NO_SECURITY_MODE;
+      Form.useFieldValue<
+        SecurityMode,
+        SecurityMode,
+        PDevice.FormSchema<typeof SCHEMAS>
+      >("properties.connection.securityMode", { ctx: form }) != NO_SECURITY_MODE;
     return (
       <Modals.Frame className={CSS.B("opc-connect")}>
         <Modals.Header icon={<Icon.Logo.OPCUA />}>Server.Connect</Modals.Header>
         <Modals.Body gap="small">
-          <Form.Form<typeof PDevice.formSchema> {...form}>
+          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
             <Form.Field<rack.Key> path="rack" label="Connect from" required>
               {selectRackRenderProp}

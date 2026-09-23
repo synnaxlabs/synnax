@@ -32,7 +32,7 @@ interface HarnessProps {
 
 const Harness = ({
   onChange = vi.fn(),
-  initialHeaders,
+  initialHeaders = [],
   keyField = "name",
   valueType,
   valueFirst,

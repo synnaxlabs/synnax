@@ -102,7 +102,6 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const fieldChannel = PForm.useFieldValue<number>(`${path}.channel`);
   const enumValues = PForm.useFieldValue<Record<string, number>[]>(
     `${path}.enumValues`,
-    { defaultValue: [] },
   );
   const enumCount = enumValues.length;
   const enumCountText =
@@ -121,7 +120,6 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
           path={`${path}.dataType`}
           showLabel={false}
           showHelpText={false}
-          hideIfNull
         >
           {renderTelemSelectDataType}
         </PForm.Field>

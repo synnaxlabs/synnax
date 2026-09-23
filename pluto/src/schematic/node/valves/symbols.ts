@@ -14,7 +14,6 @@ import {
   createStatic,
   createToggle,
 } from "@/schematic/node/common/create";
-import { Form } from "@/schematic/node/common/form";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 import { Angled } from "@/schematic/node/valves/Angled";
@@ -37,6 +36,7 @@ import { Regulator } from "@/schematic/node/valves/Regulator";
 import { RegulatorManual } from "@/schematic/node/valves/RegulatorManual";
 import { Relief } from "@/schematic/node/valves/Relief";
 import { Solenoid } from "@/schematic/node/valves/Solenoid";
+import { SolenoidForm } from "@/schematic/node/valves/SolenoidForm";
 import { SpringLoadedRelief } from "@/schematic/node/valves/SpringLoadedRelief";
 import { ThreeWay } from "@/schematic/node/valves/ThreeWay";
 import { ThreeWayBall } from "@/schematic/node/valves/ThreeWayBall";
@@ -157,13 +157,11 @@ const relief = createDummyToggle({
 });
 type SolenoidConfig = schematic.SolenoidValveNodeConfig;
 // Solenoid is the one valve whose config carries an extra `normallyOpen` field, so it
-// is built directly rather than through defineToggle. The spec is given an explicit
-// Spec annotation (not `satisfies`) to widen Form to FC<FormProps> — otherwise the
-// concrete ToggleForm type leaks ToggleFormProps into REGISTRY.
+// is built directly rather than through defineToggle.
 const solenoidSpec: Spec<"solenoid_valve", SolenoidConfig> = {
   key: "solenoid_valve",
   name: "Solenoid",
-  Form: Form.ToggleForm,
+  Form: SolenoidForm,
   Node: Toggle.createToggle<SolenoidConfig>(Solenoid),
   Preview: Solenoid,
   zIndex: 4,

@@ -12,21 +12,19 @@ import { type ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Form } from "@/form";
-import { Theming } from "@/theming";
 
-export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => {
-  const theme = Theming.use();
-  return (
-    <Form.Field
-      label="Color"
-      align="start"
-      padHelpText={false}
-      // An unchosen color is absent, so the swatch shows the theme color it resolves
-      // to until a pick writes one.
-      defaultValue={theme.colors.gray.l11}
-      {...props}
-    >
-      {({ value, ...rest }) => <Color.Swatch value={value} {...rest} bordered />}
-    </Form.Field>
-  );
-};
+export const ColorField: Form.FieldT<color.Crude | undefined> = (
+  props,
+): ReactElement => (
+  <Form.Field label="Color" align="start" padHelpText={false} {...props}>
+    {({ value, onChange, ...rest }) => (
+      <Color.Swatch
+        value={value}
+        onChange={onChange}
+        onClear={() => onChange(undefined)}
+        {...rest}
+        bordered
+      />
+    )}
+  </Form.Field>
+);

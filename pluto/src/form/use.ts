@@ -84,7 +84,7 @@ export const use = <Z extends z.ZodType>({
   );
 
   const get: typeof State.prototype.getState = useCallback(
-    <V = unknown>(path: string, opts?: GetOptions<V>): FieldState<V> | null =>
+    <V = unknown>(path: string, opts?: GetOptions): FieldState<V> | null =>
       ref.current.getState(path, opts),
     [],
   ) as typeof State.prototype.getState;

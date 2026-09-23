@@ -53,7 +53,10 @@ const INITIAL_VALUES: Device = {
 const beforeValidate = ({
   get,
   set,
-}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.BeforeValidateParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const host = get<string>("properties.connection.host").value;
   const port = get<number>("properties.connection.port").value;
   set("location", `${host}:${port}`);
@@ -63,7 +66,10 @@ const beforeSave = async ({
   client,
   get,
   set,
-}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+}: Flux.FormBeforeSaveParams<
+  PDevice.RetrieveQuery,
+  PDevice.FormSchema<typeof SCHEMAS>
+>) => {
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
     rack: get<rack.Key>("rack").value,
@@ -109,7 +115,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       <Modals.Frame className={CSS.B("modbus-connect")}>
         <Modals.Header icon={<Icon.Logo.Modbus />}>Server.Connect</Modals.Header>
         <Flex.Box className={CSS.B("content")} grow size="small">
-          <Form.Form<typeof PDevice.formSchema> {...form}>
+          <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
             <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
             <Form.Field<rack.Key> path="rack" label="Connect from" required>
               {selectRackRenderProp}

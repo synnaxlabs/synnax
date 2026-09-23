@@ -132,7 +132,6 @@ const MetaDataListItem = ({
               weight: 500,
             }}
             showLabel={false}
-            hideIfNull
           />
         ) : (
           <Text.Text className={CSS.BE("range-metadata", "key-cell")}>
@@ -140,7 +139,7 @@ const MetaDataListItem = ({
           </Text.Text>
         )}
         <Divider.Divider y />
-        <Form.Field<string> path="value" showLabel={false} hideIfNull>
+        <Form.Field<string> path="value" showLabel={false}>
           {(p) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
