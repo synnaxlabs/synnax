@@ -10,7 +10,7 @@
 import "@/input/time/Time.css";
 
 import { TimeSpan as XTimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps, Editor } from "@/input/time/Editor";
@@ -33,10 +33,9 @@ export interface TimeSpanProps extends Control<number>, BaseProps {
 export const formatTimeSpan = (span: XTimeSpan): string =>
   span.toString("full") || "0s";
 
-const useElapsed = (
-  since: number | undefined,
-  resolution: XTimeSpan = XTimeSpan.SECOND,
-): string | null => {
+// The clock always reads to the second, whatever the row's labels resolve to: a
+// coarser cut would show 0s for the first minute of a long range.
+const useElapsed = (since: number | undefined): string | null => {
   const [, setTick] = useState(0);
   useEffect(() => {
     if (since == null) return;
@@ -44,9 +43,7 @@ const useElapsed = (
     return () => clearInterval(i);
   }, [since]);
   if (since == null) return null;
-  // The clock ticks by the second, so it never reads finer than that.
-  const shown = resolution.lessThan(XTimeSpan.SECOND) ? XTimeSpan.SECOND : resolution;
-  return formatTimeSpan(TimeStamp.now().span(since).truncate(shown));
+  return formatTimeSpan(TimeStamp.now().span(since).truncate(XTimeSpan.SECOND));
 };
 
 /**
@@ -63,7 +60,7 @@ export const TimeSpan = ({
   tooltip,
   ...rest
 }: TimeSpanProps): ReactElement => {
-  const elapsed = useElapsed(elapsedSince, resolution);
+  const elapsed = useElapsed(elapsedSince);
 
   const exact = new XTimeSpan(roundNumeric(value));
   const formatted = formatTimeSpan(exact);
@@ -71,13 +68,12 @@ export const TimeSpan = ({
     resolution == null ? formatted : formatTimeSpan(exact.truncate(resolution));
   const exactTooltip = elapsed == null && shown !== formatted ? formatted : undefined;
 
-  const handleCommit = useCallback(
-    (span: XTimeSpan) => {
-      const next = Number(span.valueOf());
-      if (roundNumeric(next) !== roundNumeric(value)) onChange(next);
-    },
-    [value, onChange],
-  );
+  const handleCommit = (span: XTimeSpan): void => {
+    const next = Number(span.valueOf());
+    // An elapsed readout ignores value, so any typed duration is a change.
+    if (elapsedSince != null || roundNumeric(next) !== roundNumeric(value))
+      onChange(next);
+  };
 
   return (
     <Editor<XTimeSpan>
@@ -100,7 +96,12 @@ export const TimeSpan = ({
       {({ value: span, reading }) => (
         <>
           <span>{formatTimeSpan(span)}</span>
-          <Text.Text level="small" color={9} overflow="ellipsis">
+          <Text.Text
+            level="small"
+            color={9}
+            overflow="ellipsis"
+            className={CSS.BE("time-editor", "detail")}
+          >
             {reading}
           </Text.Text>
         </>
