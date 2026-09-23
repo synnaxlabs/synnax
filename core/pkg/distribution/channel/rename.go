@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -53,8 +52,8 @@ func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
 
 func (s *Service) renameHandler(
 	ctx context.Context, req RenameRequest,
-) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TS.RenameChannels(ctx, storageRenames(req.Renames))
+) (struct{}, error) {
+	return struct{}{}, s.cfg.TS.RenameChannels(ctx, storageRenames(req.Renames))
 }
 
 func zipRenameBatch(entries []renameBatchEntry) map[Key]string {

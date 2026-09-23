@@ -13,8 +13,8 @@ import (
 	"context"
 	"io"
 	"iter"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -47,13 +47,13 @@ func OntologyIDsFromProjects(projects []Project) []ontology.ID {
 // that field with validate.PathedError.
 func KeyFromOntologyID(id ontology.ID) (Key, error) {
 	if id.Type != ontology.ResourceTypeProject {
-		return uuid.Nil, errors.Wrapf(
+		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation, "must be a project, got %q", id.Type,
 		)
 	}
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
-		return uuid.Nil, errors.Wrapf(
+		return uuid.Nil(), errors.Wrapf(
 			validate.ErrValidation, "invalid project key %q: %v", id.Key, err,
 		)
 	}

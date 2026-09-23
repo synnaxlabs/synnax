@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   compare,
   destructor,
   errors,
@@ -465,7 +466,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       add: (actions) => {
         if (done) throw new Error("transaction finalized");
         if (initial == null) return;
-        const arr = Array.isArray(actions) ? actions : [actions];
+        const arr = array.toArray(actions);
         const r = this.replay(key, arr);
         if (r != null) accumulated.push(...r.processed);
       },

@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -20,9 +21,9 @@ var _ = Describe("Retrieve", func() {
 		It(
 			"Should retrieve only the projects matching the given keys",
 			func(ctx SpecContext) {
-				a := project.Project{Name: "a"}
-				b := project.Project{Name: "b"}
-				c := project.Project{Name: "c"}
+				a := project.Project{Name: "a", Layout: msgpack.EncodedJSON{}}
+				b := project.Project{Name: "b", Layout: msgpack.EncodedJSON{}}
+				c := project.Project{Name: "c", Layout: msgpack.EncodedJSON{}}
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 				Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
 				Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())

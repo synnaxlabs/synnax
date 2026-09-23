@@ -62,5 +62,5 @@ type Status[Details any] struct {
 	// Details contains optional component-specific custom details for the status.
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.
-	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
+	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitempty"`
 }

@@ -9,11 +9,10 @@
 
 import "@/schematic/node/general/line/line.css";
 
-import { type color, type xy } from "@synnaxlabs/x";
+import { color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface LineProps {
   className?: string;
@@ -39,7 +38,7 @@ export const Line = ({
       className={CSS.cls(className, CSS.B("line"), CSS.B("symbol-colored"))}
       width={width}
       height={height}
-      style={{ [CSS.variable("symbol-color")]: symbolColorVar(colorVal) }}
+      style={{ [CSS.variable("symbol-color")]: color.rgbaString(colorVal) }}
     >
       <line className={CSS.BE("line", "hit")} {...ends} />
       <line strokeWidth={strokeWidth} {...ends} />

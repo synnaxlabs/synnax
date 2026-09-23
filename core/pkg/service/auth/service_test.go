@@ -10,7 +10,8 @@
 package auth_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -56,13 +57,13 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-		creds = auth.Credentials{Username: uuid.NewString(), Password: "password"}
+		creds = auth.Credentials{Username: uuid.New().String(), Password: "password"}
 		invalidPassCreds = auth.Credentials{
 			Username: creds.Username,
 			Password: "invalid",
 		}
 		invalidUserCreds = auth.Credentials{
-			Username: uuid.NewString(),
+			Username: uuid.New().String(),
 			Password: creds.Password,
 		}
 		Expect(svc.NewWriter(nil).Register(ctx, creds)).To(Succeed())
@@ -105,7 +106,7 @@ var _ = Describe("Service", func() {
 					svc.Authenticate(
 						ctx,
 						nil,
-						auth.Credentials{Username: uuid.NewString()},
+						auth.Credentials{Username: uuid.New().String()},
 					),
 				).To(
 					MatchError(ContainSubstring("password")),
@@ -115,7 +116,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should read from the supplied tx so an in-flight password rotation is observed",
 			func(ctx SpecContext) {
-				newPass := "rotated-" + uuid.NewString()
+				newPass := "rotated-" + uuid.New().String()
 				tx := DeferClose(db.OpenTx())
 				// Rotate the password inside the tx but do not commit.
 				Expect(svc.NewWriter(tx).ChangePassword(ctx, auth.Credentials{

@@ -11,9 +11,9 @@ package config
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"

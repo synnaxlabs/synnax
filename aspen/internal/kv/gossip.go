@@ -11,7 +11,6 @@ package kv
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -100,8 +99,8 @@ type FeedbackMessage struct {
 }
 
 type (
-	FeedbackTransportClient = freighter.UnaryClient[FeedbackMessage, types.Nil]
-	FeedbackTransportServer = freighter.UnaryServer[FeedbackMessage, types.Nil]
+	FeedbackTransportClient = freighter.UnaryClient[FeedbackMessage, struct{}]
+	FeedbackTransportServer = freighter.UnaryServer[FeedbackMessage, struct{}]
 )
 
 type feedbackSender struct {
@@ -139,10 +138,10 @@ func newFeedbackReceiver(cfg Config) *feedbackReceiver {
 func (f *feedbackReceiver) handle(
 	ctx context.Context,
 	msg FeedbackMessage,
-) (types.Nil, error) {
+) (struct{}, error) {
 	// The handler context is cancelled after it returns, so we need to use a separate
 	// context for passing the feedback to the pipeline.
-	return types.Nil{}, signal.SendUnderContext(
+	return struct{}{}, signal.SendUnderContext(
 		ctx,
 		f.Out.Inlet(),
 		msg.Digests.toRequest(context.TODO()),

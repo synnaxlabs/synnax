@@ -667,3 +667,62 @@ describe("store", () => {
     await disabled.close();
   });
 });
+
+describe("deleteRelationships", () => {
+  const groupID = (key: string): ontology.ID => ({ type: "group", key });
+  const rel = (from: ontology.ID, to: ontology.ID): ontology.Relationship => ({
+    from,
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    to,
+  });
+  const createCache = (rels: ontology.Relationship[]): ontology.Cache => {
+    const root = new query.Cache({ openStreamer: null });
+    const indexes = {
+      byTo: new query.LookupIndex<string, ontology.Relationship>((r) =>
+        ontology.idToString(r.to),
+      ),
+      byFrom: new query.LookupIndex<string, ontology.Relationship>((r) =>
+        ontology.idToString(r.from),
+      ),
+    };
+    const relationships = root.createTable<string, ontology.Relationship>({
+      name: "relationships",
+      indexes: [indexes.byTo, indexes.byFrom],
+    });
+    const resources = root.createTable<string, ontology.Resource>({
+      name: "resources",
+    });
+    rels.forEach((r) => relationships.set(ontology.relationshipToString(r), r));
+    return new ontology.Cache(relationships, resources, indexes);
+  };
+
+  const [a, b, c, d] = ["a", "b", "c", "d"].map(groupID);
+
+  it("deletes every cached relationship touching the given IDs", () => {
+    const cache = createCache([rel(a, b), rel(b, c), rel(c, d)]);
+    cache.deleteRelationships(b);
+    expect(cache.relationshipsTo(b)).toHaveLength(0);
+    expect(cache.relationshipsFrom(b)).toHaveLength(0);
+    expect(cache.relationshipsFrom(a)).toHaveLength(0);
+    expect(cache.relationshipsFrom(c)).toHaveLength(1);
+  });
+
+  it("returns a rollback restoring them, a shared relationship included once", () => {
+    const cache = createCache([rel(a, b), rel(b, c)]);
+    const undo = cache.deleteRelationships([a, b]);
+    expect(cache.relationshipsFrom(a)).toHaveLength(0);
+    expect(cache.relationshipsTo(c)).toHaveLength(0);
+    undo();
+    expect(cache.relationshipsFrom(a)).toHaveLength(1);
+    expect(cache.relationshipsTo(b)).toHaveLength(1);
+    expect(cache.relationshipsTo(c)).toHaveLength(1);
+  });
+
+  it("deletes by collected keys, never by predicate", () => {
+    const cache = createCache([rel(a, b), rel(b, c)]);
+    const spy = vi.spyOn(cache.relationships, "delete");
+    cache.deleteRelationships(b);
+    for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
+    spy.mockRestore();
+  });
+});

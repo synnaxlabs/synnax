@@ -13,7 +13,7 @@ package service
 
 import (
 	"bufio"
-	"encoding/json"
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"time"

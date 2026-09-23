@@ -268,10 +268,10 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.wait_for(self.labeled_range_name)
 
         self.console.ranges.overview.set_start_time(
-            year=2024, month="January", day=1, hour=0, minute=0, second=0
+            year=2024, month=1, day=1, hour=0, minute=0, second=0
         )
         self.console.ranges.overview.set_end_time(
-            year=2024, month="January", day=2, hour=0, minute=0, second=0
+            year=2024, month=1, day=2, hour=0, minute=0, second=0
         )
 
         # The overview form autosaves on a debounce, so poll until the last

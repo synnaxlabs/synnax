@@ -11,14 +11,14 @@
     },
     {
       "address": 2002,
+      "bytes_swapped": false,
       "channel": 8120,
       "data_type": "uint32",
       "disabled": true,
       "key": "ch-mb-holding-out",
       "name": "fixture_mb_holding_register_output",
-      "bytes_swapped": false,
-      "words_swapped": false,
-      "type": "holding_register"
+      "type": "holding_register",
+      "words_swapped": false
     }
   ],
   "data_saving_disabled": true,

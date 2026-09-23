@@ -22,9 +22,9 @@ var templateFuncs = template.FuncMap{
 	"pluralize": pluralizeDistinct,
 }
 
-// pluralizeDistinct returns the plural form of a name for use as a slice function
-// name. If the plural is the same as the singular (already-plural words like
-// "Channels", "Properties"), it appends "List" to avoid name collisions.
+// pluralizeDistinct returns the plural form of a name for use as a slice function name.
+// If the plural is the same as the singular (already-plural words like "Channels",
+// "Properties"), it appends "List" to avoid name collisions.
 func pluralizeDistinct(name string) string {
 	plural := pluralize.String(name)
 	if plural == name {
@@ -51,13 +51,12 @@ package {{.Package}}
 {{- if .HasImports}}
 
 import (
-{{- range .ExternalImports}}
+{{- range .StdImports}}
 	"{{.}}"
 {{- end}}
-{{- if and (gt (len .ExternalImports) 0) (gt (len .InternalImports) 0)}}
-
-{{- end}}
-{{- range .InternalImports}}
+{{- if and .StdImports .NonStdImports}}
+{{end}}
+{{- range .NonStdImports}}
 {{- if .NeedsAlias}}
 	{{.Alias}} "{{.Path}}"
 {{- else}}

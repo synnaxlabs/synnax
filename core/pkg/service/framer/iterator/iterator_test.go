@@ -11,7 +11,6 @@ package iterator_test
 
 import (
 	"strconv"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -87,7 +86,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:  []channel.Key{ch.Key()},
 			}))
 			fr := frame.NewUnary(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
-			MustSucceed(w.Write(fr))
+			Expect(w.Write(fr)).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -146,7 +145,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](-2, -3, -4, -5, -6),
 					},
 				)
-				MustSucceed(w.Write(fr))
+				Expect(w.Write(fr)).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 				w = MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS * 6,
@@ -161,7 +160,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](-3, -4, -5, -6, -7),
 					},
 				)
-				MustSucceed(w.Write(fr))
+				Expect(w.Write(fr)).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 			})
 
@@ -191,6 +190,30 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(v.Series[1]).To(telem.MatchSeriesData(idxData.Series[1]))
 				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+				Expect(iter.Close()).To(Succeed())
+			})
+
+			It("Should carry calculation state across domains", func(
+				ctx SpecContext,
+			) {
+				total := &channel.Channel{
+					Name:       "running_total",
+					DataType:   telem.Float32T,
+					Expression: "total f32 $= 0\ntotal = total + sensor_1\nreturn total",
+				}
+				Expect(channelWriter.Create(ctx, total)).To(Succeed())
+				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+					Keys:   []channel.Key{total.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				var got []float32
+				for iter.Next(iterator.AutoSpan) {
+					for _, ser := range iter.Value().Get(total.Key()).Series {
+						got = append(got, ser.Unmarshal[float32]()...)
+					}
+				}
+				Expect(got).To(Equal([]float32{1, 3, 6, 10, 15, 21, 28, 36, 45, 55}))
 				Expect(iter.Close()).To(Succeed())
 			})
 
@@ -583,7 +606,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 							telem.NewSeriesV[float32](1, 2),
 						},
 					)
-					MustSucceed(w.Write(fr))
+					Expect(w.Write(fr)).To(BeTrue())
 					Expect(w.Close()).To(Succeed())
 
 					// Second domain
@@ -599,7 +622,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 							telem.NewSeriesV[float32](5, 6),
 						},
 					)
-					MustSucceed(w.Write(fr))
+					Expect(w.Write(fr)).To(BeTrue())
 					Expect(w.Close()).To(Succeed())
 
 					// Third domain
@@ -615,7 +638,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 							telem.NewSeriesV[float32](10, 11),
 						},
 					)
-					MustSucceed(w.Write(fr))
+					Expect(w.Write(fr)).To(BeTrue())
 					Expect(w.Close()).To(Succeed())
 				})
 
@@ -904,13 +927,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 								EnableAutoCommit: new(true),
 							}),
 						)
-						MustSucceed(w.Write(frame.NewMulti(
+						Expect(w.Write(frame.NewMulti(
 							keys,
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1, 2, 3),
 								telem.NewSeriesV[float32](1, 2, 3),
 							},
-						)))
+						))).To(BeTrue())
 						Expect(w.Close()).To(Succeed())
 
 						// Second domain at t=1000s (large gap)
@@ -919,13 +942,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 							Keys:             keys,
 							EnableAutoCommit: new(true),
 						}))
-						MustSucceed(w.Write(frame.NewMulti(
+						Expect(w.Write(frame.NewMulti(
 							keys,
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1000, 1001, 1002),
 								telem.NewSeriesV[float32](1000, 1001, 1002),
 							},
-						)))
+						))).To(BeTrue())
 						Expect(w.Close()).To(Succeed())
 
 						calc := &channel.Channel{
@@ -1113,13 +1136,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keysA,
 						EnableAutoCommit: new(true),
 					}))
-					MustSucceed(wA.Write(frame.NewMulti(
+					Expect(wA.Write(frame.NewMulti(
 						keysA,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
 							telem.NewSeriesV[float32](10, 20, 30),
 						},
-					)))
+					))).To(BeTrue())
 					Expect(wA.Close()).To(Succeed())
 
 					// Write channel B with index B
@@ -1129,13 +1152,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keysB,
 						EnableAutoCommit: new(true),
 					}))
-					MustSucceed(wB.Write(frame.NewMulti(
+					Expect(wB.Write(frame.NewMulti(
 						keysB,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
 							telem.NewSeriesV[float32](1, 2, 3),
 						},
-					)))
+					))).To(BeTrue())
 					Expect(wB.Close()).To(Succeed())
 
 					calc := &channel.Channel{
@@ -1216,6 +1239,58 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 
+		It("Should downsample a calculation after it runs", func(ctx SpecContext) {
+			indexCh := &channel.Channel{
+				Name:     "downsample_stateful_time",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "downsample_stateful_sensor",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: new(true),
+			}))
+			Expect(w.Write(frame.NewMulti(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+				},
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			total := &channel.Channel{
+				Name:     "downsample_stateful_total",
+				DataType: telem.Float32T,
+				Expression: "total f32 $= 0\n" +
+					"total = total + downsample_stateful_sensor\n" +
+					"return total",
+			}
+			Expect(channelWriter.Create(ctx, total)).To(Succeed())
+
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:             []channel.Key{total.Key()},
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: 2,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+			v := iter.Value().Get(total.Key())
+			Expect(v.Series).To(HaveLen(1))
+			// The running sum over every sample is 1, 3, 6, 10, 15, 21, 28, 36. Summing
+			// a strided input would instead give 1, 4, 9, 16.
+			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 6, 15, 28))
+			Expect(iter.Close()).To(Succeed())
+		})
+
 		It("Should correctly downsample with a factor of 3", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "downsample_time_3",
@@ -1268,12 +1343,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 		DescribeTable(
-			"Should not downsample when factor is 0 or 1 or negative",
-			func(ctx SpecContext, factor int) {
-				suffix := strconv.Itoa(factor)
-				if strings.HasPrefix(suffix, "-") {
-					suffix = "neg_" + suffix[1:]
-				}
+			"Should not downsample when factor is 0 or 1",
+			func(ctx SpecContext, factor uint32) {
+				suffix := strconv.FormatUint(uint64(factor), 10)
 				indexCh := &channel.Channel{
 					Name:     "downsample_time" + suffix,
 					DataType: telem.TimestampT,
@@ -1299,7 +1371,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](1, 2, 3, 4),
 					},
 				)
-				MustSucceed(w.Write(fr))
+				Expect(w.Write(fr)).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 
 				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -1314,9 +1386,8 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 2, 3, 4))
 				Expect(iter.Close()).To(Succeed())
 			},
-			Entry("factor is 0", 0),
-			Entry("factor is 1", 1),
-			Entry("factor is negative", -1),
+			Entry("factor is 0", uint32(0)),
+			Entry("factor is 1", uint32(1)),
 		)
 
 		It(
