@@ -22,9 +22,10 @@ namespace arc::stl::selector {
 namespace {
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::TimeSpan(0),
+        .cycle =
+            {.elapsed = x::telem::TimeSpan(0),
+             .reason = runtime::node::RunReason::ChannelInput},
         .tolerance = x::telem::TimeSpan(0),
-        .reason = runtime::node::RunReason::ChannelInput,
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
@@ -108,6 +109,7 @@ void write_source(
         0
     ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.mark_fresh(0);
 }
 }
 
@@ -193,7 +195,7 @@ TEST(SelectTest, ResetRearmsInputsOnStageReentry) {
     EXPECT_EQ(changes, 0);
 
     // Stage re-entry re-arms the inputs so the node runs again.
-    node.reset();
+    node.reset(ctx);
     changes = 0;
     ASSERT_NIL(node.next(ctx));
     EXPECT_GT(changes, 0);
@@ -414,6 +416,7 @@ TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{100, 200}
     );
+    source.mark_fresh(0);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));

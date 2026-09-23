@@ -23,9 +23,10 @@ namespace {
 
 runtime::node::Context make_context() {
     return runtime::node::Context{
-        .elapsed = x::telem::TimeSpan(0),
+        .cycle =
+            {.elapsed = x::telem::TimeSpan(0),
+             .reason = runtime::node::RunReason::TimerTick},
         .tolerance = x::telem::TimeSpan(0),
-        .reason = runtime::node::RunReason::TimerTick,
         .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
     };
@@ -147,6 +148,7 @@ void write_source_f64(
 ) {
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.mark_fresh(0);
 }
 
 void write_source_i32(
@@ -156,6 +158,7 @@ void write_source_i32(
 ) {
     source.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    source.mark_fresh(0);
 }
 
 void write_reset(
@@ -167,6 +170,7 @@ void write_reset(
         0
     ) = x::mem::make_local_shared<x::telem::Series>(data, x::telem::BOOLEAN_T);
     reset.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    reset.mark_fresh(0);
 }
 }
 
@@ -240,7 +244,7 @@ TEST(MathAvgTest, ResetRearmsInputsOnStageReentry) {
     EXPECT_EQ(changes, 0);
 
     // Stage re-entry re-arms the inputs so the node runs again.
-    node->reset();
+    node->reset(ctx);
     changes = 0;
     ASSERT_NIL(node->next(ctx));
     EXPECT_GT(changes, 0);
@@ -684,6 +688,7 @@ TEST(MathMaxTest, SumsAlignmentFromResetSignal) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{50 * sec, 100 * sec, 150 * sec}
     );
+    source.mark_fresh(0);
 
     auto reset = setup.make_reset_node();
     auto reset_series = x::telem::Series(false);
@@ -698,6 +703,7 @@ TEST(MathMaxTest, SumsAlignmentFromResetSignal) {
     reset.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{25 * sec}
     );
+    reset.mark_fresh(0);
 
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));
@@ -753,6 +759,7 @@ TEST(MathDerivativeTest, ComputesPointwiseDerivative) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{sec, 2 * sec, 4 * sec}
     );
+    source.mark_fresh(0);
     bool changed = false;
     auto ctx = make_context();
     ctx.mark_changed = [&](size_t) { changed = true; };
@@ -822,7 +829,7 @@ TEST(MathDerivativeTest, ResetClearsState) {
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));
 
-    node->reset();
+    node->reset(ctx);
 
     auto source2 = setup.make_source_node();
     write_source_f64(source2, {100.0}, {10 * sec});
@@ -904,6 +911,7 @@ TEST(MathDerivativeTest, U8InputNegativeDerivativeOutputsFloat64) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{sec, 2 * sec, 4 * sec}
     );
+    source.mark_fresh(0);
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));
 
@@ -1093,6 +1101,7 @@ void write_lhs_f64(
 ) {
     lhs.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     lhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    lhs.mark_fresh(0);
 }
 
 void write_rhs_f64(
@@ -1102,6 +1111,7 @@ void write_rhs_f64(
 ) {
     rhs.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     rhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    rhs.mark_fresh(0);
 }
 
 void write_lhs_i32(
@@ -1111,6 +1121,7 @@ void write_lhs_i32(
 ) {
     lhs.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     lhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    lhs.mark_fresh(0);
 }
 
 void write_rhs_i32(
@@ -1120,6 +1131,7 @@ void write_rhs_i32(
 ) {
     rhs.output(0) = x::mem::make_local_shared<x::telem::Series>(data);
     rhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
+    rhs.mark_fresh(0);
 }
 
 // ───────────────── Add ─────────────────
@@ -1454,6 +1466,7 @@ TEST(MathArithmeticTest, PropagatesAlignmentFromBothInputs) {
     lhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{10000, 20000}
     );
+    lhs.mark_fresh(0);
     auto rhs_data = x::mem::make_local_shared<x::telem::Series>(
         std::vector<double>{5.0, 10.0}
     );
@@ -1463,6 +1476,7 @@ TEST(MathArithmeticTest, PropagatesAlignmentFromBothInputs) {
     rhs.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{5000, 15000}
     );
+    rhs.mark_fresh(0);
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));
     auto checker = setup.make_target_node();
@@ -1510,6 +1524,7 @@ TEST(MathArithmeticTest, NegPropagatesAlignmentFromInput) {
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::vector<int64_t>{100000, 200000}
     );
+    source.mark_fresh(0);
     auto ctx = make_context();
     ASSERT_NIL(node->next(ctx));
     auto checker = setup.make_target_node();
