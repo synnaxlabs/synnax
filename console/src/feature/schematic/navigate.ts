@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, type Synnax as Client } from "@synnaxlabs/client";
-import { Schematic, Status, Synnax } from "@synnaxlabs/pluto";
+import { query, type schematic, type Synnax as Client } from "@synnaxlabs/client";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Panel } from "@/platform/panel";
@@ -19,7 +19,7 @@ interface PageTarget {
   retrieve: (client: Client, key: string) => Promise<unknown>;
 }
 
-const PAGE_TARGETS: Record<Schematic.Node.OffPageReference.PageType, PageTarget> = {
+const PAGE_TARGETS: Record<schematic.PageType, PageTarget> = {
   schematic: {
     noun: "Schematic",
     retrieve: (client, key) => client.schematics.retrieve(key),
@@ -52,18 +52,14 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
       if (ui == null || ui.editable || client == null) return;
       const cached = client.schematics.getCached(schematicKey);
       const config = query.isLive(cached) ? cached.configs?.[nodeId] : undefined;
-      if (config?.variant !== "offPageReference") return;
-      const page = Schematic.Node.OffPageReference.parsePage(config.page);
-      if (page.key.length === 0) return;
-      const dblClickNav = config.dblClickNav !== false;
-      if (dblClick !== dblClickNav) return;
+      if (config?.variant !== "off_page_reference") return;
+      const { page } = config;
+      if (page == null || page.key.length === 0) return;
+      const navigatesOnDblClick = !config.dblClickNavDisabled;
+      if (dblClick !== navigatesOnDblClick) return;
       const target = PAGE_TARGETS[page.type];
-      const labelObj = config.label as { label?: string } | undefined;
-      const label = labelObj?.label;
-      const name =
-        label != null && label.length > 0
-          ? label
-          : `Referenced ${target.noun.toLowerCase()}`;
+      const { label } = config.label;
+      const name = label.length > 0 ? label : `Referenced ${target.noun.toLowerCase()}`;
       handleError(async () => {
         await target.retrieve(client, page.key);
         openTab({ variant: "resource", resource: page });

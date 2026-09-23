@@ -117,6 +117,36 @@ var _ = Describe("Migrate", func() {
 		})
 	})
 
+	Describe("NewInstrumentedEntryMigration", func() {
+		It("Should hand the transform the runner's instrumentation", func(
+			ctx SpecContext,
+		) {
+			testDB := OpenGorpMsgpackDB()
+			defer func() { Expect(testDB.Close()).To(Succeed()) }()
+			w := gorp.WrapWriter[int32, entryV1](testDB)
+			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
+			var received alamos.Instrumentation
+			migration := gorp.NewInstrumentedEntryMigration(
+				"observe",
+				func(
+					_ context.Context,
+					old entryV1,
+					ins alamos.Instrumentation,
+				) (entryV1, error) {
+					received = ins
+					return old, nil
+				},
+			)
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				Instrumentation: alamos.New("runner"),
+				DB:              testDB,
+				Namespace:       testNamespace,
+				Migrations:      []migrate.Migration{migration},
+			})).To(Succeed())
+			Expect(received.IsZero()).To(BeFalse())
+		})
+	})
+
 	Describe("Version tracking", func() {
 		It("Should store applied migration names", func(ctx SpecContext) {
 			testDB := OpenGorpMsgpackDB()

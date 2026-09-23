@@ -25,14 +25,12 @@ export const CylinderForm = (): ReactElement => (
           path="dimensions.width"
           label="Width"
           grow
-          defaultValue={200}
           inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
         <Base.NumericField
           path="dimensions.height"
           label="Height"
           grow
-          defaultValue={200}
           inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
       </Flex.Box>
