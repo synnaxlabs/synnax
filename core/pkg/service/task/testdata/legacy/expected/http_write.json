@@ -74,6 +74,7 @@
       "channel": {
         "channel": 10120,
         "data_type": "timestamp",
+        "enum_values": [],
         "json_type": "string",
         "name": "fixture_http_raw_cmd",
         "pointer": "",

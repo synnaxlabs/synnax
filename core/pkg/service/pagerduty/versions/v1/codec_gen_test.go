@@ -12,15 +12,14 @@
 package v1_test
 
 import (
-	"github.com/google/uuid"
 	"testing"
+	"uuid"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
@@ -83,10 +82,10 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v1.TaskConfig{
-				Key:        uuid.Nil,
+				Key:        uuid.Nil(),
 				AutoStart:  false,
 				RoutingKey: "",
-				Alerts:     nil,
+				Alerts:     []v1.Alert{},
 			}),
 			Entry("empty collections", v1.TaskConfig{
 				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -204,7 +203,7 @@ func FuzzDecodeAlert(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
@@ -236,10 +235,10 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v1.TaskConfig{
-			Key:        uuid.Nil,
+			Key:        uuid.Nil(),
 			AutoStart:  false,
 			RoutingKey: "",
-			Alerts:     nil,
+			Alerts:     []v1.Alert{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -276,7 +275,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+		if !testutil.DeepEqual(decoded, redecoded) {
 			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})

@@ -11,7 +11,6 @@ package kv
 
 import (
 	"context"
-	"go/types"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -100,9 +99,9 @@ func (lp *leaseProxy) switchF(
 
 type (
 	// LeaseTransportClient is the client for the lease transport.
-	LeaseTransportClient = freighter.UnaryClient[TxRequest, types.Nil]
+	LeaseTransportClient = freighter.UnaryClient[TxRequest, struct{}]
 	// LeaseTransportServer is the server for the lease transport.
-	LeaseTransportServer = freighter.UnaryServer[TxRequest, types.Nil]
+	LeaseTransportServer = freighter.UnaryServer[TxRequest, struct{}]
 )
 
 type leaseSender struct {
@@ -141,9 +140,9 @@ func newLeaseReceiver(cfg Config) source {
 func (lr *leaseReceiver) receive(
 	_ context.Context,
 	txReq TxRequest,
-) (types.Nil, error) {
+) (struct{}, error) {
 	bc := txCoordinator{}
 	bc.add(&txReq)
 	lr.Out.Inlet() <- txReq
-	return types.Nil{}, bc.wait()
+	return struct{}{}, bc.wait()
 }

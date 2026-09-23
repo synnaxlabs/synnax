@@ -13,9 +13,8 @@ import { Icon, Button, Flex } from "@synnaxlabs/pluto";
 import Search from "@/components/search/Search.astro";
 import { PageMobile } from "@/components/nav/Page";
 import { Account } from "@/components/account";
-import { fetchVersion } from "@/util/fetchVersion";
 const url = Astro.url.pathname;
-const version = await fetchVersion().catch(() => null);
+const version = await Astro.locals.releases.latest("core").catch(() => null);
 const label = version?.split(".").slice(0, -1).join(".");
 ---
 
@@ -69,7 +68,7 @@ const label = version?.split(".").slice(0, -1).join(".");
                     variant="filled"
                     href="https://synnaxlabs.com/#contact"
                 >
-                    Book a Demo
+                    Book a demo
                 </Button.Button>
                 <Button.Button
                     className="version-button"

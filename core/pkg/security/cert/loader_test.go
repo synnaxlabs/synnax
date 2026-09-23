@@ -48,7 +48,8 @@ var _ = Describe("Loader", func() {
 		It("Should return the node certificate when there is no CA", func() {
 			mock.GenerateCerts(fs)
 			l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
-			Expect(l.FS.Remove(l.CACertPath)).To(Succeed())
+			cfg := l.Config()
+			Expect(cfg.FS.Remove(cfg.CACertPath)).To(Succeed())
 			Expect(countPEMBlocks(MustSucceed(l.TrustAnchorsPEM()))).To(Equal(1))
 		})
 

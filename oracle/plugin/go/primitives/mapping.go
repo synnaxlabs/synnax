@@ -18,7 +18,7 @@ var Mappings = map[string]primitives.Mapping{
 	"uuid": {
 		TargetType: "uuid.UUID",
 		Imports: []primitives.Import{
-			{Category: "external", Path: "github.com/google/uuid"},
+			{Category: "external", Path: "uuid"},
 		},
 	},
 	"string": {TargetType: "string"},
@@ -53,12 +53,7 @@ var Mappings = map[string]primitives.Mapping{
 	},
 	"bytes": {TargetType: "[]byte"},
 	"any":   {TargetType: "any"},
-	"nil": {
-		TargetType: "gotypes.Nil",
-		Imports: []primitives.Import{
-			{Category: "internal", Path: "go/types", Name: "gotypes"},
-		},
-	},
+	"nil":   {TargetType: "struct{}"},
 }
 
 // Mapper returns a primitives.Mapper for Go code generation.

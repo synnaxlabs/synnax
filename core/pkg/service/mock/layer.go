@@ -15,8 +15,8 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/security"

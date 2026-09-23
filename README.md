@@ -17,7 +17,7 @@ All official documentation can be found on our [website](https://docs.synnaxlabs
 If you are interested in building on top of Synnax, please read our
 [Contributing Guide](docs/CONTRIBUTING.md) and our [technical documentation](docs/tech).
 
-## Development Status
+## Development status
 
 Synnax is currently under active development. The APIs are stable and are unlikely to
 change significantly.
@@ -29,7 +29,7 @@ releases with different minor version numbers (e.g. 0.40.0 and 0.41.0) may chang
 Our team is targeting a v1 release before the end of 2026, at which point all APIs will
 be considered stable and will not change until a v2 release.
 
-## Repository Organization
+## Repository organization
 
 Synnax is built as a collection of several projects, all of which are collected in this
 monorepo. The following is a summary of each:

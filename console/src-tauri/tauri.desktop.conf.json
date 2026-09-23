@@ -16,9 +16,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.desktop.json"
-      ]
+      "endpoints": ["https://docs.synnaxlabs.com/releases/desktop/latest.json"]
     },
     "deep-link": { "mobile": [], "desktop": { "schemes": [] } }
   }

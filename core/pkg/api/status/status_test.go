@@ -10,7 +10,8 @@
 package status_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
@@ -70,7 +71,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 		It(
 			"Should update an existing row when the input matches its Key",
 			func(ctx SpecContext) {
-				key := uuid.NewString()
+				key := uuid.New().String()
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 					Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
 					Key: key, Name: "api_uuid",
@@ -101,11 +102,11 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				name := "api_multi_" + uuid.New().String()
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 					Variant: status.VariantInfo, Message: "a", Time: telem.Now(),
-					Key: uuid.NewString(), Name: name,
+					Key: uuid.New().String(), Name: name,
 				})).To(Succeed())
 				Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 					Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
-					Key: uuid.NewString(), Name: name,
+					Key: uuid.New().String(), Name: name,
 				})).To(Succeed())
 				grantOn(ctx, author.OntologyID(),
 					[]access.Action{access.ActionUpdate},
@@ -197,7 +198,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 				anon := freshUser(ctx)
 				grantOn(ctx, anon.OntologyID(),
 					[]access.Action{access.ActionCreate},
-					status.OntologyID(uuid.NewString()))
+					status.OntologyID(uuid.New().String()))
 
 				Expect(
 					apiSvc.SetByKeyOrName(
@@ -221,7 +222,7 @@ var _ = Describe("Service.SetByKeyOrName", func() {
 func createStatus(ctx SpecContext, name string) status.Status[any] {
 	GinkgoHelper()
 	s := status.Status[any]{
-		Key:     uuid.NewString(),
+		Key:     uuid.New().String(),
 		Name:    name,
 		Message: "test",
 		Variant: status.VariantInfo,
@@ -244,7 +245,7 @@ var _ = Describe("Service.Retrieve", func() {
 				apiSvc.Retrieve(
 					AuthedCtx(ctx, author),
 					apistatus.RetrieveRequest{
-						Keys:                []status.Key{s.Key, uuid.NewString()},
+						Keys:                []status.Key{s.Key, uuid.New().String()},
 						IgnoreNotFoundError: true,
 					},
 				),
@@ -265,7 +266,7 @@ var _ = Describe("Service.Retrieve", func() {
 				apiSvc.Retrieve(
 					AuthedCtx(ctx, author),
 					apistatus.RetrieveRequest{
-						Keys:                []status.Key{uuid.NewString()},
+						Keys:                []status.Key{uuid.New().String()},
 						IgnoreNotFoundError: true,
 					},
 				),
@@ -283,7 +284,7 @@ var _ = Describe("Service.Retrieve", func() {
 
 			Expect(
 				apiSvc.Retrieve(AuthedCtx(ctx, author), apistatus.RetrieveRequest{
-					Keys: []status.Key{uuid.NewString()},
+					Keys: []status.Key{uuid.New().String()},
 				}),
 			).Error().To(MatchError(query.ErrNotFound))
 		},

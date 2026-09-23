@@ -17,6 +17,7 @@ packages:
   - freighter/ts
   - hub
   - pluto
+  - studio
   - x/media
   - x/ts
 

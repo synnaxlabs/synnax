@@ -1,8 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Provider and Canvas"
+title: "Provider and canvas"
 description: "Configure the Pluto Provider and Canvas components."
-prev: "Get Started"
+prev: "Get started"
 prevURL: "/reference/pluto/get-started"
 next: "Theming"
 nextURL: "/reference/pluto/theming"
@@ -18,7 +18,7 @@ application in the `Pluto.Provider` and `Pluto.Canvas` components.
 
 <Divider.Divider x />
 
-## The Web Worker Script
+## The web worker script
 
 Pluto uses a Web Worker to handle data fetching and rendering. This keeps the rest of
 the user interface smooth even under heavy load. To set up the Web Worker, you need to
@@ -33,7 +33,7 @@ pluto.render();
 
 <Divider.Divider x />
 
-## The Provider
+## The provider
 
 The `Pluto.Provider` component is necessary for the library to work, and should be used
 at the root of your application. We also need to import the url of the worker script we
@@ -75,7 +75,7 @@ const Main = () => (
 
 <Divider.Divider x />
 
-## The Canvas
+## The canvas
 
 If you're using visualization components such as line plots, you'll need to set up a
 rendering canvas for them to display on. This comes in the form of the `Pluto.Canvas`
@@ -125,7 +125,7 @@ const Main = () => {
 };
 ```
 
-## Next Steps
+## Next steps
 
 Now that you have Pluto set up, you can start using the components in your application.
 Check out this [guide](/reference/pluto/line-plot) to learn how to plot data in

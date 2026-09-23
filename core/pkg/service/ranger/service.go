@@ -15,8 +15,8 @@ package ranger
 import (
 	"context"
 	"io"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -187,10 +187,14 @@ func (s *Service) RetrieveParentKey(
 		ExcludeFieldData(true).
 		Entries(&resources).
 		Exec(ctx, tx); err != nil {
-		return uuid.Nil, err
+		return uuid.Nil(), err
 	}
 	if len(resources) == 0 {
-		return uuid.Nil, errors.Wrapf(query.ErrNotFound, "range %s has no parent", key)
+		return uuid.Nil(), errors.Wrapf(
+			query.ErrNotFound,
+			"range %s has no parent",
+			key,
+		)
 	}
 	return KeyFromOntologyID(resources[0].ID)
 }

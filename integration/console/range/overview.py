@@ -96,105 +96,47 @@ class Overview(Surface):
     def set_start_time(
         self,
         year: int,
-        month: str,
+        month: int,
         day: int,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
     ) -> None:
-        """Set the start time in the range overview."""
+        """Set the start time in the range overview, in local time."""
         self._set_time(0, year, month, day, hour, minute, second)
 
     def set_end_time(
         self,
         year: int,
-        month: str,
+        month: int,
         day: int,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
     ) -> None:
-        """Set the end time in the range overview."""
+        """Set the end time in the range overview, in local time."""
         self._set_time(1, year, month, day, hour, minute, second)
 
     def _set_time(
         self,
         index: int,
         year: int,
-        month: str,
+        month: int,
         day: int,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
     ) -> None:
-        """Set a time in the range overview by button index (0=start, 1=end)."""
+        """Set a time in the range overview by cell index (0=start, 1=end)."""
         time_range = self.layout.page.locator(".console-time-range")
-        btn = time_range.locator("button").nth(index)
-        btn.wait_for(state="visible", timeout=5000)
-        self._fill_datetime_picker(btn, year, month, day, hour, minute, second)
-
-    def _navigate_calendar_to_year(self, calendar: Locator, target_year: int) -> None:
-        """Navigate the calendar picker to the target year."""
-        year_row = calendar.locator("> .pluto-flex").nth(1)
-        while True:
-            current_year = int(year_row.locator("small").inner_text())
-            if current_year == target_year:
-                break
-            if current_year > target_year:
-                year_row.locator("button").first.click()
-            else:
-                year_row.locator("button").last.click()
-
-    def _navigate_calendar_to_month(self, calendar: Locator, target_month: str) -> None:
-        """Navigate the calendar picker to the target month."""
-        month_row = calendar.locator(".pluto-calendar-header")
-        while True:
-            current_month = month_row.locator(
-                ".pluto-calendar-header__month"
-            ).inner_text()
-            if current_month == target_month:
-                break
-            month_row.locator("button").first.click()
-
-    def _select_time_value(self, time_list: Locator, value: int) -> None:
-        """Select a value from a time list by clicking the item with matching
-        id."""
-        item = time_list.locator(f".pluto-list__item[id='{value}']")
-        item.scroll_into_view_if_needed()
-        item.click()
-
-    def _fill_datetime_picker(
-        self,
-        field: Locator,
-        year: int,
-        month: str,
-        day: int,
-        hour: int = 0,
-        minute: int = 0,
-        second: int = 0,
-    ) -> None:
-        """Fill a datetime input using the datetime picker modal."""
-        field.click()
-        modal = self.layout.page.locator(".pluto-datetime-modal")
-        modal.wait_for(state="visible", timeout=5000)
-
-        picker = modal.locator(".pluto-datetime-picker")
-        calendar = picker.locator(".pluto-calendar")
-
-        self._navigate_calendar_to_year(calendar, year)
-        self._navigate_calendar_to_month(calendar, month)
-
-        day_btn = calendar.get_by_role("button", name=str(day), exact=True)
-        day_btn.click()
-
-        time_lists = picker.locator(".pluto-time-list")
-        self._select_time_value(time_lists.nth(0), hour)
-        self._select_time_value(time_lists.nth(1), minute)
-        self._select_time_value(time_lists.nth(2), second)
-
-        done_btn = self.layout.page.get_by_role("button", name="Done")
-        done_btn.click()
-        modal.wait_for(state="hidden", timeout=5000)
+        time_range.locator(".pluto-time-editor__trigger").nth(index).click(timeout=5000)
+        editor = self.layout.page.locator(".pluto-time-editor__dialog input")
+        editor.fill(
+            f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}",
+            timeout=5000,
+        )
+        editor.press("Enter")
+        editor.wait_for(state="hidden", timeout=5000)
 
     def set_stage(self, stage: str) -> None:
         """Set the stage in the range overview.

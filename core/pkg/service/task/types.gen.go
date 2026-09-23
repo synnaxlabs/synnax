@@ -62,5 +62,5 @@ type Command struct {
 	// redeploys when it differs.
 	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Args contains optional arguments for the command.
-	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }

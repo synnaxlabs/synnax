@@ -11,8 +11,8 @@ package panel
 
 import (
 	"context"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,7 +25,7 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates a new panel. If the panel's key is uuid.Nil, a new key is generated.
+// Create creates a new panel. If the panel's key is uuid.Nil(), a new key is generated.
 // The panel is registered with the ontology.
 //
 // Set p.Parent to attach the panel to a parent resource in the ontology; when nil or
@@ -35,7 +35,7 @@ func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
 ) (err error) {
-	if p.Key == uuid.Nil {
+	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
 	}
 	// Default a freshly-created panel to a single empty leaf so action dispatchers

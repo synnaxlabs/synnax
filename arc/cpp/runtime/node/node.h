@@ -25,12 +25,26 @@ enum class RunReason {
     ChannelInput,
 };
 
-struct Context {
+/// @brief carries the timing shared by every producer in one scheduler pass.
+/// The runtime loop reads the clock once, builds a Cycle, and hands it to
+/// Scheduler::next; nothing downstream reads a clock of its own.
+struct Cycle {
+    /// @brief the wall clock sampled once at the top of the pass. Producers
+    /// that have no upstream timestamp to carry forward stamp their output from
+    /// it, so everything one pass writes shares a single reference.
+    x::telem::TimeStamp now;
+    /// @brief the time elapsed since the runtime started. Used by time-based
+    /// nodes (interval, wait) to track timing.
     x::telem::TimeSpan elapsed;
-    x::telem::TimeSpan tolerance;
     /// @brief Indicates what triggered this scheduler run.
     /// Time-based nodes should only fire when reason is TimerTick.
     RunReason reason;
+};
+
+struct Context {
+    /// @brief the timing of the scheduler pass the node runs in.
+    Cycle cycle;
+    x::telem::TimeSpan tolerance;
     /// @brief records that one of the current node's outputs has a new
     /// value for the current cycle. The ordinal is the output's 0-based
     /// position in the owning ir::Node's outputs slice. Zero hash
@@ -39,6 +53,10 @@ struct Context {
     std::function<void()> mark_self_changed;
     std::function<void(x::telem::TimeSpan)> set_deadline;
     std::function<void(const x::errors::Error &)> report_error;
+    /// @brief takes n distinct timestamps from the cycle and returns the first; the
+    /// rest follow 1 ns apart. Reservations in one pass never overlap, and the
+    /// runtime's clock resumes above the last stamp reserved.
+    std::function<x::telem::TimeStamp(size_t n)> reserve_stamps;
 };
 
 class Node {
@@ -47,10 +65,12 @@ public:
 
     virtual x::errors::Error next(Context &ctx) = 0;
 
-    /// Reset is called when a stage containing this node is activated.
-    /// Nodes can override to reset their internal state (e.g., timers, counters).
+    /// Reset is called when a stage containing this node is activated. Nodes
+    /// can override to reset their internal state (e.g., timers, counters).
+    /// Activation happens inside a cycle, so ctx carries that cycle's timing; a
+    /// node that stamps an output on reset uses ctx.cycle.now like it would in next.
     /// Default implementation does nothing.
-    virtual void reset() {}
+    virtual void reset(Context &) {}
 
     /// @brief reports whether the output at the given 0-based ordinal is
     /// truthy. Used by the scheduler to evaluate conditional edges and

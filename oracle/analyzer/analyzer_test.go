@@ -615,6 +615,8 @@ Entry struct {
 			Expect(form.Values).To(HaveLen(2))
 			Expect(form.Values[0].Name).To(Equal("a"))
 			Expect(form.Values[1].Name).To(Equal("b"))
+			Expect(form.Declared).To(HaveLen(1))
+			Expect(form.Declared[0].Name).To(Equal("b"))
 		})
 
 		It("Should inherit the int kind from int parent enums", func(ctx SpecContext) {
@@ -3033,6 +3035,10 @@ Mode enum {
 				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
 				Expect(form.Variants).To(HaveLen(2))
 				Expect(form.Variants[1].Name).To(Equal("group"))
+				Expect(form.Included).To(HaveLen(1))
+				Expect(form.Included[0].Name).To(Equal("schematic.NodeConfig"))
+				Expect(form.Declared).To(HaveLen(1))
+				Expect(form.Declared[0].Name).To(Equal("group"))
 			},
 		)
 

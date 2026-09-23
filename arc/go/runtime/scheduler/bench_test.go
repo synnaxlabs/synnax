@@ -38,7 +38,7 @@ func (b *benchNode) Next(ctx node.Context) {
 	}
 }
 
-func (*benchNode) Reset() {}
+func (*benchNode) Reset(node.Context) {}
 
 func (b *benchNode) IsOutputTruthy(idx int) bool {
 	if idx < 0 || idx >= len(b.truthy) {
@@ -168,7 +168,10 @@ func runTickBench(b *testing.B, prog ir.IR, nodes map[string]node.Node) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+		s.Next(
+			ctx,
+			node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+		)
 	}
 }
 
