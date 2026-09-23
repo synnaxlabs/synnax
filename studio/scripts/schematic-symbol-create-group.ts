@@ -24,7 +24,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1200);
+  await session.hold(500);
 
   await session.click(capture.toolbarButton(page, "group", "add"));
   const name = page.locator(".console-modal").getByPlaceholder("Name").first();
@@ -49,5 +49,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
   // Clear the cursor off the new group's tab so its name stays readable.
   await session.moveTo({ x: 756, y: 500 });
-  await session.hold(2400);
+  await session.hold(500);
 };

@@ -23,6 +23,8 @@ export interface RangeSpec {
   endOffsetMin?: number;
   /** Range length in minutes. */
   durationMin?: number;
+  /** Absolute span; overrides the now-relative offsets when set. */
+  timeRange?: TimeRange;
 }
 
 /**
@@ -40,6 +42,8 @@ export const createRanges = async (
     await client.ranges.create(
       specs.map((raw, i) => {
         const spec = typeof raw === "string" ? { name: raw } : raw;
+        if (spec.timeRange != null)
+          return { name: spec.name, timeRange: spec.timeRange };
         const end = now.sub(TimeSpan.minutes(spec.endOffsetMin ?? 30 + i * 20));
         const start = end.sub(TimeSpan.minutes(spec.durationMin ?? 10));
         return { name: spec.name, timeRange: new TimeRange(start, end) };
@@ -63,6 +67,142 @@ export const createLabels = async (
   const client = connect(opts);
   try {
     await client.labels.create(specs);
+  } finally {
+    await client.close();
+  }
+};
+
+/**
+ * resetLabels leaves the cluster holding exactly the given labels: a listed
+ * name is recolored to match, every other label and any duplicate is deleted,
+ * and a missing listed label is created. Keeps a clean, known label set.
+ */
+export const resetLabels = async (
+  specs: LabelSpec[],
+  opts: ConnectionOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    const want = new Map(specs.map((s) => [s.name, s.color]));
+    const kept = new Set<string>();
+    const remove: string[] = [];
+    for (const l of await client.labels.retrieve({ limit: 1000 })) {
+      const color = want.get(l.name);
+      if (color != null && !kept.has(l.name)) {
+        kept.add(l.name);
+        await client.labels.create({ key: l.key, name: l.name, color });
+      } else remove.push(l.key);
+    }
+    if (remove.length > 0) await client.labels.delete(remove);
+    const missing = specs.filter((s) => !kept.has(s.name));
+    if (missing.length > 0) await client.labels.create(missing);
+  } finally {
+    await client.close();
+  }
+};
+
+/**
+ * ensureLabels creates any listed label missing by name, leaving existing ones
+ * untouched, and returns a name-to-key map for assigning them to resources.
+ */
+export const ensureLabels = async (
+  specs: LabelSpec[],
+  opts: ConnectionOptions = {},
+): Promise<Record<string, string>> => {
+  const client = connect(opts);
+  try {
+    const byName = new Map(
+      (await client.labels.retrieve({ limit: 1000 })).map((l) => [l.name, l.key]),
+    );
+    const keys: Record<string, string> = {};
+    for (const spec of specs)
+      keys[spec.name] = byName.get(spec.name) ?? (await client.labels.create(spec)).key;
+    return keys;
+  } finally {
+    await client.close();
+  }
+};
+
+export interface RangeSetup {
+  name: string;
+  timeRange: TimeRange;
+  /** Fixed key; lists that follow key order can be sequenced through it. */
+  key?: string;
+  /** Parent range key, for a child range. */
+  parent?: string;
+  /** Label keys to attach. */
+  labels?: string[];
+}
+
+/**
+ * ensureRange creates the range if none shares its name, attaches any labels,
+ * and returns its key. Skips creation when it already exists, so a run leaves
+ * an existing tree in place.
+ */
+export const ensureRange = async (
+  spec: RangeSetup,
+  opts: ConnectionOptions = {},
+): Promise<string> => {
+  const client = connect(opts);
+  try {
+    const all = await client.ranges.retrieve({ limit: 1000 });
+    const range =
+      all.find((r) => r.name === spec.name) ??
+      (await client.ranges.create({
+        name: spec.name,
+        timeRange: spec.timeRange,
+        ...(spec.key != null && { key: spec.key }),
+        ...(spec.parent != null && { parent: { key: spec.parent } }),
+      }));
+    if (spec.labels != null && spec.labels.length > 0)
+      await client.labels.label(range.ontologyID, spec.labels);
+    return range.key;
+  } finally {
+    await client.close();
+  }
+};
+
+/**
+ * clearWorkspace deletes every range and view on the cluster, leaving labels
+ * and the rest untouched, so a shot starts and ends from a bare workspace.
+ */
+export const clearWorkspace = async (opts: ConnectionOptions = {}): Promise<void> => {
+  const client = connect(opts);
+  try {
+    const ranges = await client.ranges.retrieve({ limit: 1000 });
+    if (ranges.length > 0) await client.ranges.delete(ranges.map((r) => r.key));
+    const views = await client.views.retrieve({ limit: 1000 });
+    if (views.length > 0) await client.views.delete(views.map((v) => v.key));
+  } finally {
+    await client.close();
+  }
+};
+
+/** removeRanges deletes every range with one of the names, so a shot can recreate it. */
+export const removeRanges = async (
+  names: string[],
+  opts: ConnectionOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    const found = (await client.ranges.retrieve({ limit: 1000 })).filter((r) =>
+      names.includes(r.name),
+    );
+    if (found.length > 0) await client.ranges.delete(found.map((r) => r.key));
+  } finally {
+    await client.close();
+  }
+};
+
+/** removeChannels deletes the named channels, so a shot can create them on camera. */
+export const removeChannels = async (
+  names: string[],
+  opts: ConnectionOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    const found = await client.channels.retrieve({ names });
+    if (found.length > 0) await client.channels.delete(found.map((c) => c.key));
   } finally {
     await client.close();
   }

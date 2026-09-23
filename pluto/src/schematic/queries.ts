@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
-import { array, compare, type record, uuid, verbs, xy } from "@synnaxlabs/x";
+import { array, compare, uuid, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -18,7 +18,6 @@ import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
-import { Theming } from "@/theming";
 
 const RESOURCE_NAME = "schematic";
 
@@ -71,7 +70,7 @@ export const useConfigs = Scope.bindHook(
     const result = new Map<string, ElementConfig>();
     for (const elKey of keys) {
       const cfg = configs?.[elKey];
-      if (cfg != null) result.set(elKey, cfg as ElementConfig);
+      if (cfg != null) result.set(elKey, cfg);
     }
     return result;
   }, compare.mapsEqual),
@@ -182,14 +181,39 @@ const augmentWithEdgeSegments = (
     changes,
   });
   if (updates.length === 0) return actions;
-  const extra = updates.map((u) => {
-    const existing = current.configs[u.key] as record.Unknown | undefined;
+  const extra = updates.flatMap((u) => {
+    const existing = current.configs[u.key];
+    if (existing == null || !("segments" in existing)) return [];
     return schematic.setConfig({
       key: u.key,
       config: { ...existing, segments: u.segments },
     });
   });
   return [...actions, ...extra];
+};
+
+const isEdgeConfig = (c: schematic.ElementConfig): c is schematic.EdgeConfig =>
+  c.variant in schematic.EDGE_CONFIG_SCHEMAS;
+
+// An edge added in this batch whose config names no color takes its source
+// symbol's color, so a pipe drawn out of a colored symbol matches it.
+const inheritEdgeColor = (
+  current: schematic.Schematic,
+  actions: schematic.Action[],
+): schematic.Action[] => {
+  const added = new Map<string, schematic.Edge>();
+  for (const a of actions)
+    if (a.type === "add_edge") added.set(a.addEdge.edge.key, a.addEdge.edge);
+  if (added.size === 0) return actions;
+  return actions.map((a) => {
+    if (a.type !== "set_config") return a;
+    const { key, config } = a.setConfig;
+    const edge = added.get(key);
+    if (edge == null || !isEdgeConfig(config) || config.color != null) return a;
+    const source = current.configs[edge.source.node];
+    if (source == null || !("color" in source) || source.color == null) return a;
+    return schematic.setConfig({ key, config: { ...config, color: source.color } });
+  });
 };
 
 export const {
@@ -201,7 +225,10 @@ export const {
   domain: (client) => client.schematics,
   // Group fan-out runs first so member moves also get edge segment updates.
   preprocess: (current, actions) =>
-    augmentWithEdgeSegments(current, Group.fanOutMoves(current, actions)),
+    inheritEdgeColor(
+      current,
+      augmentWithEdgeSegments(current, Group.fanOutMoves(current, actions)),
+    ),
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
@@ -222,35 +249,28 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface AddNodeProps {
+export interface AddNodeProps<V extends Node.Variant = Node.Variant> {
   key: string;
-  variant: Node.Variant;
   position?: xy.XY;
-  specKey?: string;
-  config?: Node.Config;
+  config: Node.Input<V>;
 }
 
 export const useAddNode = () => {
   const client = Synnax.use();
-  const theme = Theming.use();
   const dispatch = useSingleDispatch();
 
   return useCallback(
-    ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
-      const config = Node.resolveSpec(variant).defaultConfig(theme);
-      if (Node.isCustomConfig(config) && specKey != null) {
-        config.specKey = specKey;
-        const sym = client?.schematics.symbols.getCached(specKey);
-        if (config.label != null && query.isLive(sym)) config.label.label = sym.name;
+    <V extends Node.Variant>({ key, position, config: input }: AddNodeProps<V>) => {
+      const config: Node.Config = Node.createConfig(input);
+      if (Node.isCustomConfig(config)) {
+        const sym = client?.schematics.symbols.getCached(config.specKey);
+        if (query.isLive(sym)) config.label.label = sym.name;
       }
       dispatch(
-        schematic.setNode({
-          node: { key, position: position ?? xy.ZERO },
-          config: { ...config, ...override, variant },
-        }),
+        schematic.setNode({ node: { key, position: position ?? xy.ZERO }, config }),
       );
     },
-    [dispatch, theme, client],
+    [dispatch, client],
   );
 };
 
