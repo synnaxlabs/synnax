@@ -101,6 +101,7 @@ jobs:
       core_version: ${{ steps.core.outputs.version }}
       core_tag: ${{ steps.core.outputs.tag }}
       core_previous_tag: ${{ steps.core.outputs.previous_tag }}
+      core_latest: ${{ steps.core.outputs.latest }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
@@ -344,7 +345,9 @@ jobs:
       release_tag: ${{ needs.resolve.outputs.core_tag }}
       console_release: console/v${{ needs.resolve.outputs.core_console_version }}
       driver_release: driver/v${{ needs.resolve.outputs.core_driver_version }}
-      docker_channel: ${{ inputs.prerelease && 'next' || 'latest' }}
+      docker_channel:
+        ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
+        && 'latest' || '' }}
     secrets: inherit
 
   windows-installer:

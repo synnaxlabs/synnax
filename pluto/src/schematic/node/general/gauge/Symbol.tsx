@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { box, dimensions, type text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/gauge/config";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
+import { Value } from "@/vis/value";
 
 const GAUGE_SIZE_MULTIPLIER: Record<text.Level, number> = {
   h1: 220,
@@ -36,7 +37,9 @@ export const Symbol = ({
     label,
     level = "p",
     color,
-    telem,
+    channel,
+    rollingAverage,
+    precision,
     units,
     notation,
     bounds,
@@ -44,10 +47,14 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.GaugeNodeConfig>): ReactElement => {
   const dims = useMemo(
     () => dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100),
     [level],
+  );
+  const telem = useMemo(
+    () => Value.stringSource({ channel, rollingAverage, precision, notation }),
+    [channel, rollingAverage, precision, notation],
   );
   BaseGauge.use({
     aetherKey: nodeKey,

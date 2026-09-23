@@ -15,7 +15,7 @@ Console application.
 
 All official documentation can be found on our [website](https://docs.synnaxlabs.com).
 If you are interested in building on top of Synnax, please read our
-[Contributing Guide](docs/CONTRIBUTING.md) and our [technical documentation](docs/tech).
+[Contributing Guide](CONTRIBUTING.md) and our [technical documentation](docs/tech).
 
 ## Development status
 

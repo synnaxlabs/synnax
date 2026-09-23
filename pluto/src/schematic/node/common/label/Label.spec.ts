@@ -11,27 +11,6 @@ import { describe, expect, it } from "vitest";
 
 import { Label } from "@/schematic/node/common/label";
 
-describe("Label.defaultConfig", () => {
-  it("should populate the supplied label and apply standard defaults", () => {
-    expect(Label.defaultConfig("My Symbol")).toEqual({
-      label: "My Symbol",
-      level: "h5",
-      orientation: "top",
-      maxInlineSize: 150,
-      align: "center",
-      direction: "x",
-    });
-  });
-
-  it("should preserve an empty label string when explicitly provided", () => {
-    expect(Label.defaultConfig("").label).toBe("");
-  });
-
-  it("should produce an object that round-trips through configZ", () => {
-    expect(() => Label.configZ.parse(Label.defaultConfig("anything"))).not.toThrow();
-  });
-});
-
 describe("Label.configZ", () => {
   it("should accept an empty object since every field is optional", () => {
     expect(() => Label.configZ.parse({})).not.toThrow();

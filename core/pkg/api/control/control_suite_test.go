@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -87,12 +88,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
-	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  dist.Framer,
+	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		DB:      dist.DB,
 		Channel: channelSvc,
 		Status:  statusSvc,
 	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		DB:           dist.DB,
+		Framer:       dist.Framer,
+		Channel:      channelSvc,
+		ChannelGraph: channelGraph,
+	}))
 	sigs := MustSucceed(signals.New(signals.Config{
+		DB:      dist.DB,
 		Channel: channelSvc,
 		Framer:  framerSvc,
 	}))

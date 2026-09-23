@@ -9,12 +9,12 @@
 
 import "@/schematic/node/general/box/box.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/box/config";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
@@ -22,16 +22,8 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: {
-    label,
-    orientation = "left",
-    backgroundColor,
-    borderRadius,
-    color,
-    dimensions,
-    strokeWidth,
-  },
-}: NodeProps<Config>): ReactElement => (
+  config: { label, backgroundColor, borderRadius, color, dimensions, strokeWidth },
+}: NodeProps<schematic.BoxNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter
     allowRotate={false}
@@ -42,7 +34,6 @@ export const Symbol = ({
     <Label.Label config={label} onChange={onConfigChange} />
     <TankPrimitive
       className={CSS.B("box")}
-      orientation={orientation}
       color={color}
       dimensions={dimensions}
       boxBorderRadius={borderRadius}
