@@ -103,14 +103,31 @@ if (Test-Path $repoRoot) {
 }
 Write-Output ""
 
-# --- C:/tmp: Bazel install/server files that `bazel clean` leaves behind ---
-if (Test-Path "C:/tmp") {
-    $tmpBefore = [math]::Round(
-        ((Get-ChildItem -Recurse -File "C:/tmp" -ErrorAction SilentlyContinue |
+# --- Temp dirs, tool caches, and AMI leftovers ---
+$junkDirs = @(
+    "C:\tmp\*",
+    "C:\Windows\Temp\*",
+    "$env:TEMP\*",
+    "C:\Windows\SoftwareDistribution\Download\*",
+    "C:\Users\Administrator\setup-pnpm",
+    "C:\Users\Administrator\AppData\Local\bazelisk",
+    "C:\Users\Administrator\AppData\Local\pnpm-cache",
+    "C:\Users\Default\.cargo",
+    "C:\Users\Default\.rustup",
+    "C:\Users\Default\go",
+    "C:\Users\Default\setup-pnpm",
+    "C:\Users\Default\_bazel_Administrator",
+    "C:\Users\Default\AppData\Local\go-build",
+    "C:\Users\Default\AppData\Local\bazelisk"
+)
+foreach ($dir in $junkDirs) {
+    if (-not (Test-Path $dir)) { continue }
+    $before = [math]::Round(
+        ((Get-ChildItem -Recurse -File $dir -ErrorAction SilentlyContinue |
             Measure-Object -Property Length -Sum).Sum / 1MB), 0)
-    Remove-Item -Recurse -Force "C:/tmp" -ErrorAction SilentlyContinue
-    $script:totalFreed += $tmpBefore
-    Write-Output ("  {0,-35} freed {1}MB" -f "C:/tmp", $tmpBefore)
+    Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+    $script:totalFreed += $before
+    Write-Output ("  {0,-35} freed {1}MB" -f $dir, $before)
 }
 Write-Output ""
 

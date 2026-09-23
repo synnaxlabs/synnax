@@ -32,8 +32,8 @@ which is the shape the Driver already writes (`generate_index_data`,
 - **Index group**: The channels in one writer that share an index channel, plus that
   index. Cesium requires every write call to carry every member of a group, with equal
   sample counts (`idxWriter.validateWrite`, `cesium/writer_stream.go:822`).
-- **Upstream stamp**: An index timestamp carried in from upstream data rather than
-  read from a clock.
+- **Upstream stamp**: An index timestamp carried in from upstream data rather than read
+  from a clock.
 
 ## 2 Motivation
 
