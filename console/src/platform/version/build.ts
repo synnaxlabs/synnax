@@ -7,19 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd_test
+import { getVersion } from "@tauri-apps/api/app";
 
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-)
-
-func TestCmd(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cmd Suite")
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
+// A dev build runs at 0.0.0 and has no release to update to.
+export const isDevBuild = async (): Promise<boolean> =>
+  (await getVersion()).startsWith("0.0.");
