@@ -142,15 +142,10 @@ describe("version useInfoModal", () => {
 
   it("should hold the progress bar empty until the download reports a total", async () => {
     mocks.engine = "tauri";
-    const downloadAndInstall = vi.fn(async () => await new Promise<void>(() => {}));
-    mocks.update = { version: "9.9.9", downloadAndInstall };
+    const download = vi.fn(async () => await new Promise<void>(() => {}));
+    mocks.update = { version: "9.9.9", download, install: vi.fn(async () => {}) };
     openModal();
-    await waitFor(() =>
-      expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
-    );
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Update and restart" }));
-    });
+    await clickUpdate();
     await waitFor(() => expect(screen.getByText("Downloading update")).toBeTruthy());
     const bar = document.querySelector<HTMLElement>(".pluto-progress-bar");
     expect(bar?.style.width).toEqual("0%");
