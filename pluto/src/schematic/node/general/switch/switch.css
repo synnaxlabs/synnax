@@ -54,15 +54,66 @@
 }
 
 /*
- * The shared svg rotation in primitive.css cannot rotate this HTML symbol, and
- * rotating an HTML element leaves its layout box unrotated. So swap the box by hand
- * and rotate the flex-centered indicator inside it.
+ * The shared svg rotation in primitive.css cannot rotate this HTML symbol, and rotating
+ * an HTML element leaves its layout box unrotated. So swap the box by hand and rotate
+ * the flex-centered indicator inside it.
  */
 .pluto-symbol-primitive.pluto--direction-y > .pluto-input__switch {
     width: var(--pluto-switch-height);
     height: var(--pluto-switch-width);
 }
 
-.pluto-symbol-primitive.pluto--direction-y .pluto-input__switch-indicator {
+.pluto-symbol-primitive.pluto--direction-y
+    .pluto-input__switch
+    .pluto-input__switch-indicator {
     rotate: -90deg;
+}
+
+/* The knob is the track's ::before, so ::after carries the hold sweep. */
+.pluto-switch-symbol--delayed {
+    .pluto-input__switch-indicator::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+
+        /* An image, not a color: the keyframe owns background-color for the dim. */
+        background-image: linear-gradient(
+            oklch(from var(--pluto-symbol-display) l c h / 20%),
+            oklch(from var(--pluto-symbol-display) l c h / 20%)
+        );
+        clip-path: inset(0 100% 0 0);
+    }
+
+    &.pluto--pressed .pluto-input__switch-indicator::after {
+        animation: delay var(--pluto-toggle-delay) linear;
+        clip-path: inset(0 0 0 0);
+    }
+
+    /* The sweep runs the way the knob will travel, so an on switch fills toward off. */
+    input:checked ~ .pluto-input__switch-indicator::after {
+        clip-path: inset(0 0 0 100%);
+    }
+
+    &.pluto--pressed input:checked ~ .pluto-input__switch-indicator::after {
+        animation-name: delay-reverse;
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+@keyframes delay-reverse {
+    0% {
+        clip-path: inset(0 0 0 100%);
+        background-color: rgb(0 0 0 / 40%);
+    }
+
+    99% {
+        clip-path: inset(0 0 0 0);
+        background-color: rgb(0 0 0 / 40%);
+    }
+
+    100% {
+        clip-path: inset(0 0 0 0);
+    }
 }

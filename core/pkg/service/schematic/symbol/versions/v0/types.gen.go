@@ -12,7 +12,8 @@
 package v0
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -23,7 +24,7 @@ type Key = uuid.UUID
 // is persisted as raw JSON.
 type Symbol struct {
 	// Data holds the symbol specification as raw decoded JSON.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
+	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 	// Name is the human-readable symbol name.
 	Name string `json:"name" msgpack:"name"`
 	// Key is the symbol's unique identifier.

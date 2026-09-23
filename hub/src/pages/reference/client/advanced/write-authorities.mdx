@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Write Authorities"
+title: "Write authorities"
 description: "Dynamic control handoff with write authorities for concurrent access."
 next: "Iterators"
 nextURL: "/reference/client/advanced/iterators"
-prev: "Auto-Index"
+prev: "Auto-index"
 prevURL: "/reference/client/advanced/auto-index"
 clients: ["python", "typescript"]
 ---
@@ -28,7 +28,7 @@ other writers can write to the channel as long as the writer is open.
 
 <Divider.Divider x />
 
-## Same Authority on All Channels
+## Same authority on all channels
 
 To open a writer with the same authority on all channels, pass the `authorities`
 parameter with an integer.
@@ -62,7 +62,7 @@ const writer = await client.openWriter({
 
 <Divider.Divider x />
 
-## Different Authorities per Channel
+## Different authorities per channel
 
 To open a writer with different authorities on each channel, pass the `authorities`
 parameter with a list of integers. This list must be the same length as the number of
@@ -97,7 +97,7 @@ const writer = await client.openWriter({
 
 <Divider.Divider x />
 
-## Adjusting Authority After Open
+## Adjusting authority after open
 
 To change the authority of a writer during operation, use the <Client.Var client:load
 py="set_authority" ts="setAuthority" /> method.

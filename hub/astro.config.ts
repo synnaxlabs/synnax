@@ -27,6 +27,16 @@ const secret = envField.string({ context: "server", access: "secret" });
 export const docs = {
   integrations: [react(), mdx()],
   output: "server",
+  env: {
+    schema: {
+      // Vercel sets this at build time; flags read it to light up preview deploys.
+      VERCEL_ENV: envField.string({
+        context: "client",
+        access: "public",
+        optional: true,
+      }),
+    },
+  },
   adapter: vercel(),
   markdown: {
     shikiConfig: {

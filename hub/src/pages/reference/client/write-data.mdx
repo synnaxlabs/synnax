@@ -1,12 +1,12 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Writing Data"
+title: "Writing data"
 description:
   "Learn how to write data to channels in Synnax, including real-time streaming and
   historical writes."
-next: "Auto-Commit"
+next: "Auto-commit"
 nextURL: "/reference/client/advanced/auto-commit"
-prev: "Reading Data"
+prev: "Reading data"
 prevURL: "/reference/client/read-data"
 clients: ["python", "typescript"]
 ---
@@ -28,7 +28,7 @@ to understand.
 
 <Divider.Divider x />
 
-## Writing with Writers
+## Writing with writers
 
 Writers are designed for streaming data as it's acquired. This is the recommended
 approach for live data acquisition, control sequences, and real-time data processing.
@@ -36,7 +36,7 @@ Writers maintain a file-like interface governed by transactions. To learn more a
 transactions and how writes work in Synnax, see the
 [concepts](/reference/concepts/writes) page.
 
-### Opening a Writer
+### Opening a writer
 
 To open a writer, use the <Client.Var client:load py="open_writer" ts="openWriter" />
 method with a starting timestamp and a list of channels to write to.
@@ -94,7 +94,7 @@ to the cluster.
   Authorities](/reference/client/advanced/write-authorities).
 </Note.Note>
 
-### Persistence/Streaming Mode
+### Persistence/streaming mode
 
 By default, writers are opened in stream + persist
 [mode](/reference/concepts/writes#writer-modes). To change the mode of a writer, specify
@@ -134,7 +134,7 @@ const writer = await client.openWriter({
   </Fragment>
 </Client.Tabs>
 
-### Writing Data
+### Writing data
 
 The `write` method accepts several argument formats. Use the one that best fits your use
 case.
@@ -229,7 +229,7 @@ await writer.write(
   </Fragment>
 </Client.Tabs>
 
-### Writing Variable-Length Data
+### Writing variable-length data
 
 Strings, JSON, and bytes are written through the same writer API as fixed-width samples.
 The channel's data type determines how the writer encodes each value.
@@ -278,7 +278,7 @@ value or TypeScript `Uint8Array`. Variable-length channels can share a writer wi
 fixed-width channels and a common index, so a single `write` call can commit timestamps,
 numeric samples, and string or JSON annotations together.
 
-### Closing a Writer
+### Closing a writer
 
 After you're done writing, it's essential to close the writer to release network
 connections and other resources. If a writer is not closed, other writers may not be
@@ -356,7 +356,7 @@ try {
 
 <Divider.Divider x />
 
-## Historical Writes
+## Historical writes
 
 Historical writes are useful for backfilling data, ingesting data from files, or writing
 data at specific timestamps that have already passed.
@@ -367,7 +367,7 @@ data at specific timestamps that have already passed.
   writing, always use a Writer as described above.
 </Note.Note>
 
-### Writing to a Channel
+### Writing to a channel
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -417,7 +417,7 @@ await tempChannel.write(start, temperatures);
 
 </Client.Tabs>
 
-#### Index and Data Alignment
+#### Index and data alignment
 
 Notice how the two arrays are aligned using the common `start` timestamp. This tells
 Synnax that the first sample in the `temperatures` array is associated with the first
@@ -427,13 +427,13 @@ Synnax will raise a `ValidationError` if the index channel does not contain a
 corresponding timestamp for every sample in the data channel. After all, it wouldn't
 make sense to have a temperature reading without an associated timestamp.
 
-### Writing Multiple Data Channels
+### Writing multiple data channels
 
 It's common to have multiple data channels that share the same index. For example, a
 weather station might record temperature, humidity, and pressure all at the same
 timestamps.
 
-#### Single Time Index
+#### Single time index
 
 When writing a single sample to multiple channels at the same instant, use a dictionary
 with scalar values.
@@ -474,7 +474,7 @@ await client.write(now, {
 
 </Client.Tabs>
 
-#### Multiple Time Indices
+#### Multiple time indices
 
 When writing multiple samples over time, use arrays for both the timestamps and data
 values.
@@ -540,12 +540,12 @@ share the same index. The arrays must all have the same length as the timestamps
 
 <Divider.Divider x />
 
-## Common Pitfalls
+## Common pitfalls
 
 There are several common pitfalls to avoid when writing data to Synnax. These can lead
 to performance degradation and/or control issues.
 
-### Using Many Individual Write Calls Instead of a Writer
+### Using many individual write calls instead of a writer
 
 When writing large volumes of data in a streaming fashion (or in batches), use a writer
 instead of making individual write calls to a channel. Calls to `write` on a channel use

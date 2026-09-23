@@ -11,7 +11,6 @@ package transport
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -28,16 +27,6 @@ import (
 
 type JSONRPCMessage struct {
 	Content string `json:"content" msgpack:"content"`
-}
-
-func (m *JSONRPCMessage) UnmarshalJSON(data []byte) error {
-	type Alias JSONRPCMessage
-	aux := &struct{ *Alias }{Alias: (*Alias)(m)}
-	if err := json.Unmarshal(data, aux); err == nil {
-		return nil
-	}
-	m.Content = string(data)
-	return nil
 }
 
 const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB

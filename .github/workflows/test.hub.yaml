@@ -32,7 +32,7 @@ on:
   push:
     branches:
       - main
-      - rc
+      - release/**
     paths:
       - .github/actions/test-typescript/**
       - .github/workflows/test.hub.yaml
@@ -60,8 +60,6 @@ concurrency:
 jobs:
   test:
     name: Test
-    # Pushes to rc already run these tests, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     runs-on: ubuntu-latest
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}

@@ -14,8 +14,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"

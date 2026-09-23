@@ -315,8 +315,8 @@ type avgNode struct {
 
 var _ node.Node = (*avgNode)(nil)
 
-func (r *avgNode) Reset() {
-	r.State.Reset()
+func (r *avgNode) Reset(ctx node.Context) {
+	r.State.Reset(ctx)
 	r.sampleCount = 0
 	r.startTime = 0
 	r.lastResetTime = 0
@@ -364,16 +364,16 @@ func (r *avgNode) Next(ctx node.Context) {
 	if shouldReset {
 		r.sampleCount = 0
 		r.Output(0).Resize(0)
-		inputTime = r.InputTime(r.inputIdx)
 	}
 	inputData := r.Input(r.inputIdx)
 	if inputData.Len() == 0 {
 		return
 	}
 	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
-	if inputTime.Len() > 0 {
-		lastTimestamp := inputTime.ValueAt[telem.TimeStamp](-1)
-		*r.OutputTime(0) = telem.NewSeriesV(lastTimestamp)
+	if r.HasTime(r.inputIdx) {
+		*r.OutputTime(0) = telem.NewSeriesV(inputTime.ValueAt[telem.TimeStamp](-1))
+	} else {
+		r.StampCycle(ctx, 0)
 	}
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
@@ -392,7 +392,7 @@ func (r *avgNode) Next(ctx node.Context) {
 	r.Output(0).TimeRange = timeRange
 	r.OutputTime(0).Alignment = alignment
 	r.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(0)
+	r.Emit(ctx, 0)
 }
 
 var (
@@ -471,8 +471,8 @@ type derivativeNode struct {
 
 var _ node.Node = (*derivativeNode)(nil)
 
-func (d *derivativeNode) Reset() {
-	d.State.Reset()
+func (d *derivativeNode) Reset(ctx node.Context) {
+	d.State.Reset(ctx)
 	d.prevValue = 0
 	d.prevTimestamp = 0
 	d.hasPrev = false
@@ -492,11 +492,14 @@ func (d *derivativeNode) Next(ctx node.Context) {
 		&d.prevValue, &d.prevTimestamp, &d.hasPrev,
 		d.Output(0), d.OutputTime(0),
 	)
+	if d.TimeSourceIdx() < 0 {
+		d.StampCycle(ctx, 0)
+	}
 	d.Output(0).Alignment = inputData.Alignment
 	d.Output(0).TimeRange = inputData.TimeRange
 	d.OutputTime(0).Alignment = inputData.Alignment
 	d.OutputTime(0).TimeRange = inputData.TimeRange
-	ctx.MarkChanged(0)
+	d.Emit(ctx, 0)
 }
 
 type i32Powable interface {

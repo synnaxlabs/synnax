@@ -50,6 +50,17 @@ afterEach(() => {
 });
 
 describe("project ontology service", () => {
+  it("should offer Reload Console", async () => {
+    const p = await createProject();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [projectResource(p.key, p.name)],
+      store: await createStoreWithActive(p.key),
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+  });
+
   it("should expose creation, import, export, and link actions", async () => {
     const p = await createProject();
     assertDefined(Item.ContextMenu);

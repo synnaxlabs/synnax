@@ -11,7 +11,7 @@
 
 package verification
 
-import "github.com/google/uuid"
+import "uuid"
 
 // Grant is the signed set of claims a Core verifies.
 type Grant struct {
@@ -21,7 +21,7 @@ type Grant struct {
 	Iat uint32 `json:"iat" msgpack:"iat"`
 	// Exp is when the grant stops applying, in seconds since the Unix epoch. Absent
 	// when it never stops applying on its own.
-	Exp *uint32 `json:"exp,omitempty" msgpack:"exp,omitempty"`
+	Exp *uint32 `json:"exp,omitzero" msgpack:"exp,omitempty"`
 	// V is the version of the claim set.
 	V uint8 `json:"v" msgpack:"v"`
 	// Org is the organization the grant belongs to.
@@ -30,7 +30,7 @@ type Grant struct {
 	Ed string `json:"ed" msgpack:"ed"`
 	// Fp is the set of host hashes the grant is bound to. Empty when the grant is not
 	// bound to a host.
-	Fp []string `json:"fp,omitzero" msgpack:"fp,omitzero"`
+	Fp []string `json:"fp" msgpack:"fp"`
 	// Fs is the scheme that produced the host hashes.
 	Fs uint8 `json:"fs" msgpack:"fs"`
 	// N is how many hosts may run under the grant.
@@ -39,5 +39,5 @@ type Grant struct {
 	Ch uint32 `json:"ch" msgpack:"ch"`
 	// Mv is the highest Core minor version the grant covers, as "0.62". Absent means
 	// any version.
-	Mv *string `json:"mv,omitempty" msgpack:"mv,omitempty"`
+	Mv *string `json:"mv,omitzero" msgpack:"mv,omitempty"`
 }

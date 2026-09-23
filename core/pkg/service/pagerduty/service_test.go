@@ -10,7 +10,8 @@
 package pagerduty_test
 
 import (
-	"github.com/google/uuid"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"

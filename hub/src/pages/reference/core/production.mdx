@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Deploy to Production"
-heading: "Deploying to Production"
+title: "Deploy to production"
+heading: "Deploying to production"
 description: "Deploy a Core to production."
 next: "Requirements"
 nextURL: "/reference/core/requirements"
@@ -75,7 +75,7 @@ file parameters, see the [CLI reference](/reference/core/cli-reference).
 
 We recommend using TLS for securing all communications with your Core.
 
-### TLS Certificate Options
+### TLS certificate options
 
 There are four important command line options for configuring TLS:
 
@@ -134,9 +134,9 @@ synnax start \
 
 <Divider.Divider x />
 
-## Generating Certificates
+## Generating certificates
 
-### Using Synnax's Auto-Cert Feature
+### Using Synnax's auto-cert feature
 
 The easiest way to start a secure Core using self-signed certificates is to use the
 `--auto-cert` command line flag when starting the Core. This will automatically generate
@@ -185,14 +185,14 @@ docker run -v /etc/letsencrypt:/usr/local/synnax/certs \
   --node-key=privkey.pem
 ```
 
-### Using Your Own Certificates
+### Using your own certificates
 
 When using your own certificates, you'll need to specify the `--certs-dir` option and
 provide the necessary certificates and keys in that directory.
 
 <Divider.Divider x />
 
-## Serving Multiple Listeners
+## Serving multiple listeners
 
 By default, a Core binds a single address and presents a single certificate on it. A
 Core can instead bind several **listeners**, each with its own address and its own
@@ -230,7 +230,7 @@ Drivers reach `:9090` with the production certificate, operators reach `:9091` o
 Tailscale with the auto-provisioned `ts.net` certificate, and peers gossip over the
 advertised `core01.example.com:9090` address.
 
-### Certificate Sources
+### Certificate sources
 
 Each listener draws its certificate from a **source**, selected by `cert.source`.
 Different listeners can use different sources.
@@ -260,7 +260,7 @@ Different listeners can use different sources.
   ]}
 />
 
-### The Advertised Listener
+### The advertised listener
 
 Peers dial one agreed address to join the cluster, so exactly one listener is
 **advertised**. Set `advertise: true` on that listener. If no listener sets it, the

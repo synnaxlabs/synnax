@@ -14,7 +14,7 @@ on:
   push:
     branches:
       - main
-      - rc
+      - release/**
   workflow_dispatch:
 
 concurrency:
@@ -23,8 +23,6 @@ concurrency:
 
 jobs:
   check-versions:
-    # Pushes to rc already run this check, so the rc PR run is redundant.
-    if: github.event_name != 'pull_request' || github.head_ref != 'rc'
     name: Check Versions
     runs-on: ubuntu-latest
     steps:

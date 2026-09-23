@@ -1,0 +1,37 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Categories for generated release notes, one per product a user knows, keyed on the
+# labels labeler.yml applies. A pull request lands in the first category that matches.
+changelog:
+  categories:
+    - title: Console
+      labels:
+        - console
+    - title: Driver
+      labels:
+        - driver
+    - title: Core
+      labels:
+        - core
+    - title: Arc
+      labels:
+        - arc
+    - title: Python client
+      labels:
+        - py-client
+    - title: TypeScript client
+      labels:
+        - ts-client
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Other changes
+      labels:
+        - "*"
