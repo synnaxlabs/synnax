@@ -112,3 +112,12 @@ jobs:
           scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
             //freighter/cpp/...
         shell: bash
+
+      - name: Clean Build Caches (Ubuntu)
+        if: always() && matrix.os == 'ubuntu-build-bot'
+        run: integration/scripts/clean_build_caches.sh 25
+
+      - name: Clean Build Caches (Windows)
+        if: always() && matrix.os == 'windows-build-bot'
+        shell: powershell
+        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30

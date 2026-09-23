@@ -13,7 +13,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
-	stdnet "net"
+	"net"
 	"os"
 	"time"
 
@@ -142,10 +142,10 @@ var _ = Describe("MultiListener", func() {
 	It("Should close earlier listeners when a later listener fails to bind", func() {
 		// The server binds every interface, so the port must be occupied the same way
 		// for the second listener to collide with it.
-		occupied := MustSucceed(stdnet.Listen("tcp", ":0"))
+		occupied := MustSucceed(net.Listen("tcp", ":0"))
 		defer func() { Expect(occupied.Close()).To(Succeed()) }()
 		occupiedAddr := address.Newf(
-			"localhost:%d", occupied.Addr().(*stdnet.TCPAddr).Port,
+			"localhost:%d", occupied.Addr().(*net.TCPAddr).Port,
 		)
 		Expect(server.Serve(server.Config{
 			Debug:    new(false),
@@ -160,9 +160,9 @@ var _ = Describe("MultiListener", func() {
 	Describe("Loopback", func() {
 		// reachable reports whether a TCP dial to host on the address's port succeeds.
 		reachable := func(host string, addr address.Address) bool {
-			conn, err := stdnet.DialTimeout(
+			conn, err := net.DialTimeout(
 				"tcp",
-				stdnet.JoinHostPort(host, addr.PortString()[1:]),
+				net.JoinHostPort(host, addr.PortString()[1:]),
 				250*time.Millisecond,
 			)
 			if err != nil {
@@ -200,9 +200,9 @@ var _ = Describe("MultiListener", func() {
 // externalIPv4 returns an IPv4 address of a non-loopback interface on this machine, or
 // an empty string when it has none.
 func externalIPv4() string {
-	addrs := MustSucceed(stdnet.InterfaceAddrs())
+	addrs := MustSucceed(net.InterfaceAddrs())
 	for _, a := range addrs {
-		ipNet, ok := a.(*stdnet.IPNet)
+		ipNet, ok := a.(*net.IPNet)
 		if !ok || ipNet.IP.IsLoopback() || ipNet.IP.To4() == nil {
 			continue
 		}

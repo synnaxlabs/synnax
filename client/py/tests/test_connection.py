@@ -16,7 +16,7 @@ import weakref
 import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
-from synnax.connection import Checker, CheckResponse, State
+from synnax.connection import Checker, CheckResponse, State, _versions_compatible
 from synnax.license.client import State as LicenseState
 from x.telem import TimeSpan, TimeStamp
 
@@ -32,6 +32,24 @@ def _make_response(
         node_time=node_time or TimeStamp.now(),
         license=license,
     )
+
+
+class TestVersionsCompatible:
+    def test_equal_minor(self) -> None:
+        """Should accept an equal major.minor and reject a different one."""
+        assert _versions_compatible("0.59.2", "0.59.0")
+        assert not _versions_compatible("0.59.2", "0.60.0")
+
+    def test_malformed_version(self) -> None:
+        """Should reject a version that does not parse rather than treat it as dev."""
+        assert not _versions_compatible("", "0.59.0")
+        assert not _versions_compatible("0.59.0", "nightly")
+        assert not _versions_compatible("", "")
+
+    def test_dev_build(self) -> None:
+        """Should accept a 0.0 build on either side."""
+        assert _versions_compatible("0.0.0-dev", "0.59.0")
+        assert _versions_compatible("0.59.0", "0.0.0-abc1234")
 
 
 class TestChecker:

@@ -9,7 +9,8 @@
 
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Text } from "@synnaxlabs/pluto";
+import { Form, Text } from "@synnaxlabs/pluto";
+import { TimeStamp } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it } from "vitest";
@@ -100,6 +101,56 @@ describe("ChannelName", () => {
       await waitFor(async () => {
         const renamed = await client.channels.retrieve(ch.key);
         expect(renamed.name).toBe(newName);
+      });
+    });
+
+    describe("recovering from a failed lookup", () => {
+      // Reads its key from the form so a spec can change it under a mounted name.
+      const FormBound = () => {
+        const channel = Form.useFieldValue<number>("channel");
+        return <Task.ChannelName channel={channel} namePath="name" />;
+      };
+
+      const isError = (text: string) =>
+        screen.getByText(text).closest(".pluto--status-error") != null;
+
+      it("should show the channel once the row's key changes to one that resolves", async () => {
+        const deleted = await createChannel();
+        await client.channels.delete(deleted.key);
+        const live = await createChannel();
+        const { form } = await renderInTaskFormWithClient(<FormBound />, {
+          client,
+          values: { name: "form_name", channel: deleted.key },
+        });
+        await waitFor(() => expect(isError("form_name")).toBe(true));
+        act(() => form.current?.set("channel", live.key));
+        await screen.findByText(live.name);
+        expect(isError(live.name)).toBe(false);
+      });
+
+      it("should show the channel again after a delete that fails", async () => {
+        const index = await client.channels.create({
+          name: uniqueName("idx"),
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        });
+        const writer = await client.openWriter({
+          channels: [index.key],
+          start: TimeStamp.now(),
+        });
+        try {
+          await renderInTaskFormWithClient(
+            <Task.ChannelName channel={index.key} namePath="name" />,
+            { client, values: { name: "" } },
+          );
+          await screen.findByText(index.name);
+          await expect(client.channels.delete(index.key)).rejects.toThrow(
+            "unclosed writers",
+          );
+          await waitFor(() => expect(isError(index.name)).toBe(false));
+        } finally {
+          await writer.close();
+        }
       });
     });
   });
