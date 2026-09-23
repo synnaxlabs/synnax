@@ -50,6 +50,7 @@ export { labjack } from "@/labjack";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { modbus } from "@/modbus";
+export { mqtt } from "@/mqtt";
 export { ni } from "@/ni";
 export { node } from "@/node";
 export { ontology } from "@/ontology";

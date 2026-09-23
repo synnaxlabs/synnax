@@ -199,13 +199,18 @@ describe("HTTP Read form", () => {
       const epProps = updated.properties.read["/data"];
       expect(epProps.index).toBeGreaterThan(0);
 
+      const indexCh = await client.channels.retrieve(epProps.index);
+      expect(indexCh.name).toBe(`${dev.name}_data_time`);
+
       const dataKey = epProps.channels["/temperature"];
       const dataCh = await client.channels.retrieve(dataKey);
       expect(dataCh.index).toBe(epProps.index);
+      expect(dataCh.name).toBe(`${dev.name}_data_temperature`);
 
       const virtualKey = epProps.channels["/label"];
       const virtualCh = await client.channels.retrieve(virtualKey);
       expect(virtualCh.virtual).toBe(true);
+      expect(virtualCh.name).toBe(`${dev.name}_data_label`);
 
       const fields = created.config.endpoints[0].fields;
       expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);

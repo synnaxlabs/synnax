@@ -40,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -202,6 +203,8 @@ type Layer struct {
 	// PagerDuty owns the stored configuration records of the pagerduty_alert task
 	// type.
 	PagerDuty *pdruntime.Service
+	// MQTT owns the stored configuration records of the MQTT task types.
+	MQTT *mqtt.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
@@ -590,10 +593,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
+	if l.MQTT, err = mqtt.OpenService(ctx, mqtt.ServiceConfig{
+		Instrumentation: cfg.Child("mqtt"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.MQTT) {
+		return nil, err
+	}
 	configStores := slices.Concat(
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -705,6 +714,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
+	mqttFactory, err := mqtt.NewFactory(mqtt.FactoryConfig{
+		Instrumentation: cfg.Child("mqtt"),
+		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
+		Channel:         l.Channel,
+		Framer:          l.Framer,
+		Status:          l.Status,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -713,7 +733,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factories:       []driver.Factory{arcFactory, pdFactory},
+		Factories:       []driver.Factory{arcFactory, pdFactory, mqttFactory},
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err

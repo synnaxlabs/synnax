@@ -12,6 +12,7 @@ import { ETHERCAT_NAV } from "@/pages/reference/driver/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/driver/http/_nav";
 import { LABJACK_NAV } from "@/pages/reference/driver/labjack/_nav";
 import { MODBUS_NAV } from "@/pages/reference/driver/modbus/_nav";
+import { MQTT_NAV } from "@/pages/reference/driver/mqtt/_nav";
 import { NI_NAV } from "@/pages/reference/driver/ni/_nav";
 import { OPC_UA_NAV } from "@/pages/reference/driver/opc-ua/_nav";
 import { PAGERDUTY_NAV } from "@/pages/reference/driver/pagerduty/_nav";
@@ -40,6 +41,7 @@ export const DRIVER_NAV: PageNavNode = {
     HTTP_NAV,
     LABJACK_NAV,
     MODBUS_NAV,
+    MQTT_NAV,
     NI_NAV,
     OPC_UA_NAV,
     PAGERDUTY_NAV,

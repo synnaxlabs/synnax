@@ -26,7 +26,7 @@ import {
   Synnax as PSynnax,
   Task as PTask,
 } from "@synnaxlabs/pluto";
-import { primitive, TimeSpan } from "@synnaxlabs/x";
+import { deep, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
@@ -160,7 +160,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             result.error.issues.forEach((issue) => {
               const variant = issueVariant(issue);
               if (variant !== "warning") blocked = true;
-              const path = ["config", ...issue.path].join(".");
+              // Fields in keyed lists sit at the key of their entry, not its index.
+              const path =
+                issue.path.length === 0
+                  ? "config"
+                  : `config.${deep.resolvePath(issue.path.join("."), config)}`;
               form.setStatus(path, { key: path, variant, message: issue.message });
             });
             if (blocked) return;

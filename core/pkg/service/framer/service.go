@@ -70,6 +70,9 @@ const (
 	WriterCommandWrite          = writer.CommandWrite
 	WriterCommandCommit         = writer.CommandCommit
 	WriterCommandSetAuthority   = writer.CommandSetAuthority
+	WriterModePersistStream     = writer.ModePersistStream
+	WriterModePersistOnly       = writer.ModePersistOnly
+	WriterModeStreamOnly        = writer.ModeStreamOnly
 )
 
 // ServiceConfig is the configuration for opening a framer Service. All fields are

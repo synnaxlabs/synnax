@@ -1,0 +1,434 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/channel/v0"
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+QoS enum {
+    at_most_once  = "at_most_once"
+    at_least_once = "at_least_once"
+    exactly_once  = "exactly_once"
+
+    @doc value """
+        is the MQTT quality of service of a subscription or a publish: level 0, 1, or 2.
+    """
+}
+
+TimeFormat enum {
+    iso8601  = "iso8601"
+    unix_sec = "unix_sec"
+    unix_ms  = "unix_ms"
+    unix_us  = "unix_us"
+    unix_ns  = "unix_ns"
+
+    @doc value "is the encoding of a timestamp value within a JSON payload."
+}
+
+EnumEntry struct {
+    label string = "" {
+        @doc value "is the string label in the JSON payload."
+    }
+    value float64 = 0 {
+        @doc value "is the numeric channel value the label maps to."
+    }
+
+    @doc value  """
+        maps a string label in a JSON payload to a numeric channel value for enum-style
+        parsing (e.g. "ON" -> 1, "OFF" -> 0).
+    """
+    @go marshal
+}
+
+SparkplugDataType enum {
+    int8      = "int8"
+    int16     = "int16"
+    int32     = "int32"
+    int64     = "int64"
+    uint8     = "uint8"
+    uint16    = "uint16"
+    uint32    = "uint32"
+    uint64    = "uint64"
+    float     = "float"
+    double    = "double"
+    boolean   = "boolean"
+    string    = "string"
+    date_time = "date_time"
+
+    @doc value "is the Sparkplug B data type of a tag."
+}
+
+ReadField struct {
+    key         string = create {
+        @doc value "uniquely identifies the field within the entry."
+        @key
+    }
+    name        string = "" {
+        @doc value "is the human-readable field name."
+    }
+    disabled    bool = false {
+        @doc value "is true when the field is excluded from the task."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the Synnax channel the extracted value is written to."
+    }
+    pointer     string = "" {
+        @doc value """
+            is the JSON Pointer to the value within the payload. An empty pointer takes
+            the whole payload.
+        """
+    }
+    data_type   telem.DataType = "float64" {
+        @doc value "is the data type of the extracted value."
+    }
+    time_format TimeFormat?    {
+        @doc value """
+            is the encoding of the JSON value when the target channel holds timestamps.
+            Required for timestamp channels.
+        """
+    }
+    enum_values EnumEntry[]    {
+        @doc value "maps string labels in the payload to numeric channel values."
+    }
+
+    @doc value  "is a single value extracted from the JSON payload of a topic."
+    @go marshal
+}
+
+BaseReadEntry struct {
+    key      string = create {
+        @doc value "uniquely identifies the entry within the task."
+        @key
+    }
+    disabled bool = false {
+        @doc value "is true when the entry is excluded from the task."
+    }
+
+    @doc value  "carries the fields every read entry shares."
+    @go marshal
+}
+
+ReadEntry union on type extends BaseReadEntry {
+    plain {
+        topic            string = "" {
+            @doc value "is the topic to subscribe to. It holds no wildcards."
+        }
+        qos              QoS = at_most_once {
+            @doc value "is the quality of service of the subscription."
+        }
+        retained_ignored bool = false {
+            @doc value """
+                is true when the task drops the retained message that the broker sends
+                on subscribe.
+            """
+        }
+        fields           ReadField[] {
+            @doc value "contains the values to extract from each payload."
+        }
+        index            string = "" {
+            @doc value """
+                is the key of the field whose channel indexes the others. Empty when the
+                task stamps samples on arrival.
+            """
+        }
+
+        @doc value "reads JSON payloads from one topic."
+    }
+    sparkplug {
+        group     string = "" {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node string = "" {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device    string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag       string = "" {
+            @doc value "is the name of the tag."
+        }
+        channel   channel.Key = 0 {
+            @doc value "is the Synnax channel the tag value is written to."
+        }
+        index     channel.Key = 0 {
+            @doc value "is the index channel that takes the tag timestamp."
+        }
+        name      string = "" {
+            @doc value "is the human-readable name of the channel."
+        }
+        data_type telem.DataType = "float64" {
+            @doc value "is the data type of the channel."
+        }
+
+        @doc value "reads one Sparkplug B tag."
+    }
+
+    @doc value  """
+        is a single source of an MQTT read task. The type field selects a plain topic
+        with a JSON payload or a Sparkplug B tag.
+    """
+    @go marshal
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device  device.Key = "" {
+        @doc value "is the key of the broker device to read from."
+    }
+    entries ReadEntry[] {
+        @doc value "contains the topics and tags to read."
+    }
+
+    @doc value  """
+        configures an MQTT read task, which subscribes to topics and Sparkplug B tags on
+        a broker device and writes their values to Synnax channels.
+    """
+    @go marshal
+    @go migrate
+}
+
+JSONType enum {
+    number  = "number"
+    string  = "string"
+    boolean = "boolean"
+
+    @doc value "is the JSON type a channel value is serialized as in a payload."
+}
+
+GeneratorType enum {
+    uuid      = "uuid"
+    timestamp = "timestamp"
+
+    @doc value "is the kind of value produced for a generated write field."
+}
+
+ChannelField struct {
+    pointer     string = "" {
+        @doc value """
+            is the JSON Pointer where the channel value is placed in the payload. An
+            empty pointer sends the bare value as the entire payload, in which case the
+            target may not declare any additional fields.
+        """
+    }
+    json_type   JSONType = number {
+        @doc value "is the JSON type the channel value is serialized as."
+    }
+    channel     channel.Key = 0 {
+        @doc value "is the Synnax command channel that triggers the publish."
+    }
+    name        string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    data_type   telem.DataType = "float64" {
+        @doc value "is the data type of the command channel."
+    }
+    time_format TimeFormat?    {
+        @doc value """
+            is the output encoding when the command channel holds timestamps. Required
+            for timestamp channels.
+        """
+    }
+    enum_values EnumEntry[]    {
+        @doc value """
+            maps numeric channel values to string labels. Only valid when json_type is
+            'string'.
+        """
+    }
+
+    @doc value  "is the command channel value placed into the payload of a target."
+    @go marshal
+}
+
+BaseWriteField struct {
+    key     string = create {
+        @doc value "uniquely identifies the field within the target."
+        @key
+    }
+    pointer string = "" {
+        @doc value "is the JSON Pointer where the value is placed in the payload."
+    }
+
+    @doc value  "carries the fields every write payload field shares."
+    @go marshal
+}
+
+WriteField union on type extends BaseWriteField {
+    static {
+        json_type JSONType = number {
+            @doc value "is the JSON type the value is serialized as."
+        }
+        value     any      {
+            @doc value "is the fixed JSON value placed at the pointer."
+        }
+
+        @doc value "places a fixed value in the payload."
+    }
+    generated {
+        generator   GeneratorType = uuid {
+            @doc value "is the generator that produces a fresh value per publish."
+        }
+        time_format TimeFormat?   {
+            @doc value """
+                is the output encoding for timestamp generators. Defaults to iso8601.
+            """
+        }
+
+        @doc value "places a freshly generated UUID or timestamp in the payload."
+    }
+
+    @doc value  """
+        is an additional payload field on a plain write target. The type field selects
+        whether the value is fixed or generated per publish.
+    """
+    @go marshal
+}
+
+BaseWriteTarget struct {
+    key      string = create {
+        @doc value "uniquely identifies the target within the task."
+        @key
+    }
+    disabled bool = false {
+        @doc value "is true when the target is excluded from the task."
+    }
+
+    @doc value  "carries the fields every write target shares."
+    @go marshal
+}
+
+WriteTarget union on type extends BaseWriteTarget {
+    plain {
+        topic    string = "" {
+            @doc value "is the topic to publish to."
+        }
+        qos      QoS = at_least_once {
+            @doc value "is the quality of service of the publish."
+        }
+        retained bool = false {
+            @doc value "is true when the broker retains the published message."
+        }
+        channel  ChannelField = {} {
+            @doc value "is the command channel whose writes trigger the publish."
+        }
+        fields   WriteField[] {
+            @doc value "contains additional static or generated payload fields."
+        }
+
+        @doc value "publishes a JSON payload to one topic."
+    }
+    sparkplug {
+        group          string = "" {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node      string = "" {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device         string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag            string = "" {
+            @doc value "is the name of the tag to command."
+        }
+        sparkplug_type SparkplugDataType = double {
+            @doc value "is the Sparkplug B data type the command value is sent as."
+        }
+        channel        channel.Key = 0 {
+            @doc value "is the Synnax command channel whose writes trigger the command."
+        }
+        name           string = "" {
+            @doc value "is the human-readable name of the command channel."
+        }
+
+        @doc value "sends a Sparkplug B command for one tag."
+    }
+
+    @doc value  """
+        is a single destination of an MQTT write task. The type field selects a plain
+        topic with a JSON payload or a Sparkplug B tag command.
+    """
+    @go marshal
+}
+
+WriteConfig struct extends task.StartConfig {
+    device  device.Key = "" {
+        @doc value "is the key of the broker device to write to."
+    }
+    targets WriteTarget[] {
+        @doc value "contains the topics and tags to write to."
+    }
+
+    @doc value  """
+        configures an MQTT write task, which publishes a message whenever a value is
+        written to the command channel of a target.
+    """
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ScanConfig {
+    @doc value  "configures an MQTT scan task."
+    @go marshal
+    @go migrate
+}
+
+EdgeTag struct {
+    key             string = create {
+        @doc value "uniquely identifies the tag within the task."
+        @key
+    }
+    disabled        bool = false {
+        @doc value "is true when the tag is excluded from the task."
+    }
+    name            string = "" {
+        @doc value "is the Sparkplug B name of the tag."
+    }
+    channel         channel.Key = 0 {
+        @doc value "is the Synnax channel whose value the tag publishes."
+    }
+    sparkplug_type  SparkplugDataType = double {
+        @doc value "is the Sparkplug B data type the tag is published as."
+    }
+    command_channel channel.Key = 0 {
+        @doc value """
+            is the Synnax channel that takes values written to the tag. Zero when the
+            tag rejects writes.
+        """
+    }
+
+    @doc value  "is a single tag published by a Sparkplug B edge node task."
+    @go marshal
+}
+
+EdgeConfig struct extends task.StartConfig {
+    device    device.Key = "" {
+        @doc value "is the key of the broker device to publish to."
+    }
+    group     string = "" {
+        @doc value "is the Sparkplug group ID of the edge node."
+    }
+    edge_node string = "" {
+        @doc value "is the Sparkplug edge node ID."
+    }
+    authority uint8 = 0 {
+        @doc value """
+            is the control authority, from 0 to 255, of the writes that inbound tag
+            commands make.
+        """
+    }
+    tags      EdgeTag[]  {
+        @doc value "contains the tags the edge node publishes."
+    }
+
+    @doc value  """
+        configures a Sparkplug B edge node task, which publishes Synnax channels as the
+        tags of one edge node and writes inbound tag commands to Synnax channels.
+    """
+    @go marshal
+    @go migrate
+}

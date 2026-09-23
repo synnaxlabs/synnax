@@ -113,6 +113,20 @@ func (e *EncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
+// NewEncodedJSON encodes v, which must marshal to a JSON object, as an EncodedJSON.
+// It is the inverse of EncodedJSON.Unmarshal.
+func NewEncodedJSON(v any) (EncodedJSON, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var e EncodedJSON
+	if err = json.Unmarshal(b, &e); err != nil {
+		return nil, errors.Wrapf(err, "%T does not marshal to a JSON object", v)
+	}
+	return e, nil
+}
+
 // Unmarshal decodes the map into the provided struct using JSON marshal/unmarshal.
 func (e EncodedJSON) Unmarshal(into any) error {
 	b, err := json.Marshal(e)

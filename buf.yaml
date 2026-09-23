@@ -17,6 +17,9 @@ modules:
       - x/go
       - arc/go
 lint:
+  # The Sparkplug B schema is vendored from Eclipse Tahu and keeps its names.
+  ignore:
+    - core/pkg/service/mqtt/sparkplug/pb
   use:
     - STANDARD
   except:
