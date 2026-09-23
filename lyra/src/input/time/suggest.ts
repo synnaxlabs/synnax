@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type DurationJSON } from "compromise-dates";
 
 import {
@@ -35,9 +35,14 @@ export const languageLoaded = (): boolean => language != null;
 
 /** Loads the natural-language parser that reads phrases like `tomorrow at 3pm`. */
 export const loadLanguage = (): Promise<void> => {
-  loading ??= createLanguage().then((loaded) => {
-    language = loaded;
-  });
+  loading ??= createLanguage()
+    .then((loaded) => {
+      language = loaded;
+    })
+    .catch((err: unknown) => {
+      loading = null;
+      throw errors.fromUnknown(err);
+    });
   return loading;
 };
 

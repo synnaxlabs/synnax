@@ -1,0 +1,1 @@
+{"version":3,"file":"Provider.d.ts","sourceRoot":"","sources":["../../../../src/vis/staleness/Provider.tsx"],"names":[],"mappings":"AASA,OAAO,EAAE,KAAK,aAAa,EAAY,MAAM,eAAe,CAAC;AAC7D,OAAO,EAAE,KAAK,iBAAiB,EAAE,KAAK,YAAY,EAAE,MAAM,OAAO,CAAC;AAQlE,MAAM,WAAW,aAAc,SAAQ,iBAAiB;IACtD;;mCAE+B;IAC/B,aAAa,CAAC,EAAE,aAAa,CAAC;CAC/B;AAED,eAAO,MAAM,QAAQ,iCAGlB,aAAa,KAAG,YAOlB,CAAC"}

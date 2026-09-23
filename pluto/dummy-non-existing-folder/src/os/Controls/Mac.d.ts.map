@@ -1,0 +1,1 @@
+{"version":3,"file":"Mac.d.ts","sourceRoot":"","sources":["../../../../src/os/Controls/Mac.tsx"],"names":[],"mappings":"AASA,OAAO,uBAAuB,CAAC;AAK/B,OAAO,EAAE,KAAK,YAAY,EAAE,MAAM,OAAO,CAAC;AAE1C,OAAO,EAAE,KAAK,qBAAqB,EAAE,MAAM,qBAAqB,CAAC;AAEjE,eAAO,MAAM,IAAI;IACf,KAAK;IA0BL,QAAQ;IAWR,QAAQ;CAoBT,CAAC;AAEF,eAAO,MAAM,KAAK,2GAWf,qBAAqB,KAAG,YAiC1B,CAAC"}

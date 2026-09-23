@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { Status as StatusBase } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { canDisable, type CanDisabledProps } from "@synnaxlabs/lyra/util";
@@ -20,6 +19,7 @@ import { Arc } from "@/arc";
 import { Code } from "@/code";
 import { Color } from "@/color";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
@@ -66,7 +66,7 @@ export const Provider = ({
           workerEnabled={workerEnabled}
         >
           <Alamos.Provider {...alamos}>
-            <StatusBase.Aggregator>
+            <Status.Aggregator>
               <Synnax.Provider connParams={connParams}>
                 <Color.Provider {...color}>
                   <Theming.Provider {...theming}>
@@ -80,7 +80,7 @@ export const Provider = ({
                   </Theming.Provider>
                 </Color.Provider>
               </Synnax.Provider>
-            </StatusBase.Aggregator>
+            </Status.Aggregator>
           </Alamos.Provider>
         </CanDisableAether>
       </Haul.Provider>

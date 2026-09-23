@@ -1,0 +1,1 @@
+{"version":3,"file":"ToggleEdit.d.ts","sourceRoot":"","sources":["../../../../../src/vis/diagram/controls/ToggleEdit.tsx"],"names":[],"mappings":"AASA,OAAO,EAAE,MAAM,EAAE,MAAM,yBAAyB,CAAC;AAGjD,OAAO,EAAE,KAAK,YAAY,EAAE,MAAM,OAAO,CAAC;AAI1C,MAAM,WAAW,eAAgB,SAAQ,IAAI,CAC3C,MAAM,CAAC,WAAW,EAClB,OAAO,GAAG,UAAU,GAAG,UAAU,CAClC;CAAG;AAEJ,eAAO,MAAM,UAAU,yBAA0B,eAAe,KAAG,YAclE,CAAC"}

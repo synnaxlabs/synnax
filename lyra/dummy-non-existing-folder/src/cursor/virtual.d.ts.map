@@ -1,0 +1,1 @@
+{"version":3,"file":"virtual.d.ts","sourceRoot":"","sources":["../../../src/cursor/virtual.ts"],"names":[],"mappings":"AAUA,OAAO,EAAE,KAAK,SAAS,EAAa,MAAM,OAAO,CAAC;AAElD,OAAO,EAAE,KAAK,YAAY,EAAE,MAAM,eAAe,CAAC;AAIlD,MAAM,WAAW,mBAAoB,SAAQ,YAAY;IACvD,GAAG,EAAE,SAAS,CAAC,WAAW,GAAG,IAAI,CAAC,CAAC;CACpC;AAgBD;;;;GAIG;AACH,eAAO,MAAM,cAAc,qCAKxB,mBAAmB,KAAG,IAoCxB,CAAC"}
