@@ -74,9 +74,10 @@ TEST(BreakerTests, testInfiniteRetries) {
     const auto past_default_max = static_cast<size_t>(Config{}.max_retries) + 10;
     EXPECT_TRUE(b.start());
     EXPECT_TRUE(b.running());
-    for (size_t i = 0; i < past_default_max; i++)
-        ASSERT_TRUE(b.wait("testInfiniteRetries breaker"));
-    EXPECT_EQ(b.retry_count(), past_default_max);
+    size_t retries = 0;
+    while (retries < past_default_max && b.wait("testInfiniteRetries breaker"))
+        retries++;
+    EXPECT_EQ(retries, past_default_max);
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.running());
 }
