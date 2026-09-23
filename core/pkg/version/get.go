@@ -32,7 +32,7 @@ func Get() string {
 	return "0.0.0"
 }
 
-// Commit returns the git commit injected at build time, or "unknown".
+// Commit returns the Git commit injected at build time, or "unknown".
 func Commit() string {
 	if gitCommit != "" {
 		return gitCommit
@@ -40,8 +40,8 @@ func Commit() string {
 	return unknown
 }
 
-// Time returns the build date as a time.Time, or the zero time when it was not
-// injected or does not parse.
+// Time returns the build date as a time.Time, or the zero time when it was not injected
+// or does not parse.
 func Time() time.Time {
 	if buildDate == "" {
 		return time.Time{}
