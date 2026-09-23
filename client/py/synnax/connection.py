@@ -49,8 +49,8 @@ class CheckResponse(BaseModel):
 
 def _parse_version(v: str) -> tuple[int, int] | None:
     try:
-        parts = v.split(".")
-        return int(parts[0]), int(parts[1])
+        major, minor = v.split(".")[:2]
+        return int(major), int(minor)
     except (IndexError, ValueError):
         return None
 
@@ -61,10 +61,10 @@ _DEV = (0, 0)
 def _versions_compatible(v1: str, v2: str) -> bool:
     """A 0.0 major.minor marks a development build, which pairs with anything. A
     version that does not parse pairs with nothing."""
-    a, b = _parse_version(v1), _parse_version(v2)
-    if a is None or b is None:
+    first, second = _parse_version(v1), _parse_version(v2)
+    if first is None or second is None:
         return False
-    return a == _DEV or b == _DEV or a == b
+    return first == _DEV or second == _DEV or first == second
 
 
 def _client_is_newer(client_version: str, node_version: str) -> bool:
