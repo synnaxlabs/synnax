@@ -22,8 +22,8 @@ const IGNORED_HOSTS: string[] = ["automation.omron.com"];
 // Sentinel origin for resolving relative hrefs; any other host is external.
 const INTERNAL = "http://internal.invalid";
 
-// npm's website blocks non-browser requests, so package links are validated against
-// the registry API instead: 200 = the package/version exists, 404 = dead.
+// npm's website blocks non-browser requests, so package links are validated against the
+// registry API instead: 200 = the package/version exists, 404 = dead.
 const NPM_HOSTS = ["npmjs.com", "www.npmjs.com"];
 const NPM_PACKAGE = /^\/package\/(@[^/]+\/[^/]+|[^/]+)(?:\/v\/([^/]+))?\/?$/;
 
@@ -44,8 +44,8 @@ interface Ref {
   href: string;
 }
 
-// Deep nav entries only render after hydration, so the crawl can't see them; pull
-// every href straight from the nav definitions.
+// Deep nav entries only render after hydration, so the crawl can't see them; pull every
+// href straight from the nav definitions.
 const navRefs = (): Ref[] =>
   pageFiles()
     .filter((f) => f.endsWith("_nav.ts"))

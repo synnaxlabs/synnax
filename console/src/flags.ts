@@ -12,6 +12,7 @@
  * `import.meta.env.VITE_*` statically, so dark code tree-shakes out of production, and
  * dev builds turn every flag on. Only the exact string "true" enables a flag. Each
  * entry names its owner and the release that removes it:
+ *
  * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
  * Removed in 0.60.`
  */

@@ -2,6 +2,7 @@
 # rules_proto_grpc See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390
 # for info
 common --define=protobuf_allow_msvc=true
+
 # The version stamped into the Driver; release builds override it.
 build --define=SYNNAX_DRIVER_VERSION=0.0.0
 
