@@ -34,8 +34,6 @@ export class MonospacedAtlas {
   private readonly baselineOffset: number;
   /** Drop from the origin each text baseline sets to the alphabetic baseline. */
   private readonly baselineShifts: Record<CanvasTextBaseline, number>;
-  // A character outside this set draws as blank, so every character any caller can
-  // render must be in here.
   private static readonly DEFAULT_CHARS =
     "0123456789.:-°µmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%…";
 

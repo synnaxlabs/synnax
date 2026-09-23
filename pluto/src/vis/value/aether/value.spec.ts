@@ -264,7 +264,7 @@ describe("value/aether/Value", () => {
       component.render({});
       const [drawn] = fillTexts(recorder);
       expect(drawn.startsWith("1234567890")).toBe(true);
-      expect(drawn.endsWith("\u2026")).toBe(true);
+      expect(drawn.endsWith("…")).toBe(true);
       expect(drawn.length * CHAR_WIDTH).toBeLessThanOrEqual(box.width(BOX) - INSET);
     });
 
@@ -297,7 +297,7 @@ describe("value/aether/Value", () => {
       });
       recorder.clear();
       component.render({});
-      expect(fillTexts(recorder)).toEqual(["\u2026"]);
+      expect(fillTexts(recorder)).toEqual(["…"]);
     });
 
     it("should leave a value that fits untouched", () => {

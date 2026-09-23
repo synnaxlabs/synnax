@@ -238,7 +238,7 @@ describe("MonospacedAtlas", () => {
     // telling the reader the number is cut. A character the atlas does not hold draws
     // as blank, so the reading would look complete.
     it("should hold the ellipsis an overflowing value ends in", () => {
-      expect(setup().copy("\u2026", 0, 0)).toHaveLength(1);
+      expect(setup().copy("…", 0, 0)).toHaveLength(1);
     });
 
     it("should draw nothing for a character it does not hold", () => {

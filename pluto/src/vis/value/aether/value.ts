@@ -32,15 +32,15 @@ import { staleness } from "@/vis/staleness/aether";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
-// Below this contrast against the background a color is illegible and gets
-// swapped for a legible gray. Rough guard, tune later.
+// Below this contrast against the background a color is illegible and gets swapped for
+// a legible gray. Rough guard, tune later.
 const MIN_LEGIBLE_CONTRAST = 1.1;
 
 // How far left of the first digit the negative sign sits, as a multiple of the font
 // height. The draw and the clamp that keeps the sign in the box must use the same one.
 const SIGN_OFFSET = 0.6;
 
-const ELLIPSIS = "\u2026";
+const ELLIPSIS = "…";
 
 const valueState = staleness.configZ.extend({
   box: box.box,
