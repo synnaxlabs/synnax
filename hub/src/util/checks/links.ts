@@ -10,6 +10,7 @@
 import fs from "fs";
 import path from "path";
 
+import { owns } from "@/portal/integration";
 import { type Check, type Context } from "@/util/checks/check";
 import { locate, normalizeRoute, pageFiles, PAGES_DIR } from "@/util/checks/crawl";
 import { attrValues, idValues } from "@/util/checks/html";
@@ -75,6 +76,8 @@ const checkRef = async (
     return await ctx.fetchOk(externalURL(url));
   }
   const route = normalizeRoute(url.pathname);
+  // The static check build leaves the portal out, so its routes never resolve here.
+  if (owns(route)) return null;
   const fragment = decodeURIComponent(url.hash).replace(/^#/, "");
   if (!ctx.routes.has(route)) {
     const reason = await ctx.fetchOk(`${ctx.baseURL}${url.pathname}${url.search}`);

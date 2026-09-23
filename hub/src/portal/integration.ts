@@ -33,6 +33,17 @@ const ROUTES: Record<string, string> = {
   "/api/portal/activations/[key]/release": "routes/activations/release.ts",
 };
 
+const MATCHERS = Object.keys(ROUTES).map(
+  (pattern) =>
+    new RegExp(
+      `^${pattern.replace(/\/\[\.\.\.[^\]]+\]/g, "(?:/.*)?").replace(/\[[^\]]+\]/g, "[^/]+")}$`,
+    ),
+);
+
+/** owns reports whether route belongs to the portal. */
+export const owns = (route: string): boolean =>
+  MATCHERS.some((matcher) => matcher.test(route));
+
 /** portal adds the signed-in portal pages, API routes, and Clerk middleware. */
 export const portal = (): AstroIntegration => ({
   name: "portal",
