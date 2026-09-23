@@ -94,10 +94,10 @@ class InvalidLicense(LicenseError):
     TYPE = LicenseError.TYPE + ".invalid"
 
 
-class LicenseHostMismatch(LicenseError):
-    """Raised when a license is bound to a different host."""
+class LicenseFingerprintMismatch(LicenseError):
+    """Raised when a license is bound to a different machine."""
 
-    TYPE = LicenseError.TYPE + ".host"
+    TYPE = LicenseError.TYPE + ".fingerprint"
 
 
 class LicenseLimitExceeded(LicenseError):
@@ -217,8 +217,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
             return ExpiredLicense(encoded.data)
         if encoded.type.startswith(InvalidLicense.TYPE):
             return InvalidLicense(encoded.data)
-        if encoded.type.startswith(LicenseHostMismatch.TYPE):
-            return LicenseHostMismatch(encoded.data)
+        if encoded.type.startswith(LicenseFingerprintMismatch.TYPE):
+            return LicenseFingerprintMismatch(encoded.data)
         if encoded.type.startswith(LicenseLimitExceeded.TYPE):
             return LicenseLimitExceeded(encoded.data)
         return LicenseError(encoded.data)

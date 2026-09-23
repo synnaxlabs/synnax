@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
@@ -37,7 +38,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
-	"github.com/synnaxlabs/synnax/pkg/api/verification"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -98,10 +98,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// VERIFICATION
-		VerificationRetrieve: router.NewUnaryServer[verification.RetrieveRequest, verification.RetrieveResponse](
+		LicenseRetrieve: router.NewUnaryServer[license.RetrieveRequest, license.RetrieveResponse](
 			"/api/v1/license/retrieve",
 		),
-		VerificationApply: router.NewUnaryServer[verification.ApplyRequest, verification.ApplyResponse](
+		LicenseApply: router.NewUnaryServer[license.ApplyRequest, license.ApplyResponse](
 			"/api/v1/license/activate",
 		),
 

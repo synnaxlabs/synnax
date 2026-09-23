@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
@@ -99,7 +99,7 @@ func (loginResponseTranslator) Backward(
 			NodeVersion: r.ClusterInfo.NodeVersion,
 			NodeKey:     node.Key(r.ClusterInfo.NodeKey),
 			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
-			License:     verification.State(r.ClusterInfo.License),
+			License:     license.State(r.ClusterInfo.License),
 		},
 	}, nil
 }

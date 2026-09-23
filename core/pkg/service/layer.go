@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -93,10 +93,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
-	// Verifier is a token the verification service accepts on open.
+	// LicenseToken is a token the verification service accepts on open.
 	//
 	// [OPTIONAL] - Defaults to "".
-	Verifier string
+	LicenseToken string
 	// Version is this Core's version, which the verification service checks against
 	// a grant's version ceiling.
 	//
@@ -106,7 +106,7 @@ type LayerConfig struct {
 	// Only test fixtures set it.
 	//
 	// [OPTIONAL] - Defaults to the production keys.
-	Anchors verification.Anchors
+	Anchors license.Anchors
 	// ValidateChannelNames enables channel name validation during creation and
 	// renaming. When false, channels may have names with spaces, special characters,
 	// etc.
@@ -134,7 +134,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
-	c.Verifier = override.String(c.Verifier, other.Verifier)
+	c.LicenseToken = override.String(c.LicenseToken, other.LicenseToken)
 	c.Version = override.String(c.Version, other.Version)
 	c.Anchors = override.Nil(c.Anchors, other.Anchors)
 	c.ValidateChannelNames = override.Nil(
@@ -223,8 +223,8 @@ type Layer struct {
 	// Control reads the control state of channels across the cluster and publishes
 	// every transfer on the control channel.
 	Control *control.Service
-	// Verification verifies that the universe remains as it is.
-	Verification *verification.Service
+	// License verifies that the universe remains as it is.
+	License *license.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over
@@ -318,13 +318,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Status) {
 		return nil, err
 	}
-	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
-		Instrumentation: cfg.Child("verification"),
+	if l.License, err = license.OpenService(ctx, license.ServiceConfig{
+		Instrumentation: cfg.Child("license"),
 		DB:              cfg.Distribution.DB.KV(),
-		Verifier:        cfg.Verifier,
+		Token:           cfg.LicenseToken,
 		Version:         cfg.Version,
 		Anchors:         cfg.Anchors,
-	}); !ok(err, l.Verification) {
+	}); !ok(err, l.License) {
 		return nil, err
 	}
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
@@ -335,7 +335,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:         l.Ontology,
 		Group:            l.Group,
 		Search:           l.Search,
-		IntOverflowCheck: l.Verification.CheckOverflow,
+		IntOverflowCheck: l.License.CheckOverflow,
 		ValidateNames:    cfg.ValidateChannelNames,
 		Status:           l.Status,
 	}); !ok(err, l.Channel) {

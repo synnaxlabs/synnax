@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/license"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -22,8 +22,8 @@ import (
 )
 
 type Service struct {
-	cluster      cluster.Cluster
-	verification *verification.Service
+	cluster cluster.Cluster
+	license *license.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -32,8 +32,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		cluster:      cfg.Distribution.Cluster,
-		verification: cfg.Service.Verification,
+		cluster: cfg.Distribution.Cluster,
+		license: cfg.Service.License,
 	}, nil
 }
 
@@ -45,6 +45,6 @@ func (s *Service) Check(context.Context, struct{}) (CheckResponse, error) {
 		NodeVersion: version.Get(),
 		NodeKey:     s.cluster.HostKey(),
 		NodeTime:    telem.Now(),
-		License:     s.verification.Retrieve().State,
+		License:     s.license.Retrieve().State,
 	}, nil
 }

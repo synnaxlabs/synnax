@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package verification_test
+package license_test
 
 import (
 	"testing"
@@ -16,14 +16,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
-	apiverification "github.com/synnaxlabs/synnax/pkg/api/verification"
+	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	svcverification "github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	license "github.com/synnaxlabs/synnax/pkg/service/channel/license"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -34,20 +34,20 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestAPIVerification(t *testing.T) {
+func TestAPILicense(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Verification Suite")
+	RunSpecs(t, "API License Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	rbacSvc *rbac.Service
-	verSvc  *svcverification.Service
-	apiSvc  *apiverification.Service
-	userSvc *user.Service
-	keys    svcmock.Keys
+	db         *gorp.DB
+	rbacSvc    *rbac.Service
+	licenseSvc *license.Service
+	apiSvc     *apilicense.Service
+	userSvc    *user.Service
+	keys       svcmock.Keys
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -66,12 +66,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db, Ontology: otg, Group: g, Search: searchIdx, User: userSvc,
 	}))
 	keys = svcmock.NewKeys()
-	verSvc = MustOpen(svcverification.OpenService(ctx, svcverification.ServiceConfig{
+	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
 		DB: kvDB, Anchors: keys.Anchors,
 	}))
-	apiSvc = MustSucceed(apiverification.NewService(apicfg.LayerConfig{
+	apiSvc = MustSucceed(apilicense.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},
-		Service:      &svc.Layer{RBAC: rbacSvc, Verification: verSvc},
+		Service:      &svc.Layer{RBAC: rbacSvc, License: licenseSvc},
 	}))
 })
 

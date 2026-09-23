@@ -113,15 +113,15 @@ func AddFlags(cmd *cobra.Command) {
 		false,
 		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
-	cmd.Flags().String(FlagDecoded, "", usage)
-	cmd.Flags().String(FlagDecodedPath, "", usagePath)
+	cmd.Flags().String(FlagLicenseKey, "", "License token")
+	cmd.Flags().String(
+		FlagLicenseFile,
+		"",
+		"Path to a file containing the license token",
+	)
 }
 
 const (
-	FlagDecoded     = "license-key"
-	FlagDecodedPath = "license-file"
-	usage           = "License token"
-	usagePath       = "Path to a file containing the license token"
-	noneTemplate    = "no active license on this Core. Host fingerprint: %s. Open " +
-		"the Console at %s to activate."
+	FlagLicenseKey  = "license-key"
+	FlagLicenseFile = "license-file"
 )

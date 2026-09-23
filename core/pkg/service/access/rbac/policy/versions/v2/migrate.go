@@ -13,4 +13,4 @@ import "github.com/synnaxlabs/x/gorp"
 
 // Migration lifts stored policies from v1 to v2. The stored bytes are unchanged: v2
 // only widens the resource types an object may name.
-var Migration = gorp.NewEntryMigration("v60_verification_policy", autoMigratePolicy)
+var Migration = gorp.NewEntryMigration("v60_license_policy", autoMigratePolicy)

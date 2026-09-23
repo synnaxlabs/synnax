@@ -63,7 +63,7 @@ class Client:
         :param token: The signed license token.
         :returns: The resulting license state.
         :raises InvalidLicense: If the token cannot be verified or is malformed.
-        :raises LicenseHostMismatch: If the token is bound to a different host.
+        :raises LicenseFingerprintMismatch: If the token is bound to another machine.
         :raises ExpiredLicense: If the token no longer applies.
         """
         return send_required(

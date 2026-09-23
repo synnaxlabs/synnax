@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@go output "core/pkg/service/channel/verification"
+@go output "core/pkg/service/channel/license"
 @py output "client/py/synnax/license"
 @ts output "client/ts/src/license"
 

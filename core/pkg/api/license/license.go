@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package verification exposes the Core's grant over the API and gates every other
+// Package license exposes the Core's license over the API and gates every other
 // endpoint on it.
-package verification
+package license
 
 import (
 	"context"
@@ -18,14 +18,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	svcverification "github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	license "github.com/synnaxlabs/synnax/pkg/service/channel/license"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
 type Service struct {
 	access   *rbac.Service
-	internal *svcverification.Service
+	internal *license.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -35,23 +35,23 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		access:   cfg.Service.RBAC,
-		internal: cfg.Service.Verification,
+		internal: cfg.Service.License,
 	}, nil
 }
 
 type (
 	RetrieveRequest  = struct{}
-	RetrieveResponse = svcverification.Info
+	RetrieveResponse = license.Info
 	ApplyRequest     struct {
 		Token string `json:"token" msgpack:"token"`
 	}
-	ApplyResponse = svcverification.Info
+	ApplyResponse = license.Info
 )
 
 var objectID = ontology.ID{Type: ontology.ResourceTypeLicense}
 
-// Retrieve returns the state of the Core's grant, the host hashes, and the grant when
-// one applies.
+// Retrieve returns the state of the Core's license, this machine's fingerprint,
+// and the license when one applies.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	_ RetrieveRequest,

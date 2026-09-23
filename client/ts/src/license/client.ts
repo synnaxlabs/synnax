@@ -58,7 +58,7 @@ export class Client {
   /**
    * Activates a license token on the Core and returns the resulting state.
    * @throws {InvalidLicenseError} if the token cannot be verified or is malformed.
-   * @throws {LicenseHostError} if the token is bound to a different host.
+   * @throws {LicenseFingerprintError} if the token is bound to another machine.
    * @throws {ExpiredLicenseError} if the token no longer applies.
    */
   async activate(token: string): Promise<Info> {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package verification
+package license
 
 import (
 	"context"
@@ -31,31 +31,31 @@ import (
 	"go.uber.org/zap"
 )
 
-// State is the verdict the service reached on the grants it holds.
+// State is the verdict the service reached on the licenses it holds.
 type State string
 
 const (
-	// StateOK means a grant covers this Core.
+	// StateOK means a license covers this Core.
 	StateOK State = "ok"
-	// StateMissing means no grant applies to this Core.
+	// StateMissing means no license applies to this Core.
 	StateMissing State = "missing"
-	// StateExpired means the grant that applies no longer covers this Core.
+	// StateExpired means the license that applies no longer covers this Core.
 	StateExpired State = "expired"
 )
 
-// Info is what the service knows about this Core's grant.
+// Info is what the service knows about this Core's license.
 type Info struct {
 	// State is the verdict.
 	State State `json:"state" msgpack:"state"`
 	// Warning is set while the state is ok but a change is near or past.
 	Warning string `json:"warning,omitempty" msgpack:"warning,omitempty"`
-	// Host identifies this machine.
-	Host Host `json:"fingerprint" msgpack:"fingerprint"`
-	// Grant is the grant that applies, if any.
-	Grant *License `json:"license,omitempty" msgpack:"license,omitempty"`
+	// Fingerprint identifies this machine.
+	Fingerprint Fingerprint `json:"fingerprint" msgpack:"fingerprint"`
+	// License is the license that applies, if any.
+	License *License `json:"license,omitempty" msgpack:"license,omitempty"`
 }
 
-// ServiceConfig is the configuration for a verification service.
+// ServiceConfig is the configuration for a license service.
 type ServiceConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
 	//
@@ -65,15 +65,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	kv.DB
-	// Verifier is a token to accept when the service opens.
+	// Token is a token to accept when the service opens.
 	//
 	// [OPTIONAL] - Defaults to ""
-	Verifier string
+	Token string
 	// Anchors is the key set tokens are verified against.
 	//
 	// [OPTIONAL] - Defaults to the production keys.
 	Anchors Anchors
-	// Version is this Core's version, checked against a grant's version ceiling. An
+	// Version is this Core's version, checked against a license's version ceiling. An
 	// empty version passes every ceiling.
 	//
 	// [OPTIONAL] - Defaults to ""
@@ -87,16 +87,16 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 1 hour
 	CheckInterval time.Duration
-	// WarningTime is how long before a grant stops applying the warning starts.
+	// WarningTime is how long before a license stops applying the warning starts.
 	//
 	// [OPTIONAL] - Defaults to 1 week
 	WarningTime time.Duration
-	// Grace is how long after a grant stops applying it still counts.
+	// Grace is how long after a license stops applying it still counts.
 	//
 	// [OPTIONAL] - Defaults to 14 days
 	Grace time.Duration
 	// Rollback is how far behind the recorded clock the current clock may fall before
-	// every grant is treated as expired.
+	// every license is treated as expired.
 	//
 	// [OPTIONAL] - Defaults to 24 hours
 	Rollback time.Duration
@@ -106,7 +106,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate validates the configuration for use in the service.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("channel.verification")
+	v := validate.New("channel.license")
 	v.NotNil("db", c.DB)
 	v.NotNil("anchors", c.Anchors)
 	v.NotNil("now", c.Now)
@@ -121,7 +121,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Verifier = override.String(c.Verifier, other.Verifier)
+	c.Token = override.String(c.Token, other.Token)
 	c.Anchors = override.Nil(c.Anchors, other.Anchors)
 	c.Version = override.String(c.Version, other.Version)
 	c.Now = override.Nil(c.Now, other.Now)
@@ -132,7 +132,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultServiceConfig is the default configuration for the verification service.
+// DefaultServiceConfig is the default configuration for the license service.
 var DefaultServiceConfig = ServiceConfig{
 	Anchors:       anchors,
 	Now:           time.Now,
@@ -152,11 +152,11 @@ var (
 	markKey = []byte("highWater")
 )
 
-// Service verifies the grant a Core runs under and gates the API on it.
+// Service verifies the license a Core runs under and gates the API on it.
 type Service struct {
-	cfg      ServiceConfig
-	host     Host
-	shutdown io.Closer
+	cfg         ServiceConfig
+	fingerprint Fingerprint
+	shutdown    io.Closer
 	// rolledBack is set when the clock at open fell behind the recorded mark. The
 	// service never records the clock again in that state.
 	rolledBack bool
@@ -168,9 +168,9 @@ type Service struct {
 
 var _ io.Closer = &Service{}
 
-// OpenService opens the service: it reads the host, checks the clock against the
-// recorded mark, loads the token that fits this host, and accepts cfg.Verifier when
-// set. A verifier that fails to verify is an error; a Core with no grant opens in
+// OpenService opens the service: it reads the fingerprint, checks the clock against the
+// recorded mark, loads the token that fits this fingerprint, and accepts cfg.Token when
+// set. A licenseToken that fails to verify is an error; a Core with no license opens in
 // StateMissing.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
@@ -178,11 +178,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.host, err = readHost(); err != nil {
+	if s.fingerprint, err = readFingerprint(); err != nil {
 		cfg.L.Warn("failed to read network interfaces", zap.Error(err))
-		s.host = Host{}
+		s.fingerprint = Fingerprint{}
 	}
-	s.mu.info = Info{State: StateMissing, Host: s.host}
+	s.mu.info = Info{State: StateMissing, Fingerprint: s.fingerprint}
 	if err = s.checkClock(ctx); err != nil {
 		return nil, err
 	}
@@ -192,8 +192,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err = s.load(ctx); err != nil {
 		return nil, err
 	}
-	if cfg.Verifier != "" {
-		if _, err = s.Apply(ctx, cfg.Verifier); err != nil {
+	if cfg.Token != "" {
+		if _, err = s.Apply(ctx, cfg.Token); err != nil {
 			return nil, err
 		}
 	}
@@ -205,7 +205,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		signal.WithRetryOnPanic(),
 		signal.WithBaseRetryInterval(2*time.Second),
 		signal.WithRetryScale(1.1),
-		signal.WithKey("verification"),
+		signal.WithKey("license"),
 	)
 	return s, nil
 }
@@ -213,14 +213,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close should be called when the service is no longer needed.
 func (s *Service) Close() error { return s.shutdown.Close() }
 
-// Retrieve returns what the service knows about this Core's grant.
+// Retrieve returns what the service knows about this Core's license.
 func (s *Service) Retrieve() Info {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.mu.info
 }
 
-// Check returns nil while a grant covers this Core, ErrMissing while none applies,
+// Check returns nil while a license covers this Core, ErrMissing while none applies,
 // and ErrExpired while the one that applies no longer covers it.
 func (s *Service) Check() error {
 	s.mu.RLock()
@@ -241,33 +241,37 @@ func (i Info) err() error {
 	return nil
 }
 
-// Apply verifies token, checks that it fits this host and still covers it, stores
+// Apply verifies token, checks that it fits this machine and still covers it, stores
 // it, and moves the service to StateOK. The stored token loads on the next open.
-// Returns ErrInvalid, ErrHost, or ErrExpired when the token is refused.
+// Returns ErrInvalid, ErrFingerprint, or ErrExpired when the token is refused.
 func (s *Service) Apply(ctx context.Context, token string) (Info, error) {
-	grant, err := Verify(s.cfg.Anchors, token)
+	lic, err := Verify(s.cfg.Anchors, token)
 	if err != nil {
 		return Info{}, err
 	}
-	if grant.Exp == nil && grant.Mv == nil {
+	if lic.Exp == nil && lic.Mv == nil {
 		return Info{}, errors.Wrap(
 			ErrInvalid,
 			"a license without an expiry must carry a maximum version",
 		)
 	}
-	if grant.Mv != nil {
-		if _, _, ok := parseMinor(*grant.Mv); !ok {
-			return Info{}, errors.Wrapf(ErrInvalid, "bad version ceiling %q", *grant.Mv)
+	if lic.Mv != nil {
+		if _, _, ok := parseMinor(*lic.Mv); !ok {
+			return Info{}, errors.Wrapf(
+				ErrInvalid,
+				"bad version ceiling %q",
+				*lic.Mv,
+			)
 		}
 	}
-	if !s.host.Covers(grant.FingerprintScheme, grant.Fingerprints) {
-		return Info{}, ErrHost
+	if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
+		return Info{}, ErrFingerprint
 	}
-	info := s.evaluate(grant)
+	info := s.evaluate(lic)
 	if info.State != StateOK {
 		return Info{}, info.err()
 	}
-	key := append(append([]byte{}, prefix...), grant.Jti.String()...)
+	key := append(append([]byte{}, prefix...), lic.Jti.String()...)
 	if err = s.cfg.Set(ctx, key, []byte(token)); err != nil {
 		return Info{}, err
 	}
@@ -278,18 +282,18 @@ func (s *Service) Apply(ctx context.Context, token string) (Info, error) {
 	return info, nil
 }
 
-// CheckOverflow returns ErrTooMany when inUse external channels exceed the grant's
-// cap. A Core without a covering grant is idle behind the API gate, so the cap does
+// CheckOverflow returns ErrTooMany when inUse external channels exceed the license's
+// cap. A Core without a covering license is idle behind the API gate, so the cap does
 // not apply to it.
 func (s *Service) CheckOverflow(inUse types.Uint20) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	info := s.mu.info
-	if info.State != StateOK || info.Grant == nil || info.Grant.Ch == 0 {
+	if info.State != StateOK || info.License == nil || info.License.Ch == 0 {
 		return nil
 	}
-	if uint32(inUse) > info.Grant.Ch {
-		return newTooManyError(info.Grant.Ch)
+	if uint32(inUse) > info.License.Ch {
+		return newTooManyError(info.License.Ch)
 	}
 	return nil
 }
@@ -328,8 +332,8 @@ func (s *Service) recordClock(ctx context.Context, now time.Time) error {
 	return s.cfg.Set(ctx, markKey, raw)
 }
 
-// load picks the stored token that fits this host. A token that still applies wins
-// over one that no longer does, so an expired grant is reported only when no other
+// load picks the stored token that fits this machine. A token that still applies wins
+// over one that no longer does, so an expired license is reported only when no other
 // covers the Core.
 func (s *Service) load(ctx context.Context) error {
 	iter, err := s.cfg.OpenIterator(kv.IterPrefix(prefix))
@@ -338,7 +342,7 @@ func (s *Service) load(ctx context.Context) error {
 	}
 	var chosen *Info
 	for iter.First(); iter.Valid(); iter.Next() {
-		grant, err := Verify(s.cfg.Anchors, string(iter.Value()))
+		lic, err := Verify(s.cfg.Anchors, string(iter.Value()))
 		if err != nil {
 			s.cfg.L.Warn(
 				"skipping a stored token that no longer verifies",
@@ -346,10 +350,10 @@ func (s *Service) load(ctx context.Context) error {
 			)
 			continue
 		}
-		if !s.host.Covers(grant.FingerprintScheme, grant.Fingerprints) {
+		if !s.fingerprint.Covers(lic.FingerprintScheme, lic.Fingerprints) {
 			continue
 		}
-		info := s.evaluate(grant)
+		info := s.evaluate(lic)
 		if chosen == nil || (chosen.State != StateOK && info.State == StateOK) {
 			chosen = &info
 		}
@@ -373,24 +377,28 @@ const (
 		"than %s, treating the license as expired"
 )
 
-// evaluate decides the state a grant puts this Core in at the current time.
-func (s *Service) evaluate(grant License) Info {
-	info := Info{State: StateOK, Host: s.host, Grant: &grant}
+// evaluate decides the state a license puts this Core in at the current time.
+func (s *Service) evaluate(lic License) Info {
+	info := Info{State: StateOK, Fingerprint: s.fingerprint, License: &lic}
 	if s.rolledBack {
 		info.State = StateExpired
 		info.Warning = fmt.Sprintf(expiredClockTemplate, s.cfg.Rollback)
 		return info
 	}
-	covered := grant.Mv == nil || versionCovered(s.cfg.Version, *grant.Mv)
-	if grant.Exp == nil {
+	covered := lic.Mv == nil || versionCovered(s.cfg.Version, *lic.Mv)
+	if lic.Exp == nil {
 		if !covered {
 			info.State = StateExpired
-			info.Warning = fmt.Sprintf(expiredVersionTemplate, *grant.Mv, s.cfg.Version)
+			info.Warning = fmt.Sprintf(
+				expiredVersionTemplate,
+				*lic.Mv,
+				s.cfg.Version,
+			)
 		}
 		return info
 	}
 	now := s.cfg.Now()
-	exp := time.Unix(int64(*grant.Exp), 0)
+	exp := time.Unix(int64(*lic.Exp), 0)
 	if now.Before(exp) {
 		if left := exp.Sub(now); left <= s.cfg.WarningTime {
 			info.Warning = fmt.Sprintf(warnExpiresTemplate, left.Round(time.Minute))
@@ -405,17 +413,17 @@ func (s *Service) evaluate(grant License) Info {
 		)
 		return info
 	}
-	if grant.Mv != nil && covered {
+	if lic.Mv != nil && covered {
 		info.Warning = fmt.Sprintf(
 			warnFallbackTemplate,
 			exp.Format(time.DateOnly),
-			*grant.Mv,
+			*lic.Mv,
 		)
 		return info
 	}
 	info.State = StateExpired
-	if grant.Mv != nil {
-		info.Warning = fmt.Sprintf(expiredVersionTemplate, *grant.Mv, s.cfg.Version)
+	if lic.Mv != nil {
+		info.Warning = fmt.Sprintf(expiredVersionTemplate, *lic.Mv, s.cfg.Version)
 	}
 	return info
 }
@@ -460,10 +468,10 @@ func (s *Service) logState() {
 	info := s.Retrieve()
 	switch info.State {
 	case StateOK:
-		if info.Grant.Ch == 0 {
+		if info.License.Ch == 0 {
 			s.cfg.L.Info(logActive)
 		} else {
-			s.cfg.L.Infof(logCapTemplate, info.Grant.Ch)
+			s.cfg.L.Infof(logCapTemplate, info.License.Ch)
 		}
 		if info.Warning != "" {
 			s.cfg.L.Warn(info.Warning)
