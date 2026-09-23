@@ -67,6 +67,12 @@ export default defineConfig({
     "/reference/driver/ni/get-started": "/reference/driver/ni/configure-device",
     "/reference/driver/opc-ua/get-started": "/reference/driver/opc-ua/connect-server",
     "/reference/driver/pagerduty/get-started": "/reference/driver/pagerduty/alert-task",
+    "/reference/pluto": "/reference/",
+    "/reference/pluto/get-started": "/reference/",
+    "/reference/pluto/provider-and-canvas": "/reference/",
+    "/reference/pluto/theming": "/reference/",
+    "/reference/pluto/line-plot": "/reference/",
+    "/reference/pluto/example-app": "/reference/",
     // Python client redirects
     "/reference/python-client": "/reference/client/quick-start",
     "/reference/python-client/get-started": "/reference/client/quick-start",
