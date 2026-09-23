@@ -74,11 +74,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v10.2.0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
         with:
-          python-version-file: integration/pyproject.toml
+          version: latest-known
 
       - name: Install Playwright
         working-directory: integration
