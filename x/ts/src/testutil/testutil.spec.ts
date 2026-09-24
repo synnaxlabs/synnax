@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { testutil } from "@/testutil";
 
@@ -73,31 +73,39 @@ describe("testutil", () => {
     });
   });
 
-  describe("testutil.expectAlways", () => {
-    it("should call function multiple times over duration", async () => {
-      const fn = vi.fn();
-      await testutil.expectAlways(fn, 100, 20);
-      expect(fn.mock.calls.length).toBeGreaterThanOrEqual(3);
-      expect(fn.mock.calls.length).toBeLessThanOrEqual(7);
+  describe("expectAlways", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
     });
 
-    it("should handle async functions", async () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("should call the function once per interval over the duration", async () => {
+      const fn = vi.fn();
+      const done = testutil.expectAlways(fn, 100, 20);
+      await vi.runAllTimersAsync();
+      await done;
+      expect(fn).toHaveBeenCalledTimes(5);
+    });
+
+    it("should wait for async functions between calls", async () => {
       let counter = 0;
       const asyncFn = vi.fn(async () => {
         counter++;
         await new Promise((resolve) => setTimeout(resolve, 5));
       });
-
-      await testutil.expectAlways(asyncFn, 60, 20);
-      expect(asyncFn).toHaveBeenCalled();
-      expect(counter).toBeGreaterThan(0);
+      const done = testutil.expectAlways(asyncFn, 60, 20);
+      await vi.runAllTimersAsync();
+      await done;
+      expect(counter).toBe(3);
     });
 
     it("should propagate errors from the function", async () => {
       const errorFn = vi.fn(() => {
         throw new Error("Test error");
       });
-
       await expect(testutil.expectAlways(errorFn, 50, 20)).rejects.toThrow(
         "Test error",
       );
@@ -108,7 +116,6 @@ describe("testutil", () => {
       const asyncErrorFn = vi.fn(async () => {
         throw new Error("Async test error");
       });
-
       await expect(testutil.expectAlways(asyncErrorFn, 50, 20)).rejects.toThrow(
         "Async test error",
       );
@@ -117,45 +124,41 @@ describe("testutil", () => {
 
     it("should use default values when not provided", async () => {
       const fn = vi.fn();
-      await testutil.expectAlways(fn);
-      expect(fn.mock.calls.length).toBeGreaterThanOrEqual(7);
-      expect(fn.mock.calls.length).toBeLessThanOrEqual(12);
+      const done = testutil.expectAlways(fn);
+      await vi.runAllTimersAsync();
+      await done;
+      expect(fn).toHaveBeenCalledTimes(10);
     });
 
-    it("should respect custom interval", async () => {
+    it("should sleep for the interval between calls", async () => {
       const fn = vi.fn();
       const start = Date.now();
-      await testutil.expectAlways(fn, 100, 30);
-      const elapsed = Date.now() - start;
-      expect(elapsed).toBeGreaterThanOrEqual(90);
-      expect(elapsed).toBeLessThan(150);
-      expect(fn.mock.calls.length).toBeGreaterThanOrEqual(3);
-      expect(fn.mock.calls.length).toBeLessThanOrEqual(5);
+      const done = testutil.expectAlways(fn, 100, 30);
+      await vi.runAllTimersAsync();
+      await done;
+      expect(Date.now() - start).toBe(120);
+      expect(fn).toHaveBeenCalledTimes(4);
     });
 
-    it("should handle functions that pass after initial failures", async () => {
+    it("should reject on the first failure instead of retrying", async () => {
       let callCount = 0;
       const fn = vi.fn(() => {
         callCount++;
         if (callCount < 3) throw new Error("Not ready yet");
       });
-
       await expect(testutil.expectAlways(fn, 80, 20)).rejects.toThrow("Not ready yet");
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
-    it("should work with expectations inside the function", async () => {
+    it("should fail when an expectation inside the function stops holding", async () => {
       let value = 0;
       const incrementer = setInterval(() => value++, 10);
-
       try {
-        await testutil.expectAlways(
-          () => {
-            expect(value).toBeGreaterThanOrEqual(0);
-          },
-          50,
-          10,
-        );
+        const rejects = expect(
+          testutil.expectAlways(() => expect(value).toBeLessThan(3), 100, 20),
+        ).rejects.toThrow();
+        await vi.advanceTimersByTimeAsync(100);
+        await rejects;
       } finally {
         clearInterval(incrementer);
       }
