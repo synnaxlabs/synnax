@@ -8,13 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-import time
 from typing import cast
 
 import pytest
 
 import synnax as sy
 from synnax.control.controller import Controller, RemainsTrueFor
+
+# Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot
+# fail the test, but bounded, so a broken run fails instead of hanging CI.
+HANDSHAKE_TIMEOUT = 5
 
 
 def create_valve_set(
@@ -435,67 +438,73 @@ class TestController:
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
         assertions = dict()
+        daq_ready = threading.Event()
+        seq_two_acquired = threading.Event()
+        seq_one_blocked = threading.Event()
+        seq_two_lowered = threading.Event()
+        seq_one_done = threading.Event()
 
-        def sequence_one(daq_ev: threading.Event, seq_two_ev: threading.Event):
-            daq_ev.wait()
+        def sequence_one():
+            daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
-                write_authorities=[100],
                 write=[press_en_cmd.key],
+                write_authorities=[100],
             ) as auto:
-                seq_two_ev.wait()
+                seq_two_acquired.wait(HANDSHAKE_TIMEOUT)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_first_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
-                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                    timeout=250 * sy.TimeSpan.MILLISECOND,
                 )
-                time.sleep(0.15)
+                seq_one_blocked.set()
+                seq_two_lowered.wait(HANDSHAKE_TIMEOUT)
                 auto[press_en_cmd.key] = True
                 assertions["seq_one_second_ack"] = auto.wait_until(
                     lambda c: c[press_en.key],
-                    timeout=50 * sy.TimeSpan.MILLISECOND,
+                    timeout=5 * sy.TimeSpan.SECOND,
                 )
+                seq_one_done.set()
                 auto[press_en_cmd.key] = False
 
-        def sequence_two(daq_ev: threading.Event, seq_two_ev: threading.Event):
-            daq_ev.wait()
+        def sequence_two():
+            daq_ready.wait(HANDSHAKE_TIMEOUT)
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
                 write=[press_en_cmd.key],
                 write_authorities=[255],
             ) as auto:
-                seq_two_ev.set()
-                # We use a sleep here instead of an auto.wait to ensure python has
-                # bandwidth to switch threads
-                auto.sleep(0.1)
+                seq_two_acquired.set()
+                seq_one_blocked.wait(HANDSHAKE_TIMEOUT)
+                # set_authority blocks until the Core acknowledges it, so sequence one
+                # commands only after the lower authority is in effect. Sequence two
+                # holds its writer open until sequence one is done, so the commands go
+                # through because of the authority change alone.
                 auto.set_authority({press_en_cmd.key: 50})
-                # We use a sleep here instead of an auto.wait to ensure python has
-                # bandwidth to switch threads
-                auto.sleep(0.2)
+                seq_two_lowered.set()
+                seq_one_done.wait(HANDSHAKE_TIMEOUT)
 
-        def daq(daq_ev: threading.Event):
+        def daq():
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
-                daq_ev.set()
-                auto.wait_until(lambda c: c[press_en_cmd.key])
+                daq_ready.set()
+                auto.wait_until(
+                    lambda c: c[press_en_cmd.key], timeout=HANDSHAKE_TIMEOUT
+                )
                 auto[press_en.key] = True
-                auto.wait_until(lambda c: not c[press_en_cmd.key])
+                auto.wait_until(
+                    lambda c: not c[press_en_cmd.key], timeout=HANDSHAKE_TIMEOUT
+                )
                 auto[press_en.key] = False
 
-        daq_ev = threading.Event()
-        seq_two_ev = threading.Event()
-        t1 = threading.Thread(
-            target=sequence_one, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
-        )
-        t2 = threading.Thread(
-            target=sequence_two, kwargs={"daq_ev": daq_ev, "seq_two_ev": seq_two_ev}
-        )
-        t3 = threading.Thread(target=daq, kwargs={"daq_ev": daq_ev})
+        t1 = threading.Thread(target=sequence_one)
+        t2 = threading.Thread(target=sequence_two)
+        t3 = threading.Thread(target=daq)
 
         t3.start()
         t1.start()
