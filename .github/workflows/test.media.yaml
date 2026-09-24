@@ -10,41 +10,7 @@
 name: Test - Media
 
 on:
-  pull_request:
-    paths:
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.media.yaml
-      - codecov.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/media/**
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.media.yaml
-      - codecov.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/media/**
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_call:
 jobs:
   test:
     name: Lint

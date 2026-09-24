@@ -10,45 +10,15 @@
 name: Test - X (C++)
 
 on:
-  pull_request:
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
-      - .github/workflows/test.x.cpp.yaml
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - scripts/check_clang_format.sh
-      - scripts/run_bazel.sh
-      - scripts/sanitizers/**
-      - x/cpp/**
-      - x/go/**/*.pb.go
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
-      - .github/workflows/test.x.cpp.yaml
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - scripts/check_clang_format.sh
-      - scripts/run_bazel.sh
-      - scripts/sanitizers/**
-      - x/cpp/**
-      - x/go/**/*.pb.go
-  workflow_dispatch:
-
+  workflow_call:
+    inputs:
+      os:
+        description: JSON list of runner labels to test on
+        required: false
+        type: string
+        default: '["ubuntu-build-bot"]'
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   test:
@@ -56,20 +26,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-build-bot, ubuntu-build-bot, windows-build-bot]
+        os: ${{ fromJSON(inputs.os) }}
         include:
           - os: ubuntu-build-bot
             format: true
-        exclude:
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'macos-build-bot' }}
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Setup Bazel
@@ -79,11 +42,11 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Install Clang Format
+      - name: Install clang-format
         if: matrix.format
         run: scripts/install_clang_format.sh
 
-      - name: Check Formatting
+      - name: Check formatting
         if: matrix.format
         run: scripts/check_clang_format.sh x/cpp
 
@@ -110,11 +73,11 @@ jobs:
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true
         shell: bash
 
-      - name: Clean Build Caches (Ubuntu)
+      - name: Clean build caches (Ubuntu)
         if: always() && matrix.os == 'ubuntu-build-bot'
         run: integration/scripts/clean_build_caches.sh 25
 
-      - name: Clean Build Caches (Windows)
+      - name: Clean build caches (Windows)
         if: always() && matrix.os == 'windows-build-bot'
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30

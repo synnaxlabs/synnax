@@ -10,82 +10,22 @@
 name: Test - Pluto
 
 on:
-  pull_request:
-    paths:
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.pluto.yaml
-      - alamos/go/**
-      - alamos/ts/**
-      - aspen/**
-      - cesium/**
-      - client/ts/**
-      - codecov.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - core/**
-      - freighter/go/**
-      - freighter/ts/**
-      - package.json
-      - pluto/**
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/go/**
-      - x/media/**
-      - x/ts/**
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.pluto.yaml
-      - alamos/go/**
-      - alamos/ts/**
-      - aspen/**
-      - cesium/**
-      - client/ts/**
-      - codecov.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - core/**
-      - freighter/go/**
-      - freighter/ts/**
-      - package.json
-      - pluto/**
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/go/**
-      - x/media/**
-      - x/ts/**
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_call:
+    inputs:
+      image:
+        description: Core Docker image tag to test against
+        required: true
+        type: string
 jobs:
-  server:
-    uses: ./.github/workflows/build.docker.yaml
-    permissions:
-      packages: write
-    with:
-      module: core
-      tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-
   test:
     runs-on: ubuntu-latest
-    needs: server
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       synnax:
-        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        image: ${{ inputs.image }}
         env:
           SYNNAX_VERBOSE: true
           SYNNAX_INSECURE: true

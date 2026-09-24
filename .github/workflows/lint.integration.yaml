@@ -10,35 +10,7 @@
 name: Lint - Integration
 
 on:
-  pull_request:
-    paths:
-      - .github/actions/test-python/**
-      - .github/workflows/lint.integration.yaml
-      - alamos/py/**
-      - client/py/**
-      - freighter/py/**
-      - integration/**
-      - pyproject.toml
-      - uv.lock
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/actions/test-python/**
-      - .github/workflows/lint.integration.yaml
-      - alamos/py/**
-      - client/py/**
-      - freighter/py/**
-      - integration/**
-      - pyproject.toml
-      - uv.lock
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_call:
 jobs:
   lint:
     name: Lint

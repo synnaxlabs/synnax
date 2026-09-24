@@ -10,45 +10,13 @@
 name: Test - Drift
 
 on:
-  pull_request:
-    paths:
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.drift.yaml
-      - alamos/ts/**
-      - codecov.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - drift/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/ts/**
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.drift.yaml
-      - alamos/ts/**
-      - codecov.yaml
-      - configs/eslint/**
-      - configs/ts/**
-      - configs/vite/**
-      - drift/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/ts/**
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_call:
+    inputs:
+      os:
+        description: JSON list of runner labels to test on
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
 jobs:
   test:
     name: Test (${{ matrix.os }})
@@ -59,17 +27,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: ${{ fromJSON(inputs.os) }}
         include:
           - os: ubuntu-latest
             lint: true
-        exclude:
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository

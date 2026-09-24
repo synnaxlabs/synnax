@@ -10,48 +10,23 @@
 name: Test - Alamos (Python)
 
 on:
-  pull_request:
-    paths:
-      - .github/actions/test-python/**
-      - .github/workflows/test.alamos.py.yaml
-      - alamos/py/**
-      - codecov.yaml
-      - pyproject.toml
-      - uv.lock
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/actions/test-python/**
-      - .github/workflows/test.alamos.py.yaml
-      - alamos/py/**
-      - codecov.yaml
-      - pyproject.toml
-      - uv.lock
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_call:
+    inputs:
+      os:
+        description: JSON list of runner labels to test on
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
 jobs:
   test:
     name: Test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: ${{ fromJSON(inputs.os) }}
         include:
           - os: ubuntu-latest
             format: true
-        exclude:
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
     runs-on: ${{ matrix.os }}
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

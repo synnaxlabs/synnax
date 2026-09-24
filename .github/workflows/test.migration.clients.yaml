@@ -121,7 +121,7 @@ jobs:
       - name: Checkout current branch
         uses: actions/checkout@v7
 
-      - name: Login to Github Container registry
+      - name: Login to GitHub container registry
         uses: docker/login-action@v4
         with:
           registry: ghcr.io

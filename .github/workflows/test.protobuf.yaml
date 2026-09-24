@@ -10,33 +10,13 @@
 name: Test - Protobuf
 
 on:
-  pull_request:
-    paths:
-      - "**/*.proto"
-      - .github/workflows/test.protobuf.yaml
-      - buf.yaml
-      - buf.gen.yaml
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - "**/*.proto"
-      - .github/workflows/test.protobuf.yaml
-      - buf.yaml
-      - buf.gen.yaml
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_call:
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Buf CI

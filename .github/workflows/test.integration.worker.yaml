@@ -7,7 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Integration Test Run
+name: Integration test run
 
 on:
   workflow_call:
@@ -41,20 +41,20 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.test_matrix) }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Force Quit Existing Synnax Processes (Windows)
+      - name: Force quit existing Synnax processes (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: integration/scripts/KillSynnaxProcesses.cmd
 
-      - name: Force Quit Existing Synnax Processes (Ubuntu)
+      - name: Force quit existing Synnax processes (Ubuntu)
         if: runner.os == 'Linux'
         continue-on-error: true
         run: integration/scripts/kill_synnax_processes.sh
 
-      - name: Download and Setup Artifacts (Windows)
+      - name: Download and setup artifacts (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         env:
@@ -62,14 +62,14 @@ jobs:
           REF_RUN_ID: ${{ inputs.ref_run_id }}
         run: integration/scripts/DownloadArtifacts.cmd
 
-      - name: Download and Setup Artifacts (Ubuntu)
+      - name: Download and setup artifacts (Ubuntu)
         if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
         run: integration/scripts/download_artifacts.sh
 
-      - name: Update Submodules
+      - name: Update submodules
         run: git submodule update --init --recursive
 
       - name: Install uv
@@ -96,7 +96,7 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: integration/scripts/start_core.sh
 
-      - name: Test Conductor (Windows)
+      - name: Test conductor (Windows)
         if: runner.os == 'Windows'
         id: test-conductor-win
         timeout-minutes: 30
@@ -109,7 +109,7 @@ jobs:
         run: >-
           uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
 
-      - name: Test Conductor (Ubuntu)
+      - name: Test conductor (Ubuntu)
         if: runner.os == 'Linux'
         id: test-conductor-unix
         timeout-minutes: 30
@@ -124,7 +124,7 @@ jobs:
       # containing summary.json, server.log, and per-test subdirs (trace.zip,
       # sliced server.log, screenshots, exports). Uploading the bundle is the
       # single artifact CI and local devs share for debugging.
-      - name: Upload Test Results
+      - name: Upload test results
         uses: actions/upload-artifact@v7
         if: always()
         with:

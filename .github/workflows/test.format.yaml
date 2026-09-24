@@ -15,7 +15,7 @@ on:
 
 jobs:
   test:
-    name: Check Formatting
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -23,5 +23,5 @@ jobs:
         with:
           cache: true
 
-      - name: Check Formatting
+      - name: Check formatting
         run: pnpm check-format

@@ -34,6 +34,11 @@ on:
         required: false
         type: boolean
         default: false
+      os:
+        description: JSON list of runner labels to test on
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
 
 jobs:
   lint:
@@ -84,19 +89,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: ${{ fromJSON(inputs.os) }}
         include:
           - os: ubuntu-latest
             codegen: true
-        # The full matrix runs for main, PRs into main, and manual dispatches; other
-        # refs run Linux only.
-        exclude:
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
-              github.event_name != 'workflow_dispatch') && 'macos-latest' }}
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
-              github.event_name != 'workflow_dispatch') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository

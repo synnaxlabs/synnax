@@ -10,82 +10,24 @@
 name: Test - Driver
 
 on:
-  pull_request:
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
-      - .github/workflows/test.driver.yaml
-      - alamos/go/**
-      - arc/cpp/**
-      - aspen/**
-      - cesium/**
-      - client/cpp/**
-      - core/**
-      - driver/**
-      - freighter/cpp/**
-      - freighter/go/**
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - scripts/check_clang_format.sh
-      - scripts/sanitizers/**
-      - vendor/**
-      - x/cpp/**
-      - x/go/**
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
-      - .github/workflows/test.driver.yaml
-      - alamos/go/**
-      - arc/cpp/**
-      - aspen/**
-      - cesium/**
-      - client/cpp/**
-      - core/**
-      - driver/**
-      - freighter/cpp/**
-      - freighter/go/**
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - scripts/check_clang_format.sh
-      - scripts/sanitizers/**
-      - vendor/**
-      - x/cpp/**
-      - x/go/**
-  workflow_dispatch:
-
+  workflow_call:
+    inputs:
+      image:
+        description: Core Docker image tag to test against
+        required: true
+        type: string
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  server:
-    uses: ./.github/workflows/build.docker.yaml
-    permissions:
-      packages: write
-    with:
-      module: core
-      tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
-
   test:
     name: Test
     runs-on: ubuntu-build-bot
-    needs: server
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Force Quit Existing Synnax Processes
+      - name: Force quit existing Synnax processes
         continue-on-error: true
         run: integration/scripts/kill_synnax_processes.sh
 
@@ -94,7 +36,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor
           }} --password-stdin
 
-      - name: Ensure Port 9090 is Free
+      - name: Ensure port 9090 is free
         run: |
           docker rm -f synnax-test-driver || true
           docker ps -q --filter "publish=9090" | xargs -r docker rm -f || true
@@ -108,7 +50,7 @@ jobs:
             -e SYNNAX_INSECURE=true \
             -e SYNNAX_MEM=true \
             -e SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }} \
-            ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
+            ${{ inputs.image }}
           echo "Waiting for Synnax to be ready..."
           for i in $(seq 1 30); do
             if nc -z localhost 9090 2>/dev/null; then
@@ -124,7 +66,7 @@ jobs:
             exit 1
           fi
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev
@@ -132,7 +74,7 @@ jobs:
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
 
-      - name: Update Submodules
+      - name: Update submodules
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
@@ -142,10 +84,10 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Install Clang Format
+      - name: Install clang-format
         run: scripts/install_clang_format.sh
 
-      - name: Check Formatting
+      - name: Check formatting
         run: scripts/check_clang_format.sh driver
 
       - name: Test Driver
@@ -160,6 +102,6 @@ jobs:
         if: always()
         run: docker rm -f synnax-test-driver || true
 
-      - name: Clean Build Caches
+      - name: Clean build caches
         if: always()
         run: integration/scripts/clean_build_caches.sh 25
