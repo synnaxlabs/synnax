@@ -1,0 +1,6 @@
+.turbo/**
+.vscodeignore
+src/**
+tsconfig.json
+install-cursor.sh
+**/*.map

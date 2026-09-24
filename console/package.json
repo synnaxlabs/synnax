@@ -16,8 +16,7 @@
     "test": "vitest",
     "cov": "vitest --coverage",
     "madge": "madge --circular src",
-    "devtools": "pnpm react-devtools",
-    "react-devtools": "npx react-devtools"
+    "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
     "@fontsource/inter": "catalog:",

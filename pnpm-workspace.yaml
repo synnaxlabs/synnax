@@ -16,6 +16,7 @@ packages:
   - docs/site
   - drift
   - freighter/ts
+  - oracle/lsp/extensions/vscode
   - pluto
   - studio
   - x/media
@@ -34,8 +35,10 @@ trustPolicyExclude:
   - '@vercel/routing-utils@6.5.0'
 catalogMode: strict
 catalogPrune: true
+autoDedupe: true
 
 allowBuilds:
+  '@vscode/vsce-sign': false
   core-js: false
   esbuild: true
   protobufjs: false

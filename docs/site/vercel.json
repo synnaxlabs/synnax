@@ -1,5 +1,5 @@
 {
-  "installCommand": "npx --yes pnpm@12.3.1 install --frozen-lockfile",
+  "installCommand": "npx --yes pnpm@12.6.0 install --frozen-lockfile",
   "redirects": [
     {
       "source": "/guides/comparison/performance/one-billion-rows",

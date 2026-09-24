@@ -16,7 +16,7 @@ triage: stable headings, code fences, and concise sections so an agent reading
 the file once can decide what to drill into.
 
 Trace parsing reads ``trace.trace`` and ``trace.network`` JSONL streams from
-the zip directly. The ``npx playwright trace`` CLI is the *interactive* fallback
+the zip directly. The ``pnpm dlx playwright trace`` CLI is the *interactive* fallback
 documented in the skill; this module is the *batch* path that runs at exit.
 """
 

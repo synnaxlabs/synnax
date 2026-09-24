@@ -1,4 +1,5 @@
 {
+  "name": "synnax",
   "private": true,
   "scripts": {
     "build": "turbo build",
@@ -19,6 +20,7 @@
     "check-format": "prettier --check --cache .",
     "check-types": "turbo check-types",
     "check-types:alamos": "turbo check-types --filter @synnaxlabs/alamos",
+    "check-types:arc": "turbo check-types --filter @synnaxlabs/arc",
     "check-types:client": "turbo check-types --filter @synnaxlabs/client",
     "check-types:console": "turbo check-types --filter @synnaxlabs/console",
     "check-types:docs": "turbo check-types --filter @synnaxlabs/docs",
@@ -119,14 +121,13 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "12.3.1",
+      "version": "12.6.0",
       "onFail": "download"
     },
     "runtime": {
       "name": "node",
-      "version": "^24.20.0",
+      "version": "^24.21.0",
       "onFail": "download"
     }
-  },
-  "name": "synnax"
+  }
 }
