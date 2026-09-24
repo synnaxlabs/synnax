@@ -4841,7 +4841,7 @@ time.wait{duration=500ms} -> output`
 				    return ` + retValue + `
 				}
 
-				is_ready{} ` + op + ` select{} => {
+				is_ready{} ` + op + ` select{} -> {
 				    true: "ready" -> log,
 				    false: "not ready" -> log,
 				}`
@@ -4863,7 +4863,6 @@ time.wait{duration=500ms} -> output`
 					)
 				},
 				Entry("u8 via ->", "->", "u8", "1"),
-				Entry("u8 via =>", "=>", "u8", "1"),
 				Entry("u16", "->", "u16", "1"),
 				Entry("u32", "->", "u32", "1"),
 				Entry("u64", "->", "u64", "1"),
@@ -4888,7 +4887,7 @@ time.wait{duration=500ms} -> output`
 				    return true
 				}
 
-				is_ready{} -> select{} => {
+				is_ready{} -> select{} -> {
 				    true: "ready" -> log,
 				    false: "not ready" -> log,
 				}`

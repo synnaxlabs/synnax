@@ -1191,7 +1191,7 @@ var _ = Describe("Task", Ordered, func() {
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import status
 
-					%s -> select{} => {
+					%s -> select{} -> {
 					    true: status.set{
 					        key_or_name="%s",
 					        message="tank pressure above limit",
@@ -1258,7 +1258,7 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: status.set{
 					                key_or_name="%s",
 					                message="tank pressure above limit",
@@ -1334,7 +1334,7 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: status.set{
 					                key_or_name="%s",
 					                message="tank pressure above limit",
@@ -1406,7 +1406,7 @@ var _ = Describe("Task", Ordered, func() {
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
-					%s -> select{} => {
+					%s -> select{} -> {
 					    true: ranges.create{name="%s"} -> %s
 					}
 				`, data.Name, name, out.Name)}
@@ -1474,7 +1474,7 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> v
 					        }
 					    }
@@ -1551,7 +1551,7 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> sink
 					        }
 					    }
@@ -1623,7 +1623,7 @@ var _ = Describe("Task", Ordered, func() {
 				prog := arc.Text{Raw: fmt.Sprintf(`
 					import ranges
 
-					%s -> select{} => {
+					%s -> select{} -> {
 					    true: ranges.create{name="%s"} -> %s
 					}
 				`, data.Name, name, out.Name)}
@@ -1690,7 +1690,7 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        v str := ""
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> v
 					        }
 					        v -> %s
@@ -1766,7 +1766,7 @@ var _ = Describe("Task", Ordered, func() {
 					sequence main {
 					    stage watch {
 					        sink := %s
-					        %s -> select{} => {
+					        %s -> select{} -> {
 					            true: ranges.create{name="%s"} -> sink
 					        }
 					    }
