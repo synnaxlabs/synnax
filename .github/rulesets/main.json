@@ -24,10 +24,7 @@
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [
-          { "context": "Review gate" },
-          { "context": "Greptile Review" }
-        ]
+        "required_status_checks": [{ "context": "Review gate" }]
       }
     }
   ]

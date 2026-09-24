@@ -8,10 +8,12 @@
 # included in the file licenses/APL.txt.
 
 # Reports the Review gate commit status the main ruleset requires. The job itself
-# always succeeds: a pull request that still waits on a label or an approval gets a
-# pending status, not a failed run and its email. pull_request_target and the base-ref
-# checkout run the base branch's workflow and script, so a pull request cannot edit
-# the gate it is judged by; no pull request code runs here.
+# always succeeds: a pull request that still waits on a label, the Greptile review, or
+# an approval gets a pending status, not a failed run and its email. The check_run
+# trigger re-reports the gate when the Greptile review lands after the push. Every
+# trigger runs a workflow from a branch of the repository, never from the pull request,
+# and the base-ref checkout takes the script from the base branch, so a pull request
+# cannot edit the gate it is judged by; no pull request code runs here.
 
 name: Check - Review
 
@@ -28,6 +30,9 @@ on:
     types:
       - submitted
       - dismissed
+  check_run:
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -35,24 +40,41 @@ permissions:
   statuses: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group:
+    ${{ github.workflow }}-${{ github.event.pull_request.number ||
+    github.event.check_run.pull_requests[0].number }}
   cancel-in-progress: true
 
 jobs:
   gate:
     name: Review gate
+    if:
+      github.event_name != 'check_run' || (github.event.check_run.name == 'Greptile
+      Review' && github.event.check_run.pull_requests[0])
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve the Pull Request
+        id: pull
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER:
+            ${{ github.event.pull_request.number ||
+            github.event.check_run.pull_requests[0].number }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/pulls/${NUMBER}" \
+            --jq '"number=\(.number)", "base=\(.base.ref)", "sha=\(.head.sha)"' \
+            >> "$GITHUB_OUTPUT"
+
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          ref: ${{ steps.pull.outputs.base }}
 
       - name: Report the Review gate status
         env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ steps.pull.outputs.number }}
+          SHA: ${{ steps.pull.outputs.sha }}
         run: |
           IFS=$'\t' read -r state description < <(.github/scripts/check_review.sh "$PR")
           echo "$state: $description"

@@ -40,11 +40,13 @@ the code around it, against the `CLAUDE.md` principles, the tests, and the docs.
 change carries a migration and a dark feature stays dark. **Tier 3**: Only Greptile
 reads it. A fix that turns out to change behavior gets its tier raised.
 
-The `Review gate` status, required on `main` with `Greptile Review`, stays pending until
-the PR has one tier label and, for Tier 1 or 2, an approval from a human other than the
-author. A later request for changes or a dismissal retires an approval. Two tier labels
-fail it. Admins bypass when Greptile is down. The script is
-`.github/scripts/check_review.sh`, the ruleset `.github/rulesets/main.json`.
+The `Review gate` status, the one check `main` requires, stays pending until the PR has
+one tier label, a Greptile review, and, for Tier 1 or 2, an approval from a human other
+than the author. Greptile skips a push that adds no new changes, such as a merge from
+`main`, so its review of any commit in the PR counts. A later request for changes or a
+dismissal retires an approval. Two tier labels fail it. Admins bypass when Greptile is
+down. The script is `.github/scripts/check_review.sh`, the ruleset
+`.github/rulesets/main.json`.
 
 ## Size
 
