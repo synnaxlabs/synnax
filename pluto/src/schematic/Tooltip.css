@@ -13,6 +13,12 @@
     margin: 1rem 0;
 }
 
+/* 4ch is the width of "< 1s". */
+.pluto-schematic-tooltip__value {
+    min-width: 4ch;
+    justify-content: flex-end;
+}
+
 .pluto-schematic-tooltip__field > .pluto-text:first-child {
     color: var(--pluto-gray-l9);
     font-weight: var(--pluto-small-font-weight);

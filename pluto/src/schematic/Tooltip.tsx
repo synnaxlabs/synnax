@@ -19,9 +19,11 @@ import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type Node } from "@/schematic/node";
+import { Telem } from "@/telem";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip as Base } from "@/tooltip";
+import { LatestSample } from "@/vis/latestSample";
 import { Staleness } from "@/vis/staleness";
 
 export interface TooltipProps {
@@ -49,7 +51,6 @@ const FIELD_ROWS: { field: Field; unit?: string }[] = [
 ];
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
-  if (ch.isIndex) return Icon.Time;
   if (channel.isCalculated(ch.payload)) return Icon.Calculation;
   if (ch.virtual) return Icon.Virtual;
   return null;
@@ -65,7 +66,12 @@ interface RowProps {
 const Row = ({ label, value, color, className }: RowProps): ReactElement => (
   <Flex.Box x justify="between" gap="large" className={className}>
     <Text.Text level="small">{label}</Text.Text>
-    <Text.Text level="small" variant="code" color={color}>
+    <Text.Text
+      level="small"
+      variant="code"
+      color={color}
+      className={CSS.BE("schematic-tooltip", "value")}
+    >
       {value}
     </Text.Text>
   </Flex.Box>
@@ -88,14 +94,29 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const values: Partial<Record<Field, primitive.Value>> = config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];
-    return typeof key === "number" ? key : [];
+    return typeof key === "number" && key !== 0 ? key : [];
   });
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
-  const { data } = Channel.useResultMultiple(visible ? { keys } : null);
-  if (!visible || (keys.length > 0 && data == null)) return null;
+  const { data } = Channel.useResultMultiple(
+    visible && keys.length > 0 ? { keys } : null,
+  );
+  const indexed = data?.find(
+    (c) => c.index !== 0 && !channel.isCalculated(c.payload),
+  );
+  const indexKey = indexed?.index ?? null;
+  const index = Channel.useResult(indexKey == null ? null : { key: indexKey });
+  const lastSample = LatestSample.use({ channel: indexKey ?? 0 });
+  const sinceLastSample = Telem.Text.useTimeSpanSince(lastSample ?? 0);
+  if (
+    !visible ||
+    (keys.length > 0 && data == null) ||
+    index.variant === "loading" ||
+    (indexKey != null && lastSample === undefined)
+  )
+    return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
     const ch = data?.find((c) => c.key === values[field]);
-    if (ch == null) return [];
+    if (ch == null || ch.isIndex) return [];
     const KindIcon = kindIcon(ch);
     return (
       <Row
@@ -127,11 +148,28 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
         key={field}
         className={CSS.BE("schematic-tooltip", "field")}
         label={caseconv.toSentence(field)}
-        value={unit == null ? String(value) : `${String(value)} ${unit}`}
+        value={unit == null ? String(value) : `${String(value)}${unit}`}
         color={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );
   });
+  const lastWrite =
+    lastSample == null
+      ? undefined
+      : sinceLastSample.toString("semantic");
+  if (index.data != null)
+    channels.push(
+      <Row
+        key="index"
+        label={
+          <>
+            <Icon.Time />
+            {index.data.name}
+          </>
+        }
+        value={lastWrite}
+      />,
+    );
   if (channels.length + fields.length === 0) return null;
   return (
     <Base.Frame
