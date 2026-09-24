@@ -126,6 +126,10 @@ describe("Range.useCreateModal", () => {
     );
     // Clicking the selected range a second time in the list deselects it.
     fireEvent.click(await screen.findByText(parent.name));
+    // The list pages in key order, so the parent must be found by search.
+    fireEvent.change(screen.getByPlaceholderText("Search ranges..."), {
+      target: { value: parent.name },
+    });
     await waitFor(
       () => expect(screen.getAllByText(parent.name).length).toBeGreaterThan(1),
       { timeout: 5000 },
