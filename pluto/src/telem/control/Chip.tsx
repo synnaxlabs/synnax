@@ -87,6 +87,8 @@ export const tooltipMessage = (
   }
 };
 
+const TOOLTIP_LOCATION = { x: "center", y: "bottom" } as const;
+
 export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElement => {
   const memoProps = useMemoDeepEqual({ source, sink });
   const [, { status }, setState] = Aether.use({
@@ -129,7 +131,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       disabled={disabled}
       onClick={handleToggle}
       tooltip={<Text.Text level="small">{message}</Text.Text>}
-      tooltipLocation={{ x: "center", y: "bottom" }}
+      tooltipLocation={TOOLTIP_LOCATION}
       style={buttonStyle}
       {...rest}
     >
