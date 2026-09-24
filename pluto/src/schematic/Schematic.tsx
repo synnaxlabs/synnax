@@ -307,9 +307,16 @@ export const Schematic = ({
       {...props}
     >
       {children}
-      {hovered != null && hoveredConfig != null && Node.isConfig(hoveredConfig) && (
-        <Tooltip key={hovered.nodeKey} anchor={hovered.anchor} config={hoveredConfig} />
-      )}
+      {hovered != null &&
+        !contextMenu.visible &&
+        hoveredConfig != null &&
+        Node.isConfig(hoveredConfig) && (
+          <Tooltip
+            key={hovered.nodeKey}
+            anchor={hovered.anchor}
+            config={hoveredConfig}
+          />
+        )}
       {nodes.length === 0 && emptyContent != null && (
         <Flex.Box center className={CSS.BE("schematic", "empty")}>
           {emptyContent}
