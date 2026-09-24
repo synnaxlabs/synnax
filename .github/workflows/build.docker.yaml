@@ -58,5 +58,5 @@ jobs:
           push: true
           tags: ${{ inputs.tag }}
           cache-from: type=gha,scope=synnax-docker-${{ inputs.module }}
-          cache-to: type=inline
+          cache-to: type=gha,mode=max,scope=synnax-docker-${{ inputs.module }}
           build-args: GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}

@@ -21,7 +21,7 @@ on:
         type: string
         required: true
       os:
-        description: "Runner OS label (e.g., 'windows-latest', 'ubuntu-latest')"
+        description: "Tester runner label ('ubuntu-tester' or 'windows-tester')"
         type: string
         required: true
       flags:

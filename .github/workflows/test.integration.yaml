@@ -135,7 +135,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: windows-latest
+      os: windows-tester
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -149,7 +149,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: ubuntu-latest
+      os: ubuntu-tester
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 

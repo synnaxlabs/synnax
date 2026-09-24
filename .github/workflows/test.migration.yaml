@@ -41,9 +41,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-tester, windows-tester]
         exclude:
-          - os: ${{ !inputs.windows && 'windows-latest' }}
+          - os: ${{ !inputs.windows && 'windows-tester' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
