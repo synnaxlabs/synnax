@@ -67,17 +67,20 @@ export class Unary {
     return this.dynamic.lastWrite;
   }
 
+  /** @returns a number that changes on every live write and flush. */
   get version(): number {
     this.checkOpen("version");
     return this.version_;
   }
 
+  /** @returns the latest read stored at this version, else null. */
   get latest(): MultiSeries | null {
     this.checkOpen("latest");
     const stored = this.latestStored;
     return stored != null && stored.version === this.version_ ? stored.series : null;
   }
 
+  /** Stores the latest read unless version has changed. */
   storeLatest(series: MultiSeries, version: number): void {
     this.checkOpen("storeLatest");
     if (version === this.version_) this.latestStored = { series, version };

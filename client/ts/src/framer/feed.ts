@@ -141,7 +141,7 @@ export class Feed {
 
   /**
    * Reads the latest stored sample of the given channel, in the representation the
-   * cache serves. Reads within one batch window share a single request.
+   * cache serves, batched per window and reused while streamed until a write or flush.
    * @throws {UnexpectedError} if the feed is closed while the read is pending.
    */
   async readLatest(key: channel.Key): Promise<MultiSeries> {

@@ -45,12 +45,12 @@ const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
 // Channels the symbol already streams come first, so the row adds no subscription.
 const LAST_WRITE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
 
-const FIELD_ROWS: { field: Field; unit?: string }[] = [
+const FIELD_ROWS: { field: Field; label?: string; unit?: string }[] = [
   { field: "mode" },
   { field: "normallyOpen" },
   { field: "clickable" },
   { field: "onClickDelay", unit: "ms" },
-  { field: "stalenessTimeout" },
+  { field: "stalenessTimeout", label: "Stale timeout" },
 ];
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
@@ -66,41 +66,50 @@ interface RowProps {
   label: ReactNode;
   value: ReactNode;
   color?: Theming.Shade | color.Crude;
+  variant?: Text.TextProps["variant"];
   className?: string;
 }
 
-const Row = ({ label, value, color, className }: RowProps): ReactElement => (
-  <Flex.Box x justify="between" gap="large" className={className}>
-    <Text.Text level="small">{label}</Text.Text>
+const Row = ({ label, value, color, variant, className }: RowProps): ReactElement => (
+  <>
+    <Text.Text level="small" className={className}>
+      {label}
+    </Text.Text>
     <Text.Text
       level="small"
+      variant={variant}
       color={color}
       className={CSS.BE("schematic-tooltip", "value")}
     >
       {value}
     </Text.Text>
-  </Flex.Box>
+  </>
 );
 
 interface LastWriteProps {
-  name: string;
   channel: channel.Key;
 }
 
 // Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
-const LastWrite = ({ name, channel }: LastWriteProps): ReactElement => {
+const LastWrite = ({ channel }: LastWriteProps): ReactElement => {
   const time = LatestSample.use({ channel });
-  const since = Telem.Text.useTimeSpanSince(time ?? 0);
+  const since = Telem.Text.useTimeSpanSince(time ?? 0).toString("semantic");
+  // Two spaces stand in for the "< " prefix, so the width holds past the first second.
+  const age = since.startsWith("<") ? since : `\u00a0\u00a0${since}`;
   return (
-    <Row
-      label={
-        <>
-          <Icon.Time />
-          {name}
-        </>
-      }
-      value={time == null ? undefined : since.toString("semantic")}
-    />
+    <Flex.Box x justify="between" className={CSS.BE("schematic-tooltip", "last-write")}>
+      <Row
+        className={CSS.BE("schematic-tooltip", "field")}
+        variant="code"
+        label={
+          <>
+            <Icon.TimeOutline />
+            Last sample
+          </>
+        }
+        value={time == null ? undefined : `${age} ago`}
+      />
+    </Flex.Box>
   );
 };
 
@@ -130,14 +139,10 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const followed = LAST_WRITE_ORDER.map((field) =>
     data?.find((c) => c.key === values[field]),
   ).find((c) => c != null && hasLastWrite(c));
-  const indexKey =
-    followed == null ? null : followed.isIndex ? followed.key : followed.index;
-  const index = Channel.useResult(indexKey == null ? null : { key: indexKey });
-  if (!visible || (keys.length > 0 && data == null) || index.variant === "loading")
-    return null;
+  if (!visible || (keys.length > 0 && data == null)) return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
     const ch = data?.find((c) => c.key === values[field]);
-    if (ch == null || ch.isIndex) return [];
+    if (ch == null) return [];
     const KindIcon = kindIcon(ch);
     return (
       <Row
@@ -157,15 +162,11 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
-  if (followed != null && index.data != null)
-    channels.push(
-      <LastWrite key="lastWrite" name={index.data.name} channel={followed.key} />,
-    );
   const stalenessColor = Staleness.resolveColor(
     "stalenessColor" in config ? config.stalenessColor : undefined,
     theme,
   );
-  const fields = FIELD_ROWS.flatMap(({ field, unit }) => {
+  const fields = FIELD_ROWS.flatMap(({ field, label, unit }) => {
     const value = values[field];
     if (value == null) return [];
     // A zero click delay means none, so the row would only be noise.
@@ -178,13 +179,14 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       <Row
         key={field}
         className={CSS.BE("schematic-tooltip", "field")}
-        label={caseconv.toSentence(field)}
+        label={label ?? caseconv.toSentence(field)}
         value={text}
         color={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );
   });
-  if (channels.length + fields.length === 0) return null;
+  const divider = <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />;
+  if (channels.length + fields.length === 0 && followed == null) return null;
   return (
     <Base.Frame
       anchor={anchor}
@@ -192,10 +194,14 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       className={CSS.B("schematic-tooltip")}
     >
       {channels}
-      {channels.length > 0 && fields.length > 0 && (
-        <Divider.Divider x className={CSS.BE("schematic-tooltip", "divider")} />
-      )}
+      {channels.length > 0 && fields.length > 0 && divider}
       {fields}
+      {followed != null && (
+        <>
+          {channels.length + fields.length > 0 && divider}
+          <LastWrite channel={followed.key} />
+        </>
+      )}
     </Base.Frame>
   );
 };

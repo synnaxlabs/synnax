@@ -192,6 +192,7 @@ export class MultiplexedStreamer {
     };
   }
 
+  /** @returns whether the key is on a connected stream. */
   live(key: channel.Key): boolean {
     return (
       this.sentKeys.has(key) && this.statuses.get(key)?.variant === STREAMING.variant

@@ -9,17 +9,26 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-schematic-tooltip {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 2rem;
+}
+
+.pluto-schematic-tooltip__last-write {
+    grid-column: 1 / -1;
+}
+
 .pluto-schematic-tooltip__divider {
+    grid-column: 1 / -1;
     margin: 1rem 0;
 }
 
-/* 7ch fits the widest two-unit last-write value, like "59m 59s". */
 .pluto-schematic-tooltip__value {
-    min-width: 7ch;
     justify-content: flex-end;
 }
 
-.pluto-schematic-tooltip__field > .pluto-text:first-child {
+.pluto-schematic-tooltip__field {
     color: var(--pluto-gray-l9);
     font-weight: var(--pluto-small-font-weight);
 }

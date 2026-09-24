@@ -68,6 +68,23 @@ const createIndexed = async (): Promise<Indexed> => {
 const createChannel = async (): Promise<channel.Channel> =>
   (await createIndexed()).data;
 
+const createVirtual = async (): Promise<channel.Channel> =>
+  await client.channels.create({
+    name: id.create(),
+    dataType: DataType.FLOAT32,
+    virtual: true,
+  });
+
+const createCalculated = async (): Promise<channel.Channel> => {
+  const source = await createVirtual();
+  return await client.channels.create({
+    name: id.create(),
+    dataType: DataType.FLOAT32,
+    virtual: true,
+    expression: `return ${source.name} * 2`,
+  });
+};
+
 const getTooltip = (): HTMLElement | null =>
   document.querySelector<HTMLElement>(".pluto-schematic-tooltip");
 
@@ -76,11 +93,14 @@ const findTooltip = async (): Promise<HTMLElement> => {
   return getTooltip() as HTMLElement;
 };
 
-const rowOf = (tooltip: HTMLElement, name: string): HTMLElement =>
-  within(tooltip).getByText(name).parentElement as HTMLElement;
+const labelOf = (tooltip: HTMLElement, text: string): HTMLElement =>
+  within(tooltip).getByText(text);
 
-const rowValue = (row: HTMLElement): string =>
-  row.querySelector(".pluto-schematic-tooltip__value")?.textContent ?? "";
+const valueOf = (label: HTMLElement): HTMLElement =>
+  label.nextElementSibling as HTMLElement;
+
+const dividersOf = (tooltip: HTMLElement): NodeListOf<Element> =>
+  tooltip.querySelectorAll(".pluto-schematic-tooltip__divider");
 
 describe("Schematic.Tooltip", () => {
   let Providers: FC<PropsWithChildren>;
@@ -129,9 +149,9 @@ describe("Schematic.Tooltip", () => {
         }),
       );
       const tooltip = await findTooltip();
-      const commandLabel = within(tooltip).getByText(command.name);
+      const commandLabel = labelOf(tooltip, command.name);
       expect(commandLabel.querySelector(".pluto-icon--edit")).not.toBeNull();
-      const stateLabel = within(tooltip).getByText(state.name);
+      const stateLabel = labelOf(tooltip, state.name);
       expect(stateLabel.querySelector(".pluto-icon--visible-filled")).not.toBeNull();
       expect(within(tooltip).getAllByText("f32")).toHaveLength(2);
     });
@@ -148,68 +168,73 @@ describe("Schematic.Tooltip", () => {
       renderTooltip(Node.createConfig({ variant: "value" }));
       const tooltip = await findTooltip();
       expect(tooltip.querySelector(".pluto-icon--visible-filled")).toBeNull();
-      expect(within(tooltip).getByText("Staleness timeout")).not.toBeNull();
+      expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
     });
 
     it("should show a plain channel without a kind icon", async () => {
       const ch = await createChannel();
       renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
       const tooltip = await findTooltip();
-      const row = rowOf(tooltip, ch.name);
-      expect(row.querySelector(".pluto-icon--time")).toBeNull();
-      expect(row.querySelector(".pluto-icon--calculation")).toBeNull();
-      expect(row.querySelector(".pluto-icon--virtual")).toBeNull();
+      const value = valueOf(labelOf(tooltip, ch.name));
+      expect(value.textContent).toEqual("f32");
+      expect(value.querySelector(".pluto-icon")).toBeNull();
+    });
+
+    it("should show an index channel as a channel row", async () => {
+      const index = await createIndex();
+      renderTooltip(Node.createConfig({ variant: "value", channel: index.key }));
+      const tooltip = await findTooltip();
+      const label = labelOf(tooltip, index.name);
+      expect(label.querySelector(".pluto-icon--visible-filled")).not.toBeNull();
+      expect(valueOf(label).textContent).toEqual("ts");
     });
 
     it("should mark a calculated channel with the calculation icon", async () => {
-      const source = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const calc = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${source.name} * 2`,
-      });
+      const calc = await createCalculated();
       renderTooltip(Node.createConfig({ variant: "value", channel: calc.key }));
       const tooltip = await findTooltip();
-      const row = rowOf(tooltip, calc.name);
-      expect(row.querySelector(".pluto-icon--calculation")).not.toBeNull();
+      const value = valueOf(labelOf(tooltip, calc.name));
+      expect(value.querySelector(".pluto-icon--calculation")).not.toBeNull();
     });
 
     it("should mark a virtual channel with the virtual icon", async () => {
-      const virtual = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
+      const virtual = await createVirtual();
       renderTooltip(Node.createConfig({ variant: "value", channel: virtual.key }));
       const tooltip = await findTooltip();
-      const row = rowOf(tooltip, virtual.name);
-      expect(row.querySelector(".pluto-icon--virtual")).not.toBeNull();
+      const value = valueOf(labelOf(tooltip, virtual.name));
+      expect(value.querySelector(".pluto-icon--virtual")).not.toBeNull();
     });
   });
 
-  describe("last write row", () => {
-    it("should label the row with the index channel under the time icon", async () => {
+  describe("last sample row", () => {
+    it("should label the row under the time icon instead of the index name", async () => {
       const { index, data } = await createIndexed();
       renderTooltip(Node.createConfig({ variant: "value", channel: data.key }));
       const tooltip = await findTooltip();
-      const row = rowOf(tooltip, index.name);
-      expect(row.querySelector(".pluto-icon--time")).not.toBeNull();
+      const label = labelOf(tooltip, "Last sample");
+      expect(label.querySelector(".pluto-icon--time-outline")).not.toBeNull();
+      expect(within(tooltip).queryByText(index.name)).toBeNull();
+    });
+
+    it("should close the tooltip in its own section", async () => {
+      const { data } = await createIndexed();
+      renderTooltip(Node.createConfig({ variant: "value", channel: data.key }));
+      const tooltip = await findTooltip();
+      const last = tooltip.lastElementChild as HTMLElement;
+      expect(last.classList.contains("pluto-schematic-tooltip__last-write")).toBe(true);
+      expect(last.contains(labelOf(tooltip, "Last sample"))).toBe(true);
+      expect(last.previousElementSibling).toEqual(dividersOf(tooltip)[1]);
     });
 
     it("should leave the value blank until a sample is known", async () => {
-      const { index, data } = await createIndexed();
+      const { data } = await createIndexed();
       renderTooltip(Node.createConfig({ variant: "value", channel: data.key }));
       const tooltip = await findTooltip();
       await sleep.sleep(TimeSpan.milliseconds(250));
-      expect(rowValue(rowOf(tooltip, index.name))).toEqual("");
+      expect(valueOf(labelOf(tooltip, "Last sample")).textContent).toEqual("");
     });
 
-    it("should follow the state channel over the command channel", async () => {
+    it("should show one row for a valve with two indexed channels", async () => {
       const [command, state] = await Promise.all([createIndexed(), createIndexed()]);
       renderTooltip(
         Node.createConfig({
@@ -219,8 +244,7 @@ describe("Schematic.Tooltip", () => {
         }),
       );
       const tooltip = await findTooltip();
-      expect(within(tooltip).queryByText(state.index.name)).not.toBeNull();
-      expect(within(tooltip).queryByText(command.index.name)).toBeNull();
+      expect(within(tooltip).getAllByText("Last sample")).toHaveLength(1);
     });
 
     it("should fall back to the command channel", async () => {
@@ -229,44 +253,28 @@ describe("Schematic.Tooltip", () => {
         Node.createConfig({ variant: "valve", commandChannel: command.data.key }),
       );
       const tooltip = await findTooltip();
-      expect(within(tooltip).queryByText(command.index.name)).not.toBeNull();
+      expect(within(tooltip).queryByText("Last sample")).not.toBeNull();
     });
 
-    it("should show an index channel as its own last write row", async () => {
+    it("should show the row for a symbol bound to an index channel", async () => {
       const index = await createIndex();
       renderTooltip(Node.createConfig({ variant: "value", channel: index.key }));
       const tooltip = await findTooltip();
-      expect(within(tooltip).getAllByText(index.name)).toHaveLength(1);
-      const row = rowOf(tooltip, index.name);
-      expect(row.querySelector(".pluto-icon--time")).not.toBeNull();
+      expect(within(tooltip).queryByText("Last sample")).not.toBeNull();
     });
 
     it("should omit the row for a virtual channel", async () => {
-      const virtual = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
+      const virtual = await createVirtual();
       renderTooltip(Node.createConfig({ variant: "value", channel: virtual.key }));
       const tooltip = await findTooltip();
-      expect(tooltip.querySelector(".pluto-icon--time")).toBeNull();
+      expect(within(tooltip).queryByText("Last sample")).toBeNull();
     });
 
     it("should omit the row for a calculated channel", async () => {
-      const source = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-      });
-      const calc = await client.channels.create({
-        name: id.create(),
-        dataType: DataType.FLOAT32,
-        virtual: true,
-        expression: `return ${source.name} * 2`,
-      });
+      const calc = await createCalculated();
       renderTooltip(Node.createConfig({ variant: "value", channel: calc.key }));
       const tooltip = await findTooltip();
-      expect(tooltip.querySelector(".pluto-icon--time")).toBeNull();
+      expect(within(tooltip).queryByText("Last sample")).toBeNull();
     });
   });
 
@@ -276,7 +284,7 @@ describe("Schematic.Tooltip", () => {
       const tooltip = await findTooltip();
       expect(within(tooltip).getByText("On click delay")).not.toBeNull();
       expect(within(tooltip).getByText("250ms")).not.toBeNull();
-      expect(within(tooltip).getByText("Staleness timeout")).not.toBeNull();
+      expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
       expect(within(tooltip).getByText("5s")).not.toBeNull();
     });
 
@@ -303,16 +311,16 @@ describe("Schematic.Tooltip", () => {
     });
 
     it.each<[Node.Variant, string[]]>([
-      ["valve", ["Staleness timeout"]],
-      ["solenoid_valve", ["Normally open", "Staleness timeout"]],
+      ["valve", ["Stale timeout"]],
+      ["solenoid_valve", ["Normally open", "Stale timeout"]],
       ["button", ["Mode"]],
-      ["value", ["Staleness timeout"]],
+      ["value", ["Stale timeout"]],
       ["manual_valve", ["Clickable"]],
     ])("should show the %s rows in order", async (variant, labels) => {
       renderTooltip(Node.createConfig({ variant }));
       const tooltip = await findTooltip();
       const rendered = Array.from(
-        tooltip.querySelectorAll(".pluto-schematic-tooltip__field > :first-child"),
+        tooltip.querySelectorAll(".pluto-schematic-tooltip__field"),
       ).map((el) => el.textContent);
       expect(rendered).toEqual(labels);
     });
@@ -328,18 +336,25 @@ describe("Schematic.Tooltip", () => {
     );
   });
 
-  describe("divider", () => {
+  describe("dividers", () => {
     it("should divide channel rows from field rows", async () => {
-      const ch = await createChannel();
-      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const virtual = await createVirtual();
+      renderTooltip(Node.createConfig({ variant: "value", channel: virtual.key }));
       const tooltip = await findTooltip();
-      expect(tooltip.querySelector(".pluto-schematic-tooltip__divider")).not.toBeNull();
+      expect(dividersOf(tooltip)).toHaveLength(1);
+    });
+
+    it("should divide the last sample row from the field rows", async () => {
+      const { data } = await createIndexed();
+      renderTooltip(Node.createConfig({ variant: "value", channel: data.key }));
+      const tooltip = await findTooltip();
+      expect(dividersOf(tooltip)).toHaveLength(2);
     });
 
     it("should omit the divider when there are no channel rows", async () => {
       renderTooltip(Node.createConfig({ variant: "value" }));
       const tooltip = await findTooltip();
-      expect(tooltip.querySelector(".pluto-schematic-tooltip__divider")).toBeNull();
+      expect(dividersOf(tooltip)).toHaveLength(0);
     });
   });
 });
