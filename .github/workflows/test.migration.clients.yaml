@@ -157,7 +157,7 @@ jobs:
         run:
           docker run -d --name synnax-current -p 9090:9090 -e SYNNAX_LISTEN=0.0.0.0:9090
           -e SYNNAX_VERBOSE=true -e SYNNAX_INSECURE=true -e SYNNAX_MEM=false -e
-          SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_TOKEN }}
           ghcr.io/synnaxlabs/synnax:${{ github.sha }}
 
       - name: Wait for Core on current branch

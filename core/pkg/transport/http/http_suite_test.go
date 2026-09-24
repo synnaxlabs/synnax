@@ -16,9 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/security"
-	secmock "github.com/synnaxlabs/synnax/pkg/security/mock"
-	"github.com/synnaxlabs/synnax/pkg/service"
+	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,15 +30,7 @@ func TestHTTP(t *testing.T) {
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
-	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
-		Insecure: new(true),
-		KeySize:  secmock.SmallKeySize,
-	}))
-	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
-		Distribution: node.Layer,
-		Security:     sec,
-		Storage:      node.Storage,
-	}))
+	svc := MustOpen(svcmock.OpenLayer(ctx, node))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,

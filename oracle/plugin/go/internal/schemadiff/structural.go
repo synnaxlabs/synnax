@@ -15,37 +15,112 @@ import (
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // StructurallyEqual reports whether two declarations share a persisted shape, resolving
 // each side's references through its own table. It is schemadiff's persisted-shape
 // equality with three tightenings: enums must match member-for-member, the declared
 // field list — omitted fields and their marshal values included — must agree, and the
-// declared defaults must agree. Wire-compatible enum additions need no migration, but
-// they are still a shape change the history must record.
+// declared defaults must agree. All three apply through every persisted reference: a
+// struct holding an enum that gained a member is a new declaration, because its Go type
+// is new. Wire-compatible enum additions need no migration, but they are still a shape
+// change the history must record.
 func StructurallyEqual(
 	old, new resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
+	return structurallyEqual(old, new, oldTable, newTable, make(set.Set[string]))
+}
+
+func structurallyEqual(
+	old, new resolution.Type,
+	oldTable, newTable *resolution.Table,
+	visiting set.Set[string],
+) bool {
+	if visiting.Contains(old.QualifiedName) {
+		return true
+	}
+	visiting.Add(old.QualifiedName)
+	defer visiting.Remove(old.QualifiedName)
+	if !enumsEqual(old, new) || !marshalEqual(old, new) || !defaultsEqual(old, new) {
+		return false
+	}
+	if !SchemasEqual(old, new, oldTable, newTable) {
+		return false
+	}
+	oldRefs, newRefs := persistedRefs(old), persistedRefs(new)
+	if len(oldRefs) != len(newRefs) {
+		return false
+	}
+	for i := range oldRefs {
+		oldResolved, oldOK := oldRefs[i].Resolve(oldTable)
+		newResolved, newOK := newRefs[i].Resolve(newTable)
+		if oldOK != newOK {
+			return false
+		}
+		if oldOK && !structurallyEqual(
+			oldResolved, newResolved, oldTable, newTable, visiting,
+		) {
+			return false
+		}
+	}
+	return true
+}
+
+// enumsEqual compares two enum declarations member-for-member. Non-enums are equal.
+func enumsEqual(old, new resolution.Type) bool {
 	oldEnum, oldOK := old.Form.(resolution.EnumForm)
 	newEnum, newOK := new.Form.(resolution.EnumForm)
 	if oldOK != newOK {
 		return false
 	}
-	if oldOK {
-		if len(oldEnum.Values) != len(newEnum.Values) {
-			return false
-		}
-		for i, v := range oldEnum.Values {
-			if newEnum.Values[i].Name != v.Name ||
-				newEnum.Values[i].Value != v.Value {
-				return false
-			}
-		}
+	if !oldOK {
+		return true
 	}
-	if !marshalEqual(old, new) || !defaultsEqual(old, new) {
+	if len(oldEnum.Values) != len(newEnum.Values) {
 		return false
 	}
-	return SchemasEqual(old, new, oldTable, newTable)
+	for i, v := range oldEnum.Values {
+		if newEnum.Values[i].Name != v.Name || newEnum.Values[i].Value != v.Value {
+			return false
+		}
+	}
+	return true
+}
+
+// persistedRefs returns the references that reach a declaration's stored shape, in
+// declaration order, with type arguments flattened in. SchemasEqual has already matched
+// the two sides' forms and counts, so the lists of two equal shapes zip.
+func persistedRefs(t resolution.Type) []resolution.TypeRef {
+	var refs []resolution.TypeRef
+	var add func(ref resolution.TypeRef)
+	add = func(ref resolution.TypeRef) {
+		refs = append(refs, ref)
+		for _, arg := range ref.TypeArgs {
+			add(arg)
+		}
+	}
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		for _, f := range PersistedFields(form.Fields) {
+			add(f.Type)
+		}
+		for _, ext := range form.Extends {
+			add(ext)
+		}
+	case resolution.UnionForm:
+		for _, v := range form.Variants {
+			add(v.Type)
+		}
+		for _, ext := range form.Extends {
+			add(ext)
+		}
+	case resolution.AliasForm:
+		add(form.Target)
+	case resolution.DistinctForm:
+		add(form.Base)
+	}
+	return refs
 }
 
 // marshalEqual compares the codec surface schemadiff cannot see: the declared field

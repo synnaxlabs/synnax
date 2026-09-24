@@ -70,6 +70,42 @@ class AccessDenied(AuthError):
     TYPE = AuthError.TYPE + ".access_denied"
 
 
+class LicenseError(Exception):
+    """Raised when the Core refuses a request over its license."""
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "license"
+
+
+class MissingLicense(LicenseError):
+    """Raised when no license is active on the Core."""
+
+    TYPE = LicenseError.TYPE + ".missing"
+
+
+class ExpiredLicense(LicenseError):
+    """Raised when the license on the Core no longer applies."""
+
+    TYPE = LicenseError.TYPE + ".expired"
+
+
+class InvalidLicense(LicenseError):
+    """Raised when a token cannot be verified or is malformed."""
+
+    TYPE = LicenseError.TYPE + ".invalid"
+
+
+class LicenseFingerprintMismatch(LicenseError):
+    """Raised when a license is bound to a different machine."""
+
+    TYPE = LicenseError.TYPE + ".fingerprint"
+
+
+class LicenseLimitExceeded(LicenseError):
+    """Raised when a channel would exceed the license's channel cap."""
+
+    TYPE = LicenseError.TYPE + ".too_many"
+
+
 class UnexpectedError(Exception):
     """Raised when an unexpected error occurs."""
 
@@ -173,6 +209,19 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         if encoded.type.startswith(UnauthorizedError.TYPE):
             return UnauthorizedError(encoded.data)
         return ControlError(encoded.data)
+
+    if encoded.type.startswith(LicenseError.TYPE):
+        if encoded.type.startswith(MissingLicense.TYPE):
+            return MissingLicense(encoded.data)
+        if encoded.type.startswith(ExpiredLicense.TYPE):
+            return ExpiredLicense(encoded.data)
+        if encoded.type.startswith(InvalidLicense.TYPE):
+            return InvalidLicense(encoded.data)
+        if encoded.type.startswith(LicenseFingerprintMismatch.TYPE):
+            return LicenseFingerprintMismatch(encoded.data)
+        if encoded.type.startswith(LicenseLimitExceeded.TYPE):
+            return LicenseLimitExceeded(encoded.data)
+        return LicenseError(encoded.data)
 
     return UnexpectedError(encoded.data)
 

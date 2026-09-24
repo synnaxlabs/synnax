@@ -20,6 +20,7 @@ constexpr const char *RESOURCE_TYPE_DEVICE = "device";
 constexpr const char *RESOURCE_TYPE_FRAMER = "framer";
 constexpr const char *RESOURCE_TYPE_GROUP = "group";
 constexpr const char *RESOURCE_TYPE_LABEL = "label";
+constexpr const char *RESOURCE_TYPE_LICENSE = "license";
 constexpr const char *RESOURCE_TYPE_LINEPLOT = "lineplot";
 constexpr const char *RESOURCE_TYPE_LOG = "log";
 constexpr const char *RESOURCE_TYPE_NODE = "node";

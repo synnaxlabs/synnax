@@ -89,14 +89,14 @@ jobs:
         timeout-minutes: 1
         shell: powershell
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/StartCore.ps1
 
       - name: Start Core (Ubuntu)
         if: runner.os == 'Linux'
         timeout-minutes: 1
         env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
         run: integration/scripts/start_core.sh
 
       - name: Test Conductor (Windows)

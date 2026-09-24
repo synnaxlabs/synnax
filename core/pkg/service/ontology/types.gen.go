@@ -24,6 +24,7 @@ const (
 	ResourceTypeFramer          ResourceType = versions.ResourceTypeFramer
 	ResourceTypeGroup           ResourceType = versions.ResourceTypeGroup
 	ResourceTypeLabel           ResourceType = versions.ResourceTypeLabel
+	ResourceTypeLicense         ResourceType = versions.ResourceTypeLicense
 	ResourceTypeLineplot        ResourceType = versions.ResourceTypeLineplot
 	ResourceTypeLog             ResourceType = versions.ResourceTypeLog
 	ResourceTypeNode            ResourceType = versions.ResourceTypeNode

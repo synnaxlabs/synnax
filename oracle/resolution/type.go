@@ -233,6 +233,27 @@ func (r TypeRef) Resolve(table *Table) (Type, bool) {
 	return table.Get(r.Name)
 }
 
+// Unalias follows t through any chain of non-generic aliases to the type it names, and
+// returns t itself when it is not such an alias. A version file aliases an unchanged
+// base to its defining version; a declaration in that file may still extend it or carry
+// it as a union variant.
+func Unalias(t Type, table *Table) Type {
+	visited := set.New[string]()
+	for {
+		form, ok := t.Form.(AliasForm)
+		if !ok || form.IsGeneric() || len(form.Target.TypeArgs) > 0 ||
+			visited.Contains(t.QualifiedName) {
+			return t
+		}
+		visited.Add(t.QualifiedName)
+		target, ok := form.Target.Resolve(table)
+		if !ok {
+			return t
+		}
+		t = target
+	}
+}
+
 // IsDistinct reports whether ref resolves to a distinct type. Primitives and
 // references the table cannot resolve are not distinct.
 func IsDistinct(ref TypeRef, table *Table) bool {
@@ -449,6 +470,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		if !ok {
 			continue
 		}
+		parent = Unalias(parent, table)
 		parentForm, ok := parent.Form.(StructForm)
 		if !ok {
 			continue
@@ -529,6 +551,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 	variantType, variantOK := variant.Type.Resolve(table)
 	variantForm, isStruct := StructForm{}, false
 	if variantOK {
+		variantType = Unalias(variantType, table)
 		variantForm, isStruct = variantType.Form.(StructForm)
 	}
 	if isStruct {
@@ -548,6 +571,7 @@ func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Fiel
 		if !ok {
 			continue
 		}
+		base = Unalias(base, table)
 		if _, isStruct := base.Form.(StructForm); !isStruct {
 			continue
 		}

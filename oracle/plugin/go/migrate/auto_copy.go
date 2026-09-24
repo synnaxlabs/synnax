@@ -262,6 +262,10 @@ func (c *collector) ensureFunc(typ resolution.Type) {
 	}
 	c.generated.Add(typ.QualifiedName)
 	switch form := typ.Form.(type) {
+	case resolution.UnionForm:
+		// A union's variant interface is distinct per package, so no cast bridges
+		// two versions; the hand-written Migrate<Union> switches on the variants.
+		return
 	case resolution.StructForm:
 		c.funcs = append(c.funcs, c.structFunc(typ, form))
 	case resolution.AliasForm:
@@ -676,6 +680,9 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		isLocal = !ok || td.Kind == schemadiff.TypeUnchanged
 	}
 	if isLocal {
+		if _, isUnion := typ.Form.(resolution.UnionForm); isUnion {
+			return "Migrate" + goName
+		}
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}

@@ -883,6 +883,45 @@ var _ = Describe("UnifiedFields", func() {
 		Expect(fields).To(BeNil())
 	})
 
+	It("follows an alias to the parent it names", func() {
+		parent := resolution.Type{
+			Name:          "Parent",
+			QualifiedName: "ns.Parent",
+			Namespace:     "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "id", Type: resolution.TypeRef{Name: "uuid"}},
+				},
+			},
+		}
+		alias := resolution.Type{
+			Name:          "ParentAlias",
+			QualifiedName: "ns.ParentAlias",
+			Namespace:     "ns",
+			Form: resolution.AliasForm{
+				Target: resolution.TypeRef{Name: "ns.Parent"},
+			},
+		}
+		child := resolution.Type{
+			Name:          "Child",
+			QualifiedName: "ns.Child",
+			Namespace:     "ns",
+			Form: resolution.StructForm{
+				Extends: []resolution.TypeRef{{Name: "ns.ParentAlias"}},
+				Fields: []resolution.Field{
+					{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+				},
+			},
+		}
+		Expect(table.Add(parent)).To(Succeed())
+		Expect(table.Add(alias)).To(Succeed())
+		Expect(table.Add(child)).To(Succeed())
+		fields := resolution.UnifiedFields(child, table)
+		Expect(fields).To(HaveLen(2))
+		Expect(fields[0].Name).To(Equal("id"))
+		Expect(fields[1].Name).To(Equal("name"))
+	})
+
 	It("includes parent fields", func() {
 		parent := resolution.Type{
 			Name:          "Parent",

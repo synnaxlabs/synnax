@@ -11,39 +11,40 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v1"
 
 // ResourceType is the type of the resource.
-type ResourceType = v0.ResourceType
+type ResourceType = v1.ResourceType
 
 const (
-	ResourceTypeArc             ResourceType = v0.ResourceTypeArc
-	ResourceTypeBuiltin         ResourceType = v0.ResourceTypeBuiltin
-	ResourceTypeChannel         ResourceType = v0.ResourceTypeChannel
-	ResourceTypeDevice          ResourceType = v0.ResourceTypeDevice
-	ResourceTypeFramer          ResourceType = v0.ResourceTypeFramer
-	ResourceTypeGroup           ResourceType = v0.ResourceTypeGroup
-	ResourceTypeLabel           ResourceType = v0.ResourceTypeLabel
-	ResourceTypeLineplot        ResourceType = v0.ResourceTypeLineplot
-	ResourceTypeLog             ResourceType = v0.ResourceTypeLog
-	ResourceTypeNode            ResourceType = v0.ResourceTypeNode
-	ResourceTypePanel           ResourceType = v0.ResourceTypePanel
-	ResourceTypePolicy          ResourceType = v0.ResourceTypePolicy
-	ResourceTypeProject         ResourceType = v0.ResourceTypeProject
-	ResourceTypeRack            ResourceType = v0.ResourceTypeRack
-	ResourceTypeRange           ResourceType = v0.ResourceTypeRange
-	ResourceTypeRangeAlias      ResourceType = v0.ResourceTypeRangeAlias
-	ResourceTypeRole            ResourceType = v0.ResourceTypeRole
-	ResourceTypeSchematic       ResourceType = v0.ResourceTypeSchematic
-	ResourceTypeSchematicSymbol ResourceType = v0.ResourceTypeSchematicSymbol
-	ResourceTypeStatus          ResourceType = v0.ResourceTypeStatus
-	ResourceTypeTable           ResourceType = v0.ResourceTypeTable
-	ResourceTypeTask            ResourceType = v0.ResourceTypeTask
-	ResourceTypeUser            ResourceType = v0.ResourceTypeUser
-	ResourceTypeView            ResourceType = v0.ResourceTypeView
+	ResourceTypeArc             ResourceType = v1.ResourceTypeArc
+	ResourceTypeBuiltin         ResourceType = v1.ResourceTypeBuiltin
+	ResourceTypeChannel         ResourceType = v1.ResourceTypeChannel
+	ResourceTypeDevice          ResourceType = v1.ResourceTypeDevice
+	ResourceTypeFramer          ResourceType = v1.ResourceTypeFramer
+	ResourceTypeGroup           ResourceType = v1.ResourceTypeGroup
+	ResourceTypeLabel           ResourceType = v1.ResourceTypeLabel
+	ResourceTypeLicense         ResourceType = v1.ResourceTypeLicense
+	ResourceTypeLineplot        ResourceType = v1.ResourceTypeLineplot
+	ResourceTypeLog             ResourceType = v1.ResourceTypeLog
+	ResourceTypeNode            ResourceType = v1.ResourceTypeNode
+	ResourceTypePanel           ResourceType = v1.ResourceTypePanel
+	ResourceTypePolicy          ResourceType = v1.ResourceTypePolicy
+	ResourceTypeProject         ResourceType = v1.ResourceTypeProject
+	ResourceTypeRack            ResourceType = v1.ResourceTypeRack
+	ResourceTypeRange           ResourceType = v1.ResourceTypeRange
+	ResourceTypeRangeAlias      ResourceType = v1.ResourceTypeRangeAlias
+	ResourceTypeRole            ResourceType = v1.ResourceTypeRole
+	ResourceTypeSchematic       ResourceType = v1.ResourceTypeSchematic
+	ResourceTypeSchematicSymbol ResourceType = v1.ResourceTypeSchematicSymbol
+	ResourceTypeStatus          ResourceType = v1.ResourceTypeStatus
+	ResourceTypeTable           ResourceType = v1.ResourceTypeTable
+	ResourceTypeTask            ResourceType = v1.ResourceTypeTask
+	ResourceTypeUser            ResourceType = v1.ResourceTypeUser
+	ResourceTypeView            ResourceType = v1.ResourceTypeView
 )
 
-type RelationshipType = v0.RelationshipType
+type RelationshipType = v1.RelationshipType
 
 // ID is a unique identifier for a Resource. An example:
 //
@@ -53,12 +54,12 @@ type RelationshipType = v0.RelationshipType
 // service to query for additional info on the Resource. Second, while a Key may be
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
-type ID = v0.ID
+type ID = v1.ID
 
 // Resource is a resource in the ontology system with its identifier, name, and optional
 // metadata.
-type Resource = v0.Resource
+type Resource = v1.Resource
 
 // Relationship is a directional relationship between two resources in the ontology
 // system.
-type Relationship = v0.Relationship
+type Relationship = v1.Relationship
