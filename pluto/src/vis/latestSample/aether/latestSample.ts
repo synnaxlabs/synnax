@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, TimeStamp } from "@synnaxlabs/x";
+import { type destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 
 export const stateZ = z.object({
-  channel: z.number(),
-  time: TimeStamp.z.nullable().optional(),
+  source: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
+  time: TimeStamp.z.nullable().default(null),
 });
 
 export interface State extends z.input<typeof stateZ> {}
@@ -24,9 +23,12 @@ export interface State extends z.input<typeof stateZ> {}
 interface InternalState {
   source: telem.NumberSource;
   stopListening: destructor.Destructor;
-  seeded: number;
 }
 
+// One second is the display's granularity, so finer pushes only cost renders.
+const MIN_STEP = TimeSpan.SECOND.valueOf();
+
+/** Reports the time of the source's newest sample, at most once per second. */
 export class LatestSample extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "LatestSample";
   static readonly z = stateZ;
@@ -35,29 +37,19 @@ export class LatestSample extends aether.Leaf<typeof stateZ, InternalState> {
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    const { channel } = this.state;
-    i.source = telem.useSource(ctx, telem.streamChannelValue({ channel }), i.source);
+    i.source = telem.useSource(ctx, this.state.source, i.source);
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() => this.publish(i.source.value()));
-    this.publish(i.source.value());
-    if (channel === 0 || i.seeded === channel) return;
-    i.seeded = channel;
-    this.seed(ctx, channel).catch(console.error);
+    i.stopListening = i.source.onChange(() => this.report());
+    // value() opens the stream, lastWrite() alone does not.
+    i.source.value();
+    this.report();
   }
 
-  private async seed(ctx: aether.Context, channel: number): Promise<void> {
-    const client = synnax.use(ctx);
-    if (client == null) return;
-    const last = (await client.readLatest(channel, 1)).at(-1);
-    if (this.deleted || channel !== this.state.channel) return;
-    if (last == null) this.setState((p) => ({ ...p, time: p.time ?? null }));
-    else this.publish(last as bigint);
-  }
-
-  private publish(value: number | bigint): void {
-    if (typeof value === "number" && Number.isNaN(value)) return;
-    const time = new TimeStamp(value);
-    if (this.state.time != null && !time.after(this.state.time)) return;
+  private report(): void {
+    const time = this.internal.source.lastWrite?.() ?? null;
+    if (time == null) return;
+    const prev = this.state.time;
+    if (prev != null && time.valueOf() - prev.valueOf() < MIN_STEP) return;
     this.setState((p) => ({ ...p, time }));
   }
 

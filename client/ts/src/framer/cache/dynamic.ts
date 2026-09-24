@@ -137,6 +137,11 @@ export class Dynamic {
     return new TimeRange(this.curr.timeRange.start, this.currDataEnd ?? this.now());
   }
 
+  /** @returns the end of the last stamped write into the buffer, else null. */
+  get lastWrite(): TimeStamp | null {
+    return this.curr == null ? null : this.currDataEnd;
+  }
+
   /**
    * @returns a list of buffers that were filled by the cache during the write. If the
    * current buffer is able to fit all writes, no buffers will be returned.

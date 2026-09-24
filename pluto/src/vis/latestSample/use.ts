@@ -9,24 +9,23 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { type TimeStamp } from "@synnaxlabs/x";
-import { useEffect } from "react";
 
 import { Aether } from "@/aether";
+import { telem } from "@/telem/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 
-export interface UseProps {
-  aetherKey?: string;
+export interface UseProps extends Aether.ComponentProps {
+  /** Read on the mounting render only. Remount under a React key to change it. */
   channel: channel.Key;
 }
 
-/** Undefined until the first read settles, null when the channel has no samples. */
-export const use = ({ aetherKey, channel }: UseProps): TimeStamp | null | undefined => {
-  const [, { time }, setState] = Aether.use({
+/** @returns the time of the channel's newest sample, null until one is known. */
+export const use = ({ aetherKey, channel }: UseProps): TimeStamp | null => {
+  const [, { time }] = Aether.use({
     aetherKey,
     type: latestSample.LatestSample.TYPE,
     schema: latestSample.stateZ,
-    initialState: { channel },
+    initialState: { source: telem.streamChannelValue({ channel }) },
   });
-  useEffect(() => setState((s) => ({ ...s, channel })), [channel, setState]);
   return time;
 };

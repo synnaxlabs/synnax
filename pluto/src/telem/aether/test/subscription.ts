@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type framer, status } from "@synnaxlabs/client";
+import { type TimeStamp } from "@synnaxlabs/x";
 
-/** @returns a telemetry subscription stub whose close is the given function. */
-export const mockSubscription = (close: () => void): framer.Subscription => ({
+/** @returns a telemetry subscription stub with the given close and lastWrite. */
+export const mockSubscription = (
+  close: () => void,
+  lastWrite: () => TimeStamp | null = () => null,
+): framer.Subscription => ({
   close,
   status: () => status.create({ variant: "loading", message: "subscribing" }),
   onStatusChange: () => () => {},
+  lastWrite,
 });

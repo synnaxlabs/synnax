@@ -91,7 +91,8 @@ export class StreamChannelValue
   schema = streamChannelValuePropsZ;
 
   private readonly client: Client | null;
-  private removeStreamHandler: destructor.Destructor | null = null;
+  private subscription: framer.Subscription | null = null;
+  private key: channel.Key = 0;
   private leadingBuffer: Series | null = null;
   private sampleTime_: TimeStamp | null = null;
   private generation = 0;
@@ -107,6 +108,11 @@ export class StreamChannelValue
     return this.sampleTime_;
   }
 
+  /** @returns the time of the newest sample the source holds, live or stored. */
+  lastWrite(): TimeStamp | null {
+    return this.subscription?.lastWrite(this.key) ?? this.sampleTime_;
+  }
+
   /** @returns the leading series buffer for testing purposes. */
   get testingOnlyLeadingBuffer(): Series | null {
     return this.leadingBuffer;
@@ -119,13 +125,13 @@ export class StreamChannelValue
 
   cleanup(): void {
     this.generation++;
-    this.removeStreamHandler?.();
+    this.subscription?.close();
     // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
     this.sampleTime_ = null;
-    this.removeStreamHandler = null;
+    this.subscription = null;
   }
 
   value(): number {
@@ -147,7 +153,7 @@ export class StreamChannelValue
       return;
     }
     try {
-      this.removeStreamHandler?.();
+      this.subscription?.close();
       const ch = await client.channels.retrieve(this.props.channel);
       const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation) return;
@@ -168,7 +174,8 @@ export class StreamChannelValue
         this.notify();
       };
       if (generation !== this.generation) return;
-      this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
+      this.key = ch.key;
+      this.subscription = client.feed.stream(handler, [ch.key]);
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {

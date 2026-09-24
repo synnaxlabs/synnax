@@ -13,9 +13,9 @@
     margin: 1rem 0;
 }
 
-/* 4ch is the width of "< 1s". */
+/* 7ch fits the widest two-unit last-write value, like "59m 59s". */
 .pluto-schematic-tooltip__value {
-    min-width: 4ch;
+    min-width: 7ch;
     justify-content: flex-end;
 }
 

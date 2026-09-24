@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MultiSeries, type Series, type TimeRange } from "@synnaxlabs/x";
+import {
+  MultiSeries,
+  type Series,
+  type TimeRange,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
 import { UnexpectedError } from "@/errors";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
@@ -51,6 +56,12 @@ export class Unary {
   get leadingBuffer(): Series | null {
     this.checkOpen("leadingBuffer");
     return this.dynamic.leadingBuffer;
+  }
+
+  /** @returns the end of the last stamped write into the leading buffer, else null. */
+  get lastWrite(): TimeStamp | null {
+    this.checkOpen("lastWrite");
+    return this.dynamic.lastWrite;
   }
 
   /**

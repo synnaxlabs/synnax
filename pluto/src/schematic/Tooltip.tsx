@@ -42,6 +42,9 @@ const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
   { field: "channel", icon: Icon.Visible },
 ];
 
+// Channels the symbol already streams come first, so the row adds no subscription.
+const LAST_WRITE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
+
 const FIELD_ROWS: { field: Field; unit?: string }[] = [
   { field: "mode" },
   { field: "normallyOpen" },
@@ -55,6 +58,9 @@ const kindIcon = (ch: channel.Channel): Icon.FC | null => {
   if (ch.virtual) return Icon.Virtual;
   return null;
 };
+
+const hasLastWrite = (ch: channel.Channel): boolean =>
+  (ch.isIndex || ch.index !== 0) && !channel.isCalculated(ch.payload);
 
 interface RowProps {
   label: ReactNode;
@@ -76,6 +82,48 @@ const Row = ({ label, value, color, className }: RowProps): ReactElement => (
     </Text.Text>
   </Flex.Box>
 );
+
+interface LastWriteProps {
+  name: string;
+  channel: channel.Key;
+}
+
+const UNIT_PAIRS: [string, TimeSpan, string, TimeSpan][] = [
+  ["y", TimeSpan.days(365), "d", TimeSpan.DAY],
+  ["d", TimeSpan.DAY, "h", TimeSpan.HOUR],
+  ["h", TimeSpan.HOUR, "m", TimeSpan.MINUTE],
+  ["m", TimeSpan.MINUTE, "s", TimeSpan.SECOND],
+];
+
+// Largest unit plus the next one down, never coarser than a second.
+const sinceString = (span: TimeSpan): string => {
+  const total = span.valueOf();
+  if (total < TimeSpan.SECOND.valueOf()) return "< 1s";
+  for (const [unit, size, minorUnit, minorSize] of UNIT_PAIRS) {
+    if (total < size.valueOf()) continue;
+    const major = total / size.valueOf();
+    const minor = (total % size.valueOf()) / minorSize.valueOf();
+    return minor > 0n ? `${major}${unit} ${minor}${minorUnit}` : `${major}${unit}`;
+  }
+  return `${total / TimeSpan.SECOND.valueOf()}s`;
+};
+
+// Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
+const LastWrite = ({ name, channel }: LastWriteProps): ReactElement => {
+  const time = LatestSample.use({ channel });
+  const since = Telem.Text.useTimeSpanSince(time ?? 0);
+  return (
+    <Row
+      label={
+        <>
+          <Icon.Time />
+          {name}
+        </>
+      }
+      value={time == null ? undefined : sinceString(since)}
+    />
+  );
+};
 
 /** Shows a symbol's configuration beside its element. */
 export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null => {
@@ -100,19 +148,13 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const { data } = Channel.useResultMultiple(
     visible && keys.length > 0 ? { keys } : null,
   );
-  const indexed = data?.find(
-    (c) => c.index !== 0 && !channel.isCalculated(c.payload),
-  );
-  const indexKey = indexed?.index ?? null;
+  const followed = LAST_WRITE_ORDER.map((field) =>
+    data?.find((c) => c.key === values[field]),
+  ).find((c) => c != null && hasLastWrite(c));
+  const indexKey =
+    followed == null ? null : followed.isIndex ? followed.key : followed.index;
   const index = Channel.useResult(indexKey == null ? null : { key: indexKey });
-  const lastSample = LatestSample.use({ channel: indexKey ?? 0 });
-  const sinceLastSample = Telem.Text.useTimeSpanSince(lastSample ?? 0);
-  if (
-    !visible ||
-    (keys.length > 0 && data == null) ||
-    index.variant === "loading" ||
-    (indexKey != null && lastSample === undefined)
-  )
+  if (!visible || (keys.length > 0 && data == null) || index.variant === "loading")
     return null;
   const channels = CHANNEL_ROWS.flatMap(({ field, icon: RoleIcon }) => {
     const ch = data?.find((c) => c.key === values[field]);
@@ -136,6 +178,10 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
+  if (followed != null && index.data != null)
+    channels.push(
+      <LastWrite key="lastWrite" name={index.data.name} channel={followed.key} />,
+    );
   const stalenessColor = Staleness.resolveColor(
     "stalenessColor" in config ? config.stalenessColor : undefined,
     theme,
@@ -143,6 +189,8 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const fields = FIELD_ROWS.flatMap(({ field, unit }) => {
     const value = values[field];
     if (value == null) return [];
+    // A zero click delay means none, so the row would only be noise.
+    if (field === "onClickDelay" && value === 0) return [];
     return (
       <Row
         key={field}
@@ -153,23 +201,6 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
       />
     );
   });
-  const lastWrite =
-    lastSample == null
-      ? undefined
-      : sinceLastSample.toString("semantic");
-  if (index.data != null)
-    channels.push(
-      <Row
-        key="index"
-        label={
-          <>
-            <Icon.Time />
-            {index.data.name}
-          </>
-        }
-        value={lastWrite}
-      />,
-    );
   if (channels.length + fields.length === 0) return null;
   return (
     <Base.Frame
