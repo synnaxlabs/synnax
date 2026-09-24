@@ -124,8 +124,12 @@ describe("Range.useCreateModal", () => {
       },
       { client },
     );
-    // Clicking the selected range a second time in the list deselects it.
+    // Clicking the selected range a second time in the list deselects it. The list
+    // shows one page, so a Core holding many ranges needs a search to reach this one.
     fireEvent.click(await screen.findByText(parent.name));
+    fireEvent.change(await screen.findByPlaceholderText("Search ranges..."), {
+      target: { value: parent.name },
+    });
     await waitFor(
       () => expect(screen.getAllByText(parent.name).length).toBeGreaterThan(1),
       { timeout: 5000 },
