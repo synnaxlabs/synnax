@@ -90,16 +90,17 @@ describe("testutil", () => {
       expect(fn).toHaveBeenCalledTimes(5);
     });
 
-    it("should wait for async functions between calls", async () => {
-      let counter = 0;
-      const asyncFn = vi.fn(async () => {
-        counter++;
-        await new Promise((resolve) => setTimeout(resolve, 5));
-      });
-      const done = testutil.expectAlways(asyncFn, 60, 20);
+    it("should wait for async functions before sleeping", async () => {
+      const start = Date.now();
+      const calls: number[] = [];
+      const asyncFn = async () => {
+        calls.push(Date.now() - start);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      };
+      const done = testutil.expectAlways(asyncFn, 100, 20);
       await vi.runAllTimersAsync();
       await done;
-      expect(counter).toBe(3);
+      expect(calls).toEqual([0, 50]);
     });
 
     it("should propagate errors from the function", async () => {
