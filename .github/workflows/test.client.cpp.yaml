@@ -1,0 +1,74 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Test - Client (C++)
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: Core Docker image tag to test against
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Core Docker image tag to test against
+        required: true
+        type: string
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      synnax:
+        image: ${{ inputs.image }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+          # A pull request restores the caches but never writes them, so branch runs
+          # cannot evict each other under the repository cache limit.
+          cache-save: ${{ github.event_name == 'push' }}
+      - name: Install clang-format
+        run: scripts/install_clang_format.sh
+
+      - name: Check formatting
+        run: scripts/check_clang_format.sh client/cpp
+
+      - name: Check formatting (clib)
+        run: scripts/check_clang_format.sh client/clib
+
+      - name: Test (Ubuntu)
+        run:
+          bazel test --config=asan-leak --test_output=all //client/cpp/...
+          --nocache_test_results
+
+      - name: Test clib (Ubuntu)
+        run:
+          bazel test --config=asan-leak --test_output=all //client/clib/...
+          --nocache_test_results

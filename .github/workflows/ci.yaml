@@ -68,8 +68,6 @@ jobs:
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       soem: ${{ steps.filter.outputs.soem }}
       integration: ${{ steps.filter.outputs.integration }}
-      client: ${{ steps.filter.outputs.client }}
-      freighter: ${{ steps.filter.outputs.freighter }}
       core_image: ${{ steps.filter.outputs.core_image }}
       freighter_image: ${{ steps.filter.outputs.freighter_image }}
     steps:
@@ -393,7 +391,7 @@ jobs:
               - .clang-format
               - .clang-format-ignore
               - .github/workflows/ci.yaml
-              - .github/workflows/test.client.yaml
+              - .github/workflows/test.client.cpp.yaml
               - MODULE.bazel
               - MODULE.bazel.lock
               - alamos/go/**
@@ -412,7 +410,7 @@ jobs:
             client_py: &client_py
               - .github/actions/test-python/**
               - .github/workflows/ci.yaml
-              - .github/workflows/test.client.yaml
+              - .github/workflows/test.client.py.yaml
               - alamos/go/**
               - alamos/py/**
               - aspen/**
@@ -429,7 +427,7 @@ jobs:
             client_ts: &client_ts
               - .github/actions/test-typescript/**
               - .github/workflows/ci.yaml
-              - .github/workflows/test.client.yaml
+              - .github/workflows/test.client.ts.yaml
               - alamos/go/**
               - alamos/ts/**
               - aspen/**
@@ -452,7 +450,7 @@ jobs:
             freighter_py: &freighter_py
               - .github/actions/test-python/**
               - .github/workflows/ci.yaml
-              - .github/workflows/test.freighter.yaml
+              - .github/workflows/test.freighter.py.yaml
               - alamos/go/**
               - alamos/py/**
               - codecov.yaml
@@ -466,7 +464,7 @@ jobs:
             freighter_ts: &freighter_ts
               - .github/actions/test-typescript/**
               - .github/workflows/ci.yaml
-              - .github/workflows/test.freighter.yaml
+              - .github/workflows/test.freighter.ts.yaml
               - alamos/go/**
               - alamos/ts/**
               - codecov.yaml
@@ -606,15 +604,6 @@ jobs:
               - x/go/**
               - x/media/**
               - x/ts/**
-
-            client:
-              - *client_cpp
-              - *client_py
-              - *client_ts
-
-            freighter:
-              - *freighter_py
-              - *freighter_ts
 
             core_image:
               - *arc
@@ -849,25 +838,44 @@ jobs:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
     secrets: inherit
 
-  client:
+  client-cpp:
     needs: [changes, core-image]
-    if: needs.changes.outputs.client == 'true'
-    uses: ./.github/workflows/test.client.yaml
+    if: needs.changes.outputs.client_cpp == 'true'
+    uses: ./.github/workflows/test.client.cpp.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-      cpp: ${{ needs.changes.outputs.client_cpp == 'true' }}
-      py: ${{ needs.changes.outputs.client_py == 'true' }}
-      ts: ${{ needs.changes.outputs.client_ts == 'true' }}
     secrets: inherit
 
-  freighter:
+  client-py:
+    needs: [changes, core-image]
+    if: needs.changes.outputs.client_py == 'true'
+    uses: ./.github/workflows/test.client.py.yaml
+    with:
+      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+    secrets: inherit
+
+  client-ts:
+    needs: [changes, core-image]
+    if: needs.changes.outputs.client_ts == 'true'
+    uses: ./.github/workflows/test.client.ts.yaml
+    with:
+      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+    secrets: inherit
+
+  freighter-py:
     needs: [changes, freighter-image]
-    if: needs.changes.outputs.freighter == 'true'
-    uses: ./.github/workflows/test.freighter.yaml
+    if: needs.changes.outputs.freighter_py == 'true'
+    uses: ./.github/workflows/test.freighter.py.yaml
     with:
       image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
-      py: ${{ needs.changes.outputs.freighter_py == 'true' }}
-      ts: ${{ needs.changes.outputs.freighter_ts == 'true' }}
+    secrets: inherit
+
+  freighter-ts:
+    needs: [changes, freighter-image]
+    if: needs.changes.outputs.freighter_ts == 'true'
+    uses: ./.github/workflows/test.freighter.ts.yaml
+    with:
+      image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
     secrets: inherit
 
   x-cpp:
@@ -938,8 +946,11 @@ jobs:
       - pluto
       - driver
       - arc
-      - client
-      - freighter
+      - client-cpp
+      - client-py
+      - client-ts
+      - freighter-py
+      - freighter-ts
       - x-cpp
       - freighter-cpp
       - soem
