@@ -18,7 +18,11 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import { Range } from "@/platform/range";
-import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import {
+  createOffPageTestRange,
+  createTestRange,
+  uniqueRangeName,
+} from "@/platform/range/testutil";
 import { Session } from "@/session";
 
 const client = createTestClient();
@@ -115,7 +119,7 @@ describe("Range.useCreateModal", () => {
   });
 
   it("should close on save after the prefilled parent is cleared", async () => {
-    const parent = await createTestRange(client);
+    const parent = await createOffPageTestRange(client);
     const { store } = await openModal(
       {
         name: "Orphaned Range",
@@ -124,17 +128,24 @@ describe("Range.useCreateModal", () => {
       },
       { client },
     );
-    // Clicking the selected range a second time in the list deselects it. The list
-    // shows one page, so a Core holding many ranges needs a search to reach this one.
+    // Clicking the selected range a second time in the list deselects it, but the list
+    // shows one page and this parent sorts past it, so only a search brings it in.
     fireEvent.click(await screen.findByText(parent.name));
-    fireEvent.change(await screen.findByPlaceholderText("Search ranges..."), {
+    await screen.findByPlaceholderText("Search ranges...");
+    await waitFor(() =>
+      expect(screen.getAllByRole("option").length).toBeGreaterThan(0),
+    );
+    expect(screen.queryByRole("option", { name: new RegExp(parent.name) })).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Search ranges..."), {
       target: { value: parent.name },
     });
-    await waitFor(
-      () => expect(screen.getAllByText(parent.name).length).toBeGreaterThan(1),
-      { timeout: 5000 },
+    fireEvent.click(
+      await screen.findByRole(
+        "option",
+        { name: new RegExp(parent.name) },
+        { timeout: 5000 },
+      ),
     );
-    fireEvent.click(screen.getAllByText(parent.name).at(-1) as HTMLElement);
     await waitFor(() => expect(screen.getByText("Parent range")).toBeTruthy());
     await clickWhenEnabled("Save locally");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());

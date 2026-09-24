@@ -25,3 +25,41 @@ export const createTestRange = async (client: Synnax): Promise<ranger.Range> => 
     timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
   });
 };
+
+/** Matches the default page size of List.usePager, which every range list uses. */
+const PAGE_SIZE = 10;
+
+const HEX = "0123456789abcdef";
+
+const randomHex = (length: number): string =>
+  Array.from({ length }, () => HEX[Math.floor(Math.random() * HEX.length)]).join("");
+
+/** Builds a valid v4 UUID whose last six bytes are all the given nibble, twice over. */
+const keyEndingIn = (nibble: string): string => {
+  const head = `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-b${randomHex(3)}`;
+  return `${head}-${nibble.repeat(12)}`;
+};
+
+/**
+ * Creates a range that no list shows on its first page, plus enough ranges ahead of it
+ * to fill one. Gorp orders ranges by the trailing bytes of the key, so a key of all
+ * ones sorts last and one of all zeros sorts first. Only a search reaches the returned
+ * range, so a spec must assert it is absent before searching: that way a change to the
+ * ordering fails the spec instead of quietly restoring it to the first page.
+ */
+export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Range> => {
+  const start = TimeStamp.now();
+  const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
+  await client.ranges.create(
+    Array.from({ length: PAGE_SIZE }, () => ({
+      key: keyEndingIn("0"),
+      name: uniqueRangeName("ahead"),
+      timeRange,
+    })),
+  );
+  return await client.ranges.create({
+    key: keyEndingIn("f"),
+    name: uniqueRangeName(),
+    timeRange,
+  });
+};
