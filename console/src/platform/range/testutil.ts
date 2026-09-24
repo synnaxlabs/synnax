@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger, type Synnax } from "@synnaxlabs/client";
-import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 
 /** Generates a Core-safe unique range name: letters, digits, and underscores. */
 export const uniqueRangeName = (prefix = "range"): string =>
@@ -29,16 +29,9 @@ export const createTestRange = async (client: Synnax): Promise<ranger.Range> => 
 /** Matches the default page size of List.usePager, which every range list uses. */
 const PAGE_SIZE = 10;
 
-const HEX = "0123456789abcdef";
-
-const randomHex = (length: number): string =>
-  Array.from({ length }, () => HEX[Math.floor(Math.random() * HEX.length)]).join("");
-
-/** Builds a valid v4 UUID whose last six bytes are all the given nibble, twice over. */
-const keyEndingIn = (nibble: string): string => {
-  const head = `${randomHex(8)}-${randomHex(4)}-4${randomHex(3)}-b${randomHex(3)}`;
-  return `${head}-${nibble.repeat(12)}`;
-};
+/** Replaces the last six bytes of a fresh UUID with the given nibble, twice over. */
+const keyEndingIn = (nibble: string): string =>
+  `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
 
 /**
  * Creates a range that no list shows on its first page, plus enough ranges ahead of it
