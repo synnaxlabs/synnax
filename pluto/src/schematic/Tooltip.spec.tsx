@@ -132,7 +132,7 @@ describe("Schematic.Tooltip", () => {
       const commandLabel = within(tooltip).getByText(command.name);
       expect(commandLabel.querySelector(".pluto-icon--edit")).not.toBeNull();
       const stateLabel = within(tooltip).getByText(state.name);
-      expect(stateLabel.querySelector(".pluto-icon--visible")).not.toBeNull();
+      expect(stateLabel.querySelector(".pluto-icon--visible-filled")).not.toBeNull();
       expect(within(tooltip).getAllByText("f32")).toHaveLength(2);
     });
 
@@ -147,7 +147,7 @@ describe("Schematic.Tooltip", () => {
     it("should show the tooltip when no channel is set", async () => {
       renderTooltip(Node.createConfig({ variant: "value" }));
       const tooltip = await findTooltip();
-      expect(tooltip.querySelector(".pluto-icon--visible")).toBeNull();
+      expect(tooltip.querySelector(".pluto-icon--visible-filled")).toBeNull();
       expect(within(tooltip).getByText("Staleness timeout")).not.toBeNull();
     });
 

@@ -10,7 +10,7 @@
 import "@/schematic/Tooltip.css";
 
 import { channel } from "@synnaxlabs/client";
-import { caseconv, type color, type primitive, TimeSpan } from "@synnaxlabs/x";
+import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
@@ -38,8 +38,8 @@ type Field = KeysOf<Node.Config>;
 
 const CHANNEL_ROWS: { field: Field; icon: Icon.FC }[] = [
   { field: "commandChannel", icon: Icon.Edit },
-  { field: "stateChannel", icon: Icon.Visible },
-  { field: "channel", icon: Icon.Visible },
+  { field: "stateChannel", icon: Icon.VisibleFilled },
+  { field: "channel", icon: Icon.VisibleFilled },
 ];
 
 // Channels the symbol already streams come first, so the row adds no subscription.
@@ -50,7 +50,7 @@ const FIELD_ROWS: { field: Field; unit?: string }[] = [
   { field: "normallyOpen" },
   { field: "clickable" },
   { field: "onClickDelay", unit: "ms" },
-  { field: "stalenessTimeout", unit: "s" },
+  { field: "stalenessTimeout" },
 ];
 
 const kindIcon = (ch: channel.Channel): Icon.FC | null => {
@@ -60,7 +60,7 @@ const kindIcon = (ch: channel.Channel): Icon.FC | null => {
 };
 
 const hasLastWrite = (ch: channel.Channel): boolean =>
-  (ch.isIndex || ch.index !== 0) && !channel.isCalculated(ch.payload);
+  (ch.isIndex || !primitive.isZero(ch.index)) && !channel.isCalculated(ch.payload);
 
 interface RowProps {
   label: ReactNode;
@@ -88,26 +88,6 @@ interface LastWriteProps {
   channel: channel.Key;
 }
 
-const UNIT_PAIRS: [string, TimeSpan, string, TimeSpan][] = [
-  ["y", TimeSpan.days(365), "d", TimeSpan.DAY],
-  ["d", TimeSpan.DAY, "h", TimeSpan.HOUR],
-  ["h", TimeSpan.HOUR, "m", TimeSpan.MINUTE],
-  ["m", TimeSpan.MINUTE, "s", TimeSpan.SECOND],
-];
-
-// Largest unit plus the next one down, never coarser than a second.
-const sinceString = (span: TimeSpan): string => {
-  const total = span.valueOf();
-  if (total < TimeSpan.SECOND.valueOf()) return "< 1s";
-  for (const [unit, size, minorUnit, minorSize] of UNIT_PAIRS) {
-    if (total < size.valueOf()) continue;
-    const major = total / size.valueOf();
-    const minor = (total % size.valueOf()) / minorSize.valueOf();
-    return minor > 0n ? `${major}${unit} ${minor}${minorUnit}` : `${major}${unit}`;
-  }
-  return `${total / TimeSpan.SECOND.valueOf()}s`;
-};
-
 // Mounted only once the tooltip shows, so a mouse sweep creates no worker component.
 const LastWrite = ({ name, channel }: LastWriteProps): ReactElement => {
   const time = LatestSample.use({ channel });
@@ -120,7 +100,7 @@ const LastWrite = ({ name, channel }: LastWriteProps): ReactElement => {
           {name}
         </>
       }
-      value={time == null ? undefined : sinceString(since)}
+      value={time == null ? undefined : since.toString("semantic")}
     />
   );
 };
@@ -142,7 +122,7 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
   const values: Partial<Record<Field, primitive.Value>> = config;
   const keys = CHANNEL_ROWS.flatMap(({ field }) => {
     const key = values[field];
-    return typeof key === "number" && key !== 0 ? key : [];
+    return typeof key === "number" && !primitive.isZero(key) ? key : [];
   });
   // A null query holds the fetch until the delay passes, so mouse sweeps fire nothing.
   const { data } = Channel.useResultMultiple(
@@ -191,12 +171,16 @@ export const Tooltip = ({ anchor, config }: TooltipProps): ReactElement | null =
     if (value == null) return [];
     // A zero click delay means none, so the row would only be noise.
     if (field === "onClickDelay" && value === 0) return [];
+    const text =
+      field === "stalenessTimeout"
+        ? TimeSpan.seconds(Number(value)).toString("semantic")
+        : `${String(value)}${unit ?? ""}`;
     return (
       <Row
         key={field}
         className={CSS.BE("schematic-tooltip", "field")}
         label={caseconv.toSentence(field)}
-        value={unit == null ? String(value) : `${String(value)}${unit}`}
+        value={text}
         color={field === "stalenessTimeout" ? stalenessColor : undefined}
       />
     );
