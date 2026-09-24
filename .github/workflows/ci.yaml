@@ -1,0 +1,48 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Gates every merge. The ruleset requires only the OK context, so every check a pull
+# request or a merge group must pass runs from here.
+
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+
+# A new push to a pull request cancels the run it replaces. Merge groups never cancel.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  format:
+    uses: ./.github/workflows/test.format.yaml
+
+  copyright:
+    uses: ./.github/workflows/test.copyright.yaml
+
+  versions:
+    uses: ./.github/workflows/test.updates.yaml
+
+  # Runs even when a dependency failed or was skipped: a path-gated job that did not
+  # run must still let the merge through.
+  ok:
+    name: OK
+    if: always()
+    needs: [format, copyright, versions]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on a failed or cancelled job
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
+          jq -e '[.[].result] | all(. == "success" or . == "skipped")' \
+            <<< "$RESULTS" > /dev/null

@@ -10,16 +10,8 @@
 name: Test - Copyright Headers
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - release/**
+  workflow_call:
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   test:
