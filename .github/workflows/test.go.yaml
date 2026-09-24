@@ -34,11 +34,21 @@ on:
         required: false
         type: boolean
         default: false
-      os:
-        description: JSON list of runner labels to test on
+      macos:
+        description: Whether to test on macOS
         required: false
-        type: string
-        default: '["ubuntu-latest"]'
+        type: boolean
+        default: false
+      ubuntu:
+        description: Whether to test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       directory:
@@ -63,11 +73,21 @@ on:
         required: false
         type: boolean
         default: false
-      os:
-        description: JSON list of runner labels to test on
+      macos:
+        description: Whether to test on macOS
         required: false
-        type: string
-        default: '["ubuntu-latest"]'
+        type: boolean
+        default: false
+      ubuntu:
+        description: Whether to test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   lint:
@@ -118,7 +138,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os) }}
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        exclude:
+          - os: ${{ !inputs.macos && 'macos-latest' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
+          - os: ${{ !inputs.windows && 'windows-latest' }}
         include:
           - os: ubuntu-latest
             codegen: true

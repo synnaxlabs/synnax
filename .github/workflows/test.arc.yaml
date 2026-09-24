@@ -16,22 +16,32 @@ on:
         description: Core Docker image tag to test against
         required: true
         type: string
-      os:
-        description: JSON list of extra runner labels for the C++ tests
+      macos:
+        description: Whether to run the C++ tests on macOS too
         required: false
-        type: string
-        default: "[]"
+        type: boolean
+        default: false
+      windows:
+        description: Whether to run the C++ tests on Windows too
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       image:
         description: Core Docker image tag to test against
         required: true
         type: string
-      os:
-        description: JSON list of extra runner labels for the C++ tests
+      macos:
+        description: Whether to run the C++ tests on macOS too
         required: false
-        type: string
-        default: "[]"
+        type: boolean
+        default: false
+      windows:
+        description: Whether to run the C++ tests on Windows too
+        required: false
+        type: boolean
+        default: false
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
 
@@ -119,11 +129,14 @@ jobs:
 
   test-cpp:
     name: Test C++ (${{ matrix.os }})
-    if: inputs.os != '[]'
+    if: inputs.macos || inputs.windows
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os) }}
+        os: [macos-build-bot, windows-build-bot]
+        exclude:
+          - os: ${{ !inputs.macos && 'macos-build-bot' }}
+          - os: ${{ !inputs.windows && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository

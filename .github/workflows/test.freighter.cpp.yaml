@@ -12,18 +12,38 @@ name: Test - Freighter (C++)
 on:
   workflow_call:
     inputs:
-      os:
-        description: JSON list of runner labels to test on
+      macos:
+        description: Whether to test on macOS
         required: false
-        type: string
-        default: '["ubuntu-build-bot"]'
+        type: boolean
+        default: false
+      ubuntu:
+        description: Whether to test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
-      os:
-        description: JSON list of runner labels to test on
+      macos:
+        description: Whether to test on macOS
         required: false
-        type: string
-        default: '["ubuntu-build-bot"]'
+        type: boolean
+        default: false
+      ubuntu:
+        description: Whether to test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
 env:
   BAZEL_REMOTE_CACHE_FLAGS:
     --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
@@ -35,7 +55,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os) }}
+        os: [macos-build-bot, ubuntu-build-bot, windows-build-bot]
+        exclude:
+          - os: ${{ !inputs.macos && 'macos-build-bot' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
+          - os: ${{ !inputs.windows && 'windows-build-bot' }}
         include:
           - os: ubuntu-build-bot
             format: true
