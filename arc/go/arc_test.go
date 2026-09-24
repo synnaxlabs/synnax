@@ -602,6 +602,36 @@ func check() {
 		},
 	)
 
+	It(
+		"Should return a compile error when '=>' feeds a routing table",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			flag := symbol.Symbol{
+				Name: "flag",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   1,
+			}
+			vlvCmd := symbol.Symbol{
+				Name: "vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   2,
+			}
+			root.Parent.AddChild(&flag)
+			root.Parent.AddChild(&vlvCmd)
+			t := arc.Text{Raw: `
+flag -> select{} => {
+    true: true -> vlv_cmd,
+    false: false -> vlv_cmd
+}
+`}
+			Expect(arc.CompileText(ctx, t, root)).Error().To(
+				MatchError(ContainSubstring("'=>' cannot feed a routing table")),
+			)
+		},
+	)
+
 	Describe("Stageless Sequences", func() {
 		It(
 			"Should compile a stageless sequence with two writes",
