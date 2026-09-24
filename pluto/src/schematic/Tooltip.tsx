@@ -74,7 +74,6 @@ const Row = ({ label, value, color, className }: RowProps): ReactElement => (
     <Text.Text level="small">{label}</Text.Text>
     <Text.Text
       level="small"
-      variant="code"
       color={color}
       className={CSS.BE("schematic-tooltip", "value")}
     >
