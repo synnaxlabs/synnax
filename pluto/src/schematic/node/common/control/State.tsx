@@ -21,6 +21,8 @@ import { control } from "@/telem/control/aether";
 export const stateConfigZ = schematic.controlStateConfigZ;
 export type StateConfig = schematic.ControlStateConfig;
 
+export const STATE_CLASS = CSS.B("control-state");
+
 /** reveal clears every hidden flag, so the control state shows once a command channel
  * is chosen. */
 export const reveal = (config?: StateConfig): StateConfig =>
@@ -62,7 +64,7 @@ const Internal = ({
     <Flex.Box
       direction={direction.swap(orientation)}
       align="center"
-      className={CSS.cls(CSS.B("control-state"))}
+      className={STATE_CLASS}
       gap="small"
       {...rest}
     >

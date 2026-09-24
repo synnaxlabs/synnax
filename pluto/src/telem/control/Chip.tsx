@@ -129,6 +129,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       disabled={disabled}
       onClick={handleToggle}
       tooltip={<Text.Text level="small">{message}</Text.Text>}
+      tooltipLocation={{ x: "center", y: "bottom" }}
       style={buttonStyle}
       {...rest}
     >

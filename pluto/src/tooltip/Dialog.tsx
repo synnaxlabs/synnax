@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/tooltip/Dialog.css";
-
-import { box, type destructor, location, TimeSpan } from "@synnaxlabs/x";
+import { type destructor, TimeSpan } from "@synnaxlabs/x";
 import {
   cloneElement,
   isValidElement,
@@ -19,19 +17,17 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
-import { useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
-import { position } from "@/position";
+import { useCombinedRefs, useSyncedRef } from "@/hooks";
+import { type position } from "@/position";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
+import { Frame } from "@/tooltip/Frame";
 import { Triggers } from "@/triggers";
-import { getRootElement } from "@/util/rootElement";
 
 interface ChildProps {
   ref?: Ref<HTMLElement>;
@@ -61,14 +57,6 @@ export interface ExtensionProps {
   hideTooltip?: DialogProps["hide"];
 }
 
-const PREFERENCES: position.LocationPreference[] = [
-  { targetCorner: location.TOP_CENTER, dialogCorner: location.BOTTOM_CENTER },
-  { targetCorner: location.BOTTOM_CENTER, dialogCorner: location.TOP_CENTER },
-  { targetCorner: location.CENTER_RIGHT, dialogCorner: location.CENTER_LEFT },
-  { targetCorner: location.CENTER_LEFT, dialogCorner: location.CENTER_RIGHT },
-];
-
-const OFFSET = 6;
 const CLOSE_DURATION = TimeSpan.milliseconds(150);
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
@@ -93,15 +81,12 @@ export const Dialog = ({
   const [closing, setClosing] = useState(false);
   const id = useId();
 
-  const anchorRef = useRef<HTMLElement | null>(null);
-  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const releaseRef = useRef<destructor.Destructor | null>(null);
-  const prevPlacementRef = useRef<position.Preference | null>(null);
   const visibleRef = useSyncedRef(visible);
   const hideRef = useSyncedRef(hide);
-  const locationRef = useSyncedRef(locationProp);
   const delayRef = useSyncedRef(delay);
 
   const clearOpenTimeout = useCallback((): void => {
@@ -145,40 +130,6 @@ export const Dialog = ({
     setVisible(true);
   }, []);
 
-  const positionTooltip = useCallback((): void => {
-    const anchor = anchorRef.current;
-    const el = tooltipRef.current;
-    if (anchor == null || el == null) return;
-    const target = box.construct(anchor);
-    if (!anchor.isConnected || box.areaIsZero(target)) return close(true);
-    let prefer = PREFERENCES;
-    if (prevPlacementRef.current != null)
-      prefer = [prevPlacementRef.current, ...PREFERENCES];
-    const { adjustedDialog, ...placement } = position.position({
-      target,
-      // offset* is unaffected by the entrance animation's scale transform, which
-      // getBoundingClientRect would fold into the measured size
-      dialog: box.construct(0, 0, el.offsetWidth, el.offsetHeight),
-      container: box.construct(0, 0, window.innerWidth, window.innerHeight),
-      initial: locationRef.current,
-      prefer,
-      offset: OFFSET,
-    });
-    prevPlacementRef.current = placement;
-    const rounded = box.round(adjustedDialog);
-    el.style.left = CSS.px(box.left(rounded));
-    el.style.top = CSS.px(box.top(rounded));
-    el.style.transformOrigin = `${placement.dialogCorner.x} ${placement.dialogCorner.y}`;
-  }, []);
-
-  useLayoutEffect(() => {
-    if (visible) positionTooltip();
-  }, [visible, positionTooltip]);
-
-  const resizeAnchorRef = useResize(positionTooltip, { enabled: visible });
-  const resizeTooltipRef = useResize(positionTooltip, { enabled: visible });
-  useWindowResize(positionTooltip, { enabled: visible });
-
   const handlePointerEnter = useCallback(
     (e: React.PointerEvent<HTMLElement>): void => {
       if (hideRef.current || e.pointerType === "touch") return;
@@ -203,7 +154,6 @@ export const Dialog = ({
   useEffect(() => {
     if (!visible) return;
     const handleScroll = (e: Event): void => {
-      const anchor = anchorRef.current;
       if (
         e.target instanceof Node &&
         anchor != null &&
@@ -213,7 +163,7 @@ export const Dialog = ({
     };
     window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     return () => window.removeEventListener("scroll", handleScroll, { capture: true });
-  }, [visible, close]);
+  }, [visible, close, anchor]);
 
   const handleEscape = useCallback(
     ({ stage }: Triggers.UseEvent): void => {
@@ -237,27 +187,21 @@ export const Dialog = ({
   );
 
   const [tip, children_] = children;
-  const combinedAnchorRef = useCombinedRefs(
-    anchorRef,
-    resizeAnchorRef,
-    children_.props.ref,
-  );
-  const combinedTooltipRef = useCombinedRefs(tooltipRef, resizeTooltipRef);
+  const combinedAnchorRef = useCombinedRefs(setAnchor, children_.props.ref);
 
   return (
     <>
-      {visible &&
-        createPortal(
-          <div
-            id={id}
-            role="tooltip"
-            ref={combinedTooltipRef}
-            className={CSS.cls(CSS.B("tooltip"), closing && CSS.M("closing"))}
-          >
-            {formatTip(tip)}
-          </div>,
-          getRootElement(),
-        )}
+      {visible && anchor != null && (
+        <Frame
+          id={id}
+          anchor={anchor}
+          location={locationProp}
+          className={closing ? CSS.M("closing") : undefined}
+          onAnchorLost={closeNow}
+        >
+          {formatTip(tip)}
+        </Frame>
+      )}
       {cloneElement(children_, {
         ref: combinedAnchorRef,
         "aria-describedby": visible ? id : children_.props["aria-describedby"],
