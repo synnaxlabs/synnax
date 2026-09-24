@@ -146,7 +146,13 @@ export class Feed {
    */
   async readLatest(key: channel.Key): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-    return await this.latest.enqueue(key);
+    const entry = this.cache.get(key);
+    const stored = entry.latest;
+    if (stored != null) return stored;
+    const version = entry.version;
+    const latest = await this.latest.enqueue(key);
+    if (this.streamer.live(key)) entry.storeLatest(latest, version);
+    return latest;
   }
 
   /** Closes the feed, releasing the stream and all cached buffers. */

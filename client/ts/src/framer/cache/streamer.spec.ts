@@ -648,6 +648,64 @@ describe("MultiplexedStreamer", () => {
     });
   });
 
+  describe("live", () => {
+    it("should be false until the key is on the stream", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      expect(streamer.live(1)).toBe(false);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(streamer.live(1)).toBe(true);
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should be false for a key nobody demands", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(streamer.live(2)).toBe(false);
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should be false while the stream is reconnecting", async () => {
+      const hooks: StreamHooks[] = [];
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])], hooks),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      hooks[0].onDrop(new Error("conn lost"));
+      expect(streamer.live(1)).toBe(false);
+      hooks[0].onReopen();
+      expect(streamer.live(1)).toBe(true);
+      sub.close();
+      await streamer.close();
+    });
+
+    it("should be false once the key's demand ends", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(streamer.live(1)).toBe(true);
+      sub.close();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(streamer.live(1)).toBe(false);
+      await streamer.close();
+    });
+  });
+
   describe("connection health", () => {
     it("should report reconnecting on drop and streaming on reopen", async () => {
       const hooks: StreamHooks[] = [];

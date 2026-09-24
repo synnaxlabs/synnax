@@ -206,4 +206,67 @@ describe("Unary", () => {
       expect(() => u.lastWrite).toThrow(UnexpectedError);
     });
   });
+
+  describe("latest", () => {
+    const sample = (): MultiSeries => stamped(10, 11, [1], 0n);
+
+    it("should be null before a read is stored", () => {
+      const u = newUnary();
+      expect(u.latest).toBeNull();
+    });
+
+    it("should serve a read stored under the current version", () => {
+      const u = newUnary();
+      const series = sample();
+      u.storeLatest(series, u.version);
+      expect(u.latest).toBe(series);
+    });
+
+    it("should refuse a read whose version a live write moved", () => {
+      const u = newUnary();
+      const version = u.version;
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      u.storeLatest(sample(), version);
+      expect(u.latest).toBeNull();
+    });
+
+    it("should refuse a read whose version a flush moved", () => {
+      const u = newUnary();
+      const version = u.version;
+      u.flushDynamic();
+      u.storeLatest(sample(), version);
+      expect(u.latest).toBeNull();
+    });
+
+    it("should stop serving once a live write lands", () => {
+      const u = newUnary();
+      u.storeLatest(sample(), u.version);
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      expect(u.latest).toBeNull();
+    });
+
+    it("should stop serving once the leading buffer is flushed", () => {
+      const u = newUnary();
+      u.storeLatest(sample(), u.version);
+      u.flushDynamic();
+      expect(u.latest).toBeNull();
+    });
+
+    it("should serve a read stored after the last change", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      u.flushDynamic();
+      const series = sample();
+      u.storeLatest(series, u.version);
+      expect(u.latest).toBe(series);
+    });
+
+    it("should throw after close", () => {
+      const u = newUnary();
+      u.close();
+      expect(() => u.latest).toThrow(UnexpectedError);
+      expect(() => u.version).toThrow(UnexpectedError);
+      expect(() => u.storeLatest(sample(), 0)).toThrow(UnexpectedError);
+    });
+  });
 });

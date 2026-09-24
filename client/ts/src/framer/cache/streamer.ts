@@ -192,6 +192,12 @@ export class MultiplexedStreamer {
     };
   }
 
+  live(key: channel.Key): boolean {
+    return (
+      this.sentKeys.has(key) && this.statuses.get(key)?.variant === STREAMING.variant
+    );
+  }
+
   async close(): Promise<void> {
     const { instrumentation: ins } = this.props;
     if (this.reconcileTimer != null) clearTimeout(this.reconcileTimer);

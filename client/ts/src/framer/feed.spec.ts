@@ -21,7 +21,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Transform } from "@/framer/cache/transform";
-import { Feed, type LatestReader } from "@/framer/feed";
+import { Feed, type FeedOptions, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
 
@@ -636,6 +636,150 @@ describe("feed", () => {
       await direct.close();
       release();
       await expect(read).rejects.toThrow(UnexpectedError);
+    });
+
+    describe("while the channel is streamed", () => {
+      // A feed over the test client that counts latest reads and can hold them.
+      const createCountingFeed = (options: FeedOptions = {}) => {
+        let calls = 0;
+        let gate: Promise<void> | null = null;
+        const counting = new Feed({
+          ...options,
+          readRemote: async (tr, keys) => await client.read(tr, keys),
+          openStreamer: async (config) => await client.openStreamer(config),
+          readLatest: async (keys) => {
+            calls++;
+            if (gate != null) await gate;
+            return await client.readLatest(keys, 1);
+          },
+        });
+        return {
+          feed: counting,
+          calls: () => calls,
+          hold: (): (() => void) => {
+            let release = (): void => {};
+            gate = new Promise<void>((resolve) => (release = resolve));
+            return () => {
+              gate = null;
+              release();
+            };
+          },
+        };
+      };
+
+      const createStreamedChannel = async (counting: Feed) => {
+        const { time, data } = await createChannels();
+        const start = TimeStamp.now();
+        await client.write(start, {
+          [time.key]: [start, start.add(TimeSpan.milliseconds(1))],
+          [data.key]: [1, 2],
+        });
+        const sub = counting.stream(() => {}, [data.key]);
+        await expect
+          .poll(() => sub.status(data.key).variant, { timeout: 5000 })
+          .toBe("success");
+        return { time, data, sub };
+      };
+
+      it("should serve the second read without a request", async () => {
+        const { feed: counting, calls } = createCountingFeed();
+        try {
+          const { data, sub } = await createStreamedChannel(counting);
+          expect(Array.from(await counting.readLatest(data.key))).toEqual([2]);
+          expect(Array.from(await counting.readLatest(data.key))).toEqual([2]);
+          expect(calls()).toBe(1);
+          sub.close();
+        } finally {
+          await counting.close();
+        }
+      });
+
+      it("should read again once a live write lands", async () => {
+        const { feed: counting, calls } = createCountingFeed();
+        try {
+          const { time, data, sub } = await createStreamedChannel(counting);
+          await counting.readLatest(data.key);
+          expect(calls()).toBe(1);
+          const next = createClock();
+          const writer = await client.openWriter({
+            start: TimeStamp.now(),
+            channels: [time.key, data.key],
+          });
+          try {
+            await expect
+              .poll(
+                async () => {
+                  await writer.write({ [time.key]: [next()], [data.key]: [3] });
+                  return sub.lastWrite(data.key) != null;
+                },
+                { timeout: 10000, interval: 250 },
+              )
+              .toBe(true);
+          } finally {
+            await writer.close();
+          }
+          await counting.readLatest(data.key);
+          expect(calls()).toBe(2);
+          sub.close();
+        } finally {
+          await counting.close();
+        }
+      });
+
+      it("should not store a read that a live write overtook", async () => {
+        const { feed: counting, calls, hold } = createCountingFeed();
+        try {
+          const { time, data, sub } = await createStreamedChannel(counting);
+          const release = hold();
+          const overtaken = counting.readLatest(data.key);
+          await expect.poll(calls, { timeout: 5000 }).toBe(1);
+          const next = createClock();
+          const writer = await client.openWriter({
+            start: TimeStamp.now(),
+            channels: [time.key, data.key],
+          });
+          try {
+            await expect
+              .poll(
+                async () => {
+                  await writer.write({ [time.key]: [next()], [data.key]: [3] });
+                  return sub.lastWrite(data.key) != null;
+                },
+                { timeout: 10000, interval: 250 },
+              )
+              .toBe(true);
+          } finally {
+            await writer.close();
+          }
+          release();
+          await overtaken;
+          await counting.readLatest(data.key);
+          expect(calls()).toBe(2);
+          sub.close();
+        } finally {
+          await counting.close();
+        }
+      });
+
+      it("should read again once the channel leaves the stream", async () => {
+        const { feed: counting, calls } = createCountingFeed({
+          removalDelay: TimeSpan.milliseconds(100),
+        });
+        try {
+          const { data, sub } = await createStreamedChannel(counting);
+          await counting.readLatest(data.key);
+          await counting.readLatest(data.key);
+          expect(calls()).toBe(1);
+          // Outlasts the removal delay and the reconcile that shrinks the stream.
+          sub.close();
+          await sleep.sleep(TimeSpan.milliseconds(500));
+          await counting.readLatest(data.key);
+          await counting.readLatest(data.key);
+          expect(calls()).toBe(3);
+        } finally {
+          await counting.close();
+        }
+      });
     });
   });
 });
