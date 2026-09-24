@@ -15,8 +15,8 @@ import pytest
 import synnax as sy
 from synnax.control.controller import Controller, RemainsTrueFor
 
-# Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot
-# fail the test, but bounded, so a broken run fails instead of hanging CI.
+# Seconds to wait for a cross-thread handshake. Generous, so a slow Core cannot fail the
+# test, but bounded, so a broken run fails instead of hanging CI.
 HANDSHAKE_TIMEOUT = 5
 
 
