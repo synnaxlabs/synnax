@@ -433,6 +433,60 @@ describe("remote", () => {
           expect(scv.sampleTime()).toBeNull();
         });
       });
+
+      describe("lastWrite", () => {
+        const STAMP = TimeStamp.seconds(200);
+        const streamWithStamp = (lastWrite: framer.Subscription["lastWrite"]): void => {
+          c.feed.stream = (handler, keys) => {
+            c.streamF(handler, keys);
+            return telemTest.mockSubscription(c.streamDestructorF, lastWrite);
+          };
+        };
+
+        it("should be null before the stream opens", () => {
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          expect(scv.lastWrite()).toBeNull();
+        });
+
+        it("should be the last write the subscription reports", async () => {
+          streamWithStamp(() => STAMP);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForStream(scv, c);
+          expect(scv.lastWrite()?.equals(STAMP)).toBe(true);
+        });
+
+        it("should ask the subscription about the channel's key", async () => {
+          const lastWrite = vi.fn((_key: channel.Key) => STAMP);
+          streamWithStamp(lastWrite);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForStream(scv, c);
+          scv.lastWrite();
+          expect(lastWrite).toHaveBeenCalledWith(c.channel.key);
+        });
+
+        it("should fall back to the initial sample's time", async () => {
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.lastWrite()?.equals(SAMPLE_TIME)).toBe(true);
+        });
+
+        it("should prefer the subscription's stamp over the initial sample", async () => {
+          streamWithStamp(() => STAMP);
+          c.feed.readLatest = async () => new MultiSeries([stored()]);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForResolve(scv);
+          expect(scv.lastWrite()?.equals(STAMP)).toBe(true);
+        });
+
+        it("should be null after cleanup", async () => {
+          streamWithStamp(() => STAMP);
+          const scv = new StreamChannelValue(c, { channel: c.channel.key });
+          await waitForStream(scv, c);
+          scv.cleanup();
+          expect(scv.lastWrite()).toBeNull();
+        });
+      });
     });
   });
 

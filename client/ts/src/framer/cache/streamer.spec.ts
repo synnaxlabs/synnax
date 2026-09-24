@@ -493,6 +493,66 @@ describe("MultiplexedStreamer", () => {
     });
   });
 
+  describe("lastWrite", () => {
+    const stampedFrame = (): Frame =>
+      new Frame({
+        1: new Series({
+          data: new Float32Array([1]),
+          timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(11)),
+          alignment: 0n,
+        }),
+      });
+
+    it("should be null before any frame lands", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      expect(sub.lastWrite(1)).toBeNull();
+      await streamer.close();
+    });
+
+    it("should be the end of the last stamped frame for the key", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([oneFrameStreamer([1], stampedFrame())]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(sub.lastWrite(1)).toEqual(TimeStamp.seconds(11));
+      await streamer.close();
+    });
+
+    it("should be null for a key whose frames carry no time range", async () => {
+      const frame = new Frame({ 1: new Series({ data: new Float32Array([1]) }) });
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([oneFrameStreamer([1], frame)]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(sub.lastWrite(1)).toBeNull();
+      await streamer.close();
+    });
+
+    // A dropped stream flushes its buffers, so the stamp stops claiming a live write.
+    it("should be null again once the stream drops", async () => {
+      const dying = oneFrameStreamer([1], stampedFrame());
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([dying, pendingStreamer([1])]),
+      });
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(sub.lastWrite(1)).not.toBeNull();
+      dying.close();
+      await vi.advanceTimersByTimeAsync(200);
+      expect(sub.lastWrite(1)).toBeNull();
+      await streamer.close();
+    });
+  });
+
   describe("subscriber isolation", () => {
     it("should keep the stream alive when a handler throws on live delivery", async () => {
       let i = 0;

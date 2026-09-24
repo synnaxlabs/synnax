@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { UnexpectedError } from "@/errors";
 import { Unary } from "@/framer/cache/unary";
 
 const LEADING_ALIGNMENT = (BigInt(0xffffffff) - 1_000_000n) << 32n;
@@ -177,6 +178,32 @@ describe("Unary", () => {
       expect(u.leadingBuffer).toBeNull();
       const { gaps } = u.read(TimeStamp.seconds(5).range(TimeStamp.seconds(20)));
       expect(gaps).toHaveLength(1);
+    });
+  });
+
+  describe("lastWrite", () => {
+    it("should be the end of the leading buffer's last stamped write", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      expect(u.lastWrite).toEqual(TimeStamp.seconds(13));
+    });
+
+    it("should be null before any write", () => {
+      const u = newUnary();
+      expect(u.lastWrite).toBeNull();
+    });
+
+    it("should be null once the leading buffer is flushed", () => {
+      const u = newUnary();
+      u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
+      u.flushDynamic();
+      expect(u.lastWrite).toBeNull();
+    });
+
+    it("should throw after close", () => {
+      const u = newUnary();
+      u.close();
+      expect(() => u.lastWrite).toThrow(UnexpectedError);
     });
   });
 });

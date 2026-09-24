@@ -141,6 +141,50 @@ describe("feed", () => {
     sub.close();
   });
 
+  it("should report no last write before a frame lands for the key", async () => {
+    const { data } = await createChannels();
+    const sub = feed.stream(() => {}, [data.key]);
+    expect(sub.lastWrite(data.key)).toBeNull();
+    sub.close();
+  });
+
+  it("should report the Core's stamp for the last streamed write", async () => {
+    const { time, data } = await createChannels();
+    let received = 0;
+    const sub = feed.stream(
+      (res) => {
+        received += res.get(data.key)?.length ?? 0;
+      },
+      [data.key],
+    );
+    const next = createClock();
+    const writer = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      await expect
+        .poll(
+          async () => {
+            await writer.write({ [time.key]: [next()], [data.key]: [1] });
+            return received > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+      // The stream has converged, so this write is the one whose stamp to observe.
+      const last = next();
+      await writer.write({ [time.key]: [last], [data.key]: [2] });
+      // The Core stamps a streamed series with its last timestamp plus one nanosecond.
+      await expect
+        .poll(() => sub.lastWrite(data.key)?.valueOf(), { timeout: 5000 })
+        .toEqual(last.valueOf() + 1n);
+    } finally {
+      await writer.close();
+    }
+    sub.close();
+  });
+
   it("should return every written sample across the live boundary", async () => {
     const { time, data } = await createChannels();
     const received: number[] = [];
