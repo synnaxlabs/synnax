@@ -10,59 +10,8 @@
 name: Test - Migration (Clients)
 
 on:
-  pull_request:
-    paths:
-      - .github/actions/test-python/**
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.migration.clients.yaml
-      - alamos/go/**
-      - alamos/py/**
-      - arc/go/**
-      - aspen/**
-      - cesium/**
-      - client/py/**
-      - client/ts/**
-      - core/**
-      - freighter/go/**
-      - freighter/py/**
-      - freighter/ts/**
-      - package.json
-      - pnpm-lock.yaml
-      - pyproject.toml
-      - uv.lock
-      - x/go/**
-      - x/ts/**
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/actions/test-python/**
-      - .github/actions/test-typescript/**
-      - .github/workflows/test.migration.clients.yaml
-      - alamos/go/**
-      - alamos/py/**
-      - arc/go/**
-      - aspen/**
-      - cesium/**
-      - client/py/**
-      - client/ts/**
-      - core/**
-      - freighter/go/**
-      - freighter/py/**
-      - freighter/ts/**
-      - package.json
-      - pnpm-lock.yaml
-      - pyproject.toml
-      - uv.lock
-      - x/go/**
-      - x/ts/**
+  workflow_call:
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
     name: Test

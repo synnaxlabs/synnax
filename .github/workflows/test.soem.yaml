@@ -11,6 +11,7 @@ name: Test - SOEM
 
 on:
   workflow_call:
+  workflow_dispatch:
 jobs:
   test:
     name: Test (macOS)

@@ -31,6 +31,27 @@ on:
         required: false
         type: boolean
         default: false
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Core Docker image tag to test against
+        required: true
+        type: string
+      cpp:
+        description: Whether to run the C++ tests
+        required: false
+        type: boolean
+        default: false
+      py:
+        description: Whether to run the Python tests
+        required: false
+        type: boolean
+        default: false
+      ts:
+        description: Whether to run the TypeScript tests
+        required: false
+        type: boolean
+        default: false
 jobs:
   cpp:
     name: Test - C++

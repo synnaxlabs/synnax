@@ -17,6 +17,13 @@ on:
         required: false
         type: string
         default: '["ubuntu-build-bot"]'
+  workflow_dispatch:
+    inputs:
+      os:
+        description: JSON list of runner labels to test on
+        required: false
+        type: string
+        default: '["ubuntu-build-bot"]'
 env:
   BAZEL_REMOTE_CACHE_FLAGS:
     --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}

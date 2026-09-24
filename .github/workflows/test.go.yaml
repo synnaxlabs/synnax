@@ -39,6 +39,35 @@ on:
         required: false
         type: string
         default: '["ubuntu-latest"]'
+  workflow_dispatch:
+    inputs:
+      directory:
+        description: The directory containing the Go module to test
+        required: true
+        type: string
+      ginkgo_flags:
+        description:
+          Additional flags to pass to Ginkgo (e.g., -p, --randomize-all,
+          --fail-on-empty)
+        required: false
+        type: string
+        default: ""
+      coverage_flag:
+        description: The codecov flag for this module
+        required: true
+        type: string
+      install_antlr4:
+        description:
+          Whether to install antlr4 before running `go generate`. Required for modules
+          with `//go:generate antlr4 ...` directives (arc, oracle).
+        required: false
+        type: boolean
+        default: false
+      os:
+        description: JSON list of runner labels to test on
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
 
 jobs:
   lint:

@@ -21,6 +21,17 @@ on:
         required: false
         type: string
         default: "[]"
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Core Docker image tag to test against
+        required: true
+        type: string
+      os:
+        description: JSON list of extra runner labels for the C++ tests
+        required: false
+        type: string
+        default: "[]"
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
 

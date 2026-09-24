@@ -15,6 +15,13 @@ name: CI
 on:
   pull_request:
   merge_group:
+  workflow_dispatch:
+    inputs:
+      integration:
+        description: Whether to run the merge-queue tier too
+        required: false
+        type: boolean
+        default: false
 
 # A new push to a pull request cancels the run it replaces. Merge groups never cancel.
 concurrency:
@@ -884,7 +891,8 @@ jobs:
   integration:
     needs: changes
     if:
-      github.event_name == 'merge_group' && needs.changes.outputs.integration == 'true'
+      (github.event_name == 'merge_group' || inputs.integration) &&
+      needs.changes.outputs.integration == 'true'
     permissions:
       actions: read
       contents: write

@@ -17,6 +17,13 @@ on:
         required: false
         type: string
         default: '["ubuntu-latest"]'
+  workflow_dispatch:
+    inputs:
+      os:
+        description: JSON list of runner labels to test on
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
 jobs:
   test:
     name: Test (${{ matrix.os }})

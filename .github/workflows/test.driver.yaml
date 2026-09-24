@@ -16,6 +16,12 @@ on:
         description: Core Docker image tag to test against
         required: true
         type: string
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Core Docker image tag to test against
+        required: true
+        type: string
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
 
