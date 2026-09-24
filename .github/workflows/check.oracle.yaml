@@ -89,14 +89,10 @@ jobs:
         with:
           cache: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version-file: pyproject.toml
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.2.0
         with:
+          version: latest-known
           enable-cache: true
 
       - name: Set up buf
@@ -129,6 +125,6 @@ jobs:
         if: failure() && steps.check.conclusion == 'failure'
         uses: actions/upload-artifact@v7
         with:
-          name: oracle-check-report
           path: oracle-check.json
+          archive: false
           if-no-files-found: ignore

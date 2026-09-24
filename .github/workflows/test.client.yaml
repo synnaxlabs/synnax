@@ -201,6 +201,9 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
+          # A pull request restores the caches but never writes them, so branch runs
+          # cannot evict each other under the repository cache limit.
+          cache-save: ${{ github.event_name == 'push' }}
       - name: Install Clang Format
         run: scripts/install_clang_format.sh
 
