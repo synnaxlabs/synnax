@@ -91,13 +91,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     mode: canEdit ? "normal" : "preview",
   });
 
-  const handleLink = Core.useCopyLinkToClipboard();
   const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
-  const handleCopyLink = () =>
-    handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
   const getPythonCode = useCallback(
     () =>
@@ -187,15 +184,13 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Icon.CSV />
             </Button.Button>
             <Divider.Divider y />
-            <Button.Button
-              variant="text"
+            <Core.CopyLinkToolbarButton
+              name={name}
+              ontologyID={ranger.ontologyID(rangeKey)}
               tooltip={`Copy link to ${name}`}
               tooltipLocation="bottom"
-              onClick={handleCopyLink}
               textColor={9}
-            >
-              <Icon.Link />
-            </Button.Button>
+            />
             <FavoriteButton range={range} size="medium" />
           </Flex.Box>
         </Flex.Box>

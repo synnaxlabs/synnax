@@ -15,7 +15,7 @@ import { Notifications } from "@/platform/notifications";
 import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
-  ...Core.NOTIFICATIONS,
+  ...(DESKTOP ? [] : Core.NOTIFICATIONS),
   ...Device.NOTIFICATIONS,
   ...Rack.NOTIFICATIONS,
   ...Task.NOTIFICATIONS,

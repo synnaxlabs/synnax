@@ -10,16 +10,7 @@
 import "@/feature/auth/ConnectionGuard.css";
 
 import { AccessDeniedError, type connection } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Errors,
-  Flex,
-  Icon,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button, Errors, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -30,6 +21,7 @@ import {
 
 import { Login } from "@/feature/auth/Login";
 import { Shell } from "@/feature/shell";
+import { Access } from "@/platform/access";
 import { Connection } from "@/platform/connection";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -49,30 +41,21 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   if (status.variant === "error" && status.details.reason === "auth") return <Login />;
   if (!settled) return <Splash status={status} />;
   return (
-    <Errors.SuspenseBoundary
+    <Access.PermissionsBoundary
       loading={<Splash status={status} />}
       FallbackComponent={PermissionsFallback}
     >
-      <AwaitPermissions>{children}</AwaitPermissions>
-    </Errors.SuspenseBoundary>
+      {children}
+    </Access.PermissionsBoundary>
   );
 };
 
-// Every guarded surface reads a denial from an empty policy set, so the workspace
-// cannot render before the policies land.
-const AwaitPermissions = ({ children }: PropsWithChildren): ReactNode => {
-  Access.useEnsurePermissions({});
-  return children;
-};
-
-const PermissionsFallback = (props: Errors.FallbackProps): ReactElement => {
-  const { error, resetErrorBoundary } = props;
-  const invalidate = Access.useInvalidatePermissions();
+const PermissionsFallback = ({
+  retry,
+  ...props
+}: Access.PermissionsFallbackProps): ReactElement => {
+  const { error } = props;
   const logout = Session.useLogout();
-  const retry = (): void => {
-    invalidate({});
-    resetErrorBoundary();
-  };
   // A denial is an expected state, not a crash, so it gets a calm surface.
   if (AccessDeniedError.matches(error) || AccessDeniedError.matches(error.cause))
     return <Denied retry={retry} />;

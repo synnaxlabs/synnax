@@ -12,6 +12,7 @@ import { Button, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/platform/core/useCopyLinkToClipboard";
+import { Link } from "@/platform/link";
 
 export interface CopyLinkToolbarButtonProps extends Omit<
   Button.ButtonProps,
@@ -25,12 +26,14 @@ export const CopyLinkToolbarButton = ({
   name,
   ontologyID,
   ...rest
-}: CopyLinkToolbarButtonProps): ReactElement => {
+}: CopyLinkToolbarButtonProps): ReactElement | null => {
+  const disabled = Link.useDisabled();
   const copyLink = useCopyLinkToClipboard();
   const handleClick = useCallback(
     () => copyLink({ name, ontologyID }),
     [copyLink, name, ontologyID],
   );
+  if (disabled) return null;
   return (
     <Button.Button
       tooltip="Copy link"
