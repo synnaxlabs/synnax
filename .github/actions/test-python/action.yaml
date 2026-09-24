@@ -55,11 +55,8 @@ runs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v10.2.0
-
-    - name: Set up Python
-      uses: actions/setup-python@v7
       with:
-        python-version-file: ${{ inputs.directory }}/pyproject.toml
+        version: latest-known
 
     - name: Lint
       if: inputs.format_check == 'true'
