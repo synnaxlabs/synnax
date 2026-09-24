@@ -11,7 +11,7 @@ name: Test - X (TypeScript)
 
 on:
   workflow_call:
-    inputs:
+    inputs: &inputs
       macos:
         description: Whether to test on macOS
         required: false
@@ -28,22 +28,7 @@ on:
         type: boolean
         default: false
   workflow_dispatch:
-    inputs:
-      macos:
-        description: Whether to test on macOS
-        required: false
-        type: boolean
-        default: false
-      ubuntu:
-        description: Whether to test on Ubuntu
-        required: false
-        type: boolean
-        default: true
-      windows:
-        description: Whether to test on Windows
-        required: false
-        type: boolean
-        default: false
+    inputs: *inputs
 jobs:
   test:
     name: Test (${{ matrix.os }})

@@ -11,7 +11,7 @@ name: Build - Docker
 
 on:
   workflow_call:
-    inputs:
+    inputs: &inputs
       module:
         description:
           Module path containing the Dockerfile and go.mod (e.g. core,
@@ -23,17 +23,7 @@ on:
         required: true
         type: string
   workflow_dispatch:
-    inputs:
-      module:
-        description:
-          Module path containing the Dockerfile and go.mod (e.g. core,
-          freighter/integration)
-        required: true
-        type: string
-      tag:
-        description: Full Docker image tag to push
-        required: true
-        type: string
+    inputs: *inputs
 
 jobs:
   build:

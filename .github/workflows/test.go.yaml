@@ -11,7 +11,7 @@ name: Test - Go
 
 on:
   workflow_call:
-    inputs:
+    inputs: &inputs
       directory:
         description: The directory containing the Go module to test
         required: true
@@ -50,44 +50,7 @@ on:
         type: boolean
         default: false
   workflow_dispatch:
-    inputs:
-      directory:
-        description: The directory containing the Go module to test
-        required: true
-        type: string
-      ginkgo_flags:
-        description:
-          Additional flags to pass to Ginkgo (e.g., -p, --randomize-all,
-          --fail-on-empty)
-        required: false
-        type: string
-        default: ""
-      coverage_flag:
-        description: The codecov flag for this module
-        required: true
-        type: string
-      install_antlr4:
-        description:
-          Whether to install antlr4 before running `go generate`. Required for modules
-          with `//go:generate antlr4 ...` directives (arc, oracle).
-        required: false
-        type: boolean
-        default: false
-      macos:
-        description: Whether to test on macOS
-        required: false
-        type: boolean
-        default: false
-      ubuntu:
-        description: Whether to test on Ubuntu
-        required: false
-        type: boolean
-        default: true
-      windows:
-        description: Whether to test on Windows
-        required: false
-        type: boolean
-        default: false
+    inputs: *inputs
 
 jobs:
   lint:

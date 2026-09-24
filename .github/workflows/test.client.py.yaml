@@ -11,17 +11,13 @@ name: Test - Client (Python)
 
 on:
   workflow_call:
-    inputs:
+    inputs: &inputs
       image:
         description: Core Docker image tag to test against
         required: true
         type: string
   workflow_dispatch:
-    inputs:
-      image:
-        description: Core Docker image tag to test against
-        required: true
-        type: string
+    inputs: *inputs
 
 jobs:
   test:

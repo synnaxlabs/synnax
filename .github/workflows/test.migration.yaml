@@ -11,7 +11,7 @@ name: Test - Migration
 
 on:
   workflow_call:
-    inputs:
+    inputs: &inputs
       ref_run_id:
         description: "Reference run ID for downloading build artifacts"
         type: string
@@ -29,22 +29,7 @@ on:
         default: true
 
   workflow_dispatch:
-    inputs:
-      ref_run_id:
-        description: "Reference run ID for downloading build artifacts"
-        type: string
-        required: true
-      base_version:
-        description:
-          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest release."
-        type: string
-        required: false
-        default: ""
-      windows:
-        description: Whether to run the Windows migration too
-        required: false
-        type: boolean
-        default: true
+    inputs: *inputs
 
 jobs:
   test:
