@@ -62,7 +62,7 @@ catalog:
   '@codingame/monaco-vscode-textmate-service-override': ^36.2.7
   '@codingame/monaco-vscode-theme-defaults-default-extension': ^36.2.7
   '@codingame/monaco-vscode-theme-service-override': ^36.2.7
-  '@eslint-react/eslint-plugin': ^5.18.10
+  '@eslint-react/eslint-plugin': ^5.20.8
   '@eslint/compat': ^2.1.1
   '@eslint/js': ^10.0.1
   '@fontsource-variable/inter': ^5.3.0
@@ -122,7 +122,7 @@ catalog:
   compromise-dates: ^3.8.1
   d3-scale: ^4.0.2
   error-stack-parser: ^2.1.4
-  eslint: ^10.9.1
+  eslint: ^10.11.0
   eslint-plugin-react: ^7.37.5
   eslint-plugin-simple-import-sort: ^14.0.0
   fake-indexeddb: ^6.2.5
@@ -159,12 +159,12 @@ catalog:
   shiki: ^4.4.3
   source-map-js: ^1.2.1
   strip-markdown: ^6.0.0
-  stylelint: ^17.14.1
+  stylelint: ^17.15.0
   stylelint-config-standard: ^40.0.0
   tsx: ^4.23.15
   turbo: ^2.11.3
   typescript: ^7.0.2
-  typescript-eslint: ^8.69.0
+  typescript-eslint: ^8.70.1
   unplugin-dts: ^1.1.1
   use-sync-external-store: ^1.7.0
   uuid: ^14.0.2
