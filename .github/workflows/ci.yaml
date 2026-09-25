@@ -164,26 +164,37 @@ jobs:
     needs: [changes, core-image]
     if:
       needs.changes.outputs.client_py == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.client.py.yaml
+    uses: ./.github/workflows/test.py.yaml
     with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      coverage_flag: client-py
+      coverage_module: synnax
+      directory: client/py
+      type_check_dir: ./synnax
     secrets: inherit
 
   client-ts:
     needs: [changes, core-image]
     if:
       needs.changes.outputs.client_ts == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.client.ts.yaml
+    uses: ./.github/workflows/test.ts.yaml
     with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      coverage_flag: client-ts
+      directory: client/ts
+      package: client
     secrets: inherit
 
   console:
     needs: [changes, core-image]
     if: needs.changes.outputs.console == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.console.yaml
+    uses: ./.github/workflows/test.ts.yaml
     with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      coverage_flag: console
+      directory: console
+      package: console
+      test_args: -- --no-file-parallelism
     secrets: inherit
 
   copyright:
@@ -211,6 +222,16 @@ jobs:
     secrets: inherit
 
   docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: docs
+      directory: docs/site
+      package: docs
+    secrets: inherit
+
+  docs-site:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/test.docs.yaml
@@ -278,9 +299,12 @@ jobs:
     if:
       needs.changes.outputs.freighter_py == 'true' ||
       needs.changes.outputs.freighter_integration == 'true'
-    uses: ./.github/workflows/test.freighter.py.yaml
+    uses: ./.github/workflows/test.py.yaml
     with:
-      image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      coverage_flag: freighter-py
+      coverage_module: freighter
+      directory: freighter/py
+      freighter_image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
     secrets: inherit
 
   freighter-ts:
@@ -288,9 +312,12 @@ jobs:
     if:
       needs.changes.outputs.freighter_ts == 'true' ||
       needs.changes.outputs.freighter_integration == 'true'
-    uses: ./.github/workflows/test.freighter.ts.yaml
+    uses: ./.github/workflows/test.ts.yaml
     with:
-      image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      coverage_flag: freighter-ts
+      directory: freighter/ts
+      freighter_image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+      package: freighter
     secrets: inherit
 
   integration:
@@ -308,13 +335,20 @@ jobs:
   lint-integration:
     needs: changes
     if: needs.changes.outputs.lint_integration == 'true'
-    uses: ./.github/workflows/lint.integration.yaml
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: integration
+      test: false
     secrets: inherit
 
   media:
     needs: changes
     if: needs.changes.outputs.media == 'true'
-    uses: ./.github/workflows/test.media.yaml
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: x/media
+      package: media
+      test: false
     secrets: inherit
 
   oracle:
@@ -336,9 +370,13 @@ jobs:
   pluto:
     needs: [changes, core-image]
     if: needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.pluto.yaml
+    uses: ./.github/workflows/test.ts.yaml
     with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      coverage_flag: pluto
+      directory: pluto
+      package: pluto
+      test_args: -- --no-file-parallelism
     secrets: inherit
 
   protobuf:
@@ -420,6 +458,7 @@ jobs:
       - core
       - core-image
       - docs
+      - docs-site
       - drift
       - driver
       - format

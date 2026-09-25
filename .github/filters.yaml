@@ -44,7 +44,6 @@ go: &go
 
 py: &py
   - *ci
-  - .github/actions/test-python/**
   - .github/workflows/test.py.yaml
   - codecov.yaml
   - pyproject.toml
@@ -52,7 +51,6 @@ py: &py
 
 ts: &ts
   - *ci
-  - .github/actions/test-typescript/**
   - .github/workflows/test.ts.yaml
   - codecov.yaml
   - configs/**
@@ -149,7 +147,6 @@ freighter_ts: &freighter_ts
   - *alamos_ts
   - *ts
   - *x_ts
-  - .github/workflows/test.freighter.ts.yaml
   - freighter/ts/**
 
 client_ts: &client_ts
@@ -157,7 +154,6 @@ client_ts: &client_ts
   - *freighter_ts
   - *ts
   - *x_ts
-  - .github/workflows/test.client.ts.yaml
   - client/ts/**
 
 pluto: &pluto
@@ -168,7 +164,6 @@ pluto: &pluto
   - *media
   - *ts
   - *x_ts
-  - .github/workflows/test.pluto.yaml
   - pluto/**
 
 console: &console
@@ -179,7 +174,6 @@ console: &console
   - *pluto
   - *ts
   - *x_ts
-  - .github/workflows/test.console.yaml
   - console/**
 
 docs:
@@ -204,7 +198,6 @@ freighter_py: &freighter_py
   - *alamos_py
   - *py
   - *x_py
-  - .github/workflows/test.freighter.py.yaml
   - freighter/py/**
 
 client_py: &client_py
@@ -212,14 +205,12 @@ client_py: &client_py
   - *freighter_py
   - *py
   - *x_py
-  - .github/workflows/test.client.py.yaml
   - client/py/**
 
 lint_integration:
   - *client_py
   - *py
   - *x_py
-  - .github/workflows/lint.integration.yaml
   - integration/**
 
 x_cpp: &x_cpp

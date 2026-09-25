@@ -12,24 +12,55 @@ name: Test - TypeScript
 on:
   workflow_call:
     inputs: &inputs
-      coverage_flag:
-        description: The Codecov flag for this package
-        required: true
+      core_image:
+        description: Core image to test against, or empty for none
+        required: false
         type: string
+        default: ""
+      coverage_flag:
+        description: The Codecov flag, or empty to skip the upload
+        required: false
+        type: string
+        default: ""
       directory:
         description: The directory containing the package
         required: true
         type: string
+      freighter_image:
+        description:
+          Freighter integration server image to test against, or empty for none
+        required: false
+        type: string
+        default: ""
       knip:
         description: Whether to check for unused code with Knip
         required: false
         type: boolean
         default: false
+      lint:
+        description: Whether to check types, circular imports, and lint
+        required: false
+        type: boolean
+        default: true
       macos:
         description: Whether to test on macOS
         required: false
         type: boolean
         default: false
+      package:
+        description: The pnpm package name
+        required: true
+        type: string
+      test:
+        description: Whether to run the tests
+        required: false
+        type: boolean
+        default: true
+      test_args:
+        description: Extra arguments for the test command
+        required: false
+        type: string
+        default: ""
       ubuntu:
         description: Whether to test on Ubuntu
         required: false
@@ -40,10 +71,6 @@ on:
         required: false
         type: boolean
         default: false
-      package:
-        description: The pnpm package name
-        required: true
-        type: string
   workflow_dispatch:
     inputs: *inputs
 
@@ -51,9 +78,32 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     env:
+      NODE_OPTIONS: "--max_old_space_size=4096"
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    # A service with an empty image does not start, so a package that needs no server
+    # leaves both inputs empty.
+    services:
+      synnax:
+        image: ${{ inputs.core_image }}
+        env:
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
+      freighter:
+        image: ${{ inputs.freighter_image }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080
     strategy:
       fail-fast: false
       matrix:
@@ -70,11 +120,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Test TypeScript
-        uses: ./.github/actions/test-typescript
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v3
         with:
-          package: ${{ inputs.package }}
-          coverage_flag: ${{ inputs.coverage_flag }}
+          cache: true
+
+      - name: Check types
+        if: matrix.lint && inputs.lint
+        run: pnpm check-types:${{ inputs.package }}
+
+      - name: Check circular dependencies
+        if: matrix.lint && inputs.lint
+        run: pnpm madge:${{ inputs.package }}
+
+      - name: Lint
+        if: matrix.lint && inputs.lint
+        run: pnpm lint:${{ inputs.package }}
+
+      - name: Check unused code
+        if: matrix.lint && inputs.knip
+        run: pnpm knip:${{ inputs.package }}
+
+      - name: Test
+        if: inputs.test
+        run: pnpm cov:${{ inputs.package }} ${{ inputs.test_args }}
+
+      - name: Upload coverage
+        if: inputs.test && inputs.coverage_flag != ''
+        uses: codecov/codecov-action@v7
+        with:
+          fail_ci_if_error: true
+          flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
-          lint: ${{ matrix.lint }}
-          knip: ${{ matrix.lint && inputs.knip }}

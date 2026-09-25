@@ -12,23 +12,46 @@ name: Test - Python
 on:
   workflow_call:
     inputs: &inputs
+      core_image:
+        description: Core image to test against, or empty for none
+        required: false
+        type: string
+        default: ""
       coverage_flag:
-        description: The Codecov flag for this package
-        required: true
+        description: The Codecov flag, or empty to skip the upload
+        required: false
         type: string
+        default: ""
       coverage_module:
-        description: The Python module to measure coverage on
-        required: true
+        description: The module to measure coverage on, or empty for no coverage
+        required: false
         type: string
+        default: ""
       directory:
         description: The directory containing the package
         required: true
         type: string
+      freighter_image:
+        description:
+          Freighter integration server image to test against, or empty for none
+        required: false
+        type: string
+        default: ""
       macos:
         description: Whether to test on macOS
         required: false
         type: boolean
         default: false
+      test:
+        description: Whether to run the tests
+        required: false
+        type: boolean
+        default: true
+      type_check_dir:
+        description: The directory mypy checks, relative to the package
+        required: false
+        type: string
+        default: "."
       ubuntu:
         description: Whether to test on Ubuntu
         required: false
@@ -47,6 +70,28 @@ jobs:
     name: Test (${{ matrix.os }})
     env:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    # A service with an empty image does not start, so a package that needs no server
+    # leaves both inputs empty.
+    services:
+      synnax:
+        image: ${{ inputs.core_image }}
+        env:
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
+      freighter:
+        image: ${{ inputs.freighter_image }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 8080:8080
     strategy:
       fail-fast: false
       matrix:
@@ -59,15 +104,41 @@ jobs:
           - os: ubuntu-latest
             format: true
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.directory }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Test Python
-        uses: ./.github/actions/test-python
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
         with:
+          version: latest-known
+
+      - name: Lint
+        if: matrix.format
+        run: uv run ruff check .
+
+      - name: Check formatting
+        if: matrix.format
+        run: uv run ruff format --check --diff .
+
+      - name: Check types
+        run: uv run mypy ${{ inputs.type_check_dir }}
+
+      - name: Test
+        if: inputs.test && inputs.coverage_module == ''
+        run: uv run pytest
+
+      - name: Test with coverage
+        if: inputs.test && inputs.coverage_module != ''
+        run: uv run pytest --cov=${{ inputs.coverage_module }} --cov-report=xml
+
+      - name: Upload coverage
+        if: inputs.test && inputs.coverage_flag != ''
+        uses: codecov/codecov-action@v7
+        with:
+          fail_ci_if_error: true
+          flags: ${{ inputs.coverage_flag }}
           directory: ${{ inputs.directory }}
-          coverage: true
-          coverage_module: ${{ inputs.coverage_module }}
-          coverage_flag: ${{ inputs.coverage_flag }}
-          format_check: ${{ matrix.format }}
