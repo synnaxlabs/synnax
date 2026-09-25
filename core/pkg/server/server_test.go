@@ -38,4 +38,21 @@ var _ = Describe("Server", func() {
 			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
 		})
 	})
+	It("Should stop when closed before its branches begin serving", func() {
+		s := MustSucceed(server.Serve(server.Config{
+			Security:  server.SecurityConfig{Insecure: new(true)},
+			Listeners: []server.Listener{{Address: "localhost:0"}},
+			Branches: []server.Branch{
+				&server.SecureHTTPBranch{
+					MaxIdleWorkerDuration: 100 * time.Millisecond,
+				},
+			},
+		}))
+		closed := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			closed <- s.Close()
+		}()
+		Eventually(closed, 10*time.Second).Should(Receive(BeNil()))
+	})
 })
