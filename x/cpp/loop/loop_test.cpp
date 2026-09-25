@@ -54,11 +54,12 @@ void log_timer_resolution() {
 #endif
 }
 
-/// @brief Calls wait count times and returns the median period it held. A stall on a
-/// loaded runner costs the mean wall time that the timer does not catch up on. The
-/// median rejects that sample and still moves with a systematic stretch of the period.
+/// @brief Calls wait count times and returns the period it held on each call.
+/// @param wait the wait to measure.
+/// @param count how many times to call wait.
+/// @returns one period per call after the first, which primes the timer.
 template<typename Wait>
-telem::TimeSpan measure_period(Wait &wait, const int count) {
+std::vector<telem::TimeSpan> measure_periods(Wait wait, const int count) {
     std::vector<telem::TimeSpan> periods;
     periods.reserve(count - 1);
     wait();
@@ -67,15 +68,41 @@ telem::TimeSpan measure_period(Wait &wait, const int count) {
         wait();
         periods.emplace_back(hs_clock::now() - start);
     }
-    const auto mid = periods.begin() + periods.size() / 2;
-    std::nth_element(periods.begin(), mid, periods.end());
+    return periods;
+}
+
+/// @brief Reduces spans to their median. A stall on a loaded runner adds one long span
+/// and one near-zero one, which the median rejects. A mean cannot reject either: the
+/// timer re-anchors after an overrun instead of catching up on the time the stall took.
+/// @param spans the spans to reduce. Must hold at least one span.
+/// @returns the median span.
+telem::TimeSpan median(std::vector<telem::TimeSpan> spans) {
+    const auto mid = spans.begin() + spans.size() / 2;
+    std::nth_element(spans.begin(), mid, spans.end());
     return *mid;
 }
 
+/// @brief Calls wait count times and returns how far a typical period fell from target.
+/// @param wait the wait to measure.
+/// @param target the period the timer holds.
+/// @param count how many times to call wait.
+/// @returns the median distance between a held period and target.
+template<typename Wait>
+telem::TimeSpan
+measure_deviation(Wait wait, const telem::TimeSpan &target, const int count) {
+    auto periods = measure_periods(wait, count);
+    for (auto &period: periods)
+        period = period.delta(target);
+    return median(periods);
+}
+
 /// @brief Logs the rate wait holds at rate_hz and checks it against the tolerance.
+/// @param wait the wait to measure.
+/// @param rate_hz the rate the timer holds.
 template<typename Wait>
 void expect_rate(Wait wait, const int rate_hz) {
-    const double measured = 1 / measure_period(wait, rate_hz * SPAN_SECONDS).seconds();
+    const auto period = median(measure_periods(wait, rate_hz * SPAN_SECONDS));
+    const double measured = 1 / period.seconds();
     const double error = (measured - rate_hz) / rate_hz * 100;
     std::cout << std::fixed << std::setprecision(1);
     std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
@@ -83,50 +110,24 @@ void expect_rate(Wait wait, const int rate_hz) {
         << "at " << rate_hz << " Hz";
 }
 
-/// @brief it should correctly wait for an expended number of requests.
+/// @brief it should hold its period on each wait at a high rate.
 TEST(LoopTest, testWaitPrecise) {
     const auto rate = telem::HERTZ * 5000;
-    const auto TARGET_AVG_THRESHOLD = telem::MICROSECOND * 500;
     Timer timer{rate};
-    std::vector<telem::TimeSpan> elapsed;
-    constexpr int count = 5e3;
-    elapsed.reserve(count);
-    for (int i = 0; i < count; i++) {
-        auto start = std::chrono::high_resolution_clock::now();
-        timer.wait();
-        auto end = std::chrono::high_resolution_clock::now();
-        elapsed.emplace_back(end - start);
-    }
-    auto total_delta = telem::TimeSpan::ZERO();
-    for (const auto &e: elapsed) {
-        const auto delta = e.delta(rate.period());
-        total_delta += delta;
-    }
-    auto avg_delta = total_delta / count;
-    EXPECT_LT(avg_delta, TARGET_AVG_THRESHOLD);
+    const auto deviation = measure_deviation(
+        [&] { timer.wait(); },
+        rate.period(),
+        5000
+    );
+    EXPECT_LT(deviation, telem::MICROSECOND * 500);
 }
 
-/// @brief it should correctly wait for low rate requests.
+/// @brief it should hold its period on each wait at a low rate.
 TEST(LoopTest, testWaitLowRate) {
     const auto rate = telem::HERTZ * 10;
-    const auto AVG_THRESHOLD = telem::MILLISECOND * 10;
     Timer timer{rate};
-    std::vector<telem::TimeSpan> elapsed;
-    constexpr int count = 10;
-    elapsed.reserve(count);
-    for (int i = 0; i < count; i++) {
-        auto start = std::chrono::high_resolution_clock::now();
-        timer.wait();
-        auto end = std::chrono::high_resolution_clock::now();
-        elapsed.emplace_back(end - start);
-    }
-    auto total_delta = telem::TimeSpan::ZERO();
-    for (const auto &e: elapsed) {
-        const auto delta = e.delta(rate.period());
-        total_delta += delta;
-    }
-    auto avg_delta = total_delta / count;
-    EXPECT_LT(avg_delta, AVG_THRESHOLD);
+    const auto deviation = measure_deviation([&] { timer.wait(); }, rate.period(), 10);
+    EXPECT_LT(deviation, telem::MILLISECOND * 10);
 }
 
 void runBreaker(breaker::Breaker &brk) {
