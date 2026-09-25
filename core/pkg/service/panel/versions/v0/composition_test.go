@@ -33,6 +33,7 @@ var _ = Describe("Composition migrations", func() {
 	openPanelTable := func(
 		ctx context.Context, db *gorp.DB,
 	) *gorp.Table[v0.Key, v0.Panel] {
+		GinkgoHelper()
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
 				DB:         db,

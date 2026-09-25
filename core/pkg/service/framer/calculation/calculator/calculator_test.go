@@ -77,6 +77,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		calc *channel.Channel,
 		cfgs ...calculator.Config,
 	) *calculator.Calculator {
+		GinkgoHelper()
 		if indexes != nil {
 			Expect(channelWriter.CreateMany(ctx, indexes)).To(Succeed())
 		}
@@ -1139,6 +1140,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			bases *[]channel.Channel,
 			calc *channel.Channel,
 		) *calculator.Calculator {
+			GinkgoHelper()
 			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
 			res := MustSucceed(
 				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).

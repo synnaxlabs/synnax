@@ -578,6 +578,7 @@ func newChannelSet() []channel.Channel {
 }
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	node := mock.OpenNode(ctx)
 	channels = MustSucceed(node.Channel.Create(ctx, channels))
@@ -591,6 +592,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 4)
 	dist := cluster.Nodes[1]
@@ -604,6 +606,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 }
 
 func mixedScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]
@@ -622,6 +625,7 @@ func mixedScenario(ctx context.Context) scenario {
 }
 
 func freeWriterScenario(ctx context.Context) scenario {
+	GinkgoHelper()
 	channels := newChannelSet()
 	cluster := mock.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]

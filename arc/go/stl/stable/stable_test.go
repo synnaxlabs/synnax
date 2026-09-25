@@ -904,6 +904,7 @@ var _ = Describe("Variable duration", func() {
 // newTypedState builds a source -> stable_for graph where every param is t,
 // so the emitted output must preserve t's full-width value.
 func newTypedState(ctx context.Context, t types.Type) *node.ProgramState {
+	GinkgoHelper()
 	g := graph.Graph{
 		Nodes: []graph.Node{{Key: "source"}, {Key: "stable"}},
 		Inputs: map[string]msgpack.EncodedJSON{
