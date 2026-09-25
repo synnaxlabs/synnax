@@ -13,6 +13,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cockroachdb/cmux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -38,4 +39,48 @@ var _ = Describe("Server", func() {
 			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
 		})
 	})
+	It("Should stop a branch that Stop does not unblock", func() {
+		s := MustSucceed(server.Serve(server.Config{
+			Security:  server.SecurityConfig{Insecure: new(true)},
+			Listeners: []server.Listener{{Address: "localhost:0"}},
+			Branches:  []server.Branch{&stuckBranch{}},
+		}))
+		closed := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			closed <- s.Close()
+		}()
+		Eventually(closed, 10*time.Second).Should(Receive(BeNil()))
+	})
 })
+
+// stuckBranch parks in Accept and keeps its listener out of Stop's reach, which is the
+// state a Branch is in until it reaches Serve. Only the Server can free it.
+type stuckBranch struct{}
+
+var _ server.Branch = (*stuckBranch)(nil)
+
+func (*stuckBranch) Key() string { return "stuck" }
+
+func (*stuckBranch) Routing() server.BranchRouting {
+	return server.BranchRouting{
+		Policy:   server.RoutingPolicyServeAlwaysPreferSecure,
+		Matchers: []cmux.Matcher{cmux.Any()},
+	}
+}
+
+func (*stuckBranch) Init(server.BranchContext) {}
+
+func (*stuckBranch) Serve(ctx server.BranchContext) error {
+	for {
+		conn, err := ctx.Lis.Accept()
+		if err != nil {
+			return err
+		}
+		if err = conn.Close(); err != nil {
+			return err
+		}
+	}
+}
+
+func (*stuckBranch) Stop() {}
