@@ -161,10 +161,10 @@ genrule(
             # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows
             # Use cargo rustc to explicitly build as staticlib
             cd crates/c-api
-            # gc carries the C API's GC surface and gc-null the implementation.
-            # Both are needed: wasmtime 49 defines StorageType's constructor
-            # outside the WASMTIME_FEATURE_GC guard that declares the class, so
-            # the headers do not compile with GC off.
+            # gc carries the C API's GC surface and gc-null the implementation. Both are
+            # needed: wasmtime 49 defines StorageType's constructor outside the
+            # WASMTIME_FEATURE_GC guard that declares the class, so the headers do not
+            # compile with GC off.
             cargo rustc --release --target x86_64-pc-windows-msvc \
                 --no-default-features \
                 --features wat,wasi,async,cranelift,threads,gc,gc-null \
