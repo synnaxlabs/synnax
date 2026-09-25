@@ -221,9 +221,6 @@ struct PIDTestParams {
     // Custom jitter function that takes cycle count and returns time offset
     std::function<x::telem::TimeSpan(int)> jitter_func;
     int n_cycles;
-    /// @brief set when the jitter starts part way through the run, so the late
-    /// cycles carry noise the early ones never saw and the two cannot be compared.
-    bool steady_state_disturbed = false;
 };
 
 class HardwareTimedSampleClockPIDTest : public testing::TestWithParam<PIDTestParams> {
@@ -287,39 +284,25 @@ TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
     for (size_t i = 0; i < timing_errors.size(); ++i)
         timing_errors_ns[i] = timing_errors[i].nanoseconds();
 
-    // Analyze results
+    // Analyze the steady state, taken as the last fifth of the run.
     const auto window = static_cast<std::ptrdiff_t>(n_cycles / 5);
-    const auto early_avg_error = std::accumulate(
-                                     timing_errors_ns.begin(),
-                                     timing_errors_ns.begin() + window,
-                                     0LL
-                                 ) /
-                                 window;
-    const auto late_avg_error = std::accumulate(
-                                    timing_errors_ns.end() - window,
-                                    timing_errors_ns.end(),
-                                    0LL
-                                ) /
-                                window;
-
-    // 1. Check if errors converge (later errors should be smaller). A run that
-    // gains jitter part way through settles around that noise instead, so the
-    // two windows measure different things.
-    if (!params.steady_state_disturbed)
-        EXPECT_LE(
-            x::telem::TimeSpan(late_avg_error).abs(),
-            x::telem::TimeSpan(early_avg_error).abs()
-        );
-
-    // 2. Check maximum error in steady state
-    const auto max_steady_error = x::telem::TimeSpan(*std::max_element(
+    const auto avg_error = x::telem::TimeSpan(
+        std::accumulate(timing_errors_ns.end() - window, timing_errors_ns.end(), 0LL) /
+        window
+    );
+    const auto max_error = x::telem::TimeSpan(*std::max_element(
         timing_errors_ns.end() - window,
         timing_errors_ns.end(),
         [](const long long a, const long long b) { return std::abs(a) < std::abs(b); }
     ));
 
-    // Maximum steady-state error should be reasonable (e.g., < 5% of period)
-    EXPECT_LT(max_steady_error.abs(), params.stream_rate.period() * 0.05);
+    // 1. The controller should work off the systematic offset, leaving a residual far
+    //    below it. Jitter averages out, so this holds even when it arrives part way
+    //    through the run. An uncorrected clock leaves the whole offset behind.
+    EXPECT_LT(avg_error.abs(), params.constant_offset * 0.05);
+
+    // 2. No single cycle should stray far, even with jitter riding on the offset.
+    EXPECT_LT(max_error.abs(), params.stream_rate.period() * 0.05);
 }
 
 // Define test parameters
@@ -420,8 +403,7 @@ INSTANTIATE_TEST_SUITE_P(
                     if (cycle < 10000) return x::telem::TimeSpan(0);
                     return x::telem::TimeSpan(dist(gen));
                 },
-            .n_cycles = 15000,
-            .steady_state_disturbed = true
+            .n_cycles = 15000
         }
     )
 );
