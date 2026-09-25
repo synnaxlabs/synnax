@@ -1,8 +1,3 @@
-# Disable Bzlmod (Bazel Modules) We need the last flag to avoid issues with
-# rules_proto_grpc See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390
-# for info
-common --define=protobuf_allow_msvc=true
-
 # The version stamped into the Driver; release builds override it.
 build --define=SYNNAX_DRIVER_VERSION=0.0.0
 
@@ -23,11 +18,9 @@ common --repo_contents_cache_gc_max_age=0
 
 # The remote cache can return an action-cache hit whose output blobs have been evicted
 # from the CAS, so a later action fails to fetch them ("Failed to fetch blobs because of
-# a remote cache error"). Retry the build when that happens, and download all outputs
-# locally so downstream actions read inputs from disk instead of re-fetching evicted
-# blobs.
-build --experimental_remote_cache_eviction_retries=10
-build --remote_download_all
+# a remote cache error"). Rewinding re-runs the actions that produced the lost blobs
+# instead of failing, which keeps Build without the Bytes on.
+build --rewind_lost_inputs
 
 # Use OpenSSl instead of BoringSSL for grpc
 build --@grpc//third_party:grpc_use_openssl=true
@@ -38,11 +31,9 @@ build --dynamic_mode=off
 # ===== Platform-Specific Compiler Settings =====
 
 # macOS (Apple Silicon)
-build:macos --cpu=darwin_arm64
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
-build:macos --copt=-Wreorder-init-list
 # Hide symbols to prevent collisions with libraries loaded dynamically at runtime
 # (LabJack bundles an incompatible legacy gRPC version).
 build:macos --copt=-fvisibility=hidden
@@ -81,8 +72,7 @@ build:windows --host_cxxopt=/std:c++latest
 # GetUserObjectInformationW, MessageBoxW) that must be linked explicitly on Windows.
 build:windows --linkopt=user32.lib
 build:windows --copt=/Zc:preprocessor      # Enable C++20 conformant preprocessor (for __VA_OPT__)
-build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
-build:windows --cxxopt=/W3   # Same for C++
+build:windows --copt=/W3  # warning level 3; -Wall on MSVC is /W4 plus extras
 # Warnings are errors for C and C++ only. MASM would apply /WX to the option warnings it
 # emits for every cl flag it does not recognise, failing on assembly with no diagnostic.
 build:windows --cxxopt=/WX
@@ -148,7 +138,6 @@ build:windows --copt=/wd4996  # disables warning C4996 (deprecated declarations)
 # Static CRT linking — eliminates dependency on VC++ Redistributable DLLs (MSVCP140.dll,
 # VCRUNTIME140.dll) which cause 0xc0000005 crashes when outdated
 build:windows --copt=/MT
-build:windows --cxxopt=/MT
 
 # ===== Warning Suppression for External Dependencies =====
 
@@ -157,18 +146,14 @@ build --output_filter=^//
 
 # Suppress warnings from external dependencies (Bazel modules and vendor/)
 build:macos --per_file_copt=external/.*@-w
-build:macos --per_file_copt=.*\\.cache/bazel/.*@-w
 build:macos --per_file_copt=vendor/.*@-w
 build:linux --per_file_copt=external/.*@-w
-build:linux --per_file_copt=.*\\.cache/bazel/.*@-w
 build:linux --per_file_copt=vendor/.*@-w
 
 # Keep strict warnings for workspace code. Windows is deliberately excluded: it uses /W3
 # above, and MASM reads -Wall as /W followed by a non-numeric level (A1013).
 build:macos --copt=-Wall
-build:macos --cxxopt=-Wall
 build:linux --copt=-Wall
-build:linux --cxxopt=-Wall
 
 # ===== Optimization Flags (used with --config=opt) =====
 #
