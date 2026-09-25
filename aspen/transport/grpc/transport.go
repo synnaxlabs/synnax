@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	falamos "github.com/synnaxlabs/freighter/alamos"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -352,7 +353,12 @@ func (t *Transport) Serve(lis net.Listener) error {
 	sCtx, cancel := signal.WithCancel(context.Background())
 	t.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(
-		func(context.Context) error { return t.server.Serve(lis) },
+		func(context.Context) error {
+			defer t.server.Stop()
+			// Close stops the server, so a Serve that starts after it returns
+			// ErrServerStopped instead of nil.
+			return errors.Skip(t.server.Serve(lis), grpc.ErrServerStopped)
+		},
 		signal.WithRetryOnPanic(),
 		signal.WithBaseRetryInterval(200*time.Millisecond),
 		signal.WithRetryScale(1.05),
