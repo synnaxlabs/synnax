@@ -474,6 +474,7 @@ jobs:
       - aspen
       - buildifier
       - cesium
+      - changes
       - client-cpp
       - client-py
       - client-ts

@@ -38,7 +38,6 @@ while [ $# -gt 0 ]; do
 done
 case "$ENDPOINT" in
     */pulls/*/reviews*) FILE="$FAKE_GH_DIR/reviews.json" ;;
-    */pulls/*/commits*) FILE="$FAKE_GH_DIR/commits.json" ;;
     */commits/*/check-runs*)
         SHA=${ENDPOINT#*/commits/}
         FILE="$FAKE_GH_DIR/check-runs-${SHA%%/*}.json"
@@ -55,7 +54,7 @@ jq -r "$EXPR" "$FILE"
 
 
 class Harness:
-    """A fake gh serving one pull request's labels, commits, checks, and reviews."""
+    """A fake gh serving one pull request's labels, head checks, and reviews."""
 
     def __init__(self, path: Path) -> None:
         self.data = path / "gh"
@@ -74,16 +73,15 @@ class Harness:
         (self.data / "check-runs-none.json").write_text('{"check_runs": []}')
         self.pull()
         self.reviews()
-        self.commits("head")
         self.check_runs("head", ("Greptile Review", "success"))
 
     def pull(self, *labels: str, author: str = "author") -> None:
-        payload = {"user": {"login": author}, "labels": [{"name": l} for l in labels]}
+        payload = {
+            "user": {"login": author},
+            "head": {"sha": "head"},
+            "labels": [{"name": l} for l in labels],
+        }
         (self.data / "pull.json").write_text(json.dumps(payload))
-
-    def commits(self, *shas: str) -> None:
-        """Sets the pull request's commits, oldest first."""
-        (self.data / "commits.json").write_text(json.dumps([{"sha": s} for s in shas]))
 
     def check_runs(self, sha: str, *runs: tuple[str, str | None]) -> None:
         """Sets the (name, conclusion) check runs a commit reports."""
@@ -151,7 +149,7 @@ class TestGreptile:
         harness.check_runs("head")
         state, description = harness.run()
         assert state == "pending"
-        assert description == "review/bot: waiting for the Greptile review"
+        assert description == "review/bot: waiting for the Greptile review of the head"
 
     def test_pends_while_the_review_runs(self, harness: Harness) -> None:
         harness.pull("review/bot")
@@ -163,11 +161,11 @@ class TestGreptile:
         harness.check_runs("head", ("Check Formatting", "success"))
         assert harness.run()[0] == "pending"
 
-    def test_accepts_a_review_on_an_earlier_commit(self, harness: Harness) -> None:
+    def test_rejects_a_review_of_an_earlier_commit(self, harness: Harness) -> None:
         harness.pull("review/bot")
-        harness.commits("change", "merge")
-        harness.check_runs("change", ("Greptile Review", "success"))
-        assert harness.run()[0] == "success"
+        harness.check_runs("head")
+        harness.check_runs("earlier", ("Greptile Review", "success"))
+        assert harness.run()[0] == "pending"
 
     def test_a_missing_tier_label_outranks_it(self, harness: Harness) -> None:
         harness.pull()

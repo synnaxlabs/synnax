@@ -27,29 +27,10 @@ report() {
     exit 0
 }
 
-# Prints the id of a successful Greptile check run on the pull request, or nothing.
-# Greptile skips a push that adds no new changes, such as a merge from the base branch,
-# so its check run can sit on an ancestor of the head rather than on the head itself.
-# The walk over the commits stops at the first success.
-greptile_review() {
-    local commits sha found
-    commits=$(gh api "repos/${REPO}/pulls/${PR}/commits?per_page=100" --paginate \
-        --jq '.[].sha')
-    while read -r sha; do
-        found=$(gh api "repos/${REPO}/commits/${sha}/check-runs?per_page=100" \
-            --paginate --jq '.check_runs[]
-                | select(.name == "Greptile Review" and .conclusion == "success")
-                | .id')
-        if [ -n "$found" ]; then
-            echo "$found"
-            return 0
-        fi
-    done <<< "$commits"
-}
-
 PULL=$(gh api "repos/${REPO}/pulls/${PR}" \
-    --jq '{author: .user.login, labels: [.labels[].name]}')
+    --jq '{author: .user.login, head: .head.sha, labels: [.labels[].name]}')
 AUTHOR=$(jq -r .author <<< "$PULL")
+HEAD=$(jq -r .head <<< "$PULL")
 LABELS=$(jq -r '.labels[]' <<< "$PULL")
 
 FOUND=()
@@ -63,9 +44,12 @@ elif [ "${#FOUND[@]}" -gt 1 ]; then
 fi
 TIER=${FOUND[0]#review/}
 
-REVIEW=$(greptile_review)
+# Only a review of the head counts: a push after the review needs a new one.
+REVIEW=$(gh api "repos/${REPO}/commits/${HEAD}/check-runs?per_page=100" --paginate \
+    --jq '.check_runs[]
+        | select(.name == "Greptile Review" and .conclusion == "success") | .id')
 if [ -z "$REVIEW" ]; then
-    report pending "review/${TIER}: waiting for the Greptile review"
+    report pending "review/${TIER}: waiting for the Greptile review of the head"
 fi
 
 if [ "$TIER" = bot ]; then report success "review/bot: no human approval required"; fi
