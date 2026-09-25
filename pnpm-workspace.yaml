@@ -104,10 +104,10 @@ catalog:
   '@types/node': ^24.13.6
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
-  '@types/react': ^19.2.18
+  '@types/react': ^19.3.0
   '@types/react-color': ^3.0.13
-  '@types/react-dom': ^19.2.7
-  '@types/use-sync-external-store': ^1.5.0
+  '@types/react-dom': ^19.3.0
+  '@types/use-sync-external-store': ^1.7.0
   '@types/webgl2': ^0.0.12
   '@types/ws': ^8.18.1
   '@vitejs/plugin-react': ^6.1.1
@@ -148,9 +148,9 @@ catalog:
   # role_engineer_permissions, and role_operator_permissions integration tests on both
   # platforms.
   proxy-memoize: ^2.0.6
-  react: ^19.2.8
+  react: ^19.3.0
   react-color: ^2.19.3
-  react-dom: ^19.2.8
+  react-dom: ^19.3.0
   react-icons: ^5.7.0
   react-redux: ^9.3.0
   remark: ^15.0.1
@@ -166,7 +166,7 @@ catalog:
   typescript: ^7.0.2
   typescript-eslint: ^8.69.0
   unplugin-dts: ^1.1.1
-  use-sync-external-store: ^1.6.0
+  use-sync-external-store: ^1.7.0
   uuid: ^14.0.2
   vite: ^8.3.0
   vitest: ^4.1.10
