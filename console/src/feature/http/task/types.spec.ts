@@ -114,8 +114,7 @@ describe("HTTP Task Types", () => {
         rate: 0,
         endpoints: [],
       };
-      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
     it("should reject a negative rate", () => {
@@ -124,8 +123,7 @@ describe("HTTP Task Types", () => {
         rate: -1,
         endpoints: [],
       };
-      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
     it("should validate statusData as running/message object", () => {
@@ -187,8 +185,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
     it("should validate a field with optional timeFormat", () => {
@@ -235,8 +232,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.READ_SCHEMAS.config.validate(config)).toBe(false);
     });
 
     it("should validate a field with v1 enum values", () => {
@@ -307,8 +303,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
   });
 
@@ -333,8 +328,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.READ_SCHEMAS.config.validate(config)).toBe(false);
     });
   });
 
@@ -373,8 +367,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
     it("should reject duplicate query parameter names on an endpoint at deploy", () => {
@@ -394,8 +387,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployReadConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
     it("should not migrate a v0 header record on an endpoint", () => {
@@ -413,8 +405,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.READ_SCHEMAS.config.validate(config)).toBe(false);
     });
 
     it("should not migrate a v0 query param record on an endpoint", () => {
@@ -431,8 +422,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.READ_SCHEMAS.config.validate(config)).toBe(false);
     });
   });
 
@@ -494,8 +484,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should default disabled to false", () => {
@@ -554,8 +543,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should reject duplicate query parameters on a write endpoint at deploy", () => {
@@ -575,8 +563,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
   });
 
@@ -613,8 +600,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
     });
 
     it("should validate a channel field with enum values", () => {
@@ -680,8 +666,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should validate a channel field with timeFormat", () => {
@@ -729,8 +714,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should allow bare primitive pointer with no fields", () => {
@@ -771,8 +755,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should reject duplicate pointers between fields", () => {
@@ -803,8 +786,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should reject a static field with empty pointer", () => {
@@ -828,8 +810,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
 
     it("should reject a generated field with empty pointer", () => {
@@ -845,8 +826,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.deployWriteConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
   });
 
@@ -945,8 +925,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
     });
   });
 
@@ -966,8 +945,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
     });
 
     it("should not migrate a v0 query param record on a write endpoint", () => {
@@ -984,8 +962,7 @@ describe("HTTP Task Types", () => {
           },
         ],
       };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
     });
   });
 });

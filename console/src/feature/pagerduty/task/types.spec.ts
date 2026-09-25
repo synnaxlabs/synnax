@@ -45,8 +45,7 @@ describe("PagerDuty Alert Task Types", () => {
         routingKey: "tooshort",
         alerts: [{ key: "a", status: "s", disabled: false }],
       };
-      const result = PagerDuty.Task.deployAlertTaskConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(PagerDuty.Task.deployAlertTaskConfigZ.validate(config)).toBe(false);
     });
 
     it("should reject an empty routing key", () => {
@@ -89,8 +88,7 @@ describe("PagerDuty Alert Task Types", () => {
           { key: "b", status: "s2", disabled: true },
         ],
       };
-      const result = PagerDuty.Task.deployAlertTaskConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(PagerDuty.Task.deployAlertTaskConfigZ.validate(config)).toBe(false);
     });
   });
 
@@ -100,8 +98,7 @@ describe("PagerDuty Alert Task Types", () => {
         routingKey: "e".repeat(32),
         alerts: [{ key: "a", status: "", disabled: false }],
       };
-      const result = PagerDuty.Task.deployAlertTaskConfigZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(PagerDuty.Task.deployAlertTaskConfigZ.validate(config)).toBe(false);
     });
 
     it("should default optional fields", () => {

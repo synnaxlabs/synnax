@@ -59,8 +59,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should validate a v1 config with basic auth", () => {
@@ -93,8 +92,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should reject basic auth with empty password", () => {
@@ -107,8 +105,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should validate a v1 config with api_key header auth", () => {
@@ -147,8 +144,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should validate a v1 config with api_key query_param auth", () => {
@@ -192,8 +188,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should reject a negative timeout", () => {
@@ -205,8 +200,7 @@ describe("HTTP Device Properties", () => {
         read: {},
         version: 1,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should default max concurrent requests to 6 when absent", () => {
@@ -236,8 +230,7 @@ describe("HTTP Device Properties", () => {
         ...HTTP.Device.ZERO_PROPERTIES,
         maxConcurrentRequests: 0,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should reject fractional max concurrent requests", () => {
@@ -245,8 +238,7 @@ describe("HTTP Device Properties", () => {
         ...HTTP.Device.ZERO_PROPERTIES,
         maxConcurrentRequests: 2.5,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should reject negative max concurrent requests", () => {
@@ -254,8 +246,7 @@ describe("HTTP Device Properties", () => {
         ...HTTP.Device.ZERO_PROPERTIES,
         maxConcurrentRequests: -1,
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should reject a non-numeric max concurrent requests", () => {
@@ -263,8 +254,7 @@ describe("HTTP Device Properties", () => {
         ...HTTP.Device.ZERO_PROPERTIES,
         maxConcurrentRequests: "6",
       };
-      const result = HTTP.Device.propertiesZ.safeParse(config);
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.propertiesZ.validate(config)).toBe(false);
     });
 
     it("should accept a max concurrent requests of 1", () => {
@@ -744,8 +734,9 @@ describe("HTTP Device Properties", () => {
     });
 
     it("should not migrate a v0 query param record", () => {
-      const result = HTTP.Device.queryParamsZ.safeParse({ limit: "10", offset: "20" });
-      expect(result.success).toBe(false);
+      expect(HTTP.Device.queryParamsZ.validate({ limit: "10", offset: "20" })).toBe(
+        false,
+      );
     });
 
     it("should reject duplicate parameter names", () => {
