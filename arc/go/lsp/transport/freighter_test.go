@@ -40,6 +40,7 @@ var _ = Describe("Freighter Transport", func() {
 	)
 
 	sendRequest := func(id int, method string, params any) {
+		GinkgoHelper()
 		req := map[string]any{
 			"jsonrpc": "2.0",
 			"id":      id,
@@ -55,6 +56,7 @@ var _ = Describe("Freighter Transport", func() {
 	}
 
 	sendNotification := func(method string, params any) {
+		GinkgoHelper()
 		req := map[string]any{
 			"jsonrpc": "2.0",
 			"method":  method,
@@ -69,6 +71,7 @@ var _ = Describe("Freighter Transport", func() {
 	}
 
 	receiveResponse := func(id int) map[string]any {
+		GinkgoHelper()
 		for {
 			msg := MustSucceed(clientStream.Receive())
 			var response map[string]any
@@ -504,6 +507,7 @@ var _ = Describe("Transport Failure Modes", func() {
 		*mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
 		chan error,
 	) {
+		GinkgoHelper()
 		server := MustSucceed(lsp.New(lsp.Config{
 			Instrumentation: alamos.New("failure"),
 			NewRoot:         func() *symbol.Symbol { return NewRoot(nil) },

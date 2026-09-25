@@ -186,5 +186,6 @@ func grantOn(
 }
 
 func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }

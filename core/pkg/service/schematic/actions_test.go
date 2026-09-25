@@ -25,6 +25,7 @@ import (
 
 // tankCfg constructs a typed tank element config. hex is optional.
 func tankCfg(label, hex string) schematic.ElementConfig {
+	GinkgoHelper()
 	cfg := schematic.TankElementConfig{
 		Label: schematic.LabelConfig{Label: label},
 	}
@@ -36,6 +37,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 
 // pipeCfg constructs a typed pipe edge config. hex is optional.
 func pipeCfg(hex string) schematic.ElementConfig {
+	GinkgoHelper()
 	cfg := schematic.SegmentedEdgeConfig{}
 	if hex != "" {
 		cfg.Color = new(MustSucceed(color.FromHex(hex)))
@@ -419,6 +421,7 @@ var _ = Describe("Reducer", func() {
 		})
 		It("Should converge to the same configs regardless of removal order", func() {
 			build := func() schematic.Schematic {
+				GinkgoHelper()
 				return schematic.Schematic{
 					Nodes: []schematic.Node{node("g1", 0, 0), node("n1", 0, 0)},
 					Configs: map[string]schematic.ElementConfig{
