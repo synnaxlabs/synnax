@@ -29,48 +29,50 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # One output per filter in .github/filters.yaml, true when the pull request or merge
-  # group touched one of its paths. Every filter lists this file, so a change here runs
-  # everything.
+  # One output per key in .github/filters.yaml, true when the pull request or merge
+  # group touched one of its paths.
   changes:
     runs-on: ubuntu-latest
     outputs:
-      oracle_check: ${{ steps.filter.outputs.oracle_check }}
-      buildifier: ${{ steps.filter.outputs.buildifier }}
-      lint_integration: ${{ steps.filter.outputs.lint_integration }}
-      docs: ${{ steps.filter.outputs.docs }}
-      media: ${{ steps.filter.outputs.media }}
-      scripts: ${{ steps.filter.outputs.scripts }}
-      protobuf: ${{ steps.filter.outputs.protobuf }}
       alamos_go: ${{ steps.filter.outputs.alamos_go }}
-      arc_go: ${{ steps.filter.outputs.arc_go }}
-      aspen: ${{ steps.filter.outputs.aspen }}
-      cesium: ${{ steps.filter.outputs.cesium }}
-      core: ${{ steps.filter.outputs.core }}
-      freighter_go: ${{ steps.filter.outputs.freighter_go }}
-      freighter_integration: ${{ steps.filter.outputs.freighter_integration }}
-      oracle: ${{ steps.filter.outputs.oracle }}
-      x_go: ${{ steps.filter.outputs.x_go }}
       alamos_py: ${{ steps.filter.outputs.alamos_py }}
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
-      x_py: ${{ steps.filter.outputs.x_py }}
-      x_ts: ${{ steps.filter.outputs.x_ts }}
-      drift: ${{ steps.filter.outputs.drift }}
-      console: ${{ steps.filter.outputs.console }}
-      pluto: ${{ steps.filter.outputs.pluto }}
+      arc_cpp: ${{ steps.filter.outputs.arc_cpp }}
+      arc_go: ${{ steps.filter.outputs.arc_go }}
+      aspen: ${{ steps.filter.outputs.aspen }}
+      buildifier: ${{ steps.filter.outputs.buildifier }}
+      cesium: ${{ steps.filter.outputs.cesium }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
       client_py: ${{ steps.filter.outputs.client_py }}
       client_ts: ${{ steps.filter.outputs.client_ts }}
+      console: ${{ steps.filter.outputs.console }}
+      console_build: ${{ steps.filter.outputs.console_build }}
+      core: ${{ steps.filter.outputs.core }}
+      core_build: ${{ steps.filter.outputs.core_build }}
+      core_image: ${{ steps.filter.outputs.core_image }}
+      docs: ${{ steps.filter.outputs.docs }}
+      drift: ${{ steps.filter.outputs.drift }}
+      driver: ${{ steps.filter.outputs.driver }}
+      driver_build: ${{ steps.filter.outputs.driver_build }}
+      freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
+      freighter_go: ${{ steps.filter.outputs.freighter_go }}
+      freighter_image: ${{ steps.filter.outputs.freighter_image }}
+      freighter_integration: ${{ steps.filter.outputs.freighter_integration }}
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
-      arc: ${{ steps.filter.outputs.arc }}
-      driver: ${{ steps.filter.outputs.driver }}
-      x_cpp: ${{ steps.filter.outputs.x_cpp }}
-      freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
-      soem: ${{ steps.filter.outputs.soem }}
       integration: ${{ steps.filter.outputs.integration }}
-      core_image: ${{ steps.filter.outputs.core_image }}
-      freighter_image: ${{ steps.filter.outputs.freighter_image }}
+      lint_integration: ${{ steps.filter.outputs.lint_integration }}
+      media: ${{ steps.filter.outputs.media }}
+      oracle: ${{ steps.filter.outputs.oracle }}
+      oracle_check: ${{ steps.filter.outputs.oracle_check }}
+      pluto: ${{ steps.filter.outputs.pluto }}
+      protobuf: ${{ steps.filter.outputs.protobuf }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+      soem: ${{ steps.filter.outputs.soem }}
+      x_cpp: ${{ steps.filter.outputs.x_cpp }}
+      x_go: ${{ steps.filter.outputs.x_go }}
+      x_py: ${{ steps.filter.outputs.x_py }}
+      x_ts: ${{ steps.filter.outputs.x_ts }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -78,88 +80,41 @@ jobs:
         with:
           filters: .github/filters.yaml
 
-  format:
-    uses: ./.github/workflows/test.format.yaml
-
-  copyright:
-    uses: ./.github/workflows/test.copyright.yaml
-
-  versions:
-    uses: ./.github/workflows/test.updates.yaml
-
-  core-image:
-    needs: changes
-    if: needs.changes.outputs.core_image == 'true'
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/build.docker.yaml
-    with:
-      module: core
-      tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-    secrets: inherit
-
-  freighter-image:
-    needs: changes
-    if: needs.changes.outputs.freighter_image == 'true'
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/build.docker.yaml
-    with:
-      module: freighter/integration
-      tag: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
-    secrets: inherit
-
-  oracle-check:
-    needs: changes
-    if: needs.changes.outputs.oracle_check == 'true'
-    uses: ./.github/workflows/check.oracle.yaml
-    secrets: inherit
-
-  buildifier:
-    needs: changes
-    if: needs.changes.outputs.buildifier == 'true'
-    uses: ./.github/workflows/lint.buildifier.yaml
-    secrets: inherit
-
-  lint-integration:
-    needs: changes
-    if: needs.changes.outputs.lint_integration == 'true'
-    uses: ./.github/workflows/lint.integration.yaml
-    secrets: inherit
-
-  docs:
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
-    uses: ./.github/workflows/test.docs.yaml
-    secrets: inherit
-
-  media:
-    needs: changes
-    if: needs.changes.outputs.media == 'true'
-    uses: ./.github/workflows/test.media.yaml
-    secrets: inherit
-
-  scripts:
-    needs: changes
-    if: needs.changes.outputs.scripts == 'true'
-    uses: ./.github/workflows/test.scripts.yaml
-    secrets: inherit
-
-  protobuf:
-    needs: changes
-    if: needs.changes.outputs.protobuf == 'true'
-    uses: ./.github/workflows/test.protobuf.yaml
-    secrets: inherit
-
   alamos-go:
     needs: changes
     if: needs.changes.outputs.alamos_go == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
-      directory: alamos/go
       coverage_flag: alamos-go
+      directory: alamos/go
+    secrets: inherit
+
+  alamos-py:
+    needs: changes
+    if: needs.changes.outputs.alamos_py == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      coverage_flag: alamos-py
+      coverage_module: alamos
+      directory: alamos/py
+    secrets: inherit
+
+  alamos-ts:
+    needs: changes
+    if: needs.changes.outputs.alamos_ts == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: alamos-ts
+      directory: alamos/ts
+      package: alamos
+    secrets: inherit
+
+  arc-cpp:
+    needs: [changes, core-image]
+    if: needs.changes.outputs.arc_cpp == 'true' || needs.changes.outputs.core == 'true'
+    uses: ./.github/workflows/test.arc.yaml
+    with:
+      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
     secrets: inherit
 
   arc-go:
@@ -167,8 +122,8 @@ jobs:
     if: needs.changes.outputs.arc_go == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
-      directory: arc/go
       coverage_flag: arc-go
+      directory: arc/go
       install_antlr4: true
     secrets: inherit
 
@@ -177,8 +132,14 @@ jobs:
     if: needs.changes.outputs.aspen == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
-      directory: aspen
       coverage_flag: aspen
+      directory: aspen
+    secrets: inherit
+
+  buildifier:
+    needs: changes
+    if: needs.changes.outputs.buildifier == 'true'
+    uses: ./.github/workflows/lint.buildifier.yaml
     secrets: inherit
 
   cesium:
@@ -186,116 +147,8 @@ jobs:
     if: needs.changes.outputs.cesium == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
-      directory: cesium
       coverage_flag: cesium
-    secrets: inherit
-
-  core:
-    needs: changes
-    if: needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.go.yaml
-    with:
-      directory: core
-      coverage_flag: core
-    secrets: inherit
-
-  freighter-go:
-    needs: changes
-    if: needs.changes.outputs.freighter_go == 'true'
-    uses: ./.github/workflows/test.go.yaml
-    with:
-      directory: freighter/go
-      coverage_flag: freighter-go
-    secrets: inherit
-
-  freighter-integration:
-    needs: changes
-    if: needs.changes.outputs.freighter_integration == 'true'
-    uses: ./.github/workflows/test.go.yaml
-    with:
-      directory: freighter/integration
-      coverage_flag: freighter-integration
-    secrets: inherit
-
-  oracle:
-    needs: changes
-    if: needs.changes.outputs.oracle == 'true'
-    uses: ./.github/workflows/test.go.yaml
-    with:
-      directory: oracle
-      coverage_flag: oracle
-      install_antlr4: true
-    secrets: inherit
-
-  x-go:
-    needs: changes
-    if: needs.changes.outputs.x_go == 'true'
-    uses: ./.github/workflows/test.go.yaml
-    with:
-      directory: x/go
-      coverage_flag: x-go
-    secrets: inherit
-
-  alamos-py:
-    needs: changes
-    if: needs.changes.outputs.alamos_py == 'true'
-    uses: ./.github/workflows/test.alamos.py.yaml
-    secrets: inherit
-
-  alamos-ts:
-    needs: changes
-    if: needs.changes.outputs.alamos_ts == 'true'
-    uses: ./.github/workflows/test.alamos.ts.yaml
-    secrets: inherit
-
-  x-py:
-    needs: changes
-    if: needs.changes.outputs.x_py == 'true'
-    uses: ./.github/workflows/test.x.py.yaml
-    secrets: inherit
-
-  x-ts:
-    needs: changes
-    if: needs.changes.outputs.x_ts == 'true'
-    uses: ./.github/workflows/test.x.ts.yaml
-    secrets: inherit
-
-  drift:
-    needs: changes
-    if: needs.changes.outputs.drift == 'true'
-    uses: ./.github/workflows/test.drift.yaml
-    secrets: inherit
-
-  console:
-    needs: [changes, core-image]
-    if: needs.changes.outputs.console == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.console.yaml
-    with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-    secrets: inherit
-
-  pluto:
-    needs: [changes, core-image]
-    if: needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.pluto.yaml
-    with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-    secrets: inherit
-
-  driver:
-    needs: [changes, core-image]
-    if: needs.changes.outputs.driver == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.driver.yaml
-    with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-    secrets: inherit
-
-  arc:
-    needs: [changes, core-image]
-    if: needs.changes.outputs.arc == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.arc.yaml
-    with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      directory: cesium
     secrets: inherit
 
   client-cpp:
@@ -325,6 +178,101 @@ jobs:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
     secrets: inherit
 
+  console:
+    needs: [changes, core-image]
+    if: needs.changes.outputs.console == 'true' || needs.changes.outputs.core == 'true'
+    uses: ./.github/workflows/test.console.yaml
+    with:
+      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+    secrets: inherit
+
+  copyright:
+    uses: ./.github/workflows/test.copyright.yaml
+
+  core:
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: core
+      directory: core
+    secrets: inherit
+
+  core-image:
+    needs: changes
+    if: needs.changes.outputs.core_image == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.docker.yaml
+    with:
+      module: core
+      tag: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+    secrets: inherit
+
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    uses: ./.github/workflows/test.docs.yaml
+    secrets: inherit
+
+  drift:
+    needs: changes
+    if: needs.changes.outputs.drift == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: drift
+      directory: drift
+      package: drift
+    secrets: inherit
+
+  driver:
+    needs: [changes, core-image]
+    if: needs.changes.outputs.driver == 'true' || needs.changes.outputs.core == 'true'
+    uses: ./.github/workflows/test.driver.yaml
+    with:
+      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+    secrets: inherit
+
+  format:
+    uses: ./.github/workflows/test.format.yaml
+
+  freighter-cpp:
+    needs: changes
+    if: needs.changes.outputs.freighter_cpp == 'true'
+    uses: ./.github/workflows/test.freighter.cpp.yaml
+    secrets: inherit
+
+  freighter-go:
+    needs: changes
+    if: needs.changes.outputs.freighter_go == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: freighter-go
+      directory: freighter/go
+    secrets: inherit
+
+  freighter-image:
+    needs: changes
+    if: needs.changes.outputs.freighter_image == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.docker.yaml
+    with:
+      module: freighter/integration
+      tag: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
+    secrets: inherit
+
+  freighter-integration:
+    needs: changes
+    if: needs.changes.outputs.freighter_integration == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: freighter-integration
+      directory: freighter/integration
+    secrets: inherit
+
   freighter-py:
     needs: [changes, freighter-image]
     if:
@@ -345,24 +293,6 @@ jobs:
       image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
     secrets: inherit
 
-  x-cpp:
-    needs: changes
-    if: needs.changes.outputs.x_cpp == 'true'
-    uses: ./.github/workflows/test.x.cpp.yaml
-    secrets: inherit
-
-  freighter-cpp:
-    needs: changes
-    if: needs.changes.outputs.freighter_cpp == 'true'
-    uses: ./.github/workflows/test.freighter.cpp.yaml
-    secrets: inherit
-
-  soem:
-    needs: changes
-    if: needs.changes.outputs.soem == 'true'
-    uses: ./.github/workflows/test.soem.yaml
-    secrets: inherit
-
   integration:
     needs: changes
     if:
@@ -375,51 +305,144 @@ jobs:
     uses: ./.github/workflows/test.integration.yaml
     secrets: inherit
 
-  # Runs even when a dependency failed or was skipped: a path-gated job that did not run
-  # must still let the merge through.
+  lint-integration:
+    needs: changes
+    if: needs.changes.outputs.lint_integration == 'true'
+    uses: ./.github/workflows/lint.integration.yaml
+    secrets: inherit
+
+  media:
+    needs: changes
+    if: needs.changes.outputs.media == 'true'
+    uses: ./.github/workflows/test.media.yaml
+    secrets: inherit
+
+  oracle:
+    needs: changes
+    if: needs.changes.outputs.oracle == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: oracle
+      directory: oracle
+      install_antlr4: true
+    secrets: inherit
+
+  oracle-check:
+    needs: changes
+    if: needs.changes.outputs.oracle_check == 'true'
+    uses: ./.github/workflows/check.oracle.yaml
+    secrets: inherit
+
+  pluto:
+    needs: [changes, core-image]
+    if: needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core == 'true'
+    uses: ./.github/workflows/test.pluto.yaml
+    with:
+      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+    secrets: inherit
+
+  protobuf:
+    needs: changes
+    if: needs.changes.outputs.protobuf == 'true'
+    uses: ./.github/workflows/test.protobuf.yaml
+    secrets: inherit
+
+  scripts:
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    uses: ./.github/workflows/test.scripts.yaml
+    secrets: inherit
+
+  soem:
+    needs: changes
+    if: needs.changes.outputs.soem == 'true'
+    uses: ./.github/workflows/test.soem.yaml
+    secrets: inherit
+
+  versions:
+    uses: ./.github/workflows/test.updates.yaml
+
+  x-cpp:
+    needs: changes
+    if: needs.changes.outputs.x_cpp == 'true'
+    uses: ./.github/workflows/test.x.cpp.yaml
+    secrets: inherit
+
+  x-go:
+    needs: changes
+    if: needs.changes.outputs.x_go == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: x-go
+      directory: x/go
+    secrets: inherit
+
+  x-py:
+    needs: changes
+    if: needs.changes.outputs.x_py == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      coverage_flag: x-py
+      coverage_module: x
+      directory: x/py
+    secrets: inherit
+
+  x-ts:
+    needs: changes
+    if: needs.changes.outputs.x_ts == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      coverage_flag: x-ts
+      directory: x/ts
+      knip: true
+      package: x
+    secrets: inherit
+
+  # GitHub skips a job whose dependency failed or was skipped, so always() makes this
+  # one run and report. A skipped job passed: the change map left it out on purpose.
   ok:
     name: OK
     if: always()
     needs:
-      - format
-      - copyright
-      - versions
-      - core-image
-      - freighter-image
-      - oracle-check
-      - buildifier
-      - lint-integration
-      - docs
-      - media
-      - scripts
-      - protobuf
       - alamos-go
-      - arc-go
-      - aspen
-      - cesium
-      - core
-      - freighter-go
-      - freighter-integration
-      - oracle
-      - x-go
       - alamos-py
       - alamos-ts
-      - x-py
-      - x-ts
-      - drift
-      - console
-      - pluto
-      - driver
-      - arc
+      - arc-cpp
+      - arc-go
+      - aspen
+      - buildifier
+      - cesium
       - client-cpp
       - client-py
       - client-ts
+      - console
+      - copyright
+      - core
+      - core-image
+      - docs
+      - drift
+      - driver
+      - format
+      - freighter-cpp
+      - freighter-go
+      - freighter-image
+      - freighter-integration
       - freighter-py
       - freighter-ts
-      - x-cpp
-      - freighter-cpp
-      - soem
       - integration
+      - lint-integration
+      - media
+      - oracle
+      - oracle-check
+      - pluto
+      - protobuf
+      - scripts
+      - soem
+      - versions
+      - x-cpp
+      - x-go
+      - x-py
+      - x-ts
     runs-on: ubuntu-latest
     steps:
       - name: Fail on a failed or cancelled job

@@ -7,39 +7,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# The change map behind CI. Each key is a filter dorny/paths-filter reports as an output
-# of the changes job. A module lists its own sources plus the modules it depends on, so
-# a change anywhere below a module runs its tests. A test that needs a running Core adds
-# the core output in ci.yaml rather than here, which keeps the *_build keys (what
-# invalidates a built Driver, Console, or Core) free of server dependencies. Every
-# module reaches ci.yaml through its toolchain, so a change to the workflow runs
-# everything.
+# The change map behind CI. Each key is a filter dorny/paths-filter reports as an
+# output of the changes job. A module lists its toolchain, every module its manifest
+# depends on directly, and its own sources, so a change to any of them runs its tests.
+# YAML resolves an alias only after its anchor, so entries sit in dependency order.
+# A test that needs a running Core also keys on core in ci.yaml rather than here,
+# which keeps the *_build keys free of server dependencies.
 
-# Toolchains.
 ci: &ci
   - .github/workflows/ci.yaml
-go: &go
-  - *ci
-  - .github/workflows/test.go.yaml
-  - .golangci.yaml
-  - codecov.yaml
-  - scripts/check_go_generate.sh
-ts: &ts
-  - *ci
-  - .github/actions/test-typescript/**
-  - codecov.yaml
-  - configs/**
-  - package.json
-  - pnpm-lock.yaml
-  - knip.json
-  - pnpm-workspace.yaml
-  - turbo.json
-py: &py
-  - *ci
-  - .github/actions/test-python/**
-  - codecov.yaml
-  - pyproject.toml
-  - uv.lock
+
 bazel: &bazel
   - .bazelignore
   - .bazeliskrc
@@ -47,9 +24,10 @@ bazel: &bazel
   - .gitmodules
   - MODULE.bazel
   - MODULE.bazel.lock
+
 cpp: &cpp
-  - *ci
   - *bazel
+  - *ci
   - .clang-format
   - .clang-format-ignore
   - scripts/check_clang_format.sh
@@ -57,166 +35,258 @@ cpp: &cpp
   - scripts/run_bazel.sh
   - scripts/sanitizers/**
 
-# Go. x and alamos depend on each other, so they share one entry.
+go: &go
+  - *ci
+  - .github/workflows/test.go.yaml
+  - .golangci.yaml
+  - codecov.yaml
+  - scripts/check_go_generate.sh
+
+py: &py
+  - *ci
+  - .github/actions/test-python/**
+  - .github/workflows/test.py.yaml
+  - codecov.yaml
+  - pyproject.toml
+  - uv.lock
+
+ts: &ts
+  - *ci
+  - .github/actions/test-typescript/**
+  - .github/workflows/test.ts.yaml
+  - codecov.yaml
+  - configs/**
+  - knip.json
+  - package.json
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - turbo.json
+
+alamos_go: &alamos_go
+  - *go
+  - alamos/go/**
+  - x/go/**
+
 x_go: &x_go
   - *go
   - alamos/go/**
   - x/go/**
-alamos_go: *x_go
-freighter_go: &freighter_go
-  - *x_go
-  - freighter/go/**
-freighter_integration: &freighter_integration
-  - *freighter_go
-  - freighter/integration/**
-aspen: &aspen
-  - *freighter_go
-  - aspen/**
+
 cesium: &cesium
+  - *alamos_go
+  - *go
   - *x_go
   - cesium/**
-arc_go: &arc_go
-  - *freighter_go
-  - arc/go/**
-  - scripts/install_antlr4.sh
+
+freighter_go: &freighter_go
+  - *alamos_go
+  - *go
+  - *x_go
+  - freighter/go/**
+
 oracle: &oracle
+  - *alamos_go
+  - *go
   - *x_go
   - oracle/**
   - scripts/install_antlr4.sh
+
+arc_go: &arc_go
+  - *alamos_go
+  - *freighter_go
+  - *go
+  - *x_go
+  - arc/go/**
+  - scripts/install_antlr4.sh
+
+aspen: &aspen
+  - *alamos_go
+  - *freighter_go
+  - *go
+  - *x_go
+  - aspen/**
+
+freighter_integration: &freighter_integration
+  - *alamos_go
+  - *freighter_go
+  - *go
+  - *x_go
+  - freighter/integration/**
+
 core: &core
+  - *alamos_go
+  - *arc_go
   - *aspen
   - *cesium
-  - *arc_go
+  - *freighter_go
+  - *go
+  - *x_go
   - core/**
 
-# TypeScript.
-x_ts: &x_ts
-  - *ts
-  - .github/workflows/test.x.ts.yaml
-  - x/ts/**
-media: &media
-  - *ts
-  - .github/workflows/test.media.yaml
-  - x/media/**
-alamos_ts: &alamos_ts
-  - *x_ts
-  - .github/workflows/test.alamos.ts.yaml
-  - alamos/ts/**
-freighter_ts: &freighter_ts
-  - *alamos_ts
-  - .github/workflows/test.freighter.ts.yaml
-  - freighter/ts/**
-client_ts: &client_ts
-  - *freighter_ts
-  - .github/workflows/test.client.ts.yaml
-  - client/ts/**
-drift: &drift
-  - *x_ts
-  - .github/workflows/test.drift.yaml
-  - drift/**
 arc_ts: &arc_ts
   - *ts
   - arc/ts/**
+
+media: &media
+  - *ts
+  - x/media/**
+
+x_ts: &x_ts
+  - *ts
+  - x/ts/**
+
+alamos_ts: &alamos_ts
+  - *ts
+  - *x_ts
+  - alamos/ts/**
+
+drift: &drift
+  - *ts
+  - *x_ts
+  - drift/**
+
+freighter_ts: &freighter_ts
+  - *alamos_ts
+  - *ts
+  - *x_ts
+  - .github/workflows/test.freighter.ts.yaml
+  - freighter/ts/**
+
+client_ts: &client_ts
+  - *alamos_ts
+  - *freighter_ts
+  - *ts
+  - *x_ts
+  - .github/workflows/test.client.ts.yaml
+  - client/ts/**
+
 pluto: &pluto
-  - *client_ts
+  - *alamos_ts
   - *arc_ts
+  - *client_ts
+  - *freighter_ts
   - *media
+  - *ts
+  - *x_ts
   - .github/workflows/test.pluto.yaml
   - pluto/**
+
 console: &console
-  - *pluto
+  - *client_ts
   - *drift
+  - *freighter_ts
+  - *media
+  - *pluto
+  - *ts
+  - *x_ts
   - .github/workflows/test.console.yaml
   - console/**
+
 docs:
+  - *arc_ts
+  - *client_ts
+  - *media
   - *pluto
+  - *ts
+  - *x_ts
   - .github/workflows/test.docs.yaml
   - docs/site/**
 
-# Python.
-x_py: &x_py
-  - *py
-  - .github/workflows/test.x.py.yaml
-  - x/py/**
 alamos_py: &alamos_py
   - *py
-  - .github/workflows/test.alamos.py.yaml
   - alamos/py/**
+
+x_py: &x_py
+  - *py
+  - x/py/**
+
 freighter_py: &freighter_py
   - *alamos_py
+  - *py
   - *x_py
   - .github/workflows/test.freighter.py.yaml
   - freighter/py/**
+
 client_py: &client_py
+  - *alamos_py
   - *freighter_py
+  - *py
+  - *x_py
   - .github/workflows/test.client.py.yaml
   - client/py/**
+
 lint_integration:
   - *client_py
+  - *py
+  - *x_py
   - .github/workflows/lint.integration.yaml
   - integration/**
 
-# C++. arc and client depend on each other, so client carries arc's sources.
 x_cpp: &x_cpp
   - *cpp
   - .github/workflows/test.x.cpp.yaml
   - x/cpp/**
   - x/go/**/*.pb.go
+
 freighter_cpp: &freighter_cpp
+  - *cpp
   - *x_cpp
   - .github/workflows/test.freighter.cpp.yaml
   - freighter/cpp/**
-client_cpp: &client_cpp
+
+arc_cpp: &arc_cpp
+  - *cpp
   - *freighter_cpp
+  - *x_cpp
+  - .github/workflows/test.arc.yaml
+  - arc/**
+  - client/cpp/**
+  - integration/scripts/kill_synnax_processes.sh
+  - vendor/wasmtime/**
+
+client_cpp: &client_cpp
+  - *cpp
+  - *freighter_cpp
+  - *x_cpp
   - .github/workflows/test.client.cpp.yaml
   - arc/cpp/**
   - client/clib/**
   - client/cpp/**
   - vendor/wasmtime/**
-arc: &arc
-  - *client_cpp
-  - .github/workflows/test.arc.yaml
-  - arc/**
-  - integration/scripts/kill_synnax_processes.sh
+
 driver: &driver
+  - *arc_cpp
   - *client_cpp
+  - *cpp
+  - *freighter_cpp
+  - *x_cpp
   - .github/workflows/test.driver.yaml
   - driver/**
   - vendor/**
+
 soem:
   - *cpp
   - .github/workflows/test.soem.yaml
   - vendor/soem/**
 
-# Repository-wide checks.
 buildifier:
-  - *ci
-  - *bazel
-  - .github/workflows/lint.buildifier.yaml
   - "**/*.bzl"
   - "**/BUILD"
   - "**/BUILD.bazel"
+  - *bazel
+  - *ci
+  - .github/workflows/lint.buildifier.yaml
   - WORKSPACE
   - WORKSPACE.bazel
-protobuf:
-  - *ci
-  - .github/workflows/test.protobuf.yaml
-  - "**/*.proto"
-  - buf.gen.yaml
-  - buf.yaml
-scripts:
-  - *ci
-  - .github/scripts/**
-  - .github/workflows/test.scripts.yaml
-  - scripts/**
+
 oracle_check:
-  - *oracle
-  - .github/workflows/check.oracle.yaml
   - "**/*.gen.*"
   - "**/*.proto"
   - "**/pyproject.toml"
+  - *oracle
   - .clang-format
   - .clang-format-ignore
+  - .github/workflows/check.oracle.yaml
   - .prettierignore
   - .prettierrc
   - buf.gen.yaml
@@ -230,42 +300,57 @@ oracle_check:
   - scripts/install_clang_format.sh
   - uv.lock
 
-# Build inputs, read by check_artifact_cache.sh.
-driver_build: &driver_build
-  - *driver
-  - .github/workflows/build.synnax.yaml
+protobuf:
+  - "**/*.proto"
+  - *ci
+  - .github/workflows/test.protobuf.yaml
+  - buf.gen.yaml
+  - buf.yaml
+
+scripts:
+  - *ci
+  - .github/scripts/**
+  - .github/workflows/test.scripts.yaml
+  - scripts/**
+
 console_build: &console_build
   - *console
   - .github/workflows/build.synnax.yaml
+
 core_build: &core_build
   - *core
   - .github/workflows/build.synnax.yaml
 
-# The merge-queue tier.
+driver_build: &driver_build
+  - *driver
+  - .github/workflows/build.synnax.yaml
+
 integration:
-  - *driver_build
+  - *client_py
   - *console_build
   - *core_build
-  - *client_py
+  - *driver_build
+  - *py
+  - *x_py
   - .github/scripts/check_artifact_cache.sh
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
   - .github/workflows/test.migration.yaml
   - integration/**
 
-# Image builds, one per run.
 core_image:
-  - .github/workflows/build.docker.yaml
-  - *core
-  - *arc
+  - *arc_cpp
   - *client_cpp
   - *client_py
   - *client_ts
   - *console
+  - *core
   - *driver
   - *pluto
-freighter_image:
   - .github/workflows/build.docker.yaml
+
+freighter_image:
   - *freighter_integration
   - *freighter_py
   - *freighter_ts
+  - .github/workflows/build.docker.yaml

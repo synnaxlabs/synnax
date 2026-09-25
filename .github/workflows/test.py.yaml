@@ -7,11 +7,23 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-name: Test - Alamos (TypeScript)
+name: Test - Python
 
 on:
   workflow_call:
     inputs: &inputs
+      coverage_flag:
+        description: The Codecov flag for this package
+        required: true
+        type: string
+      coverage_module:
+        description: The Python module to measure coverage on
+        required: true
+        type: string
+      directory:
+        description: The directory containing the package
+        required: true
+        type: string
       macos:
         description: Whether to test on macOS
         required: false
@@ -29,12 +41,11 @@ on:
         default: false
   workflow_dispatch:
     inputs: *inputs
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
     env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     strategy:
       fail-fast: false
@@ -46,16 +57,17 @@ jobs:
           - os: ${{ !inputs.windows && 'windows-latest' }}
         include:
           - os: ubuntu-latest
-            lint: true
+            format: true
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Test TypeScript
-        uses: ./.github/actions/test-typescript
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          package: alamos
-          coverage_flag: alamos-ts
-          directory: alamos/ts
-          lint: ${{ matrix.lint }}
+          directory: ${{ inputs.directory }}
+          coverage: true
+          coverage_module: ${{ inputs.coverage_module }}
+          coverage_flag: ${{ inputs.coverage_flag }}
+          format_check: ${{ matrix.format }}
