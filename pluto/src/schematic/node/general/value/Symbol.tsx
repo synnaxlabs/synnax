@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { box, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
@@ -14,7 +15,6 @@ import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import { type Config } from "@/schematic/node/general/value/config";
 import { BORDER_WIDTH, Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Value as BaseValue } from "@/vis/value";
@@ -28,18 +28,25 @@ export const Symbol = ({
     label,
     level = "p",
     color,
-    telem: t,
+    channel,
+    rollingAverage,
+    precision,
     units,
     inlineSize = 70,
+    orientation,
+    notation,
     stalenessColor,
     stalenessTimeout,
     redline,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.ValueNodeConfig>): ReactElement => {
   const valueBoxHeight = HEIGHTS[LEVEL_SIZES[level]];
+  const t = useMemo(
+    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
+    [channel, rollingAverage, precision, notation],
+  );
   const backgroundTelem = useMemo(
-    () =>
-      t == null || redline == null ? undefined : BaseValue.backgroundTelem(t, redline),
+    () => BaseValue.backgroundTelem(t, redline),
     [t, redline],
   );
   BaseValue.use({
@@ -60,6 +67,7 @@ export const Symbol = ({
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
+        orientation={orientation}
         height={valueBoxHeight}
         inlineSize={inlineSize}
         units={units}

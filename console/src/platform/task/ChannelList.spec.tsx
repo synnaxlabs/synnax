@@ -14,6 +14,8 @@ import { describe, expect, it, vi } from "vitest";
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
 
+const resolve = () => null;
+
 const listItem = Component.renderProp(
   ({ itemKey, ...p }: Task.ChannelListItemProps) => (
     <Select.ListItem itemKey={itemKey} {...p}>
@@ -40,6 +42,7 @@ const Harness = ({
   const { data, remove } = Form.useFieldList<string, Task.Channel>("config.channels");
   return (
     <Task.ChannelList<Task.Channel>
+      resolve={resolve}
       data={data}
       remove={remove}
       path="config.channels"

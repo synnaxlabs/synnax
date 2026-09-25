@@ -7,54 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/value/config";
 import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
 import { Text } from "@/text";
-import { Staleness } from "@/vis/staleness";
-import { Value as BaseValue } from "@/vis/value";
-
-export * from "@/schematic/node/general/value/config";
-
-export const defaultConfig = (): Config => ({
-  variant: VARIANT,
-  orientation: "left",
-  color: color.ZERO,
-  units: "psi",
-  level: "h4",
-  inlineSize: 70,
-  label: Label.defaultConfig("Value"),
-  ...Staleness.ZERO_CONFIG,
-  telem: telem.sourcePipeline("string", {
-    connections: [
-      { from: "valueStream", to: "rollingAverage" },
-      { from: "rollingAverage", to: "stringifier" },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-      rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
-    },
-    outlet: "stringifier",
-  }),
-  redline: BaseValue.ZERO_REDLINE,
-});
 
 const PREVIEW_HEIGHT = 25;
 const PREVIEW_INLINE_SIZE = 60;
 
 // The picker draws its own text rather than the canvas the placed symbol uses, so it
 // takes the code typeface to read as the same symbol.
-const Preview = ({ color, units }: Config): ReactElement => (
+const Preview = ({
+  color,
+  orientation,
+  units,
+}: schematic.ValueNodeConfig): ReactElement => (
   <Value
     color={color}
+    orientation={orientation}
     height={PREVIEW_HEIGHT}
     inlineSize={PREVIEW_INLINE_SIZE}
     units={units}
@@ -63,13 +37,12 @@ const Preview = ({ color, units }: Config): ReactElement => (
   </Value>
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"value", schematic.ValueNodeConfig> = {
+  key: "value",
   name: "Value",
   Form: ValueForm,
   Node: Symbol,
   Preview,
-  defaultConfig,
   zIndex: 4,
   needsPosition: true,
 };

@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,14 +34,21 @@ func newFiberApp(cfg fiber.Config) *fiber.App {
 	return app
 }
 
+// serveApp starts app on a new listener and returns the address it bound to. The app
+// stops and the listener closes when the enclosing scope ends.
 func serveApp(app *fiber.App) address.Address {
 	GinkgoHelper()
 	lis := MustSucceed(net.Listen("tcp", "localhost:0"))
+	DeferCleanup(func() {
+		Expect(app.Shutdown()).To(Succeed())
+		// fasthttp registers the listener only once Listener runs, so a Shutdown that
+		// wins that race does nothing. Closing here stops the routine either way.
+		Expect(errors.Skip(lis.Close(), net.ErrClosed)).To(Succeed())
+	})
 	go func() {
 		defer GinkgoRecover()
-		Expect(app.Listener(lis, fiber.ListenConfig{
-			DisableStartupMessage: true,
-		})).To(Succeed())
+		err := app.Listener(lis, fiber.ListenConfig{DisableStartupMessage: true})
+		Expect(errors.Skip(err, net.ErrClosed)).To(Succeed())
 	}()
 	return address.Address(lis.Addr().String())
 }

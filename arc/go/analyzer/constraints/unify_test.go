@@ -69,6 +69,7 @@ var _ = Describe("Type Unification", func() {
 
 	Describe("Numeric Promotion", func() {
 		testPromotion := func(constraint, value, expected types.Type) {
+			GinkgoHelper()
 			system := constraints.New()
 			tv := types.Variable("T", &constraint)
 			Expect(system.AddCompatible(tv, value, nil, "promotion test")).To(Succeed())
@@ -325,6 +326,7 @@ var _ = Describe("Type Unification", func() {
 
 	Describe("Default Type Selection", func() {
 		testDefault := func(constraint, expected types.Type) {
+			GinkgoHelper()
 			var (
 				system = constraints.New()
 				tv     = types.Variable("T", &constraint)
@@ -346,6 +348,7 @@ var _ = Describe("Type Unification", func() {
 	Describe("Order Independence (Fixpoint Iteration)", func() {
 		It("should produce same result regardless of constraint order", func() {
 			addConstraints := func(s *constraints.System, order int) types.Type {
+				GinkgoHelper()
 				var (
 					a = types.Variable("A", nil)
 					b = types.Variable("B", nil)

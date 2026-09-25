@@ -153,7 +153,7 @@ describe("Input.DateTime", () => {
     const onChange = vi.fn();
     const { container } = render(<Input.DateTime value={VALUE} onChange={onChange} />);
     type(open(container), "2026-08-23 15:30");
-    fireEvent.click(screen.getByText("local time"));
+    fireEvent.click(screen.getByText(/^local time/));
     expect(onChange).toHaveBeenCalledTimes(1);
     const field = open(container);
     type(field, "2026-08-23 16:45");
@@ -173,7 +173,21 @@ describe("Input.DateTime", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("should give the effect the value each reading and action would commit", () => {
+  it("should give the effect the value of the highlighted reading", () => {
+    const { container } = render(
+      <Input.DateTime
+        value={VALUE}
+        onChange={vi.fn()}
+        effect={({ candidate }) => <span data-testid="effect">{candidate}</span>}
+      />,
+    );
+    type(open(container), "2026-08-23 15:30");
+    expect(Number(screen.getByTestId("effect").textContent)).toBe(
+      local(2026, 7, 23, 15, 30),
+    );
+  });
+
+  it("should give the effect the value of a hovered action", () => {
     const parent = { start: local(2026, 7, 20, 9, 0), end: local(2026, 7, 21, 9, 0) };
     const { container } = render(
       <Input.DateTime
@@ -183,13 +197,63 @@ describe("Input.DateTime", () => {
         effect={({ candidate }) => <span data-testid="effect">{candidate}</span>}
       />,
     );
-    type(open(container), "2026-08-23 15:30");
-    const candidates = screen
-      .getAllByTestId("effect")
-      .map((e) => Number(e.textContent));
-    expect(candidates).toContain(local(2026, 7, 23, 15, 30));
-    expect(candidates).toContain(parent.start);
-    expect(candidates).toContain(parent.end);
+    open(container);
+    fireEvent.mouseEnter(screen.getByRole("menuitem", { name: "Parent end" }));
+    expect(Number(screen.getByTestId("effect").textContent)).toBe(parent.end);
+  });
+
+  it("should highlight a reading the pointer enters", () => {
+    const onChange = vi.fn();
+    const { container } = render(<Input.DateTime value={VALUE} onChange={onChange} />);
+    const field = open(container);
+    type(field, "2h");
+    const readings = screen
+      .getAllByRole("menuitem")
+      .filter((item) => item.classList.contains("pluto-time-editor__suggestion"));
+    fireEvent.mouseEnter(readings[1]);
+    expect(readings[1].classList.contains("pluto--selected")).toBe(true);
+    const before = TimeStamp.now().nanoseconds;
+    fireEvent.keyDown(field, { key: "Enter" });
+    const committed = onChange.mock.calls[0][0] as number;
+    expect(Math.abs(before - 2 * HOUR - committed)).toBeLessThan(
+      Number(TimeSpan.SECOND.valueOf()),
+    );
+  });
+
+  it("should not show float noise in a reading anchored on a form value", () => {
+    // Float64 cannot hold this instant to the nanosecond.
+    const end = VALUE + 703_000_000;
+    const { container } = render(
+      <Input.DateTime
+        value={VALUE}
+        onChange={vi.fn()}
+        bound="start"
+        anchors={{ end }}
+      />,
+    );
+    type(open(container), "2h");
+    const [first] = screen.getAllByRole("menuitem");
+    expect(first.textContent).toContain("12:05:00.703");
+    expect(first.textContent).not.toMatch(/\.\d{3} \d{3}/);
+  });
+
+  it("should measure a reading's offset from the moment the editor opens", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date(2026, 7, 23, 14, 5));
+      const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
+      vi.setSystemTime(new Date(2026, 7, 23, 15, 5));
+      open(container);
+      expect(screen.getByText("local time · 1h ago")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("should leave out a hint that only repeats its action's label", () => {
+    const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
+    open(container);
+    expect(screen.getByRole("menuitem", { name: "Now" }).textContent).toBe("Now");
   });
 
   it("should stay open on Enter when the text is not a time", () => {

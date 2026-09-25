@@ -108,11 +108,16 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
+const resolve = (device: Device.Device, { nodeId }: ReadChannel) => ({
+  channel: getChannelByNodeID(device.properties, nodeId),
+});
+
 const TaskForm: FC = createForm<ReadChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
   children: isIndexItem,
+  resolve,
 });
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({

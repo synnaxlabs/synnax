@@ -23,7 +23,7 @@ const gaugeState = staleness.configZ.extend({
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
-  stalenessColor: color.colorZ.default(color.ZERO),
+  stalenessColor: color.colorZ.optional(),
   units: z.string().default("RPM"),
   bounds: bounds.boundsZ().default(bounds.construct(0, 100)),
   barWidth: z.number().default(12),

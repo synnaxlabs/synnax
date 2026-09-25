@@ -164,6 +164,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("ConfigHash", func() {
 		create := func(ctx context.Context, config msgpack.EncodedJSON) string {
+			GinkgoHelper()
 			t := &task.Task{
 				Type:   testType,
 				Rack:   testRack.Key,
@@ -190,6 +191,30 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(first).To(Equal(second))
 			},
 		)
+		// A row deleted and re-added carries a fresh key, which must not read as a
+		// config change and ask the user to redeploy.
+		It("Should ignore the keys of nested rows", func(ctx SpecContext) {
+			alert := func(key string) map[string]any {
+				return map[string]any{"key": key, "status": "st-1"}
+			}
+			first := create(ctx, msgpack.EncodedJSON{
+				"routing_key": "rk-1", "alerts": []any{alert("a-1")},
+			})
+			second := create(ctx, msgpack.EncodedJSON{
+				"routing_key": "rk-1", "alerts": []any{alert("a-2")},
+			})
+			Expect(first).To(Equal(second))
+		})
+		It("Should hash nested rows that differ in content differently", func(
+			ctx SpecContext,
+		) {
+			alert := func(status string) map[string]any {
+				return map[string]any{"key": "a-1", "status": status}
+			}
+			first := create(ctx, msgpack.EncodedJSON{"alerts": []any{alert("st-1")}})
+			second := create(ctx, msgpack.EncodedJSON{"alerts": []any{alert("st-2")}})
+			Expect(first).ToNot(Equal(second))
+		})
 		It("Should hash differing configs differently", func(ctx SpecContext) {
 			first := create(ctx, msgpack.EncodedJSON{"routing_key": "rk-1"})
 			second := create(ctx, msgpack.EncodedJSON{"routing_key": "rk-2"})
@@ -204,6 +229,7 @@ var _ = Describe("Task", Ordered, func() {
 			"Should hash integer and integral float values identically",
 			func(ctx SpecContext) {
 				createArc := func(config msgpack.EncodedJSON) string {
+					GinkgoHelper()
 					t := &task.Task{
 						Type:   arc.TaskType,
 						Rack:   testRack.Key,

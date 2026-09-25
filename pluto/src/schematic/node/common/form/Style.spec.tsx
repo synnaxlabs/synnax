@@ -29,7 +29,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 const VALUES: Values = {
-  label: Label.defaultConfig("Valve"),
+  label: Label.configZ.parse({ label: "Valve" }),
   scale: 1,
   orientation: "left",
 };
@@ -60,12 +60,12 @@ const Host = ({ values, ref }: HostProps): ReactElement => {
 };
 
 describe("Form.StyleForm", () => {
-  it("should seed a zero color when the config has none", () => {
+  it("should show the color field without writing a color the config lacks", () => {
     const ref: { current: Handle | null } = { current: null };
     const { getByText } = render(<Host values={VALUES} ref={ref} />);
     expect(getByText("Color")).toBeDefined();
     assert(ref.current != null);
-    expect(ref.current.get()).toEqual(color.ZERO);
+    expect(ref.current.get()).toBeUndefined();
   });
 
   it("should hide the color field when the config carries state overrides", () => {

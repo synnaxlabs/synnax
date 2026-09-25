@@ -16,7 +16,6 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Scale } from "@/schematic/node/common/scale";
 import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
-import { FILL_DEFAULTS } from "@/schematic/node/vessels/tank/config";
 import { Tabs } from "@/tabs";
 
 export interface TankFormProps extends NodeFormProps {
@@ -26,13 +25,13 @@ export interface TankFormProps extends NodeFormProps {
 }
 
 const FillForm = (): ReactElement => {
-  const telem = Base.useFieldValue<Scale.Config["telem"]>("fill.telem", {
+  const channel = Base.useFieldValue<Scale.Config["channel"]>("fill.channel", {
     optional: true,
   });
   return (
     <Form.Wrapper y empty>
-      <Scale.TelemForm path="fill" defaults={FILL_DEFAULTS} allowNone />
-      {telem != null && (
+      <Scale.TelemForm path="fill" allowNone />
+      {channel != null && (
         <Flex.Box x>
           <Scale.DisplayFields path="fill" />
           <Form.ColorField path="fill.color" label="Fill color" />
@@ -55,22 +54,7 @@ export const TankForm = ({
         <Flex.Box x>
           <Form.ColorField path="color" />
           <Form.ColorField path="backgroundColor" label="Background color" />
-          <Base.NumericField
-            path="borderRadius.x"
-            hideIfNull
-            optional
-            label="X border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
-          />
-          <Base.NumericField
-            path="borderRadius.y"
-            hideIfNull
-            optional
-            label="Y border radius"
-            grow
-            inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
-          />
+          <Form.RadiusFields path="borderRadius" />
           {showBorderRadius && (
             <Base.NumericField
               path="borderRadius"

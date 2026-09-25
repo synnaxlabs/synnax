@@ -122,6 +122,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 				defer h.Close(ctx)
 
 				readAvg := func() float64 {
+					GinkgoHelper()
 					out, _ := h.Flush()
 					series := out.Get(200).Series
 					Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
@@ -129,6 +130,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 				}
 
 				step := func(v float64) float64 {
+					GinkgoHelper()
 					h.Ingest(100, telem.NewSeriesV(v))
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()
@@ -164,6 +166,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 				defer h.Close(ctx)
 
 				readAvg := func() float64 {
+					GinkgoHelper()
 					out, _ := h.Flush()
 					series := out.Get(200).Series
 					Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
@@ -171,6 +174,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 				}
 
 				step := func(v float64) float64 {
+					GinkgoHelper()
 					h.Ingest(100, telem.NewSeriesV(v))
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()

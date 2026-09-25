@@ -48,7 +48,7 @@ const valueState = staleness.configZ.extend({
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
-  stalenessColor: color.colorZ.default(color.ZERO),
+  stalenessColor: color.colorZ.optional(),
   location: location.xy.default({ x: "left", y: "center" }),
   // borderRadius rounds the clip region, in px. Set it when the host has rounded
   // corners, so the background fill does not square them off.

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type query } from "@synnaxlabs/client";
+import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
 import { useMemo } from "react";
@@ -18,18 +18,12 @@ import { type Channel } from "@/feature/ethercat/task/types";
 export const { use: useSlave, useResult: useResultSlave } =
   Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { use: useSlaves } = Flux.createRetrieve<{ keys: device.Key[] }, SlaveDevice[]>({
-  name: "EtherCAT slaves",
-  retrieve: async ({ client, query: { keys } }) =>
-    await client.devices.retrieve({ keys, schemas: SLAVE_SCHEMAS }),
-  onChange: ({ client, query }, handler) =>
-    client.devices.onChange(
-      query,
-      handler as unknown as query.ChangeHandler<device.Device[]>,
-    ),
-  getCached: ({ client, query }) =>
-    client.devices.getCached(query) as query.Cached<SlaveDevice[]> | undefined,
-});
+const { use: useSlaves, useResult: useResultSlaves } =
+  Device.createRetrieveMultiple(SLAVE_SCHEMAS);
+
+/** The slaves the keys name, or undefined until they resolve or on failure. */
+export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
+  useResultSlaves(keys.length === 0 ? null : { keys }).data;
 
 export interface EnabledState {
   allEnabled: boolean;

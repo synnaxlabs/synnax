@@ -30,6 +30,8 @@ linters:
     revive:
       rules:
         - name: error-naming
+        - name: marshal-receiver
+        - name: use-slices-concat
         - name: var-declaration
         - name: var-naming
           arguments:

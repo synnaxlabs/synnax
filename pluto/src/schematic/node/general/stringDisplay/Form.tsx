@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { zod } from "@synnaxlabs/x";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -19,23 +18,18 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Tabs } from "@/tabs";
-import { telem } from "@/telem/aether";
 import { Staleness } from "@/vis/staleness";
 
 const TelemForm = (): ReactElement => {
-  const { value, onChange } = Base.useField<telem.StringSourceSpec>("telem");
-  const source = zod.parse(telem.streamChannelValuePropsZ, value?.props, {
-    label: "value stream source",
-  });
+  const { value, onChange } =
+    Base.useField<Pick<schematic.StringDisplayNodeConfig, "channel">>("");
   const handleSourceChange = (key: channel.Key | null): void =>
-    onChange(telem.streamChannelStringValue({ channel: key ?? 0 }));
-  if (typeof source.channel != "number")
-    throw new Error("Must pass in a channel by key to the string display form");
+    onChange({ ...value, channel: key ?? undefined });
   return (
     <>
       <Input.Item label="Channel" grow>
         <Channel.SelectSingle
-          value={source.channel}
+          value={value.channel ?? 0}
           onChange={handleSourceChange}
           // Only variable density channels (STRING, JSON, UUID) read as text.
           filter={(ch) => ch.dataType.isVariable}

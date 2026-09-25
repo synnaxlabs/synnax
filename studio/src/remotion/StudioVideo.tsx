@@ -85,6 +85,7 @@ export const StudioVideo = ({
             top={pos.top}
             amount={cam.amount}
             dsf={dsf}
+            theme={meta.theme}
           />
         );
       })}
