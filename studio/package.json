@@ -18,13 +18,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
-    "@remotion/bundler": "^4.0.0",
-    "@remotion/renderer": "^4.0.0",
+    "@remotion/bundler": "catalog:",
+    "@remotion/renderer": "catalog:",
     "@synnaxlabs/client": "workspace:^",
     "playwright": "^1.50.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "remotion": "^4.0.0",
+    "remotion": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -33,7 +33,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "eslint": "catalog:",
-    "tsx": "^4.19.0",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

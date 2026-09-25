@@ -70,7 +70,7 @@
     "@types/node": "catalog:",
     "@types/vscode": "^1.91.0",
     "@vscode/vsce": "^4.0.0",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "catalog:"
   }
 }
