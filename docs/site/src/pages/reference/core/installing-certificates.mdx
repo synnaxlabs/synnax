@@ -11,17 +11,55 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-This page is a guide on how to efficiently install CA certificates on client machines to
-enable communication with a Synnax Core using a self-signed certificate. Select your
-operating system below.
+This page is a guide on how to install CA certificates on client machines to enable
+communication with a Synnax Core using a self-signed certificate. Select your operating
+system below.
 
 <Tabs
     client:load
     tabs={[
+        { name: "Linux", tabKey: "linux" },
         { name: "Windows", tabKey: "windows", },
         { name: "macOS", tabKey: "macos" }
     ]}
 >
+<Fragment slot="linux">
+## Linux
+
+To start off, you'll need to pull the CA certificate from the Core. If you have ssh
+access to the Core, you can use the `scp` command to pull the certificate:
+
+```bash
+scp user@core:/path/to/ca.crt /tmp/synnax-ca.crt
+```
+
+On Debian and Ubuntu, copy the certificate into the local CA directory and rebuild the
+trust bundle:
+
+```bash
+sudo cp /tmp/synnax-ca.crt /usr/local/share/ca-certificates/synnax-ca.crt
+sudo update-ca-certificates
+```
+
+On RHEL and Fedora, use the CA trust anchors directory instead:
+
+```bash
+sudo cp /tmp/synnax-ca.crt /etc/pki/ca-trust/source/anchors/synnax-ca.crt
+sudo update-ca-trust
+```
+
+On a machine where you can't change the trust store, point the Driver at the certificate
+file instead. Every `synnax-driver` command reads `/etc/synnax/driver.env` at start, so
+add:
+
+```bash
+GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/tmp/synnax-ca.crt
+```
+
+Add the line before you run `synnax-driver login`, because `login` checks the connection
+to the Core.
+
+</Fragment>
 <Fragment slot="windows">
 ## Windows
 
@@ -49,6 +87,13 @@ and run the following command:
 
 ```bash
 sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/synnax-ca.crt
+```
+
+The Driver does not read the Keychain. Point it at the certificate file instead, in the
+same shell that runs `synnax-driver`:
+
+```bash
+export GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=/tmp/synnax-ca.crt
 ```
 
 </Fragment>

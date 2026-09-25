@@ -10,14 +10,13 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Synnax Driver supports hardware from a variety of vendors, such as
+The Synnax Driver reads and controls hardware from
 [National Instruments](https://ni.com), [LabJack](https://labjack.com), and
-[EtherCAT](https://ethercat.org) devices. The Driver also supports acquiring data from
-servers via HTTP JSON REST APIs, [Modbus TCP/IP](https://modbus.org), and
-[OPC UA](https://opcfoundation.org). Finally, the Driver supports running
-[Arc automations](/reference/control/arc/introduction), Synnax's automation language for
-hardware control. Synnax also supports building custom drivers for devices that are not
-natively supported.
+[EtherCAT](https://ethercat.org) devices. It also acquires data from servers over HTTP
+JSON REST APIs, [Modbus TCP/IP](https://modbus.org), and
+[OPC UA](https://opcfoundation.org), and runs
+[Arc automations](/reference/control/arc/introduction), Synnax's language for hardware
+control. You can build a custom driver for devices that are not natively supported.
 
 Jump to [National Instruments](/reference/driver/ni/configure-device),
 [EtherCAT](/reference/driver/ethercat/get-started),
@@ -31,18 +30,17 @@ Jump to [National Instruments](/reference/driver/ni/configure-device),
 
 ## Embedded Driver
 
-Every instance of the [Synnax Core](/reference/core/quick-start) comes with the Driver
-embedded inside. This Driver will run on the same machine as the Core, and starts
-automatically when the Core starts. The embedded Driver is recommended for most users.
+Every [Synnax Core](/reference/core/quick-start) embeds a Driver. It runs on the same
+machine as the Core and starts with it. The embedded Driver is the right choice for most
+users.
 
 <Divider.Divider x />
 
 ## Driver installation
 
-The [Driver](/reference/driver/installation) can also be installed as a separate binary
-that can run on a different machine from the Core. It is used to integrate data
-acquisition devices across multiple machines. The Driver connects to a Core over the
-network.
+The [Driver](/reference/driver/installation) can also run as a separate binary on a
+different machine, connecting to the Core over the network. Use it to integrate devices
+spread across several machines.
 
 ### Support for NI Linux Real-Time
 
@@ -51,10 +49,9 @@ The Driver supports deployment on
 controllers, such as [NI CompactRIO](https://www.ni.com/en/shop/compactrio.html) and
 [NI PXI](https://www.ni.com/en/shop/pxi.html) systems.
 
-In addition to performing data acquisition and control tasks on real-time controllers,
-the Driver also supports running [Arc automations](/reference/control/arc/introduction)
-on the real-time controller, allowing for precisely timed control loops that run close
-to the hardware without introducing latency from network communication.
+On a real-time controller the Driver also runs
+[Arc automations](/reference/control/arc/introduction), so control loops run close to
+the hardware with no network latency.
 
 <Divider.Divider x />
 

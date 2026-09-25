@@ -259,27 +259,39 @@ var _ = Describe("Open", func() {
 		) {
 			logger, _ := newTestLogger()
 			dir := GinkgoT().TempDir()
+			envFile := filepath.Join(GinkgoT().TempDir(), "env")
+			Expect(os.Setenv("MOCK_ENV_DUMP_FILE", envFile)).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_ENV_DUMP_FILE")).To(Succeed()) }()
 			anchors := []byte("-----BEGIN CERTIFICATE-----\nanchors\n")
 			d := openMockDriver(ctx, logger, driver.Config{
 				Insecure:        new(false),
 				ParentDirname:   dir,
 				TrustAnchorsPEM: anchors,
 			})
-			conn := readDriverConnection(dir)
-			Expect(conn).To(HaveKeyWithValue("ca_cert_file", Not(BeEmpty())))
-			Expect(os.ReadFile(conn["ca_cert_file"].(string))).To(Equal(anchors))
+			Expect(readDriverConnection(dir)).To(HaveKeyWithValue("secure", true))
+			anchorFile := filepath.Join(dir, "driver", "trust-anchors.pem")
+			Expect(os.ReadFile(anchorFile)).To(Equal(anchors))
+			Expect(os.ReadFile(envFile)).To(ContainSubstring(
+				"GRPC_DEFAULT_SSL_ROOTS_FILE_PATH=" + anchorFile,
+			))
 			Expect(d.Close()).To(Succeed())
 		})
 
 		It("Should write no trust anchors in insecure mode", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
 			dir := GinkgoT().TempDir()
+			envFile := filepath.Join(GinkgoT().TempDir(), "env")
+			Expect(os.Setenv("MOCK_ENV_DUMP_FILE", envFile)).To(Succeed())
+			defer func() { Expect(os.Unsetenv("MOCK_ENV_DUMP_FILE")).To(Succeed()) }()
 			d := openMockDriver(ctx, logger, driver.Config{
 				ParentDirname:   dir,
 				TrustAnchorsPEM: []byte("-----BEGIN CERTIFICATE-----\nanchors\n"),
 			})
-			Expect(readDriverConnection(dir)).
-				To(HaveKeyWithValue("ca_cert_file", BeEmpty()))
+			Expect(readDriverConnection(dir)).To(HaveKeyWithValue("secure", false))
+			Expect(filepath.Join(dir, "driver", "trust-anchors.pem")).
+				ToNot(BeAnExistingFile())
+			Expect(os.ReadFile(envFile)).
+				ToNot(ContainSubstring("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"))
 			Expect(d.Close()).To(Succeed())
 		})
 	})

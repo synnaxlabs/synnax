@@ -26,20 +26,16 @@ extern "C" {
 #endif
 
 /// @brief connects to a Synnax Core and verifies connectivity. secure=0 connects in
-/// plaintext; secure!=0 uses TLS with ca_cert_file (plus optional client_cert_file/
-/// client_key_file for mTLS). max_retries=0 and clock_skew_threshold<=0 take the Config
-/// defaults. NULL host/username/password fall back to localhost/synnax/seldon, port 0
-/// to 9090. On success writes the handle to *out_client and returns 0.
+/// plaintext; secure!=0 uses TLS and verifies the Core against the system trust store.
+/// max_retries=0 and clock_skew_threshold<=0 take the Config defaults. NULL
+/// host/username/password fall back to localhost/synnax/seldon, port 0 to 9090. On
+/// success writes the handle to *out_client and returns 0.
 SYNNAX_EXPORT int32_t synnax_client_open(
     const char *host,
     uint16_t port,
     const char *username,
     const char *password,
     int32_t secure,
-    // Deviates from TS/Python: C++ client lacks system-trust TLS, so TLS needs a CA.
-    const char *ca_cert_file,
-    const char *client_cert_file,
-    const char *client_key_file,
     uint32_t max_retries,
     int64_t clock_skew_threshold,
     SynnaxClient **out_client,

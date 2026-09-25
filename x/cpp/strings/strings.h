@@ -26,6 +26,26 @@ inline void write_number(char *p, int v, int width) noexcept {
     }
 }
 
+/// @brief removes leading and trailing spaces, tabs, and carriage returns.
+/// @param s the string to trim.
+/// @returns the trimmed string, or an empty string when s is all whitespace.
+[[nodiscard]] inline std::string trim(const std::string &s) {
+    const auto first = s.find_first_not_of(" \t\r");
+    if (first == std::string::npos) return {};
+    return s.substr(first, s.find_last_not_of(" \t\r") - first + 1);
+}
+
+/// @brief removes one layer of matching single or double quotes.
+/// @param s the string to unquote.
+/// @returns the contents of the quotes, or s unchanged when it is not quoted.
+[[nodiscard]] inline std::string unquote(const std::string &s) {
+    if (s.size() < 2) return s;
+    const char quote = s.front();
+    if ((quote == '"' || quote == '\'') && s.back() == quote)
+        return s.substr(1, s.size() - 2);
+    return s;
+}
+
 /// @brief joins a vector of strings with the given separator.
 /// @param parts the strings to join.
 /// @param sep the separator to insert between each pair of adjacent strings.

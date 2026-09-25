@@ -45,6 +45,14 @@ func main() {
 		}
 	}
 
+	// MOCK_ENV_DUMP_FILE receives the process environment, one variable per line.
+	if path := os.Getenv("MOCK_ENV_DUMP_FILE"); path != "" {
+		env := []byte(strings.Join(os.Environ(), "\n"))
+		if err := os.WriteFile(path, env, 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "E [mock] [main.go] failed to dump environment: %v\n", err)
+		}
+	}
+
 	if os.Getenv("MOCK_FAIL_START") == "1" {
 		fmt.Fprintln(os.Stdout, "E [mock] [main.go] startup failure")
 		os.Exit(1)

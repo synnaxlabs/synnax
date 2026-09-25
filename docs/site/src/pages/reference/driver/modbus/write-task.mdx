@@ -37,7 +37,7 @@ This task follows the standard
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding Register Output ([`holding_register`](https://www.modbustools.com/modbus.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Holding register output ([`holding_register`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Writes to 16-bit read/write registers (Function Code 06/16). Typically used for
 setpoints, control values, and configuration parameters.
@@ -50,7 +50,7 @@ setpoints, control values, and configuration parameters.
 | `bytes_swapped` | boolean | No       | `false` | Swap byte order within 16-bit words                                                                       |
 | `words_swapped` | boolean | No       | `false` | Swap word order for 32-bit+ values                                                                        |
 
-**Data Type Sizes:**
+**Data type sizes:**
 
 - `int8`/`uint8`/`int16`/`uint16`: 1 register (2 bytes)
 - `int32`/`uint32`/`float32`: 2 registers (4 bytes)
@@ -59,7 +59,7 @@ setpoints, control values, and configuration parameters.
 </ChannelType>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil Output ([`coil`](https://www.modbustools.com/modbus.html))</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Coil output ([`coil`](https://www.modbustools.com/modbus.html))</Text.Text>
 
 Writes to 1-bit read/write coils (Function Code 05/15). Typically used for binary
 control signals like relay states and valve positions.
@@ -69,7 +69,7 @@ control signals like relay states and valve positions.
 | `channel` | number | Yes      | -       | Synnax command channel key    |
 | `address` | number | Yes      | -       | Modbus coil address (0-65535) |
 
-**Data Type:** Always boolean (0/1)
+**Data type:** Always boolean (0/1)
 
 </ChannelType>
 

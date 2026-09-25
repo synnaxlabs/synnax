@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
+#include "x/cpp/env/env.h"
 #include "x/cpp/thread/thread.h"
 
 #include "driver/daemon/daemon.h"
@@ -27,6 +28,11 @@ namespace driver::daemon {
 const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
+const std::string ENV_FILE = "/etc/synnax/driver.env";
+
+x::errors::Error load_env() {
+    return x::env::load_file(ENV_FILE);
+}
 
 auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service

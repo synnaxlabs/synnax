@@ -18,6 +18,8 @@
 #include <signal.h>
 #include <sys/stat.h>
 
+#include "x/cpp/env/env.h"
+
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
@@ -27,6 +29,11 @@ const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string INIT_SCRIPT_PATH = "/etc/init.d/synnax-driver";
 const std::string DRIVER_PID_FILE = "/var/run/synnax-driver/synnax-driver.pid";
+const std::string ENV_FILE = "/etc/synnax/driver.env";
+
+x::errors::Error load_env() {
+    return x::env::load_file(ENV_FILE);
+}
 
 auto INIT_SCRIPT_TEMPLATE = R"###(#!/bin/sh
 ### BEGIN INIT INFO

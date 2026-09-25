@@ -364,8 +364,6 @@ func BootupCore(
 			Credentials:         cfg.rootCredentials,
 			Debug:               cfg.debug,
 			TrustAnchorsPEM:     driverTrustAnchors,
-			ClientCertFile:      cfg.certFactoryConfig.AbsoluteCACertPath(),
-			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteCAKeyPath(),
 			ParentDirname:       workDir,
 			TaskWorkerCount:     cfg.taskWorkerCount,
 			TaskShutdownTimeout: cfg.taskShutdownTimeout,

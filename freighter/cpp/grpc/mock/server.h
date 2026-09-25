@@ -10,8 +10,10 @@
 #pragma once
 
 #include <condition_variable>
+#include <fstream>
 #include <iostream>
 #include <mutex>
+#include <sstream>
 #include <string>
 
 #include <grpc/grpc.h>
@@ -28,6 +30,8 @@ namespace freighter::grpc::mock {
 inline std::mutex mut;
 inline std::condition_variable cond;
 inline bool end_session = false;
+/// @brief the number of servers currently accepting connections.
+inline int running = 0;
 
 /// @brief Implements .proto generated interface Unary.
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
@@ -72,33 +76,71 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
     }
 };
 
-/// @brief Meant to be call within a thread. Simple
-/// GRPCUnaryClient server.
-inline void server(const std::string &target) {
-    end_session = false;
-    const std::string server_address(target);
+/// @brief serves the unary and stream services on target with the given credentials
+/// until stop_servers is called. Meant to run in its own thread.
+inline void serve(
+    const std::string &target,
+    const std::shared_ptr<::grpc::ServerCredentials> &credentials
+) {
     unaryServiceImpl u_service;
     myStreamServiceImpl s_service;
 
     ::grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, ::grpc::InsecureServerCredentials());
+    builder.AddListeningPort(target, credentials);
     builder.RegisterService(&u_service);
     builder.RegisterService(&s_service);
 
     std::unique_ptr<::grpc::Server> server(builder.BuildAndStart());
 
     std::unique_lock<std::mutex> lck(mut);
-    while (!end_session) {
+    running++;
+    cond.notify_all();
+    while (!end_session)
         cond.wait(lck);
-    }
+    running--;
+    // The last server to leave clears the stop flag for the next batch.
+    if (running == 0) end_session = false;
     lck.unlock();
     server->Shutdown();
-    end_session = false;
 }
 
-/// @brief Abstraction of stopping servers.
+/// @brief blocks until count servers are accepting connections.
+inline void wait_for_servers(const int count = 1) {
+    std::unique_lock<std::mutex> lck(mut);
+    while (running < count)
+        cond.wait(lck);
+}
+
+/// @brief serves in plaintext on target until stop_servers is called.
+inline void server(const std::string &target) {
+    serve(target, ::grpc::InsecureServerCredentials());
+}
+
+inline std::string read_file(const std::string &path) {
+    std::ifstream file(path);
+    std::stringstream buf;
+    buf << file.rdbuf();
+    return buf.str();
+}
+
+/// @brief serves over TLS on target with the PEM certificate and key at the given paths
+/// until stop_servers is called.
+inline void tls_server(
+    const std::string &target,
+    const std::string &cert_path,
+    const std::string &key_path
+) {
+    ::grpc::SslServerCredentialsOptions opts;
+    opts.pem_key_cert_pairs.push_back({read_file(key_path), read_file(cert_path)});
+    serve(target, ::grpc::SslServerCredentials(opts));
+}
+
+/// @brief stops every running server.
 inline void stop_servers() {
-    end_session = true;
+    {
+        std::lock_guard<std::mutex> lock(mut);
+        end_session = true;
+    }
     cond.notify_all();
 }
 }

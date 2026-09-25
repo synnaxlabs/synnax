@@ -219,39 +219,39 @@ For production deployments, we recommend the following network interface specifi
 Network switches should be selected and configured to minimize latency and maximize
 throughput:
 
-- **Low-Latency Switches** -> Use enterprise-grade switches with sub-microsecond
+- **Low-latency switches** -> Use enterprise-grade switches with sub-microsecond
   port-to-port latency.
-- **Non-Blocking Architecture** -> Ensure switches provide full line-rate forwarding
+- **Non-blocking architecture** -> Ensure switches provide full line-rate forwarding
   across all ports.
-- **Buffer Management** -> Configure appropriate buffer sizes to handle bursty traffic
+- **Buffer management** -> Configure appropriate buffer sizes to handle bursty traffic
   patterns common in data acquisition workloads.
-- **Quality of Service (QoS)** -> Implement traffic prioritization to ensure control
+- **Quality of service (QoS)** -> Implement traffic prioritization to ensure control
   commands receive priority over bulk data transfers.
 
 ### Cabling and physical infrastructure
 
 For optimal performance, especially over longer distances:
 
-- **Fiber Optic Cabling** -> Use single-mode or multi-mode fiber for runs longer than
+- **Fiber optic cabling** -> Use single-mode or multi-mode fiber for runs longer than
   100 meters.
-- **Direct Attach Cables (DAC)** -> Acceptable for short runs (< 10 meters) between
+- **Direct attach cables (DAC)** -> Acceptable for short runs (< 10 meters) between
   adjacent equipment.
 
 ### Network security and isolation
 
 <Note.Note variant="error">
-  **Critical Security & Performance Requirement** -> Never use public internet
+  **Critical security and performance requirement** -> Never use public internet
   connections for control operations. Control systems must operate on isolated,
   dedicated networks.
 </Note.Note>
 
 For production control environments:
 
-- **Isolated Networks** -> Deploy Synnax Cores on dedicated, air-gapped networks
+- **Isolated networks** -> Deploy Synnax Cores on dedicated, air-gapped networks
   separate from corporate IT infrastructure.
-- **Network Segmentation** -> Use VLANs or physical separation to isolate control
+- **Network segmentation** -> Use VLANs or physical separation to isolate control
   traffic from data acquisition traffic.
-- **Firewall Protection** -> Implement network firewalls with strict access control
+- **Firewall protection** -> Implement network firewalls with strict access control
   policies.
-- **VPN Access** -> When remote access is required, use industrial-grade VPN solutions
+- **VPN access** -> When remote access is required, use industrial-grade VPN solutions
   with multi-factor authentication.

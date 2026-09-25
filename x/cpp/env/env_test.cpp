@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <filesystem>
+#include <fstream>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/env/env.h"
@@ -246,5 +249,66 @@ TEST_F(XEnvTest, TestMultipleConversionErrors) {
 
     unset("BAD_INT");
     unset("BAD_FLOAT");
+}
+
+/// @brief writes an environment file to a scratch path for each spec.
+class LoadFileTest : public ::testing::Test {
+protected:
+    std::filesystem::path path;
+
+    void SetUp() override {
+        const auto *info = ::testing::UnitTest::GetInstance()->current_test_info();
+        path = std::filesystem::temp_directory_path() /
+               (std::string(info->name()) + ".env");
+    }
+
+    void TearDown() override {
+        std::filesystem::remove(path);
+        unset("FILE_ONLY");
+        unset("FILE_AND_ENV");
+        unset("QUOTED");
+        unset("SPACED");
+    }
+
+    void write(const std::string &contents) const {
+        std::ofstream file(path);
+        file << contents;
+    }
+};
+
+/// @brief it should set variables named by the file.
+TEST_F(LoadFileTest, SetsVariables) {
+    write("FILE_ONLY=/tmp/ca.crt\n");
+    ASSERT_NIL(load_file(path.string()));
+    EXPECT_EQ(load("FILE_ONLY", std::string("")), "/tmp/ca.crt");
+}
+
+/// @brief it should keep a variable the environment already holds.
+TEST_F(LoadFileTest, EnvironmentOverridesFile) {
+    set("FILE_AND_ENV", "from_env");
+    write("FILE_AND_ENV=from_file\n");
+    ASSERT_NIL(load_file(path.string()));
+    EXPECT_EQ(load("FILE_AND_ENV", std::string("")), "from_env");
+}
+
+/// @brief it should ignore blank lines, comments, and lines with no '='.
+TEST_F(LoadFileTest, IgnoresNonAssignments) {
+    write("\n# a comment\nnot an assignment\n  FILE_ONLY = /tmp/ca.crt  \n");
+    ASSERT_NIL(load_file(path.string()));
+    EXPECT_EQ(load("FILE_ONLY", std::string("")), "/tmp/ca.crt");
+}
+
+/// @brief it should remove one layer of quotes from a value.
+TEST_F(LoadFileTest, Unquotes) {
+    write("QUOTED=\"/tmp/ca.crt\"\nSPACED='/tmp/my ca.crt'\n");
+    ASSERT_NIL(load_file(path.string()));
+    EXPECT_EQ(load("QUOTED", std::string("")), "/tmp/ca.crt");
+    EXPECT_EQ(load("SPACED", std::string("")), "/tmp/my ca.crt");
+}
+
+/// @brief it should treat a file that does not exist as empty.
+TEST_F(LoadFileTest, MissingFileIsNotAnError) {
+    ASSERT_NIL(load_file((path.string() + ".missing")));
+    EXPECT_EQ(load("FILE_ONLY", std::string("default")), "default");
 }
 }

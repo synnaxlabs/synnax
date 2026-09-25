@@ -193,7 +193,7 @@ func accumulate(value f64) f64 {
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Previous Value</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Previous value</Text.Text>
 
 Compare the current value to the previous one.
 
@@ -226,7 +226,7 @@ func rate_of_change(value f64) f64 {
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Running Maximum</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Running maximum</Text.Text>
 
 Track the highest value seen.
 
@@ -261,7 +261,7 @@ func running_max(value f64) f64 {
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> State Toggle</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> State toggle</Text.Text>
 
 Maintain an on/off state.
 
@@ -310,7 +310,7 @@ that channel, so it behaves exactly like the channel it names. Reassign it with 
 rebind it to another channel of the same type.
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Readable Names</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Readable names</Text.Text>
 
 A short local name for a long or deeply namespaced channel.
 
@@ -322,7 +322,7 @@ cpu > 90.0 => throttle
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Actuator Failover</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Actuator failover</Text.Text>
 
 Command an actuator through an alias; on a fault, rebind it to the backup. Writes stay
 wired to the alias and follow whichever channel is bound.
@@ -348,7 +348,7 @@ stage main {
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Clamp a Setpoint</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Clamp a setpoint</Text.Text>
 
 Read and write the same channel: watch an operator-writable setpoint and write a safe
 limit back when it exceeds a bound.
@@ -370,7 +370,7 @@ sequence guard {
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Device Selection</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Device selection</Text.Text>
 
 Point the same routine at a chosen unit; rebind the alias to switch targets without
 rewiring the flow.
@@ -436,7 +436,7 @@ stage monitor {
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Gain Scheduling</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Gain scheduling</Text.Text>
 
 A proportional command whose gain changes with the phase, feeding the proportional valve
 directly.
@@ -463,7 +463,7 @@ stage control {
 </Details>
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Arc /> Sensor Failover</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Arc /> Sensor failover</Text.Text>
 
 Read a scaled sensor; on a fault, reassign the same variable to a backup probe.
 Downstream flows stay wired to the variable.

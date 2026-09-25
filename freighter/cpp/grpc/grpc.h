@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "absl/log/log.h"
+#include <cstdlib>
+
 #include "grpc/grpc.h"
 #include "grpcpp/channel.h"
 #include "grpcpp/client_context.h"
@@ -22,6 +23,20 @@ namespace freighter::grpc {
 namespace priv {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
+/// @brief the gRPC environment variable naming a PEM file of trust anchors.
+const std::string ROOTS_FILE_ENV = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH";
+
+/// @brief builds TLS credentials that verify the server against the PEM file named by
+/// GRPC_DEFAULT_SSL_ROOTS_FILE_PATH, or the system trust store when it is unset. The
+/// file is passed as explicit roots because gRPC allows a leaf certificate as the
+/// anchor only on that path, not in the default store it builds from the same variable.
+inline std::shared_ptr<::grpc::ChannelCredentials> ssl_credentials() {
+    ::grpc::SslCredentialsOptions opts;
+    if (const char *path = std::getenv(ROOTS_FILE_ENV.c_str()); path != nullptr)
+        if (auto [roots, err] = x::fs::read_file(path); !err)
+            opts.pem_root_certs = std::move(roots);
+    return ::grpc::SslCredentials(opts);
+}
 
 /// @brief converts a ::grpc::Status to a x::errors::Error.
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
@@ -37,11 +52,15 @@ class Pool {
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels{};
     /// @brief GRPC credentials to provide when connecting to a target.
-    std::shared_ptr<::grpc::ChannelCredentials>
-        credentials = ::grpc::InsecureChannelCredentials();
+    std::shared_ptr<::grpc::ChannelCredentials> credentials;
 
 public:
-    Pool() = default;
+    /// @brief instantiates a gRPC pool. When secure, channels use TLS and verify the
+    /// server against the trust anchors described by priv::ssl_credentials.
+    explicit Pool(const bool secure = false):
+        credentials(
+            secure ? priv::ssl_credentials() : ::grpc::InsecureChannelCredentials()
+        ) {}
 
     /// @brief returns the number of channels in the pool.
     size_t size() {
@@ -49,45 +68,7 @@ public:
         return this->channels.size();
     }
 
-    /// @brief Instantiates the GRPC pool to use TLS encryption where the CA
-    /// certificate is located at the provided path.
-    explicit Pool(const std::string &ca_path) {
-        ::grpc::SslCredentialsOptions opts;
-        auto [pem_root_certs, err] = x::fs::read_file(ca_path);
-        if (err)
-            LOG(ERROR) << "Failed to read CA certificate from " << ca_path << ": "
-                       << err.message();
-        opts.pem_root_certs = pem_root_certs;
-        credentials = SslCredentials(opts);
-    }
-
-    /// @brief instantiates the GRPC pool to use TLS encryption. An empty ca_path
-    /// verifies the server against the system trust store. The client certificate and
-    /// key are loaded from the provided paths when non-empty.
-    Pool(
-        const std::string &ca_path,
-        const std::string &cert_path,
-        const std::string &key_path
-    ) {
-        ::grpc::SslCredentialsOptions opts;
-        if (!ca_path.empty()) {
-            auto [pem_root_certs, err] = x::fs::read_file(ca_path);
-            if (err) { LOG(ERROR) << "Failed to read CA certificate: " << err; }
-            opts.pem_root_certs = pem_root_certs;
-        }
-        if (!cert_path.empty() && !key_path.empty()) {
-            auto [pem_cert_chain, err] = x::fs::read_file(cert_path);
-            if (err) LOG(ERROR) << "Failed to read client certificate: " << err;
-            opts.pem_cert_chain = pem_cert_chain;
-            auto [pem_private_key, pem_priv_key_err] = x::fs::read_file(key_path);
-            if (pem_priv_key_err)
-                LOG(ERROR) << "Failed to read client private key: " << pem_priv_key_err;
-            opts.pem_private_key = pem_private_key;
-        }
-        credentials = SslCredentials(opts);
-    }
-
-    /// @brief instantiates a GRPC pool with the provided credentials.
+    /// @brief instantiates a gRPC pool with the provided credentials.
     explicit Pool(const std::shared_ptr<::grpc::ChannelCredentials> &credentials):
         credentials(credentials) {}
 
@@ -112,15 +93,15 @@ public:
     }
 };
 
-/// @brief An implementation of UnaryClient that uses GRPC as the backing
-/// transport. Safe to be shared between threads.
+/// @brief An implementation of UnaryClient that uses gRPC as the backing transport.
+/// Safe to be shared between threads.
 /// @implements UnaryClient
 /// @see UnaryClient
 template<typename RQ, typename RS, typename RPC>
 class UnaryClient final : public freighter::UnaryClient<RQ, RS>, Finalizer<RQ, RS> {
     /// Middleware collector.
     MiddlewareCollector<RQ, RS> mw;
-    /// GRPCPool to pool connections across clients.
+    /// Pool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
     const x::url::URL base_target;
@@ -170,16 +151,16 @@ public:
     }
 };
 
-/// @brief freighter stream object.
+/// @brief Freighter stream object.
 template<typename RQ, typename RS, typename RPC>
 class Stream final : public freighter::Stream<RQ, RS>,
                      Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
 
     MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
 
-    /// @brief the underlying grpc stream.
+    /// @brief the underlying gRPC stream.
     std::unique_ptr<::grpc::ClientReaderWriter<RQ, RS>> stream;
-    /// GRPC requires us to keep these around so the stream doesn't die.
+    /// gRPC requires us to keep the context around so the stream doesn't die.
     ::grpc::ClientContext grpc_ctx;
     /// @brief the RPC stub used to instantiate the connection.
     const std::unique_ptr<typename RPC::Stub> stub;
@@ -247,15 +228,15 @@ public:
     }
 };
 
-/// @brief An implementation of StreamClient that uses GRPC as the
-/// backing transport. Safe to be shared between threads.
+/// @brief An implementation of StreamClient that uses gRPC as the backing transport.
+/// Safe to be shared between threads.
 /// @implements StreamClient
 /// @see StreamClient
 template<typename RQ, typename RS, typename RPC>
 class StreamClient final
     : public freighter::StreamClient<RQ, RS>,
       Finalizer<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
-    /// GRPCPool to pool connections across clients.
+    /// Pool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
     const x::url::URL base_target;
@@ -278,8 +259,8 @@ public:
     /// @brief Interface for stream.
     /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
-    /// NOTE: Sharing stream invocations is not thread safe.
-    /// It is suggested to create one StreamClient and create a stream per thread.
+    /// NOTE: Sharing stream invocations is not thread safe. It is suggested to create
+    /// one StreamClient and create a stream per thread.
     std::pair<std::unique_ptr<freighter::Stream<RQ, RS>>, x::errors::Error>
     stream(const std::string &target) override {
         auto ctx = Context(priv::PROTOCOL, this->base_target.child(target), STREAM);
