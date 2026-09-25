@@ -130,10 +130,9 @@ genrule(
     ],
     cmd_bash = select({
         "@platforms//os:windows": """
-            # Fix PATH: Use rustup's Rust instead of Chocolatey's
-            # Chocolatey installs Rust to /c/ProgramData/chocolatey/bin but rustup
-            # manages toolchains in ~/.cargo/bin. We need rustup's version.
-            # Resolve the user home from USERPROFILE, HOME, or whoami as fallback.
+            # Use rustup's Rust, not Chocolatey's. Chocolatey installs to
+            # /c/ProgramData/chocolatey/bin while rustup manages toolchains in
+            # ~/.cargo/bin. Resolve the home from USERPROFILE, HOME, then whoami.
             if [ -n "$${USERPROFILE:-}" ]; then
                 _HOME="$$(cygpath -u "$$USERPROFILE")"
             elif [ -n "$${HOME:-}" ]; then
@@ -157,9 +156,9 @@ genrule(
             # Help cargo build scripts find their source files when invoked via CMake
             export CARGO_BUILD_TARGET_DIR="$$(pwd)/target"
 
-            # Build wasmtime directly with cargo instead of CMake to avoid build script issues
-            # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows
-            # Use cargo rustc to explicitly build as staticlib
+            # Build with cargo rather than CMake, which trips over the build scripts
+            # here. Profiling (ittapi-sys) and cache (zstd-sys) fail on Windows, so both
+            # stay off, and cargo rustc forces the staticlib crate type.
             cd crates/c-api
             # gc carries the C API's GC surface and gc-null the implementation. Both are
             # needed: wasmtime 49 defines StorageType's constructor outside the
@@ -184,10 +183,9 @@ genrule(
                 exit 1
             fi
 
-            # Install headers and library manually
-            # Purge the staging tree first. It persists across builds on a warm
-            # runner, so headers a previous wasmtime version shipped would
-            # otherwise be copied into the output and collide with it.
+            # Purge the staging tree first. It persists across builds on a warm runner,
+            # so headers a previous wasmtime version shipped would otherwise be copied
+            # into the output and collide with it.
             rm -rf artifacts
             mkdir -p artifacts/lib artifacts/include artifacts/include/wasmtime
 
@@ -224,8 +222,8 @@ EOF
                 mkdir -p "$$(dirname $$out)"
             done
 
-            # Copy library (Windows uses wasmtime.lib)
-            # Verify wasmtime.lib exists and is not empty before copying
+            # An empty wasmtime.lib means cargo wrote no archive, so fail loudly here
+            # rather than at link time.
             if [ ! -s vendor/wasmtime/wasmtime/artifacts/lib/wasmtime.lib ]; then
                 echo "ERROR: wasmtime.lib not found or is empty at vendor/wasmtime/wasmtime/artifacts/lib/"
                 echo "Contents of artifacts/lib directory:"
@@ -245,9 +243,9 @@ EOF
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
             # Purge both staging trees first. They persist across builds on a warm
-            # runner, and cmake installs whatever sits in its binary include dir,
-            # so headers a previous wasmtime version shipped would reappear and
-            # collide with the read-only outputs of the current one.
+            # runner, and cmake installs whatever sits in its binary include dir, so
+            # headers a previous wasmtime version shipped would reappear and collide
+            # with the read-only outputs of the current one.
             rm -rf artifacts target/c-api/include
             cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
             cmake --build target/c-api
@@ -275,9 +273,9 @@ EOF
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
             # Purge both staging trees first. They persist across builds on a warm
-            # runner, and cmake installs whatever sits in its binary include dir,
-            # so headers a previous wasmtime version shipped would reappear and
-            # collide with the read-only outputs of the current one.
+            # runner, and cmake installs whatever sits in its binary include dir, so
+            # headers a previous wasmtime version shipped would reappear and collide
+            # with the read-only outputs of the current one.
             rm -rf artifacts target/c-api/include
             cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
             cmake --build target/c-api
