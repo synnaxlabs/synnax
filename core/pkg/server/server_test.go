@@ -39,42 +39,39 @@ var _ = Describe("Server", func() {
 			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
 		})
 	})
-	It("Should stop when closed before its branches begin serving", func() {
-		b := &lateBranch{release: make(chan struct{})}
+	It("Should stop a branch that Stop does not unblock", func() {
 		s := MustSucceed(server.Serve(server.Config{
 			Security:  server.SecurityConfig{Insecure: new(true)},
 			Listeners: []server.Listener{{Address: "localhost:0"}},
-			Branches:  []server.Branch{b},
+			Branches:  []server.Branch{&stuckBranch{}},
 		}))
 		closed := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
 			closed <- s.Close()
 		}()
-		close(b.release)
 		Eventually(closed, 10*time.Second).Should(Receive(BeNil()))
 	})
 })
 
-// lateBranch holds its routine short of Serve until the spec releases it, so Stop
-// always lands first and only the Server can free the listener.
-type lateBranch struct{ release chan struct{} }
+// stuckBranch parks in Accept and keeps its listener out of Stop's reach, which is the
+// state a Branch is in until it reaches Serve. Only the Server can free it.
+type stuckBranch struct{}
 
-var _ server.Branch = (*lateBranch)(nil)
+var _ server.Branch = (*stuckBranch)(nil)
 
-func (*lateBranch) Key() string { return "late" }
+func (*stuckBranch) Key() string { return "stuck" }
 
-func (*lateBranch) Routing() server.BranchRouting {
+func (*stuckBranch) Routing() server.BranchRouting {
 	return server.BranchRouting{
 		Policy:   server.RoutingPolicyServeAlwaysPreferSecure,
 		Matchers: []cmux.Matcher{cmux.Any()},
 	}
 }
 
-func (*lateBranch) Init(server.BranchContext) {}
+func (*stuckBranch) Init(server.BranchContext) {}
 
-func (b *lateBranch) Serve(ctx server.BranchContext) error {
-	<-b.release
+func (*stuckBranch) Serve(ctx server.BranchContext) error {
 	for {
 		conn, err := ctx.Lis.Accept()
 		if err != nil {
@@ -86,4 +83,4 @@ func (b *lateBranch) Serve(ctx server.BranchContext) error {
 	}
 }
 
-func (*lateBranch) Stop() {}
+func (*stuckBranch) Stop() {}
