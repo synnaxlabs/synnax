@@ -26,8 +26,8 @@ cat > $@ << 'EOF'
 #define CONFIG_H
 
 #define PACKAGE_NAME "libmodbus"
-#define PACKAGE_VERSION "3.1.11"
-#define VERSION "3.1.11"
+#define PACKAGE_VERSION "3.2.0"
+#define VERSION "3.2.0"
 
 #define _WIN32_WINNT 0x0600  /* Windows 7+ */
 
@@ -46,9 +46,9 @@ genrule(
     outs = ["modbus/modbus-version.h"],
     cmd = """
 sed -e 's/@LIBMODBUS_VERSION_MAJOR@/3/g' \
-    -e 's/@LIBMODBUS_VERSION_MINOR@/1/g' \
-    -e 's/@LIBMODBUS_VERSION_MICRO@/11/g' \
-    -e 's/@LIBMODBUS_VERSION@/3.1.11/g' \
+    -e 's/@LIBMODBUS_VERSION_MINOR@/2/g' \
+    -e 's/@LIBMODBUS_VERSION_MICRO@/0/g' \
+    -e 's/@LIBMODBUS_VERSION@/3.2.0/g' \
     $(execpath libmodbus/src/modbus-version.h.in) > $@
 """,
 )
@@ -147,8 +147,8 @@ cat > $@ << 'EOF'
 #define LIBMODBUS_CONFIG_H
 
 #define PACKAGE_NAME "libmodbus"
-#define PACKAGE_VERSION "3.1.11"
-#define VERSION "3.1.11"
+#define PACKAGE_VERSION "3.2.0"
+#define VERSION "3.2.0"
 
 #define HAVE_ARPA_INET_H 1
 #define HAVE_ERRNO_H 1
@@ -193,8 +193,8 @@ cat > $@ << 'EOF'
 #define LIBMODBUS_CONFIG_H
 
 #define PACKAGE_NAME "libmodbus"
-#define PACKAGE_VERSION "3.1.11"
-#define VERSION "3.1.11"
+#define PACKAGE_VERSION "3.2.0"
+#define VERSION "3.2.0"
 
 #define HAVE_ARPA_INET_H 1
 #define HAVE_ERRNO_H 1
@@ -236,9 +236,9 @@ genrule(
     outs = ["unix/modbus-version.h"],
     cmd = """
 sed -e 's/@LIBMODBUS_VERSION_MAJOR@/3/g' \
-    -e 's/@LIBMODBUS_VERSION_MINOR@/1/g' \
-    -e 's/@LIBMODBUS_VERSION_MICRO@/11/g' \
-    -e 's/@LIBMODBUS_VERSION@/3.1.11/g' \
+    -e 's/@LIBMODBUS_VERSION_MINOR@/2/g' \
+    -e 's/@LIBMODBUS_VERSION_MICRO@/0/g' \
+    -e 's/@LIBMODBUS_VERSION@/3.2.0/g' \
     $(execpath libmodbus/src/modbus-version.h.in) > $@
 """,
 )

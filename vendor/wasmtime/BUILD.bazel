@@ -71,9 +71,9 @@ genrule(
         "include/wasmtime/error.hh",
         "include/wasmtime/exnref.h",
         "include/wasmtime/exnref.hh",
-        "include/wasmtime/extern_declare.hh",
         "include/wasmtime/extern.h",
         "include/wasmtime/extern.hh",
+        "include/wasmtime/extern_declare.hh",
         "include/wasmtime/externref.h",
         "include/wasmtime/externref.hh",
         "include/wasmtime/func.h",
@@ -125,7 +125,6 @@ genrule(
         "include/wasmtime/val.h",
         "include/wasmtime/val.hh",
         "include/wasmtime/wasi.hh",
-        "include/wasmtime/wasip2.h",
         "include/wasmtime/wat.h",
         "include/wasmtime/wat.hh",
     ],
@@ -230,18 +229,6 @@ EOF
             cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
                 "$(RULEDIR)/include/"
 
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
             # Create empty Unix library to satisfy Bazel
             touch "$(execpath lib/libwasmtime.a)"
         """,
@@ -267,18 +254,6 @@ EOF
             cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
                 "$(RULEDIR)/include/"
 
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
             # Create empty Windows library
             touch "$(execpath lib/wasmtime.lib)"
         """,
@@ -299,18 +274,6 @@ EOF
 
             # Copy library
             cp vendor/wasmtime/wasmtime/artifacts/lib/libwasmtime.a "$(execpath lib/libwasmtime.a)"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
-
-            # Copy the staged header tree; wasmtime ships 100+ headers.
-            cp -R vendor/wasmtime/wasmtime/artifacts/include/. \
-                "$(RULEDIR)/include/"
 
             # Copy the staged header tree; wasmtime ships 100+ headers.
             cp -R vendor/wasmtime/wasmtime/artifacts/include/. \

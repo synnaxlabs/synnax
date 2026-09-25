@@ -37,6 +37,12 @@ single_version_override(
         # public headers from :ssl, so layering_check rejects the include. Disable
         # layering_check on grpc's library macro, matching how grpc builds upstream.
         "//patches:grpc-disable-layering-check.patch",
+        # grpc puts its checked-in src/core/ext/{upb-gen,upbdefs-gen} dirs on the
+        # include path but no target owns those files, so MSVC builds reject every
+        # grpc_cc_library that includes a well-known-type upb header as an undeclared
+        # inclusion. Declare the checked-in headers as inputs so the check passes.
+        "//patches:grpc-declare-upb-gen-headers.patch",
+        "//patches:grpc-add-upb-gen-headers-dep.patch",
         # OpenSSL 4.0 returns const from the X509 accessors and makes ASN1_OCTET_STRING
         # opaque. curl 8.22 requires that major, so grpc has to build against it.
         # Upstream support is not released yet.

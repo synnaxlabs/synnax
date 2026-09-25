@@ -39,8 +39,9 @@ fi
 # ends the job here.
 corrupt_repo="Error loading '@@|no such package '@@|@@[^']*' is invalid because"
 # A dependency version bump leaves archives from the old version in a warm output base,
-# so the link finds no definition for the symbols the new headers declare.
-stale_outputs="ld: symbol\(s\) not found|undefined reference to|unresolved external"
+# so linking an external target finds no definition for the new symbols. A first-party
+# link failure is a source defect and must fail at once, so it is not matched here.
+stale_outputs="ERROR: .*Linking external/.* failed"
 if ! grep -qE "$corrupt_repo|$stale_outputs" "$log"; then
     exit "$status"
 fi

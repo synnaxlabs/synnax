@@ -1,0 +1,7 @@
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -183,3 +183,3 @@ def grpc_cc_library(
+         hdrs = hdrs + public_hdrs,
+-        deps = deps + _get_external_deps(external_deps),
++        deps = deps + _get_external_deps(external_deps) + ["//src/core:upb_gen_hdrs"],
+         copts = GRPC_DEFAULT_COPTS + copts,
