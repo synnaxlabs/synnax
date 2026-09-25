@@ -7,12 +7,12 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# The change map behind CI. Each key is a filter dorny/paths-filter reports as an
-# output of the changes job. A module lists its toolchain, every module its manifest
-# depends on directly, and its own sources, so a change to any of them runs its tests.
-# YAML resolves an alias only after its anchor, so entries sit in dependency order.
-# A test that needs a running Core also keys on core in ci.yaml rather than here,
-# which keeps the *_build keys free of server dependencies.
+# The change map behind CI. Each key is a filter dorny/paths-filter reports as an output
+# of the changes job. A module lists its toolchain, every module its manifest depends on
+# directly, and its own sources, so a change to any of them runs its tests. YAML
+# resolves an alias only after its anchor, so entries sit in dependency order. A test
+# that needs a running Core also keys on core in ci.yaml rather than here, which keeps
+# the *_build keys free of server dependencies.
 
 ci: &ci
   - .github/workflows/ci.yaml
