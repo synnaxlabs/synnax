@@ -21,6 +21,7 @@ import (
 
 // openWrapped returns a faultless FS holding one file, "a.bin", containing "hello".
 func openWrapped() (*FaultyFS, xfs.File) {
+	GinkgoHelper()
 	fs := WrapFaultyFS(OpenMem())
 	f := MustSucceed(fs.Open("a.bin", os.O_CREATE|os.O_RDWR))
 	Expect(f.Write([]byte("hello"))).To(Equal(5))

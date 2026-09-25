@@ -68,13 +68,13 @@ env:
 
 jobs:
   verify:
-    name: Verify Checks
+    name: Verify checks
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Verify Checks
+      - name: Verify checks
         uses: ./.github/actions/verify-checks
         with:
           sha: ${{ github.sha }}
@@ -82,6 +82,9 @@ jobs:
   integration:
     name: Integration
     uses: ./.github/workflows/test.integration.yaml
+    with:
+      ubuntu: true
+      windows: true
     permissions:
       actions: read
       contents: write
@@ -89,7 +92,7 @@ jobs:
     secrets: inherit
 
   resolve:
-    name: Resolve Versions
+    name: Resolve versions
     runs-on: ubuntu-latest
     outputs:
       console_version: ${{ steps.console.outputs.version }}
@@ -105,18 +108,18 @@ jobs:
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
-      - name: Require a Product
+      - name: Require a product
         if: ${{ !inputs.console && !inputs.driver && !inputs.core }}
         run: |
           echo "no product selected" >&2
           exit 1
 
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Resolve Console Version
+      - name: Resolve Console version
         id: console
         if: inputs.console
         uses: ./.github/actions/resolve-version
@@ -125,7 +128,7 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
-      - name: Resolve Driver Version
+      - name: Resolve Driver version
         id: driver
         if: inputs.driver
         uses: ./.github/actions/resolve-version
@@ -134,7 +137,7 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
-      - name: Resolve Core Version
+      - name: Resolve Core version
         id: core
         if: inputs.core
         uses: ./.github/actions/resolve-version
@@ -145,7 +148,7 @@ jobs:
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
-      - name: Resolve Embedded Versions
+      - name: Resolve embedded versions
         id: embed
         if: inputs.core
         env:
@@ -180,10 +183,10 @@ jobs:
     if: inputs.console
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Draft Release
+      - name: Draft release
         uses: ./.github/actions/draft-release
         with:
           tag: ${{ needs.resolve.outputs.console_tag }}
@@ -222,7 +225,7 @@ jobs:
     steps:
       # The manifest carries the app version the build stamped (X.Y.Z-N for a
       # candidate), so the updater compares like with like.
-      - name: Write Updater Manifest
+      - name: Write updater manifest
         run: |
           APP_VERSION="${VERSION/-rc./-}"
           BASE="https://github.com/${GH_REPO}/releases/download/${TAG}"
@@ -249,7 +252,7 @@ jobs:
             }' > latest.json
           gh release upload --clobber "$TAG" latest.json
 
-      - name: Publish Release
+      - name: Publish release
         run: gh release edit "$TAG" --draft=false
 
   draft-driver:
@@ -258,10 +261,10 @@ jobs:
     if: inputs.driver
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Draft Release
+      - name: Draft release
         uses: ./.github/actions/draft-release
         with:
           tag: ${{ needs.resolve.outputs.driver_tag }}
@@ -296,7 +299,7 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.driver_tag }}
     steps:
-      - name: Publish Release
+      - name: Publish release
         run: gh release edit "$TAG" --draft=false
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
@@ -311,10 +314,10 @@ jobs:
       || needs.publish-driver.result == 'success')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Draft Release
+      - name: Draft release
         uses: ./.github/actions/draft-release
         with:
           tag: ${{ needs.resolve.outputs.core_tag }}
@@ -351,23 +354,23 @@ jobs:
     secrets: inherit
 
   windows-installer:
-    name: Build Windows Installer
+    name: Build Windows installer
     needs: [resolve, build-core]
     runs-on: windows-latest
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
       VERSION: ${{ needs.resolve.outputs.core_version }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Download Core Binary
+      - name: Download Core binary
         uses: actions/download-artifact@v8
         with:
           name: synnax-core-windows
           path: .github/scripts/
 
-      - name: Rename Binary for Installer
+      - name: Rename binary for installer
         shell: powershell
         run:
           Move-Item -Force .github/scripts/synnax-v${{ env.VERSION }}.exe
@@ -379,7 +382,7 @@ jobs:
       - name: Install trusted-signing-cli
         run: cargo install trusted-signing-cli
 
-      - name: Build Windows Installer
+      - name: Build Windows installer
         shell: powershell
         run: |
           choco install nsis -y --no-progress
@@ -388,7 +391,7 @@ jobs:
           Copy-Item -Force .\.github\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
           makensis /DVERSION=${{ env.VERSION }} .\.github\scripts\windows_installer.nsi
 
-      - name: Sign Windows Installer
+      - name: Sign Windows installer
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -398,7 +401,7 @@ jobs:
           CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
           Installer" .\.github\scripts\synnax-setup-v${{ env.VERSION }}.exe
 
-      - name: Upload Windows Installer
+      - name: Upload Windows installer
         run: |
           gh release upload --clobber "${env:TAG}" .\.github\scripts\synnax-setup-v${env:VERSION}.exe
 
@@ -409,5 +412,5 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
     steps:
-      - name: Publish Release
+      - name: Publish release
         run: gh release edit "$TAG" --draft=false

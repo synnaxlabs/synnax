@@ -21,12 +21,14 @@ import (
 
 // Helper to extract literal from expression text
 func getLiteral(text string) parser.ILiteralContext {
+	GinkgoHelper()
 	expr := MustSucceed(parser.ParseExpression(text))
 	return parser.GetLiteral(expr)
 }
 
 // Helper to parse a numeric literal from text
 func parseNumeric(text string, targetType types.Type) (literal.ParsedValue, error) {
+	GinkgoHelper()
 	lit := getLiteral(text)
 	numLit := lit.NumericLiteral()
 	return literal.ParseNumeric(numLit, targetType)
@@ -707,6 +709,7 @@ var _ = Describe("Literal Parser", func() {
 
 	Describe("ParseConst", func() {
 		parse := func(text string, target types.Type) (literal.ParsedValue, error) {
+			GinkgoHelper()
 			return literal.ParseConst(MustSucceed(parser.ParseExpression(text)), target)
 		}
 

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega/types"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/resolve"
@@ -30,6 +31,7 @@ import (
 // STL-populated root, suitable for compiler unit tests that exercise
 // expressions referencing host functions (channels.write, series.add, ...).
 func FunctionScope(ctx context.Context) *symbol.Symbol {
+	ginkgo.GinkgoHelper()
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	s := testutil.MustSucceed(
 		root.Add(
@@ -45,6 +47,7 @@ func FunctionScope(ctx context.Context) *symbol.Symbol {
 }
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
+	ginkgo.GinkgoHelper()
 	scope := FunctionScope(ctx)
 	return ccontext.NewRoot(
 		ctx,

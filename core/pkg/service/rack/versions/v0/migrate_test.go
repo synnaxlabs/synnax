@@ -61,6 +61,7 @@ var _ = Describe("Migration", func() {
 	})
 
 	runMigration := func(ctx context.Context) {
+		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Rack",
@@ -72,6 +73,7 @@ var _ = Describe("Migration", func() {
 	}
 
 	retrieveRack := func(ctx context.Context, key v0.Key) v0.Rack {
+		GinkgoHelper()
 		var r v0.Rack
 		Expect(gorp.NewRetrieve[v0.Key, v0.Rack]().
 			Where(gorp.MatchKeys[v0.Key, v0.Rack](key)).
@@ -81,6 +83,7 @@ var _ = Describe("Migration", func() {
 	}
 
 	countRacks := func(ctx context.Context) int {
+		GinkgoHelper()
 		return MustSucceed(gorp.NewRetrieve[v0.Key, v0.Rack]().Count(ctx, db))
 	}
 

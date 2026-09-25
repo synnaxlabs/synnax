@@ -147,6 +147,7 @@ var _ = Describe("Task", Ordered, func() {
 		getModule func(context.Context, uuid.UUID) (svcarc.Arc, error),
 		cfgs ...arctask.FactoryConfig,
 	) driver.Factory {
+		GinkgoHelper()
 		return MustSucceed(arctask.NewFactory(append([]arctask.FactoryConfig{{
 			DB:         db,
 			Channel:    channelSvc,
@@ -158,6 +159,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
+		GinkgoHelper()
 		return newFactoryWith(
 			func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
 				resolver := channelSvc.NewArcSymbolResolver(nil)
@@ -181,6 +183,7 @@ var _ = Describe("Task", Ordered, func() {
 		prof arc.Text,
 		cfgs ...arctask.FactoryConfig,
 	) driver.Factory {
+		GinkgoHelper()
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := channelSvc.NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, slices.Concat(
@@ -200,6 +203,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	configToMap := func(cfg arctask.Config) map[string]any {
+		GinkgoHelper()
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -207,6 +211,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	newTask := func(ctx context.Context, factory driver.Factory) driver.Task {
+		GinkgoHelper()
 		svcTask := task.Task{
 			Key:    uuid.New(),
 			Name:   "test-task",
@@ -224,6 +229,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	createVirtualCh := func(ctx context.Context, prefix string, dataType telem.DataType) *channel.Channel {
+		GinkgoHelper()
 		ch := &channel.Channel{
 			Name:     prefix + "_" + uuid.New().String()[:8],
 			Virtual:  true,
@@ -237,6 +243,7 @@ var _ = Describe("Task", Ordered, func() {
 		responses <-chan framer.StreamerResponse,
 		close func(),
 	) {
+		GinkgoHelper()
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys:        keys,
 			SendOpenAck: true,
@@ -1036,6 +1043,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			byName := func(name string) svcarc.Status {
+				GinkgoHelper()
 				var stat svcarc.Status
 				Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1099,6 +1107,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1163,6 +1172,7 @@ var _ = Describe("Task", Ordered, func() {
 				// Every extra fire creates a new identically-named range, so a
 				// stable count of one proves the entry node dispatched once.
 				oneRange := func(g Gomega) {
+					GinkgoHelper()
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
 						Count(ctx, nil)).To(Equal(1))
@@ -1222,6 +1232,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1297,6 +1308,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -1373,6 +1385,7 @@ var _ = Describe("Task", Ordered, func() {
 				).To(BeTrue())
 
 				oneRow := func(g Gomega) {
+					GinkgoHelper()
 					var rows []svcarc.Status
 					g.Expect(statusSvc.NewRetrieve[svcarc.StatusDetails]().
 						Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
@@ -3602,6 +3615,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(wIdx.Close()).To(Succeed())
 
 				enterWatch := func() {
+					GinkgoHelper()
 					time.Sleep(50 * time.Millisecond)
 					goW := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 						Keys:  channel.Keys{goCh.Key()},
