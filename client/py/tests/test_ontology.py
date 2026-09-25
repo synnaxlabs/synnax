@@ -51,6 +51,18 @@ class TestOntology:
         parents = client.ontology.retrieve_parents(sy.group.ontology_id(g2.key))
         assert parents == [sy.group.ontology_id(g.key)]
 
+    def test_add_children(self, client: sy.Synnax):
+        name = str(uuid4())
+        g = client.groups.create(sy.ontology.ROOT_ID, name)
+        assert g.key is not None
+        g2 = client.groups.create(sy.ontology.ROOT_ID, name)
+        assert g2.key is not None
+        client.ontology.add_children(
+            sy.group.ontology_id(g.key), sy.group.ontology_id(g2.key)
+        )
+        children = client.ontology.retrieve_children(sy.group.ontology_id(g.key))
+        assert children == [sy.group.ontology_id(g2.key)]
+
     def test_remove_children(self, client: sy.Synnax):
         name = str(uuid4())
         g = client.groups.create(sy.ontology.ROOT_ID, name)

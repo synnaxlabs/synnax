@@ -14,6 +14,8 @@
 package api
 
 import (
+	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
@@ -47,7 +49,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // LayerConfig is the configuration for opening the API layer.
@@ -62,6 +66,7 @@ type Transport struct {
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
+	UserChangePassword freighter.UnaryServer[user.ChangePasswordRequest, struct{}]
 	UserCreate         freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
@@ -231,6 +236,30 @@ type Layer struct {
 	config       config.LayerConfig
 }
 
+// bindCredentialWriter binds handle to server with the auth service's credential lock
+// held for the whole transaction, commit included. A lock released when handle returns
+// still leaves the window before the commit open to an interleaving mutation.
+func bindCredentialWriter[RQ, RS freighter.Payload](
+	server freighter.UnaryServer[RQ, RS],
+	authSvc *svcauth.Service,
+	db *gorp.DB,
+	handle func(context.Context, gorp.Tx, RQ) (RS, error),
+) {
+	inner := fgorp.CreateWriteUnaryHandler(db, handle)
+	server.BindHandler(func(ctx context.Context, req RQ) (RS, error) {
+		var res RS
+		if err := authSvc.Exclusive(func() error {
+			var err error
+			res, err = inner(ctx, req)
+			return err
+		}); err != nil {
+			var zero RS
+			return zero, err
+		}
+		return res, nil
+	})
+}
+
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
 	var (
@@ -262,6 +291,7 @@ func (l *Layer) BindTo(t Transport) {
 		// USER
 		t.UserRename,
 		t.UserChangeUsername,
+		t.UserChangePassword,
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
@@ -420,20 +450,18 @@ func (l *Layer) BindTo(t Transport) {
 	)
 
 	db := l.config.Distribution.DB
+	authSvc := l.config.Service.Auth
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
-	t.AuthChangePassword.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
-	)
+	bindCredentialWriter(t.AuthChangePassword, authSvc, db, l.Auth.ChangePassword)
 
 	// USER
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
-	t.UserChangeUsername.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
-	)
-	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
-	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
+	bindCredentialWriter(t.UserChangeUsername, authSvc, db, l.User.ChangeUsername)
+	bindCredentialWriter(t.UserChangePassword, authSvc, db, l.User.ChangePassword)
+	bindCredentialWriter(t.UserCreate, authSvc, db, l.User.Create)
+	bindCredentialWriter(t.UserDelete, authSvc, db, l.User.Delete)
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
 
 	// CHANNEL

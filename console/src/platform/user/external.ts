@@ -9,4 +9,5 @@
 
 export * from "@/platform/user/Info";
 export * from "@/platform/user/useAssignRoleModal";
+export * from "@/platform/user/useChangePasswordModal";
 export * from "@/platform/user/useRegisterModal";

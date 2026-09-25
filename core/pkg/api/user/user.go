@@ -141,6 +141,41 @@ func (s *Service) ChangeUsername(
 		UpdateUsername(ctx, u.Username, req.Username)
 }
 
+type ChangePasswordRequest struct {
+	Password string   `json:"password" msgpack:"password" validate:"required"`
+	Key      user.Key `json:"key"      msgpack:"key"`
+}
+
+// ChangePassword replaces the password for the user with the given key. The subject
+// must hold update access on that user; the current password is not required. Returns
+// [user.ErrRootCredentialsManaged] if the key names the root user.
+func (s *Service) ChangePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ChangePasswordRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{user.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	var u user.User
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(req.Key)).Entry(&u).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if u.RootUser {
+		return struct{}{}, user.ErrRootCredentialsManaged
+	}
+	return struct{}{}, s.auth.NewWriter(tx).ChangePassword(ctx, svcauth.Credentials{
+		Username: u.Username,
+		Password: req.Password,
+	})
+}
+
 type RenameRequest struct {
 	FirstName string   `json:"first_name" msgpack:"first_name"`
 	LastName  string   `json:"last_name"  msgpack:"last_name"`

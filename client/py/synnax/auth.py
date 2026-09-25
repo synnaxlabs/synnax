@@ -14,12 +14,13 @@ from freighter import (
     AsyncMiddleware,
     AsyncNext,
     Context,
+    Empty,
     Middleware,
     Next,
     UnaryClient,
 )
 from synnax.exceptions import ExpiredToken, InvalidToken
-from synnax.user.payload import User
+from synnax.user import User
 from synnax.util.send_required import send_required
 from x.deprecation import deprecated_getattr
 from x.telem import TimeStamp
@@ -41,6 +42,10 @@ class TokenResponse(BaseModel):
     token: str
     user: User
     cluster_info: ClusterInfo = ClusterInfo()
+
+
+class _ChangePasswordRequest(Credentials):
+    new_password: str
 
 
 AUTHORIZATION_HEADER = "Authorization"
@@ -78,6 +83,26 @@ class Client:
         self.token = res.token
         self.user = res.user
         self.authenticated = True
+
+    def change_password(self, current_password: str, new_password: str) -> None:
+        """Replaces the password of the authenticated user. The caller supplies the
+        current password rather than the client replaying the one it holds, so an
+        unattended session cannot change its own password.
+
+        :param current_password: The current password, which the Core verifies.
+        :param new_password: The new password.
+        :raises AuthError: If current_password does not match the stored password.
+        """
+        self.client.send(
+            "/auth/change-password",
+            _ChangePasswordRequest(
+                username=self.username,
+                password=current_password,
+                new_password=new_password,
+            ),
+            Empty,
+        )
+        self.password = new_password
 
     def middleware(self) -> Middleware:
         def mw(ctx: Context, _next: Next) -> Context:

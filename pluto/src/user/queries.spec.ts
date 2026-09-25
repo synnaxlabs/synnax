@@ -310,4 +310,117 @@ describe("User queries", () => {
       });
     });
   });
+  describe("useChangePasswordForm", () => {
+    it("should set the target user's password without their current one", async () => {
+      const username = `change-password-${id.create()}`;
+      const target = await client.users.create({ username, password: "old" });
+      const { result } = renderHook(
+        () =>
+          User.useChangePasswordForm({
+            query: null,
+            initialValues: {
+              key: target.key,
+              password: "",
+              confirmPassword: "",
+            },
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      act(() => {
+        result.current.form.set("password", "rotated");
+        result.current.form.set("confirmPassword", "rotated");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      const asUser = createTestClient({ username, password: "rotated" });
+      await expect(asUser.connect()).resolves.toBeDefined();
+      await asUser.close();
+    });
+
+    it("should refuse to save when the confirmation does not match", async () => {
+      const target = await client.users.create({
+        username: `mismatch-${id.create()}`,
+        password: "old",
+      });
+      const { result } = renderHook(
+        () =>
+          User.useChangePasswordForm({
+            query: null,
+            initialValues: {
+              key: target.key,
+              password: "",
+              confirmPassword: "",
+            },
+          }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      act(() => {
+        result.current.form.set("password", "rotated");
+        result.current.form.set("confirmPassword", "typo");
+      });
+      expect(result.current.form.validate()).toBe(false);
+      expect(result.current.form.get("confirmPassword").status.message).toContain(
+        "Passwords do not match",
+      );
+    });
+  });
+
+  describe("useChangeOwnPasswordForm", () => {
+    const createSelf = async () => {
+      const username = `change-own-password-${id.create()}`;
+      await client.users.create({ username, password: "old" });
+      const asUser = createTestClient({ username, password: "old" });
+      await asUser.connect();
+      const ownWrapper = await createAsyncSynnaxWrapper({ client: asUser });
+      return { asUser, ownWrapper, username };
+    };
+
+    it("should set the signed-in user's own password", async () => {
+      const { asUser, ownWrapper, username } = await createSelf();
+      const { result } = renderHook(
+        () => User.useChangeOwnPasswordForm({ query: null }),
+        { wrapper: ownWrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      act(() => {
+        result.current.form.set("currentPassword", "old");
+        result.current.form.set("password", "rotated");
+        result.current.form.set("confirmPassword", "rotated");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      await asUser.close();
+      const reconnected = createTestClient({ username, password: "rotated" });
+      await expect(reconnected.connect()).resolves.toBeDefined();
+      await reconnected.close();
+    });
+
+    it("should reject a wrong current password from an authenticated session", async () => {
+      const { asUser, ownWrapper, username } = await createSelf();
+      const { result } = renderHook(
+        () => User.useChangeOwnPasswordForm({ query: null }),
+        { wrapper: ownWrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      act(() => {
+        result.current.form.set("currentPassword", "not-the-password");
+        result.current.form.set("password", "rotated");
+        result.current.form.set("confirmPassword", "rotated");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      await waitFor(() => expect(result.current.variant).toBe("error"));
+      await asUser.close();
+      const unchanged = createTestClient({ username, password: "old" });
+      await expect(unchanged.connect()).resolves.toBeDefined();
+      await unchanged.close();
+    });
+  });
 });

@@ -35,6 +35,7 @@ export const Tag = ({
   color: pColor,
   icon,
   onClose,
+  onClick,
   className,
   onDragStart,
   ...rest
@@ -58,7 +59,9 @@ export const Tag = ({
         CSS.B("tag"),
         CSS.M("reveals"),
         onClose != null && CSS.BM("tag", "closeable"),
+        onClick == null && onClose == null && CSS.BM("tag", "static"),
       )}
+      onClick={onClick}
       size={size}
       overflow="nowrap"
       align="center"

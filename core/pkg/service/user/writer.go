@@ -68,7 +68,8 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 
 // ChangeUsername renames the user record identified by key to newUsername. No identity
 // check; callers must already have authorized the operation. Returns
-// [auth.ErrRepeatedUsername] if newUsername already belongs to a different user.
+// [auth.ErrRepeatedUsername] if newUsername already belongs to a different user, and
+// [ErrRootCredentialsManaged] if key names the root user.
 func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string) error {
 	exists, err := w.svc.NewRetrieve().
 		Where(MatchUsernames(newUsername)).Exists(ctx, w.tx)
@@ -80,9 +81,12 @@ func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string)
 	}
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](key)).
-		Change(func(_ gorp.Context, u User) User {
+		ChangeErr(func(_ gorp.Context, u User) (User, error) {
+			if u.RootUser {
+				return u, ErrRootCredentialsManaged
+			}
 			u.Username = newUsername
-			return u
+			return u, nil
 		}).
 		Exec(ctx, w.tx)
 }

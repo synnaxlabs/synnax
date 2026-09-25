@@ -44,6 +44,48 @@ class TestClusterAuth:
 
 
 @pytest.mark.auth
+class TestChangePassword:
+    def test_change_password(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        """Should rotate the authenticated user's own password."""
+        host, port, _, _ = login_info
+        username = str(uuid4())
+        client.users.create(username=username, password="old")
+        as_user = sy.Synnax(host=host, port=port, username=username, password="old")
+        as_user.auth.change_password("old", "new")
+        sy.Synnax(host=host, port=port, username=username, password="new")
+        with pytest.raises(sy.AuthError):
+            sy.Synnax(host=host, port=port, username=username, password="old")
+
+    def test_wrong_supplied_current_password(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        """Should reject the change when the caller mistypes the current password."""
+        host, port, _, _ = login_info
+        username = str(uuid4())
+        client.users.create(username=username, password="old")
+        as_user = sy.Synnax(host=host, port=port, username=username, password="old")
+        # The session is authenticated, so only a real check of the supplied value can
+        # reject this.
+        with pytest.raises(sy.AuthError):
+            as_user.auth.change_password("not-the-password", "new")
+        sy.Synnax(host=host, port=port, username=username, password="old")
+
+    def test_wrong_current_password(
+        self, client: sy.Synnax, login_info: tuple[str, int, str, str]
+    ):
+        """Should reject the change when an admin already rotated the password."""
+        host, port, _, _ = login_info
+        username = str(uuid4())
+        user = client.users.create(username=username, password="old")
+        as_user = sy.Synnax(host=host, port=port, username=username, password="old")
+        client.users.change_password(user.key, "rotated")
+        with pytest.raises(sy.AuthError):
+            as_user.auth.change_password("old", "new")
+
+
+@pytest.mark.auth
 class TestAuthRetry:
     @pytest.fixture(scope="function")
     def auth_setup(self) -> MockUnaryClient[int, int]:

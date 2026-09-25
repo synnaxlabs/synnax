@@ -11,6 +11,7 @@ package auth
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/versions"
@@ -60,6 +61,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg   ServiceConfig
 	table *gorp.Table[string, SecureCredentials]
+	mu    sync.Mutex
 }
 
 // OpenService opens a new [Service] with the given configurations.
@@ -110,6 +112,16 @@ func (s *Service) Authenticate(
 		return errors.Combine(ErrInvalidCredentials, err)
 	}
 	return nil
+}
+
+// Exclusive runs f while holding the lock that serializes credential mutations.
+// Credentials are keyed by username, so a rename and a password change against the same
+// user must not interleave. Hold the lock across the commit of any transaction f writes
+// through, not only the writer calls. The lock is per-process.
+func (s *Service) Exclusive(f func() error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return f()
 }
 
 // NewWriter opens a new [Writer] using the provided transaction.

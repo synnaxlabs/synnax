@@ -10,6 +10,9 @@
 package user_test
 
 import (
+	"context"
+	"fmt"
+	"sync"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,6 +39,15 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", u.OntologyID())
 	return fctx, u
+}
+
+// exclusiveWriteTx runs f in a transaction while holding the auth service's credential
+// lock, the shape every credential route is bound with. The commit happens inside the
+// lock: a lock released when the handler returns still leaves the window between the
+// last write and the commit open to an interleaving rename.
+func exclusiveWriteTx(ctx context.Context, f func(tx gorp.Tx) error) error {
+	GinkgoHelper()
+	return authSvc.Exclusive(func() error { return db.WithTx(ctx, f) })
 }
 
 var _ = Describe("Service", func() {
@@ -163,7 +176,7 @@ var _ = Describe("Service", func() {
 					Key:       u.Key,
 					FirstName: "Renamed",
 					LastName:  "User",
-				})).Error().ToNot(HaveOccurred())
+				})).To(Equal(struct{}{}))
 				var updated user.User
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
 					Entry(&updated).Exec(ctx, nil)).To(Succeed())
@@ -209,8 +222,7 @@ var _ = Describe("Service", func() {
 							Username: newName,
 						},
 					),
-				).Error().
-					ToNot(HaveOccurred())
+				).To(Equal(struct{}{}))
 
 				var updated user.User
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
@@ -240,8 +252,7 @@ var _ = Describe("Service", func() {
 							Username: username,
 						},
 					),
-				).Error().
-					ToNot(HaveOccurred())
+				).To(Equal(struct{}{}))
 			},
 		)
 		It(
@@ -255,7 +266,7 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should return an error when the target user does not exist",
+			"Should return query.ErrNotFound when the target user does not exist",
 			func(ctx SpecContext) {
 				Expect(
 					apiSvc.ChangeUsername(
@@ -267,7 +278,7 @@ var _ = Describe("Service", func() {
 						},
 					),
 				).Error().
-					To(HaveOccurred())
+					To(MatchError(query.ErrNotFound))
 			},
 		)
 		It(
@@ -308,6 +319,163 @@ var _ = Describe("Service", func() {
 		)
 	})
 
+	Describe("ChangePassword", func() {
+		It(
+			"Should replace the password without the current one",
+			func(ctx SpecContext) {
+				username := "change-password-" + uuid.New().String()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{Key: u.Key, Password: "new"},
+					),
+				).To(Equal(struct{}{}))
+
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: username, Password: "new",
+				})).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+		It(
+			"Should refuse to change the root user's password",
+			func(ctx SpecContext) {
+				// The Core reconciles the root password against its configuration on
+				// every startup, so a change here would revert on the next restart.
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{
+							Key:      root.Key,
+							Password: "root-new",
+						},
+					),
+				).Error().
+					To(MatchError(user.ErrRootCredentialsManaged))
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: root.Username, Password: "p",
+				})).To(Succeed())
+			},
+		)
+		It(
+			"Should deny access when the subject lacks update permission",
+			func(ctx SpecContext) {
+				username := "change-password-denied-" + uuid.New().String()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+				fctx, _ := nonRootCtx(ctx)
+				Expect(apiSvc.ChangePassword(fctx, db, apiuser.ChangePasswordRequest{
+					Key:      u.Key,
+					Password: "new",
+				})).Error().To(MatchError(access.ErrDenied))
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+			},
+		)
+		It(
+			"Should return query.ErrNotFound when the target user does not exist",
+			func(ctx SpecContext) {
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{Key: uuid.New(), Password: "new"},
+					),
+				).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
+			"Should reject an empty password",
+			func(ctx SpecContext) {
+				username := "change-password-empty-" + uuid.New().String()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "old",
+				})).To(Succeed())
+				Expect(
+					apiSvc.ChangePassword(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangePasswordRequest{Key: u.Key, Password: ""},
+					),
+				).Error().
+					To(MatchError(ContainSubstring("password: required")))
+			},
+		)
+		It(
+			"Should keep the password under the new username when a rename races it",
+			func(ctx SpecContext) {
+				// Both mutations read the username and then write the auth row by it.
+				// Without serialization the rename commits while the password change
+				// is still hashing, so the password write targets a username that no
+				// longer exists.
+				username := "change-password-race-" + uuid.New().String()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: username,
+				}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: username, Password: "p0",
+				})).To(Succeed())
+				for i := range 5 {
+					newName := fmt.Sprintf("%s-%d", username, i)
+					newPassword := fmt.Sprintf("p%d", i+1)
+					var wg sync.WaitGroup
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(exclusiveWriteTx(ctx, func(tx gorp.Tx) error {
+							_, err := apiSvc.ChangePassword(
+								rootCtx(ctx),
+								tx,
+								apiuser.ChangePasswordRequest{
+									Key:      u.Key,
+									Password: newPassword,
+								},
+							)
+							return err
+						})).To(Succeed())
+					})
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(exclusiveWriteTx(ctx, func(tx gorp.Tx) error {
+							_, err := apiSvc.ChangeUsername(
+								rootCtx(ctx),
+								tx,
+								apiuser.ChangeUsernameRequest{
+									Key:      u.Key,
+									Username: newName,
+								},
+							)
+							return err
+						})).To(Succeed())
+					})
+					wg.Wait()
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: newName, Password: newPassword,
+					})).To(Succeed())
+				}
+			},
+		)
+	})
+
 	Describe("Delete", func() {
 		It(
 			"Should be a no-op when none of the supplied keys exist",
@@ -318,9 +486,7 @@ var _ = Describe("Service", func() {
 						db,
 						apiuser.DeleteRequest{Keys: []user.Key{uuid.New()}},
 					),
-				).
-					Error().
-					ToNot(HaveOccurred())
+				).To(Equal(struct{}{}))
 			},
 		)
 		It(
@@ -338,7 +504,7 @@ var _ = Describe("Service", func() {
 					rootCtx(ctx),
 					db,
 					apiuser.DeleteRequest{Keys: []user.Key{created.Key, uuid.New()}},
-				)).Error().ToNot(HaveOccurred())
+				)).To(Equal(struct{}{}))
 				Expect(
 					userSvc.NewRetrieve().
 						Where(user.MatchKeys(created.Key)).

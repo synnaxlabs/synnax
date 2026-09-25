@@ -172,9 +172,16 @@ class TestRoleClient:
         # Assign role to user
         client.access.roles.assign(user=user.key, role=two_roles[0].key)
 
-        # Verify by retrieving policies for the user (via role)
-        # Note: This requires the policies to be attached to the role via ontology
-        # For now, we just verify the call doesn't error
+        parents = client.ontology.retrieve_parents(sy.user.ontology_id(user.key))
+        assert sy.access.role.ontology_id(two_roles[0].key) in parents
+
+    def test_unassign_role(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
+        """Should remove an assigned role from a user."""
+        user = client.users.create(username=str(uuid.uuid4()), password="testpass")
+        client.access.roles.assign(user=user.key, role=two_roles[0].key)
+        client.access.roles.unassign(user=user.key, role=two_roles[0].key)
+        parents = client.ontology.retrieve_parents(sy.user.ontology_id(user.key))
+        assert sy.access.role.ontology_id(two_roles[0].key) not in parents
 
     def test_retrieve_by_internal_flag(self, client: sy.Synnax) -> None:
         """Should filter roles by internal flag."""

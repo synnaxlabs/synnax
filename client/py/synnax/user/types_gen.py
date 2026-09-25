@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
 
@@ -42,6 +42,24 @@ class User(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class New(BaseModel):
+    """Contains parameters for creating a new user.
+
+    Attributes:
+        key: Is the unique identifier for this user.
+        username: Is the unique login name for the user.
+        first_name: Is the user's first name.
+        last_name: Is the user's last name.
+        password: Is the password for the new user account.
+    """
+
+    key: Key | None = None
+    username: str
+    first_name: str | None = None
+    last_name: str | None = None
+    password: str = Field(min_length=1)
 
 
 ONTOLOGY_TYPE = ID(type="user")

@@ -63,6 +63,5 @@ New struct extends User {
     @cpp omit
     @doc value    "contains parameters for creating a new user."
     @go omit
-    @py omit
     @ts use_input
 }

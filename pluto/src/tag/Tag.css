@@ -20,6 +20,12 @@
     box-shadow: var(--pluto-shadow-lift);
     position: relative;
 
+    /* A tag with nothing to click is a chip, not a control. The button chassis it
+       borrows offers a pointer regardless, so take it back. */
+    &.pluto-tag--static {
+        cursor: default;
+    }
+
     /* The close overlays the leading icon, so it paints the tag's face to mask
        it, outranking the glyph default's transparent fill. */
     .pluto-btn.pluto-tag__close {

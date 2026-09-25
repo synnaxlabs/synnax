@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
-from synnax.user.payload import New, User
+from synnax.user.types_gen import New, User
 from x.lists import normalize
 from x.params import require_named_params
 
@@ -43,6 +43,11 @@ class _DeleteRequest(BaseModel):
 class _ChangeUsernameRequest(BaseModel):
     key: UUID
     username: str
+
+
+class _ChangePasswordRequest(BaseModel):
+    key: UUID
+    password: str
 
 
 class _ChangeNameRequest(BaseModel):
@@ -112,7 +117,7 @@ class Client:
 
     def change_username(self, key: UUID, username: str) -> None:
         self.client.send(
-            "/user/change_username",
+            "/user/change-username",
             _ChangeUsernameRequest(key=key, username=username),
             Empty,
         )
@@ -121,8 +126,21 @@ class Client:
         self, key: UUID, *, first_name: str = "", last_name: str = ""
     ) -> None:
         self.client.send(
-            "/user/change_name",
+            "/user/rename",
             _ChangeNameRequest(key=key, first_name=first_name, last_name=last_name),
+            Empty,
+        )
+
+    def change_password(self, key: UUID, password: str) -> None:
+        """Replaces the password of the user with the given key. The caller must hold
+        update access on that user; the current password is not required.
+
+        :param key: The key of the user whose password to replace.
+        :param password: The new password.
+        """
+        self.client.send(
+            "/user/change-password",
+            _ChangePasswordRequest(key=key, password=password),
             Empty,
         )
 
