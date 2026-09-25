@@ -268,7 +268,7 @@ jobs:
 
   console:
     needs: [changes, core-image]
-    if: needs.changes.outputs.console == 'true'
+    if: needs.changes.outputs.console == 'true' || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.console.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -276,7 +276,7 @@ jobs:
 
   pluto:
     needs: [changes, core-image]
-    if: needs.changes.outputs.pluto == 'true'
+    if: needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.pluto.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -284,7 +284,7 @@ jobs:
 
   driver:
     needs: [changes, core-image]
-    if: needs.changes.outputs.driver == 'true'
+    if: needs.changes.outputs.driver == 'true' || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.driver.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -292,7 +292,7 @@ jobs:
 
   arc:
     needs: [changes, core-image]
-    if: needs.changes.outputs.arc == 'true'
+    if: needs.changes.outputs.arc == 'true' || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.arc.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -300,7 +300,8 @@ jobs:
 
   client-cpp:
     needs: [changes, core-image]
-    if: needs.changes.outputs.client_cpp == 'true'
+    if:
+      needs.changes.outputs.client_cpp == 'true' || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.client.cpp.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -308,7 +309,8 @@ jobs:
 
   client-py:
     needs: [changes, core-image]
-    if: needs.changes.outputs.client_py == 'true'
+    if:
+      needs.changes.outputs.client_py == 'true' || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.client.py.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -316,7 +318,8 @@ jobs:
 
   client-ts:
     needs: [changes, core-image]
-    if: needs.changes.outputs.client_ts == 'true'
+    if:
+      needs.changes.outputs.client_ts == 'true' || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.client.ts.yaml
     with:
       image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -324,7 +327,9 @@ jobs:
 
   freighter-py:
     needs: [changes, freighter-image]
-    if: needs.changes.outputs.freighter_py == 'true'
+    if:
+      needs.changes.outputs.freighter_py == 'true' ||
+      needs.changes.outputs.freighter_integration == 'true'
     uses: ./.github/workflows/test.freighter.py.yaml
     with:
       image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
@@ -332,7 +337,9 @@ jobs:
 
   freighter-ts:
     needs: [changes, freighter-image]
-    if: needs.changes.outputs.freighter_ts == 'true'
+    if:
+      needs.changes.outputs.freighter_ts == 'true' ||
+      needs.changes.outputs.freighter_integration == 'true'
     uses: ./.github/workflows/test.freighter.ts.yaml
     with:
       image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
@@ -366,8 +373,6 @@ jobs:
       contents: write
       packages: write
     uses: ./.github/workflows/test.integration.yaml
-    with:
-      windows: false
     secrets: inherit
 
   # Runs even when a dependency failed or was skipped: a path-gated job that did not

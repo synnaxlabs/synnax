@@ -21,7 +21,7 @@ on:
         type: string
         required: true
       os:
-        description: "Tester runner label ('ubuntu-tester' or 'windows-tester')"
+        description: "Runner label ('ubuntu-build-bot' or 'windows-build-bot')"
         type: string
         required: true
       flags:

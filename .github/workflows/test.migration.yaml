@@ -22,11 +22,16 @@ on:
         type: string
         required: false
         default: ""
-      windows:
-        description: Whether to run the Windows migration too
+      ubuntu:
+        description: Whether to run the migration on Ubuntu
         required: false
         type: boolean
         default: true
+      windows:
+        description: Whether to run the migration on Windows
+        required: false
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs: *inputs
@@ -41,9 +46,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-tester, windows-tester]
+        os: [ubuntu-build-bot, windows-build-bot]
         exclude:
-          - os: ${{ !inputs.windows && 'windows-tester' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu-build-bot' }}
+          - os: ${{ !inputs.windows && 'windows-build-bot' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7

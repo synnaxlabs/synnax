@@ -16,11 +16,16 @@ run-name:
 on:
   workflow_call:
     inputs:
-      windows:
-        description: Whether to build and test on Windows too
+      ubuntu:
+        description: Whether to build and test on Ubuntu
         required: false
         type: boolean
         default: true
+      windows:
+        description: Whether to build and test on Windows
+        required: false
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -51,11 +56,16 @@ on:
         required: false
         default: false
         type: boolean
-      windows:
-        description: Whether to build and test on Windows too
+      ubuntu:
+        description: Whether to build and test on Ubuntu
         required: false
         type: boolean
         default: true
+      windows:
+        description: Whether to build and test on Windows
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   setup:
@@ -114,7 +124,7 @@ jobs:
     uses: ./.github/workflows/build.synnax.yaml
     with:
       windows: ${{ inputs.windows }}
-      ubuntu: true
+      ubuntu: ${{ inputs.ubuntu }}
       docker: false
       driver: true
       console: true
@@ -135,7 +145,7 @@ jobs:
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: windows-tester
+      os: windows-build-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -143,13 +153,13 @@ jobs:
     name: Test (ubuntu)
     needs: [setup, build]
     if:
-      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') }}
+      ${{ inputs.ubuntu && !cancelled() && needs.setup.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      os: ubuntu-tester
+      os: ubuntu-build-bot
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -174,6 +184,7 @@ jobs:
             display: windows
             executable: .exe
         exclude:
+          - os: ${{ !inputs.ubuntu && 'ubuntu-24.04' }}
           - os: ${{ !inputs.windows && 'windows-2025' }}
     steps:
       - name: Checkout repository
@@ -304,5 +315,6 @@ jobs:
     uses: ./.github/workflows/test.migration.yaml
     with:
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
+      ubuntu: ${{ inputs.ubuntu }}
       windows: ${{ inputs.windows }}
     secrets: inherit

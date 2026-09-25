@@ -82,6 +82,9 @@ jobs:
   integration:
     name: Integration
     uses: ./.github/workflows/test.integration.yaml
+    with:
+      ubuntu: true
+      windows: true
     permissions:
       actions: read
       contents: write
