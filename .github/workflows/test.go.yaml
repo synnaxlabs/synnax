@@ -11,7 +11,7 @@ name: Test - Go
 
 on:
   workflow_call:
-    inputs:
+    inputs: &inputs
       directory:
         description: The directory containing the Go module to test
         required: true
@@ -34,6 +34,23 @@ on:
         required: false
         type: boolean
         default: false
+      macos:
+        description: Whether to test on macOS
+        required: false
+        type: boolean
+        default: false
+      ubuntu:
+        description: Whether to test on Ubuntu
+        required: false
+        type: boolean
+        default: true
+      windows:
+        description: Whether to test on Windows
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs: *inputs
 
 jobs:
   lint:
@@ -85,18 +102,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
+        exclude:
+          - os: ${{ !inputs.macos && 'macos-latest' }}
+          - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
+          - os: ${{ !inputs.windows && 'windows-latest' }}
         include:
           - os: ubuntu-latest
             codegen: true
-        # The full matrix runs for main, PRs into main, and manual dispatches; other
-        # refs run Linux only.
-        exclude:
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
-              github.event_name != 'workflow_dispatch') && 'macos-latest' }}
-          - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main' &&
-              github.event_name != 'workflow_dispatch') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository

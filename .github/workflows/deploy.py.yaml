@@ -34,7 +34,7 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Install uv
@@ -57,7 +57,7 @@ jobs:
         working-directory: freighter/py
         run: uv build
 
-      - name: Build Client
+      - name: Build client
         working-directory: client/py
         run: uv build
 
