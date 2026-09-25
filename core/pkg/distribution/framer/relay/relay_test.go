@@ -66,9 +66,8 @@ var _ = Describe("Relay", func() {
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				DeferCleanup(func() {
 					streamerReq.Close()
-					// A streamer parked on the open ack never reads its request
-					// inlet, so the drain below only returns once the context is
-					// cancelled.
+					// A streamer parked on the open ack never reads its request inlet,
+					// so the drain below only returns once the context is cancelled.
 					cancel()
 					confluence.Drain(readerRes)
 				})
