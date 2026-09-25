@@ -165,7 +165,10 @@ describe("Ranger.Timeline", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /^Start, Today \d/ })).toBeTruthy();
+    // Within an hour of midnight the start reads "Yesterday" instead of "Today".
+    expect(
+      screen.getByRole("button", { name: /^Start, (?:Today|Yesterday) \d{2}:\d{2}/ }),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "End, not set" })).toBeTruthy();
   });
 
