@@ -29,10 +29,11 @@ jobs:
         with:
           cache: true
 
+      # Builds the workspace packages the site imports before the check.
+      - name: Build
+        run: pnpm build:docs
+
       - name: Check site
         timeout-minutes: 15
         working-directory: docs/site
         run: pnpm check-site:build && pnpm check-site
-
-      - name: Build
-        run: pnpm build:docs
