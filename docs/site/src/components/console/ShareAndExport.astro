@@ -19,13 +19,13 @@ const { type, video } = Astro.props;
 ---
 
 <p>
-    Select <code>Copy link</code> from the Projects or Component Toolbar. Anyone on the Core
-    can open it from a browser.
+    Select <code>Copy link</code> from the Projects or Component Toolbar. Anyone on the
+    Core can open it from a browser.
 </p>
 
 <p>
-    Select <code>Export</code> to save the {type} as a JSON file. Drag the file back into
-    the Console to import it.
+    Select <code>Export</code> to save the {type} as a JSON file. Drag the file back
+    into the Console to import it.
 </p>
 
 {video && <Video client:only="react" id={video} />}

@@ -17,19 +17,19 @@ const firstPart = version.split(".").slice(0, 2).join(".");
 <Flex.Box direction="x" id={version.split(".").join("-")} className="release" empty>
     <Flex.Box direction="y" className="meta" align="start" gap="large">
         <Flex.Box direction="y" empty>
-            <Text.Text level="h3" weight={500}>Version {firstPart}</Text.Text>
+            <Text.Text level="h3" weight={500}>
+                Version {firstPart}
+            </Text.Text>
             <Text.Text color={8}>{date}</Text.Text>
-            {
-                breakingChanges ? (
-                    <Text.Text className="breaking-changes" level="small">
-                        Breaking changes
-                    </Text.Text>
-                ) : (
-                    <Text.Text className="no-breaking-changes" level="small">
-                        No breaking changes
-                    </Text.Text>
-                )
-            }
+            {breakingChanges ? (
+                <Text.Text className="breaking-changes" level="small">
+                    Breaking changes
+                </Text.Text>
+            ) : (
+                <Text.Text className="no-breaking-changes" level="small">
+                    No breaking changes
+                </Text.Text>
+            )}
         </Flex.Box>
         <Flex.Box direction="x" align="center" gap="large">
             <Text.Text
@@ -40,19 +40,19 @@ const firstPart = version.split(".").slice(0, 2).join(".");
             <Text.Text href={`https://pypi.org/project/synnax/${firstPart}/`}>
                 <Icon.Python className="link" />
             </Text.Text>
-            {
-                npmVersion != null && (
-                    <Text.Text
-                        href={`https://npmjs.com/package/@synnaxlabs/client/v/${npmVersion}`}
-                    >
-                        <Icon.TypeScript className="link" />
-                    </Text.Text>
-                )
-            }
+            {npmVersion != null && (
+                <Text.Text
+                    href={`https://npmjs.com/package/@synnaxlabs/client/v/${npmVersion}`}
+                >
+                    <Icon.TypeScript className="link" />
+                </Text.Text>
+            )}
         </Flex.Box>
     </Flex.Box>
     <Flex.Box direction="y" className="details">
-        <Text.Text level="h2" className="title">{title}</Text.Text>
+        <Text.Text level="h2" className="title">
+            {title}
+        </Text.Text>
         <article>
             <slot />
         </article>

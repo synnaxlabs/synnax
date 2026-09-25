@@ -19,9 +19,13 @@ import { Flex, Text } from "@synnaxlabs/pluto";
     justify="between"
     align="start"
 >
-    <Text.Text level="small" className="tile-date" color={8}>Mar 4, 2026</Text.Text>
+    <Text.Text level="small" className="tile-date" color={8}>
+        Mar 4, 2026
+    </Text.Text>
     <Flex.Box direction="y" justify="between" style={{ zIndex: 2, height: "100%" }}>
-        <Text.Text level="h3" color={10}>Introducing Arc</Text.Text>
+        <Text.Text level="h3" color={10}>
+            Introducing Arc
+        </Text.Text>
         <Text.Text level="p" color={9} weight={400} style={{ maxWidth: 450 }}>
             Why we built a new programming language for automation and controls.
         </Text.Text>
@@ -30,9 +34,15 @@ import { Flex, Text } from "@synnaxlabs/pluto";
     <svg class="arc-bolt" viewBox="0 0 800 200" preserveAspectRatio="none">
         <defs>
             <filter id="arc-glow-filter" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1"
+                <feGaussianBlur
+                    in="SourceGraphic"
+                    stdDeviation="6"
+                    result="blur1"
                 ></feGaussianBlur>
-                <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur2"
+                <feGaussianBlur
+                    in="SourceGraphic"
+                    stdDeviation="2"
+                    result="blur2"
                 ></feGaussianBlur>
                 <feMerge>
                     <feMergeNode in="blur1"></feMergeNode>
@@ -63,13 +73,15 @@ import { Flex, Text } from "@synnaxlabs/pluto";
         <polyline
             class="arc-path arc-outer"
             points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
-            filter="url(#arc-outer-glow)"></polyline>
+            filter="url(#arc-outer-glow)"
+        ></polyline>
 
         <!-- main arc -->
         <polyline
             class="arc-path arc-main"
             points="0,100 80,95 140,108 200,85 260,115 320,78 380,120 440,75 500,118 560,82 620,112 680,90 720,105 800,100"
-            filter="url(#arc-glow-filter)"></polyline>
+            filter="url(#arc-glow-filter)"
+        ></polyline>
 
         <!-- bright core -->
         <polyline
@@ -81,19 +93,22 @@ import { Flex, Text } from "@synnaxlabs/pluto";
         <polyline
             class="arc-path arc-branch"
             points="260,115 280,135 310,128 340,145"
-            filter="url(#arc-glow-filter)"></polyline>
+            filter="url(#arc-glow-filter)"
+        ></polyline>
 
         <!-- secondary branch 2 -->
         <polyline
             class="arc-path arc-branch"
             points="500,118 515,95 540,90 555,70"
-            filter="url(#arc-glow-filter)"></polyline>
+            filter="url(#arc-glow-filter)"
+        ></polyline>
 
         <!-- secondary branch 3 -->
         <polyline
             class="arc-path arc-branch"
             points="380,120 395,140 420,148"
-            filter="url(#arc-glow-filter)"></polyline>
+            filter="url(#arc-glow-filter)"
+        ></polyline>
     </svg>
 </Flex.Box>
 

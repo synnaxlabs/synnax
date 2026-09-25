@@ -53,7 +53,7 @@ allowBuilds:
 catalog:
   '@astrojs/check': ^0.9.10
   '@astrojs/mdx': ^8.0.2
-  '@astrojs/react': ^6.0.6
+  '@astrojs/react': ^7.0.0
   '@astrojs/vercel': ^11.0.11
   '@aws-sdk/client-s3': ^3.1139.0
   '@codingame/monaco-vscode-api': ^37.1.0
@@ -115,7 +115,7 @@ catalog:
   '@vitest/coverage-v8': ^4.1.10
   '@xyflow/react': ^12.11.6
   algoliasearch: ^5.59.0
-  astro: ^7.3.4
+  astro: ^7.3.5
   astro-seo: ^1.2.0
   async-mutex: ^0.5.0
   clsx: ^2.1.1
@@ -140,7 +140,7 @@ catalog:
   nanoid: ^6.0.1
   pluralize: ^8.0.0
   prettier: ^3.9.9
-  prettier-plugin-astro: ^0.14.1
+  prettier-plugin-astro: ^1.1.0
   prettier-plugin-sh: ^0.19.0
   prettier-plugin-toml: ^2.0.6
   # Pinned exactly, never with a caret: 2.0.3 is the last release on proxy-compare
@@ -182,3 +182,6 @@ catalogs:
   ts6:
     '@typescript/typescript6': ^6.0.2
     typescript: ^6.0.3
+minimumReleaseAgeExclude:
+  - astro@7.3.5
+  - prettier-plugin-astro@1.1.0

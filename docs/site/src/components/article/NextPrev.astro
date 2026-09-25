@@ -17,38 +17,34 @@ const { next, prev, nextURL, prevURL } = Astro.props;
     {(next != null || prev != null) && <Divider.Divider direction="x" />}
     <Flex.Box direction="x" justify="between">
         <Flex.Box direction="x" el="a" className="link" href={prevURL}>
-            {
-                prev != null && (
-                    <>
-                        <Icon.Caret.Left />
-                        <Flex.Box direction="y" gap="small">
-                            <Text.Text level="small" color={7} weight={400}>
-                                Previous
-                            </Text.Text>
-                            <Text.Text>
-                                <InlineCode text={prev} />
-                            </Text.Text>
-                        </Flex.Box>
-                    </>
-                )
-            }
+            {prev != null && (
+                <>
+                    <Icon.Caret.Left />
+                    <Flex.Box direction="y" gap="small">
+                        <Text.Text level="small" color={7} weight={400}>
+                            Previous
+                        </Text.Text>
+                        <Text.Text>
+                            <InlineCode text={prev} />
+                        </Text.Text>
+                    </Flex.Box>
+                </>
+            )}
         </Flex.Box>
         <Flex.Box direction="x" el="a" className="link" href={nextURL}>
-            {
-                next != null && (
-                    <>
-                        <Flex.Box direction="y" gap="small">
-                            <Text.Text level="small" color={8} weight={400}>
-                                Next
-                            </Text.Text>
-                            <Text.Text>
-                                <InlineCode text={next} />
-                            </Text.Text>
-                        </Flex.Box>
-                        <Icon.Caret.Right />
-                    </>
-                )
-            }
+            {next != null && (
+                <>
+                    <Flex.Box direction="y" gap="small">
+                        <Text.Text level="small" color={8} weight={400}>
+                            Next
+                        </Text.Text>
+                        <Text.Text>
+                            <InlineCode text={next} />
+                        </Text.Text>
+                    </Flex.Box>
+                    <Icon.Caret.Right />
+                </>
+            )}
         </Flex.Box>
     </Flex.Box>
 </Flex.Box>

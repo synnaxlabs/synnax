@@ -45,32 +45,28 @@ if (output?.type != null) signature = `${signature} -> ${output.type}`;
 
 <div class="params">
     <Inline code={signature} lang={arcGrammar} theme={theme} />
-    {
-        params.length > 0 && (
-            <>
-                <p>
-                    <strong>Parameters</strong>
-                </p>
-                <ul>
-                    {params.map(({ name, description }) => (
-                        <li>
-                            <code>{name}</code>: <InlineCode text={description} />
-                        </li>
-                    ))}
-                </ul>
-            </>
-        )
-    }
-    {
-        output != null && (
-            <>
-                <p>
-                    <strong>Output</strong>
-                </p>
-                <p>
-                    <InlineCode text={output.description} />
-                </p>
-            </>
-        )
-    }
+    {params.length > 0 && (
+        <>
+            <p>
+                <strong>Parameters</strong>
+            </p>
+            <ul>
+                {params.map(({ name, description }) => (
+                    <li>
+                        <code>{name}</code>: <InlineCode text={description} />
+                    </li>
+                ))}
+            </ul>
+        </>
+    )}
+    {output != null && (
+        <>
+            <p>
+                <strong>Output</strong>
+            </p>
+            <p>
+                <InlineCode text={output.description} />
+            </p>
+        </>
+    )}
 </div>

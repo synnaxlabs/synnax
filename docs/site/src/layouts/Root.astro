@@ -83,18 +83,17 @@ const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
     <body>
         <Header url={url} transition:persist />
         <main>
-            {
-                hidden ? (
-                    <section class="not-found">
-                        <h1>Page not found</h1>
-                    </section>
-                ) : (
-                    <slot />
-                )
-            }
+            {hidden ? (
+                <section class="not-found">
+                    <h1>Page not found</h1>
+                </section>
+            ) : (
+                <slot />
+            )}
         </main>
         <Footer />
-    </body><script>
+    </body>
+    <script>
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startPinningHashTarget } from "@/util/hash";
         import { startUpdatingIframeHref } from "@/util/iframe";

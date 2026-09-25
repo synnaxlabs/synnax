@@ -23,16 +23,14 @@ if (wrap) className += " wrap";
 ---
 
 <div class={className} tabindex={tabindex}>
-    {
-        !hideCopyButton && (
-            <Button.Button variant="outlined" size="medium" square>
-                <>
-                    <Icon.Copy className="copy" />
-                    <Icon.Check className="check" />
-                </>
-            </Button.Button>
-        )
-    }
+    {!hideCopyButton && (
+        <Button.Button variant="outlined" size="medium" square>
+            <>
+                <Icon.Copy className="copy" />
+                <Icon.Check className="check" />
+            </>
+        </Button.Button>
+    )}
     <pre {...rest} class="styled-scrollbar"><slot /></pre>
 </div>
 

@@ -30,12 +30,10 @@ const shown = detected.length > 0 ? detected : PLATFORMS;
 ---
 
 <Flex.Box direction="x" gap="small" wrap>
-    {
-        shown.map(({ name, asset }) => (
-            <Button.Button href={assetURL("console", version, asset)} variant="filled">
-                <Icon.Download />
-                Download v{version} for {name}
-            </Button.Button>
-        ))
-    }
+    {shown.map(({ name, asset }) => (
+        <Button.Button href={assetURL("console", version, asset)} variant="filled">
+            <Icon.Download />
+            Download v{version} for {name}
+        </Button.Button>
+    ))}
 </Flex.Box>

@@ -40,17 +40,15 @@ const {
             nextURL={nextURL}
             prevURL={prevURL}
         >
-            <slot /></Article
-        >
-        {
-            showOnThisPage && (
-                <OnThisPage
-                    headings={headings}
-                    url={Astro.url}
-                    clients={clients}
-                    platforms={platforms}
-                />
-            )
-        }
+            <slot />
+        </Article>
+        {showOnThisPage && (
+            <OnThisPage
+                headings={headings}
+                url={Astro.url}
+                clients={clients}
+                platforms={platforms}
+            />
+        )}
     </section>
 </Main>

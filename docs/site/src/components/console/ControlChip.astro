@@ -25,13 +25,11 @@ const color = COLORS[variant];
 ---
 
 <span class:list={["control-chip", `control-chip--${variant}`]}>
-    {
-        variant === "other" ? (
-            <Icon.Square color={color} />
-        ) : (
-            <Icon.Circle color={color} />
-        )
-    }
+    {variant === "other" ? (
+        <Icon.Square color={color} />
+    ) : (
+        <Icon.Circle color={color} />
+    )}
 </span>
 
 <style is:global>
