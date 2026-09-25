@@ -112,9 +112,13 @@ jobs:
   arc-cpp:
     needs: [changes, core-image]
     if: needs.changes.outputs.arc_cpp == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.arc.yaml
+    uses: ./.github/workflows/test.cpp.yaml
     with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      directories: arc/cpp
+      rust: true
+      targets: //arc/cpp/...
+      test_flags: --spawn_strategy=local --jobs=1
     secrets: inherit
 
   arc-go:
@@ -155,9 +159,12 @@ jobs:
     needs: [changes, core-image]
     if:
       needs.changes.outputs.client_cpp == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.client.cpp.yaml
+    uses: ./.github/workflows/test.cpp.yaml
     with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      directories: client/cpp client/clib
+      targets: //client/cpp/... //client/clib/...
+      test_flags: --nocache_test_results
     secrets: inherit
 
   client-py:
@@ -250,9 +257,15 @@ jobs:
   driver:
     needs: [changes, core-image]
     if: needs.changes.outputs.driver == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.driver.yaml
+    uses: ./.github/workflows/test.cpp.yaml
     with:
-      image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      apt_packages: libsystemd-dev
+      core_image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+      directories: driver
+      rust: true
+      targets: //driver/...
+      test_flags: --spawn_strategy=local --local_test_jobs=1
+      test_tags: -hardware
     secrets: inherit
 
   format:
@@ -261,7 +274,10 @@ jobs:
   freighter-cpp:
     needs: changes
     if: needs.changes.outputs.freighter_cpp == 'true'
-    uses: ./.github/workflows/test.freighter.cpp.yaml
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      directories: freighter/cpp
+      targets: //freighter/cpp/...
     secrets: inherit
 
   freighter-go:
@@ -394,7 +410,12 @@ jobs:
   soem:
     needs: changes
     if: needs.changes.outputs.soem == 'true'
-    uses: ./.github/workflows/test.soem.yaml
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      macos: true
+      sanitizers: false
+      targets: //vendor/soem:all
+      ubuntu: false
     secrets: inherit
 
   versions:
@@ -403,7 +424,10 @@ jobs:
   x-cpp:
     needs: changes
     if: needs.changes.outputs.x_cpp == 'true'
-    uses: ./.github/workflows/test.x.cpp.yaml
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      directories: x/cpp
+      targets: //x/cpp/...
     secrets: inherit
 
   x-go:

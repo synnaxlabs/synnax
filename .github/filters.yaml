@@ -30,6 +30,8 @@ cpp: &cpp
   - *ci
   - .clang-format
   - .clang-format-ignore
+  - .github/workflows/test.cpp.yaml
+  - integration/scripts/kill_synnax_processes.sh
   - scripts/check_clang_format.sh
   - scripts/install_clang_format.sh
   - scripts/run_bazel.sh
@@ -215,31 +217,26 @@ lint_integration:
 
 x_cpp: &x_cpp
   - *cpp
-  - .github/workflows/test.x.cpp.yaml
   - x/cpp/**
   - x/go/**/*.pb.go
 
 freighter_cpp: &freighter_cpp
   - *cpp
   - *x_cpp
-  - .github/workflows/test.freighter.cpp.yaml
   - freighter/cpp/**
 
 arc_cpp: &arc_cpp
   - *cpp
   - *freighter_cpp
   - *x_cpp
-  - .github/workflows/test.arc.yaml
   - arc/**
   - client/cpp/**
-  - integration/scripts/kill_synnax_processes.sh
   - vendor/wasmtime/**
 
 client_cpp: &client_cpp
   - *cpp
   - *freighter_cpp
   - *x_cpp
-  - .github/workflows/test.client.cpp.yaml
   - arc/cpp/**
   - client/clib/**
   - client/cpp/**
@@ -251,13 +248,11 @@ driver: &driver
   - *cpp
   - *freighter_cpp
   - *x_cpp
-  - .github/workflows/test.driver.yaml
   - driver/**
   - vendor/**
 
 soem:
   - *cpp
-  - .github/workflows/test.soem.yaml
   - vendor/soem/**
 
 buildifier:
