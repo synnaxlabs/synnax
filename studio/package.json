@@ -17,7 +17,7 @@
     "clean": "tsx src/cli/clean.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1112.0",
+    "@aws-sdk/client-s3": "catalog:",
     "@remotion/bundler": "catalog:",
     "@remotion/renderer": "catalog:",
     "@synnaxlabs/client": "workspace:^",

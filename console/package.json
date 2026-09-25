@@ -35,8 +35,6 @@
     "@tauri-apps/plugin-shell": "catalog:",
     "@tauri-apps/plugin-store": "catalog:",
     "@tauri-apps/plugin-updater": "catalog:",
-    "compromise": "catalog:",
-    "compromise-dates": "catalog:",
     "fflate": "catalog:",
     "pluralize": "catalog:",
     "proxy-memoize": "catalog:",
