@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -52,21 +54,28 @@ void log_timer_resolution() {
 #endif
 }
 
-/// @brief Calls wait count times and returns the rate measured from the first return
-/// to the last, the same way the integration tests measure a task's sample rate.
+/// @brief Calls wait count times and returns the median period it held. A stall on a
+/// loaded runner costs the mean wall time that the timer does not catch up on. The
+/// median rejects that sample and still moves with a systematic stretch of the period.
 template<typename Wait>
-double measure_rate(Wait &wait, const int count) {
+telem::TimeSpan measure_period(Wait &wait, const int count) {
+    std::vector<telem::TimeSpan> periods;
+    periods.reserve(count - 1);
     wait();
-    const auto first = hs_clock::now();
-    for (int i = 1; i < count; i++)
+    for (int i = 1; i < count; i++) {
+        const auto start = hs_clock::now();
         wait();
-    return (count - 1) / telem::TimeSpan(hs_clock::now() - first).seconds();
+        periods.emplace_back(hs_clock::now() - start);
+    }
+    const auto mid = periods.begin() + periods.size() / 2;
+    std::nth_element(periods.begin(), mid, periods.end());
+    return *mid;
 }
 
 /// @brief Logs the rate wait holds at rate_hz and checks it against the tolerance.
 template<typename Wait>
 void expect_rate(Wait wait, const int rate_hz) {
-    const double measured = measure_rate(wait, rate_hz * SPAN_SECONDS);
+    const double measured = 1 / measure_period(wait, rate_hz * SPAN_SECONDS).seconds();
     const double error = (measured - rate_hz) / rate_hz * 100;
     std::cout << std::fixed << std::setprecision(1);
     std::cout << rate_hz << " Hz: " << measured << " Hz measured (" << error << "%)\n";
