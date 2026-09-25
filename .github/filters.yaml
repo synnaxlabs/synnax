@@ -31,7 +31,6 @@ cpp: &cpp
   - .clang-format
   - .clang-format-ignore
   - .github/workflows/test.cpp.yaml
-  - integration/scripts/kill_synnax_processes.sh
   - scripts/check_clang_format.sh
   - scripts/install_clang_format.sh
   - scripts/run_bazel.sh

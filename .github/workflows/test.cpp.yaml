@@ -109,11 +109,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Force quit existing Synnax processes
-        if: runner.os == 'Linux'
-        continue-on-error: true
-        run: integration/scripts/kill_synnax_processes.sh
-
       - name: Install packages
         if: runner.os == 'Linux' && inputs.apt_packages != ''
         run: |
