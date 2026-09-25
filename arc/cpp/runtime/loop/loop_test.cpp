@@ -32,18 +32,13 @@ std::pair<std::unique_ptr<Loop>, x::errors::Error> create_and_start(const Config
 namespace test_timing {
 /// @brief Time to wait for a thread to start waiting before signaling.
 const auto THREAD_STARTUP = 50 * x::telem::MILLISECOND;
-/// @brief Small delay before wake to ensure thread is ready.
-const auto SMALL_DELAY = 100 * x::telem::MICROSECOND;
 /// @brief Expected timer bounds (lower).
 const auto TIMER_LOWER_BOUND = 5 * x::telem::MILLISECOND;
 /// @brief Expected timer bounds (upper, accounts for system jitter).
 const auto TIMER_UPPER_BOUND = 50 * x::telem::MILLISECOND;
-/// @brief Maximum wake latency (Windows ~15ms scheduler time slice, POSIX ~1ms).
-#ifdef _WIN32
+/// @brief Maximum latency from wake() to wait() returning. Covers the scheduler putting
+/// both threads back on a core, which takes a time slice or two on a loaded machine.
 const auto WAKE_LATENCY = 50 * x::telem::MILLISECOND;
-#else
-const auto WAKE_LATENCY = x::telem::MILLISECOND;
-#endif
 /// @brief Maximum time for breaker stop to take effect.
 const auto BREAKER_STOP_LATENCY = 10 * x::telem::MILLISECOND;
 /// @brief Maximum time for event-driven timeout (100ms + margin).
@@ -118,21 +113,29 @@ TEST(LoopTest, BusyWaitMode) {
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
+    std::atomic<bool> waiting{false};
     std::atomic<bool> woke_up{false};
     x::breaker::Breaker breaker;
+    breaker.start();
 
     std::thread waiter([&]() {
+        waiting.store(true);
         loop->wait(breaker);
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(test_timing::SMALL_DELAY.chrono());
+    // The handoff keeps thread startup out of the measurement. wake() latches, so a
+    // signal landing just before the spin loop starts still ends its first iteration.
+    while (!waiting.load())
+        std::this_thread::yield();
 
     const auto sw = x::telem::Stopwatch();
     loop->wake();
     waiter.join();
+    const auto elapsed = sw.elapsed();
+    breaker.stop();
 
-    EXPECT_LE(sw.elapsed(), test_timing::WAKE_LATENCY);
+    EXPECT_LE(elapsed, test_timing::WAKE_LATENCY);
     ASSERT_TRUE(woke_up.load());
 }
 
