@@ -221,12 +221,14 @@ struct PIDTestParams {
     // Custom jitter function that takes cycle count and returns time offset
     std::function<x::telem::TimeSpan(int)> jitter_func;
     int n_cycles;
+    /// @brief set when the jitter starts part way through the run, so the late
+    /// cycles carry noise the early ones never saw and the two cannot be compared.
+    bool steady_state_disturbed = false;
 };
 
 class HardwareTimedSampleClockPIDTest : public testing::TestWithParam<PIDTestParams> {
 protected:
     x::telem::TimeSpan current_time = 0 * x::telem::SECOND;
-    std::default_random_engine rng;
     int current_cycle = 0;
 
     [[nodiscard]] x::telem::TimeStamp now_func() const {
@@ -286,32 +288,34 @@ TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
         timing_errors_ns[i] = timing_errors[i].nanoseconds();
 
     // Analyze results
-    // 1. Check if errors converge (later errors should be smaller)
-    auto early_vs_late_count = n_cycles * 0.2;
+    const auto window = static_cast<std::ptrdiff_t>(n_cycles / 5);
     const auto early_avg_error = std::accumulate(
                                      timing_errors_ns.begin(),
-                                     timing_errors_ns.begin() + early_vs_late_count,
-                                     0
+                                     timing_errors_ns.begin() + window,
+                                     0LL
                                  ) /
-                                 early_vs_late_count;
-
+                                 window;
     const auto late_avg_error = std::accumulate(
-                                    timing_errors_ns.end() - early_vs_late_count,
+                                    timing_errors_ns.end() - window,
                                     timing_errors_ns.end(),
-                                    0
+                                    0LL
                                 ) /
-                                early_vs_late_count;
+                                window;
 
-    // System should improve over time
-    EXPECT_LE(
-        x::telem::TimeSpan(late_avg_error).abs(),
-        x::telem::TimeSpan(early_avg_error).abs()
-    );
+    // 1. Check if errors converge (later errors should be smaller). A run that
+    // gains jitter part way through settles around that noise instead, so the
+    // two windows measure different things.
+    if (!params.steady_state_disturbed)
+        EXPECT_LE(
+            x::telem::TimeSpan(late_avg_error).abs(),
+            x::telem::TimeSpan(early_avg_error).abs()
+        );
 
-    // 2. Check maximum error in steady state (last 20 samples)
+    // 2. Check maximum error in steady state
     const auto max_steady_error = x::telem::TimeSpan(*std::max_element(
-        timing_errors_ns.end() - n_cycles * 0.2,
-        timing_errors_ns.end()
+        timing_errors_ns.end() - window,
+        timing_errors_ns.end(),
+        [](const long long a, const long long b) { return std::abs(a) < std::abs(b); }
     ));
 
     // Maximum steady-state error should be reasonable (e.g., < 5% of period)
@@ -408,17 +412,16 @@ INSTANTIATE_TEST_SUITE_P(
             .k_d = 0.05,
             .constant_offset = x::telem::MICROSECOND * 100,
             .jitter_func =
-                [](int cycle) {
+                [gen = std::mt19937(42),
+                 dist = std::uniform_int_distribution<int64_t>(
+                     -80 * x::telem::MICROSECOND.nanoseconds(),
+                     80 * x::telem::MICROSECOND.nanoseconds()
+                 )](int cycle) mutable {
                     if (cycle < 10000) return x::telem::TimeSpan(0);
-                    static std::random_device rd;
-                    static std::mt19937 gen(rd());
-                    static std::uniform_int_distribution<int64_t> dist(
-                        -80 * x::telem::MICROSECOND.nanoseconds(),
-                        80 * x::telem::MICROSECOND.nanoseconds()
-                    );
                     return x::telem::TimeSpan(dist(gen));
                 },
-            .n_cycles = 15000
+            .n_cycles = 15000,
+            .steady_state_disturbed = true
         }
     )
 );
