@@ -23,13 +23,15 @@ const content = (container: HTMLElement): HTMLElement => {
 
 describe("value symbol", () => {
   it("should take its width from the configured inline size", () => {
-    const { container } = render(<Value inlineSize={INLINE_SIZE} units="psi" />);
+    const { container } = render(
+      <Value inlineSize={INLINE_SIZE} orientation="left" units="psi" />,
+    );
     expect(content(container).style.inlineSize).toBe(`${INLINE_SIZE}px`);
   });
 
   it("should keep that width as the value grows and shrinks", () => {
     const value = (v: string) => (
-      <Value inlineSize={INLINE_SIZE} units="psi">
+      <Value inlineSize={INLINE_SIZE} orientation="left" units="psi">
         {v}
       </Value>
     );
