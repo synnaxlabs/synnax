@@ -9,19 +9,11 @@
     }
   },
   "bypass_actors": [
-    {
-      "actor_id": 5,
-      "actor_type": "RepositoryRole",
-      "bypass_mode": "always"
-    }
+    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
   ],
   "rules": [
-    {
-      "type": "deletion"
-    },
-    {
-      "type": "non_fast_forward"
-    },
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
     {
       "type": "pull_request",
       "parameters": {
@@ -37,14 +29,7 @@
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [
-          {
-            "context": "Review gate"
-          },
-          {
-            "context": "OK"
-          }
-        ]
+        "required_status_checks": [{ "context": "Review gate" }, { "context": "OK" }]
       }
     },
     {
