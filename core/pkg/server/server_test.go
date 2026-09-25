@@ -13,6 +13,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cockroachdb/cmux"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/server"
@@ -39,20 +40,50 @@ var _ = Describe("Server", func() {
 		})
 	})
 	It("Should stop when closed before its branches begin serving", func() {
+		b := &lateBranch{release: make(chan struct{})}
 		s := MustSucceed(server.Serve(server.Config{
 			Security:  server.SecurityConfig{Insecure: new(true)},
 			Listeners: []server.Listener{{Address: "localhost:0"}},
-			Branches: []server.Branch{
-				&server.SecureHTTPBranch{
-					MaxIdleWorkerDuration: 100 * time.Millisecond,
-				},
-			},
+			Branches:  []server.Branch{b},
 		}))
 		closed := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
 			closed <- s.Close()
 		}()
+		close(b.release)
 		Eventually(closed, 10*time.Second).Should(Receive(BeNil()))
 	})
 })
+
+// lateBranch holds its routine short of Serve until the spec releases it, so Stop
+// always lands first and only the Server can free the listener.
+type lateBranch struct{ release chan struct{} }
+
+var _ server.Branch = (*lateBranch)(nil)
+
+func (*lateBranch) Key() string { return "late" }
+
+func (*lateBranch) Routing() server.BranchRouting {
+	return server.BranchRouting{
+		Policy:   server.RoutingPolicyServeAlwaysPreferSecure,
+		Matchers: []cmux.Matcher{cmux.Any()},
+	}
+}
+
+func (*lateBranch) Init(server.BranchContext) {}
+
+func (b *lateBranch) Serve(ctx server.BranchContext) error {
+	<-b.release
+	for {
+		conn, err := ctx.Lis.Accept()
+		if err != nil {
+			return err
+		}
+		if err = conn.Close(); err != nil {
+			return err
+		}
+	}
+}
+
+func (*lateBranch) Stop() {}
