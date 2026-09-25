@@ -185,6 +185,10 @@ genrule(
             fi
 
             # Install headers and library manually
+            # Purge the staging tree first. It persists across builds on a warm
+            # runner, so headers a previous wasmtime version shipped would
+            # otherwise be copied into the output and collide with it.
+            rm -rf artifacts
             mkdir -p artifacts/lib artifacts/include artifacts/include/wasmtime
 
             # Copy the library file (cargo produces wasmtime_c_api.lib for staticlib)
@@ -240,6 +244,11 @@ EOF
         "@platforms//os:macos": """
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
+            # Purge both staging trees first. They persist across builds on a warm
+            # runner, and cmake installs whatever sits in its binary include dir,
+            # so headers a previous wasmtime version shipped would reappear and
+            # collide with the read-only outputs of the current one.
+            rm -rf artifacts target/c-api/include
             cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
             cmake --build target/c-api
             cmake --install target/c-api
@@ -265,6 +274,11 @@ EOF
         "//conditions:default": """
             # Build wasmtime
             cd vendor/wasmtime/wasmtime
+            # Purge both staging trees first. They persist across builds on a warm
+            # runner, and cmake installs whatever sits in its binary include dir,
+            # so headers a previous wasmtime version shipped would reappear and
+            # collide with the read-only outputs of the current one.
+            rm -rf artifacts target/c-api/include
             cmake -S crates/c-api -B target/c-api --install-prefix="$$(pwd)/artifacts" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
             cmake --build target/c-api
             cmake --install target/c-api
