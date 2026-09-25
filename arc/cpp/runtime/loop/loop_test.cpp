@@ -113,30 +113,35 @@ TEST(LoopTest, BusyWaitMode) {
 
     const auto loop = ASSERT_NIL_P(create_and_start(config));
 
+    // Both threads read the same stopwatch to time the wake, so the window covers
+    // wake() to wait() returning and leaves out thread startup and join scheduling.
+    const auto sw = x::telem::Stopwatch();
     std::atomic<bool> waiting{false};
-    std::atomic<bool> woke_up{false};
+    std::atomic<int64_t> returned_at{0};
     x::breaker::Breaker breaker;
     breaker.start();
 
     std::thread waiter([&]() {
         waiting.store(true);
         loop->wait(breaker);
-        woke_up.store(true);
+        returned_at.store(sw.elapsed().nanoseconds());
     });
 
-    // The handoff keeps thread startup out of the measurement. wake() latches, so a
-    // signal landing just before the spin loop starts still ends its first iteration.
+    // wake() latches, so a signal landing just before the spin loop starts still ends
+    // its first iteration.
     while (!waiting.load())
         std::this_thread::yield();
 
-    const auto sw = x::telem::Stopwatch();
+    const auto woke_at = sw.elapsed();
     loop->wake();
     waiter.join();
-    const auto elapsed = sw.elapsed();
     breaker.stop();
 
-    EXPECT_LE(elapsed, test_timing::WAKE_LATENCY);
-    ASSERT_TRUE(woke_up.load());
+    ASSERT_NE(returned_at.load(), 0);
+    EXPECT_LE(
+        x::telem::TimeSpan(returned_at.load()) - woke_at,
+        test_timing::WAKE_LATENCY
+    );
 }
 
 /// @brief Test HIGH_RATE mode with timer.
