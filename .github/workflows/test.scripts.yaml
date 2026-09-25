@@ -10,31 +10,14 @@
 name: Test - Scripts
 
 on:
-  pull_request:
-    paths:
-      - .github/workflows/test.scripts.yaml
-      - .github/scripts/**
-      - scripts/**
-  push:
-    branches:
-      - main
-      - release/**
-    paths:
-      - .github/workflows/test.scripts.yaml
-      - .github/scripts/**
-      - scripts/**
+  workflow_call:
   workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Install uv
@@ -42,5 +25,5 @@ jobs:
         with:
           version: latest-known
 
-      - name: Run Tests
+      - name: Run tests
         run: uvx pytest .github/scripts scripts

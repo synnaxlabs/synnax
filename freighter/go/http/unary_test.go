@@ -108,8 +108,6 @@ var _ = BeforeSuite(func() {
 	}).WithPolling(1 * time.Millisecond).Should(Succeed())
 })
 
-var _ = AfterSuite(func() { Expect(unaryApp.Shutdown()).To(Succeed()) })
-
 var _ = Describe("Unary", func() {
 	test.UnarySuite(func() (
 		freighter.UnaryServer[test.Request, test.Response],
