@@ -41,6 +41,7 @@ func compile(
 	source string,
 	resolver []symbol.Symbol,
 ) (compiler.Output, error) {
+	GinkgoHelper()
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -52,6 +53,7 @@ func compileWithHostImports(
 	source string,
 	resolver []symbol.Symbol,
 ) (compiler.Output, error) {
+	GinkgoHelper()
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -88,6 +90,7 @@ func inferReturnType(expected any) string {
 }
 
 func assertResult(result uint64, expected any) {
+	GinkgoHelper()
 	switch v := expected.(type) {
 	case float64:
 		Expect(math.Float64frombits(result)).To(Equal(v))
@@ -129,6 +132,7 @@ func bindDefaultModules(
 	ctx context.Context,
 	r wazero.Runtime,
 ) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState, *stlchannels.ProgramState) {
+	GinkgoHelper()
 	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
@@ -150,6 +154,7 @@ func bindMockChannelModule(
 	r wazero.Runtime,
 	exports map[string]any,
 ) {
+	GinkgoHelper()
 	builder := r.NewHostModuleBuilder("channels")
 	for name, impl := range exports {
 		builder = builder.NewFunctionBuilder().WithFunc(impl).Export(name)

@@ -25,6 +25,7 @@ func instant(
 	maxRetries int,
 	healthy time.Duration,
 ) *restart.Policy {
+	GinkgoHelper()
 	return MustSucceed(restart.New(ctx, restart.Config{
 		BaseInterval:  0,
 		Scale:         1,

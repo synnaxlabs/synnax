@@ -88,6 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // freshUser creates a user with no role assignments. Use this for "unauthorized"
 // specs so accumulated grants on the shared author don't leak in.
 func freshUser(ctx SpecContext) user.User {
+	GinkgoHelper()
 	return MustSucceed(
 		userSvc.NewWriter(nil).
 			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
@@ -102,6 +103,7 @@ func grantOn(
 	actions []access.Action,
 	objects ...ontology.ID,
 ) {
+	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
 	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}

@@ -23,6 +23,7 @@ var _ = Describe("Writer", func() {
 	// no second row populated; only the writer's persistence path is
 	// exercised. Reducer behavior is covered in actions_test.go.
 	seed := func(ctx SpecContext) table.Table {
+		GinkgoHelper()
 		s := table.Table{
 			Name:    "test",
 			Rows:    []table.Row{{Size: 30, Cells: []string{"a", "b"}}},
@@ -37,6 +38,7 @@ var _ = Describe("Writer", func() {
 	}
 
 	retrieve := func(ctx SpecContext, key table.Key) table.Table {
+		GinkgoHelper()
 		var res table.Table
 		Expect(
 			svc.NewRetrieve().Where(table.MatchKeys(key)).Entry(&res).Exec(ctx, tx),

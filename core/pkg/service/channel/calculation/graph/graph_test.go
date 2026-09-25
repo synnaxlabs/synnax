@@ -78,6 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 func openGraph(ctx context.Context) *graph.Graph {
+	GinkgoHelper()
 	return MustOpen(graph.Open(ctx, graph.Config{
 		DB:      db,
 		Channel: channelSvc,
@@ -98,6 +99,7 @@ func fetchStatus(ctx context.Context, key channel.Key) (calculation.Status, bool
 }
 
 func expectStatus(ctx context.Context, key channel.Key) calculation.Status {
+	GinkgoHelper()
 	var result calculation.Status
 	Eventually(func() bool {
 		s, ok := fetchStatus(ctx, key)
@@ -119,6 +121,7 @@ func expectStatus(ctx context.Context, key channel.Key) calculation.Status {
 // clears it. The assertion therefore polls until the status has settled to absent
 // rather than reading it once; a status that never clears still fails the spec.
 func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
+	GinkgoHelper()
 	Eventually(func() bool {
 		_, ok := fetchStatus(ctx, key)
 		return ok
@@ -127,6 +130,7 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 }
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
+	GinkgoHelper()
 	var ch channel.Channel
 	Expect(
 		channelSvc.NewRetrieve().

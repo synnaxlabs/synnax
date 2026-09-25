@@ -43,6 +43,7 @@ var _ = Describe("AlertTask", func() {
 		ctx context.Context,
 		cfg pd.TaskConfig,
 	) driver.Task {
+		GinkgoHelper()
 		t := task.Task{
 			Key:    uuid.New(),
 			Name:   "PagerDuty Test",
@@ -61,6 +62,7 @@ var _ = Describe("AlertTask", func() {
 		message string,
 		details any,
 	) {
+		GinkgoHelper()
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
 		w := statusSvc.NewWriter(tx)
