@@ -44,8 +44,10 @@ elif [ "${#FOUND[@]}" -gt 1 ]; then
 fi
 TIER=${FOUND[0]#review/}
 
-# Only a review of the head counts: a push after the review needs a new one.
-REVIEW=$(gh api "repos/${REPO}/commits/${HEAD}/check-runs?per_page=100" --paginate \
+# Only a review of the head counts: a push after the review needs a new one. The latest
+# filter keeps a rerun's verdict from being shadowed by an earlier success.
+REVIEW=$(gh api "repos/${REPO}/commits/${HEAD}/check-runs?filter=latest&per_page=100" \
+    --paginate \
     --jq '.check_runs[]
         | select(.name == "Greptile Review" and .conclusion == "success") | .id')
 if [ -z "$REVIEW" ]; then
