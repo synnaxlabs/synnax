@@ -35,7 +35,6 @@ package pledge
 import (
 	"context"
 	"math/rand/v2"
-	"slices"
 	"sync"
 	"time"
 
@@ -231,9 +230,12 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 func (r *responsible) refreshCandidates() { r.candidateSnapshot = r.Candidates() }
 
 func (r *responsible) buildQuorum() (node.Group, error) {
-	presentCandidates := r.candidateSnapshot.WhereActive()
-	size := len(presentCandidates)/2 + 1
-	healthy := presentCandidates.WhereState(node.StateHealthy)
+	// Size the quorum from the highest key in the cluster, not from the number of nodes
+	// this host knows about. A host with a stale view knows fewer nodes than exist, and
+	// a majority of that subset is not a majority of the cluster, so two hosts can pick
+	// quorums that share no juror and assign the same key twice.
+	size := int(highestNodeKey(r.candidateSnapshot))/2 + 1
+	healthy := r.candidateSnapshot.WhereActive().WhereState(node.StateHealthy)
 	if len(healthy) < size {
 		return node.Group{}, errors.New("quorum unreachable")
 	}
@@ -306,9 +308,12 @@ func (r *responsible) consultQuorum(
 }
 
 type juror struct {
-	approvals []node.Key
 	Config
 	mu sync.Mutex
+	// approved is the highest key this juror has approved. Rejecting everything at or
+	// below it, rather than the exact keys seen, means one shared juror pushes a
+	// responsible past every key that juror has already handed out.
+	approved node.Key
 }
 
 func (j *juror) verdict(ctx context.Context, req Request) (err error) {
@@ -321,7 +326,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.L.Debug("juror received proposal. making verdict", logKey)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	if slices.Contains(j.approvals, req.Key) {
+	if req.Key <= j.approved {
 		j.L.Warn(
 			"juror rejected proposal. already approved for a different pledge",
 			logKey,
@@ -332,7 +337,7 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 		j.L.Warn("juror rejected proposal. key out of range", logKey)
 		return errProposalRejected
 	}
-	j.approvals = append(j.approvals, req.Key)
+	j.approved = req.Key
 	j.L.Debug("juror approved proposal", logKey)
 	return nil
 }

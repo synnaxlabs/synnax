@@ -65,8 +65,8 @@ func provisionCandidates(
 		Expect(pledge.Arbitrate(cfg, pledge.Config{
 			Candidates: candidates(i),
 		})).To(Succeed())
-		id := node.Key(i)
-		nodes[id] = node.Node{Key: node.Key(i), Address: addr, State: nodeState(i)}
+		id := node.Key(i + 1)
+		nodes[id] = node.Node{Key: id, Address: addr, State: nodeState(i)}
 	}
 	return nodes
 }
@@ -246,7 +246,7 @@ var _ = Describe("Pledge", func() {
 					baseConfig(net),
 					pledge.Config{
 						Candidates: func() node.Group { return nodes },
-						Peers:      []address.Address{nodes[0].Address},
+						Peers:      []address.Address{nodes[1].Address},
 					},
 					pledge.BlazingFastConfig,
 				))
@@ -260,9 +260,9 @@ var _ = Describe("Pledge", func() {
 					allCandidates   = func() node.Group { return nodes }
 					extraCandidates = func() node.Group {
 						n := nodes.Copy()
-						n[10] = node.Node{
-							Key:     10,
-							Address: "localhost:10",
+						n[11] = node.Node{
+							Key:     11,
+							Address: "localhost:11",
 							State:   node.StateHealthy,
 						}
 						return n
@@ -279,12 +279,12 @@ var _ = Describe("Pledge", func() {
 					baseConfig(net),
 					pledge.Config{
 						Instrumentation: ins.Child("one-juror-aware-of-new-node"),
-						Peers:           []address.Address{allCandidates()[0].Address},
+						Peers:           []address.Address{allCandidates()[1].Address},
 						Candidates:      extraCandidates,
 					},
 					pledge.BlazingFastConfig,
 				))
-				Expect(res.Key).To(BeNumerically(">=", node.Key(11)))
+				Expect(res.Key).To(BeNumerically(">=", node.Key(12)))
 			})
 		})
 		Context("Too few healthy candidates to form a quorum", func() {
@@ -321,14 +321,14 @@ var _ = Describe("Pledge", func() {
 					nodes := make(node.Group)
 					provisionCandidates(2, net, nodes, nil, nil)
 					client := net.UnaryClient()
-					// Approve keys 2 through 21 on the first juror, as a pledge that
+					// Approve keys 3 through 22 on the first juror, as a pledge that
 					// failed partway would leave behind. The 20 keys exceed
 					// MaxProposals, so counting the rejected re-proposals would exhaust
 					// every retry's budget before it reaches a fresh key.
-					for k := node.Key(2); k <= 21; k++ {
+					for k := node.Key(3); k <= 22; k++ {
 						Expect(client.Send(
 							ctx,
-							nodes[0].Address,
+							nodes[1].Address,
 							pledge.Request{Key: k},
 						)).To(Equal(pledge.Response{}))
 					}
@@ -345,7 +345,7 @@ var _ = Describe("Pledge", func() {
 							RequestTimeout: time.Second,
 						}),
 					)
-					Expect(res.Key).To(BeNumerically(">=", node.Key(22)))
+					Expect(res.Key).To(BeNumerically(">=", node.Key(23)))
 				},
 			)
 			It("Should consume the budget and return the error when a juror fails",
@@ -374,16 +374,16 @@ var _ = Describe("Pledge", func() {
 					nodes := make(node.Group)
 					provisionCandidates(1, net, nodes, nil, nil)
 					failing := provisionFailingJuror(net)
-					nodes[1] = node.Node{
-						Key:     1,
+					nodes[2] = node.Node{
+						Key:     2,
 						Address: failing.Address(),
 						State:   node.StateHealthy,
 					}
 					client := net.UnaryClient()
-					for k := node.Key(2); k <= 2+node.Key(maxProposals); k++ {
+					for k := node.Key(3); k <= 3+node.Key(maxProposals); k++ {
 						Expect(client.Send(
 							ctx,
-							nodes[0].Address,
+							nodes[1].Address,
 							pledge.Request{Key: k},
 						)).To(Equal(pledge.Response{}))
 					}
