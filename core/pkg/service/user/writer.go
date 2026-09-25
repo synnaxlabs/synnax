@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 // A Writer is used to create, update, and delete user records. It does not touch
@@ -31,8 +32,9 @@ type Writer struct {
 }
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
-// assigned. The returned User has Key populated. Returns an error if u.RootUser is true
-// and [auth.ErrRepeatedUsername] if a user with u.Username already exists.
+// assigned. The returned User has Key populated. Returns an error if u.RootUser is
+// true, [query.ErrUniqueViolation] if a user with u.Key already exists, and
+// [auth.ErrRepeatedUsername] if a user with u.Username already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
 		return User{}, errors.New(
@@ -45,6 +47,17 @@ func (w Writer) Create(ctx context.Context, u User) (User, error) {
 func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if u.Key == uuid.Nil() {
 		u.Key = uuid.New()
+	} else {
+		exists, err := w.svc.NewRetrieve().
+			Where(MatchKeys(u.Key)).Exists(ctx, w.tx)
+		if err != nil {
+			return User{}, err
+		}
+		if exists {
+			return User{}, errors.Wrapf(
+				query.ErrUniqueViolation, "user with key %s already exists", u.Key,
+			)
+		}
 	}
 	exists, err := w.svc.
 		NewRetrieve().Where(MatchUsernames(u.Username)).Exists(ctx, w.tx)

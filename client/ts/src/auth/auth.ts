@@ -100,6 +100,17 @@ export class Client {
     return authState.user;
   }
 
+  /**
+   * Replaces the authenticated user after a write to its record, so later reads of
+   * {@link user} and the next login both use the current username. A no-op when not
+   * authenticated.
+   */
+  setUser(u: user.User): void {
+    if (!this.authState.authenticated) return;
+    this.authState = { ...this.authState, user: u };
+    this.credentials.username = u.username;
+  }
+
   async changePassword(newPassword: string): Promise<void> {
     if (!this.authenticated) throw new Error("Not authenticated");
     await this.client.send(

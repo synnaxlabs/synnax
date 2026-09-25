@@ -26,7 +26,7 @@ import (
 // nonRootCtx returns a freighter.Context whose Subject is a freshly-created user
 // holding no roles. Every RBAC enforcement against this subject must fail with
 // access.ErrDenied. Returns both the context and the underlying user so callers can
-// assert on identity-bearing behavior (e.g., the self-rename guard).
+// assert on identity-bearing behavior.
 func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	GinkgoHelper()
 	u := MustSucceed(writer.Create(ctx, user.User{
@@ -77,6 +77,131 @@ var _ = Describe("Service", func() {
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
+		Describe("Existing key", func() {
+			// createUser commits a fresh user with the given password and returns it.
+			createUser := func(ctx SpecContext, password string) user.User {
+				GinkgoHelper()
+				tx := DeferClose(db.OpenTx())
+				res := MustSucceed(
+					apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{{
+							Username: "existing-" + uuid.New().String(),
+							Password: password,
+						}},
+					}),
+				)
+				Expect(tx.Commit(ctx)).To(Succeed())
+				return res.Users[0]
+			}
+			// upsert commits a create request for nu and returns the resulting user.
+			upsert := func(ctx SpecContext, nu apiuser.NewUser) user.User {
+				GinkgoHelper()
+				tx := DeferClose(db.OpenTx())
+				res := MustSucceed(
+					apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{nu},
+					}),
+				)
+				Expect(tx.Commit(ctx)).To(Succeed())
+				return res.Users[0]
+			}
+			It(
+				"Should rename the user, rotate the password, and free the old username",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					renamed := "renamed-" + uuid.New().String()
+					res := upsert(ctx, apiuser.NewUser{
+						Username:  renamed,
+						Password:  "two",
+						FirstName: "First",
+						Key:       u.Key,
+					})
+					Expect(res.Key).To(Equal(u.Key))
+					Expect(res.Username).To(Equal(renamed))
+					Expect(res.FirstName).To(Equal("First"))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: renamed, Password: "two",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "one",
+					})).To(MatchError(auth.ErrInvalidCredentials))
+					Expect(userSvc.NewRetrieve().Where(user.MatchUsernames(u.Username)).
+						Exists(ctx, nil)).To(BeFalse())
+					// The original name must be reusable, both by renaming back and by
+					// a brand new user.
+					res = upsert(ctx, apiuser.NewUser{
+						Username: u.Username,
+						Password: "three",
+						Key:      u.Key,
+					})
+					Expect(res.Username).To(Equal(u.Username))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "three",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: renamed, Password: "two",
+					})).To(MatchError(auth.ErrInvalidCredentials))
+					other := upsert(ctx, apiuser.NewUser{
+						Username: renamed,
+						Password: "four",
+					})
+					Expect(other.Key).ToNot(Equal(u.Key))
+				},
+			)
+			It(
+				"Should rotate the password when the username is unchanged",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					res := upsert(ctx, apiuser.NewUser{
+						Username: u.Username,
+						Password: "two",
+						Key:      u.Key,
+					})
+					Expect(res.Username).To(Equal(u.Username))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "two",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "one",
+					})).To(MatchError(auth.ErrInvalidCredentials))
+				},
+			)
+			It(
+				"Should reject a username held by another user and roll back",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					taken := createUser(ctx, "two")
+					tx := DeferClose(db.OpenTx())
+					Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{{
+							Username: taken.Username,
+							Password: "three",
+							Key:      u.Key,
+						}},
+					})).Error().To(MatchError(auth.ErrRepeatedUsername))
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: u.Username, Password: "one",
+					})).To(Succeed())
+					Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+						Username: taken.Username, Password: "two",
+					})).To(Succeed())
+				},
+			)
+			It(
+				"Should deny access when the subject lacks update permission",
+				func(ctx SpecContext) {
+					u := createUser(ctx, "one")
+					fctx, _ := nonRootCtx(ctx)
+					Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
+						Users: []apiuser.NewUser{{
+							Username: u.Username,
+							Password: "two",
+							Key:      u.Key,
+						}},
+					})).Error().To(MatchError(access.ErrDenied))
+				},
+			)
+		})
 		It(
 			"Should roll back the auth row when user creation fails inside the tx",
 			func(ctx SpecContext) {
@@ -245,13 +370,36 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should reject a self-rename through the user service",
+			"Should let a subject holding update access rename itself",
+			func(ctx SpecContext) {
+				oldName := "self-rename-" + uuid.New().String()
+				newName := "self-rename-new-" + uuid.New().String()
+				u := MustSucceed(writer.Create(ctx, user.User{Username: oldName}))
+				Expect(authSvc.NewWriter(nil).Register(ctx, auth.Credentials{
+					Username: oldName, Password: "p",
+				})).To(Succeed())
+				fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+				fctx.Set("Subject", u.OntologyID())
+				grant(ctx, u.OntologyID(), access.ActionUpdate, u.OntologyID())
+
+				Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
+					Key:      u.Key,
+					Username: newName,
+				})).Error().ToNot(HaveOccurred())
+
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: newName, Password: "p",
+				})).To(Succeed())
+			},
+		)
+		It(
+			"Should deny a self-rename when the subject lacks update access",
 			func(ctx SpecContext) {
 				fctx, subject := nonRootCtx(ctx)
 				Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
 					Key:      subject.Key,
-					Username: "anything",
-				})).Error().To(MatchError(ContainSubstring("change your own username")))
+					Username: "self-rename-denied-" + uuid.New().String(),
+				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
 		It(

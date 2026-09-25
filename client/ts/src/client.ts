@@ -11,6 +11,7 @@ import {
   array,
   breaker,
   type CrudeTimeSpan,
+  type destructor,
   TimeSpan,
   TimeStamp,
   url,
@@ -111,6 +112,7 @@ export default class Synnax extends framer.Client {
   private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
+  private detachUser?: destructor.Destructor;
 
   /** The version of the client. */
   readonly clientVersion: string = __VERSION__;
@@ -189,7 +191,10 @@ export default class Synnax extends framer.Client {
       transport.unaryNoRetry,
       { username, password },
       {
-        onSuccess: () => this.conn.notify({ type: "auth.success" }),
+        onSuccess: () => {
+          this.trackUser();
+          this.conn.notify({ type: "auth.success" });
+        },
         onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
       },
     );
@@ -285,6 +290,16 @@ export default class Synnax extends framer.Client {
     this.logs = new log.Client({ unary, cache, ontology: this.ontology });
     this.tables = new table.Client({ unary, cache, ontology: this.ontology });
     this.imex = new imex.Client({ file: this.transport.file });
+  }
+
+  private trackUser(): void {
+    const u = this.auth.user;
+    if (u == null) return;
+    this.detachUser?.();
+    this.users.store.set(u);
+    this.detachUser = this.users.store.subscribe((e) => {
+      if (e.variant === "set") this.auth.setUser(e.value);
+    }, u.key);
   }
 
   /**

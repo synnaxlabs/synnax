@@ -11,6 +11,7 @@ package user_test
 
 import (
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,10 @@ import (
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	svc "github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -43,6 +47,7 @@ var (
 	userSvc *user.Service
 	writer  user.Writer
 	apiSvc  *apiuser.Service
+	rbacSvc *rbac.Service
 	root    user.User
 )
 
@@ -67,7 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	writer = userSvc.NewWriter(nil)
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -101,4 +106,27 @@ func rootCtx(ctx SpecContext) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", root.OntologyID())
 	return fctx
+}
+
+// grant creates a policy permitting action on the given objects, binds it to a fresh
+// role, and assigns the role to subject. Writes commit directly to the database (nil
+// tx) so the api enforcer - which reads committed state - observes them.
+func grant(
+	ctx SpecContext,
+	subject ontology.ID,
+	action access.Action,
+	objects ...ontology.ID,
+) {
+	roleWriter := rbacSvc.Role.NewWriter(nil, true)
+	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
+	r := &role.Role{Name: string(action) + "-" + uuid.New().String()}
+	Expect(roleWriter.Create(ctx, r)).To(Succeed())
+	p := &policy.Policy{
+		Name:    string(action) + "-policy-" + uuid.New().String(),
+		Objects: objects,
+		Actions: []access.Action{action},
+	}
+	Expect(policyWriter.Create(ctx, p)).To(Succeed())
+	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 }

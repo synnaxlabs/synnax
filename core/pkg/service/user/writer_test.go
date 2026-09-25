@@ -77,6 +77,22 @@ var _ = Describe("Writer", func() {
 			},
 		)
 		It(
+			"Should return ErrUniqueViolation when a user with the key already exists",
+			func(ctx SpecContext) {
+				u := MustSucceed(
+					w.Create(ctx, user.User{Username: uuid.New().String()}),
+				)
+				Expect(w.Create(ctx, user.User{
+					Username: uuid.New().String(),
+					Key:      u.Key,
+				})).Error().To(MatchError(query.ErrUniqueViolation))
+				var stored user.User
+				Expect(svc.NewRetrieve().Where(user.MatchKeys(u.Key)).
+					Entry(&stored).Exec(ctx, tx)).To(Succeed())
+				Expect(stored.Username).To(Equal(u.Username))
+			},
+		)
+		It(
 			"Should return a validation error when the username is empty",
 			func(ctx SpecContext) {
 				Expect(w.Create(ctx, user.User{})).Error().
