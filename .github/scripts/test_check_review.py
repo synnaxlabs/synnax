@@ -93,8 +93,8 @@ class Harness:
     def reviews(self, *reviews: tuple[str, str] | tuple[str, str, str]) -> None:
         """Sets the reviews in order as (login, state) or (login, state, user type).
 
-        The first review lands on its own page and the rest on a second one, the way
-        gh --paginate emits them.
+        The first review lands on its own page and the rest on a second one, the way gh
+        --paginate emits them.
         """
         payload = [
             {

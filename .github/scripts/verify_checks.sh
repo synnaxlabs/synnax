@@ -9,10 +9,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Fails unless the GitHub Actions checks on a commit passed. Usage:
-# verify_checks.sh <sha> <run_id>. Runs of the given workflow run are ignored, so a
-# release can verify its own commit. Every merged commit carries the CI merge-group
-# run, so the commit's own check runs are the whole verdict.
+# Fails unless the GitHub Actions checks on a commit passed. Usage: verify_checks.sh
+# <sha> <run_id>. Runs of the given workflow run are ignored, so a release can verify
+# its own commit. Every merged commit carries the CI merge-group run, so the commit's
+# own check runs are the whole verdict.
 
 set -euo pipefail
 

@@ -375,8 +375,8 @@ jobs:
     uses: ./.github/workflows/test.integration.yaml
     secrets: inherit
 
-  # Runs even when a dependency failed or was skipped: a path-gated job that did not
-  # run must still let the merge through.
+  # Runs even when a dependency failed or was skipped: a path-gated job that did not run
+  # must still let the merge through.
   ok:
     name: OK
     if: always()

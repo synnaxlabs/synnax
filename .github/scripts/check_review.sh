@@ -9,11 +9,11 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Decides the Review gate commit status for a pull request. Usage:
-# check_review.sh <pr_number>. Prints "<state>\t<description>" where state is pending
-# (waiting on a tier label, the Greptile review, or a human approval), failure (more
-# than one tier label), or success. Exits non-zero only when the GitHub API fails. The
-# tiers are documented in CONTRIBUTING.md.
+# Decides the Review gate commit status for a pull request. Usage: check_review.sh
+# <pr_number>. Prints "<state>\t<description>" where state is pending (waiting on a tier
+# label, the Greptile review, or a human approval), failure (more than one tier label),
+# or success. Exits non-zero only when the GitHub API fails. The tiers are documented in
+# CONTRIBUTING.md.
 
 set -euo pipefail
 
@@ -71,8 +71,8 @@ fi
 if [ "$TIER" = bot ]; then report success "review/bot: no human approval required"; fi
 
 # The latest review by each human decides; a later request for changes or a dismissal
-# retires an earlier approval. Pages are joined before grouping, since gh applies a
-# --jq filter to each page on its own.
+# retires an earlier approval. Pages are joined before grouping, since gh applies a --jq
+# filter to each page on its own.
 APPROVERS=$(gh api "repos/${REPO}/pulls/${PR}/reviews?per_page=100" --paginate \
     | jq -rs 'add
         | map(select(.user.type != "Bot" and .state != "COMMENTED"))
