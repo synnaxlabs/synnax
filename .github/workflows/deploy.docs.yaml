@@ -32,20 +32,20 @@ on:
 
 jobs:
   update:
-    name: Update Docs Search Index
+    name: Update docs search index
     runs-on: ubuntu-latest
     env:
       DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
       DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           cache: true
 
-      - name: Update Docs Search Index
+      - name: Update docs search index
         working-directory: docs/site
         run: pnpm algolia

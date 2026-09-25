@@ -132,7 +132,7 @@ const canDrop = ({ items }: Haul.DraggingState): boolean =>
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Task.ChannelListProps<C>,
-  "contextMenuItems"
+  "contextMenuItems" | "resolve"
 > {
   children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
@@ -205,6 +205,8 @@ export interface FormProps<C extends Channel> extends Required<
 > {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  /** Returns the bindings the device holds for a channel's node. */
+  resolve: (device: Device.Device, channel: C) => Partial<C>;
 }
 
 interface BodyProps<C extends Channel>
@@ -216,8 +218,13 @@ const Body = <C extends Channel>({
   children = () => null,
   getChannelKeyAndID,
   contextMenuItems,
+  resolve,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
+  const resolveOnDevice = useCallback(
+    (channel: C) => resolve(device, channel),
+    [device, resolve],
+  );
   return (
     <>
       {!isPreview && <Browser device={device} />}
@@ -226,6 +233,7 @@ const Body = <C extends Channel>({
         convertHaulItemToChannel={convertHaulItemToChannel}
         getChannelKeyAndID={getChannelKeyAndID}
         contextMenuItems={contextMenuItems}
+        resolve={resolveOnDevice}
       >
         {children}
       </ChannelList>

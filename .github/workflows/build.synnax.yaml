@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       debug:
-        description: "BDEBUG: Build Driver with Debug Symbols"
+        description: "BDEBUG: Build Driver with debug symbols"
         type: boolean
         default: false
       windows:
@@ -40,11 +40,11 @@ on:
         type: boolean
         default: false
       console:
-        description: "Build: Console Web Assets"
+        description: "Build: Console web assets"
         type: boolean
         default: false
       console_tauri:
-        description: "Build: Console Tauri Desktop App"
+        description: "Build: Console Tauri desktop app"
         type: boolean
         default: false
       core:
@@ -157,12 +157,12 @@ jobs:
       console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       # Dispatch inputs reach shell commands: reject a malformed tag or version before
       # any job interpolates one.
-      - name: Validate Inputs
+      - name: Validate inputs
         env:
           VERSION: ${{ inputs.version }}
           CONSOLE_RELEASE: ${{ inputs.console_release }}
@@ -180,7 +180,7 @@ jobs:
             exit 1
           fi
 
-      - name: Get Version
+      - name: Get version
         id: version
         working-directory: core
         run: |
@@ -195,13 +195,13 @@ jobs:
             echo "VERSION=0.0.0-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate OS Matrix
+      - name: Generate OS matrix
         id: set-matrix
         run: |
           MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
-      - name: Generate Console Tauri Matrix
+      - name: Generate Console Tauri matrix
         id: set-console-tauri-matrix
         run: |
           OS_LIST=""
@@ -218,7 +218,7 @@ jobs:
           fi
           echo "matrix=[${OS_LIST}]" >> $GITHUB_OUTPUT
 
-      - name: Verify Build Configuration
+      - name: Verify build configuration
         run: |
           .github/scripts/verify_build_config.sh \
             "${{ steps.version.outputs.VERSION }}" \
@@ -234,7 +234,7 @@ jobs:
             "${{ inputs.debug }}" \
             "${{ inputs.sign_binaries }}"
 
-      - name: Generate Go Build Tags
+      - name: Generate Go build tags
         id: go-tags
         run: |
           TAGS=""
@@ -273,13 +273,13 @@ jobs:
         include: ${{ fromJSON(needs.setup.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Update Submodules
+      - name: Update submodules
         run: git submodule update --init --recursive
 
-      - name: Install Deps On Ubuntu
+      - name: Install deps on Ubuntu
         # Dependencies should already be installed on the machine.
         # This is nominally a no-op, but exists as a fallback and for documentation.
         if: matrix.os == 'ubuntu-build-bot'
@@ -287,7 +287,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
-      - name: Install Deps on macOS
+      - name: Install deps on macOS
         if: startsWith(matrix.os, 'macos')
         run: brew install autoconf automake libtool
 
@@ -301,7 +301,7 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver && inputs.driver_ref_run_id == ''
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
 
       - name: Build Driver (Windows)
         if:
@@ -313,7 +313,7 @@ jobs:
           scripts/run_bazel.sh build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
 
-      - name: Upload Windows Debug Symbols
+      - name: Upload Windows debug symbols
         if:
           inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
           == 'windows-build-bot'
@@ -336,14 +336,14 @@ jobs:
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix //driver
 
-      - name: Extract Debug Symbols (macOS)
+      - name: Extract debug symbols (macOS)
         if:
           inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
         run: |
           dsymutil bazel-bin/driver/driver -o bazel-bin/driver/driver.dSYM
 
-      - name: Upload macOS Debug Symbols
+      - name: Upload macOS debug symbols
         if:
           inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug &&
           startsWith(matrix.os, 'macos')
@@ -364,14 +364,14 @@ jobs:
             --config=opt-unix --define=platform=nilinuxrt //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
-      - name: Extract Debug Symbols (NI Linux Real-Time)
+      - name: Extract debug symbols (NI Linux Real-Time)
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
         run: |
           objcopy --only-keep-debug bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt bazel-bin/driver/driver-nilinuxrt.debug
 
-      - name: Upload NI Linux Real-Time Debug Symbols
+      - name: Upload NI Linux Real-Time debug symbols
         if:
           inputs.driver && inputs.nilinuxrt && inputs.debug && matrix.os ==
           'ubuntu-build-bot'
@@ -386,7 +386,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Upload NI Linux Real-Time Driver as Artifact
+      - name: Upload NI Linux Real-Time Driver as artifact
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         uses: actions/upload-artifact@v7
         with:
@@ -398,7 +398,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Upload NI Linux Real-Time Driver to Release
+      - name: Upload NI Linux Real-Time Driver to release
         if:
           inputs.driver && inputs.nilinuxrt && inputs.release_tag != '' && matrix.os ==
           'ubuntu-build-bot'
@@ -406,7 +406,7 @@ jobs:
           gh release upload --clobber "$RELEASE_TAG" bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
       # The docs site tells NI Linux Real-Time users to download and run this script.
-      - name: Upload NI Linux Real-Time Install Script to Release
+      - name: Upload NI Linux Real-Time install script to release
         if:
           inputs.driver && inputs.nilinuxrt && inputs.release_tag != '' && matrix.os ==
           'ubuntu-build-bot'
@@ -431,14 +431,14 @@ jobs:
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=opt-unix //driver
 
-      - name: Extract Debug Symbols (Linux)
+      - name: Extract debug symbols (Linux)
         if:
           inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
           == 'ubuntu-build-bot'
         run: |
           objcopy --only-keep-debug bazel-bin/driver/driver bazel-bin/driver/driver.debug
 
-      - name: Upload Linux Debug Symbols
+      - name: Upload Linux debug symbols
         if:
           inputs.driver && inputs.driver_ref_run_id == '' && inputs.debug && matrix.os
           == 'ubuntu-build-bot'
@@ -490,7 +490,7 @@ jobs:
 
           codesign --verify --verbose bazel-bin/driver/driver
 
-      - name: Notarize macOS Driver Binary
+      - name: Notarize macOS Driver binary
         if: inputs.sign_binaries && inputs.driver && startsWith(matrix.os, 'macos')
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -546,7 +546,7 @@ jobs:
           bazel-bin/driver/driver.exe
 
       # A scratch dir avoids leftovers in the persistent bazel output base.
-      - name: Download Cached Driver
+      - name: Download cached Driver
         if: inputs.driver && inputs.driver_ref_run_id != ''
         uses: actions/download-artifact@v8
         with:
@@ -556,7 +556,7 @@ jobs:
           github-token: ${{ github.token }}
 
       # The cached binary carries the version stamp of the run that built it.
-      - name: Rename Cached Driver
+      - name: Rename cached Driver
         if: inputs.driver && inputs.driver_ref_run_id != ''
         shell: bash
         run: |
@@ -564,13 +564,13 @@ jobs:
           mv "${RUNNER_TEMP}"/cached-driver/synnax-driver-v* \
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Rename Driver Binary
+      - name: Rename Driver binary
         if: inputs.driver && inputs.driver_ref_run_id == ''
         shell: bash
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Upload Driver as Artifact
+      - name: Upload Driver as artifact
         if: inputs.driver
         uses: actions/upload-artifact@v7
         with:
@@ -584,7 +584,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Upload Driver to Release
+      - name: Upload Driver to release
         if: inputs.driver && inputs.release_tag != ''
         uses: nick-fields/retry@v4
         with:
@@ -596,18 +596,18 @@ jobs:
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
             matrix.os-name }}${{ matrix.executable }}
 
-      - name: Copy Driver to Assets
+      - name: Copy Driver to assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
         run: |
           cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/driver/assets/driver${{ matrix.executable }}
 
-      - name: Copy Driver to Assets (Windows)
+      - name: Copy Driver to assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
           Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
 
-      - name: Download Driver Release
+      - name: Download Driver release
         if: inputs.driver_release != '' && inputs.core
         shell: bash
         run: |
@@ -617,7 +617,7 @@ jobs:
             --output core/pkg/driver/assets/driver${{ matrix.executable }}
           chmod +x core/pkg/driver/assets/driver${{ matrix.executable }}
 
-      - name: Download Console Release
+      - name: Download Console release
         if: inputs.console_release != '' && inputs.core
         shell: bash
         run: |
@@ -628,7 +628,7 @@ jobs:
 
       - name: Set up pnpm and Node.js
         if: inputs.console && inputs.console_ref_run_id == ''
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           # Build bots keep a local pnpm store, so restoring the GitHub cache tarball
           # only adds time. Linux stores it on the persistent root volume. Windows uses
@@ -640,13 +640,13 @@ jobs:
             ${{ endsWith(matrix.os, '-build-bot') && format('~/setup-pnpm-{0}',
             runner.name) || '~/setup-pnpm' }}
 
-      - name: Build Console Web Assets
+      - name: Build Console web assets
         if: inputs.console && inputs.console_ref_run_id == ''
         env:
           NODE_OPTIONS: --max_old_space_size=8192
         run: pnpm build:console-vite
 
-      - name: Download Cached Console Assets
+      - name: Download cached Console assets
         if: inputs.console && inputs.console_ref_run_id != ''
         uses: actions/download-artifact@v8
         with:
@@ -655,7 +655,7 @@ jobs:
           run-id: ${{ inputs.console_ref_run_id }}
           github-token: ${{ github.token }}
 
-      - name: Upload Console Assets as Artifact
+      - name: Upload Console assets as artifact
         if: inputs.console
         uses: actions/upload-artifact@v7
         with:
@@ -667,18 +667,18 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Upload Console Web Bundle to Release
+      - name: Upload Console web bundle to release
         if:
           inputs.console && inputs.release_tag != '' && matrix.os == 'ubuntu-build-bot'
         run: |
           tar -czf console-web-v${{ needs.setup.outputs.VERSION }}.tar.gz -C console/dist .
           gh release upload --clobber "$RELEASE_TAG" console-web-v${{ needs.setup.outputs.VERSION }}.tar.gz
 
-      - name: Copy Console to Assets
+      - name: Copy Console to assets
         if: inputs.console && inputs.core && matrix.os != 'windows-build-bot'
         run: cp -r console/dist/* core/pkg/console/dist/
 
-      - name: Copy Console to Assets (Windows)
+      - name: Copy Console to assets (Windows)
         if: inputs.console && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
@@ -704,7 +704,7 @@ jobs:
               -X github.com/synnaxlabs/synnax/pkg/version.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
-      - name: Sign macOS Core Binary
+      - name: Sign macOS Core binary
         if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos')
         working-directory: core
         env:
@@ -734,7 +734,7 @@ jobs:
 
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
-      - name: Notarize macOS Core Binary
+      - name: Notarize macOS Core binary
         if: inputs.sign_binaries && inputs.core && startsWith(matrix.os, 'macos')
         working-directory: core
         env:
@@ -767,7 +767,7 @@ jobs:
 
           rm server-notarize.zip
 
-      - name: Sign Windows Core Binary
+      - name: Sign Windows Core binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -778,7 +778,7 @@ jobs:
           CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core"
           core/synnax-v${{ needs.setup.outputs.VERSION }}.exe
 
-      - name: Upload Core Binary as Artifact
+      - name: Upload Core binary as artifact
         if: inputs.core
         uses: actions/upload-artifact@v7
         with:
@@ -790,13 +790,13 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Rename Core Binary for Release
+      - name: Rename Core binary for release
         if: inputs.core && inputs.release_tag != ''
         working-directory: core
         run: |
           cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Upload Core to Release
+      - name: Upload Core to release
         if: inputs.core && inputs.release_tag != ''
         uses: nick-fields/retry@v4
         with:
@@ -807,17 +807,17 @@ jobs:
             gh release upload --clobber "$RELEASE_TAG" core/synnax-v${{
             needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Clean Build Caches (Ubuntu)
+      - name: Clean build caches (Ubuntu)
         if: always() && matrix.os == 'ubuntu-build-bot'
         run: integration/scripts/clean_build_caches.sh 25
 
-      - name: Clean Build Caches (Windows)
+      - name: Clean build caches (Windows)
         if: always() && matrix.os == 'windows-build-bot'
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
 
   docker:
-    name: Build Docker Image
+    name: Build Docker image
     needs: [setup, build]
     if:
       inputs.docker && (needs.build.result == 'success' || needs.build.result ==
@@ -827,13 +827,13 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Update Submodules
+      - name: Update submodules
         run: git submodule update --init --recursive
 
-      - name: Download Linux Driver Artifact
+      - name: Download Linux Driver artifact
         if: inputs.driver
         uses: actions/download-artifact@v8
         with:
@@ -842,7 +842,7 @@ jobs:
             format('synnax-driver-v{0}-linux', needs.setup.outputs.VERSION) }}
           path: ./driver-artifact/
 
-      - name: Prepare Driver Binary
+      - name: Prepare Driver binary
         if: inputs.driver
         run: |
           mkdir -p core/pkg/driver/assets
@@ -855,7 +855,7 @@ jobs:
           chmod +x core/pkg/driver/assets/driver
           file core/pkg/driver/assets/driver
 
-      - name: Download Console Assets
+      - name: Download Console assets
         if: inputs.console
         uses: actions/download-artifact@v8
         with:
@@ -864,7 +864,7 @@ jobs:
             format('synnax-console-assets-v{0}-linux', needs.setup.outputs.VERSION) }}
           path: core/pkg/console/dist/
 
-      - name: Download Driver Release
+      - name: Download Driver release
         if: inputs.driver_release != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -874,7 +874,7 @@ jobs:
             --pattern "synnax-driver-v*-linux" --output core/pkg/driver/assets/driver
           chmod +x core/pkg/driver/assets/driver
 
-      - name: Download Console Release
+      - name: Download Console release
         if: inputs.console_release != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -894,7 +894,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Login to Github Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -907,7 +907,7 @@ jobs:
           echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
           $GITHUB_OUTPUT
 
-      - name: Build and Push Docker Images
+      - name: Build and push Docker images
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -938,7 +938,7 @@ jobs:
             GO_VERSION=${{ steps.go-version.outputs.GO_VERSION }}
 
   build-console-tauri:
-    name: Build Console App
+    name: Build Console app
     needs: [setup]
     if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
     env:
@@ -952,7 +952,7 @@ jobs:
         os: ${{ fromJSON(needs.setup.outputs.console_tauri_matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Import Apple Developer Certificate
@@ -965,7 +965,7 @@ jobs:
         run: .github/scripts/import_apple_certificate.sh
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           # Signed builds run on macos-latest and windows-latest, which start cold and
           # want the cache. An unsigned build takes macos-build-bot, which keeps a local
@@ -981,7 +981,7 @@ jobs:
       # tauri.conf.json never changes, and a dev build falls back to the Cargo.toml
       # version. The MSI bundler accepts only a numeric pre-release, so a candidate
       # X.Y.Z-rc.N runs as app version X.Y.Z-N.
-      - name: Write Tauri Release Config
+      - name: Write Tauri release config
         id: config
         working-directory: console
         shell: bash
@@ -1001,7 +1001,7 @@ jobs:
           echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}
@@ -1013,7 +1013,7 @@ jobs:
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
         run: cargo install trusted-signing-cli
 
-      - name: Build Console Tauri (Signed)
+      - name: Build Console Tauri (signed)
         if: inputs.sign_binaries
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -1030,12 +1030,12 @@ jobs:
         working-directory: console
         run: pnpm build --config release.tauri.conf.json
 
-      - name: Build Console Tauri (Unsigned)
+      - name: Build Console Tauri (unsigned)
         if: ${{ !inputs.sign_binaries }}
         working-directory: console
         run: pnpm build --config release.tauri.conf.json --no-sign
 
-      - name: Upload Console App as Artifact
+      - name: Upload Console app as artifact
         uses: actions/upload-artifact@v7
         with:
           name:
@@ -1049,7 +1049,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Upload macOS Release Assets
+      - name: Upload macOS release assets
         if: inputs.release_tag != '' && startsWith(matrix.os, 'macos')
         uses: nick-fields/retry@v4
         with:
@@ -1061,7 +1061,7 @@ jobs:
             gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
             gh release upload --clobber "$RELEASE_TAG" ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.config.outputs.app_version }}_aarch64.dmg
 
-      - name: Upload Windows Release Assets
+      - name: Upload Windows release assets
         if: inputs.release_tag != '' && matrix.os == 'windows-latest'
         shell: bash
         run: |

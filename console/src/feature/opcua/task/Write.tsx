@@ -71,14 +71,19 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
+const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
+  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
+
+const resolve = (device: Device.Device, { nodeId }: WriteChannel) => ({
+  cmdChannel: getChannelByNodeID(device.properties, nodeId) ?? 0,
+});
+
 const TaskForm: FC = createForm<WriteChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems,
+  resolve,
 });
-
-const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
-  props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,

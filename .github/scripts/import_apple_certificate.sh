@@ -26,7 +26,7 @@ set -euo pipefail
 : "${KEYCHAIN_NAME:?KEYCHAIN_NAME is required}"
 : "${GITHUB_ENV:?GITHUB_ENV is required}"
 
-echo "=== Keychain Debug Info ==="
+echo "=== Keychain debug info ==="
 echo "Target keychain: $KEYCHAIN_NAME"
 echo "Current keychains:"
 security list-keychains -d user
