@@ -57,6 +57,7 @@ var _ = Describe("Migration", func() {
 	})
 
 	runMigration := func(ctx context.Context) {
+		GinkgoHelper()
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "Task",

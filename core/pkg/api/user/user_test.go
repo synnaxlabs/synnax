@@ -28,6 +28,7 @@ import (
 // access.ErrDenied. Returns both the context and the underlying user so callers can
 // assert on identity-bearing behavior (e.g., the self-rename guard).
 func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
+	GinkgoHelper()
 	u := MustSucceed(writer.Create(ctx, user.User{
 		Username: "non-root-" + uuid.New().String(),
 	}))

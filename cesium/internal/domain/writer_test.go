@@ -34,6 +34,7 @@ func extractPointer(f xfs.File) (p struct {
 	length  uint32
 },
 ) {
+	GinkgoHelper()
 	b := make([]byte, 26)
 	MustSucceed(f.Read(b))
 	p.Start = telem.TimeStamp(binary.LittleEndian.Uint64(b[:8]))

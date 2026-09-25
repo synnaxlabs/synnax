@@ -54,6 +54,7 @@ func TempDirPrefix() string {
 // identically across backends. No cleanup is needed; the FS is reclaimed by
 // the garbage collector once references go out of scope.
 func OpenMem() xfs.FS {
+	ginkgo.GinkgoHelper()
 	return testutil.MustSucceed(xfs.NewMem().Sub("testdata"))
 }
 
@@ -61,6 +62,7 @@ func OpenMem() xfs.FS {
 // registers a [ginkgo.DeferCleanup] that removes the directory and all of its
 // contents when the enclosing Ginkgo setup node exits.
 func OpenOS() xfs.FS {
+	ginkgo.GinkgoHelper()
 	dir := testutil.MustSucceed(os.MkdirTemp("", TempDirPrefix()+"*"))
 	ginkgo.DeferCleanup(func() {
 		gomega.Expect(os.RemoveAll(dir)).To(gomega.Succeed())
