@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
-#include <thread>
 
 #include "absl/log/log.h"
 #include <windows.h>
@@ -211,9 +210,6 @@ private:
                            << GetLastError();
                 return WakeReason::Shutdown;
             }
-            // Prevent starvation of breaker-stopping threads. yield() over
-            // sleep_for() to avoid adding ~50-100us of kernel timer overhead.
-            std::this_thread::yield();
         }
         return WakeReason::Shutdown;
     }
