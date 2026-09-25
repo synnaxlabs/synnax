@@ -23,53 +23,34 @@ export interface UseProps extends z.input<typeof basePropsZ> {
   aetherKey: string;
 }
 
-export interface UseReturn {
-  width: number;
-}
-
 export const use = ({
   aetherKey,
   box,
   telem,
   color,
-  precision,
-  minWidth,
-  level = "small",
+  level,
   backgroundTelem,
-  notation,
   location,
   stalenessColor,
   stalenessTimeout,
-  useWidthForBackground,
-  valueBackgroundOverScan,
-  valueBackgroundShift,
-  clip,
   borderRadius,
-}: UseProps): UseReturn => {
+}: UseProps): void => {
   const memoProps = useMemoDeepEqual({
     box,
     telem,
     color,
-    precision,
     level,
-    minWidth,
-    notation,
     backgroundTelem,
     stalenessColor,
     stalenessTimeout,
     location,
-    useWidthForBackground,
-    valueBackgroundOverScan,
-    valueBackgroundShift,
-    clip,
     borderRadius,
   });
-  const [, state, setState] = Aether.use({
+  const [, , setState] = Aether.use({
     aetherKey,
     type: Value.TYPE,
     schema: Value.z,
     initialState: memoProps,
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-  return { width: state.width ?? state.minWidth };
 };

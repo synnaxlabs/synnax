@@ -10,7 +10,7 @@
 import "@/schematic/node/general/value/value.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { color, type dimensions, type text } from "@synnaxlabs/x";
+import { color, type text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type PropsWithChildren,
@@ -23,40 +23,40 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Text } from "@/text";
 
+/**
+ * Width of the border the symbol draws around the value. The canvas box the value
+ * renders into sits inside of it, so the two must agree.
+ */
+export const BORDER_WIDTH = 2;
+
 interface RenderProps extends PropsWithChildren<
   Pick<schematic.ValueNodeConfig, "color" | "orientation" | "units" | "inlineSize">
 > {
   className?: string;
-  dimensions?: dimensions.Dimensions;
+  height?: number;
   unitsLevel?: text.Level;
 }
 
 export const Value = ({
   className,
   color: colorVal,
-  dimensions,
+  height,
   orientation,
   units,
   unitsLevel = "small",
   children,
-  inlineSize = 80,
+  inlineSize,
 }: RenderProps): ReactElement => {
   const symbolColor = color.rgbaString(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.variable("symbol-color")]: symbolColor,
-      height: dimensions?.height,
+      [CSS.variable("value-border-width")]: `${BORDER_WIDTH}px`,
+      height,
     }),
-    [symbolColor, dimensions?.height],
+    [symbolColor, height],
   );
-  const contentStyle = useMemo<CSSProperties>(
-    () => ({
-      minWidth: dimensions?.width,
-      inlineSize,
-      maxWidth: dimensions?.width,
-    }),
-    [dimensions?.width, inlineSize],
-  );
+  const contentStyle = useMemo<CSSProperties>(() => ({ inlineSize }), [inlineSize]);
   return (
     <Primitive.Div
       className={CSS.cls(CSS.B("value"), CSS.B("symbol-colored"), className)}

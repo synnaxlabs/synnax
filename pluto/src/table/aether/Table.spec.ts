@@ -30,10 +30,10 @@ const CLEANUP_REQUEST: render.Request = {
   render: () => {},
 };
 
-// clip makes each drawn cell scissor its own box, which is how drawn() sees it.
+// Each drawn cell scissors its own box, which is how drawn() sees it.
 const cellChild = (b: box.Box): MountChild => ({
   type: value.Value.TYPE,
-  state: { box: b, clip: true },
+  state: { box: b },
 });
 
 const mount = (

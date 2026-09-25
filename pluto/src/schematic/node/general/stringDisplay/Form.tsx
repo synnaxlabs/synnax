@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
-import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -18,25 +17,14 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
 import { Staleness } from "@/vis/staleness";
 
 const TelemForm = (): ReactElement => {
-  const { set } = Base.useContext();
   const { value, onChange } =
     Base.useField<Pick<schematic.StringDisplayNodeConfig, "channel">>("");
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const handleSourceChange = (key: channel.Key | null): void => {
-    if (primitive.isNonZero(key) && client != null)
-      handleError(async () => {
-        const { name } = await client.channels.retrieve({ key });
-        set("tooltip", [name]);
-      }, "Failed to retrieve channel");
+  const handleSourceChange = (key: channel.Key | null): void =>
     onChange({ ...value, channel: key ?? undefined });
-  };
   return (
     <>
       <Input.Item label="Channel" grow>

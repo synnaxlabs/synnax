@@ -8,20 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { box, scale, text, xy } from "@synnaxlabs/x";
+import { box, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { HEIGHTS } from "@/component/size";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
-import { Value } from "@/schematic/node/general/value/Primitive";
+import { BORDER_WIDTH, Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
 import { Value as BaseValue } from "@/vis/value";
-
-const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
-const VALUE_BACKGROUND_SHIFT = xy.construct(2, 2);
 
 export const Symbol = ({
   nodeKey,
@@ -31,7 +27,6 @@ export const Symbol = ({
   config: {
     label,
     level = "p",
-    textColor,
     color,
     channel,
     rollingAverage,
@@ -50,41 +45,21 @@ export const Symbol = ({
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  const backgroundTelem = useMemo(() => {
-    if (redline == null) return undefined;
-    const { bounds, gradient } = redline;
-    return telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    });
-  }, [t, redline]);
-  const { width: oWidth } = BaseValue.use({
+  const backgroundTelem = useMemo(
+    () => BaseValue.backgroundTelem(t, redline),
+    [t, redline],
+  );
+  BaseValue.use({
     aetherKey: nodeKey,
-    color: textColor,
     level,
-    box: box.construct(xy.translateY(position ?? xy.ZERO, 1), {
-      height: valueBoxHeight,
+    box: box.construct(xy.translate(position ?? xy.ZERO, BORDER_WIDTH), {
+      height: valueBoxHeight - BORDER_WIDTH * 2,
       width: inlineSize,
     }),
     telem: t,
     backgroundTelem,
-    minWidth: inlineSize,
     stalenessColor,
     stalenessTimeout,
-    notation,
-    useWidthForBackground: true,
-    valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
-    valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
 
   return (
@@ -93,7 +68,7 @@ export const Symbol = ({
       <Value
         color={color}
         orientation={orientation}
-        dimensions={{ height: valueBoxHeight, width: oWidth }}
+        height={valueBoxHeight}
         inlineSize={inlineSize}
         units={units}
         unitsLevel={text.downLevel(level)}

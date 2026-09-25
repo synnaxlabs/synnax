@@ -16,22 +16,24 @@ import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { Text } from "@/text";
 
-const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
+const PREVIEW_HEIGHT = 25;
+const PREVIEW_INLINE_SIZE = 60;
 
+// The picker draws its own text rather than the canvas the placed symbol uses, so it
+// takes the code typeface to read as the same symbol.
 const Preview = ({
   color,
   orientation,
   units,
-  inlineSize,
 }: schematic.ValueNodeConfig): ReactElement => (
   <Value
     color={color}
     orientation={orientation}
+    height={PREVIEW_HEIGHT}
+    inlineSize={PREVIEW_INLINE_SIZE}
     units={units}
-    inlineSize={inlineSize}
-    dimensions={PREVIEW_DIMENSIONS}
   >
-    <Text.Text>50.00</Text.Text>
+    <Text.Text variant="code">50.00</Text.Text>
   </Value>
 );
 

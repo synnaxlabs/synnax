@@ -64,7 +64,6 @@ export const Symbol = ({
     level,
     units,
     bounds,
-    notation,
     barWidth,
     stalenessColor,
     stalenessTimeout,

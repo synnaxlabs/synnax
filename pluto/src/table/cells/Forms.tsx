@@ -115,7 +115,7 @@ const RedlineForm = () => {
   const redline = Form.useFieldValue<Value.Redline>("redline", { optional: true });
   const absent = redline == null;
   useEffect(() => {
-    if (absent) set("redline", Value.ZERO_READLINE);
+    if (absent) set("redline", Value.ZERO_REDLINE);
   }, [absent, set]);
   if (absent) return null;
   return <Value.RedlineForm path="redline" />;

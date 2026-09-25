@@ -35,7 +35,7 @@ export class MonospacedAtlas {
   /** Drop from the origin each text baseline sets to the alphabetic baseline. */
   private readonly baselineShifts: Record<CanvasTextBaseline, number>;
   private static readonly DEFAULT_CHARS =
-    "0123456789.:-°µmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%";
+    "0123456789.:-°µmsNa∞ᴇABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz%…";
 
   constructor(props: AtlasProps) {
     const { font, characters = MonospacedAtlas.DEFAULT_CHARS, textColor } = props;

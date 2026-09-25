@@ -10,13 +10,12 @@
 import "@/table/cells/Cells.css";
 
 import { table } from "@synnaxlabs/client";
-import { type border, box, color, scale } from "@synnaxlabs/x";
+import { type border, box, color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
 import { Cell as Base } from "@/table/cells/Cell";
-import { telem } from "@/telem/aether";
 import { Text as BaseText } from "@/text";
 import { Value as BaseValue } from "@/vis/value";
 
@@ -109,24 +108,10 @@ export const Value = ({
     () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
     [channel, rollingAverage, precision, notation],
   );
-  const backgroundTelem = useMemo(() => {
-    if (redline == null) return undefined;
-    const { bounds, gradient } = redline;
-    return telem.sourcePipeline("color", {
-      connections: [
-        { from: "source", to: "scale" },
-        { from: "scale", to: "gradient" },
-      ],
-      segments: {
-        source: t,
-        scale: telem.scaleNumber({
-          scale: scale.Scale.scale<number>(bounds).scale(0, 1).transform,
-        }),
-        gradient: telem.colorGradient({ gradient }),
-      },
-      outlet: "gradient",
-    });
-  }, [t, redline]);
+  const backgroundTelem = useMemo(
+    () => (redline == null ? undefined : BaseValue.backgroundTelem(t, redline)),
+    [t, redline],
+  );
   BaseValue.use({
     aetherKey: cellKey,
     box: b,
@@ -137,14 +122,12 @@ export const Value = ({
     stalenessColor,
     backgroundTelem,
     location: { x: "center", y: "center" },
-    clip: true,
     borderRadius,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
-  // Use the column-driven box width, not BaseValue's natural text width: when
-  // row indicators are hidden, the first data row determines column widths via
-  // table-layout: fixed, so the cell must be locked to the stored column size
-  // or canvas/DOM alignment drifts.
+  // When row indicators are hidden, the first data row determines column widths via
+  // table-layout: fixed, so the cell must be locked to the stored column size or
+  // canvas/DOM alignment drifts.
   const cellStyle = useMemo(() => ({ width: box.width(b) }), [b]);
 
   return (

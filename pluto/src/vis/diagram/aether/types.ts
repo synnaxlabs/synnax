@@ -85,9 +85,6 @@ export const translateEdgesForward = (
     markerEnd: MARKER_END,
   }));
 
-export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
-  nodes.map(({ id: key, measured, ...rest }) => ({ ...rest, key }));
-
 export const translateViewportForward = (viewport: Viewport): rf.Viewport => ({
   ...viewport.position,
   zoom: viewport.zoom,
@@ -97,11 +94,6 @@ export const translateViewportBackward = (viewport: rf.Viewport): Viewport => ({
   position: xy.construct(viewport),
   zoom: viewport.zoom,
 });
-
-export const nodeConverter = (
-  nodes: Node[],
-  f: (nodes: rf.Node[]) => rf.Node[],
-): Node[] => translateNodesBackward(f(translateNodesForward(nodes, new Set())));
 
 export type NodeChange =
   | { type: "position"; key: string; position: xy.XY; dragging: boolean }
