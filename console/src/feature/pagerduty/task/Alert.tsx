@@ -145,7 +145,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
   );
   const isNotDefined = status == null;
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <Flex.Box x align="center" gap={1}>
         <Base.Indicator variant={isNotDefined ? "disabled" : status.variant} />
         <Text.Text
@@ -157,7 +157,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
         </Text.Text>
       </Flex.Box>
       <Task.EnableDisableButton path={`config.alerts.${itemKey}.disabled`} />
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

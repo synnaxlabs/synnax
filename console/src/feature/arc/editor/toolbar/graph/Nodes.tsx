@@ -43,7 +43,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { name, Preview } = spec;
 
   return (
-    <Select.ListItem
+    <Select.Item
       className={CSS.cls(CSS.BE("arc-stages", "button"))}
       aria-label={name}
       align="center"
@@ -58,7 +58,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       <Flex.Box align="center" justify="center" grow>
         <Preview config={config} scale={0.75} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

@@ -260,7 +260,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   );
 
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
@@ -316,7 +316,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
       <Text.Text level="small" color={9}>
         {fieldType}
       </Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

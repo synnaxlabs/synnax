@@ -13,6 +13,7 @@ import { project, UnexpectedError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -47,7 +48,7 @@ export const listItem = Component.renderProp(
     );
     if (proj == null) return null;
     return (
-      <Select.ListItem
+      <Select.Item
         {...props}
         className={Menu.CONTEXT_TARGET}
         data-menu-key={itemKey}
@@ -62,7 +63,7 @@ export const listItem = Component.renderProp(
           className={CSS.BE("project", "name")}
           overflow="ellipsis"
         />
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -175,20 +176,29 @@ export const Selector = (): ReactElement | null => {
           >
             <TriggerAvatar itemKey={activeKey} />
           </Dialog.Trigger>
-          <Select.Dialog<project.Key>
+          <Select.Dialog
             className={CSS.B("project-selector-dialog")}
-            resourceName="project"
-            onSearch={search}
             onContextMenu={menuProps.open}
-            footer={
-              hasCreatePermission && (
+          >
+            <Select.Search placeholder="Search projects..." onSearch={search} />
+            <Flex.Box y empty grow bordered borderColor={6} rounded full="x">
+              <Select.List grow full="x">
+                <Select.Items<project.Key>
+                  emptyContent={
+                    <Text.Text center status="disabled">
+                      No projects found
+                    </Text.Text>
+                  }
+                >
+                  {listItem}
+                </Select.Items>
+              </Select.List>
+              {hasCreatePermission && (
                 <Button.CreateListItem size="small" onClick={handleCreate}>
                   New project
                 </Button.CreateListItem>
-              )
-            }
-          >
-            {listItem}
+              )}
+            </Flex.Box>
           </Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>

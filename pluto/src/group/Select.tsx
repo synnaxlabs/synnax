@@ -25,12 +25,12 @@ const ListItem = ({
   const item = List.useItem<group.Key, group.Group>(itemKey);
   if (item == null) return null;
   return (
-    <Select.ListItem itemKey={itemKey} {...rest}>
+    <Select.Item itemKey={itemKey} {...rest}>
       <Text.Text align="center">
         <Icon.Group />
         {item.name}
       </Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

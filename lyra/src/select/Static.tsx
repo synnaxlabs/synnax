@@ -12,7 +12,7 @@ import { type optional, type record } from "@synnaxlabs/x";
 import { Component } from "@/component";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
-import { ListItem } from "@/select/ListItem";
+import { Item } from "@/select/Item";
 import { Single, type SingleProps } from "@/select/Single";
 
 /** One option in a {@link Static} selection. */
@@ -37,10 +37,10 @@ const listItem = Component.renderProp((p: List.ItemProps<record.Key>) => {
   if (item == null) return null;
   const { name, icon } = item;
   return (
-    <ListItem {...p}>
+    <Item {...p}>
       {icon}
       {name}
-    </ListItem>
+    </Item>
   );
 });
 

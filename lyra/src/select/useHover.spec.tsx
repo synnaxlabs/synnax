@@ -12,11 +12,10 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
-import { List } from "@/list";
 import { Select } from "@/select";
 import { Triggers } from "@/triggers";
 
-describe("useHover", () => {
+describe("Select keyboard hover", () => {
   const DATA = ["alpha", "bravo", "charlie"];
 
   interface RenderHoverOptions {
@@ -32,16 +31,21 @@ describe("useHover", () => {
   ) => {
     const wrapper = ({ children }: PropsWithChildren): ReactElement => {
       const content = (
-        <List.Frame data={data}>
-          <Triggers.Provider>{children}</Triggers.Provider>
-        </List.Frame>
+        <Triggers.Provider>
+          <Select.Frame
+            data={data}
+            onChange={(key: string) => onSelect(key)}
+            initialHover={initialHover}
+            enableTriggers={enableTriggers}
+          >
+            {children}
+          </Select.Frame>
+        </Triggers.Provider>
       );
       return dialog ? <Dialog.Frame visible>{content}</Dialog.Frame> : content;
     };
-    return renderHook(
-      () => Select.useHover({ data, onSelect, initialHover, enableTriggers }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => Select.useContext<string>(), { wrapper });
+    return { hover: () => result.current.getState().hover };
   };
 
   const keyDown = (code: string): void => {
@@ -52,20 +56,20 @@ describe("useHover", () => {
   };
 
   it("should shift the hover position of the list when the down arrow is pressed", () => {
-    const { result } = renderHover(DATA, vi.fn());
+    const { hover } = renderHover(DATA, vi.fn());
     keyDown("ArrowDown");
-    expect(result.current.hover).toBe("alpha");
+    expect(hover()).toBe("alpha");
   });
 
   it("should accept an initial hover value", () => {
-    const { result } = renderHover(DATA, vi.fn(), { initialHover: 1 });
-    expect(result.current.hover).toBe("bravo");
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    expect(hover()).toBe("bravo");
   });
 
   it("should shift the hover position of the list when the up arrow is pressed", () => {
-    const { result } = renderHover(DATA, vi.fn(), { initialHover: 1 });
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 1 });
     keyDown("ArrowUp");
-    expect(result.current.hover).toBe("alpha");
+    expect(hover()).toBe("alpha");
   });
 
   it("should select the item when the enter key is pressed", () => {
@@ -76,50 +80,50 @@ describe("useHover", () => {
   });
 
   it("should move the hover index to 0 when the initial hover is beyond the length of the list", () => {
-    const { result } = renderHover(DATA, vi.fn(), { initialHover: 10 });
-    expect(result.current.hover).toBe("alpha");
+    const { hover } = renderHover(DATA, vi.fn(), { initialHover: 10 });
+    expect(hover()).toBe("alpha");
   });
 
   describe("enableTriggers", () => {
     it("should ignore keyboard triggers outside a dialog by default", () => {
       const onSelect = vi.fn();
-      const { result } = renderHover(DATA, onSelect, {
+      const { hover } = renderHover(DATA, onSelect, {
         initialHover: 0,
         dialog: false,
       });
       keyDown("ArrowDown");
-      expect(result.current.hover).toBe("alpha");
+      expect(hover()).toBe("alpha");
       keyDown("Enter");
       expect(onSelect).not.toHaveBeenCalled();
     });
 
     it("should answer keyboard triggers outside a dialog when enabled", () => {
       const onSelect = vi.fn();
-      const { result } = renderHover(DATA, onSelect, {
+      const { hover } = renderHover(DATA, onSelect, {
         initialHover: 0,
         dialog: false,
         enableTriggers: true,
       });
       keyDown("ArrowDown");
       keyUp("ArrowDown");
-      expect(result.current.hover).toBe("bravo");
+      expect(hover()).toBe("bravo");
       keyDown("Enter");
       expect(onSelect).toHaveBeenCalledWith("bravo");
     });
 
     it("should resolve a condition getter when the trigger fires", () => {
       let enabled = false;
-      const { result } = renderHover(DATA, vi.fn(), {
+      const { hover } = renderHover(DATA, vi.fn(), {
         initialHover: 0,
         dialog: false,
         enableTriggers: () => enabled,
       });
       keyDown("ArrowDown");
       keyUp("ArrowDown");
-      expect(result.current.hover).toBe("alpha");
+      expect(hover()).toBe("alpha");
       enabled = true;
       keyDown("ArrowDown");
-      expect(result.current.hover).toBe("bravo");
+      expect(hover()).toBe("bravo");
     });
   });
 });

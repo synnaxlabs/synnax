@@ -122,7 +122,7 @@ const LABELS = [
 
 const labelListItem = Component.renderProp((props: List.ItemProps<string>) => {
   const item = List.useItem<string, record.KeyedNamed>(props.itemKey);
-  return <Select.ListItem {...props}>{item?.name}</Select.ListItem>;
+  return <Select.Item {...props}>{item?.name}</Select.Item>;
 });
 
 const SelectMultipleStatic = ({

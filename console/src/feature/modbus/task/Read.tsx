@@ -55,7 +55,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const { type, channel } = PForm.useFieldValue<ReadChannel>(path);
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       className={CSS.BE("modbus", "channel-item")}
       justify="between"
@@ -104,7 +104,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
         />
         <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

@@ -44,9 +44,9 @@ describe("Select.Multiple", () => {
     const { itemKey } = props;
     const item = testData.find((i) => i.key === itemKey);
     return (
-      <Select.ListItem {...props}>
+      <Select.Item {...props}>
         <Text.Text>{item?.name} Option</Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   });
 
@@ -206,9 +206,9 @@ describe("Select.Multiple", () => {
       name: `Item ${i}`,
     }));
     const renderItem = renderProp((props: List.ItemProps<string>) => (
-      <Select.ListItem {...props}>
+      <Select.Item {...props}>
         <Text.Text>Row {props.itemKey}</Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     ));
     const Component = () => {
       const { data: keys, getItem } = List.useStaticData<string, TestEntry>({ data });

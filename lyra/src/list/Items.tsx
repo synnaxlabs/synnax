@@ -13,6 +13,7 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactNode, useMemo } from "react";
 
 import { memo } from "@/component/memo";
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
@@ -25,6 +26,14 @@ export interface ItemsProps<K extends record.Key = record.Key> {
   /** Rendered in place of the items when the list is empty. */
   emptyContent?: ReactNode;
 }
+
+const [ItemsContext, useInItemsContext] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "List.ItemsContext",
+});
+
+/** @returns whether the caller is rendered by an {@link Items} render function. */
+export const useInItems = (): boolean => useInItemsContext();
 
 const BaseItems = <
   K extends record.Key = record.Key,
@@ -44,9 +53,11 @@ const BaseItems = <
       className={CSS.BE("list", "virtualizer")}
       style={virtualizerStyle}
     >
-      {getItems().map(({ key, index, translate }) =>
-        children({ key, index, itemKey: key, translate }),
-      )}
+      <ItemsContext value>
+        {getItems().map(({ key, index, translate }) =>
+          children({ key, index, itemKey: key, translate }),
+        )}
+      </ItemsContext>
       {sentinelRef != null && (
         <div
           ref={sentinelRef}

@@ -43,13 +43,13 @@ export const SYNTHETIC_CLICK_DETAIL = 0;
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
-export interface ListItemProps extends Select.ListItemProps<string> {}
+export interface ListItemProps extends Select.ItemProps<string> {}
 
 export const ListItem = ({
   onSelect,
   itemKey,
   ...rest
-}: Select.ListItemProps<string>) => {
+}: Select.ItemProps<string>) => {
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       // Only trigger on the synthetic click, which means we won't accidentally call
@@ -59,7 +59,7 @@ export const ListItem = ({
     [onSelect, itemKey],
   );
   return (
-    <Select.ListItem
+    <Select.Item
       justify="between"
       align="center"
       onClick={handleClick}

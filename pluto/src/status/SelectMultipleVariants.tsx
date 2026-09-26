@@ -23,10 +23,10 @@ const listItem = Component.renderProp((p: List.ItemProps<string>) => {
   if (item == null) return null;
   const { name, icon } = item;
   return (
-    <Select.ListItem {...p}>
+    <Select.Item {...p}>
       {icon}
       {name}
-    </Select.ListItem>
+    </Select.Item>
   );
 });
 

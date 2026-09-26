@@ -57,7 +57,7 @@ const HandleListItem = (props: HandleListItemProps) => {
   if (handle == null) return null;
   const scaledPos = xy.scale(handle.position, 100);
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       justify="between"
       className={CSS.B("schematic-handle-list-item")}
@@ -85,7 +85,7 @@ const HandleListItem = (props: HandleListItemProps) => {
           <Icon.Close />
         </Button.Button>
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

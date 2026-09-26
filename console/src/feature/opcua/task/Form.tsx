@@ -65,7 +65,7 @@ const ChannelListItem = <C extends Channel>({
   if (opcNode === "No node selected") opcNodeColor = "var(--pluto-warning-z)";
   const { key: channel, id } = getChannelKeyAndID(item);
   return (
-    <Select.ListItem {...rest} justify="between" align="center" rightAligned>
+    <Select.Item {...rest} justify="between" align="center" rightAligned>
       <Flex.Box
         direction="y"
         gap="small"
@@ -96,7 +96,7 @@ const ChannelListItem = <C extends Channel>({
         {children({ path })}
         <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

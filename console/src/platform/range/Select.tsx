@@ -40,7 +40,7 @@ const DynamicListItem = Component.renderProp(
   (props: List.ItemProps<string> & { range: Session.Range.DynamicState }) => {
     const { range } = props;
     return (
-      <Select.ListItem {...props} justify="between">
+      <Select.Item {...props} justify="between">
         <Text.Text className={CSS.BE("range-select", "dynamic-name")}>
           {range.name}
         </Text.Text>
@@ -48,7 +48,7 @@ const DynamicListItem = Component.renderProp(
           {new TimeSpan(range.span).toString()}
           {dynamicIcon}
         </Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -64,7 +64,7 @@ const StaticListItem = Component.renderProp(
       id: ranger.ontologyID(range.key),
     });
     return (
-      <Select.ListItem {...props} justify="between">
+      <Select.Item {...props} justify="between">
         <Ranger.Breadcrumb
           key={range.key}
           name={range.name}
@@ -72,7 +72,7 @@ const StaticListItem = Component.renderProp(
           timeRange={range.timeRange}
         />
         <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );
@@ -92,12 +92,12 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const range = useResolve(itemKey);
   if (itemKey === CUSTOM_KEY)
     return (
-      <Select.ListItem {...props}>
+      <Select.Item {...props}>
         <Text.Text>
           <Icon.Add />
           Custom
         </Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   if (range == null) return null;
   if (range.variant === "dynamic") return <DynamicListItem {...props} range={range} />;

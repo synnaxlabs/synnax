@@ -37,7 +37,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
   const channel = Form.useFieldValue<C>(path);
   if (channel == null) return null;
   return (
-    <Select.ListItem {...rest} align="center" justify="between" full="x">
+    <Select.Item {...rest} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
         <Flex.Box pack align="center" className="port-line-input" x>
           <Form.NumericField
@@ -70,7 +70,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
         {name({ ...channel, itemKey: rest.itemKey, path })}
         <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

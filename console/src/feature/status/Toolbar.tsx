@@ -82,7 +82,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
   return (
-    <Select.ListItem className={CSS.B("status-list-item")} gap="small" y {...props}>
+    <Select.Item className={CSS.B("status-list-item")} gap="small" y {...props}>
       <Flex.Box x justify="between">
         <Flex.Box x align="center" gap="small">
           <Base.Indicator variant={variant} />
@@ -119,7 +119,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
           ))}
         </Flex.Box>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

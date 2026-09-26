@@ -43,7 +43,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
   );
   if (region == null) return null;
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       justify="between"
       className={CSS.B("schematic-region-list-item")}
@@ -83,7 +83,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
           <Icon.Close />
         </Button.Button>
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

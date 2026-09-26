@@ -107,7 +107,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
   const enumCountText =
     enumCount === 0 ? "" : `${enumCount} enum${enumCount === 1 ? "" : "s"}`;
   return (
-    <Select.ListItem {...props} justify="between" align="center" x>
+    <Select.Item {...props} justify="between" align="center" x>
       <PForm.TextField
         path={`${path}.pointer`}
         showLabel={false}
@@ -138,7 +138,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
         />
         <Task.EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

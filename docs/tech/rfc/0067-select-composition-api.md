@@ -85,7 +85,7 @@ same move and is the precedent throughout.
 | `Select.Search`          | Search field                                       | `SearchInput`                   |
 | `Select.List`            | The dialog's scroll area                           | inside `Select.Dialog`          |
 | `Select.Items`           | Data block: render function over the frame's keys  | `List.Items`                    |
-| `Select.Item`            | One option, fixed or rendered by a data block      | `Select.ListItem`               |
+| `Select.Item`            | One option, fixed or rendered by a data block      | `Select.Item`               |
 
 The data props on `Select.Frame` are the ones it passes to `List.Frame` today: `data`,
 `getItem`, `subscribe`, `virtual`, `itemHeight`, `overscan`, `onFetchMore`. They stay on
@@ -253,7 +253,7 @@ that renames a class updates the Playwright selectors in `integration/console`.
 - **Phase 4: Page-order navigation.** Replace the index model in `useHover` and `use.ts`
   with the key walk of §4.1. Existing selects have one data block and behave the same;
   the existing `useHover` and `use` specs must pass unchanged.
-- **Phase 5: Rename `Select.ListItem` to `Select.Item`.** Mechanical, `review/bot`: 42
+- **Phase 5: Rename `Select.Item` to `Select.Item`.** Mechanical, `review/bot`: 42
   call sites.
 - **Phase 6: The parts.** `Select.Dialog` becomes the surface; add `Select.Search`,
   `Select.List`, `Select.Items`. Rebuild `Single` and `Multiple` on the parts; their

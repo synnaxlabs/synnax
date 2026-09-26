@@ -43,10 +43,10 @@ const listItem = Component.renderProp(
     const entry = List.useItem<Theme.Mode, Entry>(props.itemKey);
     if (entry == null) return null;
     return (
-      <Select.ListItem {...props} align="center" gap="medium">
+      <Select.Item {...props} align="center" gap="medium">
         {entry.icon}
         <Text.Text>{entry.name}</Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     );
   },
 );

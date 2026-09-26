@@ -96,7 +96,7 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
     "/",
   );
   return (
-    <Select.ListItem<string, "a">
+    <Select.Item<string, "a">
       id={itemKey}
       el="a"
       direction="y"
@@ -125,7 +125,7 @@ export const SearchListItem = (props: List.ItemRenderProps<string>) => {
         )}
       </Flex.Box>
       <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

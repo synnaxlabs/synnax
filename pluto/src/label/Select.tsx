@@ -27,12 +27,12 @@ const ListItem = ({
   const item = List.useItem<label.Key, label.Label>(itemKey);
   if (item == null) return null;
   return (
-    <Select.ListItem itemKey={itemKey} {...rest}>
+    <Select.Item itemKey={itemKey} {...rest}>
       <Text.Text align="center">
         <Icon.Circle color={item?.color} size="2.5em" />
         {item?.name}
       </Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

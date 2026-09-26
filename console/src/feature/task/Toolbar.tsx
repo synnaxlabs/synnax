@@ -242,7 +242,7 @@ const TaskListItem = ({
   );
   const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   return (
-    <Select.ListItem
+    <Select.Item
       {...rest}
       onDoubleClick={handleDoubleClick}
       justify="between"
@@ -290,7 +290,7 @@ const TaskListItem = ({
           {isRunning ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

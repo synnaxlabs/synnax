@@ -13,7 +13,8 @@ import { type ReactElement } from "react";
 
 import { Dialog as BaseDialog } from "@/dialog";
 import { type List } from "@/list";
-import { Dialog, type DialogProps } from "@/select/Dialog";
+import { Body, type BodyProps } from "@/select/Body";
+import { Dialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
 import { usePlaceholder } from "@/select/placeholder";
@@ -24,7 +25,7 @@ export interface MultipleProps<
 >
   extends
     Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
-    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
+    Pick<BodyProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
     Omit<BaseDialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<
       MultipleTriggerProps<K, E>,
@@ -100,16 +101,17 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
         >
           {renderTag}
         </MultipleTrigger>
-        <Dialog<K>
-          onSearch={onSearch}
-          emptyContent={emptyContent}
-          status={status}
-          actions={actions}
-          footer={footer}
-          resourceName={resourceName}
-          {...dialogProps}
-        >
-          {children}
+        <Dialog {...dialogProps}>
+          <Body<K>
+            onSearch={onSearch}
+            emptyContent={emptyContent}
+            status={status}
+            actions={actions}
+            footer={footer}
+            resourceName={resourceName}
+          >
+            {children}
+          </Body>
         </Dialog>
       </Frame>
     </BaseDialog.Frame>

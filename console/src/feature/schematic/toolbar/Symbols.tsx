@@ -147,7 +147,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   if (symbol == null) return null;
 
   return (
-    <Select.ListItem
+    <Select.Item
       className={CSS.cls(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
@@ -168,7 +168,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       <Flex.Box align="center" justify="center" grow>
         <Preview specKey={itemKey} scale={0.75} />
       </Flex.Box>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

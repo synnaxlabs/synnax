@@ -48,7 +48,7 @@ const ListItem = (props: ListItemProps): ReactElement | null => {
   const handleChangeLabel = (label: string): void =>
     dispatch(lineplot.setRuleLabel({ key: itemKey, label }));
   return (
-    <Select.ListItem
+    <Select.Item
       {...props}
       className={CSS.BE("line-plot", "toolbar", "annotations-item")}
       align="center"
@@ -62,7 +62,7 @@ const ListItem = (props: ListItemProps): ReactElement | null => {
         weight={500}
         onChange={handleChangeLabel}
       />
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 

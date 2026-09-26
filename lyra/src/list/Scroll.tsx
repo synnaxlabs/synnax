@@ -25,6 +25,8 @@ export interface ScrollProps extends Omit<Flex.BoxProps, "ref"> {
    * is sized by its content; a list sized by its container lags behind every resize.
    */
   animateHeight?: boolean;
+  /** How many items the container holds. Defaults to the length of the frame's data. */
+  itemCount?: number;
 }
 
 /* The container's 1rem top and bottom padding (Scroll.css); the sized box is
@@ -40,6 +42,7 @@ export const Scroll = ({
   children,
   displayItems,
   animateHeight = false,
+  itemCount,
   style,
   direction,
   x,
@@ -47,12 +50,13 @@ export const Scroll = ({
   ...rest
 }: ScrollProps): ReactElement => {
   const { ref, data, itemHeight, getTotalSize } = useData();
-  const hasItems = data.length > 0;
+  const count = itemCount ?? data.length;
+  const hasItems = count > 0;
   const isVirtual = getTotalSize() != null;
 
   let minHeight: number | undefined;
   if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
-    minHeight = Math.min(displayItems, data.length) * itemHeight + VERTICAL_PADDING + 1;
+    minHeight = Math.min(displayItems, count) * itemHeight + VERTICAL_PADDING + 1;
 
   const boxStyle = useMemo(
     () => ({

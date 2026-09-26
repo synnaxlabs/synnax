@@ -38,20 +38,20 @@ const RowFallback = (): null => null;
 const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   const name = Panel.useName({ key: props.itemKey });
   return (
-    <Select.ListItem {...props} align="center" gap="medium" className={ROW_CLASS}>
+    <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
       <Icon.Panel />
       <Text.Text overflow="ellipsis">{name}</Text.Text>
-    </Select.ListItem>
+    </Select.Item>
   );
 };
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<panel.Key>): ReactElement =>
     props.itemKey === NEW_PANEL_KEY ? (
-      <Select.ListItem {...props} align="center" gap="medium" className={ROW_CLASS}>
+      <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
         <Icon.Add />
         <Text.Text>New panel</Text.Text>
-      </Select.ListItem>
+      </Select.Item>
     ) : (
       <Errors.SuspenseBoundary loading={null} FallbackComponent={RowFallback}>
         <Row {...props} />
