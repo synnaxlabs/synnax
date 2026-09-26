@@ -22,8 +22,11 @@
     height: 100%;
 }
 
-.console-schematic__properties-multi {
-    padding: 2rem;
+/* Percent heights inside a stretched flex item do not resolve in WebKit, so the
+   sections fill the tab by growing instead. */
+.console-schematic__properties-multi.pluto-form-sections {
+    flex-grow: 1;
+    height: auto;
 }
 
 .console-schematic__properties-edit {

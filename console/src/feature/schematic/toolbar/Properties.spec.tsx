@@ -165,7 +165,7 @@ describe("Schematic toolbar Properties", () => {
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Align");
-      const input = getInputByItemLabel(result.container, "Label wrap width");
+      const input = getInputByItemLabel(result.container, "Wrap width");
       fireEvent.change(input, { target: { value: "200" } });
       fireEvent.blur(input);
       await expect
@@ -204,7 +204,7 @@ describe("Schematic toolbar Properties", () => {
     it("applies label wrap width to every selected symbol", async () => {
       const { key, result } = await renderProperties({ nodeKeys: ["n1", "n2"] });
       await screen.findByText("Align");
-      const input = getInputByItemLabel(result.container, "Label wrap width");
+      const input = getInputByItemLabel(result.container, "Wrap width");
       fireEvent.change(input, { target: { value: "200" } });
       fireEvent.blur(input);
       await expect

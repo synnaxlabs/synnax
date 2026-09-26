@@ -54,6 +54,7 @@ export const TankForm = ({
     <Base.Sections x>
       <Base.Section title="Label">
         <Label.Form path="label" />
+        <Orientation.Field path="" hideInner showOuterCenter label="Location" />
       </Base.Section>
       <Base.Section title="Appearance">
         <Form.ColorField path="color" />
@@ -90,7 +91,6 @@ export const TankForm = ({
           inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
       </Base.Section>
-      <Orientation.Section path="" hideInner showOuterCenter title="Label location" />
     </Base.Sections>
   );
   if (!showFillTab) return style;

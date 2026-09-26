@@ -71,3 +71,10 @@
         justify-self: start;
     }
 }
+
+/* The orientation square is taller than a row, so it takes a column of its own. */
+.pluto-form-sections.pluto--direction-x
+    .pluto-form-section__body
+    > .pluto-input__item:has(.pluto-select-orientation) {
+    grid-row: 1 / -1;
+}

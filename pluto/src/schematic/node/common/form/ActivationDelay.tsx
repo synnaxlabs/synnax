@@ -21,7 +21,7 @@ export const ActivationDelayField = (
   props: Partial<Form.NumericFieldProps>,
 ): ReactElement => (
   <Form.NumericField
-    label="Activation delay"
+    label="Delay"
     path="onClickDelay"
     inputProps={ACTIVATION_DELAY_INPUT_PROPS}
     defaultValue={0}

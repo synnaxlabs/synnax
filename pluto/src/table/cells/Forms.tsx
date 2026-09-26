@@ -128,7 +128,7 @@ const RedlineForm = () => {
 export const ValueForm = ({ onVariantChange }: FormProps) => {
   const theme = Theming.use();
   return (
-    <Tabs.Frame initialValue="style">
+    <Tabs.Frame initialValue="style" className={CSS.B("table-cell-value-form-tabs")}>
       <Tabs.Selector>
         <Tabs.Tab itemKey="style">Style</Tabs.Tab>
         <Tabs.Tab itemKey="telem">Telemetry</Tabs.Tab>
