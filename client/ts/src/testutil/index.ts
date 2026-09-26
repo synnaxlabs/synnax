@@ -14,4 +14,5 @@ export * from "@/testutil/connection";
 export * from "@/testutil/panels";
 export * from "@/testutil/proxy";
 export * from "@/testutil/query";
+export * from "@/testutil/silent";
 export * from "@/testutil/telem";

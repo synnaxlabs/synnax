@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF, Unreachable } from "@synnaxlabs/freighter";
+import { EOF, Unreachable, WebSocketClient } from "@synnaxlabs/freighter";
 import {
+  binary,
   DataType,
   errors,
   id,
@@ -16,6 +17,7 @@ import {
   sleep,
   TimeSpan,
   TimeStamp,
+  url,
 } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
@@ -28,6 +30,7 @@ import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 import { createStreamOpener, type Streamer, streamerConfigZ } from "@/framer/streamer";
 import {
   createSeverableProxy,
+  createSilentPeer,
   createTestClient,
   FAST_RETRY,
   newIndexedPair,
@@ -1344,29 +1347,25 @@ describe("Streamer", () => {
     ];
 
     it("should reject an acknowledgement that never arrives", async () => {
-      let closed = false;
-      // A client whose socket opens and is then never spoken to again.
-      const silent = {
-        withCodec: () => silent,
-        stream: async () => ({
-          send: () => {},
-          receive: async () => await new Promise<never>(() => {}),
-          received: () => false,
-          closeSend: () => {
-            closed = true;
-          },
-        }),
-      };
-      vi.useFakeTimers();
+      const peer = await createSilentPeer();
+      const ws = new WebSocketClient(
+        new url.URL({ host: "127.0.0.1", port: peer.port }),
+        binary.JSON_CODEC,
+      );
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
-        const open = createStreamOpener(retrieveChannels, silent)({ channels: [1] });
-        const settled = expect(open).rejects.toThrow(Unreachable);
-        await vi.advanceTimersByTimeAsync(31_000);
+        const open = createStreamOpener(retrieveChannels, ws)({ channels: [1] });
+        const settled = expect(open).rejects.toThrow(
+          new Unreachable({ message: "streamer was not acknowledged within 30s" }),
+        );
+        await peer.received("data");
+        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(31).milliseconds);
         await settled;
-        // The socket is released rather than left open with nobody holding it.
-        expect(closed).toBe(true);
+        // The client asks the peer to close rather than leaving the stream unheld.
+        await peer.received("close");
       } finally {
         vi.useRealTimers();
+        await peer.close();
       }
     });
   });

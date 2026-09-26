@@ -43,7 +43,7 @@ class WebSocketStream<
   private readonly ws: WebSocket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
-  private closeTimer?: ReturnType<typeof setTimeout>;
+  private closeCheck?: ReturnType<typeof setInterval>;
   private readonly receiveDataQueue: WebsocketMessage[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
   private readonly resLabel: string;
@@ -104,10 +104,7 @@ class WebSocketStream<
     const msg: WebsocketMessage = { type: "close" };
     try {
       this.ws.send(this.codec.encode(msg));
-      this.closeTimer = setTimeout(
-        () => this.abandon(),
-        CLOSE_ACK_TIMEOUT.milliseconds,
-      );
+      this.watchCloseAck();
     } finally {
       this.sendClosed = true;
     }
@@ -115,11 +112,22 @@ class WebSocketStream<
   }
 
   /**
-   * Fails the stream when the peer never acknowledges a closed send direction. Closing
-   * the socket only asks the peer to hang up, so a peer that stopped answering leaves
-   * every receive() parked forever.
+   * Fails the stream when the peer never acknowledges a closed send direction, since a
+   * peer that stopped answering leaves every receive() parked forever. The deadline
+   * only runs while nothing is queued: a slow upload is still progress, and TCP itself
+   * gives up on a dead peer that holds unsent bytes.
    */
+  private watchCloseAck(): void {
+    let idle = TimeSpan.ZERO;
+    this.closeCheck = setInterval(() => {
+      idle =
+        this.ws.bufferedAmount > 0 ? TimeSpan.ZERO : idle.add(CLOSE_CHECK_INTERVAL);
+      if (idle.greaterThanOrEqual(CLOSE_ACK_TIMEOUT)) this.abandon();
+    }, CLOSE_CHECK_INTERVAL.milliseconds);
+  }
+
   private abandon(): void {
+    clearInterval(this.closeCheck);
     if (this.serverClosed != null) return;
     const span = CLOSE_ACK_TIMEOUT.toString();
     const err = new Unreachable({
@@ -154,7 +162,7 @@ class WebSocketStream<
   }
 
   private onClose(ev: CloseEvent): void {
-    clearTimeout(this.closeTimer);
+    clearInterval(this.closeCheck);
     this.addMessage({
       type: "close",
       error: {
@@ -168,10 +176,12 @@ class WebSocketStream<
 const CLOSE_NORMAL = 1000;
 
 /**
- * Deadline for the peer to acknowledge a closed send direction. Generous because the
- * Core may still be committing the last writes.
+ * Deadline for the peer to acknowledge a closed send direction once nothing is left to
+ * send. Generous because the Core may still be committing the last writes.
  */
 const CLOSE_ACK_TIMEOUT = TimeSpan.seconds(30);
+
+const CLOSE_CHECK_INTERVAL = TimeSpan.seconds(1);
 
 /**
  * Generous by design: a handshake this slow is a dead connection, not a busy Core, so
@@ -221,7 +231,10 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return c;
   }
 
-  /** Implements the StreamClient interface. */
+  /**
+   * Implements the StreamClient interface.
+   * @throws {Unreachable} if the handshake does not complete within handshakeTimeout.
+   */
   async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     reqSchema: RQ,

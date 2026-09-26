@@ -10,9 +10,9 @@
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
   debounce,
-  errors,
   MultiSeries,
   type Series,
+  sync,
   TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -200,25 +200,15 @@ export class Reader {
     channels: channel.Key[],
   ): Promise<Frame> {
     const { readRemote, fetchTimeout } = this.props;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        const timeout = fetchTimeout.toString();
-        const message = `gap read for ${gap.toString()} timed out after ${timeout}`;
-        reject(new Unreachable({ message }));
-      }, fetchTimeout.milliseconds);
-    });
-    const fetched = readRemote(gap, channels);
-    try {
-      return await Promise.race([fetched, deadline]);
-    } catch (err) {
-      // The read already failed for its callers; a late settle of the losing fetch must
-      // not surface as an unhandled rejection.
-      fetched.catch(() => {});
-      throw errors.fromUnknown(err);
-    } finally {
-      clearTimeout(timer);
-    }
+    const timeout = fetchTimeout.toString();
+    return await sync.withTimeout(
+      readRemote(gap, channels),
+      fetchTimeout,
+      () =>
+        new Unreachable({
+          message: `gap read for ${gap.toString()} timed out after ${timeout}`,
+        }),
+    );
   }
 
   /**

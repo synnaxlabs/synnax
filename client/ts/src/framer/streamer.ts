@@ -13,7 +13,7 @@ import {
   Unreachable,
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { type binary, errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
+import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -95,7 +95,10 @@ export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   read: () => Promise<Frame>;
 }
 
-/** A function that opens a streamer. */
+/**
+ * A function that opens a streamer.
+ * @throws {Unreachable} if the Core does not acknowledge the streamer in time.
+ */
 export interface StreamOpener {
   (config: StreamerConfig): Promise<Streamer>;
 }
@@ -105,12 +108,6 @@ export interface StreamOpener {
 // two reaches this.
 const OPEN_ACK_TIMEOUT = TimeSpan.seconds(30);
 
-/** The slice of a {@link WebSocketClient} that opening a streamer needs. */
-export interface StreamOpenerClient {
-  withCodec: (codec: binary.Codec) => StreamOpenerClient;
-  stream: WebSocketClient["stream"];
-}
-
 /**
  * Creates a function that opens streamers with the given channel resolver and client.
  * @param retrieveChannels - Resolves channel params to payloads for the codec
@@ -118,7 +115,7 @@ export interface StreamOpenerClient {
  * @returns A function that opens streamers with the given configuration
  */
 export const createStreamOpener =
-  (retrieveChannels: ChannelRetriever, client: StreamOpenerClient): StreamOpener =>
+  (retrieveChannels: ChannelRetriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
     const cfg = zod.parse(streamerConfigZ, config, { label: "streamer config" });
     const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
