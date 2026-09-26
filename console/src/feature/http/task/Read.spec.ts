@@ -9,7 +9,7 @@
 
 import { http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
@@ -21,7 +21,7 @@ import {
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
-import { getHeaderIconButton, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
@@ -34,9 +34,16 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
   return rendered;
 };
 
+// A field is added from its endpoint entry now, not from a list header.
+const addField = (): void => {
+  const button = document.querySelector<HTMLElement>(".console-endpoint-item__add");
+  if (button == null) throw new Error("no add field button");
+  fireEvent.click(button);
+};
+
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add endpoint"));
-  await screen.findByText("Timing mode");
+  fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+  await screen.findByText("Request");
 };
 
 const createReadField = (
@@ -72,7 +79,7 @@ const createDraft = async (client: Synnax, config: HTTP.Task.ReadPayload["config
 describe("Read", () => {
   it("should show the empty state and add + select an endpoint", async () => {
     await renderRead();
-    await screen.findByText("Select an endpoint to configure");
+    await screen.findByText("Select an endpoint or field to configure");
     await screen.findByText("No endpoints");
     await addEndpoint();
     expect(screen.getByRole("button", { name: "GET" })).toBeTruthy();
@@ -80,8 +87,8 @@ describe("Read", () => {
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
     expect(screen.getByText("Headers")).toBeTruthy();
     expect(screen.getByText("Query parameters")).toBeTruthy();
-    expect(screen.getByText("No fields")).toBeTruthy();
-    expect(screen.queryByText("Select an endpoint to configure")).toBeNull();
+    expect(screen.queryByText("New field")).toBeNull();
+    expect(screen.queryByText("Select an endpoint or field to configure")).toBeNull();
   });
 
   it("should reveal the request body field when the method switches to POST", async () => {
@@ -99,18 +106,18 @@ describe("Read", () => {
   it("should add a timestamp field on value timing that stays out of the fields list", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByRole("button", { name: "Value" }));
-    await screen.findByText("Timestamp pointer");
+    fireEvent.click(screen.getByRole("button", { name: "Response value" }));
+    await screen.findByText("Pointer");
     expect(screen.getByText("Format")).toBeTruthy();
-    expect(screen.getByText("No fields")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Software" }));
-    await waitFor(() => expect(screen.queryByText("Timestamp pointer")).toBeNull());
+    expect(screen.queryByText("New field")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Poll time" }));
+    await waitFor(() => expect(screen.queryByText("Format")).toBeNull());
   });
 
   it("should add a field, select it, and show the enum mapping editor", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add field"));
+    addField();
     await screen.findByPlaceholderText("/temperature");
     await screen.findByText("Enum mapping");
   });
@@ -118,12 +125,16 @@ describe("Read", () => {
   it("should copy the previous field's settings when adding another field", async () => {
     await renderRead();
     await addEndpoint();
-    fireEvent.click(screen.getByText("Add field"));
+    addField();
     const pointer = await screen.findByPlaceholderText("/temperature");
     fireEvent.change(pointer, { target: { value: "/a" } });
     fireEvent.blur(pointer);
-    fireEvent.click(getHeaderIconButton("Fields"));
-    await waitFor(() => expect(screen.getAllByDisplayValue("/a")).toHaveLength(2));
+    addField();
+    // Both entries carry the copied pointer. The details header repeats it, so the
+    // assertion reads the tree alone.
+    await waitFor(() =>
+      expect(within(screen.getByRole("tree")).getAllByText("/a")).toHaveLength(2),
+    );
   });
 
   it("should duplicate and delete endpoints through the context menu", async () => {
@@ -132,13 +143,17 @@ describe("Read", () => {
     const path = screen.getByPlaceholderText("/api/data");
     fireEvent.change(path, { target: { value: "/api/v1" } });
     fireEvent.blur(path);
-    const item = await screen.findByText(/\/api\/v1/);
+    const item = await screen.findByRole("treeitem", { name: /\/api\/v1/ });
     fireEvent.contextMenu(item);
     fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(2));
-    fireEvent.contextMenu(screen.getAllByText(/\/api\/v1/)[0]);
+    await waitFor(() =>
+      expect(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })).toHaveLength(2),
+    );
+    fireEvent.contextMenu(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })[0]);
     fireEvent.click(await screen.findByText("Remove"));
-    await waitFor(() => expect(screen.getAllByText(/\/api\/v1/)).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getAllByRole("treeitem", { name: /\/api\/v1/ })).toHaveLength(1),
+    );
   });
 
   it("should offer Reload Console from the endpoint context menu", async () => {
@@ -147,7 +162,7 @@ describe("Read", () => {
     const path = screen.getByPlaceholderText("/api/data");
     fireEvent.change(path, { target: { value: "/api/v1" } });
     fireEvent.blur(path);
-    fireEvent.contextMenu(await screen.findByText(/\/api\/v1/));
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/api\/v1/ }));
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
@@ -163,7 +178,7 @@ describe("Read", () => {
     ]);
     const draft = await createDraft(client, config);
     await renderRead({ client, taskKey: draft.key });
-    await screen.findByText(/\/seeded/);
+    await screen.findByRole("treeitem", { name: /\/seeded/ });
   });
 
   const client = createTestClient();
@@ -211,6 +226,73 @@ describe("Read", () => {
     expect(fields.find((f) => f.key === "f1")?.channel).toBe(dataKey);
     expect(fields.find((f) => f.key === "f2")?.channel).toBe(virtualKey);
     expect(fields.find((f) => f.key === "tf")?.channel).toBe(epProps.index);
+  });
+
+  it("should rename a field's existing channel from the details pane", async () => {
+    const dev = await createHTTPDevice(client);
+    const ch = await client.channels.create({
+      name: uniqueName("http_read"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const config = createReadConfig(dev.key, [
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep1",
+        path: "/data",
+        fields: [createReadField("f1", "/temperature", { channel: ch.key })],
+      },
+    ]);
+    const draft = await createDraft(client, config);
+    await renderRead({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/temperature/ }));
+    const field = await screen.findByRole<HTMLInputElement>("textbox", {
+      name: "Channel",
+    });
+    await waitFor(() => expect(field.value).toBe(ch.name));
+    const renamed = uniqueName("http_renamed");
+    fireEvent.change(field, { target: { value: renamed } });
+    fireEvent.blur(field);
+    await waitFor(async () =>
+      expect((await client.channels.retrieve(ch.key)).name).toBe(renamed),
+    );
+  });
+
+  it("should keep a duplicated endpoint's timestamp bound to the index", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createReadConfig(dev.key, [
+      {
+        ...http.readEndpointZ.parse({}),
+        key: "ep1",
+        path: "/data",
+        index: "tf",
+        fields: [
+          createReadField("f1", "/temperature"),
+          createReadField("tf", "/ts", { timeFormat: "unix_sec" }),
+        ],
+      },
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/data/ }));
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(() =>
+      expect(screen.getAllByRole("treeitem", { name: /\/data/ })).toHaveLength(2),
+    );
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.READ_SCHEMAS,
+    );
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    const copy = created.config.endpoints[1];
+    const timing = copy.fields.find((f) => f.timeFormat != null);
+    expect(copy.index).toBe(timing?.key);
+    expect(timing?.channel).toBe(updated.properties.read["/data"].index);
   });
 
   it("should bind a new field to the channel the device already stores", async () => {
@@ -292,7 +374,11 @@ describe("Read", () => {
       ]),
     );
     await renderRead({ client, taskKey: draft.key });
-    await screen.findByText(firstCh.name);
+    // The form opens on the first endpoint, so the second one's field shows whether
+    // binding reached an endpoint nobody selected.
+    const fields = await screen.findAllByRole("treeitem", { name: /\/temperature/ });
+    fireEvent.click(fields[1]);
+    await screen.findByDisplayValue(secondCh.name);
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: draft.key,
@@ -342,7 +428,12 @@ describe("Read", () => {
       ]),
     );
     await renderRead({ client, taskKey: draft.key });
-    await screen.findByText(dataCh.name);
+    const selectField = () =>
+      fireEvent.click(screen.getByRole("treeitem", { name: /\/temperature/ }));
+    const selectEndpoint = (path: RegExp) =>
+      fireEvent.click(screen.getByRole("treeitem", { name: path }));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/temperature/ }));
+    await screen.findByDisplayValue(dataCh.name);
     const savedChannel = async () =>
       (
         await client.tasks.retrieve({
@@ -350,12 +441,17 @@ describe("Read", () => {
           schemas: HTTP.Task.READ_SCHEMAS,
         })
       ).config.endpoints[0].fields[0].channel;
-    commitFieldInput(screen.getByDisplayValue("/data"), "/other");
-    await screen.findByText(otherCh.name);
+    selectEndpoint(/\/data/);
+    commitFieldInput(await screen.findByDisplayValue("/data"), "/other");
     await waitFor(async () => expect(await savedChannel()).toBe(otherCh.key));
-    commitFieldInput(screen.getByDisplayValue("/other"), "/none");
+    selectField();
+    await screen.findByDisplayValue(otherCh.name);
+    selectEndpoint(/\/other/);
+    commitFieldInput(await screen.findByDisplayValue("/other"), "/none");
     await waitFor(async () => expect(await savedChannel()).toBe(0));
-    expect(screen.queryByText(otherCh.name)).toBeNull();
+    selectField();
+    await screen.findByPlaceholderText("/temperature");
+    expect(screen.queryByDisplayValue(otherCh.name)).toBeNull();
   });
 
   it("should reuse channels already stored on the device instead of creating new ones", async () => {
@@ -418,7 +514,7 @@ describe("Read", () => {
     ]);
     const draft = await createDraft(client, config);
     const { container } = await renderRead({ client, taskKey: draft.key });
-    fireEvent.click(await screen.findByText(/\/switched/));
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/switched/ }));
     await screen.findByDisplayValue('{"query": "latest"}');
     fireEvent.click(screen.getByRole("button", { name: "GET" }));
     await waitFor(() =>

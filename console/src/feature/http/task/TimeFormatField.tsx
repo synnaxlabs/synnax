@@ -13,7 +13,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type FC, useEffect } from "react";
 
 import { type TimeFormat } from "@/feature/http/task/types";
-import { CSS } from "@/platform/css";
 
 const DATA: Select.StaticEntry<TimeFormat>[] = [
   { key: "iso8601", name: "ISO 8601" },
@@ -54,12 +53,7 @@ export const TimeFormatField: FC<TimeFormatFieldProps> = ({ path, label }) => {
     if (get<TimeFormat>(path, { optional: true }) == null) set(path, "iso8601");
   }, [path, get, set]);
   return (
-    <PForm.Field<TimeFormat>
-      path={path}
-      label={label}
-      defaultValue="iso8601"
-      className={CSS.B("time-format")}
-    >
+    <PForm.Field<TimeFormat> path={path} label={label} defaultValue="iso8601">
       {renderSelect}
     </PForm.Field>
   );

@@ -12,10 +12,8 @@ import "@/feature/http/task/Form.css";
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -29,7 +27,7 @@ import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
-import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
+import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
   deployWriteConfigZ,
@@ -43,6 +41,7 @@ import {
   type WriteMethod,
   type WriteSchemas,
 } from "@/feature/http/task/types";
+import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
@@ -93,39 +92,49 @@ const renderMethodSelect = Component.renderProp(
 
 const getEndpointChannelNameID = (epKey: string) => `write-ep-ch-${epKey}`;
 
-const WriteEndpointListItem = (props: List.ItemProps<string>) => {
+const EndpointItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const channel = PForm.useFieldValue<number>(
     `config.endpoints.${itemKey}.channel.channel`,
   );
-  const extraNode = useMemo(
-    () => (
+  return (
+    <Select.ListItem
+      {...props}
+      y
+      align="start"
+      gap="small"
+      className={CSS.B("endpoint-item")}
+    >
+      <Flex.Box x align="center" gap="small" full="x">
+        <EndpointLabel epKey={itemKey} />
+      </Flex.Box>
       <Task.ChannelName
         channel={channel}
         namePath={`config.endpoints.${itemKey}.channel.name`}
         id={getEndpointChannelNameID(itemKey)}
-        weight={600}
-        color={10}
+        level="small"
+        weight={450}
+        color={9}
+        overflow="ellipsis"
       />
-    ),
-    [channel, itemKey],
+    </Select.ListItem>
   );
-  return <EndpointListItem {...props} extra={extraNode} y textProps={TEXT_PROPS} />;
 };
 
-const TEXT_PROPS = { weight: 450, color: 9 } as const;
+const endpointItem = Component.renderProp(EndpointItem);
 
-const writeEndpointListItem = Component.renderProp(WriteEndpointListItem);
+const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
 
 const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
-  <PlatformForm.KeyValueEditor
-    path={`${channelPath}.enumValues`}
-    label="Enum mappings"
-    keyField="label"
-    keyPlaceholder="String (e.g. ON)"
-    valueType="number"
-    valueFirst
-  />
+  <PForm.Section title="Enum mapping">
+    <PlatformForm.KeyValueEditor
+      path={`${channelPath}.enumValues`}
+      keyField="label"
+      keyPlaceholder="String (e.g. ON)"
+      valueType="number"
+      valueFirst
+    />
+  </PForm.Section>
 );
 
 const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
@@ -140,33 +149,25 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
 
   return (
     <>
-      <Header.Header>
-        <Header.Title weight={500} color={9}>
-          Channel
-        </Header.Title>
-      </Header.Header>
-      <Flex.Box className={CSS.B("channel-field-section")}>
-        <Flex.Box x align="end" gap="large">
-          <PForm.TextField
-            path={`${channelPath}.pointer`}
-            label="JSON pointer"
-            grow
-            inputProps={JSON_POINTER_INPUT_PROPS}
-          />
-          <PForm.Field<string>
-            path={`${channelPath}.jsonType`}
-            label="JSON type"
-            className={CSS.B("json-type-select")}
-          >
-            {renderSelectJSONType}
-          </PForm.Field>
-        </Flex.Box>
+      <PForm.Section title="Channel">
+        <PForm.TextField
+          path={`${channelPath}.pointer`}
+          label="Pointer"
+          padHelpText={false}
+          inputProps={JSON_POINTER_INPUT_PROPS}
+        />
+        <PForm.Field<string>
+          path={`${channelPath}.jsonType`}
+          label="JSON type"
+          padHelpText={false}
+        >
+          {renderSelectJSONType}
+        </PForm.Field>
         {channelKey === 0 && (
           <PForm.Field<string>
             path={`${channelPath}.dataType`}
-            label="Synnax data type"
-            showHelpText={false}
-            className={CSS.B("data-type-select")}
+            label="Data type"
+            padHelpText={false}
           >
             {renderSelectDataType}
           </PForm.Field>
@@ -174,8 +175,8 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
         {dataType != null && DataType.TIMESTAMP.equals(dataType) && (
           <TimeFormatField path={`${channelPath}.timeFormat`} label="Time format" />
         )}
-        {jsonType === "string" && <EnumValuesEditor channelPath={channelPath} />}
-      </Flex.Box>
+      </PForm.Section>
+      {jsonType === "string" && <EnumValuesEditor channelPath={channelPath} />}
     </>
   );
 };
@@ -265,8 +266,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
         path={`${path}.pointer`}
         showLabel={false}
         showHelpText={false}
-        inputProps={STATIC_FILED_INPUT_PROPS}
-        grow
+        inputProps={POINTER_INPUT_PROPS}
       />
       {fieldType === "static" && (
         <Select.Static<json.PrimitiveType, Select.StaticEntry<json.PrimitiveType>>
@@ -283,7 +283,6 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           showLabel={false}
           showHelpText={false}
           inputProps={STRING_INPUT_PROPS}
-          className={CSS.B("static-field-value")}
         />
       )}
       {fieldType === "static" && jsonType === "number" && (
@@ -291,7 +290,7 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
           path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
-          className={CSS.B("static-field-value")}
+          inputProps={NUMBER_INPUT_PROPS}
         />
       )}
       {fieldType === "static" && jsonType === "boolean" && (
@@ -320,9 +319,15 @@ const FieldListItem = (props: List.ItemProps<string> & { epKey: string }) => {
   );
 };
 
-const STATIC_FILED_INPUT_PROPS = { placeholder: "field" } as const;
+// The section layout dissolves each field's own box, so sizing lives on the inputs.
+const POINTER_INPUT_PROPS = { placeholder: "field", grow: true } as const;
 
-const STRING_INPUT_PROPS = { placeholder: "value" } as const;
+const STRING_INPUT_PROPS = {
+  placeholder: "value",
+  className: CSS.B("static-field-value"),
+} as const;
+
+const NUMBER_INPUT_PROPS = { className: CSS.B("static-field-value") } as const;
 
 const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}.fields`;
@@ -376,33 +381,31 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     [handleRemove],
   );
 
+  const actions = !isPreview && (
+    <>
+      <Button.Button
+        onClick={handleAddStatic}
+        variant="text"
+        size="small"
+        tooltip="Add static field"
+      >
+        <Icon.Add />
+        Static
+      </Button.Button>
+      <Button.Button
+        onClick={handleAddGenerated}
+        variant="text"
+        size="small"
+        tooltip="Add generated field"
+      >
+        <Icon.Time />
+        Generated
+      </Button.Button>
+    </>
+  );
+
   return (
-    <Flex.Box y grow empty className={CSS.B("additional-fields")}>
-      <Header.Header>
-        <Header.Title weight={500} color={9}>
-          Additional fields
-        </Header.Title>
-        {!isPreview && (
-          <Header.Actions>
-            <Button.Button
-              onClick={handleAddStatic}
-              variant="filled"
-              tooltip="Add static field"
-              size="small"
-            >
-              <Icon.Add />
-            </Button.Button>
-            <Button.Button
-              onClick={handleAddGenerated}
-              variant="filled"
-              tooltip="Add generated field"
-              size="small"
-            >
-              <Icon.Time />
-            </Button.Button>
-          </Header.Actions>
-        )}
-      </Header.Header>
+    <PForm.Section title="Additional fields" actions={actions}>
       <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
         <Select.Frame<string, WriteField>
           multiple
@@ -410,11 +413,11 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           value={selected}
           onChange={setSelected}
           replaceOnSingle
-          allowNone
+          allowNone={false}
+          autoSelectOnNone
         >
           <List.Items<string, WriteField>
-            full="y"
-            className={CSS.cls(menuProps.className, CSS.B("field-list-items"))}
+            className={menuProps.className}
             onContextMenu={menuProps.open}
             emptyContent={EMPTY_CONTENT}
           >
@@ -422,7 +425,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
           </List.Items>
         </Select.Frame>
       </Menu.ContextMenu>
-    </Flex.Box>
+    </PForm.Section>
   );
 };
 
@@ -432,44 +435,38 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <Flex.Box gap="small" empty className={CSS.B("endpoint-details-form")}>
-        <Flex.Box x align="end" gap="large">
+      <PForm.Sections className={CSS.B("endpoint-form")}>
+        <PForm.Section title="Request">
           <MethodSelect path={`${path}.method`} />
           <PForm.TextField
             path={`${path}.path`}
             label="Path"
-            grow
+            padHelpText={false}
             inputProps={PATH_INPUT_PROPS}
           />
-        </Flex.Box>
-        <Divider.Divider x />
-        <PlatformForm.KeyValueEditor
-          path={`${path}.headers`}
-          label="Headers"
-          keyField="name"
-          className={CSS.B("headers-kv-editor")}
-          keyPlaceholder="Name"
-          valuePlaceholder="Value"
-        />
-        <Divider.Divider x />
-        <PlatformForm.KeyValueEditor
-          path={`${path}.queryParams`}
-          label="Query parameters"
-          keyField="parameter"
-          className={CSS.B("query-params-kv-editor")}
-          keyPlaceholder="Parameter"
-          valuePlaceholder="Value"
-        />
-      </Flex.Box>
-      <Divider.Divider x />
-      <ChannelFieldSection epPath={path} />
-      <Divider.Divider x />
-      <AdditionalFields key={epKey} epKey={epKey} />
+          <PlatformForm.KeyValueEditor
+            path={`${path}.queryParams`}
+            label="Query parameters"
+            keyField="parameter"
+            keyPlaceholder="limit"
+            valuePlaceholder="100"
+          />
+          <PlatformForm.KeyValueEditor
+            path={`${path}.headers`}
+            label="Headers"
+            keyField="name"
+            keyPlaceholder="Content-Type"
+            valuePlaceholder="application/json"
+          />
+        </PForm.Section>
+        <ChannelFieldSection epPath={path} />
+        <AdditionalFields key={epKey} epKey={epKey} />
+      </PForm.Sections>
     </Flex.Box>
   );
 };
 
-const PATH_INPUT_PROPS = { placeholder: "/api/control" };
+const PATH_INPUT_PROPS = { placeholder: "/api/control" } as const;
 
 const Form: FC = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
@@ -536,73 +533,53 @@ const Form: FC = () => {
     [handleRemoveEndpoints, handleDuplicateEndpoints, handleRenameChannel],
   );
 
+  const selected = selectedEndpoints.length > 0 ? selectedEndpoints[0] : null;
   return (
-    <Flex.Box x grow empty>
-      <Flex.Box y className={CSS.B("endpoint-list")} empty>
-        <Header.Header>
-          <Header.Title weight={500} color={10}>
-            Endpoints
-          </Header.Title>
-          {!isPreview && (
-            <Header.Actions>
-              <Button.Button
-                onClick={handleAddEndpoint}
-                variant="filled"
-                tooltip="Add endpoint"
-                size="small"
+    <>
+      <Task.Views.Panes
+        listTitle="Endpoints"
+        list={
+          <>
+            <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
+              <Select.Frame<string, WriteEndpoint>
+                multiple
+                data={data}
+                value={selectedEndpoints}
+                onChange={setSelectedEndpoints}
+                replaceOnSingle
+                allowNone={false}
+                autoSelectOnNone
               >
-                <Icon.Add />
-              </Button.Button>
-            </Header.Actions>
-          )}
-        </Header.Header>
-        <Menu.ContextMenu {...menuProps} menu={menuRenderProp}>
-          <Select.Frame<string, WriteEndpoint>
-            multiple
-            data={data}
-            value={selectedEndpoints}
-            onChange={setSelectedEndpoints}
-            replaceOnSingle
-            allowNone={false}
-            autoSelectOnNone
-          >
-            <List.Items<string, WriteEndpoint>
-              full="y"
-              className={menuProps.className}
-              onContextMenu={menuProps.open}
-              emptyContent={
-                <Empty.Action
-                  message="No endpoints"
-                  action={isPreview ? undefined : "Add endpoint"}
-                  onClick={handleAddEndpoint}
-                />
-              }
-            >
-              {writeEndpointListItem}
-            </List.Items>
-          </Select.Frame>
-        </Menu.ContextMenu>
-      </Flex.Box>
-      <Divider.Divider y />
-      <Flex.Box y grow empty className={CSS.B("endpoint-details-pane")}>
-        <Task.Views.DetailsHeader
-          path={
-            selectedEndpoints.length > 0
-              ? `config.endpoints.${selectedEndpoints[0]}`
-              : ""
-          }
-          disabled={selectedEndpoints.length === 0}
-        />
-        {selectedEndpoints.length > 0 ? (
-          <EndpointDetails epKey={selectedEndpoints[0]} />
+                <List.Items<string, WriteEndpoint>
+                  full="y"
+                  className={menuProps.className}
+                  onContextMenu={menuProps.open}
+                  emptyContent={EMPTY_ENDPOINTS}
+                >
+                  {endpointItem}
+                </List.Items>
+              </Select.Frame>
+            </Menu.ContextMenu>
+            {!isPreview && (
+              <PlatformButton.CreateListItem size="small" onClick={handleAddEndpoint}>
+                New endpoint
+              </PlatformButton.CreateListItem>
+            )}
+          </>
+        }
+        detailsPath={selected != null ? `config.endpoints.${selected}` : null}
+        title={selected != null && <EndpointLabel epKey={selected} />}
+      >
+        {selected != null ? (
+          <EndpointDetails epKey={selected} />
         ) : (
           <Flex.Box y grow align="center" justify="center">
             <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
           </Flex.Box>
         )}
-      </Flex.Box>
+      </Task.Views.Panes>
       <Task.BindChannels<WriteEndpoint> path="config.endpoints" resolve={resolve} />
-    </Flex.Box>
+    </>
   );
 };
 

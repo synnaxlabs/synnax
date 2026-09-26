@@ -53,8 +53,8 @@ const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["confi
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByText("Add endpoint"));
-  await screen.findByText("JSON pointer");
+  fireEvent.click(await screen.findByRole("button", { name: "New endpoint" }));
+  await screen.findByText("Request");
 };
 
 const createWriteEndpoint = (
@@ -86,16 +86,16 @@ describe("Write", () => {
     expect(screen.getByRole("button", { name: "PUT" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "PATCH" })).toBeTruthy();
     expect(screen.getByPlaceholderText("/api/control")).toBeTruthy();
-    expect(screen.getByText("Synnax data type")).toBeTruthy();
+    expect(screen.getByText("Data type")).toBeTruthy();
     expect(screen.getByText("No additional fields")).toBeTruthy();
   });
 
   it("should show the enum mapping editor when the channel JSON type is string", async () => {
     await renderWrite();
     await addEndpoint();
-    expect(screen.queryByText("Enum mappings")).toBeNull();
+    expect(screen.queryByText("Enum mapping")).toBeNull();
     await selectFromDropdown("Number", "String");
-    await screen.findByText("Enum mappings");
+    await screen.findByText("Enum mapping");
   });
 
   it("should add a static field and reset its value when the JSON type changes", async () => {
@@ -162,7 +162,7 @@ describe("Write", () => {
     const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
     const draft = await createDraft(client, config);
     await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(/\/seeded/);
+    await screen.findByRole("option", { name: /\/seeded/ });
   });
 
   // Waits on the channel name so the negative case asserts against a settled lookup
@@ -179,7 +179,7 @@ describe("Write", () => {
     ]);
     const draft = await createDraft(client, config);
     await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText("JSON pointer");
+    await screen.findByText("Request");
     await screen.findByText(ch.name);
   };
 
