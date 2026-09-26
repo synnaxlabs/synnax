@@ -47,11 +47,27 @@ import {
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
-  feed: Pick<framer.Feed, "read" | "stream">;
+  feed: Pick<framer.Feed, "read" | "stream" | "readLatest">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
 }
+
+const readLatestSeries = async (
+  client: Client,
+  ch: channel.Channel,
+  onStatusChange?: status.Adder,
+): Promise<Series | null> => {
+  if (ch.virtual && !channel.isCalculated(ch)) return null;
+  try {
+    const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
+    if (latest == null || latest.length === 0) return null;
+    return latest;
+  } catch (e) {
+    onStatusChange?.(cstatus.fromException(e, "Failed to read latest value"));
+    return null;
+  }
+};
 
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
@@ -77,6 +93,7 @@ export class StreamChannelValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
+  private sampleTime_: TimeStamp | null = null;
   private generation = 0;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
@@ -84,6 +101,10 @@ export class StreamChannelValue
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+  }
+
+  sampleTime(): TimeStamp | null {
+    return this.sampleTime_;
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -103,6 +124,7 @@ export class StreamChannelValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
+    this.sampleTime_ = null;
     this.removeStreamHandler = null;
   }
 
@@ -136,6 +158,7 @@ export class StreamChannelValue
           first.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = first;
+          this.sampleTime_ = null;
         }
         // Just because we didn't get a new buffer doesn't mean one wasn't allocated: an
         // empty update means the leading buffer was appended to in place. A frame that
@@ -148,7 +171,17 @@ export class StreamChannelValue
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
-      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
+      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
+        this.notify();
+        return;
+      }
+      const latest = await readLatestSeries(client, ch, this.onStatusChange);
+      if (latest == null) return;
+      if (generation !== this.generation || this.leadingBuffer != null) return;
+      latest.acquire();
+      this.leadingBuffer = latest;
+      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
+      this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
@@ -492,6 +525,7 @@ export class StreamChannelStringValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
+  private sampleTime_: TimeStamp | null = null;
   private latest = "";
   // Buffer length the latest decode was taken at, or -1 to force a re-decode.
   private decodedAt = -1;
@@ -511,9 +545,14 @@ export class StreamChannelStringValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
+    this.sampleTime_ = null;
     this.latest = "";
     this.decodedAt = -1;
     this.removeStreamHandler = null;
+  }
+
+  sampleTime(): TimeStamp | null {
+    return this.sampleTime_;
   }
 
   value(): string {
@@ -552,6 +591,7 @@ export class StreamChannelStringValue
           leading.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = leading;
+          this.sampleTime_ = null;
           this.decodedAt = -1;
         }
         // An empty update means the leading buffer was appended to in place. A frame
@@ -564,7 +604,18 @@ export class StreamChannelStringValue
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
-      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
+      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
+        this.notify();
+        return;
+      }
+      const latest = await readLatestSeries(client, ch, this.onStatusChange);
+      if (latest == null) return;
+      if (generation !== this.generation || this.leadingBuffer != null) return;
+      latest.acquire();
+      this.leadingBuffer = latest;
+      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
+      this.decodedAt = -1;
+      this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(

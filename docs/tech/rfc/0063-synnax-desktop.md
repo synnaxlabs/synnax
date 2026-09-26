@@ -379,8 +379,8 @@ next start.
 
 `console/scripts/build_desktop.sh` makes a local build: it builds the Core from source
 into `binaries/`, then an unsigned app with no updater artifacts. With `--dev` it runs
-the app with hot reload. The Rust tests of the supervisor run in `test.console.yaml` on
-macOS, which compiles the Tauri shell with no extra system packages.
+the app with hot reload. The Rust tests of the supervisor run in the `desktop-shell` job
+of `ci.yaml` on macOS, which compiles the Tauri shell with no extra system packages.
 
 ## 6 Implementation phases
 

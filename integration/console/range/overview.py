@@ -69,7 +69,7 @@ class Overview(Surface):
 
     def wait_for(self, name: str) -> None:
         """Wait for the range overview to show a specific range."""
-        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
+        name_input = self.layout.page.locator("input[placeholder='Name']").visible.first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
@@ -79,7 +79,7 @@ class Overview(Surface):
         :param name: The name of the range to check for.
         :returns: True if the overview shows the range name in the header.
         """
-        header = self.layout.page.locator("input[placeholder='Name']:visible").first
+        header = self.layout.page.locator("input[placeholder='Name']").visible.first
         if not header.is_visible():
             return False
         return header.input_value() == name
@@ -132,7 +132,7 @@ class Overview(Surface):
     ) -> None:
         """Set a time in the range overview through the cell named for its end
         ("Start" or "End")."""
-        timeline = self.layout.page.locator(".pluto-range-timeline:visible")
+        timeline = self.layout.page.locator(".pluto-range-timeline").visible
         cell = timeline.get_by_role("button", name=re.compile(rf"^{bound}, "))
         cell.click(timeout=5000)
         editor = self.layout.page.locator(".pluto-time-editor__dialog input")
@@ -163,8 +163,8 @@ class Overview(Surface):
         """Open the labels dropdown in the range overview and return the
         dialog."""
         labels_row = self.layout.page.locator(
-            ".console-range-overview__labels-select:visible"
-        )
+            ".console-range-overview__labels-select"
+        ).visible
         # The add button only renders once a label is set. Before that, the
         # placeholder is the trigger.
         add_button = labels_row.locator("button").last
@@ -212,8 +212,8 @@ class Overview(Surface):
         :returns: A list of label names.
         """
         labels_row = self.layout.page.locator(
-            ".console-range-overview__labels-select:visible"
-        )
+            ".console-range-overview__labels-select"
+        ).visible
         label_chips = labels_row.locator(".pluto-tag")
         labels = []
         for i in range(label_chips.count()):
@@ -229,7 +229,7 @@ class Overview(Surface):
 
         :param new_name: The new name for the range.
         """
-        name_input = self.layout.page.locator("input[placeholder='Name']:visible").first
+        name_input = self.layout.page.locator("input[placeholder='Name']").visible.first
         name_input.wait_for(state="visible", timeout=5000)
         name_input.click()
         name_input.fill(new_name)

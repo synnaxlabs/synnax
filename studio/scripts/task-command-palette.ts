@@ -26,5 +26,5 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   await capture.commandPalette(session, "Create NI analog read task");
   await session.waitFor(page.locator(".console-task-configure").first());
-  await session.hold(2500);
+  await session.hold(500);
 };

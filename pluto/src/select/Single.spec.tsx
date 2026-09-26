@@ -12,6 +12,7 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderProp } from "@/component/renderProp";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
@@ -91,13 +92,13 @@ describe("Select.Single", () => {
   it("should render a selection trigger", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    expect(c.getByText("Select Test Item")).toBeTruthy();
+    expect(c.getByText("Test Item")).toBeTruthy();
   });
 
   it("should open the selection dialog when the trigger is clicked", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     expect(c.getByRole("option", { name: "First Item Option" })).toBeTruthy();
     expect(c.getByRole("option", { name: "Second Item Option" })).toBeTruthy();
     expect(c.getByRole("option", { name: "Third Item Option" })).toBeTruthy();
@@ -106,15 +107,15 @@ describe("Select.Single", () => {
   it("should close the selection dialog when the user clicks on the trigger", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select Test Item"));
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     expect(c.queryByText("First Item Option")).toBeNull();
   });
 
   it("should call onChange when an item is selected", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenCalledWith("1");
   });
@@ -122,7 +123,7 @@ describe("Select.Single", () => {
   it("should close the dialog when an item is selected", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.queryByText("First Item Option")).toBeNull();
     expect(c.queryByText("Second Item Option")).toBeNull();
@@ -132,17 +133,17 @@ describe("Select.Single", () => {
   it("should display the selected item name in the trigger", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.getByText("First Item")).toBeTruthy();
-    expect(c.queryByText("Select Test Item")).toBeNull();
+    expect(c.queryByText("Test Item")).toBeNull();
   });
 
   it("should allow the user to change selection", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle />);
 
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenCalledWith("1");
 
@@ -156,19 +157,19 @@ describe("Select.Single", () => {
   it("should allow the user to deselect an item when allowNone is true", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle allowNone />);
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
 
     fireEvent.click(c.getByText("First Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(onChange).toHaveBeenLastCalledWith(null);
-    expect(c.getByText("Select Test Item")).toBeTruthy();
+    expect(c.getByText("Test Item")).toBeTruthy();
   });
 
   it("should not allow the user to deselect when allowNone is false", () => {
     const { SelectSingle, onChange } = createSelectSingle();
     const c = render(<SelectSingle allowNone={false} />);
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
 
     fireEvent.click(c.getByText("First Item"));
@@ -180,7 +181,7 @@ describe("Select.Single", () => {
   it("should allow the caller to search for an item", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
-    fireEvent.click(c.getByText("Select Test Item"));
+    fireEvent.click(c.getByText("Test Item"));
     fireEvent.change(c.getByPlaceholderText("Search Test Items..."), {
       target: { value: "First" },
     });
@@ -211,7 +212,44 @@ describe("Select.Single", () => {
     };
     const c = render(<SelectSingle />);
     expect(c.getByText("Second Item")).toBeTruthy();
-    expect(c.queryByText("Select Test Item")).toBeNull();
+    expect(c.queryByText("Test Item")).toBeNull();
+  });
+
+  it("should name the trigger by its resource", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />);
+    expect(c.getByRole("button", { name: "Test Item" })).toBeTruthy();
+  });
+
+  it("should prompt a selection when a visible label names the field", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(
+      <Input.Item label="Item">
+        <SelectSingle />
+      </Input.Item>,
+    );
+    expect(c.getByText("Select Test Item")).toBeTruthy();
+  });
+
+  it("should make the selected item inert when a re-select changes nothing", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle allowNone={false} closeDialogOnSelect={false} />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
+      "pluto-btn--prevent-click",
+    );
+  });
+
+  it("should keep the selected item clickable when a re-select closes", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle allowNone={false} />);
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    fireEvent.click(c.getByText("First Item"));
+    expect(
+      c.getByRole("option", { name: "First Item Option" }).classList,
+    ).not.toContain("pluto-btn--prevent-click");
   });
 
   describe("preview", () => {
@@ -226,7 +264,7 @@ describe("Select.Single", () => {
     it("should render None instead of the placeholder while previewing", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
-      expect(c.queryByText("Select Test Item")).toBeNull();
+      expect(c.queryByText("Test Item")).toBeNull();
       expect(c.getByText("None")).toBeTruthy();
     });
 

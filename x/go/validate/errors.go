@@ -12,6 +12,7 @@ package validate
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -76,7 +77,7 @@ func prefixPath(err error, segments []string) error {
 	}
 	var errPath PathError
 	if errors.As(err, &errPath) {
-		errPath.Path = append(append([]string{}, segments...), errPath.Path...)
+		errPath.Path = slices.Concat(segments, errPath.Path)
 		return errPath
 	}
 	return PathError{Path: segments, Err: err}
