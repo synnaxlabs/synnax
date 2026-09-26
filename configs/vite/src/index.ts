@@ -12,6 +12,7 @@ import { type Plugin } from "vite";
 
 import { injectCSS } from "./css.js";
 import { declarations } from "./declarations.js";
+import { checkEntries } from "./entries.js";
 import { checkExports, discoverModules, moduleEntries } from "./modules.js";
 
 export { discoverModules, moduleExports } from "./modules.js";
@@ -74,7 +75,7 @@ export const lib = ({
       if (modules) checkExports(config.root, discoverModules(config.root));
     },
   },
-  ...(modules ? [injectCSS()] : []),
+  ...(modules ? [checkEntries(), injectCSS()] : []),
   declarations(),
 ];
 
