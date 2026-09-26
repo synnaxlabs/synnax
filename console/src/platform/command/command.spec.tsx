@@ -7,12 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Command } from "@/platform/command";
 import { createConsoleWrapper } from "@/testutil";
+
+const renderCommand = async (Cmd: Command.Command): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: null });
+  render(
+    <Select.Frame<string, undefined> data={[Cmd.key]} onChange={vi.fn()}>
+      <List.Scroll>
+        <List.Items<string>>{Component.renderProp(Cmd)}</List.Items>
+      </List.Scroll>
+    </Select.Frame>,
+    { wrapper },
+  );
+};
 
 describe("Command.create", () => {
   it("should invoke the hook-produced callback when the command is selected", async () => {
@@ -23,8 +38,7 @@ describe("Command.create", () => {
       icon: <Icon.Close />,
       useOnSelect: () => onSelect,
     });
-    const { wrapper } = await createConsoleWrapper({ client: null });
-    render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
+    await renderCommand(Cmd);
     await act(async () => {
       fireEvent.click(screen.getByText("Hook Command"), { detail: 0 });
     });
@@ -39,8 +53,7 @@ describe("Command.create", () => {
       icon: <Icon.Close />,
       useOnSelect: () => onSelect,
     });
-    const { wrapper } = await createConsoleWrapper({ client: null });
-    render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
+    await renderCommand(Cmd);
     fireEvent.click(screen.getByText("Hook Command"), { detail: 1 });
     expect(onSelect).not.toHaveBeenCalled();
   });
@@ -53,11 +66,10 @@ describe("Command.create", () => {
       useOnSelect: () => vi.fn(),
       trigger: ["Control", "O"],
     });
-    const { wrapper } = await createConsoleWrapper({ client: null });
-    const c = render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
+    await renderCommand(Cmd);
     // Some palette entries duplicate a shortcut bound elsewhere in the app. Without
     // the hint, the entry is the only place that shortcut is discoverable.
-    expect(c.getByText("O")).toBeTruthy();
+    expect(screen.getByText("O")).toBeTruthy();
   });
 
   it("should leave a command with no shortcut unadorned", async () => {
@@ -67,9 +79,8 @@ describe("Command.create", () => {
       icon: <Icon.Close />,
       useOnSelect: () => vi.fn(),
     });
-    const { wrapper } = await createConsoleWrapper({ client: null });
-    const c = render(<Cmd key={Cmd.key} itemKey={Cmd.key} index={0} />, { wrapper });
-    expect(c.getByText("Hook Command")).toBeTruthy();
-    expect(c.container.querySelector(".pluto-text--keyboard")).toBeNull();
+    await renderCommand(Cmd);
+    expect(screen.getByText("Hook Command")).toBeTruthy();
+    expect(document.querySelector(".pluto-text--keyboard")).toBeNull();
   });
 });
