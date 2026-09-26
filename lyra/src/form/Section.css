@@ -43,6 +43,9 @@
     --pluto-form-section-rows: 3;
     display: flex;
     align-items: stretch;
+    /* WebKit leaves a percent height inside a stretched flex item unresolved, which
+       size containment turns into zero, so a flex parent's strip grows instead. */
+    flex-grow: 1;
     height: 100%;
     overflow-x: auto;
     container-type: size;
