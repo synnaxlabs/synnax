@@ -9,11 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Labels read at the value text's size, one weight up and one shade below it:
+   user content leads, labels recede. Meta text drops a size further. */
 .pluto-input-label {
     color: var(--pluto-gray-l9);
-    font-size: var(--pluto-small-size);
-    font-weight: var(--pluto-small-font-weight);
-    line-height: var(--pluto-small-line-height);
+    font-size: var(--pluto-p-size);
+    font-weight: 500;
+    line-height: var(--pluto-p-line-height);
     width: fit-content;
     white-space: nowrap;
 

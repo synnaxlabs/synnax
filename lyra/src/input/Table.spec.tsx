@@ -47,7 +47,7 @@ const paste = (input: HTMLInputElement, text: string): void => {
   fireEvent.paste(input, { clipboardData: { getData: () => text } });
 };
 
-const addButton = (): HTMLElement => screen.getAllByRole("button")[0];
+const addButton = (): HTMLElement => screen.getByRole("button", { name: "Add row" });
 
 const removeButton = (row: number): HTMLElement =>
   screen.getAllByRole("row")[row + 1].querySelectorAll("button")[0];
@@ -60,20 +60,32 @@ describe("Input.Table", () => {
         [2, 20],
       ],
     });
-    expect(screen.getAllByRole("row")).toHaveLength(3);
+    // Header and add rows bracket the two entries.
+    expect(screen.getAllByRole("row")).toHaveLength(4);
     expect(cell("Raw", "2").value).toBe("2");
     expect(cell("Scaled", "1").value).toBe("10");
   });
 
-  it("should label rows by their one-based index", () => {
+  it("should render the column headings when there are no rows", () => {
+    renderTable({ value: [] });
+    expect(screen.getByRole("columnheader", { name: "Raw" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Scaled" })).toBeTruthy();
+  });
+
+  it("should render every cell as a shadow input", () => {
+    renderTable();
+    const chassis = cell("Raw", "1").closest(".pluto-input");
+    expect(chassis?.classList.contains("pluto--shadow")).toBe(true);
+  });
+
+  it("should render no row header until a labeler asks for one", () => {
     renderTable({
       value: [
         [1, 10],
         [2, 20],
       ],
     });
-    expect(screen.getByRole("rowheader", { name: "1" })).toBeTruthy();
-    expect(screen.getByRole("rowheader", { name: "2" })).toBeTruthy();
+    expect(screen.queryAllByRole("rowheader")).toHaveLength(0);
   });
 
   it("should label rows with the given labeler", () => {

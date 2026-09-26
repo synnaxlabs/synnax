@@ -10,6 +10,7 @@
 import { bounds } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 
+import { CSS } from "@/css";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text, type TextProps } from "@/input/Text";
@@ -174,7 +175,7 @@ export const Numeric = ({
       type="text"
       variant={variant}
       preview={preview}
-      className={className}
+      className={CSS.cls(CSS.BM("input", "numeric"), className)}
       value={value_}
       onChange={handleChange}
       disabled={disabled}
