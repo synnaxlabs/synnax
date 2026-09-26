@@ -59,9 +59,9 @@ export const Panes = ({
 }: PanesProps) => {
   const [narrow, setNarrow] = useState(false);
   const narrowRef = useRef(narrow);
-  // The selection the drawer was opened at; once the selection moves on, the drawer
-  // reads as closed without an effect to close it.
-  const [openedAt, setOpenedAt] = useState<string | null | undefined>(undefined);
+  // Null while closed. Open, it holds the selection it opened at; once the selection
+  // moves on, the drawer reads as closed without an effect to close it.
+  const [drawer, setDrawer] = useState<{ at: string | null } | null>(null);
   // A mode switch lands without motion: transitions are off for the commit that
   // switches and back on two frames later, once the new position has painted.
   const [snap, setSnap] = useState(false);
@@ -72,7 +72,7 @@ export const Panes = ({
       narrowRef.current = next;
       setNarrow(next);
       // A drawer belongs to the narrow layout it was opened in.
-      setOpenedAt(undefined);
+      setDrawer(null);
       setSnap(true);
     }, []),
     { triggers: ["x"] },
@@ -89,17 +89,17 @@ export const Panes = ({
     };
   }, [snap]);
   const [hidden, setHidden] = useState(false);
-  const drawerOpen = openedAt !== undefined && openedAt === detailsPath;
+  const drawerOpen = drawer?.at === detailsPath;
   const visible = narrow ? drawerOpen : !hidden;
   const handleToggle = useCallback(() => {
-    if (narrow) setOpenedAt(drawerOpen ? undefined : detailsPath);
+    if (narrow) setDrawer(drawerOpen ? null : { at: detailsPath });
     else setHidden((prev) => !prev);
   }, [narrow, drawerOpen, detailsPath]);
   // With the drawer open the details are a backdrop: a click there closes the
   // drawer instead of reaching what is under it.
   const handleDetailsClickCapture = useCallback((e: MouseEvent) => {
     e.stopPropagation();
-    setOpenedAt(undefined);
+    setDrawer(null);
   }, []);
   const backdrop = narrow && drawerOpen;
   // Beside the list's title while the list shows, beside the details title once it
