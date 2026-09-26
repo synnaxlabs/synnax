@@ -236,6 +236,20 @@ describe("AnalogRead", () => {
     expect(port).toBeTruthy();
   });
 
+  it("should drop the scale section on a swap to an unscaled type and restore it", async () => {
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 0)],
+    });
+    await screen.findByText("Custom scaling");
+    fireEvent.click(await findDialogTriggerByText("Voltage"));
+    fireEvent.click(await screen.findByText("Thermocouple"));
+    await waitFor(() => expect(screen.queryByText("Custom scaling")).toBeNull());
+    fireEvent.click(await findDialogTriggerByText("Thermocouple"));
+    fireEvent.click(await screen.findByText("Voltage"));
+    await screen.findByText("Custom scaling");
+  });
+
   it("should create index and data channels, update the device, and save the task", async () => {
     const dev = await createNIDevice(client);
     const namedChannel = uniqueName("ai_named");

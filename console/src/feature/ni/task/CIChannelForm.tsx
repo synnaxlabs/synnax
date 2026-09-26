@@ -14,7 +14,7 @@ import { type FC } from "react";
 
 import { PortField } from "@/feature/ni/device/PortField";
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
-import { CustomScaleForm } from "@/feature/ni/task/CustomScaleForm";
+import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { SelectCIChannelTypeField } from "@/feature/ni/task/SelectCIChannelTypeField";
 import { selectData } from "@/feature/ni/task/selectData";
@@ -576,8 +576,6 @@ export interface CIChannelFormProps {
   prefix: string;
 }
 
-const UNSCALED_TYPES = new Set<CIChannelType>(["ci_edge_count"]);
-
 export const CIChannelForm = ({ type, prefix }: CIChannelFormProps) => {
   const TypeForm = CHANNEL_FORMS[type];
   return (
@@ -590,11 +588,7 @@ export const CIChannelForm = ({ type, prefix }: CIChannelFormProps) => {
         <SelectCIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
         <TypeForm prefix={prefix} />
       </Form.Section>
-      {!UNSCALED_TYPES.has(type) && (
-        <Form.Section title="Scale">
-          <CustomScaleForm prefix={prefix} />
-        </Form.Section>
-      )}
+      <CustomScaleSection prefix={prefix} />
     </Form.Sections>
   );
 };

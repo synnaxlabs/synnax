@@ -141,6 +141,15 @@ describe("CounterRead", () => {
     expect(screen.queryByText("Measurement method")).toBeNull();
   });
 
+  it("should drop the scale section on a swap to an unscaled type and restore it", async () => {
+    await renderCounterRead(createConfig([createChannel("ci_frequency", 0)]));
+    await screen.findByText("Custom scaling");
+    await selectFromDropdown("Frequency", "Edge count");
+    await waitFor(() => expect(screen.queryByText("Custom scaling")).toBeNull());
+    await selectFromDropdown("Edge count", "Frequency");
+    await screen.findByText("Custom scaling");
+  });
+
   it("should create counter channels and update the device", async () => {
     const dev = await createNIDevice(client);
     const namedChannel = uniqueName("ctr_named");
