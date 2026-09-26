@@ -24,11 +24,7 @@ import {
   convertReadChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
-import {
-  CustomScaleForm,
-  FORMS,
-  UNSCALED_TYPES,
-} from "@/feature/labjack/task/ReadChannelForms";
+import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
   READ_CHANNEL_TYPE_NAMES,
   SelectReadChannelTypeField,
@@ -157,7 +153,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
           <TypeForm deviceModel={deviceModel} path={path} />
         </PForm.Section>
       )}
-      {!UNSCALED_TYPES.has(channel.type) && (
+      {"scale" in channel && (
         <PForm.Section title="Scale">
           <CustomScaleForm prefix={path} />
         </PForm.Section>
