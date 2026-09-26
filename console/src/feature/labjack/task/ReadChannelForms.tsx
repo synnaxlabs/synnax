@@ -153,7 +153,7 @@ const TemperatureUnitsField = PForm.buildSelectField<TemperatureUnits>({
 });
 
 interface SelectCJCSourceFieldProps extends Omit<
-  Select.SimpleProps<string>,
+  Select.SingleSimpleProps<string>,
   "children" | "resourceName"
 > {
   model: Device.Model;

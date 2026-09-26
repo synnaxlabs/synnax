@@ -172,7 +172,7 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
 };
 
 const renderSelectJSONType = Component.renderProp(
-  (p: Omit<Select.SimpleProps<string>, "children" | "resourceName">) => (
+  (p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">) => (
     <Select.Simple<string> {...p} resourceName="JSON type">
       {JSON_TYPE_ITEMS}
     </Select.Simple>

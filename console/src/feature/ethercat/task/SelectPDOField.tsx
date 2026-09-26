@@ -35,7 +35,7 @@ export const SelectPDOField = ({
   );
 
   const selectRenderProp = useCallback(
-    (props: Pick<Select.SimpleProps<string>, "value" | "onChange">) => (
+    (props: Pick<Select.SingleSimpleProps<string>, "value" | "onChange">) => (
       <Select.Simple<string>
         {...props}
         resourceName="PDO"

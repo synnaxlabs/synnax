@@ -45,11 +45,7 @@ const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 export interface ListItemProps extends Select.ItemProps<string> {}
 
-export const ListItem = ({
-  onSelect,
-  itemKey,
-  ...rest
-}: Select.ItemProps<string>) => {
+export const ListItem = ({ onSelect, itemKey, ...rest }: Select.ItemProps<string>) => {
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       // Only trigger on the synthetic click, which means we won't accidentally call

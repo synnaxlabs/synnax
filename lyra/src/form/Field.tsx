@@ -179,12 +179,12 @@ export const DateTimeField = buildDateTimeField({ inputProps: {} });
 export type SelectFieldProps<K extends record.Key> = BuiltFieldProps<
   K,
   K,
-  Select.SimpleProps<K>,
+  Select.SingleSimpleProps<K>,
   "children" | "resourceName"
 >;
 export const buildSelectField = <K extends record.Key>(
-  props: FieldBuilderProps<K, K, Select.SimpleProps<K>>,
+  props: FieldBuilderProps<K, K, Select.SingleSimpleProps<K>>,
 ) =>
-  fieldBuilder<K, K, Select.SimpleProps<K>, "children" | "resourceName">(
+  fieldBuilder<K, K, Select.SingleSimpleProps<K>, "children" | "resourceName">(
     Select.Simple<K>,
   )(props);

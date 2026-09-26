@@ -14,28 +14,28 @@ import { type ReactElement, type ReactNode } from "react";
 import { Dialog } from "@/dialog";
 import { DefaultEmptyContent } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
-import { Frame, type SingleFrameProps } from "@/select/Frame";
+import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
 import { List } from "@/select/List";
+import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
 import { usePlaceholder } from "@/select/placeholder";
 import { useVisibleCount } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 import { Search } from "@/select/Search";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
 
-export interface SimpleProps<K extends record.Key>
+type FrameOmitted =
+  | "multiple"
+  | "children"
+  | "data"
+  | "getItem"
+  | "subscribe"
+  | "virtual"
+  | "itemHeight"
+  | "overscan"
+  | "onFetchMore";
+
+interface BaseSimpleProps
   extends
-    Omit<
-      SingleFrameProps<K, undefined>,
-      | "multiple"
-      | "children"
-      | "data"
-      | "getItem"
-      | "subscribe"
-      | "virtual"
-      | "itemHeight"
-      | "overscan"
-      | "onFetchMore"
-    >,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType"> {
   /** Singular name of the thing being selected. It builds the placeholder and the
@@ -48,14 +48,33 @@ export interface SimpleProps<K extends record.Key>
   variant?: Dialog.FrameProps["variant"];
   /** Whether to render the trigger flat and inert, for use inside a preview. */
   preview?: boolean;
-  triggerProps?: SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
 }
+
+/** Props for a {@link Simple} that selects one option. */
+export interface SingleSimpleProps<K extends record.Key>
+  extends BaseSimpleProps, Omit<SingleFrameProps<K, undefined>, FrameOmitted> {
+  multiple?: false;
+  triggerProps?: SingleTriggerProps;
+}
+
+/** Props for a {@link Simple} that selects any number of options, shown as tags. */
+export interface MultipleSimpleProps<K extends record.Key>
+  extends
+    BaseSimpleProps,
+    Omit<MultipleFrameProps<K, undefined>, FrameOmitted | "replaceOnSingle"> {
+  multiple: true;
+  triggerProps?: MultipleTriggerProps<K, undefined>;
+}
+
+/** Props for {@link Simple}. Set `multiple` to select any number of options. */
+export type SimpleProps<K extends record.Key> =
+  SingleSimpleProps<K> | MultipleSimpleProps<K>;
 
 const Empty = ({
   resourceName,
   emptyContent,
-}: Pick<SimpleProps<record.Key>, "resourceName" | "emptyContent">): ReactNode => {
+}: Pick<BaseSimpleProps, "resourceName" | "emptyContent">): ReactNode => {
   const closed = useClosed();
   const count = useVisibleCount();
   if (closed || count > 0) return null;
@@ -64,7 +83,8 @@ const Empty = ({
 
 /**
  * A dropdown that selects one of a few fixed options, given as {@link Item} children.
- * Its search filters the options by their text.
+ * With `multiple`, it selects any number of them and shows each as a tag. Its search
+ * filters the options by their text.
  *
  * @example
  * <Select.Simple resourceName="mode" value={mode} onChange={setMode}>
@@ -76,11 +96,12 @@ export const Simple = <K extends record.Key>({
   resourceName,
   value,
   onChange,
+  multiple,
   allowNone,
   autoSelectOnNone,
   initialHover,
   enableTriggers,
-  closeDialogOnSelect = true,
+  closeDialogOnSelect = multiple !== true,
   children,
   emptyContent,
   haulType,
@@ -92,35 +113,48 @@ export const Simple = <K extends record.Key>({
   dialogProps,
   ...rest
 }: SimpleProps<K>): ReactElement => {
-  const placeholder = usePlaceholder(resourceName);
+  const placeholder = usePlaceholder(
+    multiple === true ? plural(resourceName) : resourceName,
+  );
+  const triggerBase = {
+    haulType,
+    icon,
+    placeholder,
+    disabled,
+    preview,
+    "aria-label": caseconv.capitalize(
+      multiple === true ? plural(resourceName) : resourceName,
+    ),
+  };
+  const selection = {
+    allowNone,
+    autoSelectOnNone,
+    initialHover,
+    enableTriggers,
+    closeDialogOnSelect,
+  };
+  const dialog = (
+    <SelectDialog {...dialogProps}>
+      <Search placeholder={`Search ${plural(resourceName)}...`} />
+      <List bordered borderColor={6} grow rounded full="x">
+        {children}
+        <Empty resourceName={resourceName} emptyContent={emptyContent} />
+      </List>
+    </SelectDialog>
+  );
   return (
     <Dialog.Frame {...rest} variant={variant}>
-      <Frame<K, undefined>
-        value={value}
-        onChange={onChange}
-        allowNone={allowNone}
-        autoSelectOnNone={autoSelectOnNone}
-        initialHover={initialHover}
-        enableTriggers={enableTriggers}
-        closeDialogOnSelect={closeDialogOnSelect}
-      >
-        <SingleTrigger
-          haulType={haulType}
-          icon={icon}
-          placeholder={placeholder}
-          aria-label={caseconv.capitalize(resourceName)}
-          disabled={disabled}
-          preview={preview}
-          {...triggerProps}
-        />
-        <SelectDialog {...dialogProps}>
-          <Search placeholder={`Search ${plural(resourceName)}...`} />
-          <List bordered borderColor={6} grow rounded full="x">
-            {children}
-            <Empty resourceName={resourceName} emptyContent={emptyContent} />
-          </List>
-        </SelectDialog>
-      </Frame>
+      {multiple === true ? (
+        <Frame<K, undefined> multiple value={value} onChange={onChange} {...selection}>
+          <MultipleTrigger<K, undefined> {...triggerBase} {...triggerProps} />
+          {dialog}
+        </Frame>
+      ) : (
+        <Frame<K, undefined> value={value} onChange={onChange} {...selection}>
+          <SingleTrigger {...triggerBase} {...triggerProps} />
+          {dialog}
+        </Frame>
+      )}
     </Dialog.Frame>
   );
 };

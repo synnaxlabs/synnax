@@ -22,7 +22,7 @@ import { type Variant } from "@/schematic/edge/registry";
 const SELECT_STYLE: CSSProperties = { width: "25rem" };
 
 interface SelectVariantProps extends Omit<
-  Select.SimpleProps<Variant>,
+  Select.SingleSimpleProps<Variant>,
   "children" | "resourceName"
 > {}
 

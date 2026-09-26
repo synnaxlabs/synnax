@@ -182,7 +182,7 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
 );
 
 export interface SelectVariantProps extends Omit<
-  Select.SimpleProps<Variant>,
+  Select.SingleSimpleProps<Variant>,
   "children" | "resourceName"
 > {}
 

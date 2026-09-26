@@ -36,7 +36,7 @@ const DATA = DataType.ALL.filter((d) => d !== DataType.UNKNOWN).map((d) => ({
 const FIXED_DENSITY_DATA = DATA.filter((d) => !new DataType(d.key).isVariable);
 
 export interface SelectDataTypeProps extends Omit<
-  Select.SimpleProps<string>,
+  Select.SingleSimpleProps<string>,
   "children" | "resourceName"
 > {
   hideVariableDensity?: boolean;

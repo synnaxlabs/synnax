@@ -11,19 +11,19 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
 import { type ReactElement } from "react";
 
-import { VARIANT_ITEMS } from "@/status/variantItems";
+const VARIANTS: [Base.Variant, string][] = [
+  ["success", "Success"],
+  ["error", "Error"],
+  ["warning", "Warning"],
+  ["info", "Info"],
+  ["loading", "Loading"],
+  ["disabled", "Disabled"],
+];
 
-export interface SelectMultipleVariantProps extends Omit<
-  Select.MultipleSimpleProps<Base.Variant>,
-  "children" | "resourceName" | "multiple"
-> {}
-
-export const SelectMultipleVariants = (
-  props: SelectMultipleVariantProps,
-): ReactElement => (
-  <Select.Simple<Base.Variant> icon={icon} {...props} multiple resourceName="variant">
-    {VARIANT_ITEMS}
-  </Select.Simple>
-);
-
-const icon = <Base.Indicator variant="success" />;
+/** One select item per status variant, each with its indicator and name. */
+export const VARIANT_ITEMS: ReactElement[] = VARIANTS.map(([variant, name]) => (
+  <Select.Item<Base.Variant> key={variant} itemKey={variant}>
+    <Base.Indicator variant={variant} />
+    {name}
+  </Select.Item>
+));

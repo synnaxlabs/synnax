@@ -8,15 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type record, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { z } from "zod";
 
@@ -105,11 +103,6 @@ const LABELS = [
   { key: "abort", name: "Abort" },
 ];
 
-const labelListItem = Component.renderProp((props: List.ItemProps<string>) => {
-  const item = List.useItem<string, record.KeyedNamed>(props.itemKey);
-  return <Select.Item {...props}>{item?.name}</Select.Item>;
-});
-
 const SelectMultiple = ({
   preview,
   value: initial,
@@ -118,20 +111,20 @@ const SelectMultiple = ({
   value: string[];
 }) => {
   const [value, setValue] = useState<string[]>(initial);
-  const { data, getItem } = List.useStaticData<string, record.KeyedNamed>({
-    data: LABELS,
-  });
   return (
-    <Select.Multiple
+    <Select.Simple
+      multiple
       resourceName="label"
-      data={data}
-      getItem={getItem}
       value={value}
       onChange={setValue}
       preview={preview}
     >
-      {labelListItem}
-    </Select.Multiple>
+      {LABELS.map(({ key, name }) => (
+        <Select.Item key={key} itemKey={key}>
+          {name}
+        </Select.Item>
+      ))}
+    </Select.Simple>
   );
 };
 

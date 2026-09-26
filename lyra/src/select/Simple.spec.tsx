@@ -132,3 +132,51 @@ describe("Select.Simple", () => {
     expect(c.getByRole("button", { name: "Nested" }).textContent).toBe("Bravo");
   });
 });
+
+describe("Select.Simple multiple", () => {
+  beforeAll(() => {
+    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+  });
+  const SelectMultiple = ({ onChange }: { onChange: (keys: string[]) => void }) => {
+    const [value, setValue] = useState<string[]>([]);
+    const handleChange = (keys: string[]) => {
+      setValue(keys);
+      onChange(keys);
+    };
+    return (
+      <Select.Simple<string>
+        multiple
+        value={value}
+        onChange={handleChange}
+        icon={<Icon.Add aria-label="trigger icon" />}
+        resourceName="mode"
+      >
+        <Select.Item itemKey="fast">Fast</Select.Item>
+        <Select.Item itemKey="slow">Slow</Select.Item>
+      </Select.Simple>
+    );
+  };
+
+  it("should show the plural resource name as the placeholder", () => {
+    const c = render(<SelectMultiple onChange={vi.fn()} />);
+    expect(c.getByText("Modes")).toBeTruthy();
+  });
+
+  it("should select several items without closing the dialog", () => {
+    const onChange = vi.fn();
+    const c = render(<SelectMultiple onChange={onChange} />);
+    fireEvent.click(c.getByText("Modes"));
+    fireEvent.click(c.getByText("Fast"));
+    fireEvent.click(c.getByText("Slow"));
+    expect(onChange).toHaveBeenLastCalledWith(["fast", "slow"]);
+  });
+
+  it("should show each selected item as a tag without the trigger icon", () => {
+    const c = render(<SelectMultiple onChange={vi.fn()} />);
+    fireEvent.click(c.getByText("Modes"));
+    fireEvent.click(c.getByText("Fast"));
+    const tag = c.getByRole("button", { name: "Modes" }).querySelector(".pluto-tag");
+    expect(tag?.textContent).toBe("Fast");
+    expect(tag?.querySelector("[aria-label='trigger icon']")).toBeNull();
+  });
+});

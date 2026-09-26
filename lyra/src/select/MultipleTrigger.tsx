@@ -54,7 +54,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   let label: string = itemKey.toString();
   if (primitive.isNonZero(item?.alias)) label = item.alias;
   else if (primitive.isNonZero(item?.name)) label = item.name;
-  const resolvedIcon = renderIcon?.(item) ?? item?.icon ?? icon;
+  const resolvedIcon = fixed ? undefined : (renderIcon?.(item) ?? item?.icon ?? icon);
   return (
     <Tag.Tag
       onClose={onSelect}

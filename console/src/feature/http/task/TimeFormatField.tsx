@@ -16,7 +16,7 @@ import { type TimeFormat } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 
 const renderSelect = Component.renderProp(
-  (p: Omit<Select.SimpleProps<TimeFormat>, "children" | "resourceName">) => (
+  (p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">) => (
     <Select.Simple<TimeFormat> {...p} resourceName="time format">
       <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
       <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
